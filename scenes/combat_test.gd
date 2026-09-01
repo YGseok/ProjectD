@@ -40,20 +40,40 @@ var monster_hp: int
 var monster_max_hp: int
 var monster_attack_bag: DiceBag
 var monster_defense_bag: DiceBag
+var monster_name := "몬스터"
+var monster_color := Color(1, 1, 1, 0)
 
 var battle_over := false
 var player_won := false
 var _log_lines: Array[String] = []
+
+## 몬스터별 이름/다이스 색 (시각 구분용, 능력치와는 무관). room_index를 이 배열 길이로
+## 나눈 나머지로 순환시키고, 배열을 다 돌면 이름 앞에 "강화"를 붙여 재사용한다
+## (DESIGN.md에는 몬스터별 모양/색 자체가 아직 미정이라 잠정 목록).
+const MONSTER_PROFILES := [
+	{"name": "슬라임", "color": Color(0.35, 0.85, 0.4)},
+	{"name": "고블린", "color": Color(0.75, 0.55, 0.25)},
+	{"name": "해골 전사", "color": Color(0.85, 0.85, 0.8)},
+	{"name": "오크", "color": Color(0.3, 0.55, 0.3)},
+	{"name": "다크 나이트", "color": Color(0.55, 0.25, 0.75)},
+]
 
 
 ## 잠정 난이도 스케일링 (DESIGN.md 미확정 — 1번째 방만 확정 수치 그대로 유지).
 ## room_index: 0부터 시작 (RunState.rooms_cleared와 동일한 기준, 즉 몇 번째 몬스터인지).
 ## room_index=0 -> 공격 2D4 / 방어 1D4 / HP10 (DESIGN.md 확정값과 동일).
 func _monster_config_for_room(room_index: int) -> Dictionary:
+	var profile: Dictionary = MONSTER_PROFILES[room_index % MONSTER_PROFILES.size()]
+	var cycle := int(room_index / float(MONSTER_PROFILES.size()))
+	var name_text: String = profile["name"]
+	if cycle > 0:
+		name_text = "강화 ".repeat(cycle) + name_text
 	return {
 		"attack_count": 2 + int(room_index / 2.0),
 		"defense_count": 1 + int(room_index / 3.0),
 		"max_hp": 10 + room_index * 3,
+		"name": name_text,
+		"color": profile["color"],
 	}
 
 
@@ -63,6 +83,8 @@ func _ready() -> void:
 	monster_defense_bag = DiceBag.new(4, config["defense_count"])
 	monster_max_hp = config["max_hp"]
 	monster_hp = monster_max_hp
+	monster_name = config["name"]
+	monster_color = config["color"]
 
 	next_button.pressed.connect(_on_next_button_pressed)
 	_update_labels()
@@ -85,9 +107,13 @@ func _do_exchange(is_player_attacking: bool) -> void:
 
 	turn_label.text = "내 공격턴" if is_player_attacking else "몬스터 공격턴 (내 방어턴)"
 
+	var default_color := Color(1, 1, 1, 0)
+	var atk_color := monster_color if not is_player_attacking else default_color
+	var def_color := monster_color if is_player_attacking else default_color
+
 	_clear_dice()
-	_spawn_dice(atk_bag.count, -1.4)
-	_spawn_dice(def_bag.count, 1.4)
+	_spawn_dice(atk_bag.count, -1.4, atk_color)
+	_spawn_dice(def_bag.count, 1.4, def_color)
 
 	await _wait_for_dice_to_settle()
 
@@ -147,9 +173,10 @@ func _all_dice_settled() -> bool:
 	return true
 
 
-func _spawn_dice(count: int, base_x: float) -> void:
+func _spawn_dice(count: int, base_x: float, color: Color = Color(1, 1, 1, 0)) -> void:
 	for i in count:
 		var die := DieD4Scene.instantiate()
+		die.color_override = color
 		dice_root.add_child(die)
 		var x := base_x + (i - (count - 1) / 2.0) * 0.45
 		var z := randf_range(-0.3, 0.3)
@@ -166,7 +193,7 @@ func _clear_dice() -> void:
 
 func _update_labels() -> void:
 	player_hp_label.text = "플레이어 HP: %d / %d" % [player_hp, PLAYER_MAX_HP]
-	monster_hp_label.text = "몬스터 HP: %d / %d" % [monster_hp, monster_max_hp]
+	monster_hp_label.text = "%s HP: %d / %d" % [monster_name, monster_hp, monster_max_hp]
 
 
 func _append_log(line: String) -> void:

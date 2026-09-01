@@ -9,6 +9,9 @@ extends RigidBody3D
 
 @export var material: DiceMaterial
 @export var die_size: float = 0.3
+## 알파가 0보다 크면 이 색으로 메시를 덮어씌운다 (몬스터별 다이스 색 구분용).
+## 알파 0(기본값)이면 원래 메시 재질(흰색 계열)을 그대로 쓴다.
+@export var color_override: Color = Color(0, 0, 0, 0)
 
 const IMPACT_COOLDOWN := 0.08
 const MIN_IMPACT_SPEED := 0.5
@@ -59,6 +62,10 @@ func _build_mesh_and_collision() -> void:
 		st.set_normal(normal)
 		st.add_vertex(c)
 	_mesh_instance.mesh = st.commit()
+	if color_override.a > 0.0:
+		var mat := StandardMaterial3D.new()
+		mat.albedo_color = color_override
+		_mesh_instance.material_override = mat
 
 	var shape := ConvexPolygonShape3D.new()
 	shape.points = verts
