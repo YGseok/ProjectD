@@ -1,7 +1,9 @@
 extends Node2D
-## 전투 씬 1차 버전 (플레이어 vs 테스트 몬스터).
-## DESIGN.md 확정 수치를 그대로 하드코딩: 플레이어 공격/방어 D4x3·HP20,
-## 몬스터 공격 D4x2/방어 D4x1·HP10.
+## 전투 씬 (플레이어 vs 몬스터).
+## 플레이어 수치는 DESIGN.md 확정 그대로 하드코딩: 공격/방어 D4x3·HP20.
+## 몬스터는 DESIGN.md에 1번째 방(공격 D4x2/방어 D4x1·HP10)만 확정되어 있고, 그 이후
+## 방의 몬스터 구성은 아직 미정이라 RunState.rooms_cleared를 기반으로 잠정적인 난이도
+## 스케일링(_monster_config_for_room())을 적용한다 (아래 "몬스터 스케일링" 참고).
 ##
 ## 판정은 기존 systems/dice_bag.gd(DiceBag), systems/combat_math.gd(CombatMath)를
 ## 그대로 재사용한다. 물리적으로 굴러가는 dice/die_d4.tscn(DieD4)은 "손맛" 연출용이며,
@@ -29,21 +31,39 @@ const MAX_LOG_LINES := 7
 @onready var next_button: Button = $NextButton
 
 var player_hp := 20
-var monster_hp := 10
 const PLAYER_MAX_HP := 20
-const MONSTER_MAX_HP := 10
 
 var player_attack_bag := DiceBag.new(4, 3)
 var player_defense_bag := DiceBag.new(4, 3)
-var monster_attack_bag := DiceBag.new(4, 2)
-var monster_defense_bag := DiceBag.new(4, 1)
+
+var monster_hp: int
+var monster_max_hp: int
+var monster_attack_bag: DiceBag
+var monster_defense_bag: DiceBag
 
 var battle_over := false
 var player_won := false
 var _log_lines: Array[String] = []
 
 
+## 잠정 난이도 스케일링 (DESIGN.md 미확정 — 1번째 방만 확정 수치 그대로 유지).
+## room_index: 0부터 시작 (RunState.rooms_cleared와 동일한 기준, 즉 몇 번째 몬스터인지).
+## room_index=0 -> 공격 2D4 / 방어 1D4 / HP10 (DESIGN.md 확정값과 동일).
+func _monster_config_for_room(room_index: int) -> Dictionary:
+	return {
+		"attack_count": 2 + int(room_index / 2.0),
+		"defense_count": 1 + int(room_index / 3.0),
+		"max_hp": 10 + room_index * 3,
+	}
+
+
 func _ready() -> void:
+	var config := _monster_config_for_room(RunState.rooms_cleared)
+	monster_attack_bag = DiceBag.new(4, config["attack_count"])
+	monster_defense_bag = DiceBag.new(4, config["defense_count"])
+	monster_max_hp = config["max_hp"]
+	monster_hp = monster_max_hp
+
 	next_button.pressed.connect(_on_next_button_pressed)
 	_update_labels()
 	_run_battle()
@@ -146,7 +166,7 @@ func _clear_dice() -> void:
 
 func _update_labels() -> void:
 	player_hp_label.text = "플레이어 HP: %d / %d" % [player_hp, PLAYER_MAX_HP]
-	monster_hp_label.text = "몬스터 HP: %d / %d" % [monster_hp, MONSTER_MAX_HP]
+	monster_hp_label.text = "몬스터 HP: %d / %d" % [monster_hp, monster_max_hp]
 
 
 func _append_log(line: String) -> void:
