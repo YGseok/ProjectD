@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Write",
+      "Edit",
+      "Bash(git *)",
+      "Bash(scripts/qa_shot.sh *)",
+      "Bash(bash scripts/qa_shot.sh *)",
+      "Bash(mkdir *)",
+      "Bash(ls*)",
+      "Bash(find*)",
+      "Bash(cat*)"
+    ]
+  },
+  "env": {
+    "GODOT_BIN": "D:/Godot/Godot_v4.7.2-stable_win64.exe"
+  }
+}

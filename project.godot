@@ -1,0 +1,19 @@
+; Engine configuration file.
+; QA 스캐폴딩 데모용 최소 project.godot 입니다.
+
+config_version=5
+
+[application]
+
+config/name="ProjectD"
+run/main_scene="res://scenes/dungeon.tscn"
+config/features=PackedStringArray("4.3", "Forward Plus")
+
+[autoload]
+
+VisualQA="*res://qa/visual_qa.gd"
+
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=720

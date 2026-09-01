@@ -1,0 +1,17 @@
+# Godot 4.x
+.godot/
+.import/
+export.cfg
+export_presets.cfg
+*.translation
+
+# QA 스크린샷 산출물 (매 이터레이션 갱신되므로 커밋 대상 아님)
+qa_out/
+
+# 루프 실행 로그
+loop/logs/
+loop/STOP
+
+# OS
+.DS_Store
+Thumbs.db
