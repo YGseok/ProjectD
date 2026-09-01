@@ -8,12 +8,16 @@ extends Node2D
 ## 실제 합계는 DiceBag.roll()의 RNG 결과를 쓴다 (물리 다이스의 착지 면을 읽어 판정하는
 ## 기능은 아직 없음 — 알려진 이슈로 STATUS.md에 남김).
 ##
-## 다이스가 완전히 멈췄는지 감지하는 기능이 아직 없어서(STATUS.md 알려진 이슈),
-## 매 굴림마다 고정 시간(EXCHANGE_SETTLE_TIME)만큼 기다린 뒤 결과를 계산한다.
+## 다이스가 완전히 멈췄는지 실제로 감지한다 (linear/angular velocity가 임계값 밑으로
+## SETTLE_MIN_FRAMES 프레임 연속 유지되면 정지로 판단). 물리 이상 등으로 끝내 멈추지
+## 않는 경우를 대비해 SETTLE_MAX_WAIT 초과 시 강제로 진행한다 (안전장치).
 
 const DieD4Scene := preload("res://dice/die_d4.tscn")
 
-const EXCHANGE_SETTLE_TIME := 2.2
+const SETTLE_LIN_THRESHOLD := 0.05
+const SETTLE_ANG_THRESHOLD := 0.3
+const SETTLE_MIN_FRAMES := 15
+const SETTLE_MAX_WAIT := 4.0
 const EXCHANGE_PAUSE_TIME := 0.8
 const MAX_LOG_LINES := 7
 
@@ -62,7 +66,7 @@ func _do_exchange(is_player_attacking: bool) -> void:
 	_spawn_dice(atk_bag.count, -1.4)
 	_spawn_dice(def_bag.count, 1.4)
 
-	await get_tree().create_timer(EXCHANGE_SETTLE_TIME).timeout
+	await _wait_for_dice_to_settle()
 
 	var atk_total := atk_bag.roll()
 	var def_total := def_bag.roll()
@@ -85,6 +89,33 @@ func _do_exchange(is_player_attacking: bool) -> void:
 		turn_label.text = "패배... (플레이어 사망)"
 
 	await get_tree().create_timer(EXCHANGE_PAUSE_TIME).timeout
+
+
+## 씬에 있는 모든 다이스가 정지했다고 판단될 때까지 기다린다.
+func _wait_for_dice_to_settle() -> void:
+	var elapsed := 0.0
+	var settled_frames := 0
+	while true:
+		await get_tree().physics_frame
+		elapsed += get_physics_process_delta_time()
+		if _all_dice_settled():
+			settled_frames += 1
+			if settled_frames >= SETTLE_MIN_FRAMES:
+				return
+		else:
+			settled_frames = 0
+		if elapsed >= SETTLE_MAX_WAIT:
+			return
+
+
+func _all_dice_settled() -> bool:
+	for child in dice_root.get_children():
+		if child is RigidBody3D:
+			if child.linear_velocity.length() > SETTLE_LIN_THRESHOLD:
+				return false
+			if child.angular_velocity.length() > SETTLE_ANG_THRESHOLD:
+				return false
+	return true
 
 
 func _spawn_dice(count: int, base_x: float) -> void:
