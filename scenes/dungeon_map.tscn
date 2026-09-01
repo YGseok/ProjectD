@@ -35,8 +35,8 @@ text = "클리어한 방: 0"
 label_settings = SubResource("LabelSettings_rooms")
 
 [node name="EnterCombatButton" type="Button" parent="."]
-offset_left = 540.0
+offset_left = 470.0
 offset_top = 320.0
-offset_right = 740.0
+offset_right = 810.0
 offset_bottom = 370.0
-text = "전투 방 입장"
+text = "전투 방 입장 (1번째 방)"
