@@ -6,7 +6,7 @@
 ## 마지막 갱신
 
 - 일시: 2026-09-01
-- 작성자: AI 에이전트 (큐: 다이스 판정 로직(순수 GDScript) 구현 완료)
+- 작성자: AI 에이전트 (큐 1: 다이스 하나의 물리 프리팹(D4, 플라스틱 재질) 구현 완료)
 
 ## 지금 위치
 
@@ -30,22 +30,28 @@
   (`await get_tree().process_frame`으로 한 프레임 지연 후 호출).
 - `project.godot`에 autoload/main_scene 이미 등록되어 있음 (`AUTOLOAD_SETUP.md`의 수동 설정
   단계는 이제 완료된 상태 — 새 환경에 옮길 때만 참고).
-- 지금 다이스는 박스(정육면체) 모형 + 플레이스홀더 흰색 재질일 뿐, 실제 D4/재질별 사운드는
-  아직 없음 (큐 1, 2에서 다룸).
+- **D4 물리 프리팹 구현 완료.** `res://dice/die_d4.tscn` (+`die_d4.gd`, `class_name DieD4`,
+  `RigidBody3D` 확장): 정사면체 메시/충돌모양을 `SurfaceTool`+`ConvexPolygonShape3D`로
+  코드에서 생성함 (Godot 기본 프리미티브에 정사면체가 없어서). 재질은
+  `res://dice/dice_material.gd`(`class_name DiceMaterial extends Resource`: material_name,
+  bounce, friction, impact_sound)로 분리하고, `res://dice/materials/plastic.tres`를
+  기본값(bounce=0.3, friction=0.6)으로 꽂아둠. 충돌 시(`body_entered`, 속도 임계값 +
+  쿨다운으로 스팸 방지) `AudioStreamPlayer3D.play()`를 호출하도록 배선했으나,
+  **실제 사운드 에셋(.wav/.ogg)은 아직 없음** — `impact_sound`가 비어 있으면 조용히
+  스킵하도록 처리해서 크래시 없이 동작함 (나중에 `plastic.tres`의 `impact_sound`만
+  채우면 바로 소리가 남).
+  `scenes/dungeon.tscn`의 플레이스홀더 박스 다이스를 이 `die_d4.tscn` 인스턴스로 교체함
+  (`scripts/qa_shot.sh dungeon 150`으로 확인: 정사면체가 바닥에 굴러떨어져 안착,
+  `qa_out/dungeon.png`).
+  → 아직 없는 것: 실제 사운드 에셋, 유리/나무/철제 등 다른 재질, 다이스 여러 개 동시
+  시뮬레이션(전투 씬 큐에서 다룰 예정).
 
 ## 다음 할 일 큐 (우선순위 순)
 
 이 순서를 반드시 지킬 필요는 없지만, 앞 단계가 뒤 단계의 전제가 되므로 대체로 순서대로
 진행하는 것을 권장한다. 한 이터레이션에 한두 개만 진행할 것.
 
-1. **다이스 하나의 물리 프리팹 (재질: 플라스틱)**
-   - `res://dice/die_d4.tscn`: RigidBody3D + 충돌 시 사운드(플라스틱 재질) 재생.
-   - 바닥에 떨어지고, 굴러가고, 서로 부딪히면 소리가 나는지 확인.
-   - (사운드 에셋이 없다면 임시 플레이스홀더 사운드로 우선 배선만 맞추고, 나중에 교체)
-   - 지금 `scenes/dungeon.tscn`에 있는 박스 다이스는 스파이크용 플레이스홀더이므로,
-     이 작업에서 정식 D4 프리팹으로 교체/재사용할 것.
-
-2. **전투 씬 1차 버전 (플레이어 vs 테스트 몬스터)**
+1. **전투 씬 1차 버전 (플레이어 vs 테스트 몬스터)**
    - DESIGN.md 수치 그대로 하드코딩해서 시작:
      플레이어 공격 D4x3 / 방어 D4x3 / HP 20, 몬스터 공격 D4x2 / 방어 D4x1 / HP 10.
    - 턴 순서: 내 공격턴 → 몬스터 공격턴(내 방어턴) → 반복, HP 0이면 종료.
@@ -53,10 +59,15 @@
    - 판정 로직은 이미 있는 `res://systems/dice_bag.gd`(`DiceBag`)와
      `res://systems/combat_math.gd`(`CombatMath.calculate_damage`)를 그대로 재사용할 것
      (새로 만들지 말 것).
+   - 시각적으로 굴리는 다이스는 `res://dice/die_d4.tscn`(`DieD4`)을 필요한 개수만큼
+     인스턴스해서 재사용할 것 (플레이어 공격 3개, 방어 3개, 몬스터 공격 2개, 방어 1개 —
+     새로 프리팹을 만들지 말 것). 다이스가 여러 개 동시에 굴러가는 첫 케이스이므로,
+     "다이스가 멈췄는지" 판정(아래 알려진 이슈 참고)이 필요해질 가능성이 큼.
    - `GAME_START=dungeon` (또는 별도 씬 이름으로 분리 — 예: `combat_test`)으로
      시각 QA 가능하게 연결.
 
-3. **위 2개가 안정되면 이후 큐 항목을 이 파일에 추가** (상점/이벤트, 방 이동, 아트 등).
+2. **위 1개가 안정되면 이후 큐 항목을 이 파일에 추가** (상점/이벤트, 방 이동, 아트,
+   사운드 에셋 실제 교체 등).
 
 ## 완료 기록
 
@@ -85,6 +96,24 @@
     adding/removing children" 에러가 발생함. `await get_tree().process_frame`으로
     한 프레임 지연 후 호출하도록 수정 (기존에는 에러가 나도 스크린샷 저장 자체는
     성공했지만, 잠재적으로 더 복잡한 씬에서는 문제가 될 수 있어 근본 수정).
+- **2026-09-01**: 큐 1번 "다이스 하나의 물리 프리팹 (재질: 플라스틱)" 완료.
+  - `res://dice/die_d4.gd`(`class_name DieD4 extends RigidBody3D`): 정사면체 정점 4개를
+    정의하고 `SurfaceTool`로 메시(면별 flat normal)를, `ConvexPolygonShape3D`로 충돌
+    모양을 코드에서 생성 (`_build_mesh_and_collision()`). Godot 기본 Mesh 프리미티브에는
+    정사면체가 없어서 코드 생성 방식을 택함.
+  - `res://dice/dice_material.gd`(`class_name DiceMaterial extends Resource`):
+    material_name/bounce/friction/impact_sound 필드. `res://dice/materials/plastic.tres`를
+    기본 재질(bounce=0.3, friction=0.6)로 추가. `_apply_material()`에서 `PhysicsMaterial`을
+    만들어 `physics_material_override`에 꽂음.
+  - 충돌 사운드 배선: `body_entered` 시그널(`contact_monitor=true`) + 충돌 속도 임계값
+    (0.5) + 쿨다운(0.08초)으로 스팸 방지 후 `AudioStreamPlayer3D.play()` 호출.
+    **impact_sound가 비어 있으면(현재 plastic.tres가 그 상태) 조용히 스킵** — 사운드
+    에셋이 아직 없어서 "배선만" 맞춘 상태 (STATUS.md 이전 큐 설명 그대로).
+  - `res://dice/die_d4.tscn`으로 프리팹화하고, `scenes/dungeon.tscn`의 플레이스홀더
+    박스 다이스를 이 프리팹 인스턴스로 교체.
+  - `scripts/qa_shot.sh dungeon 150` 실행 결과 크래시/에러 없이 스크린샷 저장 성공,
+    화면에서 정사면체(뾰족한 삼각뿔) 모양 다이스가 바닥에 굴러떨어져 안착한 모습 확인
+    (`qa_out/dungeon.png`).
 
 ## 알려진 이슈 / 막힌 것
 
@@ -92,10 +121,15 @@
   고정값으로 쓰면 다이스가 아직 구르는 중일 수 있음. 이번 스파이크는 경험적으로
   frame=150 (기본값 60이 아님, `qa_shot.sh dungeon 150`으로 호출)이면 충분히 멈춘
   상태를 잡을 수 있었음. 다이스 개수가 늘어나면(전투 씬에서는 여러 개가 동시에 굴러감)
-  더 늘려야 할 수 있음. "정지 감지" 방식은 아직 미구현 — 큐 2번(전투 씬) 진행 시 필요성
+  더 늘려야 할 수 있음. "정지 감지" 방식은 아직 미구현 — 큐 1번(전투 씬) 진행 시 필요성
   재평가할 것.
 - `res://scenes/dungeon.tscn`은 지금 스파이크/전투 테스트용 단일 씬으로 쓰고 있음.
-  실제 던전 방 이동 등 본게임 구조가 생기면 이름/역할을 다시 정리해야 함 (큐 3번 이후).
+  실제 던전 방 이동 등 본게임 구조가 생기면 이름/역할을 다시 정리해야 함 (큐 2번 이후).
+- D4 충돌 사운드는 배선만 되어 있고 실제 재생되는 소리가 없음 (`plastic.tres`의
+  `impact_sound`가 비어 있음). 플레이스홀더든 실제 에셋이든 `.wav`/`.ogg` 파일을 구해서
+  `res://dice/materials/plastic.tres`의 `impact_sound`에 채워 넣으면 바로 재생됨
+  (`die_d4.gd` 쪽 코드 수정 불필요). 사람이 실제로 들어봐야 하는 부분이라 사운드
+  손맛 자체는 사람 판단(INBOX.md) 영역으로 넘어갈 가능성이 큼.
 
 ---
 *이 파일 갱신을 건너뛰면 다음 세션은 아무 기억 없이 처음부터 다시 파악해야 한다.

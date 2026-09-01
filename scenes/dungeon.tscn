@@ -1,4 +1,6 @@
-[gd_scene load_steps=9 format=3 uid="uid://qa_placeholder_dungeon_d"]
+[gd_scene load_steps=7 format=3 uid="uid://qa_placeholder_dungeon_d"]
+
+[ext_resource type="PackedScene" path="res://dice/die_d4.tscn" id="1_die_d4"]
 
 [sub_resource type="LabelSettings" id="LabelSettings_1"]
 font_size = 28
@@ -18,16 +20,6 @@ size = Vector3(4, 0.2, 4)
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_floor"]
 size = Vector3(4, 0.2, 4)
-
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_die"]
-albedo_color = Color(0.92, 0.9, 0.85, 1)
-
-[sub_resource type="BoxMesh" id="BoxMesh_die"]
-material = SubResource("StandardMaterial3D_die")
-size = Vector3(0.6, 0.6, 0.6)
-
-[sub_resource type="BoxShape3D" id="BoxShape3D_die"]
-size = Vector3(0.6, 0.6, 0.6)
 
 [node name="Dungeon" type="Node2D"]
 
@@ -74,13 +66,7 @@ mesh = SubResource("BoxMesh_floor")
 [node name="CollisionShape3D" type="CollisionShape3D" parent="DiceViewportContainer/DiceViewport/Floor"]
 shape = SubResource("BoxShape3D_floor")
 
-[node name="Die" type="RigidBody3D" parent="DiceViewportContainer/DiceViewport"]
+[node name="Die" parent="DiceViewportContainer/DiceViewport" instance=ExtResource("1_die_d4")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1, 1.6, 0.4)
 linear_velocity = Vector3(1.5, 0, -0.6)
 angular_velocity = Vector3(4, 2, 6)
-
-[node name="MeshInstance3D" type="MeshInstance3D" parent="DiceViewportContainer/DiceViewport/Die"]
-mesh = SubResource("BoxMesh_die")
-
-[node name="CollisionShape3D" type="CollisionShape3D" parent="DiceViewportContainer/DiceViewport/Die"]
-shape = SubResource("BoxShape3D_die")
