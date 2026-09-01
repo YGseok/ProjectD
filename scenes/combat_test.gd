@@ -26,6 +26,7 @@ const MAX_LOG_LINES := 7
 @onready var turn_label: Label = $TurnLabel
 @onready var log_label: Label = $LogLabel
 @onready var dice_root: Node3D = $DiceViewportContainer/DiceViewport/DiceRoot
+@onready var next_button: Button = $NextButton
 
 var player_hp := 20
 var monster_hp := 10
@@ -38,10 +39,12 @@ var monster_attack_bag := DiceBag.new(4, 2)
 var monster_defense_bag := DiceBag.new(4, 1)
 
 var battle_over := false
+var player_won := false
 var _log_lines: Array[String] = []
 
 
 func _ready() -> void:
+	next_button.pressed.connect(_on_next_button_pressed)
 	_update_labels()
 	_run_battle()
 
@@ -83,12 +86,18 @@ func _do_exchange(is_player_attacking: bool) -> void:
 
 	if monster_hp <= 0:
 		battle_over = true
+		player_won = true
 		turn_label.text = "승리! (몬스터 처치)"
 	elif player_hp <= 0:
 		battle_over = true
+		player_won = false
 		turn_label.text = "패배... (플레이어 사망)"
 
 	await get_tree().create_timer(EXCHANGE_PAUSE_TIME).timeout
+
+	if battle_over:
+		next_button.text = "던전으로 돌아가기" if player_won else "처음부터 다시"
+		next_button.show()
 
 
 ## 씬에 있는 모든 다이스가 정지했다고 판단될 때까지 기다린다.
@@ -145,3 +154,11 @@ func _append_log(line: String) -> void:
 	while _log_lines.size() > MAX_LOG_LINES:
 		_log_lines.pop_front()
 	log_label.text = "\n".join(_log_lines)
+
+
+func _on_next_button_pressed() -> void:
+	if player_won:
+		RunState.rooms_cleared += 1
+	else:
+		RunState.reset_run()
+	get_tree().change_scene_to_file("res://scenes/dungeon_map.tscn")

@@ -6,12 +6,13 @@ config_version=5
 [application]
 
 config/name="ProjectD"
-run/main_scene="res://scenes/dungeon.tscn"
+run/main_scene="res://scenes/dungeon_map.tscn"
 config/features=PackedStringArray("4.3", "Forward Plus")
 
 [autoload]
 
 VisualQA="*res://qa/visual_qa.gd"
+RunState="*res://systems/run_state.gd"
 
 [display]
 
