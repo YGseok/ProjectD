@@ -1,6 +1,9 @@
 extends Node2D
 ## 전투 씬 (플레이어 vs 몬스터).
-## 플레이어 수치는 DESIGN.md 확정 그대로 하드코딩: 공격/방어 D4x3·HP20.
+## 플레이어 HP는 DESIGN.md 확정 그대로 하드코딩(20)이며 매 전투 시작 시 풀피로
+## 초기화된다. 공격/방어 다이스 주머니(RunState.player_attack_bag/player_defense_bag)는
+## 초기값은 DESIGN.md 확정 수치(D4x3)지만, 승리 보상으로 얻는 다이스 개조 아이템에 따라
+## 런이 진행되는 동안 계속 바뀔 수 있다 (_show_reward_ui() 참고).
 ## 몬스터는 DESIGN.md에 1번째 방(공격 D4x2/방어 D4x1·HP10)만 확정되어 있고, 그 이후
 ## 방의 몬스터 구성은 아직 미정이라 RunState.rooms_cleared를 기반으로 잠정적인 난이도
 ## 스케일링(_monster_config_for_room())을 적용한다 (아래 "몬스터 스케일링" 참고).
@@ -33,9 +36,6 @@ const MAX_LOG_LINES := 7
 var player_hp := 20
 const PLAYER_MAX_HP := 20
 
-var player_attack_bag := DiceBag.new(4, 3)
-var player_defense_bag := DiceBag.new(4, 3)
-
 var monster_hp: int
 var monster_max_hp: int
 var monster_attack_bag: DiceBag
@@ -46,6 +46,13 @@ var monster_color := Color(1, 1, 1, 0)
 var battle_over := false
 var player_won := false
 var _log_lines: Array[String] = []
+var _reward_ui: Array[Node] = []
+var _reward_items: Array[Dictionary] = []
+
+## 커스터마이징(직접 눈금 강화)으로 면 하나를 올릴 때마다 더하는 양. INBOX.md 피드백
+## "사기 주사위를 만드는 재미" 반영 — 반복 적용 시 상한 없이 계속 누적되어 후반에는
+## 노골적으로 과한 다이스를 만들 수 있게 하는 것이 의도.
+const FACE_BOOST_AMOUNT := 3
 
 ## 몬스터별 이름/다이스 색 (시각 구분용, 능력치와는 무관). room_index를 이 배열 길이로
 ## 나눈 나머지로 순환시키고, 배열을 다 돌면 이름 앞에 "강화"를 붙여 재사용한다
@@ -102,8 +109,8 @@ func _run_battle() -> void:
 ## is_player_attacking == true  -> 내 공격턴 (플레이어 공격 주머니 vs 몬스터 방어 주머니)
 ## is_player_attacking == false -> 몬스터 공격턴 (몬스터 공격 주머니 vs 플레이어 방어 주머니)
 func _do_exchange(is_player_attacking: bool) -> void:
-	var atk_bag: DiceBag = player_attack_bag if is_player_attacking else monster_attack_bag
-	var def_bag: DiceBag = monster_defense_bag if is_player_attacking else player_defense_bag
+	var atk_bag: DiceBag = RunState.player_attack_bag if is_player_attacking else monster_attack_bag
+	var def_bag: DiceBag = monster_defense_bag if is_player_attacking else RunState.player_defense_bag
 
 	turn_label.text = "내 공격턴" if is_player_attacking else "몬스터 공격턴 (내 방어턴)"
 
@@ -142,8 +149,12 @@ func _do_exchange(is_player_attacking: bool) -> void:
 	await get_tree().create_timer(EXCHANGE_PAUSE_TIME).timeout
 
 	if battle_over:
-		next_button.text = "던전으로 돌아가기" if player_won else "처음부터 다시"
-		next_button.show()
+		if player_won:
+			next_button.text = "던전으로 돌아가기"
+			_show_reward_ui()
+		else:
+			next_button.text = "처음부터 다시"
+			next_button.show()
 
 
 ## 씬에 있는 모든 다이스가 정지했다고 판단될 때까지 기다린다.
@@ -209,3 +220,180 @@ func _on_next_button_pressed() -> void:
 	else:
 		RunState.reset_run()
 	get_tree().change_scene_to_file("res://scenes/dungeon_map.tscn")
+
+
+## 승리 시 다이스 개조 아이템 2개를 제시하고, 어느 주머니(공격/방어)에 적용할지
+## 고르게 한다. 다이스 뷰포트가 차지하던 영역(140,120)-(1140,540) 위에 반투명 배경과
+## 함께 그려서 전투가 끝난 뒤 화면을 재활용한다. NextButton은 아이템을 고르거나
+## 건너뛰기 전까지는 숨겨서 보상을 먼저 보게 한다.
+func _show_reward_ui() -> void:
+	if _reward_items.is_empty():
+		_reward_items = DiceItemPool.random_choices(2)
+
+	_clear_reward_ui()
+	next_button.hide()
+	_add_reward_frame("승리 보상 — 다이스 아이템을 고르고 적용할 주머니를 선택하세요")
+
+	var y := 190.0
+	for item in _reward_items:
+		var name_label := Label.new()
+		name_label.text = "%s\n%s" % [item["name"], item["description"]]
+		name_label.position = Vector2(200, y)
+		name_label.size = Vector2(880, 50)
+		name_label.autowrap_mode = TextServer.AUTOWRAP_WORD
+		add_child(name_label)
+		_reward_ui.append(name_label)
+
+		var atk_btn := Button.new()
+		atk_btn.text = "공격 주머니에 적용"
+		atk_btn.position = Vector2(200, y + 55)
+		atk_btn.size = Vector2(220, 40)
+		atk_btn.pressed.connect(_on_reward_chosen.bind(item, "attack"))
+		add_child(atk_btn)
+		_reward_ui.append(atk_btn)
+
+		var def_btn := Button.new()
+		def_btn.text = "방어 주머니에 적용"
+		def_btn.position = Vector2(440, y + 55)
+		def_btn.size = Vector2(220, 40)
+		def_btn.pressed.connect(_on_reward_chosen.bind(item, "defense"))
+		add_child(def_btn)
+		_reward_ui.append(def_btn)
+
+		y += 130.0
+
+	var custom_btn := Button.new()
+	custom_btn.text = "커스터마이징: 다이스 눈금 직접 강화"
+	custom_btn.position = Vector2(200, y + 10)
+	custom_btn.size = Vector2(340, 40)
+	custom_btn.pressed.connect(_show_customize_picker)
+	add_child(custom_btn)
+	_reward_ui.append(custom_btn)
+
+	var skip_btn := Button.new()
+	skip_btn.text = "건너뛰기"
+	skip_btn.position = Vector2(560, y + 10)
+	skip_btn.size = Vector2(160, 40)
+	skip_btn.pressed.connect(_on_reward_skipped)
+	add_child(skip_btn)
+	_reward_ui.append(skip_btn)
+
+
+## 공통 배경+제목 프레임을 그린다 (보상 화면의 3단계 — 아이템 선택 / 다이스 선택 /
+## 면 선택 — 모두 이 위에 그려서 화면을 재활용한다).
+func _add_reward_frame(title_text: String) -> void:
+	var bg := ColorRect.new()
+	bg.color = Color(0, 0, 0, 0.85)
+	bg.position = Vector2(140, 120)
+	bg.size = Vector2(1000, 420)
+	add_child(bg)
+	_reward_ui.append(bg)
+
+	var title := Label.new()
+	title.text = title_text
+	title.position = Vector2(170, 140)
+	title.size = Vector2(940, 30)
+	add_child(title)
+	_reward_ui.append(title)
+
+
+func _clear_reward_ui() -> void:
+	for node in _reward_ui:
+		node.queue_free()
+	_reward_ui.clear()
+
+
+func _on_reward_chosen(item: Dictionary, target: String) -> void:
+	var bag: DiceBag = RunState.player_attack_bag if target == "attack" else RunState.player_defense_bag
+	DiceItemPool.apply(item, bag)
+	_append_log("아이템 획득: %s (%s 주머니)" % [item["name"], "공격" if target == "attack" else "방어"])
+	_clear_reward_ui()
+	next_button.show()
+
+
+func _on_reward_skipped() -> void:
+	_clear_reward_ui()
+	next_button.show()
+
+
+## 커스터마이징 1단계: 공격/방어 주머니의 다이스 중 하나를 고른다.
+## INBOX.md 피드백 "커스터마이징하면 내 덱의 특정 주사위 1개의 한 면 눈금을 바꿀 수
+## 있다"를 반영 — 기존 무작위 아이템(_reward_items)과 별개로 언제든 고를 수 있는
+## 세 번째 선택지다.
+func _show_customize_picker() -> void:
+	_clear_reward_ui()
+	_add_reward_frame("강화할 다이스를 고르세요")
+
+	var y := 190.0
+	y = _add_die_picker_rows("공격 주머니", RunState.player_attack_bag, y)
+	y = _add_die_picker_rows("방어 주머니", RunState.player_defense_bag, y)
+
+	var back_btn := Button.new()
+	back_btn.text = "뒤로"
+	back_btn.position = Vector2(200, y + 10)
+	back_btn.size = Vector2(160, 40)
+	back_btn.pressed.connect(_show_reward_ui)
+	add_child(back_btn)
+	_reward_ui.append(back_btn)
+
+
+func _add_die_picker_rows(bag_label: String, bag: DiceBag, y: float) -> float:
+	for i in bag.dice.size():
+		var faces: PackedInt32Array = bag.dice[i]
+		var values := PackedStringArray()
+		for v in faces:
+			values.append(str(v))
+		var btn := Button.new()
+		btn.text = "%s 다이스 %d  [%s]" % [bag_label, i + 1, ", ".join(values)]
+		btn.position = Vector2(200, y)
+		btn.size = Vector2(600, 36)
+		btn.pressed.connect(_show_face_picker.bind(bag, i))
+		add_child(btn)
+		_reward_ui.append(btn)
+		y += 44.0
+	return y
+
+
+## 커스터마이징 2단계: 고른 다이스의 면 하나를 골라 값을 FACE_BOOST_AMOUNT만큼 올린다.
+func _show_face_picker(bag: DiceBag, die_index: int) -> void:
+	_clear_reward_ui()
+	_add_reward_frame("강화할 면을 고르세요 (값이 +%d 됩니다)" % FACE_BOOST_AMOUNT)
+
+	var faces: PackedInt32Array = bag.dice[die_index]
+	var y := 190.0
+	var x := 200.0
+	for fi in faces.size():
+		var btn := Button.new()
+		btn.text = "면 %d: %d -> %d" % [fi + 1, faces[fi], faces[fi] + FACE_BOOST_AMOUNT]
+		btn.position = Vector2(x, y)
+		btn.size = Vector2(180, 40)
+		btn.pressed.connect(_on_face_boosted.bind(bag, die_index, fi))
+		add_child(btn)
+		_reward_ui.append(btn)
+		x += 190.0
+		if x > 900.0:
+			x = 200.0
+			y += 50.0
+
+	var back_btn := Button.new()
+	back_btn.text = "뒤로"
+	back_btn.position = Vector2(200, y + 60)
+	back_btn.size = Vector2(160, 40)
+	back_btn.pressed.connect(_show_customize_picker)
+	add_child(back_btn)
+	_reward_ui.append(back_btn)
+
+
+## qa/visual_qa.gd의 GAME_QA_CALL로 호출하기 위한 인자 없는 래퍼 (QA 전용 — 클릭을
+## 흉내낼 수 없는 자동 스크린샷에서 면 선택 화면을 직접 열어보기 위함).
+func _debug_open_face_picker() -> void:
+	_show_face_picker(RunState.player_attack_bag, 0)
+
+
+func _on_face_boosted(bag: DiceBag, die_index: int, face_index: int) -> void:
+	var faces: PackedInt32Array = bag.dice[die_index]
+	var new_value: int = faces[face_index] + FACE_BOOST_AMOUNT
+	bag.set_face_value(die_index, face_index, new_value)
+	_append_log("커스터마이징: 다이스 %d의 면 %d -> %d" % [die_index + 1, face_index + 1, new_value])
+	_clear_reward_ui()
+	next_button.show()

@@ -37,6 +37,14 @@ func _ready() -> void:
 	all_pass = _check_damage(5, 5, 0, lines) and all_pass
 
 	lines.append("")
+	lines.append("[다이스 개조 검증: add_die / replace_die / set_face_value]")
+	all_pass = _check_dice_modifiers(lines) and all_pass
+
+	lines.append("")
+	lines.append("[다이스 아이템 풀 검증: DiceItemPool.apply]")
+	all_pass = _check_item_pool(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -64,4 +72,64 @@ func _check_damage(attack: int, defense: int, expected: int, lines: PackedString
 	lines.append("  공격=%d 방어=%d -> 데미지=%d (기대=%d) -> %s" % [
 		attack, defense, actual, expected, "OK" if ok else "FAIL"
 	])
+	return ok
+
+
+func _check_dice_modifiers(lines: PackedStringArray) -> bool:
+	var ok := true
+
+	# D4x3 (min=3,max=12) -> add_die(4)로 D4 1개 추가 -> min=4,max=16
+	var bag := DiceBag.new(4, 3)
+	bag.add_die(4)
+	var add_ok := bag.count == 4 and bag.min_possible() == 4 and bag.max_possible() == 16
+	ok = add_ok and ok
+	lines.append("  add_die: count=%d min=%d max=%d (기대 count=4 min=4 max=16) -> %s" % [
+		bag.count, bag.min_possible(), bag.max_possible(), "OK" if add_ok else "FAIL"
+	])
+
+	# 다이스 4개(D4x4) 중 0번을 D6으로 교체 -> min=4(1*4), max=18(6+4+4+4)
+	bag.replace_die(0, 6)
+	var replace_ok := bag.min_possible() == 4 and bag.max_possible() == 18
+	ok = replace_ok and ok
+	lines.append("  replace_die(0, 6): min=%d max=%d (기대 min=4 max=18) -> %s" % [
+		bag.min_possible(), bag.max_possible(), "OK" if replace_ok else "FAIL"
+	])
+
+	# 다이스 1번(D4)의 0번째 면(값 1)을 4로 강화 -> 그 면 값 자체가 바뀌었는지 확인
+	bag.set_face_value(1, 0, 4)
+	var face_ok := bag.dice[1][0] == 4
+	ok = face_ok and ok
+	lines.append("  set_face_value(1,0,4): dice[1]의 0번째 면=%d (기대 4) -> %s" % [
+		bag.dice[1][0], "OK" if face_ok else "FAIL"
+	])
+
+	return ok
+
+
+func _check_item_pool(lines: PackedStringArray) -> bool:
+	var ok := true
+
+	var choices := DiceItemPool.random_choices(2)
+	var choices_ok := choices.size() == 2
+	ok = choices_ok and ok
+	lines.append("  random_choices(2)개수=%d (기대 2) -> %s" % [choices.size(), "OK" if choices_ok else "FAIL"])
+
+	var add_bag := DiceBag.new(4, 3)
+	DiceItemPool.apply({"kind": "add_die", "sides": 4}, add_bag)
+	var add_item_ok := add_bag.count == 4
+	ok = add_item_ok and ok
+	lines.append("  apply(add_die): count=%d (기대 4) -> %s" % [add_bag.count, "OK" if add_item_ok else "FAIL"])
+
+	var upgrade_bag := DiceBag.new(4, 3)
+	DiceItemPool.apply({"kind": "upgrade_die", "new_sides": 6}, upgrade_bag)
+	var upgrade_ok := upgrade_bag.max_possible() == 14  # 6 + 4 + 4
+	ok = upgrade_ok and ok
+	lines.append("  apply(upgrade_die): max=%d (기대 14) -> %s" % [upgrade_bag.max_possible(), "OK" if upgrade_ok else "FAIL"])
+
+	var boost_bag := DiceBag.new(4, 3)
+	DiceItemPool.apply({"kind": "boost_weak_face"}, boost_bag)
+	var boost_ok := boost_bag.min_possible() == 4  # 다이스 0의 최저면(1)이 최댓값(4)으로 올라감 -> 2+1+1
+	ok = boost_ok and ok
+	lines.append("  apply(boost_weak_face): min=%d (기대 4) -> %s" % [boost_bag.min_possible(), "OK" if boost_ok else "FAIL"])
+
 	return ok

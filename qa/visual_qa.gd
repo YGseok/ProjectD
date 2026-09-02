@@ -21,12 +21,16 @@ extends Node
 ##   GAME_START_PATH  (선택) 씬 경로를 컨벤션 대신 직접 지정. 예: res://scenes/dungeon/dungeon.tscn
 ##   GAME_QA_FRAME    (선택, 기본 60) 몇 프레임 후에 캡처할지
 ##   GAME_QA_OUT      (선택) 출력 PNG 경로. 예: res://qa_out/dungeon.png 또는 절대경로
+##   GAME_QA_CALL     (선택) 캡처 직전에 현재 씬 루트에서 인자 없이 호출할 메서드 이름.
+##                    클릭을 흉내낼 수 없는 자동 QA에서, 다단계 UI(예: 보상 화면의
+##                    하위 선택 화면)를 직접 함수 호출로 열어서 스크린샷으로 확인할 때 씀.
 
 var _qa_active := false
 var _target_frame := 60
 var _frame_count := 0
 var _output_path := ""
 var _scene_name := ""
+var _qa_call := ""
 
 
 func _ready() -> void:
@@ -57,6 +61,8 @@ func _ready() -> void:
 	if _output_path.is_empty():
 		_output_path = "res://qa_out/%s.png" % _scene_name
 
+	_qa_call = OS.get_environment("GAME_QA_CALL")
+
 	# 엔진이 메인 씬을 트리에 추가하는 도중이라 change_scene_to_file을 즉시 호출하면
 	# "Parent node is busy adding/removing children" 에러가 난다. 한 프레임 넘겨서 호출한다.
 	await get_tree().process_frame
@@ -81,6 +87,14 @@ func _process(_delta: float) -> void:
 
 
 func _capture_and_quit() -> void:
+	if not _qa_call.is_empty():
+		var scene := get_tree().current_scene
+		if scene != null and scene.has_method(_qa_call):
+			scene.call(_qa_call)
+			await get_tree().process_frame
+		else:
+			push_error("[VisualQA] GAME_QA_CALL='%s' 메서드를 현재 씬에서 찾을 수 없습니다." % _qa_call)
+
 	# 마지막 프레임이 실제로 그려진 뒤에 캡처하기 위해 한 프레임 더 대기한다.
 	await RenderingServer.frame_post_draw
 

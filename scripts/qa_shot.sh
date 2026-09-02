@@ -2,12 +2,16 @@
 # scripts/qa_shot.sh — 시각 QA 스크린샷 촬영 스크립트
 #
 # 사용법:
-#   scripts/qa_shot.sh <scene_name> [frame] [output_path]
+#   scripts/qa_shot.sh <scene_name> [frame] [output_path] [qa_call]
 #
 # 예:
 #   scripts/qa_shot.sh dungeon
 #   scripts/qa_shot.sh dungeon 90
 #   scripts/qa_shot.sh dungeon 90 qa_out/dungeon_check.png
+#   scripts/qa_shot.sh combat_test 900 qa_out/combat_test_picker.png _show_customize_picker
+#     (4번째 인자 qa_call: 캡처 직전 현재 씬에서 인자 없이 호출할 메서드 이름 —
+#      qa/visual_qa.gd의 GAME_QA_CALL로 전달됨. 클릭을 흉내낼 수 없는 자동 QA에서
+#      버튼 뒤에 있는 하위 화면을 직접 열어보고 싶을 때 사용)
 #
 # 동작:
 #   1) godot --headless --import  (에셋 최초 1회 import / 최신화. 이미 최신이면 빠르게 끝남)
@@ -22,6 +26,7 @@ set -uo pipefail
 SCENE_NAME="${1:-}"
 FRAME="${2:-60}"
 OUT="${3:-}"
+QA_CALL="${4:-}"
 
 if [[ -z "$SCENE_NAME" ]]; then
   echo "사용법: $0 <scene_name> [frame] [output_path]" >&2
@@ -69,6 +74,9 @@ echo "[qa_shot] 2/2 실행 및 캡처: scene=$SCENE_NAME frame=$FRAME"
 ENV_ARGS=(GAME_START="$SCENE_NAME" GAME_QA_FRAME="$FRAME")
 if [[ -n "$OUT" ]]; then
   ENV_ARGS+=(GAME_QA_OUT="$OUT")
+fi
+if [[ -n "$QA_CALL" ]]; then
+  ENV_ARGS+=(GAME_QA_CALL="$QA_CALL")
 fi
 
 env "${ENV_ARGS[@]}" "${RUN_CMD[@]}"
