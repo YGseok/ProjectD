@@ -41,6 +41,12 @@ func _ready() -> void:
 
 	_qa_active = true
 
+	# 사람이 PC를 쓰는 동안 창이 포그라운드로 튀어나와 화면을 가리지 않도록,
+	# QA 모드일 때만 창을 화면 밖으로 옮긴다. 완전 headless는 이 프로젝트의
+	# SubViewport 3D 렌더링이 깨질 위험이 있어(GPU 컨텍스트 없음) 쓰지 않는다 —
+	# 대신 실제 창은 유지하되 보이지 않는 좌표로 옮겨 렌더링은 정상 동작시킨다.
+	get_window().position = Vector2i(-4000, -4000)
+
 	var frame_env := OS.get_environment("GAME_QA_FRAME")
 	if not frame_env.is_empty() and frame_env.is_valid_int():
 		_target_frame = frame_env.to_int()
