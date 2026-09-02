@@ -1,8 +1,8 @@
 [gd_scene load_steps=10 format=3 uid="uid://qa_combat_test"]
 
-[ext_resource type="Script" path="res://scenes/combat_test.gd" id="1_script"]
-[ext_resource type="Script" path="res://scenes/character_portrait_placeholder.gd" id="2_player_portrait"]
-[ext_resource type="Script" path="res://scenes/monster_portrait_placeholder.gd" id="3_monster_portrait"]
+[ext_resource type="Script" path="res://code/scenes/combat_test.gd" id="1_script"]
+[ext_resource type="Script" path="res://code/scenes/character_portrait_placeholder.gd" id="2_player_portrait"]
+[ext_resource type="Script" path="res://code/scenes/monster_portrait_placeholder.gd" id="3_monster_portrait"]
 
 [sub_resource type="LabelSettings" id="LabelSettings_title"]
 font_size = 26

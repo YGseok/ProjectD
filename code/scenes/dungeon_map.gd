@@ -19,6 +19,21 @@ extends Node2D
 ## 제공한다. 다면체 주사위가 나올 수 있다")을 반영한 무료 방으로, scenes/event.tscn에서
 ## systems/event_item_pool.gd(EventItemPool)의 D8/D10/D12급 아이템 중 하나를 골라
 ## 즉시 적용한다 (골드 불필요 — 상점과의 차별점).
+##
+## 방 선택지 무작위 노출: STATUS.md 다음 할 일 큐("3개 방 선택지가 매번 전부 노출되는
+## 대신, 방마다 일부만 무작위로 제시되는 것이 레벨 디자인에 더 가까울 수 있음")를 잠정
+## 반영. "전투 방"은 진행을 보장하기 위해 항상 노출하고, 상점/특수 이벤트는 방(=
+## RunState.rooms_cleared)마다 결정되는 시드로 각각 독립적으로 등장 확률(SHOP_CHANCE/
+## EVENT_CHANCE)을 굴려 노출 여부를 정한다. 같은 방에서는 씬을 다시 그려도(_update_labels
+## 재호출) 같은 결과가 나오도록 rooms_cleared 기반 시드를 쓰되, 게임 전체의 randi()/randf()
+## (전투 판정 등)와 섞이지 않도록 별도 RandomNumberGenerator를 사용한다. 확률 자체는
+## 감으로 잡은 잠정값 — 사람 피드백 필요.
+
+const SHOP_CHANCE := 0.6
+const EVENT_CHANCE := 0.5
+const BUTTON_TOP_START := 320.0
+const BUTTON_SPACING := 70.0
+const BUTTON_HEIGHT := 50.0
 
 @onready var rooms_cleared_label: Label = $RoomsClearedLabel
 @onready var gold_label: Label = $GoldLabel
@@ -26,12 +41,25 @@ extends Node2D
 @onready var enter_shop_button: Button = $EnterShopButton
 @onready var enter_event_button: Button = $EnterEventButton
 
+var _shop_available := true
+var _event_available := true
+
 
 func _ready() -> void:
 	enter_combat_button.pressed.connect(_on_combat_button_pressed)
 	enter_shop_button.pressed.connect(_on_shop_button_pressed)
 	enter_event_button.pressed.connect(_on_event_button_pressed)
+	_roll_room_choices()
 	_update_labels()
+
+
+## 현재 방(rooms_cleared) 기준으로 상점/특수 이벤트 노출 여부를 결정한다.
+## 전투 판정에 쓰이는 전역 randi()/randf()와 섞이지 않도록 별도 RNG를 씀.
+func _roll_room_choices() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = RunState.rooms_cleared * 104729 + 7
+	_shop_available = rng.randf() < SHOP_CHANCE
+	_event_available = rng.randf() < EVENT_CHANCE
 
 
 func _update_labels() -> void:
@@ -46,21 +74,39 @@ func _update_labels() -> void:
 		enter_combat_button.text = "전투 방 입장 (%d번째 방)" % (RunState.rooms_cleared + 1)
 		enter_shop_button.text = "상점 입장 (%d번째 방)" % (RunState.rooms_cleared + 1)
 		enter_event_button.text = "특수 이벤트 입장 (%d번째 방)" % (RunState.rooms_cleared + 1)
-		enter_shop_button.show()
-		enter_event_button.show()
+		enter_shop_button.visible = _shop_available
+		enter_event_button.visible = _event_available
+	_layout_visible_buttons()
+
+
+## 상점/이벤트가 숨겨져도 버튼 사이에 빈 틈이 남지 않도록, 보이는 버튼만 순서대로
+## 다시 세로 배치한다 (전투 방은 항상 첫 자리).
+func _layout_visible_buttons() -> void:
+	var visible_buttons: Array[Button] = [enter_combat_button]
+	if enter_shop_button.visible:
+		visible_buttons.append(enter_shop_button)
+	if enter_event_button.visible:
+		visible_buttons.append(enter_event_button)
+
+	var y := BUTTON_TOP_START
+	for btn in visible_buttons:
+		btn.offset_top = y
+		btn.offset_bottom = y + BUTTON_HEIGHT
+		y += BUTTON_SPACING
 
 
 func _on_combat_button_pressed() -> void:
 	if RunState.is_run_complete():
 		RunState.reset_run()
+		_roll_room_choices()
 		_update_labels()
 	else:
-		get_tree().change_scene_to_file("res://scenes/combat_test.tscn")
+		get_tree().change_scene_to_file("res://code/scenes/combat_test.tscn")
 
 
 func _on_shop_button_pressed() -> void:
-	get_tree().change_scene_to_file("res://scenes/shop.tscn")
+	get_tree().change_scene_to_file("res://code/scenes/shop.tscn")
 
 
 func _on_event_button_pressed() -> void:
-	get_tree().change_scene_to_file("res://scenes/event.tscn")
+	get_tree().change_scene_to_file("res://code/scenes/event.tscn")

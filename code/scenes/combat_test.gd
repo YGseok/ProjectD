@@ -24,7 +24,7 @@ extends Node2D
 ## 기다려야 하는" 상황이 없다. 물리 이상 등으로 끝내 멈추지 않는 경우를 대비해
 ## SETTLE_MAX_WAIT 초과 시 강제로 진행한다 (안전장치).
 
-const DieD4Scene := preload("res://dice/die_d4.tscn")
+const DieD4Scene := preload("res://code/dice/die_d4.tscn")
 
 const SETTLE_LIN_THRESHOLD := 0.08
 const SETTLE_ANG_THRESHOLD := 0.5
@@ -269,7 +269,7 @@ func _on_next_button_pressed() -> void:
 		RunState.rooms_cleared += 1
 	else:
 		RunState.reset_run()
-	get_tree().change_scene_to_file("res://scenes/dungeon_map.tscn")
+	get_tree().change_scene_to_file("res://code/scenes/dungeon_map.tscn")
 
 
 ## 승리 시 다이스 개조 아이템 2개를 제시하고, 어느 주머니(공격/방어)에 적용할지

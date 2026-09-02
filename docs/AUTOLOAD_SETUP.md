@@ -5,14 +5,14 @@ project.godot 이 있는 위치)에 아래처럼 병합하세요.
 
 ## 1. 파일 복사
 
-`docs/`, `qa/`, `scripts/`, `loop/` 폴더와 `AUTOLOAD_SETUP.md`, `.gitignore` 를
-프로젝트 루트에 그대로 복사합니다.
+`docs/`, `code/qa/`, `scripts/`, `Util/loop/` 폴더와 `.gitignore` 를
+프로젝트 루트에 그대로 복사합니다 (`docs/AUTOLOAD_SETUP.md`가 이 문서 자체입니다).
 
 ## 2. project.godot 에 autoload 등록
 
 프로젝트를 Godot 에디터로 열고: **프로젝트 → 프로젝트 설정 → Autoload** 탭에서
 
-- Path: `res://qa/visual_qa.gd`
+- Path: `res://code/qa/visual_qa.gd`
 - Node Name: `VisualQA`
 
 로 추가하세요. 또는 `project.godot` 파일을 직접 열어서 `[autoload]` 섹션에 아래 한 줄을
@@ -21,7 +21,7 @@ project.godot 이 있는 위치)에 아래처럼 병합하세요.
 ```ini
 [autoload]
 
-VisualQA="*res://qa/visual_qa.gd"
+VisualQA="*res://code/qa/visual_qa.gd"
 ```
 
 (이미 다른 autoload가 있다면 그 아래에 한 줄만 추가하면 됩니다.)
@@ -31,8 +31,8 @@ VisualQA="*res://qa/visual_qa.gd"
 
 ## 3. 첫 씬 만들기 (예: dungeon)
 
-`res://scenes/dungeon/dungeon.tscn` (또는 `res://scenes/dungeon.tscn`) 을 만드세요.
-이름이 `GAME_START` 값과 일치해야 컨벤션으로 자동 인식됩니다.
+`res://code/scenes/dungeon/dungeon.tscn` (또는 `res://code/scenes/dungeon.tscn`) 을
+만드세요. 이름이 `GAME_START` 값과 일치해야 컨벤션으로 자동 인식됩니다.
 다른 위치에 두고 싶다면 `GAME_START_PATH` 환경변수로 전체 경로를 직접 지정할 수 있습니다.
 
 ## 4. 확인 (Windows / PowerShell 기준)
@@ -62,13 +62,13 @@ GODOT_BIN="/c/Program Files/Godot/godot4.exe" scripts/qa_shot.sh dungeon
 ## 6. 반복 루프 시작
 
 ```bash
-./loop/loop.sh
+./Util/loop/loop.sh
 ```
 
 멈추려면:
 
 ```bash
-touch loop/STOP
+touch Util/loop/STOP
 ```
 
 ## 7. git

@@ -9,8 +9,8 @@ export_presets.cfg
 qa_out/
 
 # 루프 실행 로그
-loop/logs/
-loop/STOP
+Util/loop/logs/
+Util/loop/STOP
 
 # OS
 .DS_Store

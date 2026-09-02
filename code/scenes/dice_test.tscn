@@ -1,6 +1,6 @@
 [gd_scene load_steps=3 format=3 uid="uid://qa_dice_test_logic"]
 
-[ext_resource type="Script" path="res://scenes/dice_test.gd" id="1_script"]
+[ext_resource type="Script" path="res://code/scenes/dice_test.gd" id="1_script"]
 
 [sub_resource type="LabelSettings" id="LabelSettings_1"]
 font_size = 18

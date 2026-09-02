@@ -86,4 +86,4 @@ func _debug_buy_first_for_attack() -> void:
 
 func _on_leave_pressed() -> void:
 	RunState.rooms_cleared += 1
-	get_tree().change_scene_to_file("res://scenes/dungeon_map.tscn")
+	get_tree().change_scene_to_file("res://code/scenes/dungeon_map.tscn")

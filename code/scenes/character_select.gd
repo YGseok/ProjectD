@@ -20,7 +20,7 @@ func _ready() -> void:
 
 func _on_start_pressed() -> void:
 	RunState.reset_run()
-	get_tree().change_scene_to_file("res://scenes/dungeon_map.tscn")
+	get_tree().change_scene_to_file("res://code/scenes/dungeon_map.tscn")
 
 
 ## QA 전용: 클릭을 흉내낼 수 없는 자동 스크린샷에서 버튼 동작을 검증하기 위한 래퍼.

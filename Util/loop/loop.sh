@@ -1,23 +1,27 @@
 #!/usr/bin/env bash
-# loop/loop.sh — Claude Code 헤드리스 무한 반복 루프
+# Util/loop/loop.sh — Claude Code 헤드리스 무한 반복 루프
 #
 # 매 이터레이션마다 완전히 새로운 claude -p 세션을 띄운다 (--continue 사용 안 함).
 # 즉, 세션 간 기억은 없다. 모든 상태는 파일(docs/DESIGN.md, docs/STATUS.md,
 # docs/feedback/INBOX.md)로만 이어진다.
 #
-# 중단하려면: touch loop/STOP
+# 중단하려면: touch Util/loop/STOP
 # (다음 이터레이션 시작 전, 그리고 진행 중 이터레이션이 끝난 직후에 확인한다)
 #
-# 로그: loop/logs/iter_<N>_<timestamp>.log
+# 로그: Util/loop/logs/iter_<N>_<timestamp>.log
 
 set -uo pipefail
 # 주의: -e 를 쓰지 않는다. 한 이터레이션이 실패해도 루프 자체는 계속 돌아야 한다.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+PROJECT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 STOP_FILE="$SCRIPT_DIR/STOP"
 LOG_DIR="$SCRIPT_DIR/logs"
 mkdir -p "$LOG_DIR"
+
+# 절전모드 등으로 네트워크가 끊기면 claude -p가 응답 없이 무한정 멈출 수 있다.
+# 이터레이션당 최대 대기 시간(초)을 두어 자동으로 죽이고 다음 이터레이션으로 넘어가게 한다.
+ITER_TIMEOUT="${ITER_TIMEOUT:-900}"
 
 ITER=0
 
@@ -64,11 +68,15 @@ while true; do
   echo "[loop] --- 이터레이션 $ITER 시작 ($TS) ---"
 
   (
-    cd "$PROJECT_DIR" && claude -p "$PROMPT"
+    cd "$PROJECT_DIR" && timeout -k 30 "$ITER_TIMEOUT" claude -p "$PROMPT"
   ) >"$LOG_FILE" 2>&1
   EXIT_CODE=$?
 
-  echo "[loop] 이터레이션 $ITER 종료 (exit=$EXIT_CODE). 로그: $LOG_FILE"
+  if [[ "$EXIT_CODE" -eq 124 ]]; then
+    echo "[loop] 이터레이션 $ITER 타임아웃(${ITER_TIMEOUT}초 초과, 예: 절전모드로 인한 응답 없음) -> 강제 종료함. 로그: $LOG_FILE"
+  else
+    echo "[loop] 이터레이션 $ITER 종료 (exit=$EXIT_CODE). 로그: $LOG_FILE"
+  fi
 
   if [[ -f "$STOP_FILE" ]]; then
     echo "[loop] STOP 파일 발견. 루프를 종료합니다."

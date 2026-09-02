@@ -8,8 +8,8 @@ extends Node
 ## 동작 방식 (GAME_START 가 설정된 경우에만):
 ##   1. GAME_START 값으로 씬을 찾아 로드한다.
 ##      - 우선순위 1: GAME_START_PATH 환경변수 (전체 res:// 경로를 직접 지정)
-##      - 우선순위 2: res://scenes/<name>/<name>.tscn (폴더당 씬 1개 컨벤션)
-##      - 우선순위 3: res://scenes/<name>.tscn (평면 컨벤션)
+##      - 우선순위 2: res://code/scenes/<name>/<name>.tscn (폴더당 씬 1개 컨벤션)
+##      - 우선순위 3: res://code/scenes/<name>.tscn (평면 컨벤션)
 ##   2. GAME_QA_FRAME 번째 프레임까지 기다린다 (기본 60, 로딩/애니메이션 안정화 목적).
 ##   3. 뷰포트를 이미지로 캡처해 PNG로 저장한다.
 ##      - GAME_QA_OUT 이 지정되면 그 경로(res:// 또는 절대경로)에 저장.
@@ -18,7 +18,7 @@ extends Node
 ##
 ## 환경변수 목록:
 ##   GAME_START       (필수, QA 모드 트리거) 예: dungeon
-##   GAME_START_PATH  (선택) 씬 경로를 컨벤션 대신 직접 지정. 예: res://scenes/dungeon/dungeon.tscn
+##   GAME_START_PATH  (선택) 씬 경로를 컨벤션 대신 직접 지정. 예: res://code/scenes/dungeon/dungeon.tscn
 ##   GAME_QA_FRAME    (선택, 기본 60) 몇 프레임 후에 캡처할지
 ##   GAME_QA_OUT      (선택) 출력 PNG 경로. 예: res://qa_out/dungeon.png 또는 절대경로
 ##   GAME_QA_CALL     (선택) 캡처 직전에 현재 씬 루트에서 인자 없이 호출할 메서드 이름.
@@ -54,9 +54,9 @@ func _ready() -> void:
 	var explicit_path := OS.get_environment("GAME_START_PATH")
 	var scene_path := explicit_path
 	if scene_path.is_empty():
-		scene_path = "res://scenes/%s/%s.tscn" % [_scene_name, _scene_name]
+		scene_path = "res://code/scenes/%s/%s.tscn" % [_scene_name, _scene_name]
 		if not ResourceLoader.exists(scene_path):
-			scene_path = "res://scenes/%s.tscn" % _scene_name
+			scene_path = "res://code/scenes/%s.tscn" % _scene_name
 
 	if not ResourceLoader.exists(scene_path):
 		push_error("[VisualQA] GAME_START='%s' 에 해당하는 씬을 찾을 수 없습니다. 시도한 경로: %s (GAME_START_PATH로 직접 지정 가능)" % [_scene_name, scene_path])

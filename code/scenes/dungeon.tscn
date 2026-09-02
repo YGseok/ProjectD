@@ -1,6 +1,6 @@
 [gd_scene load_steps=7 format=3 uid="uid://qa_placeholder_dungeon_d"]
 
-[ext_resource type="PackedScene" path="res://dice/die_d4.tscn" id="1_die_d4"]
+[ext_resource type="PackedScene" path="res://code/dice/die_d4.tscn" id="1_die_d4"]
 
 [sub_resource type="LabelSettings" id="LabelSettings_1"]
 font_size = 28

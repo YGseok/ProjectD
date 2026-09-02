@@ -1,7 +1,7 @@
 [gd_scene load_steps=3 format=3 uid="uid://qa_die_d4"]
 
-[ext_resource type="Script" path="res://dice/die_d4.gd" id="1_script"]
-[ext_resource type="Resource" path="res://dice/materials/plastic.tres" id="2_material"]
+[ext_resource type="Script" path="res://code/dice/die_d4.gd" id="1_script"]
+[ext_resource type="Resource" path="res://resources/materials/plastic.tres" id="2_material"]
 
 [node name="DieD4" type="RigidBody3D"]
 script = ExtResource("1_script")

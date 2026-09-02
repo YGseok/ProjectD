@@ -58,7 +58,7 @@ func _on_pick_pressed(item: Dictionary, target: String) -> void:
 	var bag: DiceBag = RunState.player_attack_bag if target == "attack" else RunState.player_defense_bag
 	DiceItemPool.apply(item, bag)
 	RunState.rooms_cleared += 1
-	get_tree().change_scene_to_file("res://scenes/dungeon_map.tscn")
+	get_tree().change_scene_to_file("res://code/scenes/dungeon_map.tscn")
 
 
 ## qa/visual_qa.gd의 GAME_QA_CALL로 호출하기 위한 인자 없는 래퍼 (QA 전용).
