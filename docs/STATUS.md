@@ -6,8 +6,8 @@
 ## 마지막 갱신
 
 - 일시: 2026-09-02
-- 작성자: AI 에이전트 (INBOX.md 큐 6 항목 반영: 던전 입장 전 캐릭터 선택 화면 추가,
-  플레이스홀더 실루엣으로 "여캐 디자인" 방향성만 표시)
+- 작성자: AI 에이전트 (INBOX.md 큐 7 항목 반영: 전투 화면에 플레이어/몬스터 초상화
+  플레이스홀더 추가, 공방/승리/패배에 따라 표정이 웃음·찡그림·분노·슬픔으로 바뀌게 구현)
 
 ## 지금 위치
 
@@ -158,6 +158,11 @@
   반복 적용 가능하므로(승리할 때마다 같은 면을 계속 고르면) 후반에는 노골적으로 강한
   "사기 주사위"를 만들 수 있음 — 이것이 의도임. 자세한 내용은 "완료 기록" 참고.
 
+- **전투 화면에 플레이어/몬스터 초상화 + 표정 연출 구현 완료** (INBOX.md 신규 항목
+  4개 반영: "전투에서는 나와 상대 스프라이트가 표시된다", "공방을 주고받을 때는
+  웃거나 찡그린다", "승리할 때는 즐거워한다", "패배할 때는 슬퍼하거나 분노한다").
+  자세한 내용은 "완료 기록" 참고.
+
 ## 다음 할 일 큐 (우선순위 순)
 
 이 순서를 반드시 지킬 필요는 없지만, 앞 단계가 뒤 단계의 전제가 되므로 대체로 순서대로
@@ -233,10 +238,19 @@
    - 캐릭터가 1종뿐이라 지금은 "선택"이 아니라 "확인" 버튼에 가까움 — 정말 여러
      캐릭터 중 고르는 화면이 필요하면 카드 여러 개를 나열하는 구조로 확장해야 함
      (사람 지시 없으면 이대로 유지, DESIGN.md에도 "능력 차별화 없는 1종"이 확정값).
-7. **(INBOX.md 신규) 전투 스프라이트 + 표정 연출** — 전투 화면에 플레이어/몬스터
-   스프라이트를 표시하고, 공방 교환 시 웃음/찡그림, 승리 시 기뻐함, 패배 시 슬픔/분노
-   표정으로 바뀌는 연출 필요. 몬스터는 "몬스터 무스메" 컨셉. 캐릭터 선택(큐 6)과 함께
-   아트 파이프라인이 먼저 필요함 (지금은 다이스 색으로만 몬스터를 구분 중).
+7. ~~(INBOX.md 신규) 전투 스프라이트 + 표정 연출~~ → **부분 완료** (이번 이터레이션,
+   아래 "완료 기록" 참고). `scenes/character_portrait_placeholder.gd`(플레이어,
+   기존 캐릭터 선택 화면과 공유)와 신규 `scenes/monster_portrait_placeholder.gd`
+   (몬스터, 뿔 달린 블롭 실루엣)를 `combat_test.tscn`에 배치하고, 공방 결과/승리/패배에
+   따라 표정(neutral/happy/hurt/sad/angry)이 바뀌도록 `combat_test.gd`에 배선함.
+   남은 것:
+   - **실제 일러스트/스프라이트 에셋이 없음** — 지금은 도형 조립 플레이스홀더일 뿐
+     (캐릭터 선택 화면과 동일한 한계). "몬스터 무스메"(의인화된 미소녀) 컨셉은 전혀
+     반영 안 됨 — 지금 몬스터 실루엣은 뿔 달린 블롭이라 무스메와 거리가 멂. 사람이
+     실제 아트 방향을 정하거나 리소스를 구해서 교체해야 함.
+   - 표정은 5종(neutral/happy/hurt/sad/angry)뿐이고 전환도 순간적(트랜지션 없음) —
+     체감이 어떤지 사람 피드백 필요.
+   - 몬스터별 성격(큐 8)이 아직 없어서 표정 변화가 모든 몬스터에 획일적으로 적용됨.
 8. **(INBOX.md 신규) 몬스터별 성격 디자인** — 사용자가 "추후 기획, 할 일 거리에 저장"
    이라고 명시. 지금 `MONSTER_PROFILES`(`combat_test.gd`)는 이름/다이스 색만 있고
    성격/말투 등은 없음 — 나중에 기획 문서(DESIGN.md)에 먼저 구체화된 뒤 반영해야 함.
@@ -260,6 +274,61 @@
     실제로 "어떻게 개조하면 어떤 주사위가 될지 예상하기 쉬운지" 사람 피드백뿐.
 
 ## 완료 기록
+
+- **2026-09-02**: INBOX.md 신규 항목 4개 반영 — "전투에서는 나와 상대 스프라이트가
+  표시된다" / "공방을 주고받을 때는 웃거나 찡그린다" / "승리할 때는 즐거워한다" /
+  "패배할 때는 슬퍼하거나 분노한다"를 전투 화면 초상화 + 표정 시스템으로 구현.
+  - `scenes/character_portrait_placeholder.gd`(기존, 캐릭터 선택 화면에서 쓰던 것을
+    재사용): `expression: String`(기본 "neutral") 필드와 `set_expression()` 추가.
+    기존에는 눈만 그리고 입이 없었는데, `_draw_face()`를 새로 추가해 표정별로
+    눈썹(각도)/입(직선·미소 곡선·찡그림 곡선·이 악문 지그재그)을 그리도록 확장함.
+    "neutral"이면 기존과 거의 같은 인상(직선 입 추가)이라 캐릭터 선택 화면 회귀는
+    없음(QA로 확인).
+  - `scenes/monster_portrait_placeholder.gd`(신규): 플레이어와 형태를 분명히
+    구분하기 위해 사람 실루엣이 아닌 "뿔 두 개 + 둥근 블롭 몸통" 형태로 설계.
+    `expression`/`set_expression()`은 캐릭터 쪽과 동일한 인터페이스,
+    `body_color`/`set_body_color()`로 기존 `MONSTER_PROFILES`의 몬스터별 색을
+    그대로 받아 몸 색으로 씀 (다이스 색 구분과 시각적으로 통일됨).
+  - 두 스크립트 모두 `class_name`(`CharacterPortraitPlaceholder`,
+    `MonsterPortraitPlaceholder`)을 추가함 — `combat_test.gd`에서 `@onready var
+    player_portrait: CharacterPortraitPlaceholder = $PlayerPortrait`처럼 정적 타입을
+    선언해야 `set_expression()`/`set_body_color()` 호출이 컴파일됨을 QA 도중 발견함
+    (타입 없이 `$NodePath`로만 받으면 "Nonexistent function" 런타임 에러 — 아래
+    "이번에 고친 버그" 참고).
+  - `scenes/combat_test.tscn`: `PlayerPortrait`(position (70, 270))와
+    `MonsterPortrait`(position (1210, 270)) 두 Node2D를 추가. 다이스
+    `SubViewportContainer`가 x=140~1140을 차지하므로, 그 바깥 좌우 여백(각 140px)에
+    배치해 레이아웃 변경 없이 끼워 넣음.
+  - `scenes/combat_test.gd`: `_ready()`에서 몬스터 색이 정해지는 즉시
+    `monster_portrait.set_body_color()` 호출. `_do_exchange()`에서 공격한 쪽은
+    "happy", 데미지를 받은 쪽은 dmg>0이면 "hurt" 아니면 표정 유지("neutral"로
+    되돌리진 않음 — 완전 방어 시 굳이 표정이 안 바뀌어도 어색하지 않다고 판단).
+    승리 시 플레이어 "happy"/몬스터 "sad", 패배 시 플레이어는 `randi() % 2`로
+    "angry" 또는 "sad" 중 무작위, 몬스터는 "happy".
+  - QA 중 발견하고 고친 버그 2개: ① `_arc_points()`의 `var angle := lerp(...)`가
+    "The variable type is being inferred from a Variant value" 에러로 씬 로드 자체가
+    실패함(이 프로젝트는 경고를 에러로 취급하는 설정) → `lerp()`가 Variant 오버로드라
+    타입 추론이 안 됨, `var angle: float = lerp(...)`로 명시 타입을 줘서 해결.
+    ② 위에서 설명한 `set_body_color`/`set_expression` "Nonexistent function" 에러 →
+    두 플레이스홀더 스크립트에 `class_name` 추가 + `combat_test.gd`의 onready 변수에
+    정적 타입 명시로 해결.
+  - QA 검증: `scripts/qa_shot.sh combat_test 140` — 첫 교환 직후(플레이어가 공격해
+    데미지를 입힌 상황) 플레이어 초상화가 웃는 표정, 몬스터(슬라임, 초록) 초상화가
+    찡그린 표정으로 정상 표시되고 다이스 뷰포트/로그와 겹치지 않음 확인
+    (`qa_out/combat_test.png`). `scripts/qa_shot.sh combat_test 1500
+    qa_out/combat_test_victory.png` — 승리 보상 화면이 뜬 상태에서도 플레이어
+    웃음/몬스터 슬픔 표정과 두 초상화가 보상 패널(x=140~1140) 바깥이라 겹치지 않고
+    유지되는 것 확인 (`qa_out/combat_test_victory.png`). QA 전용 래퍼
+    `_debug_show_defeat_expressions()`를 추가해
+    `scripts/qa_shot.sh combat_test 30 qa_out/combat_test_defeat_expr.png
+    _debug_show_defeat_expressions`로 "분노"(플레이어)/"기쁨"(몬스터) 조합도 눈으로
+    확인 (`qa_out/combat_test_defeat_expr.png`). `scripts/qa_shot.sh
+    character_select 30`, `scripts/qa_shot.sh dungeon_map 30`, `scripts/qa_shot.sh
+    dice_test 60`으로 기존 씬 회귀 없음 재확인(캐릭터 선택 화면은 "neutral" 표정의
+    직선 입이 추가된 것 외 레이아웃 변화 없음, dice_test PASS 유지). 크래시 없음.
+  - 다루지 않은 것: 실제 일러스트/스프라이트 에셋(사람이 준비해야 함), "몬스터 무스메"
+    컨셉 자체(지금은 뿔 달린 블롭일 뿐 미소녀 디자인이 아님), 몬스터별 성격에 따른
+    표정 차별화(큐 8 선행 필요), 표정 전환 애니메이션/트랜지션.
 
 - **2026-09-02**: INBOX.md 큐 6 반영 — "던전에 입장하면 플레이어블 캐릭터를
   선택해야한다(슬더스와 유사). 일단은 능력 없는 기본 캐릭터, 이쁘장한 여캐 하나

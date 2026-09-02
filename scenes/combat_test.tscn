@@ -1,6 +1,8 @@
 [gd_scene load_steps=10 format=3 uid="uid://qa_combat_test"]
 
 [ext_resource type="Script" path="res://scenes/combat_test.gd" id="1_script"]
+[ext_resource type="Script" path="res://scenes/character_portrait_placeholder.gd" id="2_player_portrait"]
+[ext_resource type="Script" path="res://scenes/monster_portrait_placeholder.gd" id="3_monster_portrait"]
 
 [sub_resource type="LabelSettings" id="LabelSettings_title"]
 font_size = 26
@@ -80,6 +82,14 @@ offset_bottom = 100.0
 horizontal_alignment = 1
 text = "전투 시작"
 label_settings = SubResource("LabelSettings_turn")
+
+[node name="PlayerPortrait" type="Node2D" parent="."]
+position = Vector2(70, 270)
+script = ExtResource("2_player_portrait")
+
+[node name="MonsterPortrait" type="Node2D" parent="."]
+position = Vector2(1210, 270)
+script = ExtResource("3_monster_portrait")
 
 [node name="DiceViewportContainer" type="SubViewportContainer" parent="."]
 offset_left = 140.0

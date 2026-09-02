@@ -32,6 +32,8 @@ const MAX_LOG_LINES := 6
 @onready var log_label: Label = $LogLabel
 @onready var dice_root: Node3D = $DiceViewportContainer/DiceViewport/DiceRoot
 @onready var next_button: Button = $NextButton
+@onready var player_portrait: CharacterPortraitPlaceholder = $PlayerPortrait
+@onready var monster_portrait: MonsterPortraitPlaceholder = $MonsterPortrait
 
 var player_hp := 20
 const PLAYER_MAX_HP := 20
@@ -98,6 +100,7 @@ func _ready() -> void:
 	monster_hp = monster_max_hp
 	monster_name = config["name"]
 	monster_color = config["color"]
+	monster_portrait.set_body_color(monster_color if monster_color.a > 0 else Color(0.5, 0.5, 0.5))
 
 	next_button.pressed.connect(_on_next_button_pressed)
 	_update_labels()
@@ -137,9 +140,13 @@ func _do_exchange(is_player_attacking: bool) -> void:
 	if is_player_attacking:
 		monster_hp = max(0, monster_hp - dmg)
 		_append_log("플레이어 공격 %d vs 몬스터 방어 %d -> 데미지 %d (몬스터 HP %d)" % [atk_total, def_total, dmg, monster_hp])
+		player_portrait.set_expression("happy")
+		monster_portrait.set_expression("hurt" if dmg > 0 else "neutral")
 	else:
 		player_hp = max(0, player_hp - dmg)
 		_append_log("몬스터 공격 %d vs 플레이어 방어 %d -> 데미지 %d (플레이어 HP %d)" % [atk_total, def_total, dmg, player_hp])
+		monster_portrait.set_expression("happy")
+		player_portrait.set_expression("hurt" if dmg > 0 else "neutral")
 
 	_update_labels()
 
@@ -150,10 +157,14 @@ func _do_exchange(is_player_attacking: bool) -> void:
 		var gold_gain := GOLD_REWARD_BASE + RunState.rooms_cleared * GOLD_REWARD_PER_ROOM
 		RunState.gold += gold_gain
 		_append_log("골드 획득: +%d (보유 %d)" % [gold_gain, RunState.gold])
+		player_portrait.set_expression("happy")
+		monster_portrait.set_expression("sad")
 	elif player_hp <= 0:
 		battle_over = true
 		player_won = false
 		turn_label.text = "패배... (플레이어 사망)"
+		player_portrait.set_expression("angry" if randi() % 2 == 0 else "sad")
+		monster_portrait.set_expression("happy")
 
 	await get_tree().create_timer(EXCHANGE_PAUSE_TIME).timeout
 
@@ -487,6 +498,13 @@ func _show_face_picker(bag: DiceBag, die_index: int) -> void:
 ## 흉내낼 수 없는 자동 스크린샷에서 면 선택 화면을 직접 열어보기 위함).
 func _debug_open_face_picker() -> void:
 	_show_face_picker(RunState.player_attack_bag, 0)
+
+
+## QA 전용 래퍼 — 패배 시 표정(플레이어 분노, 몬스터 기쁨)을 스크린샷으로 확인하기
+## 위함. randi() 기반 분노/슬픔 분기 중 "분노" 쪽을 강제로 보여준다.
+func _debug_show_defeat_expressions() -> void:
+	player_portrait.set_expression("angry")
+	monster_portrait.set_expression("happy")
 
 
 ## 커스터마이징 3단계: 고른 면에 넣을 값을 1..(면 개수) 범위에서 직접 고른다 (교체
