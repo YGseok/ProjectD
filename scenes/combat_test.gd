@@ -14,8 +14,15 @@ extends Node2D
 ## 기능은 아직 없음 — 알려진 이슈로 STATUS.md에 남김).
 ##
 ## 다이스가 완전히 멈췄는지 실제로 감지한다 (linear/angular velocity가 임계값 밑으로
-## SETTLE_MIN_FRAMES 프레임 연속 유지되면 정지로 판단). 물리 이상 등으로 끝내 멈추지
-## 않는 경우를 대비해 SETTLE_MAX_WAIT 초과 시 강제로 진행한다 (안전장치).
+## SETTLE_MIN_FRAMES 프레임 연속 유지되면 정지로 판단). **다이스별로 독립적으로
+## 판정한다** — 전체 다이스를 하나의 공용 카운터로 묶으면, 다이스 개수가 많을 때
+## 서로 맞닿은 접촉 잔진동으로 어느 한 다이스라도 순간적으로 임계값을 넘기면 전체
+## 카운터가 리셋되어 사실상 절대 정지 판정을 못 받는 문제가 있었다 (STATUS.md 알려진
+## 이슈: 14개 이상에서 항상 SETTLE_MAX_WAIT로 강제 종료). 다이스마다 자기 카운터가
+## SETTLE_MIN_FRAMES에 도달하면 그 다이스는 이후 다시 흔들려도 재검사하지 않으므로,
+## 다이스 개수가 늘어도 "다른 다이스의 잔진동 때문에 이미 멈춘 다이스까지 계속
+## 기다려야 하는" 상황이 없다. 물리 이상 등으로 끝내 멈추지 않는 경우를 대비해
+## SETTLE_MAX_WAIT 초과 시 강제로 진행한다 (안전장치).
 
 const DieD4Scene := preload("res://dice/die_d4.tscn")
 
@@ -185,30 +192,41 @@ func _do_exchange(is_player_attacking: bool) -> void:
 
 
 ## 씬에 있는 모든 다이스가 정지했다고 판단될 때까지 기다린다.
+## 다이스마다 독립적인 "연속 정지 프레임" 카운터를 두고, 한 번 SETTLE_MIN_FRAMES에
+## 도달한 다이스는 이후 다시 검사하지 않는다 (위 클래스 주석 참고).
 func _wait_for_dice_to_settle() -> void:
-	var elapsed := 0.0
-	var settled_frames := 0
-	while true:
-		await get_tree().physics_frame
-		elapsed += get_physics_process_delta_time()
-		if _all_dice_settled():
-			settled_frames += 1
-			if settled_frames >= SETTLE_MIN_FRAMES:
-				return
-		else:
-			settled_frames = 0
-		if elapsed >= SETTLE_MAX_WAIT:
-			return
-
-
-func _all_dice_settled() -> bool:
+	var quiet_frames: Dictionary = {}
 	for child in dice_root.get_children():
 		if child is RigidBody3D:
-			if child.linear_velocity.length() > SETTLE_LIN_THRESHOLD:
-				return false
-			if child.angular_velocity.length() > SETTLE_ANG_THRESHOLD:
-				return false
-	return true
+			quiet_frames[child] = 0
+
+	var elapsed := 0.0
+	while true:
+		await get_tree().physics_frame
+		# QA 하네스가 캡처 직후 get_tree().quit()을 호출하면 이 await가 재개되는
+		# 시점에는 이미 dice_root와 그 자식들이 해제된 상태일 수 있다 (셧다운 중
+		# 프리즈된 인스턴스를 타입 있는 for 루프 변수에 대입하면
+		# "Trying to assign invalid previously freed instance" 에러가 남).
+		if not is_instance_valid(dice_root):
+			return
+		elapsed += get_physics_process_delta_time()
+
+		var all_settled := true
+		for die in quiet_frames.keys():
+			if not is_instance_valid(die):
+				continue
+			if quiet_frames[die] >= SETTLE_MIN_FRAMES:
+				continue
+			var is_quiet: bool = die.linear_velocity.length() <= SETTLE_LIN_THRESHOLD \
+				and die.angular_velocity.length() <= SETTLE_ANG_THRESHOLD
+			quiet_frames[die] = quiet_frames[die] + 1 if is_quiet else 0
+			if quiet_frames[die] < SETTLE_MIN_FRAMES:
+				all_settled = false
+
+		if all_settled:
+			return
+		if elapsed >= SETTLE_MAX_WAIT:
+			return
 
 
 func _spawn_dice(count: int, base_x: float, color: Color = Color(1, 1, 1, 0)) -> void:
