@@ -26,6 +26,13 @@ const SETTLE_MAX_WAIT := 4.0
 const EXCHANGE_PAUSE_TIME := 0.8
 const MAX_LOG_LINES := 6
 
+## 다이스 개수가 아이템(다이스 추가/승급)으로 늘어나도 바닥 벽(x ±2.45 부근) 밖으로
+## 스폰되지 않도록, 한 줄에 최대 이만큼만 놓고 그 이상은 z축으로 다음 줄에 놓는다
+## (알려진 이슈: 큐 2 "다이스 개수가 늘어나면 재검증 필요" 반영).
+const DICE_SPAWN_PER_ROW := 4
+const DICE_SPAWN_COL_SPACING := 0.45
+const DICE_SPAWN_ROW_SPACING := 0.5
+
 @onready var player_hp_label: Label = $PlayerHPLabel
 @onready var monster_hp_label: Label = $MonsterHPLabel
 @onready var turn_label: Label = $TurnLabel
@@ -205,12 +212,17 @@ func _all_dice_settled() -> bool:
 
 
 func _spawn_dice(count: int, base_x: float, color: Color = Color(1, 1, 1, 0)) -> void:
+	var total_rows := int(ceil(float(count) / DICE_SPAWN_PER_ROW))
 	for i in count:
 		var die := DieD4Scene.instantiate()
 		die.color_override = color
 		dice_root.add_child(die)
-		var x := base_x + (i - (count - 1) / 2.0) * 0.45
-		var z := randf_range(-0.3, 0.3)
+		var row := i / DICE_SPAWN_PER_ROW
+		var row_start := row * DICE_SPAWN_PER_ROW
+		var cols_in_row: int = min(DICE_SPAWN_PER_ROW, count - row_start)
+		var col := i - row_start
+		var x: float = base_x + (col - (cols_in_row - 1) / 2.0) * DICE_SPAWN_COL_SPACING
+		var z := (row - (total_rows - 1) / 2.0) * DICE_SPAWN_ROW_SPACING + randf_range(-0.15, 0.15)
 		var y := 1.4 + i * 0.35
 		die.transform = Transform3D(Basis(), Vector3(x, y, z))
 		die.linear_velocity = Vector3(randf_range(-0.5, 0.5), 0, randf_range(-0.5, 0.5))
