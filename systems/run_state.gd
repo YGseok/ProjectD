@@ -10,10 +10,14 @@ extends Node
 ## player_attack_bag / player_defense_bag: 플레이어의 다이스 주머니도 여기서 들고
 ## 있어야 전투(combat_test)를 여러 번 오가도 다이스 개조(아이템) 결과가 유지된다
 ## (combat_test.gd 씬은 매번 새로 로드되므로 그 안의 로컬 변수로는 지속 불가능).
+##
+## gold: INBOX.md 피드백("승리하면 골드를 주며, 상점 이벤트에서 사용할 수 있다")을
+## 반영. 전투 승리 시 combat_test.gd가 더하고, 상점(shop.gd)에서 아이템 구매 시 뺀다.
 
 const TOTAL_ROOMS := 5
 
 var rooms_cleared := 0
+var gold := 0
 var player_attack_bag: DiceBag
 var player_defense_bag: DiceBag
 
@@ -24,6 +28,7 @@ func _ready() -> void:
 
 func reset_run() -> void:
 	rooms_cleared = 0
+	gold = 0
 	player_attack_bag = DiceBag.new(4, 3)
 	player_defense_bag = DiceBag.new(4, 3)
 

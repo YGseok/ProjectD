@@ -24,7 +24,7 @@ const SETTLE_ANG_THRESHOLD := 0.3
 const SETTLE_MIN_FRAMES := 15
 const SETTLE_MAX_WAIT := 4.0
 const EXCHANGE_PAUSE_TIME := 0.8
-const MAX_LOG_LINES := 7
+const MAX_LOG_LINES := 6
 
 @onready var player_hp_label: Label = $PlayerHPLabel
 @onready var monster_hp_label: Label = $MonsterHPLabel
@@ -49,10 +49,16 @@ var _log_lines: Array[String] = []
 var _reward_ui: Array[Node] = []
 var _reward_items: Array[Dictionary] = []
 
-## 커스터마이징(직접 눈금 강화)으로 면 하나를 올릴 때마다 더하는 양. INBOX.md 피드백
-## "사기 주사위를 만드는 재미" 반영 — 반복 적용 시 상한 없이 계속 누적되어 후반에는
-## 노골적으로 과한 다이스를 만들 수 있게 하는 것이 의도.
-const FACE_BOOST_AMOUNT := 3
+## 커스터마이징(직접 눈금 강화) 방식. INBOX.md 피드백(2026-09-02)으로 방식이 바뀜:
+## 기존에는 고른 면 값에 고정량(+3)을 더하는 방식이었으나, "특정 값을 더하는 방식이
+## 아닌 특정 값으로 교체하는 방식, 4면체는 4를 넘어갈 수 없다"는 지시에 따라 면을 고른
+## 뒤 1..(그 다이스의 면 개수) 범위에서 원하는 값을 직접 골라 그 값으로 교체하는
+## 방식으로 변경함 (다이스 승급으로 면 개수 자체가 늘면 상한도 함께 올라간다).
+
+## 승리 시 골드 보상. INBOX.md 피드백 "승리하면 골드를 주며, 상점 이벤트에서 사용할 수
+## 있다"를 반영. 방이 진행될수록 조금씩 더 주는 잠정값 (밸런스는 사람 피드백 필요).
+const GOLD_REWARD_BASE := 8
+const GOLD_REWARD_PER_ROOM := 2
 
 ## 몬스터별 이름/다이스 색 (시각 구분용, 능력치와는 무관). room_index를 이 배열 길이로
 ## 나눈 나머지로 순환시키고, 배열을 다 돌면 이름 앞에 "강화"를 붙여 재사용한다
@@ -141,6 +147,9 @@ func _do_exchange(is_player_attacking: bool) -> void:
 		battle_over = true
 		player_won = true
 		turn_label.text = "승리! (몬스터 처치)"
+		var gold_gain := GOLD_REWARD_BASE + RunState.rooms_cleared * GOLD_REWARD_PER_ROOM
+		RunState.gold += gold_gain
+		_append_log("골드 획득: +%d (보유 %d)" % [gold_gain, RunState.gold])
 	elif player_hp <= 0:
 		battle_over = true
 		player_won = false
@@ -354,20 +363,20 @@ func _add_die_picker_rows(bag_label: String, bag: DiceBag, y: float) -> float:
 	return y
 
 
-## 커스터마이징 2단계: 고른 다이스의 면 하나를 골라 값을 FACE_BOOST_AMOUNT만큼 올린다.
+## 커스터마이징 2단계: 고른 다이스의 면 하나를 고른다 (값은 3단계에서 정한다).
 func _show_face_picker(bag: DiceBag, die_index: int) -> void:
 	_clear_reward_ui()
-	_add_reward_frame("강화할 면을 고르세요 (값이 +%d 됩니다)" % FACE_BOOST_AMOUNT)
+	_add_reward_frame("강화할 면을 고르세요")
 
 	var faces: PackedInt32Array = bag.dice[die_index]
 	var y := 190.0
 	var x := 200.0
 	for fi in faces.size():
 		var btn := Button.new()
-		btn.text = "면 %d: %d -> %d" % [fi + 1, faces[fi], faces[fi] + FACE_BOOST_AMOUNT]
+		btn.text = "면 %d: 현재값 %d" % [fi + 1, faces[fi]]
 		btn.position = Vector2(x, y)
 		btn.size = Vector2(180, 40)
-		btn.pressed.connect(_on_face_boosted.bind(bag, die_index, fi))
+		btn.pressed.connect(_show_value_picker.bind(bag, die_index, fi))
 		add_child(btn)
 		_reward_ui.append(btn)
 		x += 190.0
@@ -390,10 +399,47 @@ func _debug_open_face_picker() -> void:
 	_show_face_picker(RunState.player_attack_bag, 0)
 
 
-func _on_face_boosted(bag: DiceBag, die_index: int, face_index: int) -> void:
+## 커스터마이징 3단계: 고른 면에 넣을 값을 1..(면 개수) 범위에서 직접 고른다 (교체
+## 방식 — 더하는 것이 아님). INBOX.md 피드백 "4면체는 4를 넘어갈 수 없다"를 그대로
+## 반영해 상한을 그 다이스의 면 개수로 둔다.
+func _show_value_picker(bag: DiceBag, die_index: int, face_index: int) -> void:
+	_clear_reward_ui()
 	var faces: PackedInt32Array = bag.dice[die_index]
-	var new_value: int = faces[face_index] + FACE_BOOST_AMOUNT
-	bag.set_face_value(die_index, face_index, new_value)
-	_append_log("커스터마이징: 다이스 %d의 면 %d -> %d" % [die_index + 1, face_index + 1, new_value])
+	var max_value: int = faces.size()
+	_add_reward_frame("면 %d에 넣을 값을 고르세요 (현재값 %d, 최대 %d)" % [face_index + 1, faces[face_index], max_value])
+
+	var y := 190.0
+	var x := 200.0
+	for value in range(1, max_value + 1):
+		var btn := Button.new()
+		btn.text = ("[현재] %d" % value) if value == faces[face_index] else str(value)
+		btn.disabled = value == faces[face_index]
+		btn.position = Vector2(x, y)
+		btn.size = Vector2(90, 40)
+		btn.pressed.connect(_on_face_value_chosen.bind(bag, die_index, face_index, value))
+		add_child(btn)
+		_reward_ui.append(btn)
+		x += 100.0
+		if x > 900.0:
+			x = 200.0
+			y += 50.0
+
+	var back_btn := Button.new()
+	back_btn.text = "뒤로"
+	back_btn.position = Vector2(200, y + 60)
+	back_btn.size = Vector2(160, 40)
+	back_btn.pressed.connect(_show_face_picker.bind(bag, die_index))
+	add_child(back_btn)
+	_reward_ui.append(back_btn)
+
+
+## qa/visual_qa.gd의 GAME_QA_CALL로 호출하기 위한 인자 없는 래퍼 (QA 전용).
+func _debug_open_value_picker() -> void:
+	_show_value_picker(RunState.player_attack_bag, 0, 0)
+
+
+func _on_face_value_chosen(bag: DiceBag, die_index: int, face_index: int, value: int) -> void:
+	bag.set_face_value(die_index, face_index, value)
+	_append_log("커스터마이징: 다이스 %d의 면 %d -> %d(으)로 교체" % [die_index + 1, face_index + 1, value])
 	_clear_reward_ui()
 	next_button.show()

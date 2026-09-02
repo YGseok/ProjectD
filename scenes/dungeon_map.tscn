@@ -34,9 +34,24 @@ offset_bottom = 110.0
 text = "클리어한 방: 0"
 label_settings = SubResource("LabelSettings_rooms")
 
+[node name="GoldLabel" type="Label" parent="."]
+offset_left = 40.0
+offset_top = 112.0
+offset_right = 500.0
+offset_bottom = 142.0
+text = "보유 골드: 0"
+label_settings = SubResource("LabelSettings_rooms")
+
 [node name="EnterCombatButton" type="Button" parent="."]
-offset_left = 470.0
+offset_left = 350.0
 offset_top = 320.0
-offset_right = 810.0
+offset_right = 690.0
 offset_bottom = 370.0
 text = "전투 방 입장 (1번째 방)"
+
+[node name="EnterShopButton" type="Button" parent="."]
+offset_left = 350.0
+offset_top = 390.0
+offset_right = 690.0
+offset_bottom = 440.0
+text = "상점 입장"
