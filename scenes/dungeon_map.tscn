@@ -55,3 +55,10 @@ offset_top = 390.0
 offset_right = 690.0
 offset_bottom = 440.0
 text = "상점 입장"
+
+[node name="EnterEventButton" type="Button" parent="."]
+offset_left = 350.0
+offset_top = 460.0
+offset_right = 690.0
+offset_bottom = 510.0
+text = "특수 이벤트 입장"
