@@ -19,9 +19,9 @@ extends Node2D
 
 const DieD4Scene := preload("res://dice/die_d4.tscn")
 
-const SETTLE_LIN_THRESHOLD := 0.05
-const SETTLE_ANG_THRESHOLD := 0.3
-const SETTLE_MIN_FRAMES := 15
+const SETTLE_LIN_THRESHOLD := 0.08
+const SETTLE_ANG_THRESHOLD := 0.5
+const SETTLE_MIN_FRAMES := 10
 const SETTLE_MAX_WAIT := 4.0
 const EXCHANGE_PAUSE_TIME := 0.8
 const MAX_LOG_LINES := 6
