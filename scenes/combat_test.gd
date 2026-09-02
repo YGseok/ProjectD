@@ -289,12 +289,13 @@ func _show_reward_ui() -> void:
 
 
 ## 공통 배경+제목 프레임을 그린다 (보상 화면의 3단계 — 아이템 선택 / 다이스 선택 /
-## 면 선택 — 모두 이 위에 그려서 화면을 재활용한다).
-func _add_reward_frame(title_text: String) -> void:
+## 면 선택 — 모두 이 위에 그려서 화면을 재활용한다). D8~D12처럼 면이 많은 다이스는
+## 얼굴 그리드가 두 줄이 될 수 있어 height를 늘려 부를 수 있게 함(기본 420).
+func _add_reward_frame(title_text: String, height: float = 420.0) -> void:
 	var bg := ColorRect.new()
 	bg.color = Color(0, 0, 0, 0.85)
 	bg.position = Vector2(140, 120)
-	bg.size = Vector2(1000, 420)
+	bg.size = Vector2(1000, height)
 	add_child(bg)
 	_reward_ui.append(bg)
 
@@ -334,8 +335,8 @@ func _show_customize_picker() -> void:
 	_add_reward_frame("강화할 다이스를 고르세요")
 
 	var y := 190.0
-	y = _add_die_picker_rows("공격 주머니", RunState.player_attack_bag, y)
-	y = _add_die_picker_rows("방어 주머니", RunState.player_defense_bag, y)
+	y = _add_die_picker_rows("공격", RunState.player_attack_bag, y)
+	y = _add_die_picker_rows("방어", RunState.player_defense_bag, y)
 
 	var back_btn := Button.new()
 	back_btn.text = "뒤로"
@@ -346,47 +347,136 @@ func _show_customize_picker() -> void:
 	_reward_ui.append(back_btn)
 
 
+## INBOX.md 피드백("주사위 눈을 텍스트가 아닌 이미지로, 개조하면 어떤 주사위가 될지
+## 예상할 수 있게") 반영 — 면 값을 보여주는 작은 정사각형 칩. 다이스 목록 미리보기(작게,
+## 비클릭)와 면/값 선택 화면(크게, 클릭 가능한 Button 스타일)에서 함께 재사용한다.
+func _make_face_chip(value: int, size: float, muted: bool = false) -> Panel:
+	var panel := Panel.new()
+	panel.custom_minimum_size = Vector2(size, size)
+	panel.size = Vector2(size, size)
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.5, 0.46, 0.4) if muted else Color(0.92, 0.88, 0.78)
+	style.border_width_left = 2
+	style.border_width_top = 2
+	style.border_width_right = 2
+	style.border_width_bottom = 2
+	style.border_color = Color(0.15, 0.12, 0.08)
+	style.set_corner_radius_all(int(size * 0.12))
+	panel.add_theme_stylebox_override("panel", style)
+
+	var label := Label.new()
+	label.text = str(value)
+	label.size = Vector2(size, size)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.add_theme_font_size_override("font_size", int(size * 0.42))
+	label.add_theme_color_override("font_color", Color(0.85, 0.82, 0.75) if muted else Color(0.15, 0.12, 0.08))
+	panel.add_child(label)
+	return panel
+
+
+## 위 칩과 같은 생김새를 가진 클릭 가능한 Button 버전 (면 선택 / 값 선택 화면에서 사용).
+func _style_die_face_button(btn: Button, size: float, muted: bool = false) -> void:
+	btn.custom_minimum_size = Vector2(size, size)
+	btn.size = Vector2(size, size)
+	btn.add_theme_font_size_override("font_size", int(size * 0.42))
+
+	var normal := StyleBoxFlat.new()
+	normal.bg_color = Color(0.5, 0.46, 0.4) if muted else Color(0.92, 0.88, 0.78)
+	normal.border_width_left = 3
+	normal.border_width_top = 3
+	normal.border_width_right = 3
+	normal.border_width_bottom = 3
+	normal.border_color = Color(0.15, 0.12, 0.08)
+	normal.set_corner_radius_all(int(size * 0.12))
+
+	var hover := normal.duplicate()
+	hover.bg_color = Color(0.55, 0.5, 0.42) if muted else Color(1.0, 0.95, 0.75)
+
+	var pressed := normal.duplicate()
+	pressed.bg_color = Color(0.4, 0.37, 0.32) if muted else Color(0.8, 0.75, 0.6)
+
+	var disabled := normal.duplicate()
+	disabled.bg_color = Color(0.5, 0.46, 0.4)
+	disabled.border_color = Color(0.3, 0.3, 0.3)
+
+	btn.add_theme_stylebox_override("normal", normal)
+	btn.add_theme_stylebox_override("hover", hover)
+	btn.add_theme_stylebox_override("pressed", pressed)
+	btn.add_theme_stylebox_override("disabled", disabled)
+
+	var font_color := Color(0.85, 0.82, 0.75) if muted else Color(0.15, 0.12, 0.08)
+	btn.add_theme_color_override("font_color", font_color)
+	btn.add_theme_color_override("font_hover_color", font_color)
+	btn.add_theme_color_override("font_pressed_color", font_color)
+	btn.add_theme_color_override("font_disabled_color", font_color)
+
+
 func _add_die_picker_rows(bag_label: String, bag: DiceBag, y: float) -> float:
 	for i in bag.dice.size():
 		var faces: PackedInt32Array = bag.dice[i]
-		var values := PackedStringArray()
-		for v in faces:
-			values.append(str(v))
 		var btn := Button.new()
-		btn.text = "%s 다이스 %d  [%s]" % [bag_label, i + 1, ", ".join(values)]
+		btn.text = "%s %d" % [bag_label, i + 1]
+		btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		btn.add_theme_constant_override("h_separation", 0)
 		btn.position = Vector2(200, y)
-		btn.size = Vector2(600, 36)
+		btn.size = Vector2(1080 - 200, 46)
 		btn.pressed.connect(_show_face_picker.bind(bag, i))
 		add_child(btn)
 		_reward_ui.append(btn)
-		y += 44.0
+
+		# 면 값 미리보기 칩 — 버튼과 겹치는 영역이라 클릭이 버튼으로 통과하도록
+		# _make_face_chip 내부에서 mouse_filter를 MOUSE_FILTER_IGNORE로 둠.
+		var chip_x := 270.0
+		var chip_size := 32.0
+		for v in faces:
+			var chip := _make_face_chip(v, chip_size)
+			chip.position = Vector2(chip_x, y + (46 - chip_size) / 2.0)
+			add_child(chip)
+			_reward_ui.append(chip)
+			chip_x += chip_size + 6.0
+		y += 54.0
 	return y
 
 
 ## 커스터마이징 2단계: 고른 다이스의 면 하나를 고른다 (값은 3단계에서 정한다).
+## 이 다이스가 지금 어떤 면 구성인지 한눈에 보이도록 텍스트 대신 주사위 눈 칩으로
+## 전체 면을 나열한다 (INBOX.md: "면을 하나하나 뜯어서 나열한 형태로 보여주면").
 func _show_face_picker(bag: DiceBag, die_index: int) -> void:
 	_clear_reward_ui()
-	_add_reward_frame("강화할 면을 고르세요")
+	_add_reward_frame("강화할 면을 고르세요 (전체 면 구성)", 480.0)
 
 	var faces: PackedInt32Array = bag.dice[die_index]
-	var y := 190.0
+	var chip_size := 80.0
+	var gap := 16.0
+	var y := 210.0
 	var x := 200.0
 	for fi in faces.size():
+		var caption := Label.new()
+		caption.text = "면 %d" % (fi + 1)
+		caption.position = Vector2(x, y - 26)
+		caption.size = Vector2(chip_size, 22)
+		caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		add_child(caption)
+		_reward_ui.append(caption)
+
 		var btn := Button.new()
-		btn.text = "면 %d: 현재값 %d" % [fi + 1, faces[fi]]
+		btn.text = str(faces[fi])
 		btn.position = Vector2(x, y)
-		btn.size = Vector2(180, 40)
+		_style_die_face_button(btn, chip_size)
 		btn.pressed.connect(_show_value_picker.bind(bag, die_index, fi))
 		add_child(btn)
 		_reward_ui.append(btn)
-		x += 190.0
-		if x > 900.0:
+
+		x += chip_size + gap
+		if x > 1000.0:
 			x = 200.0
-			y += 50.0
+			y += chip_size + 46.0
 
 	var back_btn := Button.new()
 	back_btn.text = "뒤로"
-	back_btn.position = Vector2(200, y + 60)
+	back_btn.position = Vector2(200, y + chip_size + 24)
 	back_btn.size = Vector2(160, 40)
 	back_btn.pressed.connect(_show_customize_picker)
 	add_child(back_btn)
@@ -406,27 +496,40 @@ func _show_value_picker(bag: DiceBag, die_index: int, face_index: int) -> void:
 	_clear_reward_ui()
 	var faces: PackedInt32Array = bag.dice[die_index]
 	var max_value: int = faces.size()
-	_add_reward_frame("면 %d에 넣을 값을 고르세요 (현재값 %d, 최대 %d)" % [face_index + 1, faces[face_index], max_value])
+	_add_reward_frame("면 %d에 넣을 값을 고르세요 (현재값 %d, 최대 %d)" % [face_index + 1, faces[face_index], max_value], 480.0)
 
-	var y := 190.0
+	var chip_size := 70.0
+	var gap := 14.0
+	var y := 210.0
 	var x := 200.0
 	for value in range(1, max_value + 1):
+		var is_current := value == faces[face_index]
+		if is_current:
+			var tag := Label.new()
+			tag.text = "현재"
+			tag.position = Vector2(x, y - 24)
+			tag.size = Vector2(chip_size, 20)
+			tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			add_child(tag)
+			_reward_ui.append(tag)
+
 		var btn := Button.new()
-		btn.text = ("[현재] %d" % value) if value == faces[face_index] else str(value)
-		btn.disabled = value == faces[face_index]
+		btn.text = str(value)
+		btn.disabled = is_current
 		btn.position = Vector2(x, y)
-		btn.size = Vector2(90, 40)
+		_style_die_face_button(btn, chip_size, is_current)
 		btn.pressed.connect(_on_face_value_chosen.bind(bag, die_index, face_index, value))
 		add_child(btn)
 		_reward_ui.append(btn)
-		x += 100.0
-		if x > 900.0:
+
+		x += chip_size + gap
+		if x > 1000.0:
 			x = 200.0
-			y += 50.0
+			y += chip_size + 40.0
 
 	var back_btn := Button.new()
 	back_btn.text = "뒤로"
-	back_btn.position = Vector2(200, y + 60)
+	back_btn.position = Vector2(200, y + chip_size + 24)
 	back_btn.size = Vector2(160, 40)
 	back_btn.pressed.connect(_show_face_picker.bind(bag, die_index))
 	add_child(back_btn)
