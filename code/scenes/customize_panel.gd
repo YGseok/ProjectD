@@ -2,27 +2,34 @@ class_name CustomizePanel
 extends Control
 ## 어디서든 열 수 있는 "다이스 눈금 커스터마이징" 오버레이.
 ##
-## 지금까지 커스터마이징(다이스 선택 -> 면 선택 -> 값 선택, 값 교체 방식 — 상한은
-## 그 다이스의 면 개수)은 combat_test.gd 안에 전투 승리 보상 화면의 일부로만 있어서
-## 승리 직후 그 순간에만 접근 가능했다. INBOX.md 피드백(2026-09-03) "선택지 등에서
-## 내 덱을 항상 볼 수 있고, 커스터마이징도 가능해야할 것 같다"의 "커스터마이징도
-## 가능해야" 부분(STATUS.md 큐 0번 "어디서든 덱 열람 + 커스터마이징")을 반영해,
-## 같은 로직을 combat_test.gd 밖으로 꺼내 어느 화면에서든 붙여 쓸 수 있는 독립
-## 오버레이로 만들었다. 값 교체 규칙과 시각 스타일(FaceChipStyle)은 combat_test.gd의
-## 커스터마이징과 완전히 동일 — 여기서는 "어디서든 열 수 있다"는 접근성만 새로 추가.
+## INBOX.md 피드백(2026-09-03) "주사위 눈금 바꾸는 방법을 인지하기 어렵다. 인벤토리
+## 창에 눈금이 쌓이고, 해당 눈금과 주사위 눈금이 교환되는 형태여야할 것 같다"를 반영해
+## 상호작용 모델을 바꿨다. 기존에는 "다이스 선택 -> 면 선택 -> 1..면개수 범위에서 원하는
+## 값을 자유롭게 골라 교체"였는데, 이제는:
+##   1단계) RunState.pip_inventory(정수 "눈금" 목록, 전투 승리 보상으로 쌓임)에서 눈금
+##          하나를 고른다
+##   2단계) 적용할 다이스(공격/방어 주머니 중 하나)를 고른다
+##   3단계) 그 다이스의 면 하나를 고른다 -> 그 즉시 교환이 일어난다: 골랐던 눈금이
+##          그 면에 들어가고(단, 그 다이스의 면 개수를 넘는 값은 면 개수로 잘림 — 기존
+##          "값 교체, 상한 있음" 규칙 유지), 원래 그 면에 있던 값은 다시 인벤토리로
+##          돌아온다(사라지지 않음 — 교환이므로).
+## 자유롭게 아무 값이나 고르던 것에서 "가진 눈금만 쓸 수 있다"는 자원 제약이 생겨서,
+## "눈금을 어디서 얻고 어디에 쓰는지"가 명확해지는 것을 의도함 — 이게 "인지하기 쉬움"을
+## 실제로 개선하는지는 사람이 플레이해보고 판단 필요.
 ##
-## combat_test.gd의 승리 보상 커스터마이징(_show_customize_picker 등)은 그대로
-## 남겨뒀다. 보상 화면은 "다이스 아이템 2종 중 선택 + 커스터마이징"이 한 화면 안에
-## 공존해야 하는 문맥이라, 이 범용 오버레이로 억지로 통합하면 오히려 두 문맥(보상 선택
-## 흐름 vs 언제든 여닫는 오버레이)이 뒤섞여 복잡해질 것으로 판단해 분리 상태를 유지함.
+## combat_test.gd의 승리 보상 화면에 있던 자체 커스터마이징 구현(다이스/면/값 선택
+## 체인)은 이 상호작용 모델 통합을 계기로 제거하고, 그 화면의 "커스터마이징" 버튼도
+## 이제 이 공용 오버레이를 그대로 연다(closed 시그널로 보상 화면 흐름에 복귀).
 ##
-## 이번 이터레이션에서는 dungeon_map.tscn에만 진입점(버튼)을 붙였다. shop/event/
-## story_event 화면에도 같은 방식으로 붙일 수 있지만(스크립트 하나로 완결된 노드라
-## deck_panel.gd처럼 씬마다 붙이기만 하면 됨), 한 이터레이션에 너무 많이 바꾸지
-## 않기 위해 다음으로 미뤘다 (docs/STATUS.md 다음 할 일 큐 참고).
+## 값 교체 규칙과 시각 스타일(FaceChipStyle)은 기존과 동일 — 여기서는 "무엇을 넣을
+## 수 있는지"(자유 입력 -> 보유 눈금)만 바뀌었다.
 ##
 ## 별도 .tscn 없이 스크립트 하나로 완결된 Control이다 (deck_panel.gd/shape_die_chip.gd와
 ## 같은 패턴) — 아무 씬에나 Control 노드 하나 만들고 이 스크립트만 붙이면 동작한다.
+
+## 패널이 닫힐 때 발생한다. combat_test.gd처럼 "패널을 닫으면 원래 화면 흐름으로
+## 돌아가야 하는" 문맥에서 이 시그널로 복귀 시점을 알 수 있다.
+signal closed
 
 var _ui: Array[Node] = []
 
@@ -33,15 +40,16 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 
 
-## 오버레이를 열고 1단계(다이스 선택)부터 시작한다.
+## 오버레이를 열고 1단계(눈금 선택)부터 시작한다.
 func open() -> void:
 	visible = true
-	_show_die_picker()
+	_show_pip_picker()
 
 
 func close() -> void:
 	_clear_ui()
 	visible = false
+	closed.emit()
 
 
 func _clear_ui() -> void:
@@ -66,25 +74,73 @@ func _add_frame(title_text: String, height: float = 420.0) -> void:
 	_ui.append(title)
 
 
-## 1단계: 공격/방어 주머니의 다이스 중 하나를 고른다.
-func _show_die_picker() -> void:
+## 1단계: 인벤토리에 쌓인 눈금 중 하나를 고른다. 비어있으면 눈금을 얻는 방법을
+## 안내하고 닫기만 가능하게 한다.
+func _show_pip_picker() -> void:
 	_clear_ui()
-	_add_frame("커스터마이징: 강화할 다이스를 고르세요")
 
-	var y := 190.0
-	y = _add_die_rows("공격", RunState.player_attack_bag, y)
-	y = _add_die_rows("방어", RunState.player_defense_bag, y)
+	var chip_size := 70.0
+	var gap := 14.0
+	var y := 200.0
+	var x := 200.0
+
+	if RunState.pip_inventory.is_empty():
+		_add_frame("커스터마이징: 인벤토리에 눈금이 없습니다")
+		var msg := Label.new()
+		msg.text = "전투에서 승리하면 눈금을 얻습니다. 눈금을 다이스의 면과 맞바꿔 개조할 수 있습니다."
+		msg.position = Vector2(200, y)
+		msg.size = Vector2(880, 60)
+		msg.autowrap_mode = TextServer.AUTOWRAP_WORD
+		add_child(msg)
+		_ui.append(msg)
+		y += 80.0
+	else:
+		for i in RunState.pip_inventory.size():
+			var value: int = RunState.pip_inventory[i]
+			var btn := Button.new()
+			btn.text = str(value)
+			btn.position = Vector2(x, y)
+			FaceChipStyle.style_button(btn, chip_size, false, false)
+			btn.pressed.connect(_show_die_picker.bind(i))
+			add_child(btn)
+			_ui.append(btn)
+
+			x += chip_size + gap
+			if x > 1000.0:
+				x = 200.0
+				y += chip_size + gap
+		y += chip_size + 24.0
+		_add_frame("커스터마이징: 맞바꿀 눈금을 고르세요", max(220.0, y - 120.0))
 
 	var close_btn := Button.new()
 	close_btn.text = "닫기"
-	close_btn.position = Vector2(200, y + 10)
+	close_btn.position = Vector2(200, y)
 	close_btn.size = Vector2(160, 40)
 	close_btn.pressed.connect(close)
 	add_child(close_btn)
 	_ui.append(close_btn)
 
 
-func _add_die_rows(bag_label: String, bag: DiceBag, y: float) -> float:
+## 2단계: 고른 눈금을 적용할 다이스(공격/방어 주머니 중 하나)를 고른다.
+func _show_die_picker(pip_index: int) -> void:
+	_clear_ui()
+	var pip_value: int = RunState.pip_inventory[pip_index]
+	_add_frame("눈금 [%d]을(를) 넣을 다이스를 고르세요" % pip_value)
+
+	var y := 190.0
+	y = _add_die_rows("공격", RunState.player_attack_bag, y, pip_index)
+	y = _add_die_rows("방어", RunState.player_defense_bag, y, pip_index)
+
+	var back_btn := Button.new()
+	back_btn.text = "뒤로"
+	back_btn.position = Vector2(200, y + 10)
+	back_btn.size = Vector2(160, 40)
+	back_btn.pressed.connect(_show_pip_picker)
+	add_child(back_btn)
+	_ui.append(back_btn)
+
+
+func _add_die_rows(bag_label: String, bag: DiceBag, y: float, pip_index: int) -> float:
 	for i in bag.dice.size():
 		var faces: PackedInt32Array = bag.dice[i]
 		var btn := Button.new()
@@ -93,7 +149,7 @@ func _add_die_rows(bag_label: String, bag: DiceBag, y: float) -> float:
 		btn.add_theme_constant_override("h_separation", 0)
 		btn.position = Vector2(200, y)
 		btn.size = Vector2(1080 - 200, 46)
-		btn.pressed.connect(_show_face_picker.bind(bag, i))
+		btn.pressed.connect(_show_face_picker.bind(bag, i, pip_index))
 		add_child(btn)
 		_ui.append(btn)
 
@@ -110,13 +166,15 @@ func _add_die_rows(bag_label: String, bag: DiceBag, y: float) -> float:
 	return y
 
 
-## 2단계: 고른 다이스의 면 하나를 고른다 (값은 3단계에서 정한다).
-func _show_face_picker(bag: DiceBag, die_index: int) -> void:
+## 3단계: 고른 다이스의 면 하나를 고르면 그 즉시 눈금과 맞바꾼다.
+func _show_face_picker(bag: DiceBag, die_index: int, pip_index: int) -> void:
 	_clear_ui()
-	_add_frame("강화할 면을 고르세요 (전체 면 구성)", 480.0)
-
+	var pip_value: int = RunState.pip_inventory[pip_index]
 	var faces: PackedInt32Array = bag.dice[die_index]
-	var max_value := faces.size()
+	var sides := faces.size()
+	var applied_value: int = min(pip_value, sides)
+	_add_frame("맞바꿀 면을 고르세요 (눈금 [%d] -> 적용 시 %d)" % [pip_value, applied_value], 480.0)
+
 	var chip_size := 80.0
 	var gap := 16.0
 	var y := 210.0
@@ -133,8 +191,8 @@ func _show_face_picker(bag: DiceBag, die_index: int) -> void:
 		var btn := Button.new()
 		btn.text = str(faces[fi])
 		btn.position = Vector2(x, y)
-		FaceChipStyle.style_button(btn, chip_size, false, faces[fi] == max_value)
-		btn.pressed.connect(_show_value_picker.bind(bag, die_index, fi))
+		FaceChipStyle.style_button(btn, chip_size, false, faces[fi] == sides)
+		btn.pressed.connect(_on_face_chosen.bind(bag, die_index, fi, pip_index))
 		add_child(btn)
 		_ui.append(btn)
 
@@ -147,61 +205,31 @@ func _show_face_picker(bag: DiceBag, die_index: int) -> void:
 	back_btn.text = "뒤로"
 	back_btn.position = Vector2(200, y + chip_size + 24)
 	back_btn.size = Vector2(160, 40)
-	back_btn.pressed.connect(_show_die_picker)
+	back_btn.pressed.connect(_show_die_picker.bind(pip_index))
 	add_child(back_btn)
 	_ui.append(back_btn)
 
 
-## 3단계: 고른 면에 넣을 값을 1..(면 개수) 범위에서 직접 고른다 (교체 방식 — 더하는
-## 것이 아님, 상한은 그 다이스의 면 개수). combat_test.gd의 커스터마이징과 동일한 규칙.
-func _show_value_picker(bag: DiceBag, die_index: int, face_index: int) -> void:
-	_clear_ui()
+## 눈금 <-> 면 값을 맞바꾸고 1단계(눈금 선택)로 돌아간다. 밀려난 기존 면 값은
+## 인벤토리로 돌아오므로(사라지지 않음), 여러 다이스를 연달아 만지고 싶을 때도
+## 항상 최소 1개 이상의 눈금(방금 밀려난 값)을 들고 계속 진행할 수 있다.
+func _on_face_chosen(bag: DiceBag, die_index: int, face_index: int, pip_index: int) -> void:
 	var faces: PackedInt32Array = bag.dice[die_index]
-	var max_value: int = faces.size()
-	_add_frame("면 %d에 넣을 값을 고르세요 (현재값 %d, 최대 %d)" % [face_index + 1, faces[face_index], max_value], 480.0)
-
-	var chip_size := 70.0
-	var gap := 14.0
-	var y := 210.0
-	var x := 200.0
-	for value in range(1, max_value + 1):
-		var is_current := value == faces[face_index]
-		if is_current:
-			var tag := Label.new()
-			tag.text = "현재"
-			tag.position = Vector2(x, y - 24)
-			tag.size = Vector2(chip_size, 20)
-			tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			add_child(tag)
-			_ui.append(tag)
-
-		var btn := Button.new()
-		btn.text = str(value)
-		btn.disabled = is_current
-		btn.position = Vector2(x, y)
-		FaceChipStyle.style_button(btn, chip_size, is_current, value == max_value)
-		btn.pressed.connect(_on_value_chosen.bind(bag, die_index, face_index, value))
-		add_child(btn)
-		_ui.append(btn)
-
-		x += chip_size + gap
-		if x > 1000.0:
-			x = 200.0
-			y += chip_size + 40.0
-
-	var back_btn := Button.new()
-	back_btn.text = "뒤로"
-	back_btn.position = Vector2(200, y + chip_size + 24)
-	back_btn.size = Vector2(160, 40)
-	back_btn.pressed.connect(_show_face_picker.bind(bag, die_index))
-	add_child(back_btn)
-	_ui.append(back_btn)
+	var sides := faces.size()
+	var pip_value: int = RunState.pip_inventory[pip_index]
+	var old_value: int = faces[face_index]
+	var applied_value: int = min(pip_value, sides)
+	bag.set_face_value(die_index, face_index, applied_value)
+	RunState.pip_inventory.remove_at(pip_index)
+	RunState.pip_inventory.append(old_value)
+	_show_pip_picker()
 
 
-## 값을 바로 적용하고 1단계(다이스 선택)로 돌아간다 — combat_test.gd의 보상 화면
-## 흐름과 달리 여기서는 "적용 후 닫힘"이 아니라 "적용 후 계속 다른 다이스도 만질 수
-## 있음"이 자연스럽다고 판단함 (전투 승리라는 1회성 이벤트가 아니라 언제든 열 수 있는
-## 화면이므로, 여러 다이스를 연달아 만지고 싶을 수 있음).
-func _on_value_chosen(bag: DiceBag, die_index: int, face_index: int, value: int) -> void:
-	bag.set_face_value(die_index, face_index, value)
-	_show_die_picker()
+## QA 전용 — 자동 스크린샷은 클릭을 흉내낼 수 없으므로 곧장 3단계(면 선택)를 열어
+## 화면을 확인하기 위함. 인벤토리가 비어있으면(정상 플레이라면 승리 전엔 항상 빈 상태)
+## 확인용 임시 눈금을 하나 넣어준다.
+func debug_open_face_picker() -> void:
+	if RunState.pip_inventory.is_empty():
+		RunState.pip_inventory.append(4)
+	open()
+	_show_face_picker(RunState.player_attack_bag, 0, RunState.pip_inventory.size() - 1)

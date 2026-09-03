@@ -284,9 +284,19 @@ func _debug_open_customize() -> void:
 	customize_panel.open()
 
 
-## QA 전용 — 1단계(다이스 선택)를 거치지 않고 바로 2단계(면 선택) 화면을 열어
-## 그 단계의 레이아웃(면 칩 나열)을 확인하기 위함 (combat_test.gd의
-## _debug_open_face_picker와 같은 목적).
+## QA 전용 — 1~2단계(눈금 선택, 다이스 선택)를 거치지 않고 바로 3단계(면 선택) 화면을
+## 열어 그 단계의 레이아웃(면 칩 나열)을 확인하기 위함.
 func _debug_open_customize_face() -> void:
-	customize_panel.open()
-	customize_panel._show_face_picker(RunState.player_attack_bag, 0)
+	customize_panel.debug_open_face_picker()
+
+
+## QA 전용 — 화면(스크린샷)으로는 확인할 수 없는 "실제 교환 로직"(눈금 소모, 밀려난
+## 값이 인벤토리로 돌아오는 것, 상한 클램프)을 콘솔 출력으로 검증하기 위한 일회성 훅.
+func _debug_verify_pip_swap() -> void:
+	RunState.pip_inventory = [7]
+	var bag := RunState.player_attack_bag
+	var before: PackedInt32Array = bag.dice[0].duplicate()
+	customize_panel._on_face_chosen(bag, 0, 0, 0)
+	print("[pip_swap_check] before=%s after=%s pip_inventory=%s (기대: face0=min(7,%d)=%d, inventory=[%d])" % [
+		before, bag.dice[0], RunState.pip_inventory, before.size(), min(7, before.size()), before[0],
+	])

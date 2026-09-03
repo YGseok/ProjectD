@@ -32,7 +32,7 @@ offset_left = 40.0
 offset_top = 650.0
 offset_right = 340.0
 offset_bottom = 695.0
-text = "커스터마이징: 다이스 눈금 강화"
+text = "커스터마이징: 눈금 교환"
 
 [node name="DeckPanel" type="PanelContainer" parent="."]
 offset_left = 980.0

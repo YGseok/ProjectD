@@ -8,7 +8,7 @@
 #   scripts/qa_shot.sh dungeon
 #   scripts/qa_shot.sh dungeon 90
 #   scripts/qa_shot.sh dungeon 90 qa_out/dungeon_check.png
-#   scripts/qa_shot.sh combat_test 900 qa_out/combat_test_picker.png _show_customize_picker
+#   scripts/qa_shot.sh combat_test 900 qa_out/combat_test_picker.png _debug_open_customize
 #     (4번째 인자 qa_call: 캡처 직전 현재 씬에서 인자 없이 호출할 메서드 이름 —
 #      code/qa/visual_qa.gd의 GAME_QA_CALL로 전달됨. 클릭을 흉내낼 수 없는 자동 QA에서
 #      버튼 뒤에 있는 하위 화면을 직접 열어보고 싶을 때 사용)

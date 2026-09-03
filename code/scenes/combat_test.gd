@@ -102,16 +102,24 @@ const EXCHANGE_CHIP_SIZE := 34.0
 const EXCHANGE_CHIP_GAP := 6.0
 const EXCHANGE_CHIP_Y := 505.0
 
-## 커스터마이징(직접 눈금 강화) 방식. INBOX.md 피드백(2026-09-02)으로 방식이 바뀜:
-## 기존에는 고른 면 값에 고정량(+3)을 더하는 방식이었으나, "특정 값을 더하는 방식이
-## 아닌 특정 값으로 교체하는 방식, 4면체는 4를 넘어갈 수 없다"는 지시에 따라 면을 고른
-## 뒤 1..(그 다이스의 면 개수) 범위에서 원하는 값을 직접 골라 그 값으로 교체하는
-## 방식으로 변경함 (다이스 승급으로 면 개수 자체가 늘면 상한도 함께 올라간다).
+## 커스터마이징(눈금 교환)은 이제 code/scenes/customize_panel.gd(CustomizePanel)
+## 하나로 통합됨 — 승리 보상 화면의 "커스터마이징" 버튼도 이 화면 전용 로직 대신 그
+## 공용 오버레이를 그대로 연다 (_open_customize_from_reward 참고). INBOX.md
+## 피드백(2026-09-03) "인벤토리 창에 눈금이 쌓이고, 해당 눈금과 주사위 눈금이
+## 교환되는 형태"를 반영한 상호작용 모델 변경으로, 기존에 이 파일에 있던 자체
+## 다이스/면/값 선택 체인(자유 입력 방식)은 제거함.
 
 ## 승리 시 골드 보상. INBOX.md 피드백 "승리하면 골드를 주며, 상점 이벤트에서 사용할 수
 ## 있다"를 반영. 방이 진행될수록 조금씩 더 주는 잠정값 (밸런스는 사람 피드백 필요).
 const GOLD_REWARD_BASE := 8
 const GOLD_REWARD_PER_ROOM := 2
+
+## 승리 시 커스터마이징용 "눈금" 보상. 값은 PIP_REWARD_MIN..(PIP_REWARD_MAX_BASE +
+## rooms_cleared * PIP_REWARD_MAX_PER_ROOM) 범위에서 무작위 1개 — 방이 진행될수록
+## 더 큰 눈금이 나올 여지가 커지는 잠정값(밸런스는 사람 피드백 필요).
+const PIP_REWARD_MIN := 1
+const PIP_REWARD_MAX_BASE := 4
+const PIP_REWARD_MAX_PER_ROOM := 1
 
 ## 몬스터별 이름/다이스 색 (시각 구분용, 능력치와는 무관). room_index를 이 배열 길이로
 ## 나눈 나머지로 순환시키고, 배열을 다 돌면 이름 앞에 "강화"를 붙여 재사용한다
@@ -156,6 +164,7 @@ func _ready() -> void:
 	next_button.pressed.connect(_on_next_button_pressed)
 	deck_toggle_button.pressed.connect(_on_deck_toggle_pressed)
 	customize_toggle_button.pressed.connect(customize_panel.open)
+	customize_panel.closed.connect(_on_customize_panel_closed)
 	_update_labels()
 	_run_battle()
 
@@ -228,6 +237,10 @@ func _do_exchange(is_player_attacking: bool) -> void:
 		var gold_gain := GOLD_REWARD_BASE + RunState.rooms_cleared * GOLD_REWARD_PER_ROOM
 		RunState.gold += gold_gain
 		_append_log("골드 획득: +%d (보유 %d)" % [gold_gain, RunState.gold])
+		var pip_max := PIP_REWARD_MAX_BASE + RunState.rooms_cleared * PIP_REWARD_MAX_PER_ROOM
+		var pip_gain := randi_range(PIP_REWARD_MIN, pip_max)
+		RunState.pip_inventory.append(pip_gain)
+		_append_log("눈금 획득: [%d] (커스터마이징에서 다이스 면과 교환 가능)" % pip_gain)
 		player_portrait.set_expression("happy")
 		monster_portrait.set_expression("sad")
 	elif player_hp <= 0:
@@ -412,10 +425,10 @@ func _show_reward_ui() -> void:
 		y += 130.0
 
 	var custom_btn := Button.new()
-	custom_btn.text = "커스터마이징: 다이스 눈금 직접 강화"
+	custom_btn.text = "커스터마이징: 눈금 교환"
 	custom_btn.position = Vector2(200, y + 10)
 	custom_btn.size = Vector2(340, 40)
-	custom_btn.pressed.connect(_show_customize_picker)
+	custom_btn.pressed.connect(_open_customize_from_reward)
 	add_child(custom_btn)
 	_reward_ui.append(custom_btn)
 
@@ -466,119 +479,21 @@ func _on_reward_skipped() -> void:
 	next_button.show()
 
 
-## 커스터마이징 1단계: 공격/방어 주머니의 다이스 중 하나를 고른다.
-## INBOX.md 피드백 "커스터마이징하면 내 덱의 특정 주사위 1개의 한 면 눈금을 바꿀 수
-## 있다"를 반영 — 기존 무작위 아이템(_reward_items)과 별개로 언제든 고를 수 있는
-## 세 번째 선택지다.
-func _show_customize_picker() -> void:
+## 승리 보상 화면에서 "커스터마이징" 버튼을 누르면 다른 화면들과 동일한 공용
+## CustomizePanel 오버레이를 그대로 연다 (더 이상 이 화면만의 별도 다이스/면/값 선택
+## 체인을 두지 않음). 보상 아이템 버튼들은 미리 치워두고, 패널이 닫히면(closed 시그널)
+## _on_customize_panel_closed()가 next_button을 다시 보여줘 보상 흐름을 마무리한다.
+func _open_customize_from_reward() -> void:
 	_clear_reward_ui()
-	_add_reward_frame("강화할 다이스를 고르세요")
-
-	var y := 190.0
-	y = _add_die_picker_rows("공격", RunState.player_attack_bag, y)
-	y = _add_die_picker_rows("방어", RunState.player_defense_bag, y)
-
-	var back_btn := Button.new()
-	back_btn.text = "뒤로"
-	back_btn.position = Vector2(200, y + 10)
-	back_btn.size = Vector2(160, 40)
-	back_btn.pressed.connect(_show_reward_ui)
-	add_child(back_btn)
-	_reward_ui.append(back_btn)
+	customize_panel.open()
 
 
-## INBOX.md 피드백("주사위 눈을 텍스트가 아닌 이미지로, 개조하면 어떤 주사위가 될지
-## 예상할 수 있게") 반영 — 면 값을 보여주는 작은 정사각형 칩. 다이스 목록 미리보기(작게,
-## 비클릭)와 면/값 선택 화면(크게, 클릭 가능한 Button 스타일)에서 함께 재사용한다.
-## is_max가 true면(그 다이스가 낼 수 있는 최댓값을 이 면이 이미 보유) 금색으로 강조한다.
-## 실제 스타일 구현은 code/scenes/face_chip_style.gd(FaceChipStyle)로 뽑아냄 —
-## code/scenes/customize_panel.gd(어디서든 커스터마이징 오버레이)도 같은 스타일을
-## 재사용하기 위함. 이 두 래퍼는 기존 호출부(_add_die_picker_rows 등)를 그대로 두기
-## 위해 남겨둠.
-func _make_face_chip(value: int, size: float, muted: bool = false, is_max: bool = false) -> Panel:
-	return FaceChipStyle.make_chip(value, size, muted, is_max)
-
-
-func _style_die_face_button(btn: Button, size: float, muted: bool = false, is_max: bool = false) -> void:
-	FaceChipStyle.style_button(btn, size, muted, is_max)
-
-
-func _add_die_picker_rows(bag_label: String, bag: DiceBag, y: float) -> float:
-	for i in bag.dice.size():
-		var faces: PackedInt32Array = bag.dice[i]
-		var btn := Button.new()
-		btn.text = "%s %d" % [bag_label, i + 1]
-		btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		btn.add_theme_constant_override("h_separation", 0)
-		btn.position = Vector2(200, y)
-		btn.size = Vector2(1080 - 200, 46)
-		btn.pressed.connect(_show_face_picker.bind(bag, i))
-		add_child(btn)
-		_reward_ui.append(btn)
-
-		# 면 값 미리보기 칩 — 버튼과 겹치는 영역이라 클릭이 버튼으로 통과하도록
-		# _make_face_chip 내부에서 mouse_filter를 MOUSE_FILTER_IGNORE로 둠.
-		var chip_x := 270.0
-		var chip_size := 32.0
-		var max_value := faces.size()
-		for v in faces:
-			var chip := _make_face_chip(v, chip_size, false, v == max_value)
-			chip.position = Vector2(chip_x, y + (46 - chip_size) / 2.0)
-			add_child(chip)
-			_reward_ui.append(chip)
-			chip_x += chip_size + 6.0
-		y += 54.0
-	return y
-
-
-## 커스터마이징 2단계: 고른 다이스의 면 하나를 고른다 (값은 3단계에서 정한다).
-## 이 다이스가 지금 어떤 면 구성인지 한눈에 보이도록 텍스트 대신 주사위 눈 칩으로
-## 전체 면을 나열한다 (INBOX.md: "면을 하나하나 뜯어서 나열한 형태로 보여주면").
-func _show_face_picker(bag: DiceBag, die_index: int) -> void:
-	_clear_reward_ui()
-	_add_reward_frame("강화할 면을 고르세요 (전체 면 구성)", 480.0)
-
-	var faces: PackedInt32Array = bag.dice[die_index]
-	var max_value := faces.size()
-	var chip_size := 80.0
-	var gap := 16.0
-	var y := 210.0
-	var x := 200.0
-	for fi in faces.size():
-		var caption := Label.new()
-		caption.text = "면 %d" % (fi + 1)
-		caption.position = Vector2(x, y - 26)
-		caption.size = Vector2(chip_size, 22)
-		caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		add_child(caption)
-		_reward_ui.append(caption)
-
-		var btn := Button.new()
-		btn.text = str(faces[fi])
-		btn.position = Vector2(x, y)
-		_style_die_face_button(btn, chip_size, false, faces[fi] == max_value)
-		btn.pressed.connect(_show_value_picker.bind(bag, die_index, fi))
-		add_child(btn)
-		_reward_ui.append(btn)
-
-		x += chip_size + gap
-		if x > 1000.0:
-			x = 200.0
-			y += chip_size + 46.0
-
-	var back_btn := Button.new()
-	back_btn.text = "뒤로"
-	back_btn.position = Vector2(200, y + chip_size + 24)
-	back_btn.size = Vector2(160, 40)
-	back_btn.pressed.connect(_show_customize_picker)
-	add_child(back_btn)
-	_reward_ui.append(back_btn)
-
-
-## qa/visual_qa.gd의 GAME_QA_CALL로 호출하기 위한 인자 없는 래퍼 (QA 전용 — 클릭을
-## 흉내낼 수 없는 자동 스크린샷에서 면 선택 화면을 직접 열어보기 위함).
-func _debug_open_face_picker() -> void:
-	_show_face_picker(RunState.player_attack_bag, 0)
+## customize_panel.closed 시그널 핸들러. 전투 중(승패 전) 상단 토글 버튼으로 열고
+## 닫을 때도 이 시그널이 발생하지만, 그때는 battle_over가 false이므로 아무 일도
+## 일어나지 않는다 — 승리 보상 화면에서 연 경우에만 next_button을 다시 보여준다.
+func _on_customize_panel_closed() -> void:
+	if battle_over and player_won:
+		next_button.show()
 
 
 ## qa/visual_qa.gd의 GAME_QA_CALL로 호출하기 위한 QA 전용 훅 (dungeon_map.gd의
@@ -586,6 +501,39 @@ func _debug_open_face_picker() -> void:
 ## 오버레이가 실제로 열리는지 확인).
 func _debug_open_customize() -> void:
 	customize_panel.open()
+
+
+## QA 전용 — INBOX.md 피드백(2026-09-03) "커스터마이징은 전투 중에는 불가능하다"
+## 조사용. GAME_QA_CALL은 메서드를 직접 호출할 뿐 실제 마우스 클릭을 흉내내지 않으므로,
+## _debug_open_customize()(= customize_panel.open() 직접 호출)만으로는 실제 버튼의
+## disabled/visible/mouse_filter 상태나 시그널 연결 자체에 문제가 있어도 걸러내지 못한다.
+## 그래서 여기서는 버튼 상태를 점검하고 실제 pressed 시그널을 발생시켜 본다.
+func _debug_verify_customize_button_during_battle() -> void:
+	print("[customize_btn_check] visible=%s disabled=%s mouse_filter=%s battle_over=%s" % [
+		customize_toggle_button.visible, customize_toggle_button.disabled,
+		customize_toggle_button.mouse_filter, battle_over,
+	])
+	customize_toggle_button.emit_signal("pressed")
+	print("[customize_btn_check] panel_visible_after_press=%s" % customize_panel.visible)
+
+
+## QA 전용 — 실제 플레이로 승리해 얻은 진짜 눈금 보상으로 커스터마이징 화면을 열어
+## 보이는지 확인하기 위함 (frame을 충분히 늦게 잡아 승리 보상 화면이 이미 떠 있는
+## 상태에서 호출됨을 전제로 함).
+func _debug_open_reward_customize() -> void:
+	_open_customize_from_reward()
+
+
+## QA 전용 — 승리 보상 화면에서 커스터마이징을 열고 닫았을 때 next_button이 다시
+## 나타나는지(보상 흐름 복귀)는 스크린샷 한 장으로 보이지 않는 시점 차이라 콘솔로 검증.
+func _debug_verify_reward_customize_flow() -> void:
+	battle_over = true
+	player_won = true
+	next_button.hide()
+	_open_customize_from_reward()
+	var hidden_while_open := not next_button.visible
+	customize_panel.close()
+	print("[reward_customize_check] hidden_while_open=%s visible_after_close=%s (기대: true, true)" % [hidden_while_open, next_button.visible])
 
 
 ## qa/visual_qa.gd의 GAME_QA_CALL로 호출하기 위한 인자 없는 래퍼 (QA 전용). 정상
@@ -659,60 +607,3 @@ func _debug_show_defeat_expressions() -> void:
 	monster_portrait.set_expression("happy")
 
 
-## 커스터마이징 3단계: 고른 면에 넣을 값을 1..(면 개수) 범위에서 직접 고른다 (교체
-## 방식 — 더하는 것이 아님). INBOX.md 피드백 "4면체는 4를 넘어갈 수 없다"를 그대로
-## 반영해 상한을 그 다이스의 면 개수로 둔다.
-func _show_value_picker(bag: DiceBag, die_index: int, face_index: int) -> void:
-	_clear_reward_ui()
-	var faces: PackedInt32Array = bag.dice[die_index]
-	var max_value: int = faces.size()
-	_add_reward_frame("면 %d에 넣을 값을 고르세요 (현재값 %d, 최대 %d)" % [face_index + 1, faces[face_index], max_value], 480.0)
-
-	var chip_size := 70.0
-	var gap := 14.0
-	var y := 210.0
-	var x := 200.0
-	for value in range(1, max_value + 1):
-		var is_current := value == faces[face_index]
-		if is_current:
-			var tag := Label.new()
-			tag.text = "현재"
-			tag.position = Vector2(x, y - 24)
-			tag.size = Vector2(chip_size, 20)
-			tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			add_child(tag)
-			_reward_ui.append(tag)
-
-		var btn := Button.new()
-		btn.text = str(value)
-		btn.disabled = is_current
-		btn.position = Vector2(x, y)
-		_style_die_face_button(btn, chip_size, is_current, value == max_value)
-		btn.pressed.connect(_on_face_value_chosen.bind(bag, die_index, face_index, value))
-		add_child(btn)
-		_reward_ui.append(btn)
-
-		x += chip_size + gap
-		if x > 1000.0:
-			x = 200.0
-			y += chip_size + 40.0
-
-	var back_btn := Button.new()
-	back_btn.text = "뒤로"
-	back_btn.position = Vector2(200, y + chip_size + 24)
-	back_btn.size = Vector2(160, 40)
-	back_btn.pressed.connect(_show_face_picker.bind(bag, die_index))
-	add_child(back_btn)
-	_reward_ui.append(back_btn)
-
-
-## qa/visual_qa.gd의 GAME_QA_CALL로 호출하기 위한 인자 없는 래퍼 (QA 전용).
-func _debug_open_value_picker() -> void:
-	_show_value_picker(RunState.player_attack_bag, 0, 0)
-
-
-func _on_face_value_chosen(bag: DiceBag, die_index: int, face_index: int, value: int) -> void:
-	bag.set_face_value(die_index, face_index, value)
-	_append_log("커스터마이징: 다이스 %d의 면 %d -> %d(으)로 교체" % [die_index + 1, face_index + 1, value])
-	_clear_reward_ui()
-	next_button.show()
