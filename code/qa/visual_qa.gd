@@ -24,6 +24,17 @@ extends Node
 ##   GAME_QA_CALL     (선택) 캡처 직전에 현재 씬 루트에서 인자 없이 호출할 메서드 이름.
 ##                    클릭을 흉내낼 수 없는 자동 QA에서, 다단계 UI(예: 보상 화면의
 ##                    하위 선택 화면)를 직접 함수 호출로 열어서 스크린샷으로 확인할 때 씀.
+##   GAME_QA_CLICK_PATH (선택) 캡처 직전에 실제로 "클릭"을 흉내낼 Control 노드의 경로
+##                    (현재 씬 루트 기준 NodePath 문자열, 예: "CustomizeToggleButton").
+##                    GAME_QA_CALL(메서드를 코드로 직접 호출)과 달리, 이건 그 노드의
+##                    화면 좌표 중앙에 실제 InputEventMouseButton(press+release)을
+##                    Input.parse_input_event()로 주입한다 — Godot의 실제 입력 파이프라인
+##                    (뷰포트 피킹, mouse_filter, z-order상 다른 UI가 클릭을 가로채는지 등)을
+##                    그대로 통과하므로, "버튼 연결 로직은 맞는데 실제 클릭 시점에만 다른
+##                    문제가 있을 수 있다"는 의심을 검증할 때 GAME_QA_CALL보다 신뢰도가 높다.
+##                    노드를 못 찾거나 Control이 아니면 에러를 출력하고 클릭 없이 진행한다.
+##   GAME_QA_CLICK_WAIT_FRAMES (선택, 기본 20) 클릭 주입 후 그 결과(버튼 pressed 시그널 ->
+##                    연결된 콜백 -> UI 변화)가 반영될 때까지 기다리는 프레임 수.
 ##   GAME_QA_SETTLE   (선택, "1"/"true"면 켜짐) GAME_QA_FRAME에 도달해도, 현재 씬이
 ##                    `_qa_is_settled() -> bool` 메서드를 갖고 있으면(예: combat_test.gd —
 ##                    물리 다이스가 아직 구르는 중인지 판단) 그 값이 true가 될 때까지
@@ -44,6 +55,8 @@ var _qa_call := ""
 var _qa_settle_enabled := false
 var _qa_settle_max_extra_frames := 240
 var _settle_extra_elapsed := 0
+var _qa_click_path := ""
+var _qa_click_wait_frames := 20
 
 
 func _ready() -> void:
@@ -88,6 +101,11 @@ func _ready() -> void:
 	if not settle_max_env.is_empty() and settle_max_env.is_valid_int():
 		_qa_settle_max_extra_frames = settle_max_env.to_int()
 
+	_qa_click_path = OS.get_environment("GAME_QA_CLICK_PATH")
+	var click_wait_env := OS.get_environment("GAME_QA_CLICK_WAIT_FRAMES")
+	if not click_wait_env.is_empty() and click_wait_env.is_valid_int():
+		_qa_click_wait_frames = click_wait_env.to_int()
+
 	# 엔진이 메인 씬을 트리에 추가하는 도중이라 change_scene_to_file을 즉시 호출하면
 	# "Parent node is busy adding/removing children" 에러가 난다. 한 프레임 넘겨서 호출한다.
 	await get_tree().process_frame
@@ -130,6 +148,11 @@ func _is_current_scene_settled() -> bool:
 
 
 func _capture_and_quit() -> void:
+	if not _qa_click_path.is_empty():
+		_simulate_click(_qa_click_path)
+		for _i in _qa_click_wait_frames:
+			await get_tree().process_frame
+
 	if not _qa_call.is_empty():
 		var scene := get_tree().current_scene
 		if scene != null and scene.has_method(_qa_call):
@@ -163,6 +186,43 @@ func _capture_and_quit() -> void:
 
 	print("[VisualQA] saved: %s" % abs_path)
 	get_tree().quit(0)
+
+
+## GAME_QA_CLICK_PATH 처리. 실제 Godot 입력 파이프라인(뷰포트 피킹, mouse_filter,
+## z-order상 다른 UI가 클릭을 가로채는지 등)을 그대로 거치는 진짜 마우스 클릭을
+## 흉내낸다 — GAME_QA_CALL(메서드 직접 호출)과 달리 "버튼을 실제로 눌렀을 때만
+## 재현되는 문제"를 잡아낼 수 있다.
+func _simulate_click(node_path: String) -> void:
+	var scene := get_tree().current_scene
+	if scene == null:
+		push_error("[VisualQA] GAME_QA_CLICK_PATH: 현재 씬이 없습니다.")
+		return
+	var target := scene.get_node_or_null(node_path)
+	if target == null:
+		push_error("[VisualQA] GAME_QA_CLICK_PATH='%s' 노드를 찾을 수 없습니다." % node_path)
+		return
+	if not (target is Control):
+		push_error("[VisualQA] GAME_QA_CLICK_PATH='%s' 는 Control이 아닙니다 (클릭 불가)." % node_path)
+		return
+
+	var ctrl: Control = target
+	var center := ctrl.get_global_rect().get_center()
+
+	var press := InputEventMouseButton.new()
+	press.button_index = MOUSE_BUTTON_LEFT
+	press.pressed = true
+	press.position = center
+	press.global_position = center
+	Input.parse_input_event(press)
+
+	var release := InputEventMouseButton.new()
+	release.button_index = MOUSE_BUTTON_LEFT
+	release.pressed = false
+	release.position = center
+	release.global_position = center
+	Input.parse_input_event(release)
+
+	print("[VisualQA] simulated click: node='%s' at %s" % [node_path, str(center)])
 
 
 func _resolve_absolute_path(path: String) -> String:
