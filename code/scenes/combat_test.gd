@@ -15,6 +15,11 @@ extends Node2D
 ## 각 다이스의 실제 face 배열 길이(bag.dice[i].size())에 맞춰 스폰하므로, 개조 아이템으로
 ## D6/D8 등으로 승급/추가된 다이스는 굴러갈 때도 그 모양으로 보인다.
 ##
+## 교환 결과가 나오면 다이스별 개별 값(DiceBag.roll_detailed())을 면 모양(삼각/사각/
+## 오각) 칩(ShapeDieChip)으로 화면에 표시한다 (INBOX.md 2026-09-03: "어떤 주사위에서
+## 어떤 값이 나왔는지 이미지로 보이면 좋겠다"). 다만 이 칩도 여전히 RNG 결과를 보여줄
+## 뿐, 물리적으로 굴러가는 다이스가 실제로 그 면으로 착지한 것을 읽어오는 것은 아니다.
+##
 ## 다이스가 완전히 멈췄는지 실제로 감지한다 (linear/angular velocity가 임계값 밑으로
 ## SETTLE_MIN_FRAMES 프레임 연속 유지되면 정지로 판단). **다이스별로 독립적으로
 ## 판정한다** — 전체 다이스를 하나의 공용 카운터로 묶으면, 다이스 개수가 많을 때
@@ -27,6 +32,24 @@ extends Node2D
 ## SETTLE_MAX_WAIT 초과 시 강제로 진행한다 (안전장치).
 
 const DieScene := preload("res://code/dice/die_d4.tscn")
+
+## 다이스 면 개수(sides)에 따른 잠정 재질 배정. 아직 재질을 직접 고르는 획득 시스템이
+## 없어서 "개조로 다이스가 커질수록 더 고급 재질처럼 보인다"는 감으로 매핑함(사람
+## 피드백 필요, die_d4.gd 클래스 주석 참고). D4/D6은 시작 재질(plastic) 그대로 둔다.
+const MATERIAL_WOOD := preload("res://resources/materials/wood.tres")
+const MATERIAL_GLASS := preload("res://resources/materials/glass.tres")
+const MATERIAL_METAL := preload("res://resources/materials/metal.tres")
+
+static func _material_for_sides(sides: int) -> DiceMaterial:
+	match sides:
+		8:
+			return MATERIAL_WOOD
+		10:
+			return MATERIAL_GLASS
+		12, 20:
+			return MATERIAL_METAL
+		_:
+			return null # null이면 die_d4.tscn 기본값(plastic)을 그대로 씀
 
 const SETTLE_LIN_THRESHOLD := 0.08
 const SETTLE_ANG_THRESHOLD := 0.5
@@ -66,6 +89,14 @@ var player_won := false
 var _log_lines: Array[String] = []
 var _reward_ui: Array[Node] = []
 var _reward_items: Array[Dictionary] = []
+
+## 이번 교환에서 어떤 다이스가 어떤 값을 냈는지 보여주는 칩(ShapeDieChip). 매 교환마다
+## 지우고 새로 그린다 (INBOX.md 2026-09-03: "전투 시 어떤 주사위에서 어떤 값이
+## 나왔는지 이미지로 보이면 좋겠다").
+var _exchange_chip_nodes: Array[Node] = []
+const EXCHANGE_CHIP_SIZE := 34.0
+const EXCHANGE_CHIP_GAP := 6.0
+const EXCHANGE_CHIP_Y := 505.0
 
 ## 커스터마이징(직접 눈금 강화) 방식. INBOX.md 피드백(2026-09-02)으로 방식이 바뀜:
 ## 기존에는 고른 면 값에 고정량(+3)을 더하는 방식이었으나, "특정 값을 더하는 방식이
@@ -149,9 +180,17 @@ func _do_exchange(is_player_attacking: bool) -> void:
 
 	await _wait_for_dice_to_settle()
 
-	var atk_total := atk_bag.roll()
-	var def_total := def_bag.roll()
+	var atk_values := atk_bag.roll_detailed()
+	var def_values := def_bag.roll_detailed()
+	var atk_total := 0
+	for v in atk_values:
+		atk_total += v
+	var def_total := 0
+	for v in def_values:
+		def_total += v
 	var dmg := CombatMath.calculate_damage(atk_total, def_total)
+
+	_show_exchange_dice_chips(atk_bag, atk_values, def_bag, def_values, atk_color, def_color)
 
 	if is_player_attacking:
 		monster_hp = max(0, monster_hp - dmg)
@@ -241,6 +280,9 @@ func _spawn_dice(bag: DiceBag, base_x: float, color: Color = Color(1, 1, 1, 0)) 
 		var die := DieScene.instantiate()
 		die.sides = bag.dice[i].size()
 		die.color_override = color
+		var material := _material_for_sides(die.sides)
+		if material != null:
+			die.material = material
 		dice_root.add_child(die)
 		var row := i / DICE_SPAWN_PER_ROW
 		var row_start := row * DICE_SPAWN_PER_ROW
@@ -257,6 +299,40 @@ func _spawn_dice(bag: DiceBag, base_x: float, color: Color = Color(1, 1, 1, 0)) 
 func _clear_dice() -> void:
 	for child in dice_root.get_children():
 		child.queue_free()
+
+
+## 이번 교환의 공격/방어 다이스 결과를 각각 화면 좌/우에서 안쪽으로 나열해 보여준다.
+## NextButton(x540-740, 전투 진행 중에는 hidden)과 겹치는 중앙부는 비워 둔다.
+func _show_exchange_dice_chips(atk_bag: DiceBag, atk_values: Array, def_bag: DiceBag, def_values: Array, atk_tint: Color, def_tint: Color) -> void:
+	_clear_exchange_dice_chips()
+	_layout_dice_chip_row(atk_bag, atk_values, 150.0, atk_tint, false)
+	_layout_dice_chip_row(def_bag, def_values, 1130.0, def_tint, true)
+
+
+func _layout_dice_chip_row(bag: DiceBag, values: Array, x_start: float, tint: Color, right_align: bool) -> void:
+	var border := tint if tint.a > 0 else Color(0.15, 0.12, 0.08)
+	var x := x_start
+	for i in bag.dice.size():
+		var sides: int = bag.dice[i].size()
+		var chip := ShapeDieChip.new()
+		chip.custom_minimum_size = Vector2(EXCHANGE_CHIP_SIZE, EXCHANGE_CHIP_SIZE)
+		chip.size = Vector2(EXCHANGE_CHIP_SIZE, EXCHANGE_CHIP_SIZE)
+		chip.shape_sides = ShapeDieChip.shape_sides_for_dice_sides(sides)
+		chip.border_color = border
+		chip.value = values[i]
+		if right_align:
+			x -= EXCHANGE_CHIP_SIZE
+		chip.position = Vector2(x, EXCHANGE_CHIP_Y)
+		add_child(chip)
+		_exchange_chip_nodes.append(chip)
+		x += -EXCHANGE_CHIP_GAP if right_align else EXCHANGE_CHIP_SIZE + EXCHANGE_CHIP_GAP
+
+
+func _clear_exchange_dice_chips() -> void:
+	for node in _exchange_chip_nodes:
+		if is_instance_valid(node):
+			node.queue_free()
+	_exchange_chip_nodes.clear()
 
 
 func _update_labels() -> void:
@@ -395,21 +471,33 @@ func _show_customize_picker() -> void:
 	_reward_ui.append(back_btn)
 
 
+## MAX 칩(현재 이 다이스가 낼 수 있는 최댓값(면 개수)을 이미 보유한 면)에 쓰는 색.
+## INBOX.md 피드백(2026-09-03): "해당 주사위에서 최고 값을 보유한 상태일때는 다른
+## 눈금과 다른 색상으로 표시해줘야 한다(명확하게 MAX값임을 알도록)".
+const MAX_FACE_BG_COLOR := Color(1.0, 0.82, 0.2)
+const MAX_FACE_BORDER_COLOR := Color(0.55, 0.35, 0.0)
+
 ## INBOX.md 피드백("주사위 눈을 텍스트가 아닌 이미지로, 개조하면 어떤 주사위가 될지
 ## 예상할 수 있게") 반영 — 면 값을 보여주는 작은 정사각형 칩. 다이스 목록 미리보기(작게,
 ## 비클릭)와 면/값 선택 화면(크게, 클릭 가능한 Button 스타일)에서 함께 재사용한다.
-func _make_face_chip(value: int, size: float, muted: bool = false) -> Panel:
+## is_max가 true면(그 다이스가 낼 수 있는 최댓값을 이 면이 이미 보유) 금색으로 강조한다.
+func _make_face_chip(value: int, size: float, muted: bool = false, is_max: bool = false) -> Panel:
 	var panel := Panel.new()
 	panel.custom_minimum_size = Vector2(size, size)
 	panel.size = Vector2(size, size)
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.5, 0.46, 0.4) if muted else Color(0.92, 0.88, 0.78)
+	if muted:
+		style.bg_color = Color(0.5, 0.46, 0.4)
+	elif is_max:
+		style.bg_color = MAX_FACE_BG_COLOR
+	else:
+		style.bg_color = Color(0.92, 0.88, 0.78)
 	style.border_width_left = 2
 	style.border_width_top = 2
 	style.border_width_right = 2
 	style.border_width_bottom = 2
-	style.border_color = Color(0.15, 0.12, 0.08)
+	style.border_color = MAX_FACE_BORDER_COLOR if is_max and not muted else Color(0.15, 0.12, 0.08)
 	style.set_corner_radius_all(int(size * 0.12))
 	panel.add_theme_stylebox_override("panel", style)
 
@@ -425,29 +513,39 @@ func _make_face_chip(value: int, size: float, muted: bool = false) -> Panel:
 
 
 ## 위 칩과 같은 생김새를 가진 클릭 가능한 Button 버전 (면 선택 / 값 선택 화면에서 사용).
-func _style_die_face_button(btn: Button, size: float, muted: bool = false) -> void:
+## is_max 강조는 _make_face_chip()과 동일한 규칙을 따른다.
+func _style_die_face_button(btn: Button, size: float, muted: bool = false, is_max: bool = false) -> void:
 	btn.custom_minimum_size = Vector2(size, size)
 	btn.size = Vector2(size, size)
 	btn.add_theme_font_size_override("font_size", int(size * 0.42))
 
+	var base_bg: Color
+	if muted:
+		base_bg = Color(0.5, 0.46, 0.4)
+	elif is_max:
+		base_bg = MAX_FACE_BG_COLOR
+	else:
+		base_bg = Color(0.92, 0.88, 0.78)
+	var border_col := MAX_FACE_BORDER_COLOR if is_max and not muted else Color(0.15, 0.12, 0.08)
+
 	var normal := StyleBoxFlat.new()
-	normal.bg_color = Color(0.5, 0.46, 0.4) if muted else Color(0.92, 0.88, 0.78)
+	normal.bg_color = base_bg
 	normal.border_width_left = 3
 	normal.border_width_top = 3
 	normal.border_width_right = 3
 	normal.border_width_bottom = 3
-	normal.border_color = Color(0.15, 0.12, 0.08)
+	normal.border_color = border_col
 	normal.set_corner_radius_all(int(size * 0.12))
 
 	var hover := normal.duplicate()
-	hover.bg_color = Color(0.55, 0.5, 0.42) if muted else Color(1.0, 0.95, 0.75)
+	hover.bg_color = base_bg.lightened(0.15) if (muted or is_max) else Color(1.0, 0.95, 0.75)
 
 	var pressed := normal.duplicate()
-	pressed.bg_color = Color(0.4, 0.37, 0.32) if muted else Color(0.8, 0.75, 0.6)
+	pressed.bg_color = base_bg.darkened(0.15) if (muted or is_max) else Color(0.8, 0.75, 0.6)
 
 	var disabled := normal.duplicate()
-	disabled.bg_color = Color(0.5, 0.46, 0.4)
-	disabled.border_color = Color(0.3, 0.3, 0.3)
+	disabled.bg_color = base_bg if is_max else Color(0.5, 0.46, 0.4)
+	disabled.border_color = border_col if is_max else Color(0.3, 0.3, 0.3)
 
 	btn.add_theme_stylebox_override("normal", normal)
 	btn.add_theme_stylebox_override("hover", hover)
@@ -478,8 +576,9 @@ func _add_die_picker_rows(bag_label: String, bag: DiceBag, y: float) -> float:
 		# _make_face_chip 내부에서 mouse_filter를 MOUSE_FILTER_IGNORE로 둠.
 		var chip_x := 270.0
 		var chip_size := 32.0
+		var max_value := faces.size()
 		for v in faces:
-			var chip := _make_face_chip(v, chip_size)
+			var chip := _make_face_chip(v, chip_size, false, v == max_value)
 			chip.position = Vector2(chip_x, y + (46 - chip_size) / 2.0)
 			add_child(chip)
 			_reward_ui.append(chip)
@@ -496,6 +595,7 @@ func _show_face_picker(bag: DiceBag, die_index: int) -> void:
 	_add_reward_frame("강화할 면을 고르세요 (전체 면 구성)", 480.0)
 
 	var faces: PackedInt32Array = bag.dice[die_index]
+	var max_value := faces.size()
 	var chip_size := 80.0
 	var gap := 16.0
 	var y := 210.0
@@ -512,7 +612,7 @@ func _show_face_picker(bag: DiceBag, die_index: int) -> void:
 		var btn := Button.new()
 		btn.text = str(faces[fi])
 		btn.position = Vector2(x, y)
-		_style_die_face_button(btn, chip_size)
+		_style_die_face_button(btn, chip_size, false, faces[fi] == max_value)
 		btn.pressed.connect(_show_value_picker.bind(bag, die_index, fi))
 		add_child(btn)
 		_reward_ui.append(btn)
@@ -636,7 +736,7 @@ func _show_value_picker(bag: DiceBag, die_index: int, face_index: int) -> void:
 		btn.text = str(value)
 		btn.disabled = is_current
 		btn.position = Vector2(x, y)
-		_style_die_face_button(btn, chip_size, is_current)
+		_style_die_face_button(btn, chip_size, is_current, value == max_value)
 		btn.pressed.connect(_on_face_value_chosen.bind(bag, die_index, face_index, value))
 		add_child(btn)
 		_reward_ui.append(btn)

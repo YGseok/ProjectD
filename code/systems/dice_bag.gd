@@ -22,9 +22,19 @@ func _init(p_sides: int = 0, p_count: int = 0) -> void:
 ## 주머니 전체를 굴려 눈의 합계를 반환한다 (재보충형: 매번 전체 다이스를 새로 굴림).
 func roll() -> int:
 	var total := 0
-	for faces in dice:
-		total += faces[randi_range(0, faces.size() - 1)]
+	for v in roll_detailed():
+		total += v
 	return total
+
+
+## roll()과 동일하게 주머니 전체를 굴리되, 합계 대신 다이스별 개별 결과값을
+## dice와 같은 순서의 배열로 반환한다. 전투 UI에서 "어떤 다이스가 어떤 값을
+## 냈는지"를 시각적으로 보여주기 위해 추가함(INBOX.md 2026-09-03 피드백).
+func roll_detailed() -> Array:
+	var values: Array = []
+	for faces in dice:
+		values.append(faces[randi_range(0, faces.size() - 1)])
+	return values
 
 
 ## 새 다이스를 주머니에 추가한다 (면 값은 1..sides 표준 구성).

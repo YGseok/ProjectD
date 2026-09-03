@@ -15,9 +15,15 @@ extends RigidBody3D
 ##   구분을 우선했다. 정확한 지오메트리가 필요해지면 `_build_rounded_polyhedron()`
 ##   호출 자리만 교체하면 됨.
 ## - 재질(DiceMaterial)을 꽂으면 bounce/friction과 충돌 사운드가 그 재질을 따른다.
-## - 실제 사운드 에셋(impact_sound)이 없으면 `ProceduralSound`로 합성한 임시 타격음을
-##   대신 재생한다 (완전 무음보다 손맛 검증이 가능한 편이 낫다고 판단 — 실제 에셋이
-##   생기면 material.impact_sound를 채우는 쪽이 항상 우선한다).
+##   기본 재질은 plastic 하나뿐이었으나 wood/glass/metal 세 재질을 추가함
+##   (resources/materials/*.tres). 어떤 다이스가 어떤 재질을 쓸지는 아직 별도
+##   획득 시스템이 없어, combat_test.gd가 다이스 면 개수(sides)에 따라 잠정적으로
+##   배정한다(D4/D6=plastic, D8=wood, D10=glass, D12/D20=metal — "개조로 다이스가
+##   커질수록 더 고급 재질처럼 보인다"는 감으로 잡은 잠정 매핑, 실제로 그럴듯한지는
+##   사람 피드백 필요).
+## - 실제 사운드 에셋(impact_sound)이 없으면 `ProceduralSound`로 재질별로 합성한 임시
+##   타격음을 대신 재생한다 (완전 무음보다 손맛 검증이 가능한 편이 낫다고 판단 — 실제
+##   에셋이 생기면 material.impact_sound를 채우는 쪽이 항상 우선한다).
 
 @export var material: DiceMaterial
 @export var die_size: float = 0.3
@@ -37,9 +43,10 @@ const MIN_IMPACT_SPEED := 0.5
 
 var _last_impact_time := -1000.0
 
-## 모든 Die 인스턴스가 공유하는 합성 폴백 사운드(재질에 실제 에셋이 없을 때 사용).
-## 매 다이스마다 새로 합성하면 낭비이므로 한 번만 만들어 캐시한다.
-static var _fallback_impact_sound: AudioStreamWAV
+## 모든 Die 인스턴스가 공유하는 합성 폴백 사운드 캐시(재질에 실제 에셋이 없을 때
+## 사용). material_name -> AudioStreamWAV. 재질마다 다른 합성음을 쓰므로(플라스틱/
+## 나무/유리/철제) 이름별로 캐시해서 매 다이스마다 새로 합성하는 낭비를 막는다.
+static var _fallback_impact_sounds: Dictionary = {}
 
 
 func _ready() -> void:
@@ -305,9 +312,22 @@ func _apply_material() -> void:
 
 
 func _apply_fallback_sound() -> void:
-	if _fallback_impact_sound == null:
-		_fallback_impact_sound = ProceduralSound.make_plastic_impact()
-	_audio_player.stream = _fallback_impact_sound
+	var name := material.material_name if material != null else "plastic"
+	if not _fallback_impact_sounds.has(name):
+		_fallback_impact_sounds[name] = _make_fallback_sound_for(name)
+	_audio_player.stream = _fallback_impact_sounds[name]
+
+
+static func _make_fallback_sound_for(material_name: String) -> AudioStreamWAV:
+	match material_name:
+		"wood":
+			return ProceduralSound.make_wood_impact()
+		"glass":
+			return ProceduralSound.make_glass_impact()
+		"metal":
+			return ProceduralSound.make_metal_impact()
+		_:
+			return ProceduralSound.make_plastic_impact()
 
 
 func _on_body_entered(_body: Node) -> void:
