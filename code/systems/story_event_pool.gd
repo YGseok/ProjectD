@@ -40,6 +40,30 @@ const SCENARIOS: Array[Dictionary] = [
 		"choice_a": {"label": "내기를 받는다 (10골드 베팅)", "kind": "gamble", "chance": 0.5, "win": 20, "lose": 10},
 		"choice_b": {"label": "거절한다", "kind": "none"},
 	},
+	{
+		"title": "무너진 제단",
+		"description": "오래된 제단에 동전을 바치면 소원이 이루어진다는 전설이 있다.",
+		"choice_a": {"label": "동전을 바친다 (골드 -5)", "kind": "delta", "amount": -5},
+		"choice_b": {"label": "미신을 무시한다", "kind": "none"},
+	},
+	{
+		"title": "숨겨진 샛길",
+		"description": "지도에 없는 샛길을 발견했다. 지름길일 수도, 함정일 수도 있다.",
+		"choice_a": {"label": "샛길로 들어간다", "kind": "gamble", "chance": 0.5, "win": 15, "lose": 15},
+		"choice_b": {"label": "정석대로 간다", "kind": "none"},
+	},
+	{
+		"title": "부상당한 여행자",
+		"description": "길가에 쓰러진 여행자가 도움을 요청한다.",
+		"choice_a": {"label": "치료해준다 (골드 -8)", "kind": "delta", "amount": -8},
+		"choice_b": {"label": "모른 척 지나간다", "kind": "none"},
+	},
+	{
+		"title": "버려진 야영지",
+		"description": "누군가 급히 떠난 듯한 야영지에 짐이 흩어져 있다.",
+		"choice_a": {"label": "뒤져본다", "kind": "gamble", "chance": 0.55, "win": 18, "lose": 8},
+		"choice_b": {"label": "손대지 않는다", "kind": "none"},
+	},
 ]
 
 
