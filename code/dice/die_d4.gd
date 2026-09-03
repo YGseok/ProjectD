@@ -11,8 +11,9 @@ extends RigidBody3D
 ##   커/둥글게 보여 개조가 체감된다"는 시각적 구분을 우선했다. 정확한 D10/D12
 ##   지오메트리가 필요해지면 `_build_rounded_polyhedron()`만 교체하면 됨.
 ## - 재질(DiceMaterial)을 꽂으면 bounce/friction과 충돌 사운드가 그 재질을 따른다.
-## - 사운드 에셋이 아직 없어도(impact_sound == null) 크래시 없이 조용히 스킵한다
-##   (STATUS.md 큐 1: "사운드 에셋이 없다면 임시 플레이스홀더로 배선만 맞출 것").
+## - 실제 사운드 에셋(impact_sound)이 없으면 `ProceduralSound`로 합성한 임시 타격음을
+##   대신 재생한다 (완전 무음보다 손맛 검증이 가능한 편이 낫다고 판단 — 실제 에셋이
+##   생기면 material.impact_sound를 채우는 쪽이 항상 우선한다).
 
 @export var material: DiceMaterial
 @export var die_size: float = 0.3
@@ -31,6 +32,10 @@ const MIN_IMPACT_SPEED := 0.5
 @onready var _audio_player: AudioStreamPlayer3D = $AudioStreamPlayer3D
 
 var _last_impact_time := -1000.0
+
+## 모든 Die 인스턴스가 공유하는 합성 폴백 사운드(재질에 실제 에셋이 없을 때 사용).
+## 매 다이스마다 새로 합성하면 낭비이므로 한 번만 만들어 캐시한다.
+static var _fallback_impact_sound: AudioStreamWAV
 
 
 func _ready() -> void:
@@ -141,6 +146,7 @@ func _build_from_triangle_faces(verts: PackedVector3Array, faces: Array) -> void
 
 func _apply_material() -> void:
 	if material == null:
+		_apply_fallback_sound()
 		return
 	var phys_mat := PhysicsMaterial.new()
 	phys_mat.bounce = material.bounce
@@ -148,6 +154,14 @@ func _apply_material() -> void:
 	physics_material_override = phys_mat
 	if material.impact_sound != null:
 		_audio_player.stream = material.impact_sound
+	else:
+		_apply_fallback_sound()
+
+
+func _apply_fallback_sound() -> void:
+	if _fallback_impact_sound == null:
+		_fallback_impact_sound = ProceduralSound.make_plastic_impact()
+	_audio_player.stream = _fallback_impact_sound
 
 
 func _on_body_entered(_body: Node) -> void:
