@@ -22,15 +22,21 @@ extends Node2D
 ##
 ## 방 선택지 무작위 노출: STATUS.md 다음 할 일 큐("3개 방 선택지가 매번 전부 노출되는
 ## 대신, 방마다 일부만 무작위로 제시되는 것이 레벨 디자인에 더 가까울 수 있음")를 잠정
-## 반영. "전투 방"은 진행을 보장하기 위해 항상 노출하고, 상점/특수 이벤트는 방(=
-## RunState.rooms_cleared)마다 결정되는 시드로 각각 독립적으로 등장 확률(SHOP_CHANCE/
-## EVENT_CHANCE)을 굴려 노출 여부를 정한다. 같은 방에서는 씬을 다시 그려도(_update_labels
-## 재호출) 같은 결과가 나오도록 rooms_cleared 기반 시드를 쓰되, 게임 전체의 randi()/randf()
-## (전투 판정 등)와 섞이지 않도록 별도 RandomNumberGenerator를 사용한다. 확률 자체는
-## 감으로 잡은 잠정값 — 사람 피드백 필요.
+## 반영. "전투 방"은 진행을 보장하기 위해 항상 노출하고, 상점/특수 이벤트/스토리
+## 이벤트는 방(= RunState.rooms_cleared)마다 결정되는 시드로 각각 독립적으로 등장
+## 확률(SHOP_CHANCE/EVENT_CHANCE/STORY_CHANCE)을 굴려 노출 여부를 정한다. 같은
+## 방에서는 씬을 다시 그려도(_update_labels 재호출) 같은 결과가 나오도록 rooms_cleared
+## 기반 시드를 쓰되, 게임 전체의 randi()/randf()(전투 판정 등)와 섞이지 않도록 별도
+## RandomNumberGenerator를 사용한다. 확률 자체는 감으로 잡은 잠정값 — 사람 피드백 필요.
+##
+## "스토리 이벤트"는 STATUS.md 다음 할 일 큐("순수 텍스트형/스토리형 선택지 이벤트")를
+## 반영한 신규 방 종류. 상점/특수 이벤트가 다이스 아이템(DiceItemPool 형식)을 다루는
+## 것과 달리, scenes/story_event.tscn은 다이스를 전혀 건드리지 않고 골드만 오가는
+## 텍스트 선택지다 (systems/story_event_pool.gd 참고).
 
 const SHOP_CHANCE := 0.6
 const EVENT_CHANCE := 0.5
+const STORY_CHANCE := 0.5
 const BUTTON_TOP_START := 320.0
 const BUTTON_SPACING := 70.0
 const BUTTON_HEIGHT := 50.0
@@ -40,26 +46,30 @@ const BUTTON_HEIGHT := 50.0
 @onready var enter_combat_button: Button = $EnterCombatButton
 @onready var enter_shop_button: Button = $EnterShopButton
 @onready var enter_event_button: Button = $EnterEventButton
+@onready var enter_story_button: Button = $EnterStoryButton
 
 var _shop_available := true
 var _event_available := true
+var _story_available := true
 
 
 func _ready() -> void:
 	enter_combat_button.pressed.connect(_on_combat_button_pressed)
 	enter_shop_button.pressed.connect(_on_shop_button_pressed)
 	enter_event_button.pressed.connect(_on_event_button_pressed)
+	enter_story_button.pressed.connect(_on_story_button_pressed)
 	_roll_room_choices()
 	_update_labels()
 
 
-## 현재 방(rooms_cleared) 기준으로 상점/특수 이벤트 노출 여부를 결정한다.
+## 현재 방(rooms_cleared) 기준으로 상점/특수 이벤트/스토리 이벤트 노출 여부를 결정한다.
 ## 전투 판정에 쓰이는 전역 randi()/randf()와 섞이지 않도록 별도 RNG를 씀.
 func _roll_room_choices() -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = RunState.rooms_cleared * 104729 + 7
 	_shop_available = rng.randf() < SHOP_CHANCE
 	_event_available = rng.randf() < EVENT_CHANCE
+	_story_available = rng.randf() < STORY_CHANCE
 
 
 func _update_labels() -> void:
@@ -69,13 +79,16 @@ func _update_labels() -> void:
 		enter_combat_button.text = "새 런 시작"
 		enter_shop_button.hide()
 		enter_event_button.hide()
+		enter_story_button.hide()
 	else:
 		rooms_cleared_label.text = "클리어한 방: %d / %d" % [RunState.rooms_cleared, RunState.TOTAL_ROOMS]
 		enter_combat_button.text = "전투 방 입장 (%d번째 방)" % (RunState.rooms_cleared + 1)
 		enter_shop_button.text = "상점 입장 (%d번째 방)" % (RunState.rooms_cleared + 1)
 		enter_event_button.text = "특수 이벤트 입장 (%d번째 방)" % (RunState.rooms_cleared + 1)
+		enter_story_button.text = "스토리 이벤트 입장 (%d번째 방)" % (RunState.rooms_cleared + 1)
 		enter_shop_button.visible = _shop_available
 		enter_event_button.visible = _event_available
+		enter_story_button.visible = _story_available
 	_layout_visible_buttons()
 
 
@@ -87,6 +100,8 @@ func _layout_visible_buttons() -> void:
 		visible_buttons.append(enter_shop_button)
 	if enter_event_button.visible:
 		visible_buttons.append(enter_event_button)
+	if enter_story_button.visible:
+		visible_buttons.append(enter_story_button)
 
 	var y := BUTTON_TOP_START
 	for btn in visible_buttons:
@@ -110,3 +125,7 @@ func _on_shop_button_pressed() -> void:
 
 func _on_event_button_pressed() -> void:
 	get_tree().change_scene_to_file("res://code/scenes/event.tscn")
+
+
+func _on_story_button_pressed() -> void:
+	get_tree().change_scene_to_file("res://code/scenes/story_event.tscn")
