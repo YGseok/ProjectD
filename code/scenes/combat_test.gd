@@ -9,9 +9,11 @@ extends Node2D
 ## 스케일링(_monster_config_for_room())을 적용한다 (아래 "몬스터 스케일링" 참고).
 ##
 ## 판정은 기존 systems/dice_bag.gd(DiceBag), systems/combat_math.gd(CombatMath)를
-## 그대로 재사용한다. 물리적으로 굴러가는 dice/die_d4.tscn(DieD4)은 "손맛" 연출용이며,
+## 그대로 재사용한다. 물리적으로 굴러가는 dice/die_d4.tscn(Die)은 "손맛" 연출용이며,
 ## 실제 합계는 DiceBag.roll()의 RNG 결과를 쓴다 (물리 다이스의 착지 면을 읽어 판정하는
-## 기능은 아직 없음 — 알려진 이슈로 STATUS.md에 남김).
+## 기능은 아직 없음 — 알려진 이슈로 STATUS.md에 남김). 다만 다이스 "모양"(면 개수)은
+## 각 다이스의 실제 face 배열 길이(bag.dice[i].size())에 맞춰 스폰하므로, 개조 아이템으로
+## D6/D8 등으로 승급/추가된 다이스는 굴러갈 때도 그 모양으로 보인다.
 ##
 ## 다이스가 완전히 멈췄는지 실제로 감지한다 (linear/angular velocity가 임계값 밑으로
 ## SETTLE_MIN_FRAMES 프레임 연속 유지되면 정지로 판단). **다이스별로 독립적으로
@@ -24,7 +26,7 @@ extends Node2D
 ## 기다려야 하는" 상황이 없다. 물리 이상 등으로 끝내 멈추지 않는 경우를 대비해
 ## SETTLE_MAX_WAIT 초과 시 강제로 진행한다 (안전장치).
 
-const DieD4Scene := preload("res://code/dice/die_d4.tscn")
+const DieScene := preload("res://code/dice/die_d4.tscn")
 
 const SETTLE_LIN_THRESHOLD := 0.08
 const SETTLE_ANG_THRESHOLD := 0.5
@@ -142,8 +144,8 @@ func _do_exchange(is_player_attacking: bool) -> void:
 	var def_color := monster_color if is_player_attacking else default_color
 
 	_clear_dice()
-	_spawn_dice(atk_bag.count, -1.4, atk_color)
-	_spawn_dice(def_bag.count, 1.4, def_color)
+	_spawn_dice(atk_bag, -1.4, atk_color)
+	_spawn_dice(def_bag, 1.4, def_color)
 
 	await _wait_for_dice_to_settle()
 
@@ -229,10 +231,15 @@ func _wait_for_dice_to_settle() -> void:
 			return
 
 
-func _spawn_dice(count: int, base_x: float, color: Color = Color(1, 1, 1, 0)) -> void:
+## bag의 다이스별 실제 면 개수(faces.size())에 맞춰 다이스 모양(D4/D6/D8/...)을
+## 스폰한다 (Die.sides는 add_child()로 트리에 들어가 _ready()가 도는 시점에 이미
+## 메시를 만드므로, 반드시 add_child() 이전에 설정해야 함).
+func _spawn_dice(bag: DiceBag, base_x: float, color: Color = Color(1, 1, 1, 0)) -> void:
+	var count := bag.count
 	var total_rows := int(ceil(float(count) / DICE_SPAWN_PER_ROW))
 	for i in count:
-		var die := DieD4Scene.instantiate()
+		var die := DieScene.instantiate()
+		die.sides = bag.dice[i].size()
 		die.color_override = color
 		dice_root.add_child(die)
 		var row := i / DICE_SPAWN_PER_ROW
@@ -528,6 +535,26 @@ func _show_face_picker(bag: DiceBag, die_index: int) -> void:
 ## 흉내낼 수 없는 자동 스크린샷에서 면 선택 화면을 직접 열어보기 위함).
 func _debug_open_face_picker() -> void:
 	_show_face_picker(RunState.player_attack_bag, 0)
+
+
+## qa/visual_qa.gd의 GAME_QA_CALL로 호출하기 위한 인자 없는 래퍼 (QA 전용). 정상
+## 플레이로는 다이스가 D6/D8로 섞이려면 승리 보상을 여러 번 받아야 해서 확인이 느리므로,
+## 공격 주머니 다이스 2개를 강제로 D6/D8로 바꾸고 즉시 다시 스폰해 물리 다이스 모양이
+## 실제 면 개수를 따라가는지(Die.sides 배선) 스크린샷 한 장으로 바로 확인하기 위함.
+func _debug_show_mixed_dice_shapes() -> void:
+	RunState.player_attack_bag.replace_die(0, 6)
+	RunState.player_attack_bag.replace_die(1, 8)
+	_clear_dice()
+	_spawn_dice(RunState.player_attack_bag, -1.4)
+	_spawn_dice(RunState.player_defense_bag, 1.4)
+	# QA 캡처는 스폰 직후 1프레임만 지나 찍히므로(물리가 정지할 시간이 없음), 다이스가
+	# 낙하/회전 중인 흐릿한 모습 대신 모양을 또렷이 보이도록 그 자리에서 얼린다.
+	var i := 0
+	for child in dice_root.get_children():
+		if child is RigidBody3D:
+			child.freeze = true
+			child.rotation = Vector3(0.4, i * 0.6, 0.3)
+			i += 1
 
 
 ## QA 전용 래퍼 — 패배 시 표정(플레이어 분노, 몬스터 기쁨)을 스크린샷으로 확인하기
