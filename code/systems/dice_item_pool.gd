@@ -27,6 +27,11 @@ const ITEMS: Array[Dictionary] = [
 		"description": "선택한 주머니에서 가장 낮은 면 값 하나를 그 다이스의 최댓값으로 올립니다.",
 		"kind": "boost_weak_face",
 	},
+	{
+		"name": "모든 면 통일 (최댓값)",
+		"description": "선택한 주머니에서 가장 개선이 필요한 다이스 1개를 골라, 그 다이스의 모든 면을 최댓값으로 맞춥니다.",
+		"kind": "uniform_faces",
+	},
 ]
 
 
@@ -47,6 +52,8 @@ static func apply(item: Dictionary, bag: DiceBag) -> void:
 				bag.replace_die(idx, item["new_sides"])
 		"boost_weak_face":
 			_boost_weakest_face(bag)
+		"uniform_faces":
+			_uniformize_worst_die(bag)
 
 
 static func _find_smallest_die(bag: DiceBag) -> int:
@@ -77,3 +84,25 @@ static func _boost_weakest_face(bag: DiceBag) -> void:
 	for v in faces:
 		max_val = max(max_val, v)
 	bag.set_face_value(best_die, best_face, max_val)
+
+
+## DESIGN.md 빌드업 예시("모든 면을 6으로 만들기")를 구현한다. _boost_weakest_face와
+## 같은 방식(가장 낮은 면 값 하나를 기준)으로 "가장 개선이 필요한 다이스"를 고른 뒤,
+## 그 다이스의 모든 면을 자신의 최댓값으로 맞춰 균일화한다.
+static func _uniformize_worst_die(bag: DiceBag) -> void:
+	var best_die := -1
+	var best_value := 999999
+	for di in bag.dice.size():
+		var faces: PackedInt32Array = bag.dice[di]
+		for fi in faces.size():
+			if faces[fi] < best_value:
+				best_value = faces[fi]
+				best_die = di
+	if best_die < 0:
+		return
+	var faces: PackedInt32Array = bag.dice[best_die]
+	var max_val: int = faces[0]
+	for v in faces:
+		max_val = max(max_val, v)
+	for fi in faces.size():
+		bag.set_face_value(best_die, fi, max_val)

@@ -13,6 +13,7 @@ const ITEM_COSTS := {
 	"add_die": 15,
 	"upgrade_die": 20,
 	"boost_weak_face": 10,
+	"uniform_faces": 25,
 }
 
 @onready var gold_label: Label = $GoldLabel

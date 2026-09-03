@@ -132,4 +132,10 @@ func _check_item_pool(lines: PackedStringArray) -> bool:
 	ok = boost_ok and ok
 	lines.append("  apply(boost_weak_face): min=%d (기대 4) -> %s" % [boost_bag.min_possible(), "OK" if boost_ok else "FAIL"])
 
+	var uniform_bag := DiceBag.new(4, 3)
+	DiceItemPool.apply({"kind": "uniform_faces"}, uniform_bag)
+	var uniform_ok := uniform_bag.min_possible() == 6  # 다이스 0의 모든 면이 최댓값(4)으로 맞춰짐 -> 4+1+1
+	ok = uniform_ok and ok
+	lines.append("  apply(uniform_faces): min=%d (기대 6) -> %s" % [uniform_bag.min_possible(), "OK" if uniform_ok else "FAIL"])
+
 	return ok
