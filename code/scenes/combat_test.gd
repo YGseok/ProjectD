@@ -616,6 +616,25 @@ func _debug_show_single_d20() -> void:
 	die.rotation = Vector3(0.5, 0.6, 0.0)
 
 
+## QA 디버그 전용 — 재질별 시각 색(visual_color) 추가 검증용. D4(플라스틱)/D8(나무)/
+## D10(유리)/D12(철제) 하나씩을 나란히 띄우고 `_material_for_sides()`로 실제 게임과
+## 동일하게 재질을 배정해, 네 재질이 눈으로 뚜렷이 구별되는지 한 장으로 확인한다.
+func _debug_show_material_swatch() -> void:
+	_clear_dice()
+	var sides_list := [4, 8, 10, 12]
+	for i in sides_list.size():
+		var die := DieScene.instantiate()
+		die.sides = sides_list[i]
+		die.die_size = 0.5
+		var material := _material_for_sides(die.sides)
+		if material != null:
+			die.material = material
+		dice_root.add_child(die)
+		die.transform = Transform3D(Basis(), Vector3(-1.8 + i * 1.2, 1.0, 0))
+		die.freeze = true
+		die.rotation = Vector3(0.5, 0.6, 0.0)
+
+
 ## QA 전용 래퍼 — 패배 시 표정(플레이어 분노, 몬스터 기쁨)을 스크린샷으로 확인하기
 ## 위함. randi() 기반 분노/슬픔 분기 중 "분노" 쪽을 강제로 보여준다.
 func _debug_show_defeat_expressions() -> void:

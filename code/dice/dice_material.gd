@@ -14,3 +14,12 @@ extends Resource
 ## die_d4.gd는 impact_sound가 없으면 재생을 스킵하고 조용히 넘어간다
 ## (배선은 맞춰두고, 나중에 에셋만 채우면 바로 작동).
 @export var impact_sound: AudioStream
+
+## 재질별 시각 색(알파 0이면 틴트 없이 메시 기본 모양을 그대로 씀). 몬스터별
+## color_override(다이스 색으로 몬스터 구분)가 항상 우선하고, 이 색은 플레이어
+## 다이스처럼 color_override가 없을 때만 적용된다 (die_d4.gd `_apply_material()` 참고).
+## D8=나무/D10=유리/D12,D20=철제처럼 재질이 sides에 잠정 배정되므로, 지금은 이 색이
+## 다이스가 몇 면체인지 짐작하는 시각적 단서 역할도 겸한다.
+@export var visual_color: Color = Color(1, 1, 1, 0)
+@export var metallic: float = 0.0
+@export var roughness: float = 0.6

@@ -7,3 +7,6 @@ script = ExtResource("1_script")
 material_name = "glass"
 bounce = 0.45
 friction = 0.35
+visual_color = Color(0.75, 0.92, 0.95, 0.7)
+metallic = 0.0
+roughness = 0.05

@@ -309,6 +309,23 @@ func _apply_material() -> void:
 		_audio_player.stream = material.impact_sound
 	else:
 		_apply_fallback_sound()
+	_apply_visual_tint()
+
+
+## 재질별 시각 색(플라스틱/나무/유리/철제)을 메시에 입힌다. 몬스터 다이스 색
+## (color_override)이 이미 걸려 있으면 몬스터 구분이 더 중요하므로 건드리지 않는다.
+func _apply_visual_tint() -> void:
+	if color_override.a > 0.0:
+		return
+	if material.visual_color.a <= 0.0:
+		return
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = material.visual_color
+	mat.metallic = material.metallic
+	mat.roughness = material.roughness
+	if material.visual_color.a < 1.0:
+		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	_mesh_instance.material_override = mat
 
 
 func _apply_fallback_sound() -> void:
