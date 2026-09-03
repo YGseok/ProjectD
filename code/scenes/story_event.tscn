@@ -1,6 +1,7 @@
-[gd_scene load_steps=4 format=3 uid="uid://qa_story_event"]
+[gd_scene load_steps=5 format=3 uid="uid://qa_story_event"]
 
 [ext_resource type="Script" path="res://code/scenes/story_event.gd" id="1_script"]
+[ext_resource type="Script" path="res://code/scenes/deck_panel.gd" id="2_deck_panel"]
 
 [sub_resource type="LabelSettings" id="LabelSettings_title"]
 font_size = 28
@@ -62,3 +63,10 @@ offset_top = 400.0
 offset_right = 810.0
 offset_bottom = 450.0
 text = "계속"
+
+[node name="DeckPanel" type="PanelContainer" parent="."]
+offset_left = 980.0
+offset_top = 150.0
+offset_right = 1240.0
+offset_bottom = 700.0
+script = ExtResource("2_deck_panel")

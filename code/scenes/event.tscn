@@ -1,6 +1,7 @@
-[gd_scene load_steps=3 format=3 uid="uid://qa_event"]
+[gd_scene load_steps=4 format=3 uid="uid://qa_event"]
 
 [ext_resource type="Script" path="res://code/scenes/event.gd" id="1_script"]
+[ext_resource type="Script" path="res://code/scenes/deck_panel.gd" id="2_deck_panel"]
 
 [sub_resource type="LabelSettings" id="LabelSettings_title"]
 font_size = 28
@@ -24,3 +25,10 @@ label_settings = SubResource("LabelSettings_title")
 
 [node name="ItemsRoot" type="Node2D" parent="."]
 position = Vector2(300, 140)
+
+[node name="DeckPanel" type="PanelContainer" parent="."]
+offset_left = 980.0
+offset_top = 150.0
+offset_right = 1240.0
+offset_bottom = 700.0
+script = ExtResource("2_deck_panel")
