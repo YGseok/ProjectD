@@ -73,3 +73,24 @@ func _debug_pick_first_for_attack() -> void:
 ## _debug_open_customize와 같은 목적).
 func _debug_open_customize() -> void:
 	customize_panel.open()
+
+
+## QA 전용: 새로 추가한 D20 아이템(EventItemPool 마지막 항목)을 강제로 목록 맨 앞에
+## 노출시킨다. 아이템은 무작위 2개만 뽑혀 보이므로, 화면에서 실제로 정상 표시되는지
+## 확인하려면 무작위 뽑기에 의존하지 않고 직접 강제할 방법이 필요해서 추가함.
+func _debug_force_offer_d20() -> void:
+	_offered = [EventItemPool.ITEMS[EventItemPool.ITEMS.size() - 1], EventItemPool.ITEMS[0]]
+	_rebuild_items()
+
+
+## QA 전용: D20 아이템을 공격 주머니에 적용했을 때 실제로 sides=20 다이스가 하나
+## 추가되는지 콘솔로 검증한다 (_debug_force_offer_d20과 짝 — 화면 표시 확인과
+## 별개로 apply() 로직 자체를 확인).
+func _debug_verify_d20_pickup() -> void:
+	var item: Dictionary = EventItemPool.ITEMS[EventItemPool.ITEMS.size() - 1]
+	var bag := RunState.player_attack_bag
+	var before_count := bag.dice.size()
+	DiceItemPool.apply(item, bag)
+	var after_count := bag.dice.size()
+	var added_sides := bag.dice[after_count - 1].size() if after_count > before_count else -1
+	print("[qa] d20 pickup: before=%d after=%d added_sides=%d" % [before_count, after_count, added_sides])
