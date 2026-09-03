@@ -2,12 +2,13 @@ class_name Die
 extends RigidBody3D
 ## 물리 다이스 프리팹의 로직. `sides`(면 개수)에 따라 메시/충돌 모양이 달라진다.
 ##
-## - D4/D6/D8/D10/D12는 정확한(위상적으로 올바른) 정다면체 모양을 코드로 생성한다
-##   (Godot 기본 Mesh 프리미티브에는 D4/D8/D10/D12가 없고, D6은 BoxMesh로 표현 가능).
+## - D4/D6/D8/D10/D12/D20는 정확한(위상적으로 올바른) 정다면체 모양을 코드로 생성한다
+##   (Godot 기본 Mesh 프리미티브에는 D4/D8/D10/D12/D20이 없고, D6은 BoxMesh로 표현 가능).
 ##   D10은 실제 주사위와 같은 "정오각 사다리 십이면체(pentagonal trapezohedron)"
 ##   구조(꼭짓점 차수 5/3, 연꼴 면 10개)를 따른다. D12는 정십이면체(regular
-##   dodecahedron, 오각형 면 12개)를 따른다.
-## - 그 외(D20 등) 아직 다루지 않은 다면체는 둥근 형태(SphereMesh)로 근사한다 — 이
+##   dodecahedron, 오각형 면 12개), D20은 정이십면체(regular icosahedron, 정삼각형
+##   면 20개)를 따른다.
+## - 그 외(D100 등) 아직 다루지 않은 다면체는 둥근 형태(SphereMesh)로 근사한다 — 이
 ##   프로젝트의 물리 다이스는 착지한 면을 읽어 실제 판정값을 정하지 않는 순수 연출용이라
 ##   (STATUS.md "알려진 이슈: 물리 다이스의 착지 면과 실제 판정값이 무관함" 참고)
 ##   "정확한 다면체 모양"보다 "다이스가 더 커/둥글게 보여 개조가 체감된다"는 시각적
@@ -61,6 +62,8 @@ func _build_mesh_and_collision() -> void:
 			_build_pentagonal_trapezohedron()
 		12:
 			_build_dodecahedron()
+		20:
+			_build_icosahedron()
 		_:
 			_build_rounded_polyhedron()
 	if color_override.a > 0.0:
@@ -185,7 +188,35 @@ func _build_dodecahedron() -> void:
 	_build_from_polygon_faces(verts, faces)
 
 
-## D20 등 정확한 지오메트리가 아직 없는 다면체의 임시 근사 형태 (위 클래스
+## 정이십면체(D20, regular icosahedron). 표준 황금비 좌표(꼭짓점 12개: (0,±1,±φ)의
+## 세 축 순환, φ=황금비)와 정삼각형 면 20개로 이루어진 표준 위상 구조를 그대로
+## 옮겼다(널리 쓰이는 정점/면 목록 재사용, D12와 같은 이유). 면이 이미 삼각형이라
+## 팬 삼각분할은 불필요하지만, winding을 손으로 검산하지 않기 위해 D10/D12와 동일하게
+## `_build_from_polygon_faces()`(무게중심 방향으로 법선 자동 보정)를 그대로 재사용한다.
+func _build_icosahedron() -> void:
+	var phi := (1.0 + sqrt(5.0)) / 2.0
+	var s := die_size * 0.68
+	var raw := [
+		Vector3(-1, phi, 0), Vector3(1, phi, 0),
+		Vector3(-1, -phi, 0), Vector3(1, -phi, 0),
+		Vector3(0, -1, phi), Vector3(0, 1, phi),
+		Vector3(0, -1, -phi), Vector3(0, 1, -phi),
+		Vector3(phi, 0, -1), Vector3(phi, 0, 1),
+		Vector3(-phi, 0, -1), Vector3(-phi, 0, 1),
+	]
+	var verts := PackedVector3Array()
+	for v in raw:
+		verts.append(v * s)
+	var faces := [
+		[0, 11, 5], [0, 5, 1], [0, 1, 7], [0, 7, 10], [0, 10, 11],
+		[1, 5, 9], [5, 11, 4], [11, 10, 2], [10, 7, 6], [7, 1, 8],
+		[3, 9, 4], [3, 4, 2], [3, 2, 6], [3, 6, 8], [3, 8, 9],
+		[4, 9, 5], [2, 4, 11], [6, 2, 10], [8, 6, 7], [9, 8, 1],
+	]
+	_build_from_polygon_faces(verts, faces)
+
+
+## D100 등 정확한 지오메트리가 아직 없는 다면체의 임시 근사 형태 (위 클래스
 ## 주석 참고). 저해상도 구체로 "크고 둥근 다이스"라는 시각적 차별만 준다.
 func _build_rounded_polyhedron() -> void:
 	var r := die_size * 1.4

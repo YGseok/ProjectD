@@ -587,6 +587,20 @@ func _debug_show_single_d12() -> void:
 	die.rotation = Vector3(0.5, 0.6, 0.0)
 
 
+## QA 디버그 전용 — `_debug_show_single_d10()`/`_debug_show_single_d12()`와 같은
+## 패턴으로 D20(정이십면체) 하나를 화면 중앙에 크게 띄워 위상 오류(구멍, 뒤집힌 면)
+## 없이 렌더링되는지 육안 확인한다.
+func _debug_show_single_d20() -> void:
+	_clear_dice()
+	var die := DieScene.instantiate()
+	die.sides = 20
+	die.die_size = 0.6
+	dice_root.add_child(die)
+	die.transform = Transform3D(Basis(), Vector3(0, 1.0, 0))
+	die.freeze = true
+	die.rotation = Vector3(0.5, 0.6, 0.0)
+
+
 ## QA 전용 래퍼 — 패배 시 표정(플레이어 분노, 몬스터 기쁨)을 스크린샷으로 확인하기
 ## 위함. randi() 기반 분노/슬픔 분기 중 "분노" 쪽을 강제로 보여준다.
 func _debug_show_defeat_expressions() -> void:
