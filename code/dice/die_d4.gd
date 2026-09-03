@@ -2,15 +2,16 @@ class_name Die
 extends RigidBody3D
 ## 물리 다이스 프리팹의 로직. `sides`(면 개수)에 따라 메시/충돌 모양이 달라진다.
 ##
-## - D4/D6/D8/D10은 정확한(위상적으로 올바른) 정다면체 모양을 코드로 생성한다
-##   (Godot 기본 Mesh 프리미티브에는 D4/D8/D10이 없고, D6은 BoxMesh로 표현 가능).
+## - D4/D6/D8/D10/D12는 정확한(위상적으로 올바른) 정다면체 모양을 코드로 생성한다
+##   (Godot 기본 Mesh 프리미티브에는 D4/D8/D10/D12가 없고, D6은 BoxMesh로 표현 가능).
 ##   D10은 실제 주사위와 같은 "정오각 사다리 십이면체(pentagonal trapezohedron)"
-##   구조(꼭짓점 차수 5/3, 연꼴 면 10개)를 따른다.
-## - D12 등 아직 다루지 않은 다면체는 둥근 형태(SphereMesh)로 근사한다 — 이 프로젝트의
-##   물리 다이스는 착지한 면을 읽어 실제 판정값을 정하지 않는 순수 연출용이라
+##   구조(꼭짓점 차수 5/3, 연꼴 면 10개)를 따른다. D12는 정십이면체(regular
+##   dodecahedron, 오각형 면 12개)를 따른다.
+## - 그 외(D20 등) 아직 다루지 않은 다면체는 둥근 형태(SphereMesh)로 근사한다 — 이
+##   프로젝트의 물리 다이스는 착지한 면을 읽어 실제 판정값을 정하지 않는 순수 연출용이라
 ##   (STATUS.md "알려진 이슈: 물리 다이스의 착지 면과 실제 판정값이 무관함" 참고)
 ##   "정확한 다면체 모양"보다 "다이스가 더 커/둥글게 보여 개조가 체감된다"는 시각적
-##   구분을 우선했다. 정확한 D12 지오메트리가 필요해지면 `_build_rounded_polyhedron()`
+##   구분을 우선했다. 정확한 지오메트리가 필요해지면 `_build_rounded_polyhedron()`
 ##   호출 자리만 교체하면 됨.
 ## - 재질(DiceMaterial)을 꽂으면 bounce/friction과 충돌 사운드가 그 재질을 따른다.
 ## - 실제 사운드 에셋(impact_sound)이 없으면 `ProceduralSound`로 합성한 임시 타격음을
@@ -58,6 +59,8 @@ func _build_mesh_and_collision() -> void:
 			_build_octahedron()
 		10:
 			_build_pentagonal_trapezohedron()
+		12:
+			_build_dodecahedron()
 		_:
 			_build_rounded_polyhedron()
 	if color_override.a > 0.0:
@@ -139,7 +142,50 @@ func _build_pentagonal_trapezohedron() -> void:
 	_build_from_polygon_faces(verts, faces)
 
 
-## D12 등 정확한 지오메트리가 아직 없는 다면체의 임시 근사 형태 (위 클래스
+## 정십이면체(D12, regular dodecahedron). 표준 황금비 좌표(꼭짓점 20개: 정육면체
+## 꼭짓점 8개 + (0,±1/φ,±φ) 4개 + (±1/φ,±φ,0) 4개 + (±φ,0,±1/φ) 4개, φ=황금비)와
+## 그 위에서 잘 검증된(threejs `DodecahedronGeometry` 소스의 팬 삼각분할 인덱스에서
+## 역으로 오각형 둘레 순서를 복원한) 면 20조각(오각형 12개, 꼭짓점 5개씩)을 그대로
+## 옮겨왔다 — 손으로 새로 유도하는 대신, 이미 널리 쓰이고 검증된 좌표/면 목록을
+## 재사용해 위상 오류(구멍, 뒤집힌 면) 위험을 줄임. winding은 D10과 마찬가지로
+## `_build_from_polygon_faces()`가 자동으로 보정한다.
+func _build_dodecahedron() -> void:
+	var phi := (1.0 + sqrt(5.0)) / 2.0
+	var inv_phi := 1.0 / phi
+	var s := die_size * 0.85
+	var raw := [
+		Vector3(-1, -1, -1), Vector3(-1, -1, 1),
+		Vector3(-1, 1, -1), Vector3(-1, 1, 1),
+		Vector3(1, -1, -1), Vector3(1, -1, 1),
+		Vector3(1, 1, -1), Vector3(1, 1, 1),
+		Vector3(0, -inv_phi, -phi), Vector3(0, -inv_phi, phi),
+		Vector3(0, inv_phi, -phi), Vector3(0, inv_phi, phi),
+		Vector3(-inv_phi, -phi, 0), Vector3(-inv_phi, phi, 0),
+		Vector3(inv_phi, -phi, 0), Vector3(inv_phi, phi, 0),
+		Vector3(-phi, 0, -inv_phi), Vector3(phi, 0, -inv_phi),
+		Vector3(-phi, 0, inv_phi), Vector3(phi, 0, inv_phi),
+	]
+	var verts := PackedVector3Array()
+	for v in raw:
+		verts.append(v * s)
+	var faces := [
+		[3, 11, 7, 15, 13],
+		[7, 19, 17, 6, 15],
+		[17, 4, 8, 10, 6],
+		[8, 0, 16, 2, 10],
+		[0, 12, 1, 18, 16],
+		[6, 10, 2, 13, 15],
+		[2, 16, 18, 3, 13],
+		[18, 1, 9, 11, 3],
+		[4, 14, 12, 0, 8],
+		[11, 9, 5, 19, 7],
+		[19, 5, 14, 4, 17],
+		[1, 12, 14, 5, 9],
+	]
+	_build_from_polygon_faces(verts, faces)
+
+
+## D20 등 정확한 지오메트리가 아직 없는 다면체의 임시 근사 형태 (위 클래스
 ## 주석 참고). 저해상도 구체로 "크고 둥근 다이스"라는 시각적 차별만 준다.
 func _build_rounded_polyhedron() -> void:
 	var r := die_size * 1.4
