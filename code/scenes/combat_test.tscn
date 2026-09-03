@@ -3,6 +3,7 @@
 [ext_resource type="Script" path="res://code/scenes/combat_test.gd" id="1_script"]
 [ext_resource type="Script" path="res://code/scenes/character_portrait_placeholder.gd" id="2_player_portrait"]
 [ext_resource type="Script" path="res://code/scenes/monster_portrait_placeholder.gd" id="3_monster_portrait"]
+[ext_resource type="Script" path="res://code/scenes/deck_panel.gd" id="4_deck_panel"]
 
 [sub_resource type="LabelSettings" id="LabelSettings_title"]
 font_size = 26
@@ -138,6 +139,21 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.55, 0.4, 0)
 shape = SubResource("BoxShape3D_wall_we")
 
 [node name="DiceRoot" type="Node3D" parent="DiceViewportContainer/DiceViewport"]
+
+[node name="DeckToggleButton" type="Button" parent="."]
+offset_left = 1130.0
+offset_top = 20.0
+offset_right = 1240.0
+offset_bottom = 54.0
+text = "덱 보기"
+
+[node name="DeckPanel" type="PanelContainer" parent="."]
+visible = false
+offset_left = 980.0
+offset_top = 150.0
+offset_right = 1240.0
+offset_bottom = 700.0
+script = ExtResource("4_deck_panel")
 
 [node name="NextButton" type="Button" parent="."]
 visible = false

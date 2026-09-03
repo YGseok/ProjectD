@@ -73,6 +73,8 @@ const DICE_SPAWN_ROW_SPACING := 0.5
 @onready var next_button: Button = $NextButton
 @onready var player_portrait: CharacterPortraitPlaceholder = $PlayerPortrait
 @onready var monster_portrait: MonsterPortraitPlaceholder = $MonsterPortrait
+@onready var deck_toggle_button: Button = $DeckToggleButton
+@onready var deck_panel: DeckPanel = $DeckPanel
 
 var player_hp := 20
 const PLAYER_MAX_HP := 20
@@ -150,8 +152,19 @@ func _ready() -> void:
 	monster_portrait.set_body_color(monster_color if monster_color.a > 0 else Color(0.5, 0.5, 0.5))
 
 	next_button.pressed.connect(_on_next_button_pressed)
+	deck_toggle_button.pressed.connect(_on_deck_toggle_pressed)
 	_update_labels()
 	_run_battle()
+
+
+## INBOX.md 피드백(2026-09-03) "내 공격 덱과 방어 덱이 ... 항상 떠있으면 좋겠다
+## (전투 중에도)"의 "전투 중에도" 부분. combat_test는 다이스 뷰포트/초상화/로그로
+## 화면이 이미 꽉 차 있어 dungeon_map 등처럼 상시 표시 패널을 놓을 자리가 없어서,
+## 대신 버튼으로 여닫는 오버레이로 구현한다 (STATUS.md 큐 0번 "접이식/토글 버튼"
+## 대안 채택).
+func _on_deck_toggle_pressed() -> void:
+	deck_panel.visible = not deck_panel.visible
+	deck_toggle_button.text = "덱 닫기" if deck_panel.visible else "덱 보기"
 
 
 func _run_battle() -> void:
