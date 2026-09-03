@@ -11,6 +11,8 @@ extends Node2D
 @onready var choice_b_button: Button = $ChoiceBButton
 @onready var result_label: Label = $ResultLabel
 @onready var continue_button: Button = $ContinueButton
+@onready var customize_button: Button = $CustomizeButton
+@onready var customize_panel: CustomizePanel = $CustomizePanel
 
 var _scenario: Dictionary
 
@@ -26,6 +28,7 @@ func _ready() -> void:
 	result_label.hide()
 	continue_button.hide()
 	continue_button.pressed.connect(_on_continue_pressed)
+	customize_button.pressed.connect(customize_panel.open)
 
 
 func _on_choice_pressed(choice: Dictionary) -> void:
@@ -64,3 +67,9 @@ func _on_continue_pressed() -> void:
 ## qa/visual_qa.gd의 GAME_QA_CALL로 호출하기 위한 인자 없는 래퍼 (QA 전용).
 func _debug_pick_choice_a() -> void:
 	_on_choice_pressed(_scenario["choice_a"])
+
+
+## qa/visual_qa.gd의 GAME_QA_CALL로 호출하기 위한 QA 전용 훅 (dungeon_map.gd의
+## _debug_open_customize와 같은 목적).
+func _debug_open_customize() -> void:
+	customize_panel.open()

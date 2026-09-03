@@ -10,6 +10,8 @@ extends Node2D
 ## DiceItemPool.apply()를 그대로 재사용한다 (item dict 형식이 같음).
 
 @onready var items_root: Node2D = $ItemsRoot
+@onready var customize_button: Button = $CustomizeButton
+@onready var customize_panel: CustomizePanel = $CustomizePanel
 
 var _offered: Array[Dictionary] = []
 var _row_ui: Array[Node] = []
@@ -17,6 +19,7 @@ var _row_ui: Array[Node] = []
 
 func _ready() -> void:
 	_offered = EventItemPool.random_choices(2)
+	customize_button.pressed.connect(customize_panel.open)
 	_rebuild_items()
 
 
@@ -64,3 +67,9 @@ func _on_pick_pressed(item: Dictionary, target: String) -> void:
 ## qa/visual_qa.gd의 GAME_QA_CALL로 호출하기 위한 인자 없는 래퍼 (QA 전용).
 func _debug_pick_first_for_attack() -> void:
 	_on_pick_pressed(_offered[0], "attack")
+
+
+## qa/visual_qa.gd의 GAME_QA_CALL로 호출하기 위한 QA 전용 훅 (dungeon_map.gd의
+## _debug_open_customize와 같은 목적).
+func _debug_open_customize() -> void:
+	customize_panel.open()

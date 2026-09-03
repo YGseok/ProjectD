@@ -75,6 +75,8 @@ const DICE_SPAWN_ROW_SPACING := 0.5
 @onready var monster_portrait: MonsterPortraitPlaceholder = $MonsterPortrait
 @onready var deck_toggle_button: Button = $DeckToggleButton
 @onready var deck_panel: DeckPanel = $DeckPanel
+@onready var customize_toggle_button: Button = $CustomizeToggleButton
+@onready var customize_panel: CustomizePanel = $CustomizePanel
 
 var player_hp := 20
 const PLAYER_MAX_HP := 20
@@ -153,6 +155,7 @@ func _ready() -> void:
 
 	next_button.pressed.connect(_on_next_button_pressed)
 	deck_toggle_button.pressed.connect(_on_deck_toggle_pressed)
+	customize_toggle_button.pressed.connect(customize_panel.open)
 	_update_labels()
 	_run_battle()
 
@@ -576,6 +579,13 @@ func _show_face_picker(bag: DiceBag, die_index: int) -> void:
 ## 흉내낼 수 없는 자동 스크린샷에서 면 선택 화면을 직접 열어보기 위함).
 func _debug_open_face_picker() -> void:
 	_show_face_picker(RunState.player_attack_bag, 0)
+
+
+## qa/visual_qa.gd의 GAME_QA_CALL로 호출하기 위한 QA 전용 훅 (dungeon_map.gd의
+## _debug_open_customize와 같은 목적 — 전투 중 언제든 열 수 있는 CustomizePanel
+## 오버레이가 실제로 열리는지 확인).
+func _debug_open_customize() -> void:
+	customize_panel.open()
 
 
 ## qa/visual_qa.gd의 GAME_QA_CALL로 호출하기 위한 인자 없는 래퍼 (QA 전용). 정상

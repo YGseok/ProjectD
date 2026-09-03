@@ -1,7 +1,8 @@
-[gd_scene load_steps=5 format=3 uid="uid://qa_story_event"]
+[gd_scene load_steps=6 format=3 uid="uid://qa_story_event"]
 
 [ext_resource type="Script" path="res://code/scenes/story_event.gd" id="1_script"]
 [ext_resource type="Script" path="res://code/scenes/deck_panel.gd" id="2_deck_panel"]
+[ext_resource type="Script" path="res://code/scenes/customize_panel.gd" id="3_customize_panel"]
 
 [sub_resource type="LabelSettings" id="LabelSettings_title"]
 font_size = 28
@@ -64,9 +65,21 @@ offset_right = 810.0
 offset_bottom = 450.0
 text = "계속"
 
+[node name="CustomizeButton" type="Button" parent="."]
+offset_left = 40.0
+offset_top = 650.0
+offset_right = 340.0
+offset_bottom = 695.0
+text = "커스터마이징: 다이스 눈금 강화"
+
 [node name="DeckPanel" type="PanelContainer" parent="."]
 offset_left = 980.0
 offset_top = 150.0
 offset_right = 1240.0
 offset_bottom = 700.0
 script = ExtResource("2_deck_panel")
+
+[node name="CustomizePanel" type="Control" parent="."]
+offset_right = 1280.0
+offset_bottom = 720.0
+script = ExtResource("3_customize_panel")

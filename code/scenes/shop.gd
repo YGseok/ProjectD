@@ -19,12 +19,15 @@ const ITEM_COSTS := {
 @onready var gold_label: Label = $GoldLabel
 @onready var leave_button: Button = $LeaveButton
 @onready var items_root: Node2D = $ItemsRoot
+@onready var customize_button: Button = $CustomizeButton
+@onready var customize_panel: CustomizePanel = $CustomizePanel
 
 var _row_ui: Array[Node] = []
 
 
 func _ready() -> void:
 	leave_button.pressed.connect(_on_leave_pressed)
+	customize_button.pressed.connect(customize_panel.open)
 	_rebuild_items()
 
 
@@ -88,3 +91,9 @@ func _debug_buy_first_for_attack() -> void:
 func _on_leave_pressed() -> void:
 	RunState.rooms_cleared += 1
 	get_tree().change_scene_to_file("res://code/scenes/dungeon_map.tscn")
+
+
+## qa/visual_qa.gd의 GAME_QA_CALL로 호출하기 위한 QA 전용 훅 (dungeon_map.gd의
+## _debug_open_customize와 같은 목적).
+func _debug_open_customize() -> void:
+	customize_panel.open()
