@@ -133,6 +133,22 @@ const MONSTER_PROFILES := [
 ]
 
 
+## 몬스터 다이스 면 개수(sides) 스케일링. 지금까지 몬스터 주머니는 방과 무관하게 항상
+## DiceBag.new(4, ...)(D4 고정)이라 개수만 늘어날 뿐 다이스 "모양"은 절대 안 바뀌는
+## 간극이 있었음 (STATUS.md 큐 1 "몬스터별로 의도적으로 다른 다이스 형태를 쓰게 할지는
+## 아직 미정"에서 제안된 방향을 그대로 적용). room_index가 늘수록 D4 -> D6 -> D8로
+## 커지게 해 "던전이 진행될수록 몬스터가 강해진다"는 체감을 다이스 개수뿐 아니라
+## 다이스 모양(과 그에 딸린 재질/색, _material_for_sides() 참고)으로도 드러낸다.
+## 값 자체는 감으로 잡은 잠정값 — 이 스케일링이 기존 개수/HP 스케일링과 겹쳐 후반
+## 난이도가 과도해지는 건 아닌지 사람 피드백 필요.
+func _monster_dice_sides_for_room(room_index: int) -> int:
+	if room_index >= 4:
+		return 8
+	if room_index >= 2:
+		return 6
+	return 4
+
+
 ## 잠정 난이도 스케일링 (DESIGN.md 미확정 — 1번째 방만 확정 수치 그대로 유지).
 ## room_index: 0부터 시작 (RunState.rooms_cleared와 동일한 기준, 즉 몇 번째 몬스터인지).
 ## room_index=0 -> 공격 2D4 / 방어 1D4 / HP10 (DESIGN.md 확정값과 동일).
@@ -145,6 +161,7 @@ func _monster_config_for_room(room_index: int) -> Dictionary:
 	return {
 		"attack_count": 2 + int(room_index / 2.0),
 		"defense_count": 1 + int(room_index / 3.0),
+		"dice_sides": _monster_dice_sides_for_room(room_index),
 		"max_hp": 10 + room_index * 3,
 		"name": name_text,
 		"color": profile["color"],
@@ -153,8 +170,9 @@ func _monster_config_for_room(room_index: int) -> Dictionary:
 
 func _ready() -> void:
 	var config := _monster_config_for_room(RunState.rooms_cleared)
-	monster_attack_bag = DiceBag.new(4, config["attack_count"])
-	monster_defense_bag = DiceBag.new(4, config["defense_count"])
+	var monster_sides: int = config["dice_sides"]
+	monster_attack_bag = DiceBag.new(monster_sides, config["attack_count"])
+	monster_defense_bag = DiceBag.new(monster_sides, config["defense_count"])
 	monster_max_hp = config["max_hp"]
 	monster_hp = monster_max_hp
 	monster_name = config["name"]
@@ -163,7 +181,8 @@ func _ready() -> void:
 
 	next_button.pressed.connect(_on_next_button_pressed)
 	deck_toggle_button.pressed.connect(_on_deck_toggle_pressed)
-	customize_toggle_button.pressed.connect(customize_panel.open)
+	customize_toggle_button.pressed.connect(_on_customize_toggle_pressed)
+	customize_toggle_button.visible = false
 	customize_panel.closed.connect(_on_customize_panel_closed)
 	_update_labels()
 	_run_battle()
@@ -177,6 +196,18 @@ func _ready() -> void:
 func _on_deck_toggle_pressed() -> void:
 	deck_panel.visible = not deck_panel.visible
 	deck_toggle_button.text = "덱 닫기" if deck_panel.visible else "덱 보기"
+
+
+## INBOX.md 피드백(2026-09-03) "커스터마이징은 전투 중에는 불가능해야 한다" — 이전
+## 이터레이션이 "어디서든 커스터마이징"을 위해 combat_test에도 상시 토글 버튼을
+## 붙였던 것을 사용자가 되돌리라고 지시함. 버튼 자체를 battle_over가 될 때까지 숨겨서
+## (_ready()/_do_exchange() 참고) 보통은 누를 수조차 없지만, QA의 GAME_QA_CALL처럼
+## 시그널을 직접 emit해 visible 체크를 우회하는 경로까지 막기 위해 핸들러에서도
+## battle_over를 한 번 더 확인한다.
+func _on_customize_toggle_pressed() -> void:
+	if not battle_over:
+		return
+	customize_panel.open()
 
 
 func _run_battle() -> void:
@@ -249,6 +280,10 @@ func _do_exchange(is_player_attacking: bool) -> void:
 		turn_label.text = "패배... (플레이어 사망)"
 		player_portrait.set_expression("angry" if randi() % 2 == 0 else "sad")
 		monster_portrait.set_expression("happy")
+
+	# INBOX.md 피드백(2026-09-03) "커스터마이징은 전투 중에는 불가능해야 한다" — 전투가
+	# 끝난 뒤에만 상단 토글 버튼을 보여준다 (battle_over가 막 true가 된 시점에 맞춰 동기화).
+	customize_toggle_button.visible = battle_over
 
 	await get_tree().create_timer(EXCHANGE_PAUSE_TIME).timeout
 
@@ -519,11 +554,13 @@ func _debug_open_customize() -> void:
 	customize_panel.open()
 
 
-## QA 전용 — INBOX.md 피드백(2026-09-03) "커스터마이징은 전투 중에는 불가능하다"
-## 조사용. GAME_QA_CALL은 메서드를 직접 호출할 뿐 실제 마우스 클릭을 흉내내지 않으므로,
-## _debug_open_customize()(= customize_panel.open() 직접 호출)만으로는 실제 버튼의
-## disabled/visible/mouse_filter 상태나 시그널 연결 자체에 문제가 있어도 걸러내지 못한다.
-## 그래서 여기서는 버튼 상태를 점검하고 실제 pressed 시그널을 발생시켜 본다.
+## QA 전용 — INBOX.md 피드백(2026-09-03) "커스터마이징은 전투 중에는 불가능해야 한다"
+## 검증용. 이전(2026-09-03 (10)) 조사 당시에는 이 훅이 "버튼이 실수로 안 열리는 게
+## 아닌지" 확인하는 용도였지만, 이번에 사용자가 요구사항을 뒤집어 이제는 반대로
+## "battle_over=false일 때 정말로 안 열리는지"를 확인하는 용도로 쓴다. GAME_QA_CALL은
+## 메서드를 직접 호출할 뿐 실제 마우스 클릭을 흉내내지 않으므로, visible만으로는
+## "숨겨서 못 누르게 함"과 "핸들러 자체가 막음"을 구별 못 한다 — 그래서 emit_signal로
+## pressed를 강제로 발생시켜서, 핸들러의 battle_over 체크가 실제로 막는지까지 확인한다.
 func _debug_verify_customize_button_during_battle() -> void:
 	print("[customize_btn_check] visible=%s disabled=%s mouse_filter=%s battle_over=%s" % [
 		customize_toggle_button.visible, customize_toggle_button.disabled,
@@ -633,6 +670,35 @@ func _debug_show_material_swatch() -> void:
 		die.transform = Transform3D(Basis(), Vector3(-1.8 + i * 1.2, 1.0, 0))
 		die.freeze = true
 		die.rotation = Vector3(0.5, 0.6, 0.0)
+
+
+## QA 디버그 전용 — 몬스터 다이스 면 개수(sides) 스케일링(_monster_dice_sides_for_room())
+## 검증용. GAME_QA_CALL은 _ready() 이후(즉 몬스터 주머니가 이미 room 0 기준으로
+## 만들어진 뒤)에, 그리고 settle 대기보다 나중에 실행되므로, 새로 스폰한 다이스는
+## 떨어지는 도중일 수 있다 — _debug_show_material_swatch()와 같은 패턴으로 freeze=true를
+## 줘서 낙하 중간 프레임이 찍히지 않고 항상 같은 자세로 보이게 한다.
+func _debug_show_monster_dice_for_room(room_index: int) -> void:
+	var config := _monster_config_for_room(room_index)
+	var sides: int = config["dice_sides"]
+	monster_attack_bag = DiceBag.new(sides, config["attack_count"])
+	_clear_dice()
+	var count: int = config["attack_count"]
+	for i in count:
+		var die := DieScene.instantiate()
+		die.sides = sides
+		die.color_override = config["color"]
+		var material := _material_for_sides(sides)
+		if material != null:
+			die.material = material
+		dice_root.add_child(die)
+		die.transform = Transform3D(Basis(), Vector3(-1.0 + i * 1.0, 1.0, 0))
+		die.freeze = true
+		die.rotation = Vector3(0.5, 0.6, 0.0)
+
+
+## GAME_QA_CALL은 인자 없는 메서드만 호출할 수 있어 각 room_index별로 래퍼를 둔다.
+func _debug_show_monster_dice_room4() -> void:
+	_debug_show_monster_dice_for_room(4)
 
 
 ## QA 전용 래퍼 — 패배 시 표정(플레이어 분노, 몬스터 기쁨)을 스크린샷으로 확인하기
