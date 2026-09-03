@@ -60,6 +60,8 @@ const BUTTON_HEIGHT := 50.0
 @onready var enter_event_button: Button = $EnterEventButton
 @onready var enter_story_button: Button = $EnterStoryButton
 @onready var map_strip: Control = $MapStrip
+@onready var customize_button: Button = $CustomizeButton
+@onready var customize_panel: CustomizePanel = $CustomizePanel
 
 var _shop_available := true
 var _event_available := true
@@ -73,6 +75,7 @@ func _ready() -> void:
 	enter_shop_button.pressed.connect(_on_shop_button_pressed)
 	enter_event_button.pressed.connect(_on_event_button_pressed)
 	enter_story_button.pressed.connect(_on_story_button_pressed)
+	customize_button.pressed.connect(customize_panel.open)
 	_setup_map_strip()
 	_roll_room_choices()
 	_update_labels()
@@ -224,7 +227,9 @@ func _make_type_chip(text: String, color: Color) -> Control:
 
 
 ## 상점/이벤트가 숨겨져도 버튼 사이에 빈 틈이 남지 않도록, 보이는 버튼만 순서대로
-## 다시 세로 배치한다 (전투 방은 항상 첫 자리).
+## 다시 세로 배치한다 (전투 방은 항상 첫 자리). "커스터마이징" 버튼은 방 선택지가
+## 아니라 언제든 열 수 있는 별도 기능(STATUS.md 큐 0번 "어디서든 덱 열람 +
+## 커스터마이징")이라 항상 보이는 버튼으로 취급하고 맨 마지막 자리에 둔다.
 func _layout_visible_buttons() -> void:
 	var visible_buttons: Array[Button] = [enter_combat_button]
 	if enter_shop_button.visible:
@@ -233,6 +238,7 @@ func _layout_visible_buttons() -> void:
 		visible_buttons.append(enter_event_button)
 	if enter_story_button.visible:
 		visible_buttons.append(enter_story_button)
+	visible_buttons.append(customize_button)
 
 	var y := BUTTON_TOP_START
 	for btn in visible_buttons:
@@ -269,3 +275,18 @@ func _debug_advance_rooms(count: int = 2) -> void:
 	RunState.rooms_cleared = min(RunState.rooms_cleared + count, RunState.TOTAL_ROOMS)
 	_roll_room_choices()
 	_update_labels()
+
+
+## qa/visual_qa.gd의 GAME_QA_CALL로 호출하기 위한 QA 전용 훅. CustomizePanel은
+## dungeon_map의 자식 노드라 GAME_QA_CALL(현재 씬 루트에서만 호출 가능)이 직접 열 수
+## 없으므로, 씬 루트(이 스크립트)에 얇은 래퍼를 둔다.
+func _debug_open_customize() -> void:
+	customize_panel.open()
+
+
+## QA 전용 — 1단계(다이스 선택)를 거치지 않고 바로 2단계(면 선택) 화면을 열어
+## 그 단계의 레이아웃(면 칩 나열)을 확인하기 위함 (combat_test.gd의
+## _debug_open_face_picker와 같은 목적).
+func _debug_open_customize_face() -> void:
+	customize_panel.open()
+	customize_panel._show_face_picker(RunState.player_attack_bag, 0)

@@ -5,14 +5,15 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-09-03 (5)
-- 작성자: AI 에이전트 (INBOX.md 미처리 항목 "맵 전체를 봐야할 것 같음. 첫 번째
-  선택지에 따라 다음 선택지가 어떻게 바뀌는지. 슬더스 맵선택 방식과 같음"을 부분
-  반영. `dungeon_map.tscn`에 런 전체(5방)를 한 줄로 보여주는 `MapStrip`을 추가함 —
-  지나온 방/현재 방/앞으로 나올 방의 선택지(전투/상점/특수 이벤트/스토리 이벤트)를
-  한눈에 볼 수 있음. 다만 진짜 "분기형" 맵(고른 경로에 따라 다음 노드 구성이
-  달라지는 것)은 DESIGN.md가 이미 확정한 "일단은 선형으로" 방향을 벗어나는 더 큰
-  구조 변경이라 이번엔 다루지 않음 — 자세한 내용은 "완료 기록" 참고)
+- 일시: 2026-09-03 (6)
+- 작성자: AI 에이전트 (INBOX.md 미처리 항목은 전부 사람 추가 기획/설계 확인이 필요한
+  것들이라 착수 불가였음 — "다이스 눈금 바꾸는 방법을 인지하기 어렵다... 인벤토리
+  눈금 교환" 요구는 데이터 모델까지 다시 설계해야 해서 보류. 대신 STATUS.md 큐 0번에
+  남아있던, 사람 설계 확인 없이 진행 가능한 세부 항목 "어디서든 덱 열람 +
+  커스터마이징"을 진행함. 커스터마이징(다이스 선택 -> 면 선택 -> 값 선택) 로직을
+  `combat_test.gd` 밖으로 꺼내 새 `code/scenes/customize_panel.gd`(`CustomizePanel`)
+  독립 오버레이로 만들고, 우선 `dungeon_map.tscn`에 진입 버튼을 붙였음. 자세한 내용은
+  "완료 기록" 참고)
 
 ## 지금 위치
 
@@ -307,6 +308,20 @@
   기존 `DeckPanel`을 그대로 재사용한 오버레이(x980-1240, y150-700, 기본 숨김)가
   열리고, 다시 누르면 닫힌다("덱 닫기"로 버튼 텍스트도 바뀜). 자세한 내용은 "완료
   기록" 참고.
+- **커스터마이징을 언제든 열 수 있는 독립 오버레이로 분리 완료 (dungeon_map만 우선)**
+  (이번 이터레이션, 큐 0번 "어디서든 덱 열람 + 커스터마이징" 부분 반영). 지금까지
+  다이스 눈금 커스터마이징(다이스 선택 -> 면 선택 -> 값 선택)은 `combat_test.gd`
+  안에 전투 승리 보상 화면의 일부로만 있어서 승리 직후에만 접근 가능했는데, 같은
+  로직을 새 `code/scenes/customize_panel.gd`(`CustomizePanel`, 스크립트 하나로
+  완결된 오버레이 — `deck_panel.gd`와 같은 패턴)로 옮기고 `dungeon_map.tscn`에
+  "커스터마이징: 다이스 눈금 강화" 버튼을 붙여 던전 맵에서 언제든 열 수 있게 함.
+  스타일 코드(`_make_face_chip`/`_style_die_face_button`, ~90줄)는 새
+  `code/scenes/face_chip_style.gd`(`FaceChipStyle`, 정적 함수)로 추출해
+  `combat_test.gd`와 `customize_panel.gd`가 공유하고, `combat_test.gd`의 기존
+  두 함수는 `FaceChipStyle`을 호출하는 얇은 래퍼로 바뀜(동작 변경 없음 — QA로
+  회귀 없음 확인). shop/event/story_event 3개 화면에는 아직 진입 버튼을 붙이지
+  않음(한 이터레이션에 너무 많이 바꾸지 않기 위해 dungeon_map만 우선 — 자세한
+  내용은 "완료 기록" 참고).
 
 ## 다음 할 일 큐 (우선순위 순)
 
@@ -342,18 +357,22 @@
      인벤토리 아이템처럼 쌓이고, 다이스의 한 면과 그 눈금을 맞바꾸는" 다른 상호작용
      모델. UI뿐 아니라 데이터 모델(어디서 "눈금 아이템"을 얻는지 — 상점/보상?)도 다시
      설계해야 해서 사람 기획 확인 후 착수하는 게 안전함. **여전히 미착수.**
-   - **어디서든 덱 열람 + 커스터마이징**: "선택지 등에서 내 덱을 항상 볼 수 있고,
-     커스터마이징도 가능해야할 것 같다" — "덱 열람"은 위 항목으로 부분 커버됐지만
-     (view-only), "커스터마이징"은 여전히 전투 승리 보상 화면 안에서만 가능. 던전맵/
-     상점/이벤트 등에서도 열 수 있게 하려면 커스터마이징 UI를 `combat_test.gd` 밖으로
-     꺼내 공용 컴포넌트(예: `deck_panel.gd`에 클릭 인터랙션을 얹거나, 별도 오버레이)로
-     만드는 리팩터링이 필요함. **여전히 미착수.**
+   - **어디서든 덱 열람 + 커스터마이징** → **부분 완료** (이번 이터레이션, 아래 "완료
+     기록" 참고). "덱 열람"은 이전 이터레이션에 view-only로 커버됐고, 이번엔
+     "커스터마이징"도 `combat_test.gd` 밖으로 꺼내 새 `code/scenes/customize_panel.gd`
+     (`CustomizePanel`) 독립 오버레이로 만들어 `dungeon_map.tscn`에 진입 버튼을
+     붙임. **남은 것**: shop/event/story_event 3개 화면에는 아직 진입 버튼이 없음
+     (`CustomizePanel`은 스크립트 하나로 완결된 노드라 각 씬에 노드 하나 추가 +
+     버튼 연결만 하면 되므로 다음 이터레이션에서 빠르게 확장 가능). 또한 지금은
+     "던전맵에서 언제든" 열리는 것이지 "전투 중에도"는 아님(combat_test는 화면이
+     이미 꽉 차 있어 여기 넣으려면 레이아웃 재검토 필요 — `DeckPanel` 토글 버튼
+     때와 같은 고민).
    → "정보 상시 노출"(view) 부분은 combat_test까지 포함해 5개 화면 모두 채워짐
    (combat_test는 토글 오버레이 방식), 던전 맵도 전체 미리보기(선형, 비분기)까지
-   채워짐. 다음 단계 후보: `deck_panel.gd`를 눌러서 커스터마이징까지 열리게 확장하는
-   것(위 "어디서든 덱 열람 + 커스터마이징" 항목), 또는 진짜 분기형 맵 / 인벤토리 눈금
-   교환 같은 더 큰 설계 작업 — 둘 다 사람 기획 확인이 먼저 필요한 영역이 섞여 있어
-   신중히 고를 것.
+   채워짐. "커스터마이징 어디서든" 부분도 던전맵에서는 채워짐. 다음 단계 후보:
+   `CustomizePanel`을 shop/event/story_event/combat_test에도 붙이는 것(순수 반복
+   작업, 사람 설계 확인 불필요), 또는 진짜 분기형 맵 / 인벤토리 눈금 교환 같은 더 큰
+   설계 작업 — 후자는 사람 기획 확인이 먼저 필요한 영역이니 신중히 고를 것.
 1. **던전 맵 내용 채우기 (계속)** — "런에 끝이 있다"(`RunState.TOTAL_ROOMS=5`, 완료 시
    화면 전환), "방마다 다른(더 강한) 몬스터", ~~상점 방 종류 추가~~(완료됨 — 아래
    "완료 기록"의 "골드 + 상점 이벤트" 참고), ~~특수 이벤트 방 종류 추가~~(완료됨 —
@@ -507,6 +526,82 @@
     실제로 "어떻게 개조하면 어떤 주사위가 될지 예상하기 쉬운지" 사람 피드백뿐.
 
 ## 완료 기록
+
+- **2026-09-03 (6)**: 다음 할 일 큐 0번("UI 접근성/가시성 4종")에 남아있던 "어디서든
+  덱 열람 + 커스터마이징" 세부 항목 중 "커스터마이징" 부분(사람 설계 확인 없이 진행
+  가능하다고 이전 이터레이션이 남겨둔 항목)을 반영함. INBOX.md 미처리 항목 3개는
+  모두 사람의 추가 기획/설계 확인이 먼저 필요하다고 이미 STATUS.md에 명시돼 있어
+  이번에도 착수 불가였음(눈금 인벤토리 교환은 데이터 모델 재설계, 몬스터 성격/다이스
+  특징 2개는 기획 대기) — 그래서 큐에서 진행 가능한 이 항목을 골랐음.
+  - 핵심 아이디어: `combat_test.gd`의 커스터마이징 3단계(다이스 선택 -> 면 선택 ->
+    값 선택)는 로직 자체가 이미 완성돼 있었고, 문제는 "전투 승리 보상 화면 안에서만
+    열 수 있다"는 접근성 제약뿐이었다. 그래서 판정/데이터 모델은 전혀 바꾸지 않고,
+    같은 로직을 독립 노드로 옮겨 다른 화면에 붙이기만 했다.
+  - 새 `code/scenes/face_chip_style.gd`(`class_name FaceChipStyle extends RefCounted`):
+    `combat_test.gd`의 `_make_face_chip()`/`_style_die_face_button()` 본문(MAX 강조
+    포함, ~90줄)을 그대로 옮긴 정적 함수 `make_chip()`/`style_button()`. 두 곳(기존
+    `combat_test.gd`, 신규 `customize_panel.gd`)에서 똑같은 스타일 코드를 복사하는
+    대신 공유하기 위함. `combat_test.gd`의 두 함수는 이제 `FaceChipStyle`을 호출하는
+    얇은 래퍼로 바뀜 — 기존 호출부(`_add_die_picker_rows` 등)는 전혀 손대지 않아
+    회귀 위험을 최소화함.
+  - 새 `code/scenes/customize_panel.gd`(`class_name CustomizePanel extends Control`):
+    `combat_test.gd`의 `_show_customize_picker()`/`_add_die_picker_rows()`/
+    `_show_face_picker()`/`_show_value_picker()`/`_on_face_value_chosen()`을 거의
+    그대로 옮겨온 독립 오버레이. `deck_panel.gd`/`shape_die_chip.gd`와 같은 패턴으로
+    별도 `.tscn` 없이 스크립트 하나로 완결되어 있어 아무 씬에나 `Control` 노드 하나
+    만들고 이 스크립트만 붙이면 동작한다. `open()`/`close()` 두 공개 메서드만 있고,
+    `RunState.player_attack_bag`/`player_defense_bag`을 직접 수정한다(combat_test와
+    동일 규칙 — 값 교체 방식, 상한은 그 다이스의 면 개수).
+    - **combat_test.gd와의 차이점 하나**: 값을 고르면 combat_test는 보상 화면을
+      완전히 닫고(`next_button.show()`) 그 전투의 커스터마이징 기회를 소모한
+      것으로 치지만, `CustomizePanel`은 값 적용 후 1단계(다이스 선택)로 돌아간다
+      (`_on_value_chosen()`). 이유: combat_test는 "전투 승리 1회당 한 번" 문맥이라
+      선택 후 닫히는 게 자연스럽지만, `CustomizePanel`은 언제든 열 수 있는 화면이라
+      여러 다이스를 연달아 만지고 싶을 수 있다고 판단함.
+    - `combat_test.gd`의 기존 커스터마이징(`_show_customize_picker` 등)은 삭제하지
+      않고 그대로 남겨둠 — 보상 화면은 "다이스 아이템 2종 중 선택 + 커스터마이징"이
+      한 화면 안에 공존해야 하는 문맥이라, `CustomizePanel`로 억지로 통합하면 두
+      문맥이 뒤섞여 오히려 복잡해질 것으로 판단(주석에도 이유를 남겨둠).
+  - `code/scenes/dungeon_map.tscn`: `customize_panel.gd`를 `ext_resource`로 추가하고
+    두 노드를 붙임 — `CustomizeButton`(Button, x350-690,y600-650, 기존 4개 방 선택
+    버튼과 같은 열의 바로 아래 칸, 텍스트 "커스터마이징: 다이스 눈금 강화")과
+    `CustomizePanel`(Control, `PRESET_FULL_RECT`, 씬의 마지막 자식이라 항상 다른 모든
+    UI 위에 그려짐, 기본 `visible=false`).
+  - `code/scenes/dungeon_map.gd`: `customize_button`/`customize_panel` `@onready` 참조
+    추가, `_ready()`에서 `customize_button.pressed`를 `customize_panel.open`에 직접
+    연결(별도 핸들러 불필요 — `open()`이 인자 없는 공개 메서드라 바로 연결 가능).
+    `_layout_visible_buttons()`가 이제 `visible_buttons` 배열 끝에
+    `customize_button`을 항상 추가하도록 확장 — 상점/특수 이벤트/스토리 이벤트가
+    확률적으로 숨겨져도 "커스터마이징" 버튼은 항상 그 아래 바로 이어지는 자리에
+    놓인다(빈 틈 없음). QA 훅 `_debug_open_customize()`(오버레이를 바로 열기)와
+    `_debug_open_customize_face()`(1단계를 건너뛰고 2단계 면 선택 화면을 바로 열기,
+    `combat_test.gd`의 `_debug_open_face_picker`와 같은 목적) 추가 — `CustomizePanel`이
+    `dungeon_map`의 자식 노드라 `GAME_QA_CALL`(현재 씬 루트에서만 호출 가능)이 직접
+    열 수 없어서 씬 루트에 얇은 래퍼를 둔 것.
+  - QA 검증:
+    - `scripts/qa_shot.sh dungeon_map 30 qa_out/dungeon_map_customize_btn.png`:
+      "커스터마이징: 다이스 눈금 강화" 버튼이 기존 4개 방 선택 버튼 바로 아래(겹침
+      없음)에 표시되고, 우측 `DeckPanel`과도 겹치지 않는 것을 육안 확인.
+    - `scripts/qa_shot.sh dungeon_map 30 qa_out/dungeon_map_customize_open.png
+      _debug_open_customize`: 오버레이가 열려 "공격 1~3"/"방어 1~3" 6개 다이스 행이
+      면 값 미리보기 칩과 함께 표시되고(D4x3이므로 각 행에 1/2/3/4, 4는 금색 MAX
+      강조), 배경의 맵/버튼 위에 반투명 검정으로 정확히 덮이는 것을 확인 —
+      `combat_test.gd`의 동일 단계(`qa_out/combat_test_die_picker.png`, 이전
+      이터레이션)와 시각적으로 동일한 스타일임을 확인.
+    - `scripts/qa_shot.sh dungeon_map 30 qa_out/dungeon_map_customize_face.png
+      _debug_open_customize_face`: 2단계(면 선택) 화면도 정상 렌더링, 면 4(D4의
+      최댓값)가 금색으로 강조됨을 확인.
+    - `scripts/qa_shot.sh combat_test 1500 qa_out/combat_test_reward_regression.png
+      _debug_open_face_picker`: `FaceChipStyle`로 스타일 코드를 옮긴 뒤에도
+      `combat_test.gd`의 기존 보상 화면 커스터마이징이 픽셀 단위로 동일하게
+      보이는 것을 확인(MAX 강조 포함) — 리팩터링이 회귀를 일으키지 않음.
+    - `scripts/qa_shot.sh dice_test 60 qa_out/dice_test.png`: 판정 스위트 전부 PASS
+      (다이스 로직 자체는 건드리지 않았지만 관례상 재확인).
+  - 다루지 않은 것: `CustomizePanel`을 shop/event/story_event 3개 화면에 붙이는 것
+    (순수 반복 작업 — 다음 이터레이션 후보로 큐에 남김), combat_test 화면 내
+    상시/토글 커스터마이징(레이아웃 재검토 필요), 커스터마이징 상호작용 자체를
+    "인벤토리 눈금 교환" 방식으로 바꾸는 것(사람 설계 확인 필요, 큐 0번에 계속 남김),
+    진짜 분기형 맵.
 
 - **2026-09-03 (5)**: INBOX.md 미처리 항목 "맵 전체를 봐야할 것 같음. 첫 번째
   선택지에 따라 다음 선택지가 어떻게 바뀌는지. 슬더스 맵선택 방식과 같음"을 부분
