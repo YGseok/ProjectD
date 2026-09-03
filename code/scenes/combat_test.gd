@@ -538,12 +538,14 @@ func _debug_open_face_picker() -> void:
 
 
 ## qa/visual_qa.gd의 GAME_QA_CALL로 호출하기 위한 인자 없는 래퍼 (QA 전용). 정상
-## 플레이로는 다이스가 D6/D8로 섞이려면 승리 보상을 여러 번 받아야 해서 확인이 느리므로,
-## 공격 주머니 다이스 2개를 강제로 D6/D8로 바꾸고 즉시 다시 스폰해 물리 다이스 모양이
-## 실제 면 개수를 따라가는지(Die.sides 배선) 스크린샷 한 장으로 바로 확인하기 위함.
+## 플레이로는 다이스가 D6/D8/D10으로 섞이려면 승리 보상을 여러 번 받아야 해서 확인이
+## 느리므로, 공격 주머니 다이스 3개를 강제로 D6/D8/D10으로 바꾸고 즉시 다시 스폰해
+## 물리 다이스 모양이 실제 면 개수를 따라가는지(Die.sides 배선) 스크린샷 한 장으로
+## 바로 확인하기 위함.
 func _debug_show_mixed_dice_shapes() -> void:
 	RunState.player_attack_bag.replace_die(0, 6)
 	RunState.player_attack_bag.replace_die(1, 8)
+	RunState.player_attack_bag.replace_die(2, 10)
 	_clear_dice()
 	_spawn_dice(RunState.player_attack_bag, -1.4)
 	_spawn_dice(RunState.player_defense_bag, 1.4)
@@ -555,6 +557,21 @@ func _debug_show_mixed_dice_shapes() -> void:
 			child.freeze = true
 			child.rotation = Vector3(0.4, i * 0.6, 0.3)
 			i += 1
+
+
+## qa/visual_qa.gd의 GAME_QA_CALL로 호출하기 위한 인자 없는 래퍼 (QA 전용). 다이스가
+## 여럿 뒤섞인 `_debug_show_mixed_dice_shapes()`는 다이스끼리 겹쳐 보여서 개별 모양
+## (특히 새로 추가한 D10)이 뚜렷이 구별되는지 확인하기 어려우므로, D10 하나만 화면
+## 중앙에 크게 띄워 지오메트리(면 개수/구멍 유무)를 또렷이 확인하기 위함.
+func _debug_show_single_d10() -> void:
+	_clear_dice()
+	var die := DieScene.instantiate()
+	die.sides = 10
+	die.die_size = 0.6
+	dice_root.add_child(die)
+	die.transform = Transform3D(Basis(), Vector3(0, 1.0, 0))
+	die.freeze = true
+	die.rotation = Vector3(0.5, 0.6, 0.0)
 
 
 ## QA 전용 래퍼 — 패배 시 표정(플레이어 분노, 몬스터 기쁨)을 스크린샷으로 확인하기
