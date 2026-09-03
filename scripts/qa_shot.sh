@@ -2,7 +2,7 @@
 # scripts/qa_shot.sh — 시각 QA 스크린샷 촬영 스크립트
 #
 # 사용법:
-#   scripts/qa_shot.sh <scene_name> [frame] [output_path] [qa_call]
+#   scripts/qa_shot.sh <scene_name> [frame] [output_path] [qa_call] [settle]
 #
 # 예:
 #   scripts/qa_shot.sh dungeon
@@ -12,6 +12,12 @@
 #     (4번째 인자 qa_call: 캡처 직전 현재 씬에서 인자 없이 호출할 메서드 이름 —
 #      code/qa/visual_qa.gd의 GAME_QA_CALL로 전달됨. 클릭을 흉내낼 수 없는 자동 QA에서
 #      버튼 뒤에 있는 하위 화면을 직접 열어보고 싶을 때 사용)
+#   scripts/qa_shot.sh combat_test 30 qa_out/combat_test_settled.png "" 1
+#     (5번째 인자 settle: "1"이면 GAME_QA_SETTLE=1로 전달됨 — 다이스가 물리적으로
+#      다 멈춘 뒤에 캡처하고 싶을 때. 씬이 `_qa_is_settled()`를 구현하면(combat_test.gd)
+#      FRAME에 도달해도 그 값이 true가 될 때까지 캡처를 미룬다. 4번째 인자를 건너뛰려면
+#      빈 문자열 ""을 넘길 것. code/qa/visual_qa.gd 헤더 주석의 GAME_QA_SETTLE/
+#      GAME_QA_SETTLE_MAX_FRAMES 참고)
 #
 # 동작:
 #   1) godot --headless --import  (에셋 최초 1회 import / 최신화. 이미 최신이면 빠르게 끝남)
@@ -34,6 +40,7 @@ SCENE_NAME="${1:-}"
 FRAME="${2:-60}"
 OUT="${3:-}"
 QA_CALL="${4:-}"
+SETTLE="${5:-}"
 
 if [[ -z "$SCENE_NAME" ]]; then
   echo "사용법: $0 <scene_name> [frame] [output_path]" >&2
@@ -84,6 +91,9 @@ if [[ -n "$OUT" ]]; then
 fi
 if [[ -n "$QA_CALL" ]]; then
   ENV_ARGS+=(GAME_QA_CALL="$QA_CALL")
+fi
+if [[ -n "$SETTLE" ]]; then
+  ENV_ARGS+=(GAME_QA_SETTLE="$SETTLE")
 fi
 
 env "${ENV_ARGS[@]}" "${RUN_CMD[@]}"

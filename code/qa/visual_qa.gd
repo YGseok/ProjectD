@@ -24,6 +24,16 @@ extends Node
 ##   GAME_QA_CALL     (선택) 캡처 직전에 현재 씬 루트에서 인자 없이 호출할 메서드 이름.
 ##                    클릭을 흉내낼 수 없는 자동 QA에서, 다단계 UI(예: 보상 화면의
 ##                    하위 선택 화면)를 직접 함수 호출로 열어서 스크린샷으로 확인할 때 씀.
+##   GAME_QA_SETTLE   (선택, "1"/"true"면 켜짐) GAME_QA_FRAME에 도달해도, 현재 씬이
+##                    `_qa_is_settled() -> bool` 메서드를 갖고 있으면(예: combat_test.gd —
+##                    물리 다이스가 아직 구르는 중인지 판단) 그 값이 true가 될 때까지
+##                    캡처를 미룬다. 물리 시뮬레이션은 멈추는 시점이 실행마다 달라
+##                    "고정 프레임"만으로는 다이스가 한창 구르는 중간 순간을 찍을 수
+##                    있는 문제(STATUS.md 알려진 이슈)를 줄이기 위함. 씬에 그 메서드가
+##                    없으면 기존과 동일하게 GAME_QA_FRAME에서 바로 캡처한다(하위 호환).
+##   GAME_QA_SETTLE_MAX_FRAMES (선택, 기본 240) GAME_QA_SETTLE로 기다리는 최대 추가
+##                    프레임 수. 끝내 정지 판정을 못 받아도 이 프레임을 넘기면 안전장치로
+##                    강제 캡처한다(무한 대기 방지).
 
 var _qa_active := false
 var _target_frame := 60
@@ -31,6 +41,9 @@ var _frame_count := 0
 var _output_path := ""
 var _scene_name := ""
 var _qa_call := ""
+var _qa_settle_enabled := false
+var _qa_settle_max_extra_frames := 240
+var _settle_extra_elapsed := 0
 
 
 func _ready() -> void:
@@ -69,6 +82,12 @@ func _ready() -> void:
 
 	_qa_call = OS.get_environment("GAME_QA_CALL")
 
+	var settle_env := OS.get_environment("GAME_QA_SETTLE").to_lower()
+	_qa_settle_enabled = settle_env == "1" or settle_env == "true"
+	var settle_max_env := OS.get_environment("GAME_QA_SETTLE_MAX_FRAMES")
+	if not settle_max_env.is_empty() and settle_max_env.is_valid_int():
+		_qa_settle_max_extra_frames = settle_max_env.to_int()
+
 	# 엔진이 메인 씬을 트리에 추가하는 도중이라 change_scene_to_file을 즉시 호출하면
 	# "Parent node is busy adding/removing children" 에러가 난다. 한 프레임 넘겨서 호출한다.
 	await get_tree().process_frame
@@ -87,9 +106,27 @@ func _process(_delta: float) -> void:
 	if not _qa_active:
 		return
 	_frame_count += 1
-	if _frame_count >= _target_frame:
-		set_process(false)
-		_capture_and_quit()
+	if _frame_count < _target_frame:
+		return
+	if _qa_settle_enabled and not _is_current_scene_settled() \
+			and _settle_extra_elapsed < _qa_settle_max_extra_frames:
+		_settle_extra_elapsed += 1
+		return
+	if _qa_settle_enabled:
+		print("[VisualQA] settle wait: +%d frame(s) 대기 후 캡처 (settled=%s)" \
+			% [_settle_extra_elapsed, str(_is_current_scene_settled())])
+	set_process(false)
+	_capture_and_quit()
+
+
+## GAME_QA_SETTLE 모드에서 폴링하는 헬퍼. 현재 씬이 `_qa_is_settled()`를 구현하지
+## 않으면(대부분의 씬) 항상 true를 반환해 기존 동작(GAME_QA_FRAME에서 바로 캡처)과
+## 동일하게 움직인다 — 이 훅을 구현한 씬(예: combat_test.gd)에서만 실제로 대기한다.
+func _is_current_scene_settled() -> bool:
+	var scene := get_tree().current_scene
+	if scene == null or not scene.has_method("_qa_is_settled"):
+		return true
+	return scene.call("_qa_is_settled")
 
 
 func _capture_and_quit() -> void:

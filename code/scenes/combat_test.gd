@@ -299,6 +299,22 @@ func _wait_for_dice_to_settle() -> void:
 			return
 
 
+## visual_qa.gd(GAME_QA_SETTLE=1)가 스크린샷을 찍기 전에 폴링하는 훅 (DESIGN.md
+## "다이스 정지 감지 후 스크린샷을 찍는 정확한 타이밍/방식" 항목 반영). 위
+## `_wait_for_dice_to_settle()`과 같은 임계값을 재사용해, "지금 이 순간 다이스가
+## 눈에 띄게 구르고 있는가"만 독립적으로 판단한다 (게임 로직의 정지 대기 상태와는
+## 무관 — dice_root가 비어 있으면(스폰 전/후) 트리비얼하게 정지로 간주).
+func _qa_is_settled() -> bool:
+	if not is_instance_valid(dice_root):
+		return true
+	for child in dice_root.get_children():
+		if child is RigidBody3D:
+			if child.linear_velocity.length() > SETTLE_LIN_THRESHOLD \
+				or child.angular_velocity.length() > SETTLE_ANG_THRESHOLD:
+				return false
+	return true
+
+
 ## bag의 다이스별 실제 면 개수(faces.size())에 맞춰 다이스 모양(D4/D6/D8/...)을
 ## 스폰한다 (Die.sides는 add_child()로 트리에 들어가 _ready()가 도는 시점에 이미
 ## 메시를 만드므로, 반드시 add_child() 이전에 설정해야 함).
