@@ -43,6 +43,12 @@ offset_bottom = 142.0
 text = "보유 골드: 0"
 label_settings = SubResource("LabelSettings_rooms")
 
+[node name="MapStrip" type="Control" parent="."]
+offset_left = 40.0
+offset_top = 160.0
+offset_right = 940.0
+offset_bottom = 300.0
+
 [node name="EnterCombatButton" type="Button" parent="."]
 offset_left = 350.0
 offset_top = 320.0

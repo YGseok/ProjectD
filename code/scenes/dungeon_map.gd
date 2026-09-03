@@ -33,6 +33,18 @@ extends Node2D
 ## 반영한 신규 방 종류. 상점/특수 이벤트가 다이스 아이템(DiceItemPool 형식)을 다루는
 ## 것과 달리, scenes/story_event.tscn은 다이스를 전혀 건드리지 않고 골드만 오가는
 ## 텍스트 선택지다 (systems/story_event_pool.gd 참고).
+##
+## 맵 전체 미리보기(MapStrip): INBOX.md 피드백("맵 전체를 봐야할 것 같음")을 반영.
+## 방마다 어떤 선택지가 뜰지는 rooms_cleared(방 번호)로 시드가 고정된 결정적 RNG라서
+## 아직 도달하지 않은 미래 방도 같은 공식으로 미리 계산할 수 있다 — 그래서 새 상태를
+## 따로 들고 다닐 필요 없이(RunState 변경 없음), 이 화면에서 idx=0..TOTAL_ROOMS-1을
+## 전부 그 공식으로 계산해 한 줄로 보여주기만 하면 "전체 맵 보기"가 된다.
+## 다만 "첫 번째 선택지에 따라 다음 선택지가 어떻게 바뀌는지"(슬더스 스타일 분기 —
+## 고른 경로에 따라 이후 노드 구성 자체가 달라지는 것)까지는 아니다: 지금은 방마다
+## 노출 여부만 결정적일 뿐 서로 독립적이라, "무엇을 골랐는지"가 "다음 방에 뭐가
+## 뜨는지"에 영향을 주지 않는다. 진짜 분기형 맵(노드 그래프 + 경로 선택)은 DESIGN.md가
+## 이미 확정한 "일단은 선형으로" 방향을 벗어나는 더 큰 구조 변경이라 별도 설계 확인 후
+## 착수하는 게 안전하다고 판단해 이번엔 다루지 않음 (docs/STATUS.md 다음 할 일 큐 참고).
 
 const SHOP_CHANCE := 0.6
 const EVENT_CHANCE := 0.5
@@ -47,10 +59,13 @@ const BUTTON_HEIGHT := 50.0
 @onready var enter_shop_button: Button = $EnterShopButton
 @onready var enter_event_button: Button = $EnterEventButton
 @onready var enter_story_button: Button = $EnterStoryButton
+@onready var map_strip: Control = $MapStrip
 
 var _shop_available := true
 var _event_available := true
 var _story_available := true
+var _map_line: ColorRect
+var _map_hbox: HBoxContainer
 
 
 func _ready() -> void:
@@ -58,6 +73,7 @@ func _ready() -> void:
 	enter_shop_button.pressed.connect(_on_shop_button_pressed)
 	enter_event_button.pressed.connect(_on_event_button_pressed)
 	enter_story_button.pressed.connect(_on_story_button_pressed)
+	_setup_map_strip()
 	_roll_room_choices()
 	_update_labels()
 
@@ -65,11 +81,25 @@ func _ready() -> void:
 ## 현재 방(rooms_cleared) 기준으로 상점/특수 이벤트/스토리 이벤트 노출 여부를 결정한다.
 ## 전투 판정에 쓰이는 전역 randi()/randf()와 섞이지 않도록 별도 RNG를 씀.
 func _roll_room_choices() -> void:
+	var opts := _room_options_for_index(RunState.rooms_cleared)
+	_shop_available = opts.shop
+	_event_available = opts.event
+	_story_available = opts.story
+
+
+## idx번째 방(0부터 시작)에서 상점/특수 이벤트/스토리 이벤트가 노출될지를 결정적으로
+## 계산한다. rooms_cleared 대신 임의의 idx를 받을 수 있어 아직 도달하지 않은 미래
+## 방의 미리보기(MapStrip)에도 그대로 쓸 수 있다 — 실제로 그 방에 도달했을 때
+## _roll_room_choices()가 계산하는 값과 완전히 동일한 공식이라 미리보기와 실제 결과가
+## 어긋나지 않는다.
+func _room_options_for_index(idx: int) -> Dictionary:
 	var rng := RandomNumberGenerator.new()
-	rng.seed = RunState.rooms_cleared * 104729 + 7
-	_shop_available = rng.randf() < SHOP_CHANCE
-	_event_available = rng.randf() < EVENT_CHANCE
-	_story_available = rng.randf() < STORY_CHANCE
+	rng.seed = idx * 104729 + 7
+	return {
+		"shop": rng.randf() < SHOP_CHANCE,
+		"event": rng.randf() < EVENT_CHANCE,
+		"story": rng.randf() < STORY_CHANCE,
+	}
 
 
 func _update_labels() -> void:
@@ -90,6 +120,107 @@ func _update_labels() -> void:
 		enter_event_button.visible = _event_available
 		enter_story_button.visible = _story_available
 	_layout_visible_buttons()
+	_build_map_strip()
+
+
+## MapStrip 안에 배경 연결선(ColorRect) + 노드를 담을 HBoxContainer를 한 번만 세팅한다.
+func _setup_map_strip() -> void:
+	_map_line = ColorRect.new()
+	_map_line.color = Color(0.35, 0.35, 0.4, 0.6)
+	_map_line.anchor_left = 0.0
+	_map_line.anchor_right = 1.0
+	_map_line.anchor_top = 0.5
+	_map_line.anchor_bottom = 0.5
+	_map_line.offset_top = -1.5
+	_map_line.offset_bottom = 1.5
+	_map_line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	map_strip.add_child(_map_line)
+
+	_map_hbox = HBoxContainer.new()
+	_map_hbox.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_map_hbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	_map_hbox.add_theme_constant_override("separation", 16)
+	map_strip.add_child(_map_hbox)
+
+
+## 런 전체(TOTAL_ROOMS개)를 한 줄로 그려서 "지나온 방 / 지금 방 / 앞으로 나올 방의
+## 선택지"를 한눈에 보여준다 (INBOX.md "맵 전체를 봐야할 것 같음" 반영).
+func _build_map_strip() -> void:
+	for c in _map_hbox.get_children():
+		c.queue_free()
+	for idx in range(RunState.TOTAL_ROOMS):
+		_map_hbox.add_child(_make_map_node(idx))
+
+
+func _make_map_node(idx: int) -> Control:
+	var is_cleared := idx < RunState.rooms_cleared
+	var is_current := idx == RunState.rooms_cleared and not RunState.is_run_complete()
+
+	var panel := PanelContainer.new()
+	panel.custom_minimum_size = Vector2(150, 130)
+	var style := StyleBoxFlat.new()
+	if is_current:
+		style.bg_color = Color(0.25, 0.22, 0.12, 0.95)
+		style.border_color = Color(0.9, 0.75, 0.2)
+		style.set_border_width_all(3)
+	elif is_cleared:
+		style.bg_color = Color(0.12, 0.16, 0.12, 0.85)
+		style.border_color = Color(0.3, 0.45, 0.3)
+		style.set_border_width_all(1)
+	else:
+		style.bg_color = Color(0.12, 0.12, 0.15, 0.85)
+		style.border_color = Color(0.3, 0.3, 0.35)
+		style.set_border_width_all(1)
+	style.set_corner_radius_all(6)
+	style.content_margin_left = 8
+	style.content_margin_right = 8
+	style.content_margin_top = 8
+	style.content_margin_bottom = 8
+	panel.add_theme_stylebox_override("panel", style)
+	panel.modulate = Color(1, 1, 1, 0.55 if is_cleared else 1.0)
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 4)
+	panel.add_child(vbox)
+
+	var title := Label.new()
+	title.text = ("%d번째 방 (완료)" % (idx + 1)) if is_cleared else ("%d번째 방" % (idx + 1))
+	title.add_theme_font_size_override("font_size", 13)
+	title.add_theme_color_override("font_color", Color(0.95, 0.85, 0.4) if is_current else Color(0.8, 0.8, 0.8))
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.autowrap_mode = TextServer.AUTOWRAP_WORD
+	vbox.add_child(title)
+
+	var opts := _room_options_for_index(idx)
+	vbox.add_child(_make_type_chip("전투", Color(0.5, 0.2, 0.2)))
+	if opts.shop:
+		vbox.add_child(_make_type_chip("상점", Color(0.5, 0.42, 0.15)))
+	if opts.event:
+		vbox.add_child(_make_type_chip("특수 이벤트", Color(0.35, 0.22, 0.5)))
+	if opts.story:
+		vbox.add_child(_make_type_chip("스토리 이벤트", Color(0.18, 0.4, 0.4)))
+
+	return panel
+
+
+func _make_type_chip(text: String, color: Color) -> Control:
+	var chip := PanelContainer.new()
+	var style := StyleBoxFlat.new()
+	style.bg_color = color
+	style.set_corner_radius_all(4)
+	style.content_margin_left = 6
+	style.content_margin_right = 6
+	style.content_margin_top = 2
+	style.content_margin_bottom = 2
+	chip.add_theme_stylebox_override("panel", style)
+
+	var label := Label.new()
+	label.text = text
+	label.add_theme_font_size_override("font_size", 11)
+	label.add_theme_color_override("font_color", Color(0.95, 0.95, 0.95))
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	chip.add_child(label)
+	return chip
 
 
 ## 상점/이벤트가 숨겨져도 버튼 사이에 빈 틈이 남지 않도록, 보이는 버튼만 순서대로
@@ -129,3 +260,12 @@ func _on_event_button_pressed() -> void:
 
 func _on_story_button_pressed() -> void:
 	get_tree().change_scene_to_file("res://code/scenes/story_event.tscn")
+
+
+## qa/visual_qa.gd의 GAME_QA_CALL로 호출하기 위한 QA 전용 훅. 실제 전투 승리를 끝까지
+## 거쳐야만 rooms_cleared가 늘어나는데, MapStrip의 "완료/현재/미래" 표시가 방이 실제로
+## 진행됐을 때 제대로 갱신되는지 확인하려고 몇 방을 건너뛰어 본다.
+func _debug_advance_rooms(count: int = 2) -> void:
+	RunState.rooms_cleared = min(RunState.rooms_cleared + count, RunState.TOTAL_ROOMS)
+	_roll_room_choices()
+	_update_labels()
