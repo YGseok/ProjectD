@@ -1,0 +1,2 @@
+- [Thread scope: PC migration only](project_thread_scope_pc_migration.md) — this thread handles PC-to-PC migration guidance/commands, not general dev
+- [Setting/ sync setup](project_setting_sync_projectd.md) — ProjectD's Setting/ folder + CLAUDE.md rules mirror ProjectS's cross-PC Claude sync pattern
