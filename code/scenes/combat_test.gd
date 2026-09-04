@@ -168,8 +168,22 @@ func _monster_config_for_room(room_index: int) -> Dictionary:
 	}
 
 
+## QA 전용 — GAME_QA_ROOM_OVERRIDE 환경변수(정수)가 있으면 RunState.rooms_cleared
+## 대신 그 room_index로 몬스터를 구성한다. RunState 자체는 건드리지 않아(다른 화면/
+## 다음 판에 영향 없음) 순수 QA 검증용. 방마다 몬스터 다이스 개수/모양(sides)이 실제
+## "정지 감지가 끝난 뒤" 물리적으로 벽(combat_test.tscn Wall*) 안에 잘 들어와
+## 있는지를, freeze로 고정한 스냅샷이 아니라 정상 플레이와 동일한 경로
+## (_run_battle() -> _do_exchange() -> _wait_for_dice_to_settle())로 검증하기 위함
+## (여러 방을 실제로 깨야만 후반 몬스터 다이스를 볼 수 있어 느린 문제를 우회).
+func _room_index_for_monster_config() -> int:
+	var override_env := OS.get_environment("GAME_QA_ROOM_OVERRIDE")
+	if override_env.is_valid_int():
+		return override_env.to_int()
+	return RunState.rooms_cleared
+
+
 func _ready() -> void:
-	var config := _monster_config_for_room(RunState.rooms_cleared)
+	var config := _monster_config_for_room(_room_index_for_monster_config())
 	var monster_sides: int = config["dice_sides"]
 	monster_attack_bag = DiceBag.new(monster_sides, config["attack_count"])
 	monster_defense_bag = DiceBag.new(monster_sides, config["defense_count"])

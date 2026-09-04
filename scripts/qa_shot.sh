@@ -2,7 +2,7 @@
 # scripts/qa_shot.sh — 시각 QA 스크린샷 촬영 스크립트
 #
 # 사용법:
-#   scripts/qa_shot.sh <scene_name> [frame] [output_path] [qa_call] [settle] [click_path]
+#   scripts/qa_shot.sh <scene_name> [frame] [output_path] [qa_call] [settle] [click_path] [room_override]
 #
 # 예:
 #   scripts/qa_shot.sh dungeon
@@ -23,6 +23,13 @@
 #      진짜 InputEventMouseButton(press+release)을 주입 — code/qa/visual_qa.gd의
 #      GAME_QA_CLICK_PATH로 전달됨. GAME_QA_CALL(메서드 직접 호출)과 달리 실제 Godot 입력
 #      파이프라인을 거치므로 "클릭 시점에만 재현되는 문제"를 검증할 때 씀)
+#   scripts/qa_shot.sh combat_test 200 qa_out/combat_test_room4.png "" 1 "" 4
+#     (7번째 인자 room_override: GAME_QA_ROOM_OVERRIDE 환경변수로 전달됨. combat_test.gd가
+#      RunState.rooms_cleared 대신 이 room_index로 몬스터를 구성하게 한다(RunState 자체는
+#      건드리지 않음). 몇 번째 방인지에 따라 몬스터 다이스 개수/모양(sides)이 바뀌는데,
+#      실제로 그 방까지 이겨야만 물리 다이스로 확인할 수 있어 느렸던 것을 우회 — 5번째
+#      인자 settle=1과 함께 쓰면 후반 방의 더 많고/큰 몬스터 다이스가 실제 물리 정지 후에도
+#      벽(combat_test.tscn Wall*) 안에 들어와 있는지 정상 플레이와 동일한 경로로 검증 가능)
 #
 # 동작:
 #   1) godot --headless --import  (에셋 최초 1회 import / 최신화. 이미 최신이면 빠르게 끝남)
@@ -47,6 +54,7 @@ OUT="${3:-}"
 QA_CALL="${4:-}"
 SETTLE="${5:-}"
 CLICK_PATH="${6:-}"
+ROOM_OVERRIDE="${7:-}"
 
 if [[ -z "$SCENE_NAME" ]]; then
   echo "사용법: $0 <scene_name> [frame] [output_path]" >&2
@@ -115,6 +123,9 @@ if [[ -n "$SETTLE" ]]; then
 fi
 if [[ -n "$CLICK_PATH" ]]; then
   ENV_ARGS+=(GAME_QA_CLICK_PATH="$CLICK_PATH")
+fi
+if [[ -n "$ROOM_OVERRIDE" ]]; then
+  ENV_ARGS+=(GAME_QA_ROOM_OVERRIDE="$ROOM_OVERRIDE")
 fi
 
 env "${ENV_ARGS[@]}" "${RUN_CMD[@]}"
