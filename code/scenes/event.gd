@@ -38,16 +38,20 @@ func _rebuild_items() -> void:
 		items_root.add_child(name_label)
 		_row_ui.append(name_label)
 
+		var atk_applicable := DiceItemPool.is_applicable(item, RunState.player_attack_bag)
 		var atk_btn := Button.new()
-		atk_btn.text = "공격 주머니에 적용"
+		atk_btn.text = "공격 주머니에 적용" if atk_applicable else "승급 대상 없음"
+		atk_btn.disabled = not atk_applicable
 		atk_btn.position = Vector2(0, y + 55)
 		atk_btn.size = Vector2(220, 40)
 		atk_btn.pressed.connect(_on_pick_pressed.bind(item, "attack"))
 		items_root.add_child(atk_btn)
 		_row_ui.append(atk_btn)
 
+		var def_applicable := DiceItemPool.is_applicable(item, RunState.player_defense_bag)
 		var def_btn := Button.new()
-		def_btn.text = "방어 주머니에 적용"
+		def_btn.text = "방어 주머니에 적용" if def_applicable else "승급 대상 없음"
+		def_btn.disabled = not def_applicable
 		def_btn.position = Vector2(240, y + 55)
 		def_btn.size = Vector2(220, 40)
 		def_btn.pressed.connect(_on_pick_pressed.bind(item, "defense"))

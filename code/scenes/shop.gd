@@ -51,18 +51,20 @@ func _rebuild_items() -> void:
 		items_root.add_child(name_label)
 		_row_ui.append(name_label)
 
+		var atk_applicable := DiceItemPool.is_applicable(item, RunState.player_attack_bag)
 		var atk_btn := Button.new()
-		atk_btn.text = "공격 주머니에 구매" if afford else "골드 부족"
-		atk_btn.disabled = not afford
+		atk_btn.text = "공격 주머니에 구매" if (afford and atk_applicable) else ("골드 부족" if not afford else "승급 대상 없음")
+		atk_btn.disabled = not (afford and atk_applicable)
 		atk_btn.position = Vector2(0, y + 55)
 		atk_btn.size = Vector2(220, 40)
 		atk_btn.pressed.connect(_on_buy_pressed.bind(item, cost, "attack"))
 		items_root.add_child(atk_btn)
 		_row_ui.append(atk_btn)
 
+		var def_applicable := DiceItemPool.is_applicable(item, RunState.player_defense_bag)
 		var def_btn := Button.new()
-		def_btn.text = "방어 주머니에 구매" if afford else "골드 부족"
-		def_btn.disabled = not afford
+		def_btn.text = "방어 주머니에 구매" if (afford and def_applicable) else ("골드 부족" if not afford else "승급 대상 없음")
+		def_btn.disabled = not (afford and def_applicable)
 		def_btn.position = Vector2(240, y + 55)
 		def_btn.size = Vector2(220, 40)
 		def_btn.pressed.connect(_on_buy_pressed.bind(item, cost, "defense"))
@@ -91,6 +93,17 @@ func _debug_buy_first_for_attack() -> void:
 func _on_leave_pressed() -> void:
 	RunState.rooms_cleared += 1
 	get_tree().change_scene_to_file("res://code/scenes/dungeon_map.tscn")
+
+
+## qa/visual_qa.gd의 GAME_QA_CALL로 호출하기 위한 QA 전용 훅. 공격/방어 주머니를
+## 전부 D6 다이스로 강제 교체해 "다이스 승급 (가장 작은 다이스 -> D6)" 아이템의 승급
+## 대상이 없는 상태를 만든 뒤 목록을 다시 그려서, 새로 추가한 "승급 대상 없음"
+## 비활성화 버튼이 화면에 실제로 정상 표시되는지 스크린샷으로 확인하기 위함이다.
+func _debug_force_no_upgrade_target() -> void:
+	RunState.player_attack_bag = DiceBag.new(6, 3)
+	RunState.player_defense_bag = DiceBag.new(6, 3)
+	RunState.gold = 999
+	_rebuild_items()
 
 
 ## qa/visual_qa.gd의 GAME_QA_CALL로 호출하기 위한 QA 전용 훅 (dungeon_map.gd의

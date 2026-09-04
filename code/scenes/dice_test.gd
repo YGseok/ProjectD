@@ -149,4 +149,24 @@ func _check_item_pool(lines: PackedStringArray) -> bool:
 	ok = no_downgrade_ok and ok
 	lines.append("  apply(upgrade_die, 승급 대상 없음): face=%d (기대 99, 리셋 안 됨) -> %s" % [no_downgrade_bag.dice[0][0], "OK" if no_downgrade_ok else "FAIL"])
 
+	# is_applicable(): UI가 이 결과로 버튼을 비활성화해 위 회귀 버그와 같은 상황(승급
+	# 대상 없는 아이템을 헛되이 제시하는 것)을 애초에 막는다. 대상이 없는/있는 두
+	# 케이스 모두 확인.
+	var no_target_bag := DiceBag.new(6, 1)
+	var no_target_applicable := DiceItemPool.is_applicable({"kind": "upgrade_die", "new_sides": 6}, no_target_bag)
+	var no_target_ok := no_target_applicable == false
+	ok = no_target_ok and ok
+	lines.append("  is_applicable(upgrade_die, 대상 없음): %s (기대 false) -> %s" % [no_target_applicable, "OK" if no_target_ok else "FAIL"])
+
+	var has_target_bag := DiceBag.new(4, 1)
+	var has_target_applicable := DiceItemPool.is_applicable({"kind": "upgrade_die", "new_sides": 6}, has_target_bag)
+	var has_target_ok := has_target_applicable == true
+	ok = has_target_ok and ok
+	lines.append("  is_applicable(upgrade_die, 대상 있음): %s (기대 true) -> %s" % [has_target_applicable, "OK" if has_target_ok else "FAIL"])
+
+	var non_upgrade_applicable := DiceItemPool.is_applicable({"kind": "add_die", "sides": 4}, no_target_bag)
+	var non_upgrade_ok := non_upgrade_applicable == true
+	ok = non_upgrade_ok and ok
+	lines.append("  is_applicable(add_die, 항상 적용 가능): %s (기대 true) -> %s" % [non_upgrade_applicable, "OK" if non_upgrade_ok else "FAIL"])
+
 	return ok

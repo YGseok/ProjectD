@@ -61,6 +61,17 @@ static func apply(item: Dictionary, bag: DiceBag) -> void:
 			_uniformize_worst_die(bag)
 
 
+## item이 bag에 적용했을 때 실제 효과가 있는지 확인한다. UI에서 이 결과로 버튼을
+## 비활성화해, "승급 대상이 없어 사실상 헛되이 소모되는" 상황을 애초에 제시하지 않기
+## 위함(upgrade_die의 apply()가 대상이 없을 때 조용히 아무 일도 안 하는 것의 짝).
+## upgrade_die 외 종류(add_die/boost_weak_face/uniform_faces)는 주머니에 다이스가
+## 하나라도 있으면(항상 그렇다) 언제나 효과가 있으므로 항상 true.
+static func is_applicable(item: Dictionary, bag: DiceBag) -> bool:
+	if item["kind"] == "upgrade_die":
+		return _find_smallest_die(bag, item["new_sides"]) >= 0
+	return true
+
+
 ## below_sides가 양수로 주어지면 면 개수가 그 값보다 작은 다이스 중에서만 고른다
 ## (upgrade_die가 "실제로 더 커지는" 다이스에만 적용되도록 하기 위함).
 static func _find_smallest_die(bag: DiceBag, below_sides: int = -1) -> int:
