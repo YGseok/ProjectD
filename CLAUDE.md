@@ -18,3 +18,8 @@
 
 **절대 하지 말 것**: `.credentials.json`(로그인 인증 정보)을 `Setting/`이나 커밋에 포함하지
 않는다. 두 스크립트 모두 이 파일을 다루지 않도록 작성돼 있음 — 수정 시에도 이 원칙 유지.
+
+**`Setting/memory/.gitkeep` 정리**: 이 파일은 `Setting/memory/`가 비어 있던 시점에 Git이
+빈 폴더를 커밋하지 못해서 넣어둔 자리표시 파일이다. `sync-to-repo.ps1` 실행 등으로
+`Setting/memory/`에 실제 메모리 파일이 하나라도 생기면, 그다음 커밋 시 `.gitkeep`을
+삭제한다(더 이상 필요 없는 파일이므로).
