@@ -77,17 +77,29 @@ fi
 RUN_CMD=("$GODOT_BIN" --path "$PROJECT_DIR")
 
 # 실제 창을 띄워야 하므로 --headless 를 쓰지 않는다.
-# 디스플레이가 없는 환경(예: CI, 컨테이너)이면 xvfb-run 으로 가상 디스플레이를 띄운다.
-if [[ -z "${DISPLAY:-}" ]]; then
-  if command -v xvfb-run >/dev/null 2>&1; then
-    echo "[qa_shot] DISPLAY 없음 -> xvfb-run 으로 가상 디스플레이 사용"
-    RUN_CMD=(xvfb-run -a "${RUN_CMD[@]}")
-  else
-    echo "[qa_shot] DISPLAY가 없고 xvfb-run도 설치되어 있지 않습니다." >&2
-    echo "          실제 창을 띄우려면 디스플레이(X11) 또는 xvfb-run이 필요합니다." >&2
-    exit 1
-  fi
-fi
+# `DISPLAY` 환경변수는 X11(리눅스)에만 있는 개념이다. Windows(Git Bash/MINGW)나 macOS는
+# DISPLAY가 항상 비어 있어도 네이티브 창을 그냥 띄울 수 있으므로, "DISPLAY 없으면
+# xvfb-run 필요" 요구는 리눅스에서만 적용해야 한다 (아니면 Windows/macOS에서 이 스크립트가
+# 항상 실패한다 — 실제로 이 PC(MINGW64)에서 재현된 버그).
+UNAME_S="$(uname -s 2>/dev/null || echo unknown)"
+case "$UNAME_S" in
+  Linux)
+    if [[ -z "${DISPLAY:-}" ]]; then
+      if command -v xvfb-run >/dev/null 2>&1; then
+        echo "[qa_shot] DISPLAY 없음 -> xvfb-run 으로 가상 디스플레이 사용"
+        RUN_CMD=(xvfb-run -a "${RUN_CMD[@]}")
+      else
+        echo "[qa_shot] DISPLAY가 없고 xvfb-run도 설치되어 있지 않습니다." >&2
+        echo "          실제 창을 띄우려면 디스플레이(X11) 또는 xvfb-run이 필요합니다." >&2
+        exit 1
+      fi
+    fi
+    ;;
+  *)
+    # Windows(MINGW*/MSYS*/CYGWIN*)나 macOS(Darwin) 등: DISPLAY 개념이 없어도
+    # 네이티브 창 시스템이 항상 있으므로 아무 것도 할 필요 없음.
+    ;;
+esac
 
 echo "[qa_shot] 2/2 실행 및 캡처: scene=$SCENE_NAME frame=$FRAME"
 
