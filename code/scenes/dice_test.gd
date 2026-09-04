@@ -138,4 +138,15 @@ func _check_item_pool(lines: PackedStringArray) -> bool:
 	ok = uniform_ok and ok
 	lines.append("  apply(uniform_faces): min=%d (기대 6) -> %s" % [uniform_bag.min_possible(), "OK" if uniform_ok else "FAIL"])
 
+	# 버그 회귀 테스트: 이미 모든 다이스가 new_sides 이상이면(승급할 대상이 없으면)
+	# upgrade_die가 아무 것도 건드리지 않아야 한다. 예전 코드는 이 경우에도 가장 작은
+	# 다이스를 골라 replace_die()해버려서, 면 개수는 그대로인데 커스터마이징으로 올려둔
+	# 면 값(여기서는 99로 표시)이 표준값(1..6)으로 조용히 리셋되는 버그가 있었다.
+	var no_downgrade_bag := DiceBag.new(6, 1)
+	no_downgrade_bag.set_face_value(0, 0, 99)
+	DiceItemPool.apply({"kind": "upgrade_die", "new_sides": 6}, no_downgrade_bag)
+	var no_downgrade_ok := no_downgrade_bag.dice[0][0] == 99
+	ok = no_downgrade_ok and ok
+	lines.append("  apply(upgrade_die, 승급 대상 없음): face=%d (기대 99, 리셋 안 됨) -> %s" % [no_downgrade_bag.dice[0][0], "OK" if no_downgrade_ok else "FAIL"])
+
 	return ok

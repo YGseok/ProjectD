@@ -47,7 +47,12 @@ static func apply(item: Dictionary, bag: DiceBag) -> void:
 		"add_die":
 			bag.add_die(item["sides"])
 		"upgrade_die":
-			var idx := _find_smallest_die(bag)
+			# new_sides보다 이미 크거나 같은 다이스만 남아있으면 승급 대상이 없다는 뜻이다.
+			# 이때 그냥 가장 작은 다이스를 골라 replace_die()하면 면 개수는 그대로인 채
+			# 면 값만 표준(1..N)으로 리셋되어, 커스터마이징으로 키워둔 면 값을 조용히
+			# 잃어버리는 "보상인데 사실상 손해"가 된다. 그래서 실제로 면 개수가 늘어나는
+			# 다이스가 있을 때만 교체한다.
+			var idx := _find_smallest_die(bag, item["new_sides"])
 			if idx >= 0:
 				bag.replace_die(idx, item["new_sides"])
 		"boost_weak_face":
@@ -56,12 +61,17 @@ static func apply(item: Dictionary, bag: DiceBag) -> void:
 			_uniformize_worst_die(bag)
 
 
-static func _find_smallest_die(bag: DiceBag) -> int:
+## below_sides가 양수로 주어지면 면 개수가 그 값보다 작은 다이스 중에서만 고른다
+## (upgrade_die가 "실제로 더 커지는" 다이스에만 적용되도록 하기 위함).
+static func _find_smallest_die(bag: DiceBag, below_sides: int = -1) -> int:
 	var best_idx := -1
 	var best_size := 999999
 	for i in bag.dice.size():
-		if bag.dice[i].size() < best_size:
-			best_size = bag.dice[i].size()
+		var sides: int = bag.dice[i].size()
+		if below_sides > 0 and sides >= below_sides:
+			continue
+		if sides < best_size:
+			best_size = sides
 			best_idx = i
 	return best_idx
 
