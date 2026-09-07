@@ -39,7 +39,7 @@ func _rebuild_items() -> void:
 	gold_label.text = "보유 골드: %d" % RunState.gold
 
 	var card_width := 320.0
-	var card_height := 230.0
+	var card_height := 240.0
 	var card_gap_y := 20.0
 	var card_x := [0.0, 360.0]
 	for i in DiceItemPool.ITEMS.size():

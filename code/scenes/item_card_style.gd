@@ -11,12 +11,17 @@ extends RefCounted
 ## 버튼을 담을 영역)을 여기 한 곳에 모아 공유한다. 실제 버튼 생성·연결은 각 화면이
 ## 기존처럼 담당하고(적용 대상 주머니·골드 소모 등 화면마다 다른 로직이라), 이 헬퍼는
 ## 그 버튼들을 넣을 카드 틀만 만들어 반환한다.
+##
+## build_card()는 결과 다이스가 확정적인 아이템(add_die/upgrade_die)이면 카드 안에
+## 그 다이스 면 모양(ShapeDieChip) 미리보기도 자동으로 넣는다 — 아래
+## _build_result_die_preview() 참고.
 
 const CARD_BG := Color(0.13, 0.12, 0.17, 0.97)
 const CARD_BORDER := Color(0.55, 0.45, 0.25)
 const TITLE_COLOR := Color(0.95, 0.85, 0.55)
 const DESC_COLOR := Color(0.82, 0.82, 0.82)
 const EXTRA_COLOR := Color(1.0, 0.85, 0.35)
+const PREVIEW_CHIP_SIZE := 16.0
 
 
 ## item: DiceItemPool/EventItemPool 아이템 딕셔너리 (최소 "name"/"description" 필요).
@@ -61,8 +66,12 @@ static func build_card(item: Dictionary, extra_label_text: String = "") -> Dicti
 	desc.add_theme_font_size_override("font_size", 13)
 	desc.add_theme_color_override("font_color", DESC_COLOR)
 	desc.autowrap_mode = TextServer.AUTOWRAP_WORD
-	desc.custom_minimum_size = Vector2(0, 54)
+	desc.custom_minimum_size = Vector2(0, 40)
 	vbox.add_child(desc)
+
+	var preview := _build_result_die_preview(item)
+	if preview:
+		vbox.add_child(preview)
 
 	var spacer := Control.new()
 	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -73,3 +82,35 @@ static func build_card(item: Dictionary, extra_label_text: String = "") -> Dicti
 	vbox.add_child(button_row)
 
 	return {"card": card, "vbox": vbox, "button_row": button_row}
+
+
+## "완성하면 어떤 주사위가 될지 예상할 수 있게" (INBOX.md 2026-09-02)를 아이템 카드에도
+## 반영한다. add_die/upgrade_die 종류는 결과 다이스의 면 개수(sides/new_sides)가 이미
+## 아이템 딕셔너리에 고정돼 있어(주머니 상태와 무관하게 결과가 항상 동일), 그 면 개수의
+## ShapeDieChip(전투 중 다이스 결과 표시와 같은 모양/칩 스타일)을 1..N 값으로 나열해
+## "이 아이템을 쓰면 이런 모양의 다이스가 생긴다"를 미리 보여줄 수 있다.
+## boost_weak_face/uniform_faces는 적용 대상 다이스가 그 시점의 주머니 상태(어느 면이
+## 가장 낮은가 등)에 따라 정해져 카드 생성 시점엔 결과를 확정할 수 없으므로 미리보기를
+## 만들지 않는다(null 반환) — 이런 아이템은 기존처럼 설명 텍스트만으로 안내한다.
+static func _build_result_die_preview(item: Dictionary) -> Control:
+	var sides: int
+	match item.get("kind", ""):
+		"add_die":
+			sides = item["sides"]
+		"upgrade_die":
+			sides = item["new_sides"]
+		_:
+			return null
+
+	var flow := HFlowContainer.new()
+	flow.add_theme_constant_override("h_separation", 3)
+	flow.add_theme_constant_override("v_separation", 3)
+	var shape_sides := ShapeDieChip.shape_sides_for_dice_sides(sides)
+	for face in range(1, sides + 1):
+		var chip := ShapeDieChip.new()
+		chip.custom_minimum_size = Vector2(PREVIEW_CHIP_SIZE, PREVIEW_CHIP_SIZE)
+		chip.size = Vector2(PREVIEW_CHIP_SIZE, PREVIEW_CHIP_SIZE)
+		chip.shape_sides = shape_sides
+		chip.value = face
+		flow.add_child(chip)
+	return flow

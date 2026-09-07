@@ -462,7 +462,7 @@ func _show_reward_ui() -> void:
 	_add_reward_frame("승리 보상 — 다이스 아이템을 고르고 적용할 주머니를 선택하세요")
 
 	var card_width := 400.0
-	var card_height := 230.0
+	var card_height := 260.0
 	var card_y := 185.0
 	var card_x := [200.0, 640.0]
 	for i in _reward_items.size():

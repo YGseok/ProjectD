@@ -29,7 +29,7 @@ func _rebuild_items() -> void:
 	_row_ui.clear()
 
 	var card_width := 320.0
-	var card_height := 230.0
+	var card_height := 300.0
 	var card_x := [0.0, 360.0]
 	for i in _offered.size():
 		var item: Dictionary = _offered[i]
