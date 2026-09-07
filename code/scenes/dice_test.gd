@@ -169,4 +169,44 @@ func _check_item_pool(lines: PackedStringArray) -> bool:
 	ok = non_upgrade_ok and ok
 	lines.append("  is_applicable(add_die, 항상 적용 가능): %s (기대 true) -> %s" % [non_upgrade_applicable, "OK" if non_upgrade_ok else "FAIL"])
 
+	# random_choices(n, attack_bag, defense_bag): 두 주머니 모두 승급 대상이 없으면
+	# (여기서는 공격/방어 둘 다 D6x3, upgrade_die new_sides=6) 그 아이템 자체를 후보에서
+	# 제외해야 한다 — 안 그러면 보상 2개 중 하나가 양쪽 버튼 다 비활성화된 채로 뽑혀
+	# 슬롯 하나가 통째로 낭비된다(이번 이터레이션에서 고친 부분). n=2(적용 가능한 3개 중
+	# 2개 요청, 필터링 조건 3>=2 충족)로 셔플 결과와 무관하게 upgrade_die가 절대 안
+	# 뽑히는지 여러 번 반복해 확인한다.
+	var maxed_attack := DiceBag.new(6, 3)
+	var maxed_defense := DiceBag.new(6, 3)
+	var filtered_has_upgrade := false
+	for _i in 20: # 셔플이라 한 번만 확인하면 우연히 안 뽑힐 수 있어 반복 확인
+		var picks := DiceItemPool.random_choices(2, maxed_attack, maxed_defense)
+		for it in picks:
+			if it["kind"] == "upgrade_die":
+				filtered_has_upgrade = true
+	var filtered_ok := not filtered_has_upgrade
+	ok = filtered_ok and ok
+	lines.append("  random_choices(2, 양쪽 승급대상 없음, 20회 반복): upgrade_die포함=%s (기대 false) -> %s" % [
+		filtered_has_upgrade, "OK" if filtered_ok else "FAIL"
+	])
+
+	# n(4)이 필터링 후 남는 후보(3개)보다 많으면, 요청한 개수보다 적게 주는 대신
+	# 안전하게 필터링 이전 전체 목록(4개, upgrade_die 포함)으로 돌아가야 한다 —
+	# "선택지가 아예 부족해지는 것"이 "가끔 비활성화된 아이템이 섞이는 것"보다 더
+	# 나쁜 실패 모드이기 때문.
+	var fallback_choices := DiceItemPool.random_choices(4, maxed_attack, maxed_defense)
+	var fallback_ok := fallback_choices.size() == 4
+	ok = fallback_ok and ok
+	lines.append("  random_choices(4, 적용가능 3개뿐): 개수=%d (기대 4, 부족하면 필터링 이전으로 폴백) -> %s" % [
+		fallback_choices.size(), "OK" if fallback_ok else "FAIL"
+	])
+
+	# 정상 케이스(승급 대상 있음)에서는 필터링이 아무것도 제외하지 않아 기존과 동일하게
+	# 동작해야 한다(하위 호환 확인).
+	var fresh_attack := DiceBag.new(4, 3)
+	var fresh_defense := DiceBag.new(4, 3)
+	var unfiltered_choices := DiceItemPool.random_choices(2, fresh_attack, fresh_defense)
+	var unfiltered_ok := unfiltered_choices.size() == 2
+	ok = unfiltered_ok and ok
+	lines.append("  random_choices(2, 승급대상 있음): 개수=%d (기대 2) -> %s" % [unfiltered_choices.size(), "OK" if unfiltered_ok else "FAIL"])
+
 	return ok

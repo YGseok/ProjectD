@@ -455,7 +455,7 @@ func _on_next_button_pressed() -> void:
 ## 건너뛰기 전까지는 숨겨서 보상을 먼저 보게 한다.
 func _show_reward_ui() -> void:
 	if _reward_items.is_empty():
-		_reward_items = DiceItemPool.random_choices(2)
+		_reward_items = DiceItemPool.random_choices(2, RunState.player_attack_bag, RunState.player_defense_bag)
 
 	_clear_reward_ui()
 	next_button.hide()

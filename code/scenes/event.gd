@@ -18,7 +18,7 @@ var _row_ui: Array[Node] = []
 
 
 func _ready() -> void:
-	_offered = EventItemPool.random_choices(2)
+	_offered = EventItemPool.random_choices(2, RunState.player_attack_bag, RunState.player_defense_bag)
 	customize_button.pressed.connect(customize_panel.open)
 	_rebuild_items()
 

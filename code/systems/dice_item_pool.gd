@@ -36,8 +36,26 @@ const ITEMS: Array[Dictionary] = [
 
 
 ## n개의 서로 다른 아이템을 무작위로 뽑아 반환한다 (목록보다 많이 요청하면 있는 만큼만).
-static func random_choices(n: int) -> Array[Dictionary]:
+##
+## attack_bag/defense_bag을 함께 넘기면, 두 주머니 어느 쪽에도 적용할 수 없는 아이템
+## (예: 공격/방어 다이스가 전부 이미 new_sides 이상이라 승급 대상이 없는 upgrade_die)은
+## 후보에서 아예 제외한다 — 보상으로 2개만 제시되는 화면(전투 승리/특수 이벤트)에서
+## 그런 아이템이 뽑히면 두 버튼이 전부 비활성화돼 사실상 그 슬롯 하나가 통째로
+## 낭비되기 때문("승급 대상이 없을 때 버튼을 비활성화"만으로는 못 막는, 한 단계 위의
+## 같은 종류 낭비 — is_applicable을 아이템 뽑기 단계에도 한 번 더 적용). 필터링 후
+## 후보가 n개보다 적으면(이론상 add_die/boost_weak_face/uniform_faces는 항상 적용
+## 가능하므로 실제로는 거의 발생하지 않음) 안전하게 필터링 이전 전체 목록으로
+## 되돌아간다. 두 인자를 생략하면(기존 호출부와 하위 호환) 필터링 없이 기존과 동일하게
+## 동작한다.
+static func random_choices(n: int, attack_bag: DiceBag = null, defense_bag: DiceBag = null) -> Array[Dictionary]:
 	var items := ITEMS.duplicate(true)
+	if attack_bag != null and defense_bag != null:
+		var applicable: Array[Dictionary] = []
+		for item in items:
+			if is_applicable(item, attack_bag) or is_applicable(item, defense_bag):
+				applicable.append(item)
+		if applicable.size() >= n:
+			items = applicable
 	items.shuffle()
 	return items.slice(0, min(n, items.size()))
 

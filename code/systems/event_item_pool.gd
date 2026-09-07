@@ -37,7 +37,19 @@ const ITEMS: Array[Dictionary] = [
 
 
 ## n개의 서로 다른 아이템을 무작위로 뽑아 반환한다 (목록보다 많이 요청하면 있는 만큼만).
-static func random_choices(n: int) -> Array[Dictionary]:
+##
+## attack_bag/defense_bag을 함께 넘기면 systems/dice_item_pool.gd의 DiceItemPool.
+## random_choices()와 같은 이유로, 두 주머니 어느 쪽에도 적용할 수 없는 아이템(예:
+## 다이스 대승급인데 이미 전부 D10 이상)은 후보에서 제외한다(item dict 형식이 같으므로
+## is_applicable도 DiceItemPool 것을 그대로 재사용). 두 인자를 생략하면 기존과 동일.
+static func random_choices(n: int, attack_bag: DiceBag = null, defense_bag: DiceBag = null) -> Array[Dictionary]:
 	var items := ITEMS.duplicate(true)
+	if attack_bag != null and defense_bag != null:
+		var applicable: Array[Dictionary] = []
+		for item in items:
+			if DiceItemPool.is_applicable(item, attack_bag) or DiceItemPool.is_applicable(item, defense_bag):
+				applicable.append(item)
+		if applicable.size() >= n:
+			items = applicable
 	items.shuffle()
 	return items.slice(0, min(n, items.size()))

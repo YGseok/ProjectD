@@ -5,6 +5,20 @@
 
 ## 마지막 갱신
 
+- 일시: 2026-09-07 (20)
+- 작성자: AI 에이전트. 이번 세션 시작 시점에 작업트리에 이전 세션이 커밋하지 않은
+  변경사항(`combat_test.gd`/`dice_test.gd`/`event.gd`/`dice_item_pool.gd`/
+  `event_item_pool.gd`)이 이미 있었음 — 큐 3번이 "완료됨"으로 표시해둔 "승급 대상
+  없으면 UI에서 비활성화" 다음 단계로, `DiceItemPool.random_choices()`/
+  `EventItemPool.random_choices()`에 attack_bag/defense_bag 인자를 추가해 **양쪽
+  주머니 모두에 적용 불가능한 아이템 자체를 보상 후보에서 제외**하도록 이미
+  구현·테스트(`dice_test.gd` 신규 회귀 3종)까지 돼 있었음(코드 자체는 완결된 상태,
+  커밋만 안 됨). 새로 작성하지 않고 그 의도를 그대로 마무리: `scripts/qa_shot.sh
+  dice_test`로 신규 회귀 테스트 포함 전체 PASS 확인, `combat_test`(승리 보상 화면)와
+  `event`(특수 이벤트) 둘 다 스크린샷으로 정상 동작(레이아웃 정상, 크래시 없음)
+  확인 후 커밋함. `shop.gd`는 `random_choices()`를 쓰지 않고 항상 전체 아이템을
+  나열하는 구조라 이 변경의 영향을 받지 않음(확인함). 자세한 내용은 아래 "완료 기록"
+  참고.
 - 일시: 2026-09-04 (19)
 - 작성자: AI 에이전트. INBOX.md의 미처리 항목 2개(몬스터 성격/다이스 특이 특징)는
   여전히 사람의 추가 기획이 필요해 착수 불가였고, "다음 할 일 큐"도 대부분 밸런스/
@@ -82,8 +96,33 @@
 
 ## 지금 위치
 
+- **보상/이벤트 화면에서 양쪽 주머니 모두 적용 불가능한 아이템은 후보에서 아예
+  제외되도록 개선 완료 (이번 이터레이션).** 바로 아래 항목("다이스 승급 아이템이
+  대상 없으면 UI에서 비활성화")만으로는, 2개만 제시되는 보상 화면(전투 승리/특수
+  이벤트)에서 그 아이템이 뽑히면 공격/방어 두 버튼이 전부 비활성화된 채로 나와
+  슬롯 하나가 통째로 낭비되는 문제가 남아 있었음. `code/systems/dice_item_pool.gd`/
+  `code/systems/event_item_pool.gd`의 `random_choices(n, attack_bag, defense_bag)`에
+  두 주머니 인자를 추가해, `DiceItemPool.is_applicable()`로 어느 쪽에도 적용
+  불가능한 아이템은 후보 목록에서 미리 걸러낸 뒤 뽑도록 함. 필터링 후 후보가
+  요청 개수(n)보다 적어지면(이론상 add_die류는 항상 적용 가능해 거의 안 생기지만)
+  안전하게 필터링 이전 전체 목록으로 폴백해 "선택지 자체가 부족해지는" 더 나쁜
+  실패 모드를 피함. `combat_test.gd`(승리 보상)와 `event.gd`(특수 이벤트) 두
+  호출부 모두 `RunState.player_attack_bag`/`player_defense_bag`을 넘기도록 수정.
+  `shop.gd`는 `random_choices()`를 쓰지 않고(상점은 아이템 4종을 항상 전부 나열)
+  이 변경의 영향을 받지 않음. `code/scenes/dice_test.gd`에 회귀 테스트 3종 추가
+  (① 양쪽 주머니 모두 D6로 승급 대상 없을 때 20회 반복해도 upgrade_die가 후보에
+  안 뽑힘, ② 필터링 후 후보(3개)가 요청 개수(4개)보다 적으면 폴백으로 4개 그대로
+  반환, ③ 승급 대상이 있는 정상 케이스는 기존과 동일하게 동작) — `scripts/qa_shot.sh
+  dice_test`로 기존 스위트 전체(신규 포함) PASS 확인. 시각 검증:
+  `scripts/qa_shot.sh combat_test 1500`(승리 보상 화면)과 `scripts/qa_shot.sh event
+  30`(특수 이벤트) 둘 다 크래시 없이 정상 캡처, 레이아웃 이상 없음
+  (`qa_out/combat_test_reward_filtered.png`, `qa_out/event_filtered.png`) — 이번
+  검증에서는 두 화면 다 아직 승급 대상이 남아있는 초기 상태(D4 주머니)라 필터링이
+  실제로 아이템을 제외하는 장면 자체는 화면에 안 보이지만(정상 케이스는 기존과
+  동일하게 동작해야 하므로 오히려 이게 맞는 결과), 그 필터링 로직 자체는 위 단위
+  테스트로 확정적으로(랜덤 셔플 20회 반복) 검증됨.
 - **"다이스 승급" 아이템이 승급 대상 없을 때 UI에서 애초에 비활성화되도록 개선
-  완료 (이번 이터레이션).** `code/systems/dice_item_pool.gd`에 `is_applicable(item, bag)`
+  완료 (이전 이터레이션).** `code/systems/dice_item_pool.gd`에 `is_applicable(item, bag)`
   헬퍼를 추가함 — `upgrade_die` 종류는 `_find_smallest_die(bag, item["new_sides"])`가
   대상을 못 찾으면 false, 그 외 종류(`add_die`/`boost_weak_face`/`uniform_faces`)는
   주머니에 다이스가 하나라도 있으면(항상 그렇다) 항상 true. 이전 이터레이션(17)이
@@ -775,6 +814,10 @@
      (19), 아래 "완료 기록" 참고). `DiceItemPool.is_applicable(item, bag)`로 승급
      대상이 없는 주머니 쪽 버튼을 비활성화("승급 대상 없음")하도록 전투 보상/상점/
      특수 이벤트 3곳 모두 반영.
+   - ~~그래도 양쪽 주머니 모두 대상이 없으면 2개짜리 보상 슬롯 하나가 통째로
+     비활성화된 아이템으로 낭비됨~~ → **완료됨** (2026-09-07 (20), 아래 "완료 기록"
+     참고). `random_choices(n, attack_bag, defense_bag)`가 양쪽 다 적용 불가능한
+     아이템은 후보에서 아예 제외(부족해지면 폴백)하도록 개선.
    - ~~아이템 종류가 3개뿐~~ → 4종으로 늘림(이번 이터레이션, "모든 면 통일" 추가 —
      DESIGN.md가 예시로 들었던 "모든 면을 6으로 만들기"를 반영). 강도가 감으로 잡은
      값(D4→D6 고정, 매번 최저면/전체면→최댓값, 상점가 25골드)이라 실제로 플레이해보고
