@@ -1,0 +1,75 @@
+class_name ItemCardStyle
+extends RefCounted
+## 다이스 개조 아이템(DiceItemPool/EventItemPool이 쓰는 공통 딕셔너리 형식: name/
+## description/kind/...) 하나를 "카드"처럼 보여주는 공용 카드 패널.
+##
+## INBOX.md 피드백(2026-09-01) "전투 이후, 강화 카드를 선택한다"가 지금까지
+## 이름+설명 라벨과 버튼이 화면에 그냥 나열되는 목록 형태로만 구현되어 있었다
+## (STATUS.md 다음 할 일 큐에 "시각적으로 카드처럼 보이지 않는다"는 간극으로 남아있던
+## 부분). 전투 승리 보상(combat_test.gd)/상점(shop.gd)/특수 이벤트(event.gd) 세 화면이
+## 전부 같은 아이템 딕셔너리 형식을 보여주므로, 카드 틀(제목/설명/가격 등 보조 문구/
+## 버튼을 담을 영역)을 여기 한 곳에 모아 공유한다. 실제 버튼 생성·연결은 각 화면이
+## 기존처럼 담당하고(적용 대상 주머니·골드 소모 등 화면마다 다른 로직이라), 이 헬퍼는
+## 그 버튼들을 넣을 카드 틀만 만들어 반환한다.
+
+const CARD_BG := Color(0.13, 0.12, 0.17, 0.97)
+const CARD_BORDER := Color(0.55, 0.45, 0.25)
+const TITLE_COLOR := Color(0.95, 0.85, 0.55)
+const DESC_COLOR := Color(0.82, 0.82, 0.82)
+const EXTRA_COLOR := Color(1.0, 0.85, 0.35)
+
+
+## item: DiceItemPool/EventItemPool 아이템 딕셔너리 (최소 "name"/"description" 필요).
+## extra_label_text: 제목 밑에 작게 덧붙일 보조 문구(예: 상점의 "20 골드"). 빈 문자열이면
+## 생략.
+## 반환값의 "card"를 add_child()로 씬에 붙이고 position/size를 지정한 뒤,
+## "button_row"에 버튼을 add_child()로 추가하면 카드 안에 세로로 쌓인다(VBoxContainer라
+## 폭은 카드에 맞춰 자동으로 늘어남, 버튼 높이는 각자 custom_minimum_size로 지정할 것).
+static func build_card(item: Dictionary, extra_label_text: String = "") -> Dictionary:
+	var card := PanelContainer.new()
+	var style := StyleBoxFlat.new()
+	style.bg_color = CARD_BG
+	style.border_color = CARD_BORDER
+	style.set_border_width_all(2)
+	style.set_corner_radius_all(10)
+	style.content_margin_left = 16
+	style.content_margin_right = 16
+	style.content_margin_top = 14
+	style.content_margin_bottom = 14
+	card.add_theme_stylebox_override("panel", style)
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 8)
+	card.add_child(vbox)
+
+	var title := Label.new()
+	title.text = item["name"]
+	title.add_theme_font_size_override("font_size", 18)
+	title.add_theme_color_override("font_color", TITLE_COLOR)
+	title.autowrap_mode = TextServer.AUTOWRAP_WORD
+	vbox.add_child(title)
+
+	if extra_label_text != "":
+		var extra := Label.new()
+		extra.text = extra_label_text
+		extra.add_theme_font_size_override("font_size", 14)
+		extra.add_theme_color_override("font_color", EXTRA_COLOR)
+		vbox.add_child(extra)
+
+	var desc := Label.new()
+	desc.text = item["description"]
+	desc.add_theme_font_size_override("font_size", 13)
+	desc.add_theme_color_override("font_color", DESC_COLOR)
+	desc.autowrap_mode = TextServer.AUTOWRAP_WORD
+	desc.custom_minimum_size = Vector2(0, 54)
+	vbox.add_child(desc)
+
+	var spacer := Control.new()
+	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	vbox.add_child(spacer)
+
+	var button_row := VBoxContainer.new()
+	button_row.add_theme_constant_override("separation", 6)
+	vbox.add_child(button_row)
+
+	return {"card": card, "vbox": vbox, "button_row": button_row}

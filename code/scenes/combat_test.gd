@@ -461,41 +461,40 @@ func _show_reward_ui() -> void:
 	next_button.hide()
 	_add_reward_frame("승리 보상 — 다이스 아이템을 고르고 적용할 주머니를 선택하세요")
 
-	var y := 190.0
-	for item in _reward_items:
-		var name_label := Label.new()
-		name_label.text = "%s\n%s" % [item["name"], item["description"]]
-		name_label.position = Vector2(200, y)
-		name_label.size = Vector2(880, 50)
-		name_label.autowrap_mode = TextServer.AUTOWRAP_WORD
-		add_child(name_label)
-		_reward_ui.append(name_label)
+	var card_width := 400.0
+	var card_height := 230.0
+	var card_y := 185.0
+	var card_x := [200.0, 640.0]
+	for i in _reward_items.size():
+		var item: Dictionary = _reward_items[i]
+		var built := ItemCardStyle.build_card(item)
+		var card: PanelContainer = built["card"]
+		card.position = Vector2(card_x[i], card_y)
+		card.size = Vector2(card_width, card_height)
+		add_child(card)
+		_reward_ui.append(card)
+
+		var button_row: VBoxContainer = built["button_row"]
 
 		var atk_applicable := DiceItemPool.is_applicable(item, RunState.player_attack_bag)
 		var atk_btn := Button.new()
 		atk_btn.text = "공격 주머니에 적용" if atk_applicable else "승급 대상 없음"
 		atk_btn.disabled = not atk_applicable
-		atk_btn.position = Vector2(200, y + 55)
-		atk_btn.size = Vector2(220, 40)
+		atk_btn.custom_minimum_size = Vector2(0, 38)
 		atk_btn.pressed.connect(_on_reward_chosen.bind(item, "attack"))
-		add_child(atk_btn)
-		_reward_ui.append(atk_btn)
+		button_row.add_child(atk_btn)
 
 		var def_applicable := DiceItemPool.is_applicable(item, RunState.player_defense_bag)
 		var def_btn := Button.new()
 		def_btn.text = "방어 주머니에 적용" if def_applicable else "승급 대상 없음"
 		def_btn.disabled = not def_applicable
-		def_btn.position = Vector2(440, y + 55)
-		def_btn.size = Vector2(220, 40)
+		def_btn.custom_minimum_size = Vector2(0, 38)
 		def_btn.pressed.connect(_on_reward_chosen.bind(item, "defense"))
-		add_child(def_btn)
-		_reward_ui.append(def_btn)
-
-		y += 130.0
+		button_row.add_child(def_btn)
 
 	var custom_btn := Button.new()
 	custom_btn.text = "커스터마이징: 눈금 교환"
-	custom_btn.position = Vector2(200, y + 10)
+	custom_btn.position = Vector2(200, card_y + card_height + 15)
 	custom_btn.size = Vector2(340, 40)
 	custom_btn.pressed.connect(_open_customize_from_reward)
 	add_child(custom_btn)
@@ -503,7 +502,7 @@ func _show_reward_ui() -> void:
 
 	var skip_btn := Button.new()
 	skip_btn.text = "건너뛰기"
-	skip_btn.position = Vector2(560, y + 10)
+	skip_btn.position = Vector2(560, card_y + card_height + 15)
 	skip_btn.size = Vector2(160, 40)
 	skip_btn.pressed.connect(_on_reward_skipped)
 	add_child(skip_btn)

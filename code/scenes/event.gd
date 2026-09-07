@@ -28,37 +28,35 @@ func _rebuild_items() -> void:
 		node.queue_free()
 	_row_ui.clear()
 
-	var y := 0.0
-	for item in _offered:
-		var name_label := Label.new()
-		name_label.text = "%s\n%s" % [item["name"], item["description"]]
-		name_label.position = Vector2(0, y)
-		name_label.size = Vector2(680, 50)
-		name_label.autowrap_mode = TextServer.AUTOWRAP_WORD
-		items_root.add_child(name_label)
-		_row_ui.append(name_label)
+	var card_width := 320.0
+	var card_height := 230.0
+	var card_x := [0.0, 360.0]
+	for i in _offered.size():
+		var item: Dictionary = _offered[i]
+		var built := ItemCardStyle.build_card(item)
+		var card: PanelContainer = built["card"]
+		card.position = Vector2(card_x[i], 0.0)
+		card.size = Vector2(card_width, card_height)
+		items_root.add_child(card)
+		_row_ui.append(card)
+
+		var button_row: VBoxContainer = built["button_row"]
 
 		var atk_applicable := DiceItemPool.is_applicable(item, RunState.player_attack_bag)
 		var atk_btn := Button.new()
 		atk_btn.text = "공격 주머니에 적용" if atk_applicable else "승급 대상 없음"
 		atk_btn.disabled = not atk_applicable
-		atk_btn.position = Vector2(0, y + 55)
-		atk_btn.size = Vector2(220, 40)
+		atk_btn.custom_minimum_size = Vector2(0, 38)
 		atk_btn.pressed.connect(_on_pick_pressed.bind(item, "attack"))
-		items_root.add_child(atk_btn)
-		_row_ui.append(atk_btn)
+		button_row.add_child(atk_btn)
 
 		var def_applicable := DiceItemPool.is_applicable(item, RunState.player_defense_bag)
 		var def_btn := Button.new()
 		def_btn.text = "방어 주머니에 적용" if def_applicable else "승급 대상 없음"
 		def_btn.disabled = not def_applicable
-		def_btn.position = Vector2(240, y + 55)
-		def_btn.size = Vector2(220, 40)
+		def_btn.custom_minimum_size = Vector2(0, 38)
 		def_btn.pressed.connect(_on_pick_pressed.bind(item, "defense"))
-		items_root.add_child(def_btn)
-		_row_ui.append(def_btn)
-
-		y += 130.0
+		button_row.add_child(def_btn)
 
 
 func _on_pick_pressed(item: Dictionary, target: String) -> void:
