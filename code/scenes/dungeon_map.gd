@@ -29,6 +29,13 @@ extends Node2D
 ## 기반 시드를 쓰되, 게임 전체의 randi()/randf()(전투 판정 등)와 섞이지 않도록 별도
 ## RandomNumberGenerator를 사용한다. 확률 자체는 감으로 잡은 잠정값 — 사람 피드백 필요.
 ##
+## 선택지 순서 섞기: 위 항목이 "순서가 섞이는 것까지는 다루지 않았는데 이게 필요한지는
+## 사람 피드백 필요"로 남겨뒀던 간극을 채운다. 상점/특수 이벤트/스토리 이벤트(노출된
+## 것만) 세 종류의 표시 순서를 방마다 같은 결정적 RNG로 섞는다 — "전투 방"은 진행을
+## 보장하는 항상-첫-자리 선택지라 순서 섞기 대상에서 제외(항상 맨 위). 노출 여부와
+## 같은 방식(idx 기반 시드)으로 계산해 MapStrip 미리보기와 실제 버튼 순서가 항상
+## 일치하도록 함.
+##
 ## "스토리 이벤트"는 STATUS.md 다음 할 일 큐("순수 텍스트형/스토리형 선택지 이벤트")를
 ## 반영한 신규 방 종류. 상점/특수 이벤트가 다이스 아이템(DiceItemPool 형식)을 다루는
 ## 것과 달리, scenes/story_event.tscn은 다이스를 전혀 건드리지 않고 골드만 오가는
@@ -66,6 +73,7 @@ const BUTTON_HEIGHT := 50.0
 var _shop_available := true
 var _event_available := true
 var _story_available := true
+var _room_order: Array[String] = ["shop", "event", "story"]
 var _map_line: ColorRect
 var _map_hbox: HBoxContainer
 
@@ -88,21 +96,30 @@ func _roll_room_choices() -> void:
 	_shop_available = opts.shop
 	_event_available = opts.event
 	_story_available = opts.story
+	_room_order = opts.order
 
 
-## idx번째 방(0부터 시작)에서 상점/특수 이벤트/스토리 이벤트가 노출될지를 결정적으로
-## 계산한다. rooms_cleared 대신 임의의 idx를 받을 수 있어 아직 도달하지 않은 미래
-## 방의 미리보기(MapStrip)에도 그대로 쓸 수 있다 — 실제로 그 방에 도달했을 때
-## _roll_room_choices()가 계산하는 값과 완전히 동일한 공식이라 미리보기와 실제 결과가
-## 어긋나지 않는다.
+## idx번째 방(0부터 시작)에서 상점/특수 이벤트/스토리 이벤트가 노출될지, 그리고
+## (노출된 것들끼리) 어떤 순서로 보여줄지를 결정적으로 계산한다. rooms_cleared 대신
+## 임의의 idx를 받을 수 있어 아직 도달하지 않은 미래 방의 미리보기(MapStrip)에도
+## 그대로 쓸 수 있다 — 실제로 그 방에 도달했을 때 _roll_room_choices()가 계산하는
+## 값과 완전히 동일한 공식이라 미리보기와 실제 결과가 어긋나지 않는다.
 func _room_options_for_index(idx: int) -> Dictionary:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = idx * 104729 + 7
-	return {
+	var opts := {
 		"shop": rng.randf() < SHOP_CHANCE,
 		"event": rng.randf() < EVENT_CHANCE,
 		"story": rng.randf() < STORY_CHANCE,
 	}
+	var order: Array[String] = ["shop", "event", "story"]
+	for i in range(order.size() - 1, 0, -1):
+		var j := rng.randi_range(0, i)
+		var tmp := order[i]
+		order[i] = order[j]
+		order[j] = tmp
+	opts["order"] = order
+	return opts
 
 
 func _update_labels() -> void:
@@ -196,12 +213,15 @@ func _make_map_node(idx: int) -> Control:
 
 	var opts := _room_options_for_index(idx)
 	vbox.add_child(_make_type_chip("전투", Color(0.5, 0.2, 0.2)))
-	if opts.shop:
-		vbox.add_child(_make_type_chip("상점", Color(0.5, 0.42, 0.15)))
-	if opts.event:
-		vbox.add_child(_make_type_chip("특수 이벤트", Color(0.35, 0.22, 0.5)))
-	if opts.story:
-		vbox.add_child(_make_type_chip("스토리 이벤트", Color(0.18, 0.4, 0.4)))
+	var chip_specs := {
+		"shop": ["상점", Color(0.5, 0.42, 0.15)],
+		"event": ["특수 이벤트", Color(0.35, 0.22, 0.5)],
+		"story": ["스토리 이벤트", Color(0.18, 0.4, 0.4)],
+	}
+	for t in opts.order:
+		if opts[t]:
+			var spec: Array = chip_specs[t]
+			vbox.add_child(_make_type_chip(spec[0], spec[1]))
 
 	return panel
 
@@ -231,13 +251,16 @@ func _make_type_chip(text: String, color: Color) -> Control:
 ## 아니라 언제든 열 수 있는 별도 기능(STATUS.md 큐 0번 "어디서든 덱 열람 +
 ## 커스터마이징")이라 항상 보이는 버튼으로 취급하고 맨 마지막 자리에 둔다.
 func _layout_visible_buttons() -> void:
+	var type_button_map := {
+		"shop": enter_shop_button,
+		"event": enter_event_button,
+		"story": enter_story_button,
+	}
 	var visible_buttons: Array[Button] = [enter_combat_button]
-	if enter_shop_button.visible:
-		visible_buttons.append(enter_shop_button)
-	if enter_event_button.visible:
-		visible_buttons.append(enter_event_button)
-	if enter_story_button.visible:
-		visible_buttons.append(enter_story_button)
+	for t in _room_order:
+		var btn: Button = type_button_map[t]
+		if btn.visible:
+			visible_buttons.append(btn)
 	visible_buttons.append(customize_button)
 
 	var y := BUTTON_TOP_START

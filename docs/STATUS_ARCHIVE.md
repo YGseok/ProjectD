@@ -8,8 +8,26 @@
 
 ---
 
-## 완료 기록 아카이브 (이터레이션 1~13, 오래된 순 아님 — 최신이 위)
+## 완료 기록 아카이브 (이터레이션 1~14, 오래된 순 아님 — 최신이 위)
 
+- **2026-09-03 (14)**: 특수 이벤트 방 아이템 풀(`code/systems/event_item_pool.gd`)에
+  "다면체 주사위 획득 (D20)" 아이템(`kind: add_die, sides: 20`)을 추가함. 큐 3번에
+  "D20 지오메트리(`_build_icosahedron()`)는 이미 구현됐지만 이를 주는 아이템이 없다"고
+  남아있던 간극을 채움 — 재질 매핑(`_material_for_sides`의 12/20=철제)과 면 모양
+  칩(`ShapeDieChip`의 D20=삼각형)도 이미 sides=20을 지원하고 있었으므로 아이템
+  dict 하나만 추가하면 기존 파이프라인(`DiceItemPool.apply()`의 `add_die` 분기)이
+  코드 변경 없이 그대로 처리함. QA 훅 2개를 `code/scenes/event.gd`에 추가해 검증:
+  `_debug_force_offer_d20()`(D20 아이템을 화면 목록 맨 앞에 강제 노출)로
+  `scripts/qa_shot.sh event 20 qa_out/event_d20_item.png _debug_force_offer_d20`
+  스크린샷을 찍어 "다면체 주사위 획득 (D20)" 카드가 레이아웃 안 깨지고 정상 표시되는
+  것을 확인, `_debug_verify_d20_pickup()`(콘솔 검증 훅)으로
+  `scripts/qa_shot.sh event 20 qa_out/event_d20_pickup_verify.png _debug_verify_d20_pickup`
+  실행 시 콘솔에 `before=3 after=4 added_sides=20`이 출력되어 공격 주머니에 실제로
+  면 20개짜리 다이스가 추가되는 것을 확인. 기존 판정 스위트(`scripts/qa_shot.sh
+  dice_test`)도 전부 PASS로 재확인해 회귀 없음.
+  → 남은 것: 이 아이템의 등장 빈도(4종 중 무작위 2개 노출, 기존 D8/D12/D10과 동일
+  확률)와 체감 강도(공짜로 D20을 얻을 수 있는 게 너무 강한지)는 사람이 실제로
+  플레이해보고 판단해야 함(감으로 잡은 잠정값, 다른 특수 이벤트 아이템들과 같은 문제).
 - **2026-09-03 (13)**: `combat_test.tscn`의 "커스터마이징" 토글 버튼을 전투 중에는
   못 열도록 되돌림 (INBOX.md 신규 지시 최우선 반영 — 세션 도중 사용자가 파일을 직접
   편집해 추가한 것을 발견하고 처리함). 기존에 "[보류 - 재현 안 됨]"으로 마무리돼
