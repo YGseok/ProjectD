@@ -89,6 +89,10 @@ func _ready() -> void:
 	all_pass = _check_combat_double_next_guard(lines) and all_pass
 
 	lines.append("")
+	lines.append("[커스터마이징 이중 교환 방지 검증: customize_panel.gd _on_face_chosen]")
+	all_pass = _check_customize_panel_double_face_chosen_guard(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -740,4 +744,44 @@ func _check_combat_double_next_guard(lines: PackedStringArray) -> bool:
 
 	combat.free()
 	RunState.rooms_cleared = rooms_backup
+	return ok
+
+
+## customize_panel.gd의 _on_face_chosen(bag, die_index, face_index, pip_index)는
+## _show_face_picker()가 만든 면 버튼의 pressed 핸들러다. _clear_ui()가 쓰는
+## queue_free()는 그 프레임이 끝나야 실제로 노드를 지우므로, 같은 버튼이 더블클릭 등
+## 같은 프레임에 두 번 눌리면 이미 한 번 밀려난 pip_index/오염된 face 값을 가진 채로
+## _exchange_pip()가 다시 실행돼 인벤토리를 조용히 오염시킬 수 있었다(이터레이션 48,
+## event.gd/story_event.gd/combat_test.gd와 같은 클래스의 버그). _face_chosen_locked
+## 플래그로 막았는지 확인한다. @onready 노드가 없는 순수 Control이라(트리 안 넣어도
+## add_child가 동작) story_event/combat_test와 같은 script.new() 패턴으로 검증한다.
+func _check_customize_panel_double_face_chosen_guard(lines: PackedStringArray) -> bool:
+	var ok := true
+	var pip_backup: Array[int] = RunState.pip_inventory.duplicate()
+
+	var script := load("res://code/scenes/customize_panel.gd")
+	var panel = script.new()
+
+	var bag := DiceBag.new(6, 1)
+	RunState.pip_inventory = [4, 9]
+	panel._show_face_picker(bag, 0, 0)
+
+	panel._on_face_chosen(bag, 0, 0, 0)
+	var first_ok: bool = bag.dice[0][0] == 4 and RunState.pip_inventory == [9, 1]
+	ok = first_ok and ok
+	lines.append("  1차 교환: face=%d inventory=%s (기대 4, [9, 1]) -> %s" % [
+		bag.dice[0][0], RunState.pip_inventory, "OK" if first_ok else "FAIL"
+	])
+
+	# 같은 프레임에 같은 버튼이 다시 눌려도(더블클릭 가정), 이미 교환이 끝난 뒤라
+	# 아무 일도 일어나선 안 된다 — 인벤토리가 더 오염되거나 면 값이 다시 바뀌면 안 됨.
+	panel._on_face_chosen(bag, 0, 0, 0)
+	var guard_ok: bool = bag.dice[0][0] == 4 and RunState.pip_inventory == [9, 1]
+	ok = guard_ok and ok
+	lines.append("  2차 교환 재시도(이미 교환함): face=%d inventory=%s (기대 변화 없음) -> %s" % [
+		bag.dice[0][0], RunState.pip_inventory, "OK" if guard_ok else "FAIL"
+	])
+
+	panel.free()
+	RunState.pip_inventory = pip_backup
 	return ok

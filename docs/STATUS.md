@@ -5,33 +5,15 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-09-09 (47)
+- 일시: 2026-09-09 (48)
 - 작성자: AI 에이전트. INBOX.md 확인 — 미처리 항목 여전히 2개(몬스터 성격/다이스
-  특이 특징)뿐, 새 피드백 없음. 46이 "아직 대조 안 해본 `dungeon_map.gd`/
-  `story_event.gd`의 버튼 핸들러도 같은 관점(이중 실행 가드)으로 훑어볼 만하다"고
-  남긴 권고를 따랐다. **결과: 같은 클래스의 버그를 2곳 더 발견해 고쳤다.**
-  `dungeon_map.gd`의 4개 방 선택 버튼 핸들러는 `RunState`를 직접 건드리지 않고
-  `change_scene_to_file()`만 호출해서 안전했지만(더블클릭돼도 씬 전환만 중복 요청될
-  뿐 상태 손상 없음), `story_event.gd`의 `_on_continue_pressed`와 `combat_test.gd`의
-  `_on_next_button_pressed`는 event.gd의 옛 버그와 완전히 같은 패턴이었다 — 둘 다
-  `RunState.rooms_cleared += 1`(또는 `reset_run()`)을 한 뒤 `change_scene_to_file()`을
-  부르는데, 씬 전환이 그 프레임 안에서 즉시 일어나지 않으므로 ContinueButton/
-  NextButton을 더블클릭하면 같은 프레임에 핸들러가 두 번 불려 방을 하나 건너뛸 수
-  있었다. event.gd와 동일한 패턴으로 수정: 각각 `_continued`/`_room_advanced` 플래그를
-  추가하고, 상태 변경 로직을 `_apply_continue()`/`_apply_room_advance() -> bool`
-  (반환값=이번 호출이 실제로 적용됐는지)로 씬 전환 로직(`_on_continue_pressed`/
-  `_on_next_button_pressed`)과 분리했다. 이 둘은 `@onready` 노드를 전혀 건드리지
-  않는 순수 상태 변경 로직이라, shop.gd/event.gd처럼 `instantiate()`+`add_child()`할
-  필요 없이 스크립트만 `load(...).new()`해서(트리에 안 넣으므로 `_ready()`가 실행되지
-  않아 `@onready` 미초기화 문제가 아예 없음) 가드를 검증하는 더 가벼운 새 패턴을 썼다
-  (`combat_test.gd`는 특히 `_ready()`가 물리 정지 감지를 기다리는 여러 초짜리 비동기
-  전투 루프를 시작시키므로, 이걸 우회할 수 있는 이 패턴이 사실상 유일하게 안전한
-  검증 방법이었다). `dice_test.gd`에 `_check_story_event_double_continue_guard`/
-  `_check_combat_double_next_guard` 추가. `bash scripts/qa_shot.sh dice_test`로 회귀
-  스위트(55개 항목, 신규 4개 포함) 전체 PASS, error/warning/leak/orphan 전체 로그
-  기준 무출력 확인. 추가로 `bash scripts/qa_shot.sh story_event 40 "" _debug_pick_choice_a`와
-  `bash scripts/qa_shot.sh combat_test 200 "" "" 1`(정지 감지)로 리팩터링 후에도 실제
-  플레이 화면(계속 버튼, 전투 진행)이 스크린샷 기준으로 정상임을 확인.
+  특이 특징)뿐, 새 피드백 없음. 47의 권고("`customize_panel.gd`의 교환 버튼도
+  같은 관점으로 훑어볼 만함")를 따라 확인한 결과, `_on_face_chosen`(면 선택 →
+  즉시 눈금 교환)에 같은 클래스의 이중 실행 취약점이 있어 고쳤다. 이번 건은
+  기존 사례들(방 스킵)과 달리 **인벤토리 데이터 오염**(사용자가 고르지 않은
+  눈금이 조용히 소모되고 엉뚱한 값이 남음)으로 이어질 수 있었던 점이 다름.
+  `_face_chosen_locked` 플래그로 수정, `dice_test.gd`에 회귀 테스트 추가(56개
+  항목 전체 PASS). 자세한 경위는 아래 "완료 기록" 최상단 항목 참고.
 
 ## 지금 위치
 
@@ -51,33 +33,27 @@
 - **QA 도구**: 실제 창(화면 밖 좌표로 이동해 사람 작업 방해 안 함)으로 스크린샷,
   물리 정지 감지 옵션(`GAME_QA_SETTLE`), 마우스 클릭 시뮬레이션
   (`GAME_QA_CLICK_PATH`), 방 번호 강제 지정(`GAME_QA_ROOM_OVERRIDE`).
-  `dice_test.gd`(스크린샷 없이 로직만 확인하는 텍스트 회귀 스위트, 현재 55개 항목)가
+  `dice_test.gd`(스크린샷 없이 로직만 확인하는 텍스트 회귀 스위트, 현재 56개 항목)가
   `DiceBag`/`DiceItemPool`/`EventItemPool` 판정 로직, `dungeon_map.gd`의 방 선택지
   노출/순서 결정성, `story_event.gd`의 골드 손실 클램프, `combat_test.gd`의 몬스터
   난이도 스케일링 공식과 다이스 재질 배정, `customize_panel.gd`의 눈금 교환,
   `shape_die_chip.gd`의 다이스 면->칩 모양 대응, `shop.gd`/`event.gd`/
-  `story_event.gd`/`combat_test.gd`의 이중 적용/구매/진행 방지 가드까지 함께
-  검증함(뒤 4개 모두 실제 씬/스크립트를 인스턴스화해 검증 — shop/event는
-  `instantiate()`+`add_child()`, story_event/combat_test는 `@onready`를 안 건드리는
-  순수 로직이라 스크립트만 `load(...).new()`).
-- **이번 이터레이션에 이중 실행 버그 2개 추가 수정**: `story_event.gd`의
-  `_on_continue_pressed`와 `combat_test.gd`의 `_on_next_button_pressed`가 46이
-  고친 `event.gd`와 같은 패턴의 취약점을 갖고 있었다 — 버튼 더블클릭 등으로 같은
-  프레임에 두 번 불리면 `rooms_cleared` 2 증가(방 스킵)가 가능했음. `_continued`/
-  `_room_advanced` 플래그로 각각 고치고 회귀 테스트 추가. `dungeon_map.gd`의 방 선택
-  버튼 4개는 대조 결과 안전한 것으로 확인됨(상태를 직접 안 건드림). 아래 "완료 기록"
-  참고.
+  `story_event.gd`/`combat_test.gd`/`customize_panel.gd`의 이중 적용/구매/진행/
+  교환 방지 가드까지 함께 검증함(뒤 5개 모두 실제 씬/스크립트를 인스턴스화해 검증 —
+  shop/event는 `instantiate()`+`add_child()`, story_event/combat_test/
+  customize_panel은 `@onready`를 안 건드리는 순수 로직이라 스크립트만
+  `load(...).new()`).
+- **이중 실행 가드 대조 진행 상황**: "방 진행"(rooms_cleared 변경) 계열은
+  던전맵/상점/특수 이벤트/스토리 이벤트/전투 5개 화면 전부, "인벤토리 교환"
+  계열은 customize_panel까지 대조 완료(46~48, 3개 이터레이션 연속 실제 버그
+  발견). 남은 후보는 `deck_panel.gd`/`character_select.gd` 등 — 아래 "완료 기록"
+  최상단 항목 참고.
 - **미착수(사람 기획 필요)**: 몬스터별 성격/특징 디자인, 다이스에 몬스터별
   특이 특징 부여 — 아래 "다음 할 일 큐" 참고. 이 둘 외에는 INBOX.md에 새 피드백
-  없음(35~47, 13개 이터레이션 연속 확인).
-- **코드 재감사 전략, `.claude/settings.json` 재시도 둘 다 종료 상태 유지**(아래
-  "알려진 이슈" 참고, 재시도 금지). → **다음 이터레이션에게**: INBOX.md에 새 항목이
-  있으면 그것부터. 없으면 "다른 화면의 비슷한 핸들러와 대조해 같은 클래스의
-  문제(가드 누락 등)가 없는지 찾는" 방향이 두 이터레이션 연속(46, 47) 실제로 버그를
-  찾아냈으니 계속 생산적일 가능성이 있음 — 다만 이번에 던전 맵/스토리 이벤트/전투
-  씬의 "방 진행" 계열 핸들러는 전부 훑었으므로, 다음엔 다른 종류의 핸들러(예:
-  `customize_panel.gd`의 교환 버튼, `deck_panel.gd`/토글 버튼류)에 같은 이중 실행
-  가드가 필요한지 확인해볼 만함. 장문으로 남기지 말고 간단히.
+  없음(35~48, 14개 이터레이션 연속 확인).
+- **코드 재감사 전략(narrow/broad 재훑기), `.claude/settings.json` 재시도 둘 다
+  종료 상태 유지**(아래 "알려진 이슈" 참고, 재시도 금지) — 대신 "비슷한 화면의
+  핸들러 대조" 전략이 45 이후로 이 자리를 대체해 계속 성과를 내는 중.
 - 상세 이력은 아래 "완료 기록"(최근 10개)과, 그보다 오래된 것은
   `docs/STATUS_ARCHIVE.md`(매 이터레이션 읽지 않는 아카이브) 참고.
 
@@ -329,6 +305,45 @@
 
 ## 완료 기록
 
+- **2026-09-09 (48)**: INBOX.md 재확인 — 미처리 항목 여전히 2개(몬스터 성격/다이스
+  특이 특징)뿐, 새 피드백 없음. 47이 "`customize_panel.gd`의 교환/적용 버튼에도
+  같은 이중 실행 가드가 필요한지 확인해볼 만하다"고 남긴 권고를 따랐다. **결과:
+  같은 클래스의 버그를 또 하나 발견해 고쳤다.** `customize_panel.gd`의 3단계
+  커스터마이징 흐름 중 마지막 단계(`_show_face_picker`가 만드는 면 버튼의 핸들러
+  `_on_face_chosen`)가 `_exchange_pip(bag, die_index, face_index, pip_index)`로
+  `RunState.pip_inventory`와 다이스 면 값을 직접 변경한 뒤 `_show_pip_picker()`로
+  화면을 다시 그리는데, `_clear_ui()`가 쓰는 `queue_free()`는 그 프레임이 끝나야
+  실제로 노드를 지우므로 같은 면 버튼이 더블클릭 등으로 같은 프레임에 두 번 눌리면
+  `_on_face_chosen`이 두 번 호출될 수 있었다. 이전에 고친 사례들(방 스킵)과 달리
+  이건 **인벤토리 데이터 오염**으로 이어진다 — 직접 검산해보면: 1차 호출이
+  `pip_inventory[pip_index]`를 소모하고 밀려난 옛 면 값을 배열 끝에 추가하는데,
+  2차 호출이 같은 `pip_index`로 다시 실행되면 이번엔 배열이 이미 바뀐 뒤라
+  `pip_inventory[pip_index]`가 사용자가 고르지 않은 **다른 눈금**을 가리키게 되고,
+  `old_value`로 읽는 값도 이미 1차 호출이 갱신해놓은 **새 면 값**이 되어 버려서
+  사용자가 고르지 않은 눈금이 조용히 소모되고 엉뚱한 값이 인벤토리에 남는 상황이
+  가능했다(재현 계산: `_check_customize_panel_double_face_chosen_guard`의 두
+  번째 케이스 참고). **수정**: `_face_chosen_locked` 플래그를 추가해 `_on_face_chosen`
+  진입 시 이미 잠겨 있으면 즉시 반환하도록 하고, 새 면 선택 단계가 열릴 때
+  (`_show_face_picker`)마다 플래그를 푼다. 순수 상태 변경 함수인 `_exchange_pip()`
+  자체는 그대로 두고(회귀 테스트가 여전히 직접 호출해 클램프/여러 눈금 케이스를
+  검증함), `_on_face_chosen`에만 가드를 둠. `CustomizePanel`은 `@onready` 노드가
+  없는 순수 Control이라(UI를 전부 `_ready()`가 아니라 `open()`/`_show_*` 호출
+  시점에 코드로 생성) story_event.gd/combat_test.gd 검증과 같은 `load(...).new()`
+  스크립트-only 패턴(트리에 안 넣음)으로 가드를 검증할 수 있었다 — `add_child()`가
+  트리 밖에서도 정상 동작하므로 `_show_face_picker()`가 실제로 버튼/칩 노드를
+  만들어도 문제 없음. `dice_test.gd`에 `_check_customize_panel_double_face_chosen_guard`
+  추가. `bash scripts/qa_shot.sh dice_test`로 회귀 스위트(56개 항목, 신규 1개
+  포함) 전체 PASS, error/warning/leak/orphan 전체 로그 기준 무출력 확인. 추가로
+  `bash scripts/qa_shot.sh dungeon_map 40 "" _debug_open_customize_face`로
+  리팩터링 후에도 실제 면 선택 화면(칩 레이아웃, MAX 강조 등)이 스크린샷 기준으로
+  정상임을 확인.
+  → 다음 이터레이션에게: "방 진행"(rooms_cleared) 계열과 "인벤토리 교환"
+  (customize_panel) 계열 둘 다 이중 실행 가드 대조가 끝났다. 아직 안 훑어본
+  핸들러로는 `deck_panel.gd`(view-only라 상태 변경이 없어 보이지만 재확인 가치
+  있음)와 `character_select.gd`("던전 시작" 버튼 — `RunState.reset_run()` 같은
+  상태 변경 후 씬 전환을 하는지 확인 필요)가 후보. 다만 이 접근이 46/47/48 세
+  이터레이션 연속 실제 버그를 찾아냈지만 슬슬 남은 후보가 줄어들고 있으니, 다음에
+  또 성과가 없으면 무리하게 새 각도를 짜내지 말고 간단히 확인만 하고 넘어갈 것.
 - **2026-09-09 (47)**: INBOX.md 재확인 — 미처리 항목 여전히 2개(몬스터 성격/다이스
   특이 특징)뿐, 새 피드백 없음. 46이 "아직 대조 안 해본 `dungeon_map.gd`
   (`_on_combat_button_pressed` 등)/`story_event.gd`(`_on_choice_pressed`)의 버튼
@@ -485,16 +500,7 @@
   (코드 재감사/settings.json 재시도)은 반복하지 않음. `bash scripts/qa_shot.sh
   dice_test`로 회귀 스위트(43개 항목) 전체 PASS, error/warning/leak/orphan 패턴
   무출력 재확인만 하고 코드는 건드리지 않음.
-- **2026-09-09 (38)**: INBOX.md 재확인 — 미처리 항목 여전히 2개(몬스터 성격/다이스
-  특이 특징)뿐, 둘 다 사람의 추가 기획 필요라 착수 불가. 35~37이 소진 결론을 내린
-  두 전략(코드 재감사/settings.json 재시도)은 이번엔 시도하지 않았음 — 37이 남긴
-  권고("간단히 확인만 하고 넘어갈 것")를 따름. `bash scripts/qa_shot.sh dice_test`로
-  전체 회귀 스위트(43개 항목) PASS 및 leak 없음만 재확인. 코드 변경 없음.
-  → 다음 이터레이션도 INBOX.md에 새 피드백이 없다면 이 패턴(간단 확인 후 대기)을
-  유지할 것 — 사람이 플레이 피드백을 남기거나 몬스터 성격/기믹을 기획해주기 전까지는
-  코드만으로 진전 가능한 항목이 실질적으로 없는 상태. `완료 기록`이 11개가 되어 가장
-  오래된 이터레이션 28을 `docs/STATUS_ARCHIVE.md`로 옮김(10개 유지 규칙).
-*(이터레이션 37 이전의 더 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
+*(이터레이션 38 이전의 더 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임,
 2026-09-09 정리.)*
 

@@ -33,6 +33,17 @@ signal closed
 
 var _ui: Array[Node] = []
 
+## _show_face_picker()가 만든 면 버튼은 눈금-면 교환이 일어나면 _show_pip_picker()로
+## 화면이 다시 그려지며 queue_free()되지만, queue_free()는 그 프레임이 끝나야 실제로
+## 노드를 지운다 — 그 사이(같은 프레임 안)에 같은 버튼이 더블클릭 등으로 두 번 눌리면
+## _on_face_chosen이 두 번 불려 _exchange_pip()도 두 번 실행된다. 이 경우 두 번째 호출은
+## 이미 배열에서 밀려나 위치가 바뀐 pip_index/오염된 face 값을 참조하게 되어(예:
+## 방금 넣은 값을 "옛 값"으로 착각해 되돌리거나, 사용자가 고르지 않은 다른 눈금을
+## 대신 소모함) 인벤토리를 조용히 오염시킬 수 있다(event.gd/story_event.gd/
+## combat_test.gd에서 발견된 것과 같은 클래스의 버그, 이터레이션 48). 면 선택 단계가
+## 새로 열릴 때마다 풀리는 이 플래그로 한 번만 실행되게 막는다.
+var _face_chosen_locked := false
+
 
 func _ready() -> void:
 	visible = false
@@ -169,6 +180,7 @@ func _add_die_rows(bag_label: String, bag: DiceBag, y: float, pip_index: int) ->
 ## 3단계: 고른 다이스의 면 하나를 고르면 그 즉시 눈금과 맞바꾼다.
 func _show_face_picker(bag: DiceBag, die_index: int, pip_index: int) -> void:
 	_clear_ui()
+	_face_chosen_locked = false
 	var pip_value: int = RunState.pip_inventory[pip_index]
 	var faces: PackedInt32Array = bag.dice[die_index]
 	var sides := faces.size()
@@ -226,6 +238,9 @@ func _exchange_pip(bag: DiceBag, die_index: int, face_index: int, pip_index: int
 
 
 func _on_face_chosen(bag: DiceBag, die_index: int, face_index: int, pip_index: int) -> void:
+	if _face_chosen_locked:
+		return
+	_face_chosen_locked = true
 	_exchange_pip(bag, die_index, face_index, pip_index)
 	_show_pip_picker()
 
