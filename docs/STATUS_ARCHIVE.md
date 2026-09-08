@@ -8,8 +8,47 @@
 
 ---
 
-## 완료 기록 아카이브 (이터레이션 1~47, 오래된 순 아님 — 최신이 위)
+## 완료 기록 아카이브 (이터레이션 1~48, 오래된 순 아님 — 최신이 위)
 
+- **2026-09-09 (48)**: INBOX.md 재확인 — 미처리 항목 여전히 2개(몬스터 성격/다이스
+  특이 특징)뿐, 새 피드백 없음. 47이 "`customize_panel.gd`의 교환/적용 버튼에도
+  같은 이중 실행 가드가 필요한지 확인해볼 만하다"고 남긴 권고를 따랐다. **결과:
+  같은 클래스의 버그를 또 하나 발견해 고쳤다.** `customize_panel.gd`의 3단계
+  커스터마이징 흐름 중 마지막 단계(`_show_face_picker`가 만드는 면 버튼의 핸들러
+  `_on_face_chosen`)가 `_exchange_pip(bag, die_index, face_index, pip_index)`로
+  `RunState.pip_inventory`와 다이스 면 값을 직접 변경한 뒤 `_show_pip_picker()`로
+  화면을 다시 그리는데, `_clear_ui()`가 쓰는 `queue_free()`는 그 프레임이 끝나야
+  실제로 노드를 지우므로 같은 면 버튼이 더블클릭 등으로 같은 프레임에 두 번 눌리면
+  `_on_face_chosen`이 두 번 호출될 수 있었다. 이전에 고친 사례들(방 스킵)과 달리
+  이건 **인벤토리 데이터 오염**으로 이어진다 — 직접 검산해보면: 1차 호출이
+  `pip_inventory[pip_index]`를 소모하고 밀려난 옛 면 값을 배열 끝에 추가하는데,
+  2차 호출이 같은 `pip_index`로 다시 실행되면 이번엔 배열이 이미 바뀐 뒤라
+  `pip_inventory[pip_index]`가 사용자가 고르지 않은 **다른 눈금**을 가리키게 되고,
+  `old_value`로 읽는 값도 이미 1차 호출이 갱신해놓은 **새 면 값**이 되어 버려서
+  사용자가 고르지 않은 눈금이 조용히 소모되고 엉뚱한 값이 인벤토리에 남는 상황이
+  가능했다(재현 계산: `_check_customize_panel_double_face_chosen_guard`의 두
+  번째 케이스 참고). **수정**: `_face_chosen_locked` 플래그를 추가해 `_on_face_chosen`
+  진입 시 이미 잠겨 있으면 즉시 반환하도록 하고, 새 면 선택 단계가 열릴 때
+  (`_show_face_picker`)마다 플래그를 푼다. 순수 상태 변경 함수인 `_exchange_pip()`
+  자체는 그대로 두고(회귀 테스트가 여전히 직접 호출해 클램프/여러 눈금 케이스를
+  검증함), `_on_face_chosen`에만 가드를 둠. `CustomizePanel`은 `@onready` 노드가
+  없는 순수 Control이라(UI를 전부 `_ready()`가 아니라 `open()`/`_show_*` 호출
+  시점에 코드로 생성) story_event.gd/combat_test.gd 검증과 같은 `load(...).new()`
+  스크립트-only 패턴(트리에 안 넣음)으로 가드를 검증할 수 있었다 — `add_child()`가
+  트리 밖에서도 정상 동작하므로 `_show_face_picker()`가 실제로 버튼/칩 노드를
+  만들어도 문제 없음. `dice_test.gd`에 `_check_customize_panel_double_face_chosen_guard`
+  추가. `bash scripts/qa_shot.sh dice_test`로 회귀 스위트(56개 항목, 신규 1개
+  포함) 전체 PASS, error/warning/leak/orphan 전체 로그 기준 무출력 확인. 추가로
+  `bash scripts/qa_shot.sh dungeon_map 40 "" _debug_open_customize_face`로
+  리팩터링 후에도 실제 면 선택 화면(칩 레이아웃, MAX 강조 등)이 스크린샷 기준으로
+  정상임을 확인.
+  → 다음 이터레이션에게: "방 진행"(rooms_cleared) 계열과 "인벤토리 교환"
+  (customize_panel) 계열 둘 다 이중 실행 가드 대조가 끝났다. 아직 안 훑어본
+  핸들러로는 `deck_panel.gd`(view-only라 상태 변경이 없어 보이지만 재확인 가치
+  있음)와 `character_select.gd`("던전 시작" 버튼 — `RunState.reset_run()` 같은
+  상태 변경 후 씬 전환을 하는지 확인 필요)가 후보. 다만 이 접근이 46/47/48 세
+  이터레이션 연속 실제 버그를 찾아냈지만 슬슬 남은 후보가 줄어들고 있으니, 다음에
+  또 성과가 없으면 무리하게 새 각도를 짜내지 말고 간단히 확인만 하고 넘어갈 것.
 - **2026-09-09 (47)**: INBOX.md 재확인 — 미처리 항목 여전히 2개(몬스터 성격/다이스
   특이 특징)뿐, 새 피드백 없음. 46이 "아직 대조 안 해본 `dungeon_map.gd`
   (`_on_combat_button_pressed` 등)/`story_event.gd`(`_on_choice_pressed`)의 버튼
