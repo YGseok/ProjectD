@@ -8,8 +8,42 @@
 
 ---
 
-## 완료 기록 아카이브 (이터레이션 1~32, 오래된 순 아님 — 최신이 위)
+## 완료 기록 아카이브 (이터레이션 1~33, 오래된 순 아님 — 최신이 위)
 
+- **2026-09-09 (33)**: INBOX.md 미처리 항목 2개(몬스터 성격/다이스 특이 특징)는 여전히
+  사람의 추가 기획이 필요했음. 새 간극을 좁은 타겟팅으로 찾기 전에, 먼저 이터레이션
+  30과 같은 방식으로 핵심 로직 파일(`shop.gd`, `run_state.gd`, `dungeon_map.gd`,
+  `story_event.gd`, `story_event_pool.gd`, `dice_bag.gd`, `event_item_pool.gd`,
+  `combat_math.gd`, `dice_item_pool.gd`, `event.gd`, `customize_panel.gd`,
+  `combat_test.gd`)를 처음부터 다시 정독했다.
+  1. **결론: 새 버그는 못 찾음** (이터레이션 30과 동일 결론). `shop.gd`의 구매 로직,
+     `run_state.gd`의 런 상태 초기화, `dungeon_map.gd`/`story_event.gd`의 방 진행
+     로직 등을 재확인했지만 전부 의도된 동작이었다.
+  2. **대신 그동안 훑지 않았던 `shape_die_chip.gd`에서 실제 검증 공백을 발견**:
+     `ShapeDieChip.shape_sides_for_dice_sides(sides)`(다이스 면 개수 -> 칩에 그릴
+     모양의 변 개수 대응표, INBOX.md 2026-09-03 피드백 "사면체는 세모, 육면체는
+     네모"를 반영해 만든 순수 함수)가 전투 화면 다이스 결과 칩과 아이템 카드 미리보기
+     (이터레이션 23/24) 양쪽에서 쓰이는 핵심 대응표인데도, 지금까지 스크린샷으로만
+     육안 확인되고 `dice_test.gd`에는 대응 테스트가 없었다. 이런 종류의 매핑이
+     깨지면(예: 나중에 다른 면 개수를 추가하다 실수) "칩 모양이 살짝 다르게 생겼다"
+     정도로만 보여서 스크린샷 눈으로도 놓치기 쉽다는 점에서 실제 회귀 위험이 있는
+     간극으로 판단.
+  3. **`code/scenes/dice_test.gd`에 `_check_shape_die_chip_mapping()` 신규 추가**:
+     D4/D6/D8/D10/D12/D20 여섯 가지 전부에 대해 실제 반환값(3/4/3/4/5/3)이
+     `die_d4.gd`가 만드는 실제 지오메트리(D4/D8/D20=삼각형, D6/D10=사각형(D10은
+     연꼴 근사), D12=오각형)와 일치하는지 확인. 순수 정적 함수라 리팩터링 없이
+     바로 테스트 가능했음.
+  4. **검증**: `bash scripts/qa_shot.sh dice_test`로 새 테스트 6개 포함 전체 PASS
+     확인(leak 경고 없음). 로직 변경이 없는 순수 테스트 추가라 다른 화면 스크린샷
+     회귀 확인은 생략함.
+  → 이 작업으로 새 밸런스/설계 착수 항목이 생기지는 않았음 — 다음 할 일 큐는 이전과
+  동일하게 전부 사람 피드백 대기 상태. 이번 감사로 남은 미검증 파일(`deck_panel.gd`/
+  `item_card_style.gd`/`face_chip_style.gd`/`dice_material.gd`/`die_d4.gd`/
+  `character_select.gd`/`character_portrait_placeholder.gd`/
+  `monster_portrait_placeholder.gd`/`procedural_sound.gd`/`visual_qa.gd`)는 대부분
+  시각 렌더링 위주라 "순수 함수 추출 -> dice_test.gd 검증" 패턴이 잘 안 맞는다는 것도
+  확인함(위 "지금 위치"의 "코드 재감사 전략" 참고). `완료 기록`이 11개가 되어 가장
+  오래된 이터레이션 23을 `docs/STATUS_ARCHIVE.md`로 옮김(10개 유지 규칙).
 - **2026-09-09 (32)**: INBOX.md 미처리 항목 2개(몬스터 성격/다이스 특이 특징)는 여전히
   사람의 추가 기획이 필요했음. 이터레이션 31이 권고한 대로 "전체 재훑기" 대신 좁은
   타겟팅으로 테스트 간극을 찾음 — 이번엔 "DiceItemPool처럼 촘촘히 테스트된 시스템과
