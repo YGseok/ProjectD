@@ -77,6 +77,10 @@ func _ready() -> void:
 	all_pass = _check_shop_double_purchase_guard(lines) and all_pass
 
 	lines.append("")
+	lines.append("[특수 이벤트 이중 적용 방지 검증: event.gd _on_pick_pressed]")
+	all_pass = _check_event_double_pick_guard(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -622,5 +626,48 @@ func _check_shop_double_purchase_guard(lines: PackedStringArray) -> bool:
 	remove_child(shop)
 	shop.free()
 	RunState.gold = gold_backup
+	RunState.player_attack_bag = attack_bag_backup
+	return ok
+
+
+## event.gd의 _apply_pick(item, target)는 shop.gd와 같은 이유(이터레이션 45)로 이중
+## 적용을 막는 가드(_picked 플래그)를 갖는다 — 다만 상점과 달리 무료라서 "골드 부족"
+## 같은 자연 재검증 수단이 없어 이번 이터레이션에 새로 추가됨. _on_pick_pressed는 씬
+## 전환(change_scene_to_file)까지 포함하므로 직접 호출하면 QA 중인 dice_test 씬 자체가
+## 바뀌어버려, 씬 전환과 분리된 _apply_pick()을 대신 호출해 부작용 없이 가드만 검증한다.
+## shop 검증과 같은 패턴(실제 event.tscn 인스턴스화 후 add_child/remove_child)을 쓴다.
+func _check_event_double_pick_guard(lines: PackedStringArray) -> bool:
+	var ok := true
+	var rooms_backup := RunState.rooms_cleared
+	var attack_bag_backup := RunState.player_attack_bag
+
+	RunState.player_attack_bag = DiceBag.new(4, 3)
+	var item: Dictionary = EventItemPool.ITEMS[0]
+
+	var event_scene := load("res://code/scenes/event.tscn")
+	var event_node = event_scene.instantiate()
+	add_child(event_node)
+
+	var rooms_before: int = RunState.rooms_cleared
+	var count_before: int = RunState.player_attack_bag.count
+	var first_applied: bool = event_node._apply_pick(item, "attack")
+	var first_ok: bool = first_applied and RunState.rooms_cleared == rooms_before + 1 and RunState.player_attack_bag.count == count_before + 1
+	ok = first_ok and ok
+	lines.append("  1차 적용: applied=%s rooms=%d count=%d (기대 true, %d, %d) -> %s" % [
+		first_applied, RunState.rooms_cleared, RunState.player_attack_bag.count, rooms_before + 1, count_before + 1, "OK" if first_ok else "FAIL"
+	])
+
+	# 버튼 더블클릭 등으로 같은 프레임에 핸들러가 다시 불려도(가드 우회 가정) 방을
+	# 두 번 클리어 처리하거나 아이템을 중복 적용해선 안 된다.
+	var second_applied: bool = event_node._apply_pick(item, "attack")
+	var guard_ok: bool = not second_applied and RunState.rooms_cleared == rooms_before + 1 and RunState.player_attack_bag.count == count_before + 1
+	ok = guard_ok and ok
+	lines.append("  2차 적용 재시도(이미 픽함): applied=%s rooms=%d count=%d (기대 false, 변화 없음) -> %s" % [
+		second_applied, RunState.rooms_cleared, RunState.player_attack_bag.count, "OK" if guard_ok else "FAIL"
+	])
+
+	remove_child(event_node)
+	event_node.free()
+	RunState.rooms_cleared = rooms_backup
 	RunState.player_attack_bag = attack_bag_backup
 	return ok

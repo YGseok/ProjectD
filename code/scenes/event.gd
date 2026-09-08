@@ -15,6 +15,7 @@ extends Node2D
 
 var _offered: Array[Dictionary] = []
 var _row_ui: Array[Node] = []
+var _picked := false
 
 
 func _ready() -> void:
@@ -66,10 +67,28 @@ func _rebuild_items() -> void:
 
 
 func _on_pick_pressed(item: Dictionary, target: String) -> void:
+	if not _apply_pick(item, target):
+		return
+	get_tree().change_scene_to_file("res://code/scenes/dungeon_map.tscn")
+
+
+## shop.gd의 이중 구매 방지(이터레이션 45)와 같은 이유로 필요한 가드다. shop은
+## "골드 부족"으로 자연스럽게 재검증되지만, 이 방은 무료라 그런 재검증 수단이 없어서
+## 별도 플래그가 필요하다 — change_scene_to_file()이 그 프레임 안에서 즉시 씬을 바꾸지
+## 않으므로, 버튼 더블클릭 등으로 같은 프레임에 이 핸들러가 두 번 불리면 가드 없이는
+## 아이템이 중복 적용되고 rooms_cleared가 2 증가해 방 하나를 건너뛸 수 있었다.
+## 씬 전환과 분리해둔 이유: dice_test.gd 회귀 테스트가 실제 event.tscn을 인스턴스화해
+## 이 함수를 직접 호출해 가드를 검증하는데, _on_pick_pressed를 그대로 호출하면
+## change_scene_to_file()이 QA 중인 dice_test 씬 자체를 바꿔버려 스크린샷이 깨진다.
+## 반환값(true=이번 호출이 실제로 적용됨)으로 테스트가 부작용 없이 결과를 검증할 수 있다.
+func _apply_pick(item: Dictionary, target: String) -> bool:
+	if _picked:
+		return false
+	_picked = true
 	var bag: DiceBag = RunState.player_attack_bag if target == "attack" else RunState.player_defense_bag
 	DiceItemPool.apply(item, bag)
 	RunState.rooms_cleared += 1
-	get_tree().change_scene_to_file("res://code/scenes/dungeon_map.tscn")
+	return true
 
 
 ## qa/visual_qa.gd의 GAME_QA_CALL로 호출하기 위한 인자 없는 래퍼 (QA 전용).
