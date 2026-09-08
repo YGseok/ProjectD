@@ -33,12 +33,7 @@ func _ready() -> void:
 
 func _on_choice_pressed(choice: Dictionary) -> void:
 	var delta := _resolve_choice(choice)
-	var gold_before := RunState.gold
-	RunState.gold = max(0, RunState.gold + delta)
-	# 손실(delta<0)이 보유 골드보다 크면 0에서 멈추므로, 표시 문구는 요청한 delta가
-	# 아니라 실제로 변한 양(actual_delta)을 써야 한다 — 안 그러면 "10골드 잃었다"라고
-	# 뜨는데 실제로는 3골드밖에 없어서 3만 잃고 0이 되는 식으로 문구와 결과가 어긋난다.
-	var actual_delta := RunState.gold - gold_before
+	var actual_delta := _apply_gold_delta(delta)
 	choice_a_button.hide()
 	choice_b_button.hide()
 	if actual_delta > 0:
@@ -49,6 +44,18 @@ func _on_choice_pressed(choice: Dictionary) -> void:
 		result_label.text = "아무 일도 일어나지 않았다. (보유 %d)" % RunState.gold
 	result_label.show()
 	continue_button.show()
+
+
+## RunState.gold에 delta를 적용하고 실제로 변한 양(actual_delta)을 반환한다.
+## 손실(delta<0)이 보유 골드보다 크면 0에서 멈추므로, 표시 문구는 요청한 delta가
+## 아니라 이 반환값을 써야 한다 — 안 그러면 "10골드 잃었다"라고 뜨는데 실제로는
+## 3골드밖에 없어서 3만 잃고 0이 되는 식으로 문구와 결과가 어긋난다(2026-09-09 (26)
+## 버그 수정). @onready 노드를 건드리지 않는 순수 로직이라 씬에 add_child하지 않고도
+## 테스트 가능하다 (code/scenes/dice_test.gd 참고).
+func _apply_gold_delta(delta: int) -> int:
+	var gold_before := RunState.gold
+	RunState.gold = max(0, RunState.gold + delta)
+	return RunState.gold - gold_before
 
 
 func _resolve_choice(choice: Dictionary) -> int:

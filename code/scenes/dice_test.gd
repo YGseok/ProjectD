@@ -49,6 +49,10 @@ func _ready() -> void:
 	all_pass = _check_dungeon_map_room_options(lines) and all_pass
 
 	lines.append("")
+	lines.append("[스토리 이벤트 골드 클램프 검증: story_event.gd _apply_gold_delta]")
+	all_pass = _check_story_event_gold_delta(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -306,4 +310,47 @@ func _check_dungeon_map_room_options(lines: PackedStringArray) -> bool:
 	])
 
 	map.free()
+	return ok
+
+
+## story_event.gd의 _apply_gold_delta(delta)는 RunState.gold를 0 밑으로 안 내려가게
+## 클램프하고, 결과 문구가 요청한 delta가 아니라 실제로 변한 양(actual_delta)을 쓰도록
+## 2026-09-09 (26)에 고쳐졌다 — 그때는 QA 스크린샷으로만 확인하고 자동 회귀 테스트가
+## 없었던 간극을 메운다. RunState.gold는 전역 상태라 테스트 전후로 원래 값을 복원해
+## 이 테스트가 다른 검증에 영향을 주지 않게 한다.
+func _check_story_event_gold_delta(lines: PackedStringArray) -> bool:
+	var ok := true
+	var script := load("res://code/scenes/story_event.gd")
+	var story = script.new()
+	var gold_backup := RunState.gold
+
+	# 손실 폭(10)이 보유 골드(3)보다 큰 엣지 케이스: 실제로는 3만 잃고 0이 되어야 하며,
+	# actual_delta도 -10이 아니라 -3이어야 한다(수정 전 버그는 여기서 -10을 그대로 표시).
+	RunState.gold = 3
+	var clamped_delta: int = story._apply_gold_delta(-10)
+	var clamp_ok := clamped_delta == -3 and RunState.gold == 0
+	ok = clamp_ok and ok
+	lines.append("  _apply_gold_delta(-10) (보유 3): actual_delta=%d gold=%d (기대 -3, 0) -> %s" % [
+		clamped_delta, RunState.gold, "OK" if clamp_ok else "FAIL"
+	])
+
+	# 클램프가 발동하지 않는 일반적인 경우(골드가 충분하거나 획득)에는 actual_delta가
+	# 요청한 delta와 완전히 같아야 한다(회귀 없음 확인).
+	RunState.gold = 20
+	var normal_delta: int = story._apply_gold_delta(-10)
+	var normal_ok := normal_delta == -10 and RunState.gold == 10
+	ok = normal_ok and ok
+	lines.append("  _apply_gold_delta(-10) (보유 20): actual_delta=%d gold=%d (기대 -10, 10) -> %s" % [
+		normal_delta, RunState.gold, "OK" if normal_ok else "FAIL"
+	])
+
+	var gain_delta: int = story._apply_gold_delta(15)
+	var gain_ok := gain_delta == 15 and RunState.gold == 25
+	ok = gain_ok and ok
+	lines.append("  _apply_gold_delta(15) (보유 10): actual_delta=%d gold=%d (기대 15, 25) -> %s" % [
+		gain_delta, RunState.gold, "OK" if gain_ok else "FAIL"
+	])
+
+	story.free()
+	RunState.gold = gold_backup
 	return ok
