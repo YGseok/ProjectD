@@ -81,6 +81,14 @@ func _ready() -> void:
 	all_pass = _check_event_double_pick_guard(lines) and all_pass
 
 	lines.append("")
+	lines.append("[스토리 이벤트 이중 진행 방지 검증: story_event.gd _on_continue_pressed]")
+	all_pass = _check_story_event_double_continue_guard(lines) and all_pass
+
+	lines.append("")
+	lines.append("[전투 방 이중 진행 방지 검증: combat_test.gd _on_next_button_pressed]")
+	all_pass = _check_combat_double_next_guard(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -670,4 +678,66 @@ func _check_event_double_pick_guard(lines: PackedStringArray) -> bool:
 	event_node.free()
 	RunState.rooms_cleared = rooms_backup
 	RunState.player_attack_bag = attack_bag_backup
+	return ok
+
+
+## story_event.gd/combat_test.gd에도 event.gd와 같은 이중 실행 취약점이 있었다
+## (이터레이션 47): ContinueButton/NextButton 둘 다 change_scene_to_file() 호출이
+## 그 프레임 안에서 즉시 씬을 바꾸지 않아, 더블클릭 시 rooms_cleared가 2 증가(방 스킵)할
+## 수 있었다. 두 _apply_*() 함수 모두 @onready 노드를 건드리지 않는 순수 상태 변경
+## 로직이라(씬 전환은 각각의 _on_*_pressed()로 분리됨), shop.gd/event.gd처럼
+## instantiate()+add_child()할 필요 없이 스크립트만 new()해서(트리에 안 넣으므로
+## _ready()가 실행되지 않음) 가드를 검증할 수 있다.
+func _check_story_event_double_continue_guard(lines: PackedStringArray) -> bool:
+	var ok := true
+	var rooms_backup := RunState.rooms_cleared
+
+	var story_script := load("res://code/scenes/story_event.gd")
+	var story = story_script.new()
+
+	var rooms_before: int = RunState.rooms_cleared
+	var first_applied: bool = story._apply_continue()
+	var first_ok: bool = first_applied and RunState.rooms_cleared == rooms_before + 1
+	ok = first_ok and ok
+	lines.append("  1차 진행: applied=%s rooms=%d (기대 true, %d) -> %s" % [
+		first_applied, RunState.rooms_cleared, rooms_before + 1, "OK" if first_ok else "FAIL"
+	])
+
+	var second_applied: bool = story._apply_continue()
+	var guard_ok: bool = not second_applied and RunState.rooms_cleared == rooms_before + 1
+	ok = guard_ok and ok
+	lines.append("  2차 진행 재시도(이미 진행함): applied=%s rooms=%d (기대 false, 변화 없음) -> %s" % [
+		second_applied, RunState.rooms_cleared, "OK" if guard_ok else "FAIL"
+	])
+
+	story.free()
+	RunState.rooms_cleared = rooms_backup
+	return ok
+
+
+func _check_combat_double_next_guard(lines: PackedStringArray) -> bool:
+	var ok := true
+	var rooms_backup := RunState.rooms_cleared
+
+	var combat_script := load("res://code/scenes/combat_test.gd")
+	var combat = combat_script.new()
+	combat.player_won = true
+
+	var rooms_before: int = RunState.rooms_cleared
+	var first_applied: bool = combat._apply_room_advance()
+	var first_ok: bool = first_applied and RunState.rooms_cleared == rooms_before + 1
+	ok = first_ok and ok
+	lines.append("  1차 진행(승리): applied=%s rooms=%d (기대 true, %d) -> %s" % [
+		first_applied, RunState.rooms_cleared, rooms_before + 1, "OK" if first_ok else "FAIL"
+	])
+
+	var second_applied: bool = combat._apply_room_advance()
+	var guard_ok: bool = not second_applied and RunState.rooms_cleared == rooms_before + 1
+	ok = guard_ok and ok
+	lines.append("  2차 진행 재시도(이미 진행함): applied=%s rooms=%d (기대 false, 변화 없음) -> %s" % [
+		second_applied, RunState.rooms_cleared, "OK" if guard_ok else "FAIL"
+	])
+
+	combat.free()
+	RunState.rooms_cleared = rooms_backup
 	return ok

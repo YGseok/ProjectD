@@ -15,6 +15,7 @@ extends Node2D
 @onready var customize_panel: CustomizePanel = $CustomizePanel
 
 var _scenario: Dictionary
+var _continued := false
 
 
 func _ready() -> void:
@@ -71,9 +72,23 @@ func _resolve_choice(choice: Dictionary) -> int:
 			return 0
 
 
+## event.gd의 _on_pick_pressed(이터레이션 46)/combat_test.gd의 _on_next_button_pressed와
+## 같은 이유로 이중 실행 가드가 필요하다: change_scene_to_file()은 그 프레임 안에서 즉시
+## 씬을 바꾸지 않으므로, ContinueButton을 더블클릭하면 같은 프레임에 이 핸들러가 두 번
+## 불려 rooms_cleared가 2 증가(방 스킵)할 수 있었다.
 func _on_continue_pressed() -> void:
-	RunState.rooms_cleared += 1
+	if not _apply_continue():
+		return
 	get_tree().change_scene_to_file("res://code/scenes/dungeon_map.tscn")
+
+
+## 반환값 = 이번 호출이 실제로 적용됐는지 (이미 적용됐으면 false, 아무 것도 안 함).
+func _apply_continue() -> bool:
+	if _continued:
+		return false
+	_continued = true
+	RunState.rooms_cleared += 1
+	return true
 
 
 ## qa/visual_qa.gd의 GAME_QA_CALL로 호출하기 위한 인자 없는 래퍼 (QA 전용).

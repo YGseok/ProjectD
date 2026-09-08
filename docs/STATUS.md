@@ -5,27 +5,33 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-09-09 (46)
+- 일시: 2026-09-09 (47)
 - 작성자: AI 에이전트. INBOX.md 확인 — 미처리 항목 여전히 2개(몬스터 성격/다이스
-  특이 특징)뿐, 새 피드백 없음. 45가 "shop.tscn 인스턴스화 패턴을 다른 @onready
-  의존 핸들러에도 적용할 만하다"고 남긴 권고를 따라 `event.gd`(특수 이벤트 방)를
-  같은 관점(상점 이중 구매 방지)으로 대조하다가, 이번엔 확인이 아니라 **실제 버그를
-  하나 발견해 고쳤다**: `event.gd`의 `_on_pick_pressed`는 shop.gd와 달리 이중 실행을
-  막는 가드가 전혀 없었다 — 무료 방이라 "골드 부족"처럼 자연스럽게 재검증되는 값이
-  없고, `change_scene_to_file()`이 그 프레임 안에서 즉시 씬을 바꾸지 않으므로 버튼
-  더블클릭 등으로 같은 프레임에 핸들러가 두 번 불리면 아이템이 중복 적용되고
-  `rooms_cleared`가 2 증가해(방 하나를 건너뜀) 버릴 수 있었다. `_picked` 플래그로
-  가드를 추가하고, 씬 전환 로직(`_on_pick_pressed`)과 상태 변경 로직(`_apply_pick`,
-  반환값=이번 호출이 실제로 적용됐는지)을 분리했다 — 분리한 이유는 회귀 테스트가
-  실제 `event.tscn`을 인스턴스화해 가드를 검증할 때, `_on_pick_pressed`를 직접
-  부르면 `change_scene_to_file()`이 QA 중인 `dice_test` 씬 자체를 바꿔버려 스크린샷이
-  깨지기 때문 — `_apply_pick()`만 호출하면 부작용 없이 가드만 검증 가능하다.
-  `dice_test.gd`에 `_check_event_double_pick_guard` 추가(shop 검증과 같은
-  add_child/remove_child 패턴). `bash scripts/qa_shot.sh dice_test`로 회귀
-  스위트(51개 항목, 신규 2개 포함) 전체 PASS, error/warning/leak/orphan 전체 로그
-  기준 무출력 확인. 추가로 `bash scripts/qa_shot.sh event 40 "" _debug_pick_first_for_attack`로
-  리팩터링 후에도 실제 플레이 경로(픽 -> 던전 맵 전환, 방 1개만 정상 진행)가
-  깨지지 않았음을 스크린샷으로 확인.
+  특이 특징)뿐, 새 피드백 없음. 46이 "아직 대조 안 해본 `dungeon_map.gd`/
+  `story_event.gd`의 버튼 핸들러도 같은 관점(이중 실행 가드)으로 훑어볼 만하다"고
+  남긴 권고를 따랐다. **결과: 같은 클래스의 버그를 2곳 더 발견해 고쳤다.**
+  `dungeon_map.gd`의 4개 방 선택 버튼 핸들러는 `RunState`를 직접 건드리지 않고
+  `change_scene_to_file()`만 호출해서 안전했지만(더블클릭돼도 씬 전환만 중복 요청될
+  뿐 상태 손상 없음), `story_event.gd`의 `_on_continue_pressed`와 `combat_test.gd`의
+  `_on_next_button_pressed`는 event.gd의 옛 버그와 완전히 같은 패턴이었다 — 둘 다
+  `RunState.rooms_cleared += 1`(또는 `reset_run()`)을 한 뒤 `change_scene_to_file()`을
+  부르는데, 씬 전환이 그 프레임 안에서 즉시 일어나지 않으므로 ContinueButton/
+  NextButton을 더블클릭하면 같은 프레임에 핸들러가 두 번 불려 방을 하나 건너뛸 수
+  있었다. event.gd와 동일한 패턴으로 수정: 각각 `_continued`/`_room_advanced` 플래그를
+  추가하고, 상태 변경 로직을 `_apply_continue()`/`_apply_room_advance() -> bool`
+  (반환값=이번 호출이 실제로 적용됐는지)로 씬 전환 로직(`_on_continue_pressed`/
+  `_on_next_button_pressed`)과 분리했다. 이 둘은 `@onready` 노드를 전혀 건드리지
+  않는 순수 상태 변경 로직이라, shop.gd/event.gd처럼 `instantiate()`+`add_child()`할
+  필요 없이 스크립트만 `load(...).new()`해서(트리에 안 넣으므로 `_ready()`가 실행되지
+  않아 `@onready` 미초기화 문제가 아예 없음) 가드를 검증하는 더 가벼운 새 패턴을 썼다
+  (`combat_test.gd`는 특히 `_ready()`가 물리 정지 감지를 기다리는 여러 초짜리 비동기
+  전투 루프를 시작시키므로, 이걸 우회할 수 있는 이 패턴이 사실상 유일하게 안전한
+  검증 방법이었다). `dice_test.gd`에 `_check_story_event_double_continue_guard`/
+  `_check_combat_double_next_guard` 추가. `bash scripts/qa_shot.sh dice_test`로 회귀
+  스위트(55개 항목, 신규 4개 포함) 전체 PASS, error/warning/leak/orphan 전체 로그
+  기준 무출력 확인. 추가로 `bash scripts/qa_shot.sh story_event 40 "" _debug_pick_choice_a`와
+  `bash scripts/qa_shot.sh combat_test 200 "" "" 1`(정지 감지)로 리팩터링 후에도 실제
+  플레이 화면(계속 버튼, 전투 진행)이 스크린샷 기준으로 정상임을 확인.
 
 ## 지금 위치
 
@@ -45,26 +51,33 @@
 - **QA 도구**: 실제 창(화면 밖 좌표로 이동해 사람 작업 방해 안 함)으로 스크린샷,
   물리 정지 감지 옵션(`GAME_QA_SETTLE`), 마우스 클릭 시뮬레이션
   (`GAME_QA_CLICK_PATH`), 방 번호 강제 지정(`GAME_QA_ROOM_OVERRIDE`).
-  `dice_test.gd`(스크린샷 없이 로직만 확인하는 텍스트 회귀 스위트, 현재 51개 항목)가
+  `dice_test.gd`(스크린샷 없이 로직만 확인하는 텍스트 회귀 스위트, 현재 55개 항목)가
   `DiceBag`/`DiceItemPool`/`EventItemPool` 판정 로직, `dungeon_map.gd`의 방 선택지
   노출/순서 결정성, `story_event.gd`의 골드 손실 클램프, `combat_test.gd`의 몬스터
   난이도 스케일링 공식과 다이스 재질 배정, `customize_panel.gd`의 눈금 교환,
-  `shape_die_chip.gd`의 다이스 면->칩 모양 대응, `shop.gd`/`event.gd`의 이중
-  적용/구매 방지 가드까지 함께 검증함(둘 다 실제 씬을 인스턴스화해 검증).
-- **이번 이터레이션에 실버그 하나 수정**: `event.gd`(특수 이벤트 방)의
-  `_on_pick_pressed`에 이중 실행 가드가 없었다 — 버튼 더블클릭 등으로 같은 프레임에
-  두 번 불리면 아이템 중복 적용 + `rooms_cleared` 2 증가(방 스킵)가 가능했음.
-  `_picked` 플래그로 고치고 회귀 테스트 추가. 아래 "완료 기록" 참고.
+  `shape_die_chip.gd`의 다이스 면->칩 모양 대응, `shop.gd`/`event.gd`/
+  `story_event.gd`/`combat_test.gd`의 이중 적용/구매/진행 방지 가드까지 함께
+  검증함(뒤 4개 모두 실제 씬/스크립트를 인스턴스화해 검증 — shop/event는
+  `instantiate()`+`add_child()`, story_event/combat_test는 `@onready`를 안 건드리는
+  순수 로직이라 스크립트만 `load(...).new()`).
+- **이번 이터레이션에 이중 실행 버그 2개 추가 수정**: `story_event.gd`의
+  `_on_continue_pressed`와 `combat_test.gd`의 `_on_next_button_pressed`가 46이
+  고친 `event.gd`와 같은 패턴의 취약점을 갖고 있었다 — 버튼 더블클릭 등으로 같은
+  프레임에 두 번 불리면 `rooms_cleared` 2 증가(방 스킵)가 가능했음. `_continued`/
+  `_room_advanced` 플래그로 각각 고치고 회귀 테스트 추가. `dungeon_map.gd`의 방 선택
+  버튼 4개는 대조 결과 안전한 것으로 확인됨(상태를 직접 안 건드림). 아래 "완료 기록"
+  참고.
 - **미착수(사람 기획 필요)**: 몬스터별 성격/특징 디자인, 다이스에 몬스터별
   특이 특징 부여 — 아래 "다음 할 일 큐" 참고. 이 둘 외에는 INBOX.md에 새 피드백
-  없음(35~46, 12개 이터레이션 연속 확인).
+  없음(35~47, 13개 이터레이션 연속 확인).
 - **코드 재감사 전략, `.claude/settings.json` 재시도 둘 다 종료 상태 유지**(아래
   "알려진 이슈" 참고, 재시도 금지). → **다음 이터레이션에게**: INBOX.md에 새 항목이
-  있으면 그것부터. 없으면 "코드를 다시 읽고 버그를 찾는" 시도보다, 이번처럼 "다른
-  화면의 비슷한 핸들러와 대조해 같은 클래스의 문제(가드 누락 등)가 없는지 찾는"
-  방향이 실제로 버그를 하나 찾아냈으니 생산적이었음 — 아직 이중 실행/재검증 가드를
-  안 갖춘 `@onready` 의존 핸들러(`dungeon_map.gd`/`story_event.gd`의 버튼 핸들러 등)가
-  더 있는지 같은 방식으로 대조해보는 것을 권장. 장문으로 남기지 말고 간단히.
+  있으면 그것부터. 없으면 "다른 화면의 비슷한 핸들러와 대조해 같은 클래스의
+  문제(가드 누락 등)가 없는지 찾는" 방향이 두 이터레이션 연속(46, 47) 실제로 버그를
+  찾아냈으니 계속 생산적일 가능성이 있음 — 다만 이번에 던전 맵/스토리 이벤트/전투
+  씬의 "방 진행" 계열 핸들러는 전부 훑었으므로, 다음엔 다른 종류의 핸들러(예:
+  `customize_panel.gd`의 교환 버튼, `deck_panel.gd`/토글 버튼류)에 같은 이중 실행
+  가드가 필요한지 확인해볼 만함. 장문으로 남기지 말고 간단히.
 - 상세 이력은 아래 "완료 기록"(최근 10개)과, 그보다 오래된 것은
   `docs/STATUS_ARCHIVE.md`(매 이터레이션 읽지 않는 아카이브) 참고.
 
@@ -316,6 +329,44 @@
 
 ## 완료 기록
 
+- **2026-09-09 (47)**: INBOX.md 재확인 — 미처리 항목 여전히 2개(몬스터 성격/다이스
+  특이 특징)뿐, 새 피드백 없음. 46이 "아직 대조 안 해본 `dungeon_map.gd`
+  (`_on_combat_button_pressed` 등)/`story_event.gd`(`_on_choice_pressed`)의 버튼
+  핸들러도 같은 관점으로 한 번씩 훑어볼 만하다"고 남긴 권고를 따름. `dungeon_map.gd`의
+  4개 방 선택 버튼(`_on_combat_button_pressed`/`_on_shop_button_pressed`/
+  `_on_event_button_pressed`/`_on_story_button_pressed`)을 대조한 결과, 이들은
+  `RunState`를 직접 변경하지 않고 `change_scene_to_file()`만 호출해서(방 클리어
+  처리는 각 방 씬 안에서 일어남) 더블클릭돼도 씬 전환 요청이 중복될 뿐 상태 손상은
+  없어 안전함을 확인. 대신 46이 지목한 `story_event.gd`의 `_on_choice_pressed`가
+  아니라(이건 버튼을 `hide()`해서 이미 방어됨), **바로 다음 단계인 `_on_continue_pressed`
+  에서 실제 버그를 발견했다** — event.gd의 옛 버그와 완전히 같은 패턴: `RunState.
+  rooms_cleared += 1` 후 `change_scene_to_file()`을 부르는데 이중 실행 가드가 없어
+  ContinueButton 더블클릭 시 방을 하나 건너뛸 수 있었음. 같은 관점으로
+  `combat_test.gd`의 `_on_next_button_pressed`(NextButton, "던전으로 돌아가기"/
+  "처음부터 다시" 버튼)도 확인했더니 **똑같은 취약점**이 있었음(`RunState.
+  rooms_cleared += 1` 또는 `reset_run()` 후 씬 전환, 가드 없음). **수정**: event.gd와
+  동일한 패턴으로 `story_event.gd`에 `_continued` 플래그 + `_apply_continue() -> bool`,
+  `combat_test.gd`에 `_room_advanced` 플래그 + `_apply_room_advance() -> bool`을
+  추가해 상태 변경과 씬 전환을 분리. 이 둘은 `@onready` 노드를 전혀 안 건드리는
+  순수 로직이라, shop.gd/event.gd 검증에 쓰던 `instantiate()`+`add_child()`(트리에
+  넣어야 `@onready`가 채워짐) 없이 스크립트만 `load(...).new()`해서(트리에 안
+  넣으므로 `_ready()`가 실행 안 됨) 가드를 검증하는 더 가벼운 새 패턴을 씀 —
+  특히 `combat_test.gd`는 `_ready()`가 물리 정지 감지를 기다리는 여러 초짜리
+  비동기 전투 루프(`_run_battle()`)를 시작시키므로, 씬 전체를 인스턴스화하는
+  방식은 QA를 몇 초씩 지연시키거나 정리 안 된 코루틴이 에러를 낼 위험이 있어
+  이 스크립트-only 패턴이 사실상 유일하게 안전한 검증 방법이었음. `dice_test.gd`에
+  `_check_story_event_double_continue_guard`/`_check_combat_double_next_guard`
+  추가. `bash scripts/qa_shot.sh dice_test`로 회귀 스위트(55개 항목, 신규 4개
+  포함) 전체 PASS, error/warning/leak/orphan 전체 로그 기준 무출력 확인. 추가로
+  `bash scripts/qa_shot.sh story_event 40 "" _debug_pick_choice_a`와 `bash
+  scripts/qa_shot.sh combat_test 200 "" "" 1`(정지 감지)로 리팩터링 후에도 실제
+  플레이 화면(계속 버튼, 전투 진행 중 다이스/HP/로그 표시)이 스크린샷 기준으로
+  정상임을 확인.
+  → 다음 이터레이션에게: "방 진행"(rooms_cleared 변경 + 씬 전환) 계열 핸들러는
+  이제 던전맵/상점/특수 이벤트/스토리 이벤트/전투 5개 화면 전부 대조 완료됐다.
+  같은 이중 실행 취약점 패턴(상태 변경 후 change_scene_to_file, 가드 없음)이 다른
+  종류의 핸들러(예: `customize_panel.gd`의 교환/적용 버튼)에도 있는지 다음으로
+  확인해볼 만하다.
 - **2026-09-09 (46)**: INBOX.md 재확인 — 미처리 항목 여전히 2개(몬스터 성격/다이스
   특이 특징)뿐, 새 피드백 없음. 45가 "shop.tscn 인스턴스화 패턴을 다른 @onready
   의존 핸들러에도 적용할 만하다"고 남긴 권고를 따라 `event.gd`(특수 이벤트 방)의
@@ -443,30 +494,7 @@
   유지할 것 — 사람이 플레이 피드백을 남기거나 몬스터 성격/기믹을 기획해주기 전까지는
   코드만으로 진전 가능한 항목이 실질적으로 없는 상태. `완료 기록`이 11개가 되어 가장
   오래된 이터레이션 28을 `docs/STATUS_ARCHIVE.md`로 옮김(10개 유지 규칙).
-- **2026-09-09 (37)**: INBOX.md를 다시 확인했으나 미처리 항목은 여전히 이전과
-  동일한 2개(몬스터 성격/다이스 특이 특징)뿐이었고 새 피드백은 없었음. 35/36이
-  이미 "코드 재감사로 새 간극 찾기" 전략의 소진을 결론지었으므로 그 전략은
-  반복하지 않고, 대신 "알려진 이슈"에 남아있던 다른 미해결 항목을 재시도했다.
-  1. **`.claude/settings.json`에 `Bash(Util/scripts/qa_shot.sh *)` 패턴 추가
-     재시도 (4번째, 이전 27/31/35에 이어)**: `scripts/qa_shot.sh`를 `Util/` 밑으로
-     옮기기 위한 선행 작업. `Edit` 호출이 이번에도 즉시 "승인 필요"로 거부됨.
-  2. **판단**: 서로 다른 4개 세션(27/31/35/37)에서 완전히 동일한 결과가 나온
-     것으로 보아, 이는 우연한 일시적 문제가 아니라 이 세션 환경이 `.claude/
-     settings.json`/`settings.local.json` 쓰기를 구조적으로 차단하는 것으로
-     확정 판단. 사람이 직접 그 파일을 수정해주기 전까지는 AI 세션 쪽에서
-     반복 시도해도 결과가 달라지지 않을 것이므로, 앞으로의 이터레이션에 이
-     재시도를 그만두도록 "알려진 이슈"에 명시함(더 이상 무의미한 재시도로
-     이터레이션을 소모하지 않기 위함).
-  3. **코드 변경 없음** — 설정 파일 수정 자체가 거부되어 실제 반영된 변경은
-     없음. 이 이터레이션의 산출물은 "이 블로커가 구조적이라는 확정 판단"과
-     "향후 재시도 중단 권고"임.
-  → **다음 이터레이션에게**: `.claude/settings.json` 재시도도, 코드 재감사도
-  이제 반복할 실익이 없다는 결론이 두 갈래 다 확정됐다. INBOX.md에 실제로 새
-  피드백이 쌓이기 전까지는 이 파일에 매번 "확인함"을 장문으로 남기지 말고
-  간단히만 확인한 뒤 조용히 넘어갈 것 — 사람이 플레이하고 피드백을 남길 때까지
-  기다리는 것이 프로젝트에 더 도움이 됨. `완료 기록`이 11개가 되어 가장 오래된
-  이터레이션 27을 `docs/STATUS_ARCHIVE.md`로 옮김(10개 유지 규칙).
-*(이터레이션 36 이전의 더 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
+*(이터레이션 37 이전의 더 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임,
 2026-09-09 정리.)*
 

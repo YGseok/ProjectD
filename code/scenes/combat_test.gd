@@ -90,6 +90,7 @@ var monster_color := Color(1, 1, 1, 0)
 
 var battle_over := false
 var player_won := false
+var _room_advanced := false
 var _log_lines: Array[String] = []
 var _reward_ui: Array[Node] = []
 var _reward_items: Array[Dictionary] = []
@@ -441,12 +442,28 @@ func _append_log(line: String) -> void:
 	log_label.text = "\n".join(_log_lines)
 
 
+## event.gd의 _on_pick_pressed/_apply_pick(이터레이션 46)와 같은 이유로 이중 실행
+## 가드가 필요하다: change_scene_to_file()은 그 프레임 안에서 즉시 씬을 바꾸지 않으므로,
+## NextButton을 더블클릭하면 같은 프레임에 이 핸들러가 두 번 불려 rooms_cleared가 2
+## 증가(방 스킵)하거나 reset_run()이 중복 호출될 수 있었다. 상태 변경(_apply_room_advance)과
+## 씬 전환(_on_next_button_pressed)을 분리한 이유도 동일 — 회귀 테스트가 change_scene_to_file
+## 없이 가드만 검증할 수 있게 하기 위함.
 func _on_next_button_pressed() -> void:
+	if not _apply_room_advance():
+		return
+	get_tree().change_scene_to_file("res://code/scenes/dungeon_map.tscn")
+
+
+## 반환값 = 이번 호출이 실제로 적용됐는지 (이미 적용됐으면 false, 아무 것도 안 함).
+func _apply_room_advance() -> bool:
+	if _room_advanced:
+		return false
+	_room_advanced = true
 	if player_won:
 		RunState.rooms_cleared += 1
 	else:
 		RunState.reset_run()
-	get_tree().change_scene_to_file("res://code/scenes/dungeon_map.tscn")
+	return true
 
 
 ## 승리 시 다이스 개조 아이템 2개를 제시하고, 어느 주머니(공격/방어)에 적용할지
