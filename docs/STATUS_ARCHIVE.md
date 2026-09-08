@@ -8,8 +8,53 @@
 
 ---
 
-## 완료 기록 아카이브 (이터레이션 1~21, 오래된 순 아님 — 최신이 위)
+## 완료 기록 아카이브 (이터레이션 1~22, 오래된 순 아님 — 최신이 위)
 
+- **2026-09-07 (22)**: 승리 보상/상점/특수 이벤트 아이템 목록을 카드형 비주얼로 개선.
+  1. **`code/scenes/item_card_style.gd`(`ItemCardStyle`) 신규 추가**: `FaceChipStyle`
+     (`code/scenes/face_chip_style.gd`)과 같은 패턴의 정적 헬퍼 클래스. `build_card(item,
+     extra_label_text="")`가 PanelContainer(금테 StyleBoxFlat, 둥근 모서리, 어두운
+     배경) 안에 VBoxContainer(제목 라벨 → 선택적 보조 문구 라벨 → 설명 라벨 →
+     늘어나는 spacer → 버튼을 담을 VBoxContainer)를 구성해 `{"card", "vbox",
+     "button_row"}` 딕셔너리로 반환한다. 호출부가 `card.position`/`card.size`를
+     지정해 씬에 `add_child()`하고, `button_row.add_child(btn)`으로 버튼을 넣으면
+     카드 폭에 맞춰 자동으로 늘어난다(PanelContainer가 자식 VBoxContainer를 자기
+     rect에 맞춰 자동으로 채우는 Godot Container 기본 동작을 이용 — 카드 크기만
+     명시하면 내부 레이아웃은 컨테이너가 알아서 계산).
+  2. **세 호출부 교체**: `combat_test.gd`의 `_show_reward_ui()`(승리 보상, 카드 2개
+     가로 배치, 카드 400x230), `shop.gd`의 `_rebuild_items()`(4개, 2열x2행 그리드,
+     카드 320x230, `ItemCardStyle.build_card(item, "%d 골드" % cost)`로 가격을 보조
+     문구로 표시), `event.gd`의 `_rebuild_items()`(2개, 가로 배치, 카드 320x230) —
+     기존에는 셋 다 `Label.new()`(이름+설명 텍스트) + `Button.new()`(공격/방어 버튼)를
+     화면에 절대 좌표로 직접 흩뿌리는 거의 동일한 ~30줄짜리 코드를 각자 들고 있었는데,
+     이제 카드 생성은 `ItemCardStyle.build_card()` 한 줄로 통일하고 버튼 생성·연결
+     (대상 주머니 판정 `DiceItemPool.is_applicable()`, disabled 조건, 골드 차감 등
+     화면마다 다른 로직)만 각 화면이 기존처럼 담당한다. 처음 로컬 `const CARD_WIDTH
+     := ...`로 작성했다가, 이 프로젝트 코드베이스에 함수 내부 지역 `const` 선언
+     전례가 전혀 없어(다른 모든 지역 상수는 `var`로 선언) 안전하게 `var`로 바꿈
+     (GDScript 자체는 지역 const를 지원하지만, 굳이 새 패턴을 검증 없이 들여올
+     이유가 없다고 판단).
+  3. **시각 검증**: `bash scripts/qa_shot.sh combat_test 1500
+     qa_out/combat_test_reward_cards.png "" 1`(승리 보상 화면, 카드 2개가 금테
+     패널로 나란히 표시, 버튼/설명 전부 카드 안에 정상 배치), `bash scripts/qa_shot.sh
+     shop 5 qa_out/shop_cards.png`(상점 기본 상태, 골드 0이라 전부 "골드 부족"
+     비활성 버튼, 2x2 카드 그리드 + 우측 DeckPanel과 안 겹침), `bash scripts/qa_shot.sh
+     shop 5 qa_out/shop_cards_no_upgrade.png _debug_force_no_upgrade_target`(골드
+     999 + 공격/방어 주머니 전부 D6로 강제해 "다이스 승급" 카드만 "승급 대상 없음"
+     비활성 버튼 2개로 표시되는 것 확인, 나머지 3장은 정상 "구매" 가능), `bash
+     scripts/qa_shot.sh event 5 qa_out/event_cards.png`(특수 이벤트, 카드 2개 가로
+     배치) 네 스크린샷 전부 크래시 없이 저장 성공, 레이아웃 정상(카드 겹침/잘림
+     없음, disabled 버튼도 카드 스타일과 자연스럽게 어울림). `bash scripts/qa_shot.sh
+     dice_test 5 qa_out/dice_test.png`로 기존 판정 스위트 전체(신규 회귀 3종 포함)
+     PASS 재확인(이번 변경은 순수 UI 레이어라 판정 로직에는 손대지 않았음을 재확인).
+  4. **경위**: INBOX.md 미처리 항목(몬스터 성격/다이스 특이 특징)은 여전히 사람의
+     추가 기획이 필요해 착수 불가였고, 지난 4개 이터레이션(17~21)이 연속으로 "코드
+     재감사, 새 버그 없음"만 반복해 진행 가능한 콘텐츠를 다시 찾아봤음. 큐 3번에
+     "카드형 비주얼로 다듬을지는 사람 피드백 필요"로 미뤄져 있던 항목을, 새 밸런스/
+     기획 결정 없이도 착수 가능한 순수 시각 다듬기로 재해석해 진행함. 다이스 면
+     이미지를 카드 안에 넣는 것까지는 하지 않음(아이템 종류마다 어느 다이스/면을
+     바꾸는지 특정되지 않는 경우가 많아 미리보기가 애매함) — 이 정도 카드 비주얼이
+     사람이 원한 수준인지는 실제로 보고 판단 필요.
 - **2026-09-07 (21)**: INBOX.md/큐에 곧바로 진행할 콘텐츠가 없어 코드 재감사 + 문서
   정정을 함. 코드 변경은 없음.
   1. **코드 재감사**: 직전 이터레이션(20)이 커밋한 `dice_item_pool.gd`/

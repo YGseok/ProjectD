@@ -61,6 +61,10 @@ func _ready() -> void:
 	all_pass = _check_customize_panel_pip_exchange(lines) and all_pass
 
 	lines.append("")
+	lines.append("[특수 이벤트 아이템 풀 검증: event_item_pool.gd EventItemPool.random_choices]")
+	all_pass = _check_event_item_pool(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -463,4 +467,59 @@ func _check_customize_panel_pip_exchange(lines: PackedStringArray) -> bool:
 
 	panel.free()
 	RunState.pip_inventory = pip_backup
+	return ok
+
+
+## event_item_pool.gd의 EventItemPool.random_choices(n, attack_bag, defense_bag)는
+## dice_item_pool.gd의 DiceItemPool.random_choices()와 거의 동일한 필터링/폴백 로직을
+## 별도로 복제해서 갖고 있는데(공유 함수가 아니라 각자 구현), 위 "다이스 아이템 풀 검증"
+## 섹션이 DiceItemPool 쪽은 15개 넘는 항목으로 촘촘히 검증해온 것과 달리 EventItemPool
+## 쪽은 지금까지 자동 회귀 테스트가 하나도 없었다 — event.gd(특수 이벤트 방)가 실제
+## 플레이 경로에서 이 함수를 그대로 호출하므로 검증 공백이었다. EventItemPool.ITEMS
+## 4종 중 필터링 대상(is_applicable이 false가 될 수 있는 것)은 "다이스 대승급
+## (-> D10)" upgrade_die 하나뿐이고, 나머지 3종(add_die 계열)은 항상 적용 가능하다.
+func _check_event_item_pool(lines: PackedStringArray) -> bool:
+	var ok := true
+
+	var basic_choices := EventItemPool.random_choices(2)
+	var basic_ok := basic_choices.size() == 2
+	ok = basic_ok and ok
+	lines.append("  random_choices(2, 필터 없음): 개수=%d (기대 2) -> %s" % [basic_choices.size(), "OK" if basic_ok else "FAIL"])
+
+	# 양쪽 주머니 모두 승급 대상(면 개수 10 미만인 다이스)이 없으면, upgrade_die(-> D10)는
+	# 후보에서 제외돼야 한다 — 안 그러면 보상 2개 중 하나가 양쪽 버튼 다 비활성화된 채로
+	# 뽑혀 슬롯 하나가 낭비된다(DiceItemPool과 같은 이유). 셔플이라 한 번만 확인하면
+	# 우연히 안 뽑힐 수 있어 반복 확인한다.
+	var maxed_attack := DiceBag.new(10, 3)
+	var maxed_defense := DiceBag.new(10, 3)
+	var filtered_has_upgrade := false
+	for _i in 20:
+		var picks := EventItemPool.random_choices(2, maxed_attack, maxed_defense)
+		for it in picks:
+			if it["kind"] == "upgrade_die":
+				filtered_has_upgrade = true
+	var filtered_ok := not filtered_has_upgrade
+	ok = filtered_ok and ok
+	lines.append("  random_choices(2, 양쪽 승급대상 없음, 20회 반복): upgrade_die포함=%s (기대 false) -> %s" % [
+		filtered_has_upgrade, "OK" if filtered_ok else "FAIL"
+	])
+
+	# n(4)이 필터링 후 남는 후보(3개, add_die 3종)보다 많으면, 안전하게 필터링 이전
+	# 전체 목록(4개, upgrade_die 포함)으로 폴백해야 한다.
+	var fallback_choices := EventItemPool.random_choices(4, maxed_attack, maxed_defense)
+	var fallback_ok := fallback_choices.size() == 4
+	ok = fallback_ok and ok
+	lines.append("  random_choices(4, 적용가능 3개뿐): 개수=%d (기대 4, 부족하면 필터링 이전으로 폴백) -> %s" % [
+		fallback_choices.size(), "OK" if fallback_ok else "FAIL"
+	])
+
+	# 정상 케이스(승급 대상 있음, 예: D4 다이스)에서는 필터링이 아무것도 제외하지 않아
+	# 기존과 동일하게 동작해야 한다(하위 호환 확인).
+	var fresh_attack := DiceBag.new(4, 3)
+	var fresh_defense := DiceBag.new(4, 3)
+	var unfiltered_choices := EventItemPool.random_choices(2, fresh_attack, fresh_defense)
+	var unfiltered_ok := unfiltered_choices.size() == 2
+	ok = unfiltered_ok and ok
+	lines.append("  random_choices(2, 승급대상 있음): 개수=%d (기대 2) -> %s" % [unfiltered_choices.size(), "OK" if unfiltered_ok else "FAIL"])
+
 	return ok
