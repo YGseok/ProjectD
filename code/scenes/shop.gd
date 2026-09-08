@@ -40,7 +40,14 @@ func _rebuild_items() -> void:
 
 	var card_width := 320.0
 	var card_height := 240.0
-	var card_gap_y := 20.0
+	# 카드 실제 높이(240)와 별개로, 2행 그리드의 행 간격은 그보다 살짝 좁게 잡는다.
+	# boost_weak_face/uniform_faces 카드는 이제 버튼 옆에 효과 미리보기(build_effect_preview)가
+	# 붙어 자연 높이가 240을 넘는데(PanelContainer가 내용물 최소 높이에 맞춰 자동으로
+	# 커짐), 기존처럼 row_step=card_height+20(=260)을 그대로 쓰면 2행 카드 하단이 화면
+	# 하단의 "던전으로 돌아가기"/"커스터마이징" 버튼(y=650)과 거의 맞닿는다. 1행 카드는
+	# 원래도 240보다 여유가 있으므로(자연 높이 ~213) row_step을 줄여도 1행과 2행이
+	# 겹치지 않는다.
+	var row_step := 235.0
 	var card_x := [0.0, 360.0]
 	for i in DiceItemPool.ITEMS.size():
 		var item: Dictionary = DiceItemPool.ITEMS[i]
@@ -49,13 +56,16 @@ func _rebuild_items() -> void:
 
 		var built := ItemCardStyle.build_card(item, "%d 골드" % cost)
 		var card: PanelContainer = built["card"]
-		card.position = Vector2(card_x[i % 2], floor(i / 2.0) * (card_height + card_gap_y))
+		card.position = Vector2(card_x[i % 2], floor(i / 2.0) * row_step)
 		card.size = Vector2(card_width, card_height)
 		items_root.add_child(card)
 		_row_ui.append(card)
 
 		var button_row: VBoxContainer = built["button_row"]
 
+		var atk_preview := ItemCardStyle.build_effect_preview(item, RunState.player_attack_bag)
+		if atk_preview:
+			button_row.add_child(atk_preview)
 		var atk_applicable := DiceItemPool.is_applicable(item, RunState.player_attack_bag)
 		var atk_btn := Button.new()
 		atk_btn.text = "공격 주머니에 구매" if (afford and atk_applicable) else ("골드 부족" if not afford else "승급 대상 없음")
@@ -64,6 +74,9 @@ func _rebuild_items() -> void:
 		atk_btn.pressed.connect(_on_buy_pressed.bind(item, cost, "attack"))
 		button_row.add_child(atk_btn)
 
+		var def_preview := ItemCardStyle.build_effect_preview(item, RunState.player_defense_bag)
+		if def_preview:
+			button_row.add_child(def_preview)
 		var def_applicable := DiceItemPool.is_applicable(item, RunState.player_defense_bag)
 		var def_btn := Button.new()
 		def_btn.text = "방어 주머니에 구매" if (afford and def_applicable) else ("골드 부족" if not afford else "승급 대상 없음")
@@ -95,9 +108,9 @@ func _on_leave_pressed() -> void:
 
 
 ## qa/visual_qa.gd의 GAME_QA_CALL로 호출하기 위한 QA 전용 훅. 공격/방어 주머니를
-## 전부 D6 다이스로 강제 교체해 "다이스 승급 (가장 작은 다이스 -> D6)" 아이템의 승급
-## 대상이 없는 상태를 만든 뒤 목록을 다시 그려서, 새로 추가한 "승급 대상 없음"
-## 비활성화 버튼이 화면에 실제로 정상 표시되는지 스크린샷으로 확인하기 위함이다.
+## 전부 D6 다이스로 강제 교체해 "다이스 승급 (-> D6)" 아이템의 승급 대상이 없는 상태를
+## 만든 뒤 목록을 다시 그려서, 새로 추가한 "승급 대상 없음" 비활성화 버튼이 화면에
+## 실제로 정상 표시되는지 스크린샷으로 확인하기 위함이다.
 func _debug_force_no_upgrade_target() -> void:
 	RunState.player_attack_bag = DiceBag.new(6, 3)
 	RunState.player_defense_bag = DiceBag.new(6, 3)

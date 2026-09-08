@@ -14,7 +14,9 @@ extends RefCounted
 ##
 ## build_card()는 결과 다이스가 확정적인 아이템(add_die/upgrade_die)이면 카드 안에
 ## 그 다이스 면 모양(ShapeDieChip) 미리보기도 자동으로 넣는다 — 아래
-## _build_result_die_preview() 참고.
+## _build_result_die_preview() 참고. 대상 주머니에 따라 결과가 달라지는 아이템
+## (boost_weak_face/uniform_faces)은 build_effect_preview(item, bag)를 각 화면이
+## 버튼 옆에 개별로 붙여야 한다 — 아래 참고.
 
 const CARD_BG := Color(0.13, 0.12, 0.17, 0.97)
 const CARD_BORDER := Color(0.55, 0.45, 0.25)
@@ -107,10 +109,50 @@ static func _build_result_die_preview(item: Dictionary) -> Control:
 	flow.add_theme_constant_override("v_separation", 3)
 	var shape_sides := ShapeDieChip.shape_sides_for_dice_sides(sides)
 	for face in range(1, sides + 1):
-		var chip := ShapeDieChip.new()
-		chip.custom_minimum_size = Vector2(PREVIEW_CHIP_SIZE, PREVIEW_CHIP_SIZE)
-		chip.size = Vector2(PREVIEW_CHIP_SIZE, PREVIEW_CHIP_SIZE)
-		chip.shape_sides = shape_sides
-		chip.value = face
-		flow.add_child(chip)
+		flow.add_child(_make_preview_chip(shape_sides, face))
 	return flow
+
+
+static func _make_preview_chip(shape_sides: int, value: int) -> Control:
+	var chip := ShapeDieChip.new()
+	chip.custom_minimum_size = Vector2(PREVIEW_CHIP_SIZE, PREVIEW_CHIP_SIZE)
+	chip.size = Vector2(PREVIEW_CHIP_SIZE, PREVIEW_CHIP_SIZE)
+	chip.shape_sides = shape_sides
+	chip.value = value
+	return chip
+
+
+## boost_weak_face/uniform_faces용 버튼 옆 미리보기. `_build_result_die_preview()`와
+## 달리 카드 생성 시점이 아니라 "이 버튼(공격 주머니 / 방어 주머니)을 누르면"이 정해진
+## 시점에 호출한다 — bag이 정해지면 DiceItemPool.preview_effect()의 결과가 완전히
+## 결정적이기 때문(그 시점 주머니 상태를 그대로 읽어 계산, RNG 없음). 항상 고정
+## 크기(칩 1~2개 + 짧은 텍스트)로만 구성해, 대상 다이스의 면 개수가 커져도(D12/D20 등)
+## 카드 레이아웃이 깨지지 않게 한다. 미리보기가 없으면(add_die/upgrade_die 등) null.
+static func build_effect_preview(item: Dictionary, bag: DiceBag) -> Control:
+	var info = DiceItemPool.preview_effect(item, bag)
+	if info == null:
+		return null
+
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 4)
+	var shape_sides: int = info["shape_sides"]
+
+	match item.get("kind", ""):
+		"boost_weak_face":
+			row.add_child(_make_preview_chip(shape_sides, info["before"]))
+			var arrow := Label.new()
+			arrow.text = "→"
+			arrow.add_theme_font_size_override("font_size", 12)
+			arrow.add_theme_color_override("font_color", DESC_COLOR)
+			row.add_child(arrow)
+			row.add_child(_make_preview_chip(shape_sides, info["after"]))
+		"uniform_faces":
+			row.add_child(_make_preview_chip(shape_sides, info["value"]))
+			var label := Label.new()
+			label.text = "x%d" % int(info["face_count"])
+			label.add_theme_font_size_override("font_size", 12)
+			label.add_theme_color_override("font_color", DESC_COLOR)
+			row.add_child(label)
+		_:
+			return null
+	return row

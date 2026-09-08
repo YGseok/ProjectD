@@ -22,7 +22,7 @@ const ITEMS: Array[Dictionary] = [
 		"sides": 12,
 	},
 	{
-		"name": "다이스 대승급 (가장 작은 다이스 -> D10)",
+		"name": "다이스 대승급 (-> D10)",
 		"description": "선택한 주머니에서 면 개수가 가장 작은 다이스 1개를 D10으로 교체합니다.",
 		"kind": "upgrade_die",
 		"new_sides": 10,

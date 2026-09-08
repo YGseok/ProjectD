@@ -476,6 +476,9 @@ func _show_reward_ui() -> void:
 
 		var button_row: VBoxContainer = built["button_row"]
 
+		var atk_preview := ItemCardStyle.build_effect_preview(item, RunState.player_attack_bag)
+		if atk_preview:
+			button_row.add_child(atk_preview)
 		var atk_applicable := DiceItemPool.is_applicable(item, RunState.player_attack_bag)
 		var atk_btn := Button.new()
 		atk_btn.text = "공격 주머니에 적용" if atk_applicable else "승급 대상 없음"
@@ -484,6 +487,9 @@ func _show_reward_ui() -> void:
 		atk_btn.pressed.connect(_on_reward_chosen.bind(item, "attack"))
 		button_row.add_child(atk_btn)
 
+		var def_preview := ItemCardStyle.build_effect_preview(item, RunState.player_defense_bag)
+		if def_preview:
+			button_row.add_child(def_preview)
 		var def_applicable := DiceItemPool.is_applicable(item, RunState.player_defense_bag)
 		var def_btn := Button.new()
 		def_btn.text = "방어 주머니에 적용" if def_applicable else "승급 대상 없음"

@@ -17,7 +17,7 @@ const ITEMS: Array[Dictionary] = [
 		"sides": 4,
 	},
 	{
-		"name": "다이스 승급 (가장 작은 다이스 -> D6)",
+		"name": "다이스 승급 (-> D6)",
 		"description": "선택한 주머니에서 면 개수가 가장 작은 다이스 1개를 D6으로 교체합니다.",
 		"kind": "upgrade_die",
 		"new_sides": 6,
@@ -105,7 +105,9 @@ static func _find_smallest_die(bag: DiceBag, below_sides: int = -1) -> int:
 	return best_idx
 
 
-static func _boost_weakest_face(bag: DiceBag) -> void:
+## boost_weak_face/uniform_faces가 공통으로 쓰는 "가장 개선이 필요한 다이스/면" 탐색.
+## bag에 다이스가 하나도 없으면 die=-1을 반환한다(실제로는 항상 다이스가 최소 1개 있음).
+static func _locate_weakest_face(bag: DiceBag) -> Dictionary:
 	var best_die := -1
 	var best_face := -1
 	var best_value := 999999
@@ -116,32 +118,62 @@ static func _boost_weakest_face(bag: DiceBag) -> void:
 				best_value = faces[fi]
 				best_die = di
 				best_face = fi
-	if best_die < 0:
-		return
-	var faces: PackedInt32Array = bag.dice[best_die]
+	return {"die": best_die, "face": best_face, "value": best_value}
+
+
+static func _max_face_value(faces: PackedInt32Array) -> int:
 	var max_val: int = faces[0]
 	for v in faces:
 		max_val = max(max_val, v)
-	bag.set_face_value(best_die, best_face, max_val)
+	return max_val
+
+
+static func _boost_weakest_face(bag: DiceBag) -> void:
+	var loc := _locate_weakest_face(bag)
+	if loc["die"] < 0:
+		return
+	var faces: PackedInt32Array = bag.dice[loc["die"]]
+	bag.set_face_value(loc["die"], loc["face"], _max_face_value(faces))
 
 
 ## DESIGN.md 빌드업 예시("모든 면을 6으로 만들기")를 구현한다. _boost_weakest_face와
 ## 같은 방식(가장 낮은 면 값 하나를 기준)으로 "가장 개선이 필요한 다이스"를 고른 뒤,
 ## 그 다이스의 모든 면을 자신의 최댓값으로 맞춰 균일화한다.
 static func _uniformize_worst_die(bag: DiceBag) -> void:
-	var best_die := -1
-	var best_value := 999999
-	for di in bag.dice.size():
-		var faces: PackedInt32Array = bag.dice[di]
-		for fi in faces.size():
-			if faces[fi] < best_value:
-				best_value = faces[fi]
-				best_die = di
-	if best_die < 0:
+	var loc := _locate_weakest_face(bag)
+	if loc["die"] < 0:
 		return
-	var faces: PackedInt32Array = bag.dice[best_die]
-	var max_val: int = faces[0]
-	for v in faces:
-		max_val = max(max_val, v)
+	var faces: PackedInt32Array = bag.dice[loc["die"]]
+	var max_val := _max_face_value(faces)
 	for fi in faces.size():
-		bag.set_face_value(best_die, fi, max_val)
+		bag.set_face_value(loc["die"], fi, max_val)
+
+
+## boost_weak_face/uniform_faces는 카드 생성 시점(대상 주머니가 아직 안 정해짐)엔 결과를
+## 확정할 수 없어 `_build_result_die_preview()`가 처리하지 못했다(STATUS.md 큐 3번에
+## 남아있던 간극). 다만 "이 주머니(공격 또는 방어)에 적용한다면"이 정해지면 그 순간
+## 결과는 완전히 결정적이다 — apply()와 같은 탐색(_locate_weakest_face)을 bag을
+## 바꾸지 않고 미리 계산해, 버튼 옆에 "이 주머니에 적용하면 이렇게 바뀐다" 미리보기를
+## 붙일 수 있게 한다. add_die/upgrade_die는 이미 카드 레벨에서 처리되므로 여기선 다루지
+## 않는다(null 반환).
+static func preview_effect(item: Dictionary, bag: DiceBag):
+	var loc := _locate_weakest_face(bag)
+	if loc["die"] < 0:
+		return null
+	var faces: PackedInt32Array = bag.dice[loc["die"]]
+	var max_val := _max_face_value(faces)
+	match item.get("kind", ""):
+		"boost_weak_face":
+			return {
+				"shape_sides": faces.size(),
+				"before": loc["value"],
+				"after": max_val,
+			}
+		"uniform_faces":
+			return {
+				"shape_sides": faces.size(),
+				"value": max_val,
+				"face_count": faces.size(),
+			}
+		_:
+			return null

@@ -8,8 +8,43 @@
 
 ---
 
-## 완료 기록 아카이브 (이터레이션 1~12, 오래된 순 아님 — 최신이 위)
+## 완료 기록 아카이브 (이터레이션 1~13, 오래된 순 아님 — 최신이 위)
 
+- **2026-09-03 (13)**: `combat_test.tscn`의 "커스터마이징" 토글 버튼을 전투 중에는
+  못 열도록 되돌림 (INBOX.md 신규 지시 최우선 반영 — 세션 도중 사용자가 파일을 직접
+  편집해 추가한 것을 발견하고 처리함). 기존에 "[보류 - 재현 안 됨]"으로 마무리돼
+  있던 "커스터마이징은 전투 중에는 불가능하다" 항목이 "커스터마이징은 전투 중에는
+  불가능해야 한다."로 바뀌어 있었음 — 애초에 버그 신고가 아니라 요구사항이었던 것.
+  - `code/scenes/combat_test.gd`의 `_ready()`에서 `customize_toggle_button.pressed`를
+    새 `_on_customize_toggle_pressed()` 핸들러에 연결하고, 즉시 `visible = false`로
+    시작(전투 시작 직후에는 항상 전투 중이므로).
+  - `_on_customize_toggle_pressed()`를 추가: `battle_over`가 false면 아무 일도 하지
+    않고 리턴, true일 때만 `customize_panel.open()`. 버튼을 숨기는 것만으로는
+    `emit_signal("pressed")`로 시그널을 직접 쏘는 경로(QA나 다른 코드)까지 막지
+    못하므로, 핸들러 안에서도 한 번 더 막아 이중 방어.
+  - `_do_exchange()`가 승/패를 확정짓는 `if monster_hp <= 0: ... elif player_hp <= 0:`
+    블록 바로 다음에 `customize_toggle_button.visible = battle_over` 한 줄을 추가해,
+    전투가 끝나는 순간(승/패 어느 쪽이든) 버튼이 다시 보이게 함. 승리 보상 화면 안의
+    별도 "커스터마이징: 눈금 교환" 버튼(`_open_customize_from_reward`)과 던전맵/상점/
+    특수 이벤트/스토리 이벤트의 상시 커스터마이징 버튼은 이번 변경과 무관하게 그대로
+    유지(모두 "전투 중"이 아니므로).
+  - 기존 QA 훅 `_debug_verify_customize_button_during_battle()`(버튼 상태 출력 +
+    강제 pressed emit)의 용도가 뒤집힘 — 이전에는 "실수로 안 열리는 게 아닌지"
+    확인하던 것을, 이제는 "정말로 안 열리는지" 확인하는 데 그대로 재사용(주석만
+    갱신, 로직은 그대로도 검증에 충분해서 안 바꿈).
+  - 검증: `scripts/qa_shot.sh combat_test 20 ... _debug_verify_customize_button_during_battle`
+    → 콘솔에 `visible=false ... battle_over=false`, `panel_visible_after_press=false`
+    (강제로 눌러도 안 열림) 확인. `scripts/qa_shot.sh combat_test 1500
+    qa_out/combat_test_customize_after_battle2.png`(승리 보상 화면까지 진행) →
+    스크린샷에서 "커스터마이징"/"덱 보기" 버튼이 나란히 다시 보이는 것 확인. 참고로
+    같은 room 0 전투를 frame 140/200으로 각각 실행했을 때 한쪽은 이미 승리, 다른
+    쪽은 아직 진행 중이었음 — RNG로 매번 다른 전투 진행 속도 때문(STATUS.md 알려진
+    이슈 "GAME_QA_FRAME과 실제 진행 시간 디커플링"과 같은 계열, 버그 아님).
+  - 회귀 확인: `scripts/qa_shot.sh dice_test`(판정 스위트 전체 PASS).
+  → 남은 것: 없음 — INBOX.md 요구사항 그대로 반영 완료. 혹시 사용자가 "커스터마이징
+  버튼을 완전히 숨기지 말고 비활성화(disabled, 회색으로 보이되 못 누르게)로 보여줬으면
+  좋겠다"는 식의 세부 선호가 있다면 추가 피드백 필요(지금은 "불가능해야 한다"는
+  문구를 가장 확실한 방법인 "숨김"으로 해석함).
 - **2026-09-03 (12)**: 몬스터 다이스 면 개수(sides)가 방 진행에 따라 D4 -> D6 -> D8로
   커지도록 구현. 큐 1번에 "몬스터별로 의도적으로 다른 다이스 형태를 쓰게 할지는 아직
   미정"이라고 남아있던 항목을, 기존에 방 번호 기반으로 이미 "잠정값"으로 확정해온

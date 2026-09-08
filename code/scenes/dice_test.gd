@@ -209,4 +209,51 @@ func _check_item_pool(lines: PackedStringArray) -> bool:
 	ok = unfiltered_ok and ok
 	lines.append("  random_choices(2, 승급대상 있음): 개수=%d (기대 2) -> %s" % [unfiltered_choices.size(), "OK" if unfiltered_ok else "FAIL"])
 
+	# preview_effect(): 카드 UI가 버튼 옆에 보여줄 "이 주머니에 적용하면 이렇게 바뀐다"
+	# 미리보기가 실제 apply() 결과와 정확히 일치해야 한다(미리보기와 실제 결과가
+	# 어긋나면 플레이어를 오도하는 UI 버그가 되므로, 두 값을 직접 비교해 검증).
+	var boost_preview_bag := DiceBag.new(4, 3)
+	var boost_preview = DiceItemPool.preview_effect({"kind": "boost_weak_face"}, boost_preview_bag)
+	var boost_preview_expected_ok: bool = boost_preview["shape_sides"] == 4 and boost_preview["before"] == 1 and boost_preview["after"] == 4
+	ok = boost_preview_expected_ok and ok
+	lines.append("  preview_effect(boost_weak_face): before=%d after=%d (기대 1 -> 4) -> %s" % [
+		boost_preview["before"], boost_preview["after"], "OK" if boost_preview_expected_ok else "FAIL"
+	])
+	DiceItemPool.apply({"kind": "boost_weak_face"}, boost_preview_bag)
+	var boost_preview_matches_apply := boost_preview_bag.min_possible() == 4
+	ok = boost_preview_matches_apply and ok
+	lines.append("  preview_effect(boost_weak_face) == apply() 실제 결과: min=%d (기대 4) -> %s" % [
+		boost_preview_bag.min_possible(), "OK" if boost_preview_matches_apply else "FAIL"
+	])
+
+	var uniform_preview_bag := DiceBag.new(4, 3)
+	var uniform_preview = DiceItemPool.preview_effect({"kind": "uniform_faces"}, uniform_preview_bag)
+	var uniform_preview_expected_ok: bool = uniform_preview["shape_sides"] == 4 and uniform_preview["value"] == 4 and uniform_preview["face_count"] == 4
+	ok = uniform_preview_expected_ok and ok
+	lines.append("  preview_effect(uniform_faces): value=%d face_count=%d (기대 4, 4) -> %s" % [
+		uniform_preview["value"], uniform_preview["face_count"], "OK" if uniform_preview_expected_ok else "FAIL"
+	])
+	DiceItemPool.apply({"kind": "uniform_faces"}, uniform_preview_bag)
+	var uniform_preview_matches_apply := uniform_preview_bag.min_possible() == 6  # 다이스 0 전체 4 -> 4+1+1
+	ok = uniform_preview_matches_apply and ok
+	lines.append("  preview_effect(uniform_faces) == apply() 실제 결과: min=%d (기대 6) -> %s" % [
+		uniform_preview_bag.min_possible(), "OK" if uniform_preview_matches_apply else "FAIL"
+	])
+
+	# preview_effect()는 bag을 바꾸지 않아야 한다(순수 조회) — 위에서 apply()를 호출하기
+	# 전에 미리 계산한 값이 이미 그 자체로 이 성질에 의존하고 있지만, 명시적으로도 확인.
+	var untouched_bag := DiceBag.new(4, 3)
+	var before_faces := untouched_bag.dice[0].duplicate()
+	DiceItemPool.preview_effect({"kind": "boost_weak_face"}, untouched_bag)
+	var untouched_ok := untouched_bag.dice[0] == before_faces
+	ok = untouched_ok and ok
+	lines.append("  preview_effect()는 bag을 변경하지 않음: %s -> %s" % [untouched_bag.dice[0], "OK" if untouched_ok else "FAIL"])
+
+	# add_die/upgrade_die는 카드 레벨(_build_result_die_preview)에서 이미 다루므로
+	# preview_effect()는 이 종류들에 대해 null을 반환해야 한다(중복 미리보기 방지).
+	var non_effect_preview = DiceItemPool.preview_effect({"kind": "add_die", "sides": 4}, untouched_bag)
+	var non_effect_ok: bool = non_effect_preview == null
+	ok = non_effect_ok and ok
+	lines.append("  preview_effect(add_die): %s (기대 null) -> %s" % [non_effect_preview, "OK" if non_effect_ok else "FAIL"])
+
 	return ok
