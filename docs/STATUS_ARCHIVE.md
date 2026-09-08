@@ -8,8 +8,49 @@
 
 ---
 
-## 완료 기록 아카이브 (이터레이션 1~23, 오래된 순 아님 — 최신이 위)
+## 완료 기록 아카이브 (이터레이션 1~24, 오래된 순 아님 — 최신이 위)
 
+- **2026-09-08 (24)**: 직전 이터레이션(23)이 남겨둔 간극 — "약한 면 강화"/"모든 면
+  통일" 아이템은 카드 생성 시점엔 대상 다이스가 정해지지 않아 결과 미리보기가
+  없었음 — 을 채움. 세션 시작 시 이 작업의 코드가 이미 커밋 없이 작업 트리에
+  존재했음(이전 세션이 중간에 끊김) — 검토 후 의도대로 마무리.
+  1. **`code/systems/dice_item_pool.gd`에 `preview_effect(item, bag) -> Dictionary`
+     신규 추가**: 기존 `_boost_weakest_face()`/`_uniformize_worst_die()`가 각자
+     들고 있던 "가장 개선이 필요한 다이스/면 찾기" 로직을 `_locate_weakest_face(bag)`/
+     `_max_face_value(faces)` 두 헬퍼로 공통화한 뒤, `preview_effect()`가 이 헬퍼로
+     bag을 바꾸지 않고(순수 조회) `apply()`가 실제로 낼 결과(`boost_weak_face`→
+     전/후 값, `uniform_faces`→통일값+면 개수)를 미리 계산해 반환한다. `add_die`/
+     `upgrade_die`는 이미 카드 레벨에서 처리되므로 `null` 반환.
+  2. **`code/scenes/item_card_style.gd`에 `build_effect_preview(item, bag)` 신규
+     추가**: `preview_effect()` 결과를 받아 칩 1~2개 + 화살표/배수 텍스트로 된 고정
+     크기 미리보기 `Control`을 만든다(대상 다이스 면 개수가 커져도 카드가 안 깨지게
+     항상 작게 구성). `combat_test.gd`(승리 보상)/`shop.gd`(상점)/`event.gd`(특수
+     이벤트) 3개 화면 모두 공격/방어 버튼을 만들 때 각각 그 주머니를 넘겨 버튼 바로
+     위에 이 미리보기를 붙임.
+  3. **`shop.gd`의 2행 카드 그리드 간격 조정**: 미리보기가 붙은 카드(약한 면 강화/
+     모든 면 통일, 2행)는 Godot의 최소 크기 강제 규칙 때문에 지정한 240px보다
+     실제 높이가 커짐 — 기존 `row_step = card_height + 20`(260)을 그대로 쓰면 2행
+     카드 하단이 화면 하단 버튼과 맞닿을 뻔해서 `row_step = 235`로 줄임(1행 카드는
+     미리보기가 없어 자연 높이가 240보다 작으므로 겹치지 않음, 스크린샷으로 확인).
+  4. **아이템 이름 정리**: "다이스 승급 (가장 작은 다이스 -> D6)" 등 긴 이름을
+     "다이스 승급 (-> D6)"으로 줄임 — 설명 문장에 "면 개수가 가장 작은 다이스"가
+     이미 있어 제목에서는 중복.
+  5. **검증**: `code/scenes/dice_test.gd`에 회귀 테스트 5개 추가 — `preview_effect()`
+     계산값이 실제 `apply()` 결과와 일치하는지(수식 직접 검산: D4x3 주머니에서
+     `boost_weak_face` 전/후 1→4, 적용 후 `min_possible()`=4 일치 / `uniform_faces`
+     통일값 4, 적용 후 `min_possible()`=6 일치), bag을 변경하지 않는지(순수 조회),
+     `add_die`류는 `null`을 반환하는지. `bash scripts/qa_shot.sh dice_test`로 기존
+     판정 스위트 전체(신규 포함) PASS 확인. `bash scripts/qa_shot.sh shop 5
+     qa_out/shop_effect_preview.png`(4개 카드 전부 미리보기 정상 표시, 2행 카드가
+     1행/하단 버튼과 안 겹침), `bash scripts/qa_shot.sh event 5
+     qa_out/event_effect_preview.png`, `bash scripts/qa_shot.sh combat_test 1500
+     qa_out/combat_test_effect_preview.png "" 1`(둘 다 이번엔 무작위로 add_die/
+     upgrade_die만 뽑혀 새 미리보기 자체는 화면에 안 나왔지만 카드 레이아웃 회귀
+     없음 확인 — 새 미리보기 렌더링 자체는 4개 카드가 항상 다 보이는 shop 화면에서
+     확인됨, 같은 `build_effect_preview()` 함수를 공유하므로 다른 화면에서도 같은
+     결과가 보장됨) 스크린샷 전부 눈으로 확인.
+  → INBOX.md 미처리 항목 2개(몬스터 성격/다이스 특이 특징)는 이번에도 사람의 추가
+  기획이 필요해 착수하지 않음 — 다음 할 일 큐 8/9번에 그대로 남김.
 - **2026-09-07 (23)**: 아이템 카드에 결과 다이스 면 미리보기(ShapeDieChip) 추가.
   1. **`code/scenes/item_card_style.gd`에 `_build_result_die_preview(item)` 신규
      추가**: `item["kind"]`가 `"add_die"`(결과 `sides`)/`"upgrade_die"`(결과

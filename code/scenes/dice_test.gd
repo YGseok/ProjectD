@@ -69,6 +69,10 @@ func _ready() -> void:
 	all_pass = _check_shape_die_chip_mapping(lines) and all_pass
 
 	lines.append("")
+	lines.append("[다이스 재질 배정 검증: combat_test.gd _material_for_sides]")
+	all_pass = _check_material_for_sides(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -546,4 +550,28 @@ func _check_shape_die_chip_mapping(lines: PackedStringArray) -> bool:
 		var pair_ok := actual == expected_shape
 		ok = pair_ok and ok
 		lines.append("  D%d -> 모양 변=%d (기대 %d) -> %s" % [sides, actual, expected_shape, "OK" if pair_ok else "FAIL"])
+	return ok
+
+
+## combat_test.gd의 _material_for_sides(sides)는 "다이스 면 개수 -> 재질" 잠정 배정표
+## (DESIGN.md/die_d4.gd 클래스 주석에 문서화된 D4/D6=plastic, D8=wood, D10=glass,
+## D12·D20=metal)를 코드로 구현한 순수 정적 함수다. 전투 화면의 다이스 스폰
+## (_spawn_dice_for_bag 등)이 이 함수 하나로 모든 다이스의 재질(물리 bounce/friction +
+## 시각 색 + 충돌음)을 정하는데, 지금까지 `qa_out/combat_test_material_swatch.png`
+## 스크린샷으로만 육안 확인됐을 뿐 dice_test.gd에는 대응 테스트가 없었다. shape_die_chip.gd
+## 매핑과 같은 종류의 위험(표가 깨지면 "색이 좀 다르게 보인다" 정도로만 드러나 스크린샷
+## 눈으로도 놓치기 쉬움)이 있는 간극이라 같은 패턴으로 메운다.
+func _check_material_for_sides(lines: PackedStringArray) -> bool:
+	var ok := true
+	var script := load("res://code/scenes/combat_test.gd")
+	# null이면 die_d4.tscn 기본값(plastic)을 그대로 쓰는 설계이므로, 기대값은 "그 다이스가
+	# 최종적으로 갖게 될 재질 이름"으로 표현한다(4/6은 null -> plastic).
+	var expected := {4: "plastic", 6: "plastic", 8: "wood", 10: "glass", 12: "metal", 20: "metal"}
+	for sides in expected.keys():
+		var mat = script._material_for_sides(sides)
+		var actual_name: String = mat.material_name if mat != null else "plastic"
+		var expected_name: String = expected[sides]
+		var pair_ok := actual_name == expected_name
+		ok = pair_ok and ok
+		lines.append("  D%d -> 재질=%s (기대 %s) -> %s" % [sides, actual_name, expected_name, "OK" if pair_ok else "FAIL"])
 	return ok
