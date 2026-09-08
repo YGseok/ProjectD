@@ -8,8 +8,37 @@
 
 ---
 
-## 완료 기록 아카이브 (이터레이션 1~45, 오래된 순 아님 — 최신이 위)
+## 완료 기록 아카이브 (이터레이션 1~46, 오래된 순 아님 — 최신이 위)
 
+- **2026-09-09 (46)**: INBOX.md 재확인 — 미처리 항목 여전히 2개(몬스터 성격/다이스
+  특이 특징)뿐, 새 피드백 없음. 45가 "shop.tscn 인스턴스화 패턴을 다른 @onready
+  의존 핸들러에도 적용할 만하다"고 남긴 권고를 따라 `event.gd`(특수 이벤트 방)의
+  픽 핸들러를 shop.gd의 이중 구매 방지 가드와 대조해봤다. **결과: 실제 버그
+  발견** — `event.gd`의 `_on_pick_pressed(item, target)`는 shop.gd와 달리 이중
+  실행을 막는 어떤 가드도 없었다. shop은 "골드 부족"이라는 자연스러운 재검증
+  수단이 있지만(이미 0골드면 재구매 시도해도 조건에서 걸림), 특수 이벤트는
+  무료라 그런 수단이 없다. `get_tree().change_scene_to_file()`은 호출 즉시 씬을
+  바꾸지 않고 그 프레임이 끝난 뒤에 실제로 전환되므로, 버튼을 더블클릭하는 등
+  같은 프레임에 핸들러가 두 번 호출되면 `DiceItemPool.apply()`가 두 번 실행되고
+  (아이템 중복 적용) `RunState.rooms_cleared`가 1이 아니라 2 증가해(방 하나를
+  건너뜀) 버릴 수 있었다. **수정**: `_picked` 불리언 플래그를 추가하고, 상태
+  변경 로직을 `_apply_pick(item, target) -> bool`(반환값=이번 호출이 실제로
+  적용됐는지)로 씬 전환 로직(`_on_pick_pressed`)과 분리했다. 분리한 이유는
+  회귀 테스트가 실제 `event.tscn`을 인스턴스화해 가드를 검증할 때 `_on_pick_pressed`를
+  그대로 부르면 `change_scene_to_file()`이 QA 중인 `dice_test` 씬 자체를 바꿔버려
+  스크린샷이 깨지기 때문 — `_apply_pick()`만 부르면 씬 전환 없이 가드 로직만
+  검증 가능하다. `dice_test.gd`에 `_check_event_double_pick_guard` 추가(shop
+  검증과 같은 add_child/remove_child 실제 씬 인스턴스화 패턴). `bash
+  scripts/qa_shot.sh dice_test`로 회귀 스위트(51개 항목, 신규 2개 포함) 전체
+  PASS, error/warning/leak/orphan 전체 로그 기준 무출력 확인. 추가로 `bash
+  scripts/qa_shot.sh event 40 "" _debug_pick_first_for_attack`로 리팩터링 후에도
+  실제 플레이 경로(픽 -> 던전 맵 전환, 방 1개만 정상 진행, 아이템 정상 반영)가
+  스크린샷 기준으로 깨지지 않았음을 확인.
+  → 다음 이터레이션에게: 이 "비슷한 화면의 핸들러를 서로 대조해 같은 클래스의
+  버그(가드 누락 등)를 찾는" 접근이 이번에 실제로 성과를 냈다. 아직 대조 안 해본
+  `dungeon_map.gd`(`_on_combat_button_pressed` 등)/`story_event.gd`
+  (`_on_choice_pressed`)의 버튼 핸들러도 같은 관점으로 한 번씩 훑어볼 만하다
+  (story_event.gd는 버튼을 hide()해서 방어되는 것으로 보이지만 재확인 가치 있음).
 - **2026-09-09 (45)**: INBOX.md 재확인 — 미처리 항목 여전히 2개(몬스터 성격/다이스
   특이 특징)뿐, 새 피드백 없음. 35~44가 10회 연속 반복해온 "새로 감사해도 버그
   없음"/"회귀 스위트만 재확인" 패턴 대신, 44가 코드 정독으로만 확인했던 "상점 이중
