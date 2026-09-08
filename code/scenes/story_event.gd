@@ -33,13 +33,18 @@ func _ready() -> void:
 
 func _on_choice_pressed(choice: Dictionary) -> void:
 	var delta := _resolve_choice(choice)
+	var gold_before := RunState.gold
 	RunState.gold = max(0, RunState.gold + delta)
+	# 손실(delta<0)이 보유 골드보다 크면 0에서 멈추므로, 표시 문구는 요청한 delta가
+	# 아니라 실제로 변한 양(actual_delta)을 써야 한다 — 안 그러면 "10골드 잃었다"라고
+	# 뜨는데 실제로는 3골드밖에 없어서 3만 잃고 0이 되는 식으로 문구와 결과가 어긋난다.
+	var actual_delta := RunState.gold - gold_before
 	choice_a_button.hide()
 	choice_b_button.hide()
-	if delta > 0:
-		result_label.text = "골드 %d 획득! (보유 %d)" % [delta, RunState.gold]
-	elif delta < 0:
-		result_label.text = "골드 %d 잃었다... (보유 %d)" % [-delta, RunState.gold]
+	if actual_delta > 0:
+		result_label.text = "골드 %d 획득! (보유 %d)" % [actual_delta, RunState.gold]
+	elif actual_delta < 0:
+		result_label.text = "골드 %d 잃었다... (보유 %d)" % [-actual_delta, RunState.gold]
 	else:
 		result_label.text = "아무 일도 일어나지 않았다. (보유 %d)" % RunState.gold
 	result_label.show()
@@ -66,6 +71,22 @@ func _on_continue_pressed() -> void:
 
 ## qa/visual_qa.gd의 GAME_QA_CALL로 호출하기 위한 인자 없는 래퍼 (QA 전용).
 func _debug_pick_choice_a() -> void:
+	_on_choice_pressed(_scenario["choice_a"])
+
+
+## QA 전용: 보유 골드(3)보다 손실 폭(10)이 큰 상황을 강제로 만들어, 결과 문구가
+## 요청한 delta가 아니라 실제로 깎인 양(actual_delta)을 보여주는지 확인한다
+## ("떠돌이 상인" 시나리오, choice_a가 고정 delta -10).
+func _debug_force_low_gold_loss() -> void:
+	RunState.gold = 3
+	var scenario: Dictionary
+	for s in StoryEventPool.SCENARIOS:
+		if s["title"] == "떠돌이 상인":
+			scenario = s
+			break
+	_scenario = scenario
+	title_label.text = _scenario["title"]
+	desc_label.text = _scenario["description"]
 	_on_choice_pressed(_scenario["choice_a"])
 
 
