@@ -8,8 +8,44 @@
 
 ---
 
-## 완료 기록 아카이브 (이터레이션 1~26, 오래된 순 아님 — 최신이 위)
+## 완료 기록 아카이브 (이터레이션 1~27, 오래된 순 아님 — 최신이 위)
 
+- **2026-09-09 (27)**: INBOX.md 미처리 항목 2개(몬스터 성격/다이스 특이 특징)는
+  여전히 사람의 추가 기획이 필요했고, 다음 할 일 큐 나머지도 전부 밸런스/설계
+  피드백이 선행돼야 하는 상태라(직전 몇 이터레이션과 같은 패턴), 이번엔 핵심
+  경제/전투 로직(`dungeon_map.gd`, `story_event.gd`(+`story_event_pool.gd`),
+  `shop.gd`, `event.gd`(+`event_item_pool.gd`), `dice_bag.gd`, `dice_item_pool.gd`,
+  `customize_panel.gd`, `combat_test.gd`, `run_state.gd`, `combat_math.gd`,
+  `item_card_style.gd`, `shape_die_chip.gd`, `deck_panel.gd`, `face_chip_style.gd`,
+  `die_d4.gd`, `visual_qa.gd`, `dice_material.gd`)를 신선한 눈으로 처음부터 다시
+  훑어 새 버그를 찾아봤다. **결론: 새 기능적 버그는 못 찾음** — 이전 이터레이션들이
+  이미 이 영역을 충분히 감사해둔 상태였음을 재확인.
+  1. 대신 감사 도중 진짜 테스트 간극 하나를 발견해 메웠다: `dungeon_map.gd`의
+     `_room_options_for_index(idx)`(2026-09-08 (25)에 추가된 방 선택지 노출/순서
+     섞기 로직 — `_roll_room_choices()`(실제 진행)와 `_make_map_node()`(MapStrip
+     미리보기) 둘 다 이 함수 하나를 그대로 호출해 값을 얻으므로, "같은 idx는 항상
+     같은 결과"라는 결정성이 깨지면 미리보기와 실제 버튼이 어긋난다)가 지금까지
+     스크린샷 두 장으로만 육안 검증됐을 뿐, `dice_test.gd`(이 프로젝트의 유일한
+     자동 회귀 스위트, `DiceItemPool` 로직은 이미 15개 넘는 항목으로 촘촘히
+     검증되고 있었음)에는 대응 테스트가 없었다.
+  2. `code/scenes/dice_test.gd`에 `_check_dungeon_map_room_options()` 신규 추가 —
+     (a) 같은 idx로 반복 호출해도 노출 여부/순서가 항상 동일한지, (b) idx 0..9
+     전부에서 `order`가 항상 `shop`/`event`/`story` 세 종류를 정확히 한 번씩만
+     담은 순열인지(하나라도 빠지거나 중복되면 노출된 방 선택지가 화면에서 통째로
+     안 보이거나 중복 렌더링될 수 있음) 확인한다. `dungeon_map.gd`는 씬 스크립트라
+     `load(...).new()`로 인스턴스화해서 검증하는데(add_child 없이 메서드만 호출 —
+     `_room_options_for_index()`가 `@onready` 변수를 안 써서 안전함), Node2D
+     기반이라 RefCounted가 아니므로 다 쓴 뒤 `map.free()`를 안 하면 QA 로그에
+     "ObjectDB instances leaked" 경고가 남는다는 것을 처음 실행에서 직접 겪고
+     고쳤다(추가 직후 1차 실행에서 leaked 경고 확인 → `map.free()` 추가 → 재실행
+     경고 사라짐 확인).
+  3. **검증**: `bash scripts/qa_shot.sh dice_test`로 새 테스트 2개 포함 전체 PASS
+     확인(leak 경고 없음도 재확인). `bash scripts/qa_shot.sh dungeon_map 30
+     qa_out/dungeon_map_sanity.png`로 (건드리지 않은) `dungeon_map.tscn` 자체도
+     여전히 정상 렌더되는지(회귀 없음) 스크린샷으로 확인 — 1번째 방 버튼 순서(전투→
+     상점)와 MapStrip 칩 순서(전투→상점)가 여전히 일치함.
+  → 이 감사로 새로운 밸런스/설계 착수 항목이 생기지는 않았음 — 다음 할 일 큐는
+  이전과 동일하게 전부 사람 피드백 대기 상태.
 - **2026-09-09 (26)**: INBOX.md 미처리 항목 2개(몬스터 성격/다이스 특이 특징)는
   이번에도 사람의 추가 기획이 필요해 착수 불가였고, "다음 할 일 큐"의 나머지
   항목들도 전부 사람의 밸런스/설계 피드백이 선행돼야 하는 상태라(이전 여러
