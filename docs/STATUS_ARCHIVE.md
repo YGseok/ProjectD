@@ -8,8 +8,37 @@
 
 ---
 
-## 완료 기록 아카이브 (이터레이션 1~14, 오래된 순 아님 — 최신이 위)
+## 완료 기록 아카이브 (이터레이션 1~19, 오래된 순 아님 — 최신이 위)
 
+- **2026-09-04 (19)**: 큐 3번에 이전 이터레이션(17)이 남겨둔 개선 여지("다이스 승급
+  아이템이 승급 대상 없을 때 UI에서 애초에 제시하지 않는 것이 더 나은 처리일 수
+  있다")를 구현함.
+  - `code/systems/dice_item_pool.gd`에 `is_applicable(item: Dictionary, bag: DiceBag)
+    -> bool`을 추가. `upgrade_die` 종류는 기존 `_find_smallest_die(bag,
+    item["new_sides"])`가 대상을 못 찾으면(즉 apply()가 실제로는 아무 일도 안 하는
+    상황) false를 반환하고, 그 외 종류(`add_die`/`boost_weak_face`/`uniform_faces`)는
+    주머니가 비어있지 않은 한(항상 그렇다) 항상 true.
+  - `code/scenes/combat_test.gd`(`_show_reward_ui`), `code/scenes/shop.gd`
+    (`_rebuild_items`), `code/scenes/event.gd`(`_rebuild_items`) 3곳 모두 공격/방어
+    버튼을 만들 때 `DiceItemPool.is_applicable(item, RunState.player_attack_bag /
+    player_defense_bag)`을 각각 독립적으로 확인해, 대상이 없으면 그 버튼만
+    `disabled=true` + 텍스트 "승급 대상 없음"으로 바꿈(공격/방어 주머니 구성이 서로
+    다를 수 있으므로 한쪽만 비활성화될 수 있음). `shop.gd`는 기존 "골드 부족" 판정과
+    함께 우선순위(골드 부족 > 승급 대상 없음 > 정상 구매 가능 텍스트)를 정해 합침.
+  - `code/scenes/dice_test.gd`에 `is_applicable` 회귀 테스트 3개 추가(대상 없음→false,
+    대상 있음→true, upgrade_die가 아닌 종류→항상 true). `scripts/qa_shot.sh dice_test`로
+    기존 판정 스위트 전체(신규 포함) PASS 확인.
+  - 시각 검증: `shop.gd`에 QA 전용 훅 `_debug_force_no_upgrade_target()`(공격/방어
+    주머니를 D6x3으로 강제 교체 + 골드 999 지급 후 목록 재구성)을 추가해
+    `bash scripts/qa_shot.sh shop 5 qa_out/shop_no_upgrade_target.png
+    _debug_force_no_upgrade_target`로 확인 — "다이스 승급 (D6)" 아이템만 두 버튼
+    모두 "승급 대상 없음"으로 회색 비활성화되고, 나머지 3종(다이스 추가/약한 면
+    강화/모든 면 통일)은 골드가 충분하니 정상 활성화되어 의도대로 동작함을 확인.
+  - 회귀 확인: `combat_test`(교환 진행 후 승리 보상 화면, 초기 D4 주머니라 D6 승급
+    버튼 정상 활성)와 `event`(특수 이벤트, D20/D10 대승급 모두 초기 D4 주머니 기준
+    정상 활성) 둘 다 스크린샷으로 크래시 없음/레이아웃 정상 확인.
+  → INBOX.md 미처리 항목 2개(몬스터 성격/다이스 특이 특징)는 이번에도 사람의 추가
+  기획이 필요해 착수하지 않음 — 다음 할 일 큐 8/9번에 그대로 남김.
 - **2026-09-04 (18)**: INBOX.md/큐에 곧바로 진행할 콘텐츠가 없어 두 가지를 함. 코드
   변경은 없음(감사 + 검증만).
   1. **코드 재감사**: 이전 이터레이션이 `dice_item_pool.gd`에서 "보상 아이템인데
