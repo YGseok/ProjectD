@@ -45,6 +45,10 @@ func _ready() -> void:
 	all_pass = _check_item_pool(lines) and all_pass
 
 	lines.append("")
+	lines.append("[던전 맵 방 선택지 결정성 검증: dungeon_map.gd _room_options_for_index]")
+	all_pass = _check_dungeon_map_room_options(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -256,4 +260,50 @@ func _check_item_pool(lines: PackedStringArray) -> bool:
 	ok = non_effect_ok and ok
 	lines.append("  preview_effect(add_die): %s (기대 null) -> %s" % [non_effect_preview, "OK" if non_effect_ok else "FAIL"])
 
+	return ok
+
+
+## dungeon_map.gd의 _room_options_for_index(idx)는 방마다 상점/특수 이벤트/스토리
+## 이벤트의 노출 여부와 표시 순서를 결정하는데, _roll_room_choices()(실제 진행)와
+## _make_map_node()(MapStrip 미리보기) 둘 다 이 함수 하나를 그대로 호출해 값을 얻는
+## 설계라 "같은 idx는 항상 같은 결과"라는 결정성이 깨지면 미리보기와 실제 버튼이
+## 어긋난다(2026-09-08 순서 섞기 추가 당시 스크린샷으로만 확인했고 자동 회귀 테스트가
+## 없었던 간극). 씬에 add_child하지 않고 스크립트만 인스턴스화해서 확인한다 —
+## _room_options_for_index()는 @onready 변수를 쓰지 않아 _ready() 없이도 안전하게
+## 호출 가능.
+func _check_dungeon_map_room_options(lines: PackedStringArray) -> bool:
+	var ok := true
+	var script := load("res://code/scenes/dungeon_map.gd")
+	var map = script.new()
+
+	var first = map._room_options_for_index(3)
+	# map은 Node2D 기반이라(dungeon_map.gd) RefCounted가 아니므로, 씬 트리에 추가하지
+	# 않고 검증용으로만 쓰고 나면 직접 free()해야 한다 (안 그러면 QA 로그에
+	# "ObjectDB instances leaked" 경고가 남는다).
+	var second = map._room_options_for_index(3)
+	var deterministic_ok: bool = first.shop == second.shop and first.event == second.event \
+		and first.story == second.story and first.order == second.order
+	ok = deterministic_ok and ok
+	lines.append("  _room_options_for_index(3) 반복 호출 결정성(노출 여부+순서 동일): %s -> %s" % [
+		deterministic_ok, "OK" if deterministic_ok else "FAIL"
+	])
+
+	# order는 노출 여부(shop/event/story 각각 true/false)와 무관하게 항상 세 종류를
+	# 정확히 한 번씩만 담은 순열이어야 한다 — 버튼 레이아웃(_layout_visible_buttons)과
+	# 칩 나열(_make_map_node)이 둘 다 "for t in opts.order: if opts[t]: ..."로
+	# 순회하므로, order 자체에 값이 빠지거나 중복되면 노출된 방 선택지 하나가 화면에서
+	# 통째로 안 보이거나(버튼 없음) 중복 렌더링될 수 있다.
+	var order_valid := true
+	for idx in range(10):
+		var opts = map._room_options_for_index(idx)
+		var sorted_order: Array = opts.order.duplicate()
+		sorted_order.sort()
+		if sorted_order != ["event", "shop", "story"]:
+			order_valid = false
+	ok = order_valid and ok
+	lines.append("  order가 항상 shop/event/story 순열임(idx 0..9 확인): %s -> %s" % [
+		order_valid, "OK" if order_valid else "FAIL"
+	])
+
+	map.free()
 	return ok

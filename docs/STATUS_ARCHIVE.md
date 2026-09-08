@@ -10,6 +10,28 @@
 
 ## 완료 기록 아카이브 (이터레이션 1~14, 오래된 순 아님 — 최신이 위)
 
+- **2026-09-04 (16)**: QA 하네스에 `GAME_QA_ROOM_OVERRIDE` 환경변수를 추가함
+  (`code/scenes/combat_test.gd`의 `_room_index_for_monster_config()`,
+  `scripts/qa_shot.sh`의 7번째 인자). 지난 이터레이션의 "몬스터 다이스 면 개수
+  D4->D6->D8 스케일링"이 실제로 후반 방(다이스 개수/크기가 늘어남)에서 물리적으로
+  문제없는지 실제 배틀 경로(정지 감지 포함)로 빠르게 검증할 방법이 없었던 간극을
+  메움 — `RunState.rooms_cleared`를 실제로 여러 판 이겨서 올리지 않고도, 원하는
+  room_index의 몬스터 구성으로 즉시 전투를 시작시킬 수 있다(RunState 자체는
+  건드리지 않아 부작용 없음). `bash scripts/qa_shot.sh combat_test 200
+  qa_out/combat_test_room4_real.png "" 1 "" 4`로 room4(다크 나이트, HP22, 공격
+  4D8/방어 2D8)까지 실제 진행시켜 검증한 결과, 다이스가 전부 바닥에 정상 안착하고
+  벽(combat_test.tscn Wall*, x=±2.55/z=±1.8) 밖으로 나가는 문제는 없음을 확인함
+  (새 버그를 발견하진 못했지만, 앞으로 몬스터 스케일링을 더 키울 때 재검증 도구로
+  남음). 시행착오: 처음엔 `freeze` 없이 다이스만 새로 스폰하고 GAME_QA_CALL로
+  즉시 캡처하는 방식(`_debug_spawn_room4_monster_dice_live`, 이후 제거)을 먼저
+  써봤는데, GAME_QA_CALL은 캡처 직전 1프레임만 지나 호출되어 다이스가 낙하할
+  시간이 없어 "공중에 뜬 것처럼" 보이는 오탐을 겪음 — `_ready()` 자체의 몬스터
+  구성을 바꿔 기존 정지 감지 파이프라인(`_run_battle()` -> `_do_exchange()` ->
+  `_wait_for_dice_to_settle()`)을 그대로 타게 하는 `GAME_QA_ROOM_OVERRIDE` 방식으로
+  교체해 해결함. 기존 회귀 스위트(`dice_test` PASS)와 room0 베이스라인(`combat_test
+  140`, 오버라이드 미지정)도 재확인해 정상 플레이 경로에는 영향 없음을 검증.
+  INBOX.md의 미처리 항목 2개(몬스터 성격/다이스 특이 특징)는 이번에도 사람의 추가
+  기획이 필요해 착수하지 않음 — 다음 할 일 큐 8/9번에 그대로 남김.
 - **2026-09-04 (15)**: `scripts/qa_shot.sh`가 이 PC(Windows, Git Bash/MINGW64)에서
   항상 실패하던 버그를 고침. INBOX.md/다음 할 일 큐를 확인한 결과 미처리 항목은
   전부 사람의 추가 기획이 필요하거나(몬스터 성격/다이스 특이 특징) 이미 구현 완료된
