@@ -73,6 +73,10 @@ func _ready() -> void:
 	all_pass = _check_material_for_sides(lines) and all_pass
 
 	lines.append("")
+	lines.append("[상점 이중 구매 방지 검증: shop.gd _on_buy_pressed]")
+	all_pass = _check_shop_double_purchase_guard(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -574,4 +578,49 @@ func _check_material_for_sides(lines: PackedStringArray) -> bool:
 		var pair_ok := actual_name == expected_name
 		ok = pair_ok and ok
 		lines.append("  D%d -> 재질=%s (기대 %s) -> %s" % [sides, actual_name, expected_name, "OK" if pair_ok else "FAIL"])
+	return ok
+
+
+## shop.gd의 _on_buy_pressed(item, cost, target)는 골드가 부족하면(RunState.gold < cost)
+## 아무 것도 하지 않고 return하는 가드를 갖고 있다 — 버튼이 이미 disabled=true로
+## 막아주지만, 이터레이션 44가 "핸들러 자체도 재검증해 이중 차감이 불가능함"을 코드
+## 정독으로만 확인하고 자동 회귀 테스트로 남기지 않았던 간극을 메운다. shop.gd는
+## @onready 노드(gold_label 등)를 쓰므로 다른 검증들처럼 script.new()만으로는 안전하지
+## 않아, 실제 shop.tscn을 인스턴스화해 이 노드(dice_test)의 자식으로 잠깐 붙였다가
+## (그래야 _ready()가 실행되어 @onready 변수가 채워짐) 검증 후 다시 떼어내고 free()한다.
+func _check_shop_double_purchase_guard(lines: PackedStringArray) -> bool:
+	var ok := true
+	var gold_backup := RunState.gold
+	var attack_bag_backup := RunState.player_attack_bag
+
+	RunState.player_attack_bag = DiceBag.new(4, 3)
+	var item: Dictionary = DiceItemPool.ITEMS[0]  # "add_die" (sides=4)
+	var cost: int = 15  # shop.gd ITEM_COSTS["add_die"]
+	RunState.gold = cost
+
+	var shop_scene := load("res://code/scenes/shop.tscn")
+	var shop = shop_scene.instantiate()
+	add_child(shop)
+
+	var count_before: int = RunState.player_attack_bag.count
+	shop._on_buy_pressed(item, cost, "attack")
+	var first_ok: bool = RunState.gold == 0 and RunState.player_attack_bag.count == count_before + 1
+	ok = first_ok and ok
+	lines.append("  1차 구매(골드=비용=%d): gold=%d count=%d (기대 0, %d) -> %s" % [
+		cost, RunState.gold, RunState.player_attack_bag.count, count_before + 1, "OK" if first_ok else "FAIL"
+	])
+
+	# 골드가 이미 0인 상태에서 핸들러를 다시 호출해도(더블클릭 등으로 disabled 가드를
+	# 우회하는 상황을 가정) 골드가 음수로 내려가거나 아이템이 중복 적용돼선 안 된다.
+	shop._on_buy_pressed(item, cost, "attack")
+	var guard_ok: bool = RunState.gold == 0 and RunState.player_attack_bag.count == count_before + 1
+	ok = guard_ok and ok
+	lines.append("  2차 구매 재시도(골드 부족): gold=%d count=%d (기대 0, %d, 변화 없음) -> %s" % [
+		RunState.gold, RunState.player_attack_bag.count, count_before + 1, "OK" if guard_ok else "FAIL"
+	])
+
+	remove_child(shop)
+	shop.free()
+	RunState.gold = gold_backup
+	RunState.player_attack_bag = attack_bag_backup
 	return ok
