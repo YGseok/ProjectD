@@ -8,8 +8,40 @@
 
 ---
 
-## 완료 기록 아카이브 (이터레이션 1~22, 오래된 순 아님 — 최신이 위)
+## 완료 기록 아카이브 (이터레이션 1~23, 오래된 순 아님 — 최신이 위)
 
+- **2026-09-07 (23)**: 아이템 카드에 결과 다이스 면 미리보기(ShapeDieChip) 추가.
+  1. **`code/scenes/item_card_style.gd`에 `_build_result_die_preview(item)` 신규
+     추가**: `item["kind"]`가 `"add_die"`(결과 `sides`)/`"upgrade_die"`(결과
+     `new_sides`)면, 그 면 개수만큼 `HFlowContainer` 안에 `ShapeDieChip`(값 1..N,
+     `ShapeDieChip.shape_sides_for_dice_sides()`로 모양 결정)을 나열해 반환한다.
+     그 외 종류(`boost_weak_face`/`uniform_faces`)는 결과가 그 시점 주머니 상태에
+     따라 달라져 카드 생성 시점에 확정할 수 없으므로 `null`을 반환한다.
+     `build_card()`가 설명 라벨 다음에 이 미리보기를 있으면 넣도록 한 줄 추가.
+  2. **여백 확보**: 카드 설명 라벨의 `custom_minimum_size.y`를 54→40으로 줄이고
+     (실제 텍스트가 더 길면 Label이 스스로 확장되므로 잘리지 않음, 최소 예약 높이만
+     줄인 것), 미리보기 줄이 들어갈 공간을 만들기 위해 세 호출부의 `card_height`를
+     늘림: `combat_test.gd`(승리 보상) 230→260, `shop.gd`(2x2 그리드, 세로 공간이
+     가장 빠듯함) 230→240, `event.gd`(카드가 한 줄뿐이라 여유가 가장 큼) 230→300.
+     각 화면의 화면 좌표(로그 라벨/커스터마이징 버튼/다음 방 버튼 등 다른 UI 요소)와
+     안 겹치는 선에서 여유를 계산해 값을 정함 — 특히 event.gd는 D8/D10/D12/D20까지
+     다루는 `EventItemPool`을 쓰므로(D20은 면 20개, `HFlowContainer`가 자동으로
+     2줄로 줄바꿈) 가장 넉넉하게 잡음.
+  3. **시각 검증**: `bash scripts/qa_shot.sh combat_test 1500
+     qa_out/combat_test_reward_preview.png "" 1`(승급 카드에 D6 면 6개 미리보기,
+     "모든 면 통일" 카드는 미리보기 없이 정상), `bash scripts/qa_shot.sh shop 5
+     qa_out/shop_preview.png`(D4/D6 미리보기, 2x2 그리드 안 겹침), `bash
+     scripts/qa_shot.sh shop 5 qa_out/shop_no_upgrade_preview.png
+     _debug_force_no_upgrade_target`(골드 999 + 승급 대상 없음 상태에서도 미리보기와
+     "승급 대상 없음" 비활성 버튼이 함께 정상 표시), `bash scripts/qa_shot.sh event 5
+     qa_out/event_preview.png`(D10/D12 미리보기), `bash scripts/qa_shot.sh event 5
+     qa_out/event_d20_preview.png _debug_force_offer_d20`(가장 극단적인 경우 — D20
+     면 20개가 2줄로 자동 줄바꿈돼도 카드 밖으로 넘치거나 버튼과 안 겹침) 총 6개
+     스크린샷 전부 눈으로 확인 — 크래시 없음, 모든 카드가 패널 테두리 안에 정상
+     렌더, 우측 DeckPanel과 안 겹침. `bash scripts/qa_shot.sh dice_test`로 기존 판정
+     스위트 전체 PASS 재확인(순수 UI 변경이라 판정 로직 영향 없음 재확인 차원). 남은
+     것: 미리보기 칩 크기(16px)가 실제로 알아보기 편한지, 정보량이 유용한지는 사람
+     피드백 필요.
 - **2026-09-07 (22)**: 승리 보상/상점/특수 이벤트 아이템 목록을 카드형 비주얼로 개선.
   1. **`code/scenes/item_card_style.gd`(`ItemCardStyle`) 신규 추가**: `FaceChipStyle`
      (`code/scenes/face_chip_style.gd`)과 같은 패턴의 정적 헬퍼 클래스. `build_card(item,

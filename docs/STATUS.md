@@ -5,14 +5,18 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-09-09 (32)
-- 작성자: AI 에이전트. 작업 트리는 세션 시작 시 이미 깨끗한 상태(직전 이터레이션 31이
+- 일시: 2026-09-09 (33)
+- 작성자: AI 에이전트. 작업 트리는 세션 시작 시 이미 깨끗한 상태(직전 이터레이션 32가
   정상 커밋 완료)였음. INBOX.md 미처리 항목은 여전히 사람의 추가 기획이 필요한 2개
-  (몬스터 성격/다이스 특이 특징)뿐이었음. 이터레이션 31이 권고한 "좁은 타겟팅" 방식을
-  이어받아, `event_item_pool.gd`의 `EventItemPool.random_choices()`가
-  `dice_item_pool.gd`의 이미 촘촘히 검증된 `DiceItemPool.random_choices()`와 거의
-  같은 필터링/폴백 로직을 복제해서 갖고 있는데도 자동 회귀 테스트가 하나도 없던 것을
-  발견해 `dice_test.gd`에 테스트 4개를 추가함. 자세한 내용은 아래 "완료 기록" 참고.
+  (몬스터 성격/다이스 특이 특징)뿐이었음. 이번엔 "좁은 타겟팅"으로 새 간극을 찾기 전에
+  먼저 `code/` 밑 핵심 로직 파일(`shop.gd`, `run_state.gd`, `dungeon_map.gd`,
+  `story_event.gd`, `story_event_pool.gd`, `dice_bag.gd`, `event_item_pool.gd`,
+  `combat_math.gd`, `dice_item_pool.gd`, `event.gd`, `customize_panel.gd`,
+  `combat_test.gd`)를 처음부터 다시 정독했고 새 버그는 못 찾았음(이터레이션 30의 결론과
+  동일). 그 다음 `shape_die_chip.gd`의 `ShapeDieChip.shape_sides_for_dice_sides()`
+  (다이스 면 개수 -> 칩 모양 대응, INBOX 2026-09-03 피드백 반영)가 지금까지 스크린샷
+  으로만 확인되고 자동 회귀 테스트가 없던 것을 찾아 `dice_test.gd`에 테스트 6개
+  (D4/D6/D8/D10/D12/D20 각각)를 추가함. 자세한 내용은 아래 "완료 기록" 참고.
 
 ## 지금 위치
 
@@ -38,16 +42,28 @@
   `DiceItemPool`/`EventItemPool` 판정 로직, `dungeon_map.gd`의 방 선택지 노출/순서
   결정성, `story_event.gd`의 골드 손실 클램프(`_apply_gold_delta`), `combat_test.gd`의
   몬스터 난이도 스케일링 공식(`_monster_config_for_room`), `customize_panel.gd`의
-  눈금 교환(`_exchange_pip`)까지 함께 검증함.
+  눈금 교환(`_exchange_pip`), `shape_die_chip.gd`의 다이스 면 개수->칩 모양 대응
+  (`shape_sides_for_dice_sides`)까지 함께 검증함.
 - **미착수(사람 기획 필요)**: 몬스터별 성격/특징 디자인, 다이스에 몬스터별
   특이 특징 부여 — 아래 "다음 할 일 큐" 참고.
-- **코드 재감사 전략**: 이터레이션 26~32가 반복해서 "실제 로직이 스크린샷으로만
+- **코드 재감사 전략**: 이터레이션 26~33이 반복해서 "실제 로직이 스크린샷으로만
   검증되고 자동 회귀 테스트가 빠진 간극 찾기"를 해왔음. 이터레이션 30이 "전체 파일
-  훑기"는 소진됐다고 판단한 뒤, 31/32는 "이미 촘촘히 검증된 시스템과 같은 패턴/로직을
-  가진 다른 코드가 같은 수준으로 검증됐는지"로 좁혀 찾는 방식을 이어가며 매번 실제
-  간극을 하나씩 찾음(31: `customize_panel.gd` 눈금 교환, 32: `EventItemPool.
-  random_choices`). 다음 이터레이션도 이 좁은 타겟팅을 우선 시도해볼 만하지만,
-  찾을 수 있는 간극이 유한하므로 계속 못 찾으면 이 전략도 재고할 것.
+  훑기"는 소진됐다고 판단했지만, 33이 다시 핵심 로직 파일 전체를 재확인해도 여전히
+  새 버그는 안 나왔고(30과 동일 결론), 대신 "좁은 타겟팅"(이미 촘촘히 검증된 시스템과
+  같은 패턴/로직을 가진 다른 코드가 같은 수준으로 검증됐는지)으로는 계속 하나씩 찾고
+  있음(31: `customize_panel.gd` 눈금 교환, 32: `EventItemPool.random_choices`,
+  33: `ShapeDieChip.shape_sides_for_dice_sides`). 다만 33은 이번 감사에서 확인한
+  주요 로직 파일(`shop.gd`/`run_state.gd`/`dungeon_map.gd`/`story_event.gd`/
+  `story_event_pool.gd`/`dice_bag.gd`/`event_item_pool.gd`/`combat_math.gd`/
+  `dice_item_pool.gd`/`event.gd`/`customize_panel.gd`/`combat_test.gd`)가 전부
+  이미 촘촘히 테스트됐거나 리스크가 낮은 자명한 로직뿐임을 확인함 — 남은 미검증
+  파일은 `deck_panel.gd`/`item_card_style.gd`/`face_chip_style.gd`/`dice_material.gd`/
+  `die_d4.gd`/`character_select.gd`/`character_portrait_placeholder.gd`/
+  `monster_portrait_placeholder.gd`/`procedural_sound.gd`/`visual_qa.gd` 정도인데,
+  대부분 시각 렌더링(`_draw()`, 지오메트리 빌더) 위주라 "순수 함수를 뽑아 dice_test.gd로
+  검증"하는 이 프로젝트의 테스트 패턴 자체가 잘 안 맞음(값 비교가 아니라 눈으로 봐야
+  하는 결과물). 다음 이터레이션은 이 목록에서 한 번 더 시도해볼 수는 있지만, 정말로
+  간극이 거의 소진된 것으로 보이므로 못 찾으면 이 전략 자체를 재고할 것.
 - 상세 이력은 아래 "완료 기록"(최근 10개)과, 그보다 오래된 것은
   `docs/STATUS_ARCHIVE.md`(매 이터레이션 읽지 않는 아카이브) 참고.
 
@@ -299,6 +315,40 @@
 
 ## 완료 기록
 
+- **2026-09-09 (33)**: INBOX.md 미처리 항목 2개(몬스터 성격/다이스 특이 특징)는 여전히
+  사람의 추가 기획이 필요했음. 새 간극을 좁은 타겟팅으로 찾기 전에, 먼저 이터레이션
+  30과 같은 방식으로 핵심 로직 파일(`shop.gd`, `run_state.gd`, `dungeon_map.gd`,
+  `story_event.gd`, `story_event_pool.gd`, `dice_bag.gd`, `event_item_pool.gd`,
+  `combat_math.gd`, `dice_item_pool.gd`, `event.gd`, `customize_panel.gd`,
+  `combat_test.gd`)를 처음부터 다시 정독했다.
+  1. **결론: 새 버그는 못 찾음** (이터레이션 30과 동일 결론). `shop.gd`의 구매 로직,
+     `run_state.gd`의 런 상태 초기화, `dungeon_map.gd`/`story_event.gd`의 방 진행
+     로직 등을 재확인했지만 전부 의도된 동작이었다.
+  2. **대신 그동안 훑지 않았던 `shape_die_chip.gd`에서 실제 검증 공백을 발견**:
+     `ShapeDieChip.shape_sides_for_dice_sides(sides)`(다이스 면 개수 -> 칩에 그릴
+     모양의 변 개수 대응표, INBOX.md 2026-09-03 피드백 "사면체는 세모, 육면체는
+     네모"를 반영해 만든 순수 함수)가 전투 화면 다이스 결과 칩과 아이템 카드 미리보기
+     (이터레이션 23/24) 양쪽에서 쓰이는 핵심 대응표인데도, 지금까지 스크린샷으로만
+     육안 확인되고 `dice_test.gd`에는 대응 테스트가 없었다. 이런 종류의 매핑이
+     깨지면(예: 나중에 다른 면 개수를 추가하다 실수) "칩 모양이 살짝 다르게 생겼다"
+     정도로만 보여서 스크린샷 눈으로도 놓치기 쉽다는 점에서 실제 회귀 위험이 있는
+     간극으로 판단.
+  3. **`code/scenes/dice_test.gd`에 `_check_shape_die_chip_mapping()` 신규 추가**:
+     D4/D6/D8/D10/D12/D20 여섯 가지 전부에 대해 실제 반환값(3/4/3/4/5/3)이
+     `die_d4.gd`가 만드는 실제 지오메트리(D4/D8/D20=삼각형, D6/D10=사각형(D10은
+     연꼴 근사), D12=오각형)와 일치하는지 확인. 순수 정적 함수라 리팩터링 없이
+     바로 테스트 가능했음.
+  4. **검증**: `bash scripts/qa_shot.sh dice_test`로 새 테스트 6개 포함 전체 PASS
+     확인(leak 경고 없음). 로직 변경이 없는 순수 테스트 추가라 다른 화면 스크린샷
+     회귀 확인은 생략함.
+  → 이 작업으로 새 밸런스/설계 착수 항목이 생기지는 않았음 — 다음 할 일 큐는 이전과
+  동일하게 전부 사람 피드백 대기 상태. 이번 감사로 남은 미검증 파일(`deck_panel.gd`/
+  `item_card_style.gd`/`face_chip_style.gd`/`dice_material.gd`/`die_d4.gd`/
+  `character_select.gd`/`character_portrait_placeholder.gd`/
+  `monster_portrait_placeholder.gd`/`procedural_sound.gd`/`visual_qa.gd`)는 대부분
+  시각 렌더링 위주라 "순수 함수 추출 -> dice_test.gd 검증" 패턴이 잘 안 맞는다는 것도
+  확인함(위 "지금 위치"의 "코드 재감사 전략" 참고). `완료 기록`이 11개가 되어 가장
+  오래된 이터레이션 23을 `docs/STATUS_ARCHIVE.md`로 옮김(10개 유지 규칙).
 - **2026-09-09 (32)**: INBOX.md 미처리 항목 2개(몬스터 성격/다이스 특이 특징)는 여전히
   사람의 추가 기획이 필요했음. 이터레이션 31이 권고한 대로 "전체 재훑기" 대신 좁은
   타겟팅으로 테스트 간극을 찾음 — 이번엔 "DiceItemPool처럼 촘촘히 테스트된 시스템과
@@ -602,39 +652,7 @@
      결과가 보장됨) 스크린샷 전부 눈으로 확인.
   → INBOX.md 미처리 항목 2개(몬스터 성격/다이스 특이 특징)는 이번에도 사람의 추가
   기획이 필요해 착수하지 않음 — 다음 할 일 큐 8/9번에 그대로 남김.
-- **2026-09-07 (23)**: 아이템 카드에 결과 다이스 면 미리보기(ShapeDieChip) 추가.
-  1. **`code/scenes/item_card_style.gd`에 `_build_result_die_preview(item)` 신규
-     추가**: `item["kind"]`가 `"add_die"`(결과 `sides`)/`"upgrade_die"`(결과
-     `new_sides`)면, 그 면 개수만큼 `HFlowContainer` 안에 `ShapeDieChip`(값 1..N,
-     `ShapeDieChip.shape_sides_for_dice_sides()`로 모양 결정)을 나열해 반환한다.
-     그 외 종류(`boost_weak_face`/`uniform_faces`)는 결과가 그 시점 주머니 상태에
-     따라 달라져 카드 생성 시점에 확정할 수 없으므로 `null`을 반환한다.
-     `build_card()`가 설명 라벨 다음에 이 미리보기를 있으면 넣도록 한 줄 추가.
-  2. **여백 확보**: 카드 설명 라벨의 `custom_minimum_size.y`를 54→40으로 줄이고
-     (실제 텍스트가 더 길면 Label이 스스로 확장되므로 잘리지 않음, 최소 예약 높이만
-     줄인 것), 미리보기 줄이 들어갈 공간을 만들기 위해 세 호출부의 `card_height`를
-     늘림: `combat_test.gd`(승리 보상) 230→260, `shop.gd`(2x2 그리드, 세로 공간이
-     가장 빠듯함) 230→240, `event.gd`(카드가 한 줄뿐이라 여유가 가장 큼) 230→300.
-     각 화면의 화면 좌표(로그 라벨/커스터마이징 버튼/다음 방 버튼 등 다른 UI 요소)와
-     안 겹치는 선에서 여유를 계산해 값을 정함 — 특히 event.gd는 D8/D10/D12/D20까지
-     다루는 `EventItemPool`을 쓰므로(D20은 면 20개, `HFlowContainer`가 자동으로
-     2줄로 줄바꿈) 가장 넉넉하게 잡음.
-  3. **시각 검증**: `bash scripts/qa_shot.sh combat_test 1500
-     qa_out/combat_test_reward_preview.png "" 1`(승급 카드에 D6 면 6개 미리보기,
-     "모든 면 통일" 카드는 미리보기 없이 정상), `bash scripts/qa_shot.sh shop 5
-     qa_out/shop_preview.png`(D4/D6 미리보기, 2x2 그리드 안 겹침), `bash
-     scripts/qa_shot.sh shop 5 qa_out/shop_no_upgrade_preview.png
-     _debug_force_no_upgrade_target`(골드 999 + 승급 대상 없음 상태에서도 미리보기와
-     "승급 대상 없음" 비활성 버튼이 함께 정상 표시), `bash scripts/qa_shot.sh event 5
-     qa_out/event_preview.png`(D10/D12 미리보기), `bash scripts/qa_shot.sh event 5
-     qa_out/event_d20_preview.png _debug_force_offer_d20`(가장 극단적인 경우 — D20
-     면 20개가 2줄로 자동 줄바꿈돼도 카드 밖으로 넘치거나 버튼과 안 겹침) 총 6개
-     스크린샷 전부 눈으로 확인 — 크래시 없음, 모든 카드가 패널 테두리 안에 정상
-     렌더, 우측 DeckPanel과 안 겹침. `bash scripts/qa_shot.sh dice_test`로 기존 판정
-     스위트 전체 PASS 재확인(순수 UI 변경이라 판정 로직 영향 없음 재확인 차원). 남은
-     것: 미리보기 칩 크기(16px)가 실제로 알아보기 편한지, 정보량이 유용한지는 사람
-     피드백 필요.
-*(이터레이션 22 이전의 더 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
+*(이터레이션 23 이전의 더 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임,
 2026-09-09 정리.)*
 

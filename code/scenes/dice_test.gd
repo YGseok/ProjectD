@@ -65,6 +65,10 @@ func _ready() -> void:
 	all_pass = _check_event_item_pool(lines) and all_pass
 
 	lines.append("")
+	lines.append("[다이스 면 모양 대응 검증: shape_die_chip.gd ShapeDieChip.shape_sides_for_dice_sides]")
+	all_pass = _check_shape_die_chip_mapping(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -522,4 +526,24 @@ func _check_event_item_pool(lines: PackedStringArray) -> bool:
 	ok = unfiltered_ok and ok
 	lines.append("  random_choices(2, 승급대상 있음): 개수=%d (기대 2) -> %s" % [unfiltered_choices.size(), "OK" if unfiltered_ok else "FAIL"])
 
+	return ok
+
+
+## shape_die_chip.gd의 ShapeDieChip.shape_sides_for_dice_sides(sides)는 "다이스 면
+## 개수 -> 칩에 그릴 모양의 변 개수"를 정하는 순수 함수로, INBOX.md 피드백(2026-09-03,
+## "사면체는 세모, 육면체는 네모")과 die_d4.gd가 실제로 만드는 지오메트리(D4/D8/D20=
+## 삼각형 면, D6=사각형, D10=연꼴 근사(사각형), D12=오각형)를 그대로 따르도록 설계된
+## 대응표다. 전투 화면(combat_test.gd)의 다이스 결과 칩이 이 함수 하나로 모양을
+## 정하는데, 지금까지 스크린샷으로만 육안 확인됐을 뿐 자동 회귀 테스트가 없었다 —
+## 이 대응이 틀어지면(예: 나중에 다른 면 개수를 추가하다가 실수로 매핑이 깨져도)
+## "칩 색이 좀 다르게 생겼다" 정도로만 보여서 스크린샷 눈으로도 놓치기 쉽다.
+func _check_shape_die_chip_mapping(lines: PackedStringArray) -> bool:
+	var ok := true
+	var expected := {4: 3, 6: 4, 8: 3, 10: 4, 12: 5, 20: 3}
+	for sides in expected.keys():
+		var actual := ShapeDieChip.shape_sides_for_dice_sides(sides)
+		var expected_shape: int = expected[sides]
+		var pair_ok := actual == expected_shape
+		ok = pair_ok and ok
+		lines.append("  D%d -> 모양 변=%d (기대 %d) -> %s" % [sides, actual, expected_shape, "OK" if pair_ok else "FAIL"])
 	return ok
