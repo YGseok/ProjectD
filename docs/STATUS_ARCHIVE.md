@@ -8,8 +8,42 @@
 
 ---
 
-## 완료 기록 아카이브 (이터레이션 1~33, 오래된 순 아님 — 최신이 위)
+## 완료 기록 아카이브 (이터레이션 1~34, 오래된 순 아님 — 최신이 위)
 
+- **2026-09-09 (34)**: INBOX.md 미처리 항목 2개(몬스터 성격/다이스 특이 특징)는 여전히
+  사람의 추가 기획이 필요했음. 이터레이션 31~33이 이어온 "좁은 타겟팅"(이미 촘촘히
+  검증된 시스템과 같은 패턴을 가진 다른 코드가 같은 수준으로 검증됐는지) 전략을 한 번
+  더 시도함 — 33이 남긴 "남은 미검증 파일은 대부분 시각 렌더링이라 이 패턴이 잘 안
+  맞는다"는 목록(`deck_panel.gd`/`item_card_style.gd`/`face_chip_style.gd`/
+  `dice_material.gd`/`die_d4.gd` 등)을 다시 살펴보되, 33처럼 목록의 파일 자체를 정독하는
+  대신 그 파일들이 참조/구현하는 "다른 곳의 순수 함수"가 빠져있는지를 확인함.
+  1. **간극**: `code/scenes/combat_test.gd`의 `_material_for_sides(sides) ->
+     DiceMaterial`(다이스 면 개수 -> 재질 잠정 배정표, D4/D6=plastic/D8=wood/D10=glass/
+     D12·D20=metal, DESIGN.md와 `die_d4.gd` 클래스 주석에 문서화됨)이 `shape_die_chip.gd`의
+     `shape_sides_for_dice_sides()`(33이 찾은 것)와 정확히 같은 성격의 매핑 함수인데도
+     `dice_test.gd`에는 대응 테스트가 없었음. 전투 화면의 모든 다이스 스폰이 이 함수
+     하나로 물리 bounce/friction·시각 색·충돌음을 정하므로, 나중에 면 개수를 추가하다
+     매핑이 깨져도 스크린샷 눈으로는 "색이 좀 다르다" 정도로만 보여 놓치기 쉬운 회귀
+     위험이 있었음.
+  2. **`code/scenes/dice_test.gd`에 `_check_material_for_sides()` 신규 추가**: D4/D6/
+     D8/D10/D12/D20 여섯 가지 전부에 대해 `_material_for_sides()`가 반환하는
+     `DiceMaterial.material_name`(null이면 die_d4.tscn 기본값인 "plastic"으로 취급)이
+     문서화된 배정표와 일치하는지 확인. `_material_for_sides()`가 static 함수라
+     `load(...).new()`로 인스턴스화할 필요 없이 로드한 Script 객체에 바로 호출 가능해
+     (`shape_die_chip.gd`/`_monster_config_for_room` 검증과 달리) 리크 걱정 없이
+     검증했음. 리팩터링은 필요 없었음(이미 순수 정적 함수).
+  3. **검증**: `bash scripts/qa_shot.sh dice_test`로 새 테스트 6개 포함 전체 PASS
+     확인(leak 경고 없음). 로직 변경이 없는 순수 테스트 추가라 다른 화면 스크린샷
+     회귀 확인은 생략함.
+  → 이 작업으로 새 밸런스/설계 착수 항목이 생기지는 않았음 — 다음 할 일 큐는 이전과
+  동일하게 전부 사람 피드백 대기 상태. 33이 남긴 미검증 목록 중 `deck_panel.gd`/
+  `item_card_style.gd`/`face_chip_style.gd`/`die_d4.gd`/`character_select.gd`/
+  `character_portrait_placeholder.gd`/`monster_portrait_placeholder.gd`/
+  `procedural_sound.gd`/`visual_qa.gd`는 이번에도 직접 뒤져봤지만 순수 함수로 뽑아낼
+  만한 로직이 없었음(전부 `_draw()`/노드 트리 조립/시그널 배선 위주) — "그 파일들이
+  참조하는 다른 파일의 매핑 함수"라는 이번 접근으로도 더는 못 찾음. `완료 기록`이
+  11개가 되어 가장 오래된 이터레이션 24를 `docs/STATUS_ARCHIVE.md`로 옮김(10개 유지
+  규칙).
 - **2026-09-09 (33)**: INBOX.md 미처리 항목 2개(몬스터 성격/다이스 특이 특징)는 여전히
   사람의 추가 기획이 필요했음. 새 간극을 좁은 타겟팅으로 찾기 전에, 먼저 이터레이션
   30과 같은 방식으로 핵심 로직 파일(`shop.gd`, `run_state.gd`, `dungeon_map.gd`,
