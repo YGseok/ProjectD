@@ -210,10 +210,11 @@ func _show_face_picker(bag: DiceBag, die_index: int, pip_index: int) -> void:
 	_ui.append(back_btn)
 
 
-## 눈금 <-> 면 값을 맞바꾸고 1단계(눈금 선택)로 돌아간다. 밀려난 기존 면 값은
-## 인벤토리로 돌아오므로(사라지지 않음), 여러 다이스를 연달아 만지고 싶을 때도
-## 항상 최소 1개 이상의 눈금(방금 밀려난 값)을 들고 계속 진행할 수 있다.
-func _on_face_chosen(bag: DiceBag, die_index: int, face_index: int, pip_index: int) -> void:
+## 눈금 <-> 면 값을 맞바꾼다. 밀려난 기존 면 값은 인벤토리로 돌아오므로(사라지지
+## 않음), 여러 다이스를 연달아 만지고 싶을 때도 항상 최소 1개 이상의 눈금(방금 밀려난
+## 값)을 들고 계속 진행할 수 있다. RunState.pip_inventory/bag만 건드리는 순수 로직이라
+## (@onready UI 노드 없음) dice_test.gd가 add_child 없이 직접 호출해 검증할 수 있다.
+func _exchange_pip(bag: DiceBag, die_index: int, face_index: int, pip_index: int) -> void:
 	var faces: PackedInt32Array = bag.dice[die_index]
 	var sides := faces.size()
 	var pip_value: int = RunState.pip_inventory[pip_index]
@@ -222,6 +223,10 @@ func _on_face_chosen(bag: DiceBag, die_index: int, face_index: int, pip_index: i
 	bag.set_face_value(die_index, face_index, applied_value)
 	RunState.pip_inventory.remove_at(pip_index)
 	RunState.pip_inventory.append(old_value)
+
+
+func _on_face_chosen(bag: DiceBag, die_index: int, face_index: int, pip_index: int) -> void:
+	_exchange_pip(bag, die_index, face_index, pip_index)
 	_show_pip_picker()
 
 

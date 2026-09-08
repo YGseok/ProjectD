@@ -57,6 +57,10 @@ func _ready() -> void:
 	all_pass = _check_monster_config_scaling(lines) and all_pass
 
 	lines.append("")
+	lines.append("[커스터마이징 눈금 교환 검증: customize_panel.gd _exchange_pip]")
+	all_pass = _check_customize_panel_pip_exchange(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -410,4 +414,53 @@ func _check_monster_config_scaling(lines: PackedStringArray) -> bool:
 	])
 
 	combat.free()
+	return ok
+
+
+## customize_panel.gd의 _exchange_pip(bag, die_index, face_index, pip_index)는 INBOX.md
+## 피드백(2026-09-03)으로 "눈금 자유 입력"에서 "인벤토리 눈금 <-> 다이스 면 교환"으로
+## 상호작용 모델 자체가 바뀐 핵심 로직인데, 지금까지 스크린샷 + 콘솔 확인으로만 검증되고
+## 자동 회귀 테스트가 없었다. Control이지만 @onready 노드를 건드리지 않는 순수 함수라
+## dungeon_map.gd/story_event.gd 검증과 같은 패턴(add_child 없이 인스턴스화 후 free())으로
+## 안전하게 확인 가능. RunState.pip_inventory는 전역 상태라 테스트 전후로 복원한다.
+func _check_customize_panel_pip_exchange(lines: PackedStringArray) -> bool:
+	var ok := true
+	var script := load("res://code/scenes/customize_panel.gd")
+	var panel = script.new()
+	var pip_backup: Array[int] = RunState.pip_inventory.duplicate()
+
+	# 일반 케이스: D6 다이스의 0번째 면(표준값 1)을 눈금 4와 교환. 면이 4로 바뀌고,
+	# 밀려난 옛 값(1)이 인벤토리로 돌아와야 한다(사라지지 않음).
+	var bag := DiceBag.new(6, 1)
+	RunState.pip_inventory = [4]
+	panel._exchange_pip(bag, 0, 0, 0)
+	var normal_ok: bool = bag.dice[0][0] == 4 and RunState.pip_inventory == [1]
+	ok = normal_ok and ok
+	lines.append("  D6 면[0](1) <-> 눈금 4: face=%d inventory=%s (기대 4, [1]) -> %s" % [
+		bag.dice[0][0], RunState.pip_inventory, "OK" if normal_ok else "FAIL"
+	])
+
+	# 상한 클램프: D4 다이스에 눈금 10을 넣으면 면 개수(4)로 잘려 적용돼야 한다.
+	var clamp_bag := DiceBag.new(4, 1)
+	RunState.pip_inventory = [10]
+	panel._exchange_pip(clamp_bag, 0, 0, 0)
+	var clamp_ok: bool = clamp_bag.dice[0][0] == 4 and RunState.pip_inventory == [1]
+	ok = clamp_ok and ok
+	lines.append("  D4 면[0](1) <-> 눈금 10(상한 클램프): face=%d inventory=%s (기대 4, [1]) -> %s" % [
+		clamp_bag.dice[0][0], RunState.pip_inventory, "OK" if clamp_ok else "FAIL"
+	])
+
+	# 인벤토리에 눈금이 여럿일 때: pip_index로 고른 것만 소모되고, 밀려난 값은 배열
+	# 끝에 추가되며, 나머지 눈금은 그대로 유지돼야 한다(개수 보존: 하나 빠지고 하나 참).
+	var multi_bag := DiceBag.new(6, 1)
+	RunState.pip_inventory = [2, 5, 9]
+	panel._exchange_pip(multi_bag, 0, 2, 1)
+	var multi_ok: bool = multi_bag.dice[0][2] == 5 and RunState.pip_inventory == [2, 9, 3]
+	ok = multi_ok and ok
+	lines.append("  눈금 여럿 중 index=1(5)만 소모, 밀려난 값(3)은 끝에 추가: face=%d inventory=%s (기대 5, [2, 9, 3]) -> %s" % [
+		multi_bag.dice[0][2], RunState.pip_inventory, "OK" if multi_ok else "FAIL"
+	])
+
+	panel.free()
+	RunState.pip_inventory = pip_backup
 	return ok
