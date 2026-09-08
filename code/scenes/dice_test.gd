@@ -53,6 +53,10 @@ func _ready() -> void:
 	all_pass = _check_story_event_gold_delta(lines) and all_pass
 
 	lines.append("")
+	lines.append("[몬스터 난이도 스케일링 검증: combat_test.gd _monster_config_for_room]")
+	all_pass = _check_monster_config_scaling(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -353,4 +357,57 @@ func _check_story_event_gold_delta(lines: PackedStringArray) -> bool:
 
 	story.free()
 	RunState.gold = gold_backup
+	return ok
+
+
+## combat_test.gd의 _monster_config_for_room(room_index)/_monster_dice_sides_for_room()는
+## "던전이 진행될수록 몬스터가 강해진다"는 난이도 곡선(공격 다이스 2방마다 +1개, 방어
+## 다이스 3방마다 +1개, HP 매 방 +3, 다이스 면 개수는 0-1방 D4 -> 2-3방 D6 -> 4방부터
+## D8, 이름은 MONSTER_PROFILES를 5개 주기로 순환하며 한 바퀴 돌 때마다 "강화 " 접두어가
+## 누적)인데, 지금까지 room4까지의 물리적 배치(벽 밖 이탈 없음)만 스크린샷으로 검증됐을
+## 뿐 공식 자체가 의도한 값을 내는지는 자동 회귀 테스트가 없었다. 두 함수 모두 @onready
+## 변수나 다른 인스턴스 상태를 쓰지 않는 순수 함수라 add_child 없이 안전하게 호출 가능
+## (dungeon_map.gd/story_event.gd 검증과 같은 패턴).
+func _check_monster_config_scaling(lines: PackedStringArray) -> bool:
+	var ok := true
+	var script := load("res://code/scenes/combat_test.gd")
+	var combat = script.new()
+
+	# room_index=0: DESIGN.md 확정값(공격 2D4/방어 1D4/HP10)과 정확히 일치해야 한다.
+	var room0 = combat._monster_config_for_room(0)
+	var room0_ok: bool = room0["attack_count"] == 2 and room0["defense_count"] == 1 \
+		and room0["max_hp"] == 10 and room0["dice_sides"] == 4 and room0["name"] == "슬라임"
+	ok = room0_ok and ok
+	lines.append("  room0: 공격=%d 방어=%d hp=%d sides=%d name=%s (기대 2,1,10,4,슬라임) -> %s" % [
+		room0["attack_count"], room0["defense_count"], room0["max_hp"], room0["dice_sides"], room0["name"],
+		"OK" if room0_ok else "FAIL"
+	])
+
+	# 공식 자체를 room_index 0..6에서 직접 재계산해 대조(경계값 0/1/2/3/4/5/6 전부 확인).
+	var formula_ok := true
+	for idx in range(7):
+		var cfg = combat._monster_config_for_room(idx)
+		var expected_attack := 2 + int(idx / 2.0)
+		var expected_defense := 1 + int(idx / 3.0)
+		var expected_hp := 10 + idx * 3
+		var expected_sides := 8 if idx >= 4 else (6 if idx >= 2 else 4)
+		if cfg["attack_count"] != expected_attack or cfg["defense_count"] != expected_defense \
+			or cfg["max_hp"] != expected_hp or cfg["dice_sides"] != expected_sides:
+			formula_ok = false
+	ok = formula_ok and ok
+	lines.append("  room 0..6 스케일링 공식 일치(공격/방어/hp/면개수): %s -> %s" % [
+		formula_ok, "OK" if formula_ok else "FAIL"
+	])
+
+	# 이름 순환: MONSTER_PROFILES 5개를 다 돌면(room_index=5) "강화 " 접두어가 1번,
+	# 두 바퀴(room_index=10)면 2번 누적돼야 한다.
+	var cycle1 = combat._monster_config_for_room(5)
+	var cycle2 = combat._monster_config_for_room(10)
+	var cycle_ok: bool = cycle1["name"] == "강화 슬라임" and cycle2["name"] == "강화 강화 슬라임"
+	ok = cycle_ok and ok
+	lines.append("  이름 순환(room5, room10): %s, %s (기대 강화 슬라임, 강화 강화 슬라임) -> %s" % [
+		cycle1["name"], cycle2["name"], "OK" if cycle_ok else "FAIL"
+	])
+
+	combat.free()
 	return ok
