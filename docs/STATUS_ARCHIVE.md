@@ -8,8 +8,46 @@
 
 ---
 
-## 완료 기록 아카이브 (이터레이션 1~46, 오래된 순 아님 — 최신이 위)
+## 완료 기록 아카이브 (이터레이션 1~47, 오래된 순 아님 — 최신이 위)
 
+- **2026-09-09 (47)**: INBOX.md 재확인 — 미처리 항목 여전히 2개(몬스터 성격/다이스
+  특이 특징)뿐, 새 피드백 없음. 46이 "아직 대조 안 해본 `dungeon_map.gd`
+  (`_on_combat_button_pressed` 등)/`story_event.gd`(`_on_choice_pressed`)의 버튼
+  핸들러도 같은 관점으로 한 번씩 훑어볼 만하다"고 남긴 권고를 따름. `dungeon_map.gd`의
+  4개 방 선택 버튼(`_on_combat_button_pressed`/`_on_shop_button_pressed`/
+  `_on_event_button_pressed`/`_on_story_button_pressed`)을 대조한 결과, 이들은
+  `RunState`를 직접 변경하지 않고 `change_scene_to_file()`만 호출해서(방 클리어
+  처리는 각 방 씬 안에서 일어남) 더블클릭돼도 씬 전환 요청이 중복될 뿐 상태 손상은
+  없어 안전함을 확인. 대신 46이 지목한 `story_event.gd`의 `_on_choice_pressed`가
+  아니라(이건 버튼을 `hide()`해서 이미 방어됨), **바로 다음 단계인 `_on_continue_pressed`
+  에서 실제 버그를 발견했다** — event.gd의 옛 버그와 완전히 같은 패턴: `RunState.
+  rooms_cleared += 1` 후 `change_scene_to_file()`을 부르는데 이중 실행 가드가 없어
+  ContinueButton 더블클릭 시 방을 하나 건너뛸 수 있었음. 같은 관점으로
+  `combat_test.gd`의 `_on_next_button_pressed`(NextButton, "던전으로 돌아가기"/
+  "처음부터 다시" 버튼)도 확인했더니 **똑같은 취약점**이 있었음(`RunState.
+  rooms_cleared += 1` 또는 `reset_run()` 후 씬 전환, 가드 없음). **수정**: event.gd와
+  동일한 패턴으로 `story_event.gd`에 `_continued` 플래그 + `_apply_continue() -> bool`,
+  `combat_test.gd`에 `_room_advanced` 플래그 + `_apply_room_advance() -> bool`을
+  추가해 상태 변경과 씬 전환을 분리. 이 둘은 `@onready` 노드를 전혀 안 건드리는
+  순수 로직이라, shop.gd/event.gd 검증에 쓰던 `instantiate()`+`add_child()`(트리에
+  넣어야 `@onready`가 채워짐) 없이 스크립트만 `load(...).new()`해서(트리에 안
+  넣으므로 `_ready()`가 실행 안 됨) 가드를 검증하는 더 가벼운 새 패턴을 씀 —
+  특히 `combat_test.gd`는 `_ready()`가 물리 정지 감지를 기다리는 여러 초짜리
+  비동기 전투 루프(`_run_battle()`)를 시작시키므로, 씬 전체를 인스턴스화하는
+  방식은 QA를 몇 초씩 지연시키거나 정리 안 된 코루틴이 에러를 낼 위험이 있어
+  이 스크립트-only 패턴이 사실상 유일하게 안전한 검증 방법이었음. `dice_test.gd`에
+  `_check_story_event_double_continue_guard`/`_check_combat_double_next_guard`
+  추가. `bash scripts/qa_shot.sh dice_test`로 회귀 스위트(55개 항목, 신규 4개
+  포함) 전체 PASS, error/warning/leak/orphan 전체 로그 기준 무출력 확인. 추가로
+  `bash scripts/qa_shot.sh story_event 40 "" _debug_pick_choice_a`와 `bash
+  scripts/qa_shot.sh combat_test 200 "" "" 1`(정지 감지)로 리팩터링 후에도 실제
+  플레이 화면(계속 버튼, 전투 진행 중 다이스/HP/로그 표시)이 스크린샷 기준으로
+  정상임을 확인.
+  → 다음 이터레이션에게: "방 진행"(rooms_cleared 변경 + 씬 전환) 계열 핸들러는
+  이제 던전맵/상점/특수 이벤트/스토리 이벤트/전투 5개 화면 전부 대조 완료됐다.
+  같은 이중 실행 취약점 패턴(상태 변경 후 change_scene_to_file, 가드 없음)이 다른
+  종류의 핸들러(예: `customize_panel.gd`의 교환/적용 버튼)에도 있는지 다음으로
+  확인해볼 만하다.
 - **2026-09-09 (46)**: INBOX.md 재확인 — 미처리 항목 여전히 2개(몬스터 성격/다이스
   특이 특징)뿐, 새 피드백 없음. 45가 "shop.tscn 인스턴스화 패턴을 다른 @onready
   의존 핸들러에도 적용할 만하다"고 남긴 권고를 따라 `event.gd`(특수 이벤트 방)의

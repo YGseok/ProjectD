@@ -5,13 +5,13 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-09-09 (56)
+- 일시: 2026-09-09 (57)
 - 작성자: AI 에이전트. INBOX.md 확인 — 미처리 항목 여전히 2개(몬스터 성격/다이스
-  특이 특징)뿐, 새 피드백 없음. 55가 남긴 권고("억지로 새 각도를 짜내지 말고
+  특이 특징)뿐, 새 피드백 없음. 56이 남긴 권고("억지로 새 각도를 짜내지 말고
   이 패턴을 유지할 것")를 그대로 따름 — 새 감사/리팩터링을 시도하지 않고
   `bash scripts/qa_shot.sh dice_test`로 회귀 스위트(56개 항목) 전체 PASS, 콘솔
   출력 전체를 직접 읽어 error/warning/leak/orphan 관련 문구가 없음을 재확인.
-  완료 기록이 11개가 되어 가장 오래된 (46)을 STATUS_ARCHIVE.md로 옮김. 코드
+  완료 기록이 11개가 되어 가장 오래된 (47)을 STATUS_ARCHIVE.md로 옮김. 코드
   변경 없음.
 
 ## 지금 위치
@@ -51,7 +51,7 @@
   가볍게 반복하는 패턴으로 전환.**
 - **미착수(사람 기획 필요)**: 몬스터별 성격/특징 디자인, 다이스에 몬스터별
   특이 특징 부여 — 아래 "다음 할 일 큐" 참고. 이 둘 외에는 INBOX.md에 새 피드백
-  없음(35~56, 22개 이터레이션 연속 확인).
+  없음(35~57, 23개 이터레이션 연속 확인).
 - **코드 재감사 전략(narrow/broad 재훑기), 이중 실행 가드 대조, `.claude/
   settings.json` 재시도 전부 종료 상태 유지**(아래 "알려진 이슈" 참고, 재시도
   금지) — 다음 실질적 진전은 사람의 플레이 피드백(특히 몬스터 성격 기획)이
@@ -433,44 +433,6 @@
   상태 변경 후 씬 전환을 하는지 확인 필요)가 후보. 다만 이 접근이 46/47/48 세
   이터레이션 연속 실제 버그를 찾아냈지만 슬슬 남은 후보가 줄어들고 있으니, 다음에
   또 성과가 없으면 무리하게 새 각도를 짜내지 말고 간단히 확인만 하고 넘어갈 것.
-- **2026-09-09 (47)**: INBOX.md 재확인 — 미처리 항목 여전히 2개(몬스터 성격/다이스
-  특이 특징)뿐, 새 피드백 없음. 46이 "아직 대조 안 해본 `dungeon_map.gd`
-  (`_on_combat_button_pressed` 등)/`story_event.gd`(`_on_choice_pressed`)의 버튼
-  핸들러도 같은 관점으로 한 번씩 훑어볼 만하다"고 남긴 권고를 따름. `dungeon_map.gd`의
-  4개 방 선택 버튼(`_on_combat_button_pressed`/`_on_shop_button_pressed`/
-  `_on_event_button_pressed`/`_on_story_button_pressed`)을 대조한 결과, 이들은
-  `RunState`를 직접 변경하지 않고 `change_scene_to_file()`만 호출해서(방 클리어
-  처리는 각 방 씬 안에서 일어남) 더블클릭돼도 씬 전환 요청이 중복될 뿐 상태 손상은
-  없어 안전함을 확인. 대신 46이 지목한 `story_event.gd`의 `_on_choice_pressed`가
-  아니라(이건 버튼을 `hide()`해서 이미 방어됨), **바로 다음 단계인 `_on_continue_pressed`
-  에서 실제 버그를 발견했다** — event.gd의 옛 버그와 완전히 같은 패턴: `RunState.
-  rooms_cleared += 1` 후 `change_scene_to_file()`을 부르는데 이중 실행 가드가 없어
-  ContinueButton 더블클릭 시 방을 하나 건너뛸 수 있었음. 같은 관점으로
-  `combat_test.gd`의 `_on_next_button_pressed`(NextButton, "던전으로 돌아가기"/
-  "처음부터 다시" 버튼)도 확인했더니 **똑같은 취약점**이 있었음(`RunState.
-  rooms_cleared += 1` 또는 `reset_run()` 후 씬 전환, 가드 없음). **수정**: event.gd와
-  동일한 패턴으로 `story_event.gd`에 `_continued` 플래그 + `_apply_continue() -> bool`,
-  `combat_test.gd`에 `_room_advanced` 플래그 + `_apply_room_advance() -> bool`을
-  추가해 상태 변경과 씬 전환을 분리. 이 둘은 `@onready` 노드를 전혀 안 건드리는
-  순수 로직이라, shop.gd/event.gd 검증에 쓰던 `instantiate()`+`add_child()`(트리에
-  넣어야 `@onready`가 채워짐) 없이 스크립트만 `load(...).new()`해서(트리에 안
-  넣으므로 `_ready()`가 실행 안 됨) 가드를 검증하는 더 가벼운 새 패턴을 씀 —
-  특히 `combat_test.gd`는 `_ready()`가 물리 정지 감지를 기다리는 여러 초짜리
-  비동기 전투 루프(`_run_battle()`)를 시작시키므로, 씬 전체를 인스턴스화하는
-  방식은 QA를 몇 초씩 지연시키거나 정리 안 된 코루틴이 에러를 낼 위험이 있어
-  이 스크립트-only 패턴이 사실상 유일하게 안전한 검증 방법이었음. `dice_test.gd`에
-  `_check_story_event_double_continue_guard`/`_check_combat_double_next_guard`
-  추가. `bash scripts/qa_shot.sh dice_test`로 회귀 스위트(55개 항목, 신규 4개
-  포함) 전체 PASS, error/warning/leak/orphan 전체 로그 기준 무출력 확인. 추가로
-  `bash scripts/qa_shot.sh story_event 40 "" _debug_pick_choice_a`와 `bash
-  scripts/qa_shot.sh combat_test 200 "" "" 1`(정지 감지)로 리팩터링 후에도 실제
-  플레이 화면(계속 버튼, 전투 진행 중 다이스/HP/로그 표시)이 스크린샷 기준으로
-  정상임을 확인.
-  → 다음 이터레이션에게: "방 진행"(rooms_cleared 변경 + 씬 전환) 계열 핸들러는
-  이제 던전맵/상점/특수 이벤트/스토리 이벤트/전투 5개 화면 전부 대조 완료됐다.
-  같은 이중 실행 취약점 패턴(상태 변경 후 change_scene_to_file, 가드 없음)이 다른
-  종류의 핸들러(예: `customize_panel.gd`의 교환/적용 버튼)에도 있는지 다음으로
-  확인해볼 만하다.
 - **2026-09-09 (55)**: INBOX.md 재확인 — 미처리 항목 여전히 2개(몬스터 성격/다이스
   특이 특징)뿐, 새 피드백 없음. 54가 남긴 권고("억지로 새 각도를 짜내지 말고 이
   패턴을 유지할 것")를 그대로 따름 — 새 감사/리팩터링을 시도하지 않고
@@ -493,7 +455,17 @@
   계속 억지로 새 각도를 짜내지 말고 이 패턴을 유지할 것 — 사람의 실제 플레이
   피드백(특히 몬스터 성격 기획)이 이 프로젝트가 다음 단계로 나아갈 유일한
   경로다.
-*(이터레이션 46 이전의 더 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
+- **2026-09-09 (57)**: INBOX.md 재확인 — 미처리 항목 여전히 2개(몬스터 성격/다이스
+  특이 특징)뿐, 새 피드백 없음. 56의 권고를 그대로 따름 — 새 감사/리팩터링을
+  시도하지 않고 `bash scripts/qa_shot.sh dice_test`로 회귀 스위트(56개 항목)
+  전체 PASS, 콘솔 출력 전체를 직접 읽어 error/warning/leak/orphan 관련 문구가
+  전혀 없음을 재확인. 완료 기록이 11개가 되어 가장 오래된 (47)을
+  `docs/STATUS_ARCHIVE.md`로 옮김. 코드 변경 없음.
+  → 다음 이터레이션에게: 이 가벼운 패턴이 이제 42~57, 16회 연속 반복 중이다.
+  계속 억지로 새 각도를 짜내지 말고 이 패턴을 유지할 것 — 사람의 실제 플레이
+  피드백(특히 몬스터 성격 기획)이 이 프로젝트가 다음 단계로 나아갈 유일한
+  경로다.
+*(이터레이션 47 이전의 더 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임,
 2026-09-09 정리.)*
 
