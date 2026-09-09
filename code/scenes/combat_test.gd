@@ -100,6 +100,18 @@ var monster_attack_bag: DiceBag
 var monster_defense_bag: DiceBag
 var monster_name := "몬스터"
 var monster_color := Color(1, 1, 1, 0)
+var monster_dice_gimmick := ""
+
+## "anger_stack" 기믹 전용 전투 중 상태(패배/승리로 씬이 끝나면 함께 사라짐, RunState에는
+## 저장 안 함 — 몬스터 개별 전투 한정 상태이므로). 몬스터가 공격턴에 자기 공격 다이스의
+## 최댓값 면을 ANGER_STACK_THRESHOLD번 보여주면(DiceBag.count_max_rolls() 참고) 다음
+## 공격턴 하나만 1D20으로 굴린다("주사위 값 x가 나올 때마다 분노 스택이 쌓여서 몇 개
+## 이상 쌓이면 다음 턴에 20면체 주사위를 돌린다"는 INBOX.md 예시를 그대로 구현 — x를
+## "그 다이스의 최댓값 면"으로 해석).
+var monster_anger_stacks := 0
+var monster_anger_pending := false
+const ANGER_STACK_THRESHOLD := 3
+const ANGER_DICE_SIDES := 20
 
 var battle_over := false
 var player_won := false
@@ -145,15 +157,16 @@ const PIP_REWARD_MAX_PER_ROOM := 1
 ## (DESIGN.md에는 몬스터별 모양/색 자체가 아직 미정이라 잠정 목록).
 ##
 ## "dice_gimmick"(선택 필드): INBOX.md(2026-09-09) "몬스터별 다이스 특이 특징" 요청의
-## 예시 3개(고정값 다이스 / min·max만 있는 다이스 / 분노 스택 -> D20) 중, DiceBag의
-## 기존 API 조합만으로 새 상태 추적 없이 구현 가능한 2개("min_max_only", "fixed_value")를
-## 시범 적용함(가장 작고 독립적으로 검증 가능한 조각씩 나눠 진행). 몬스터별 성격
-## 기획(큐 8)이 아직 없어서 "이 몬스터가 왜 이 특징을 갖는지"는 근거가 없는 임시
-## 배정 — 성격 기획이 나오면 다시 배정할 수 있음. 남은 1개(분노 스택 -> D20)는
-## 매 턴 상태 추적·턴 로직 변경이 필요해 더 큰 작업이라 STATUS.md 큐로 남겨둠.
+## 예시 3개(고정값 다이스 / min·max만 있는 다이스 / 분노 스택 -> D20)를 전부 시범
+## 적용함(작고 독립적으로 검증 가능한 조각씩 나눠 진행). 몬스터별 성격 기획(큐 8)이
+## 아직 없어서 "이 몬스터가 왜 이 특징을 갖는지"는 근거가 없는 임시 배정 — 성격
+## 기획이 나오면 다시 배정할 수 있음. "anger_stack"(분노 스택 -> D20)은 매 턴 상태
+## 추적이 필요해 monster_anger_stacks/monster_anger_pending으로 전투 중에만 유지되는
+## 상태를 추가로 둠(_do_exchange() 참고) — 새 몬스터 배정이 아니라 기존 3종 중 아직
+## 기믹이 없던 "고블린"에 적용.
 const MONSTER_PROFILES := [
 	{"name": "슬라임", "color": Color(0.35, 0.85, 0.4)},
-	{"name": "고블린", "color": Color(0.75, 0.55, 0.25)},
+	{"name": "고블린", "color": Color(0.75, 0.55, 0.25), "dice_gimmick": "anger_stack"},
 	{"name": "해골 전사", "color": Color(0.85, 0.85, 0.8)},
 	{"name": "오크", "color": Color(0.3, 0.55, 0.3), "dice_gimmick": "fixed_value"},
 	{"name": "다크 나이트", "color": Color(0.55, 0.25, 0.75), "dice_gimmick": "min_max_only"},
@@ -196,6 +209,8 @@ func _monster_config_for_room(room_index: int) -> Dictionary:
 		# 필요). 예: D6 -> ceil(7/2) = 4.
 		gimmick_value = int(ceil((dice_sides + 1) / 2.0))
 		name_text += " [고정값 %d]" % gimmick_value
+	elif gimmick == "anger_stack":
+		name_text += " [분노]"
 	return {
 		"attack_count": 2 + int(room_index / 2.0),
 		"defense_count": 1 + int(room_index / 3.0),
@@ -227,12 +242,15 @@ func _ready() -> void:
 	var monster_sides: int = config["dice_sides"]
 	monster_attack_bag = DiceBag.new(monster_sides, config["attack_count"])
 	monster_defense_bag = DiceBag.new(monster_sides, config["defense_count"])
-	if config["dice_gimmick"] == "min_max_only":
+	monster_dice_gimmick = config["dice_gimmick"]
+	if monster_dice_gimmick == "min_max_only":
 		monster_attack_bag.force_min_max_faces()
 		monster_defense_bag.force_min_max_faces()
-	elif config["dice_gimmick"] == "fixed_value":
+	elif monster_dice_gimmick == "fixed_value":
 		monster_attack_bag.force_fixed_value(config["dice_gimmick_value"])
 		monster_defense_bag.force_fixed_value(config["dice_gimmick_value"])
+	monster_anger_stacks = 0
+	monster_anger_pending = false
 	monster_max_hp = config["max_hp"]
 	monster_hp = monster_max_hp
 	monster_name = config["name"]
@@ -281,7 +299,18 @@ func _run_battle() -> void:
 ## is_player_attacking == true  -> 내 공격턴 (플레이어 공격 주머니 vs 몬스터 방어 주머니)
 ## is_player_attacking == false -> 몬스터 공격턴 (몬스터 공격 주머니 vs 플레이어 방어 주머니)
 func _do_exchange(is_player_attacking: bool) -> void:
-	var atk_bag: DiceBag = RunState.player_attack_bag if is_player_attacking else monster_attack_bag
+	# "anger_stack" 기믹이 이전 몬스터 공격턴에 임계치를 채웠으면, 이번 몬스터 공격턴은
+	# 평소 monster_attack_bag 대신 1D20 임시 주머니로 굴린다(다음 문단에서 스택 집계 시
+	# used_anger_dice로 구분해 이 굴림 자체는 다시 스택을 쌓지 않게 함).
+	var used_anger_dice := false
+	var atk_bag: DiceBag
+	if is_player_attacking:
+		atk_bag = RunState.player_attack_bag
+	elif monster_dice_gimmick == "anger_stack" and monster_anger_pending:
+		atk_bag = DiceBag.new(ANGER_DICE_SIDES, 1)
+		used_anger_dice = true
+	else:
+		atk_bag = monster_attack_bag
 	var def_bag: DiceBag = monster_defense_bag if is_player_attacking else RunState.player_defense_bag
 
 	turn_label.text = "내 공격턴" if is_player_attacking else "몬스터 공격턴 (내 방어턴)"
@@ -318,6 +347,20 @@ func _do_exchange(is_player_attacking: bool) -> void:
 		_append_log("몬스터 공격 %d vs 플레이어 방어 %d -> 데미지 %d (플레이어 HP %d)" % [atk_total, def_total, dmg, player_hp])
 		monster_portrait.set_expression("happy")
 		player_portrait.set_expression("hurt" if dmg > 0 else "neutral")
+
+	if not is_player_attacking and monster_dice_gimmick == "anger_stack":
+		if used_anger_dice:
+			monster_anger_stacks = 0
+			monster_anger_pending = false
+			_append_log("분노가 가라앉았다 (분노 스택 초기화)")
+		else:
+			var max_hits: int = monster_attack_bag.count_max_rolls(atk_values)
+			if max_hits > 0:
+				monster_anger_stacks += max_hits
+				_append_log("몬스터 분노 스택 +%d (%d/%d)" % [max_hits, monster_anger_stacks, ANGER_STACK_THRESHOLD])
+				if monster_anger_stacks >= ANGER_STACK_THRESHOLD:
+					monster_anger_pending = true
+					_append_log("몬스터가 분노했다! 다음 공격은 20면체 주사위로 굴린다")
 
 	_update_labels()
 
@@ -874,6 +917,35 @@ func _debug_show_monster_dice_for_room(room_index: int) -> void:
 ## GAME_QA_CALL은 인자 없는 메서드만 호출할 수 있어 각 room_index별로 래퍼를 둔다.
 func _debug_show_monster_dice_room4() -> void:
 	_debug_show_monster_dice_for_room(4)
+
+
+## GAME_QA_CALL 전용 — "anger_stack" 기믹이 임계치(ANGER_STACK_THRESHOLD)에 도달해
+## 다음 몬스터 공격이 1D20으로 바뀌는 상태를 보여준다. 실제 트리거는 몬스터 공격 다이스가
+## 우연히 최댓값 면을 여러 번 보여줘야 하는 확률적 사건이라 한 프레임짜리 QA 캡처로는
+## 재현을 기다릴 수 없고, GAME_QA_CALL은 _do_exchange()의 await 체인이 끝나기 전에
+## 스크린샷을 찍어버리므로(한 프레임만 대기) 다른 _debug_show_* 훅들과 같은 패턴으로
+## D20 다이스를 직접 얼려서 스폰해 모양/재질/문구만 확인한다.
+func _debug_show_anger_dice() -> void:
+	monster_dice_gimmick = "anger_stack"
+	monster_anger_stacks = ANGER_STACK_THRESHOLD
+	monster_anger_pending = true
+	monster_name = "고블린 [분노]"
+	_clear_dice()
+	var die := DieScene.instantiate()
+	die.sides = ANGER_DICE_SIDES
+	die.color_override = monster_color
+	var material := _material_for_sides(ANGER_DICE_SIDES)
+	if material != null:
+		die.material = material
+	dice_root.add_child(die)
+	die.transform = Transform3D(Basis(), Vector3(-1.0, 1.0, 0))
+	die.freeze = true
+	die.rotation = Vector3(0.5, 0.6, 0.0)
+	# 실제 _do_exchange()와 동일하게 turn_label이 아니라 로그(_append_log)로 알린다 —
+	# turn_label은 짧은 "누구 턴인지"만 담당하는 자리(폭 400px, 중앙 정렬)라 이 문구처럼
+	# 긴 텍스트를 넣으면 옆의 MonsterHPLabel과 시각적으로 붐빌 수 있음.
+	_append_log("몬스터가 분노했다! 다음 공격은 20면체 주사위로 굴린다")
+	_update_labels()
 
 
 ## QA 전용 래퍼 — 패배 시 표정(플레이어 분노, 몬스터 기쁨)을 스크린샷으로 확인하기

@@ -105,6 +105,25 @@ func force_fixed_value(value: int) -> void:
 			dice[d][i] = value
 
 
+## 몬스터 특이 다이스 특징(INBOX.md 2026-09-09 예시: "주사위 값 x가 나올 때마다 분노
+## 스택이 쌓인다")에서 쓰는 헬퍼. "x"를 "그 다이스의 최댓값 면"으로 해석해, 이번 굴림
+## (roll_detailed()가 반환한 것과 같은 순서/길이의 values)에서 몇 개의 다이스가 자신의
+## 최댓값 면을 보여줬는지 센다. 별도 상태 없이 순수 계산만 하므로 호출부(combat_test.gd)가
+## 그 결과로 스택을 얼마나 쌓을지 직접 관리한다.
+func count_max_rolls(values: Array) -> int:
+	var hits := 0
+	for i in dice.size():
+		if i >= values.size():
+			continue
+		var faces := dice[i]
+		var m: int = faces[0]
+		for v in faces:
+			m = max(m, v)
+		if values[i] == m:
+			hits += 1
+	return hits
+
+
 var count: int:
 	get:
 		return dice.size()

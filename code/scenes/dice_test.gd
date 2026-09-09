@@ -528,17 +528,38 @@ func _check_monster_config_scaling(lines: PackedStringArray) -> bool:
 	return ok
 
 
-## dice_bag.gd의 force_min_max_faces()/force_fixed_value()는 INBOX.md 피드백(2026-09-09,
-## "몬스터별 다이스 특이 특징" 예시 중 "모든 주사위 눈이 min과 max로만 이루어져 있다"와
-## "주사위 값 x가 고정 데미지로 들어간다")를 구현한 것이다. combat_test.gd는
-## force_min_max_faces()를 "다크 나이트"(MONSTER_PROFILES 5번째, dice_gimmick=
-## "min_max_only", room_index=4)에, force_fixed_value()를 "오크"(4번째, dice_gimmick=
-## "fixed_value", room_index=3)에 각각 시범 적용한다 — 서로 다른 방에서만 켜지고, 다른
-## 방(예: room0 슬라임)은 그대로 표준 다이스여야 한다. min_max_only는 300회 반복 굴림으로
-## 중간값이 단 한 번도 안 나오는지, fixed_value는 매번 지정한 값만 나오는지까지 직접
-## 확인한다.
+## dice_bag.gd의 force_min_max_faces()/force_fixed_value()/count_max_rolls()는 INBOX.md
+## 피드백(2026-09-09, "몬스터별 다이스 특이 특징" 예시 3개: "모든 주사위 눈이 min과
+## max로만 이루어져 있다" / "주사위 값 x가 고정 데미지로 들어간다" / "주사위 x가 나올
+## 때마다 분노 스택이 쌓여서 몇 개 이상이면 다음 턴에 20면체를 돌린다")를 구현한 것이다.
+## combat_test.gd는 force_min_max_faces()를 "다크 나이트"(MONSTER_PROFILES 5번째,
+## dice_gimmick="min_max_only", room_index=4)에, force_fixed_value()를 "오크"(4번째,
+## dice_gimmick="fixed_value", room_index=3)에, count_max_rolls() 기반 분노 스택 집계를
+## "고블린"(2번째, dice_gimmick="anger_stack", room_index=1)에 각각 시범 적용한다 —
+## 서로 다른 방에서만 켜지고, 다른 방(예: room0 슬라임)은 그대로 표준 다이스여야 한다.
+## min_max_only는 300회 반복 굴림으로 중간값이 단 한 번도 안 나오는지, fixed_value는
+## 매번 지정한 값만 나오는지까지 직접 확인한다. anger_stack의 "다음 턴 D20 전환"
+## 자체(monster_anger_pending 소비, _do_exchange())는 @onready 씬 노드가 필요해 이
+## 함수에서는 순수 로직(count_max_rolls, config 배정)만 확인하고, 실제 전투 진행은
+## qa_out 스크린샷으로 별도 검증한다.
 func _check_monster_dice_gimmick(lines: PackedStringArray) -> bool:
 	var ok := true
+
+	# count_max_rolls(): D6x3 표준 주머니에서 각 다이스가 "자신의 최댓값 면(6)"을
+	# 보여줬는지 센다 — 몬스터별 굴림 결과가 아니라 임의로 만든 values로 직접 확인.
+	var cm_bag := DiceBag.new(6, 3)
+	var cm_hits := cm_bag.count_max_rolls([6, 3, 6])
+	var cm_ok: bool = cm_hits == 2
+	ok = cm_ok and ok
+	lines.append("  count_max_rolls(D6x3, [6,3,6]): hits=%d (기대 2) -> %s" % [
+		cm_hits, "OK" if cm_ok else "FAIL"
+	])
+	var cm_none_hits := cm_bag.count_max_rolls([1, 2, 5])
+	var cm_none_ok: bool = cm_none_hits == 0
+	ok = cm_none_ok and ok
+	lines.append("  count_max_rolls(D6x3, [1,2,5]): hits=%d (기대 0) -> %s" % [
+		cm_none_hits, "OK" if cm_none_ok else "FAIL"
+	])
 
 	# force_min_max_faces(): D6x1의 면 값이 [1,1,1,6,6,6]처럼 절반은 min(1)/절반은
 	# max(6)로만 구성돼야 한다(중간값 2~5 제거). min_possible/max_possible은 원래 다이스와
@@ -615,6 +636,15 @@ func _check_monster_dice_gimmick(lines: PackedStringArray) -> bool:
 	lines.append("  room3 config: dice_gimmick=%s value=%d name=%s (기대 fixed_value/4/'오크 [고정값 4]') -> %s" % [
 		room3_config["dice_gimmick"], room3_config["dice_gimmick_value"], room3_config["name"],
 		"OK" if room3_ok else "FAIL"
+	])
+
+	# room1(고블린)만 anger_stack gimmick이 켜지고 이름에 "[분노]"가 붙어야 하며, room0/3/4와
+	# 서로 영향 없이 독립적으로 동작해야 한다.
+	var room1_config = combat._monster_config_for_room(1)
+	var room1_ok: bool = room1_config["dice_gimmick"] == "anger_stack" and room1_config["name"] == "고블린 [분노]"
+	ok = room1_ok and ok
+	lines.append("  room1 config: dice_gimmick=%s name=%s (기대 anger_stack, '고블린 [분노]') -> %s" % [
+		room1_config["dice_gimmick"], room1_config["name"], "OK" if room1_ok else "FAIL"
 	])
 	combat.free()
 
