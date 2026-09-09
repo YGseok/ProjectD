@@ -11,13 +11,18 @@ extends RefCounted
 ## 주머니가 바뀌어도(add_die/replace_die 등) 재적용되지 않는다 — 시작 상태의 개성일
 ## 뿐, 게임 내내 강제되는 제약은 아니다.
 ##
-## 이번 조각은 5종 중 3종만 구현(기존 1 + 신규 2). INBOX.md가 예시로 든 세 성격
+## 이번 조각은 5종 중 4종 구현(기존 1 + 신규 3). INBOX.md가 예시로 든 세 성격
 ## (극단형/안정형/폭발형) 중 "폭발형"(분노 스택 — 몬스터 "고블린"처럼 매 턴 상태를
-## 추적하고 턴 로직 자체를 바꿔야 함, combat_test.gd의 anger_stack 분기 참고)은
-## 전투 턴 로직까지 건드려야 하는 더 큰 작업이라 이번엔 제외 — 나머지 2종(폭발형 +
-## 또 다른 컨셉 1종)은 docs/STATUS.md 다음 할 일 큐에 남겨둠. 캐릭터 5종 각각의
-## 이름/컨셉/기믹 배정은 INBOX.md가 "AI가 제안해도 됨"이라고 허용한 것을 따름 —
-## 사람이 다른 이름/배정을 원하면 이 배열만 고치면 됨.
+## 추적하고 턴 로직 자체를 바꿔야 함)은 combat_test.gd의 anger_stack 분기를 플레이어
+## 공격턴에도 그대로 적용하는 방식(player_dice_gimmick/player_explosive_stacks/
+## player_explosive_pending, combat_test.gd 참고)으로 이번에 완성함 — 이 배열의
+## "gimmick" 필드만으로는 표현할 수 없어서(정적 다이스 개조가 아니라 매 턴 상태 추적이
+## 필요) run_state.gd._apply_character_gimmick()의 match 문에는 걸리지 않고, 대신
+## combat_test.gd가 CharacterProfiles.get_profile(RunState.character_id)를 직접 읽어
+## "explosive_stack"일 때만 턴 로직에서 분기한다. 남은 1종(다섯 번째 컨셉)은 아직
+## 미정 — docs/STATUS.md 다음 할 일 큐에 남겨둠. 캐릭터 5종 각각의 이름/컨셉/기믹
+## 배정은 INBOX.md가 "AI가 제안해도 됨"이라고 허용한 것을 따름 — 사람이 다른
+## 이름/배정을 원하면 이 배열만 고치면 됨.
 ##
 ## "gimmick" 필드 값:
 ##   ""              : 기믹 없음 (기존 "견습 모험가")
@@ -25,6 +30,10 @@ extends RefCounted
 ##                     (중간값 없음, 하이리스크/로우리스크 — 몬스터 "다크 나이트"와 같은 기믹)
 ##   "fixed_defense_die": 방어 다이스 중 0번째 하나만 DiceBag.force_fixed_value_for_die()로
 ##                     고정값(굴리지 않는 것과 동일 효과) — 예측 가능한 안정적 방어 한 조각
+##   "explosive_stack": 정적 다이스 개조 없음(run_state.gd에서는 아무 일도 안 함) — 대신
+##                     공격 다이스가 최댓값 면을 보여줄 때마다 combat_test.gd가 전투 중
+##                     상태로 스택을 쌓고, 3스택에서 다음 공격 한 턴만 1D20으로 굴림
+##                     (몬스터 "고블린"의 anger_stack과 같은 메커니즘, 플레이어 공격턴에 적용)
 const PROFILES := [
 	{
 		"id": "novice",
@@ -49,6 +58,14 @@ const PROFILES := [
 		"gimmick": "fixed_defense_die",
 		"hair_color": Color(0.4, 0.55, 0.85),
 		"dress_color": Color(0.25, 0.4, 0.55),
+	},
+	{
+		"id": "explosive",
+		"name": "폭발병",
+		"desc": "폭발형 — 공격 다이스가 최댓값을 보여줄 때마다 폭발 스택이 쌓임 (3스택에서 다음 공격이 20면체 주사위로 터짐)",
+		"gimmick": "explosive_stack",
+		"hair_color": Color(0.95, 0.55, 0.15),
+		"dress_color": Color(0.5, 0.18, 0.05),
 	},
 ]
 

@@ -113,6 +113,16 @@ var monster_anger_pending := false
 const ANGER_STACK_THRESHOLD := 3
 const ANGER_DICE_SIDES := 20
 
+## "explosive_stack" 캐릭터 기믹(플레이어블 캐릭터 "폭발병", character_profiles.gd 참고)
+## 전용 전투 중 상태 — monster_anger_stacks/monster_anger_pending과 완전히 같은 구조를
+## 플레이어 공격턴에 적용한 것. 플레이어 공격 다이스(RunState.player_attack_bag)가 자기
+## 최댓값 면을 EXPLOSIVE_STACK_THRESHOLD번 보여주면 다음 공격 한 턴만 1D20으로 굴린다.
+var player_dice_gimmick := ""
+var player_explosive_stacks := 0
+var player_explosive_pending := false
+const EXPLOSIVE_STACK_THRESHOLD := 3
+const EXPLOSIVE_DICE_SIDES := 20
+
 var battle_over := false
 var player_won := false
 var _room_advanced := false
@@ -275,6 +285,10 @@ func _ready() -> void:
 	monster_color = config["color"]
 	monster_portrait.set_body_color(monster_color if monster_color.a > 0 else Color(0.5, 0.5, 0.5))
 
+	player_dice_gimmick = CharacterProfiles.get_profile(RunState.character_id).get("gimmick", "")
+	player_explosive_stacks = 0
+	player_explosive_pending = false
+
 	next_button.pressed.connect(_on_next_button_pressed)
 	deck_toggle_button.pressed.connect(_on_deck_toggle_pressed)
 	customize_toggle_button.pressed.connect(_on_customize_toggle_pressed)
@@ -321,9 +335,14 @@ func _do_exchange(is_player_attacking: bool) -> void:
 	# 평소 monster_attack_bag 대신 1D20 임시 주머니로 굴린다(다음 문단에서 스택 집계 시
 	# used_anger_dice로 구분해 이 굴림 자체는 다시 스택을 쌓지 않게 함).
 	var used_anger_dice := false
+	var used_explosive_dice := false
 	var atk_bag: DiceBag
 	if is_player_attacking:
-		atk_bag = RunState.player_attack_bag
+		if player_dice_gimmick == "explosive_stack" and player_explosive_pending:
+			atk_bag = DiceBag.new(EXPLOSIVE_DICE_SIDES, 1)
+			used_explosive_dice = true
+		else:
+			atk_bag = RunState.player_attack_bag
 	elif monster_dice_gimmick == "anger_stack" and monster_anger_pending:
 		atk_bag = DiceBag.new(ANGER_DICE_SIDES, 1)
 		used_anger_dice = true
@@ -379,6 +398,20 @@ func _do_exchange(is_player_attacking: bool) -> void:
 				if monster_anger_stacks >= ANGER_STACK_THRESHOLD:
 					monster_anger_pending = true
 					_append_log("몬스터가 분노했다! 다음 공격은 20면체 주사위로 굴린다")
+
+	if is_player_attacking and player_dice_gimmick == "explosive_stack":
+		if used_explosive_dice:
+			player_explosive_stacks = 0
+			player_explosive_pending = false
+			_append_log("폭발이 진정됐다 (폭발 스택 초기화)")
+		else:
+			var max_hits: int = RunState.player_attack_bag.count_max_rolls(atk_values)
+			if max_hits > 0:
+				player_explosive_stacks += max_hits
+				_append_log("폭발 스택 +%d (%d/%d)" % [max_hits, player_explosive_stacks, EXPLOSIVE_STACK_THRESHOLD])
+				if player_explosive_stacks >= EXPLOSIVE_STACK_THRESHOLD:
+					player_explosive_pending = true
+					_append_log("폭발 직전! 다음 공격은 20면체 주사위로 터진다")
 
 	_update_labels()
 
@@ -1008,6 +1041,29 @@ func _debug_show_anger_dice() -> void:
 	# turn_label은 짧은 "누구 턴인지"만 담당하는 자리(폭 400px, 중앙 정렬)라 이 문구처럼
 	# 긴 텍스트를 넣으면 옆의 MonsterHPLabel과 시각적으로 붐빌 수 있음.
 	_append_log("몬스터가 분노했다! 다음 공격은 20면체 주사위로 굴린다")
+	_update_labels()
+
+
+## GAME_QA_CALL 전용 — 플레이어 캐릭터 "폭발병"의 explosive_stack 기믹이 임계치에
+## 도달해 다음 플레이어 공격이 1D20으로 바뀌는 상태를 보여준다(_debug_show_anger_dice()와
+## 완전히 같은 이유/패턴 — 우연히 최댓값이 여러 번 나와야 하는 확률적 사건이라 한
+## 프레임짜리 QA 캡처로는 자연 발생을 기다릴 수 없어 상태를 직접 만들고 D20을 얼려서
+## 스폰한다).
+func _debug_show_explosive_dice() -> void:
+	player_dice_gimmick = "explosive_stack"
+	player_explosive_stacks = EXPLOSIVE_STACK_THRESHOLD
+	player_explosive_pending = true
+	_clear_dice()
+	var die := DieScene.instantiate()
+	die.sides = EXPLOSIVE_DICE_SIDES
+	var material := _material_for_sides(EXPLOSIVE_DICE_SIDES)
+	if material != null:
+		die.material = material
+	dice_root.add_child(die)
+	die.transform = Transform3D(Basis(), Vector3(-1.4, 1.0, 0))
+	die.freeze = true
+	die.rotation = Vector3(0.5, 0.6, 0.0)
+	_append_log("폭발 직전! 다음 공격은 20면체 주사위로 터진다")
 	_update_labels()
 
 

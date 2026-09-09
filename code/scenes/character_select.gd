@@ -16,9 +16,15 @@ extends Node2D
 ## (기본값: 첫 번째 프로필) -> "던전 시작" 버튼 -> RunState.reset_run(선택한 id)로
 ## 새 런 시작 -> dungeon_map.tscn.
 
-const CARD_WIDTH := 360.0
+## CARD_WIDTH_MAX: 캐릭터 수가 적을 때(지금 4종) 카드가 이보다 넓어지지 않게 하는 상한.
+## ROW_MARGIN: 카드 줄 좌우로 남겨두는 여백 — 이 안쪽 폭(1280 - ROW_MARGIN*2)을 카드
+## 개수만큼 나눠 카드 폭을 정하므로, 캐릭터가 늘어나도(5종까지 예정, docs/STATUS.md
+## 다음 할 일 큐 14번) 카드가 화면 밖으로 밀려나지 않는다(4종째부터 실제로 1280px를
+## 넘겨 화면 오른쪽이 잘리던 버그를 이번에 고침 — 폭발병 카드 QA 스크린샷에서 발견).
+const CARD_WIDTH_MAX := 360.0
 const CARD_HEIGHT := 500.0
 const CARD_GAP := 20.0
+const ROW_MARGIN := 20.0
 
 @onready var cards_container: Control = $CardsContainer
 @onready var start_button: Button = $StartButton
@@ -41,22 +47,24 @@ func _build_cards() -> void:
 	_card_panels.clear()
 
 	var count := CharacterProfiles.PROFILES.size()
-	var total_width := count * CARD_WIDTH + (count - 1) * CARD_GAP
+	var available_width := 1280.0 - ROW_MARGIN * 2.0
+	var card_width: float = min(CARD_WIDTH_MAX, (available_width - (count - 1) * CARD_GAP) / count)
+	var total_width := count * card_width + (count - 1) * CARD_GAP
 	var start_x := (1280.0 - total_width) / 2.0
 
 	for i in count:
 		var profile: Dictionary = CharacterProfiles.PROFILES[i]
-		var card := _make_card(profile)
-		card.position = Vector2(start_x + i * (CARD_WIDTH + CARD_GAP), 0)
+		var card := _make_card(profile, card_width)
+		card.position = Vector2(start_x + i * (card_width + CARD_GAP), 0)
 		cards_container.add_child(card)
 		_card_panels[profile["id"]] = card
 
 	_refresh_selection_highlight()
 
 
-func _make_card(profile: Dictionary) -> PanelContainer:
+func _make_card(profile: Dictionary, card_width: float) -> PanelContainer:
 	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(CARD_WIDTH, CARD_HEIGHT)
+	panel.custom_minimum_size = Vector2(card_width, CARD_HEIGHT)
 	panel.mouse_filter = Control.MOUSE_FILTER_STOP
 
 	var vbox := VBoxContainer.new()
@@ -65,13 +73,14 @@ func _make_card(profile: Dictionary) -> PanelContainer:
 	panel.add_child(vbox)
 
 	var portrait_holder := Control.new()
-	portrait_holder.custom_minimum_size = Vector2(CARD_WIDTH, 260)
+	portrait_holder.custom_minimum_size = Vector2(card_width, 260)
 	var portrait := CharacterPortraitPlaceholder.new()
 	# 실루엣 그리기 범위(대략 position 기준 y -108 ~ +140, character_portrait_placeholder.gd
-	# _draw() 참고)가 holder 높이(260) 안에 들어오도록 y를 114로 둠 — VBoxContainer는
-	# Node2D의 실제 그려지는 범위를 모르고 holder의 custom_minimum_size만 공간으로
-	# 예약하므로, 여기서 안 맞추면 아래 이름 라벨과 겹친다.
-	portrait.position = Vector2(CARD_WIDTH / 2.0, 114)
+	# _draw() 참고, 폭은 최대 ~136px로 card_width보다 항상 작음)가 holder 높이(260) 안에
+	# 들어오도록 y를 114로 둠 — VBoxContainer는 Node2D의 실제 그려지는 범위를 모르고
+	# holder의 custom_minimum_size만 공간으로 예약하므로, 여기서 안 맞추면 아래 이름
+	# 라벨과 겹친다.
+	portrait.position = Vector2(card_width / 2.0, 114)
 	portrait.set_palette(profile["hair_color"], profile["dress_color"])
 	portrait_holder.add_child(portrait)
 	vbox.add_child(portrait_holder)
@@ -87,7 +96,7 @@ func _make_card(profile: Dictionary) -> PanelContainer:
 	desc_label.text = profile["desc"]
 	desc_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	desc_label.autowrap_mode = TextServer.AUTOWRAP_WORD
-	desc_label.custom_minimum_size = Vector2(CARD_WIDTH - 40, 0)
+	desc_label.custom_minimum_size = Vector2(card_width - 40, 0)
 	desc_label.add_theme_font_size_override("font_size", 15)
 	desc_label.add_theme_color_override("font_color", Color(0.8, 0.8, 0.8))
 	vbox.add_child(desc_label)
@@ -96,7 +105,7 @@ func _make_card(profile: Dictionary) -> PanelContainer:
 	note_label.text = "※ 플레이스홀더 실루엣 — 실제 일러스트는 추후 작업"
 	note_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	note_label.autowrap_mode = TextServer.AUTOWRAP_WORD
-	note_label.custom_minimum_size = Vector2(CARD_WIDTH - 40, 0)
+	note_label.custom_minimum_size = Vector2(card_width - 40, 0)
 	note_label.add_theme_font_size_override("font_size", 12)
 	note_label.add_theme_color_override("font_color", Color(0.55, 0.55, 0.55))
 	vbox.add_child(note_label)
@@ -170,6 +179,11 @@ func _debug_select_guardian() -> void:
 	_on_card_selected("guardian")
 
 
+## QA 전용: "폭발병" 카드를 고른 상태 검증용 (_debug_select_berserker와 같은 이유).
+func _debug_select_explosive() -> void:
+	_on_card_selected("explosive")
+
+
 ## QA 전용: "광전사"를 고른 채로 실제 던전 시작까지 이어지는 전체 경로를 한 번에
 ## 검증하기 위한 래퍼(선택 -> 시작 -> dungeon_map 전환까지, 실제 플레이와 동일 경로).
 ## 던전 맵의 "공격/방어 주머니" 패널에 1/4만 보이는지(force_min_max_faces 효과)로
@@ -183,6 +197,15 @@ func _debug_start_run_as_berserker() -> void:
 ## 같은 이유). 방어 주머니 다이스 하나만 고정값(3)이고 나머지는 그대로인지 화면에서 확인.
 func _debug_start_run_as_guardian() -> void:
 	_on_card_selected("guardian")
+	_on_start_pressed()
+
+
+## QA 전용: "폭발병"으로 던전 시작까지 이어지는 전체 경로 검증(_debug_start_run_as_berserker와
+## 같은 이유). explosive_stack은 정적 다이스 개조가 없어(character_profiles.gd 참고)
+## 덱 패널에는 다른 캐릭터와 달리 아무 차이가 안 보이는 게 정상 — 실제 효과는
+## combat_test.gd의 전투 중 상태(_debug_show_explosive_dice() 참고)로 확인해야 한다.
+func _debug_start_run_as_explosive() -> void:
+	_on_card_selected("explosive")
 	_on_start_pressed()
 
 

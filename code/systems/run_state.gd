@@ -77,6 +77,10 @@ func reset_run(new_character_id: String = "") -> void:
 
 ## character_id에 해당하는 프로필의 시작 다이스 기믹을 새로 만든 주머니에 한 번만
 ## 적용한다(몬스터 기믹과 같은 "정적 적용" 방식 — combat_test.gd _ready() 참고).
+## "explosive_stack"(폭발병)은 여기서 다룰 정적 다이스 개조가 없어(면 값을 바꾸는 게
+## 아니라 전투 중 턴마다 스택을 추적하는 방식) 아래 match에 걸리지 않고 그대로
+## "_: pass"로 빠진다 — 실제 적용은 combat_test.gd가 CharacterProfiles.get_profile()을
+## 직접 읽어서 처리한다(character_profiles.gd 클래스 주석 참고).
 func _apply_character_gimmick() -> void:
 	var profile := CharacterProfiles.get_profile(character_id)
 	match profile.get("gimmick", ""):

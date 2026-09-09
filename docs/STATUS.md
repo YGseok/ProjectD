@@ -5,31 +5,30 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-09-09 (84)
-- 작성자: AI 에이전트. 큐 14([대형 기획 1] 플레이어블 캐릭터 4종 추가, 총 5종
-  중 선택)의 가장 작은 착수 조각을 진행: 캐릭터 선택 화면을 카드 1개("확인")에서
-  카드 여러 개 중 하나를 고르는 UI로 확장하고, 신규 캐릭터 2종(기존 "견습
-  모험가" 포함 총 3종)에 몬스터 다이스 기믹과 같은 API를 재사용한 시작 기믹을
-  부여했다. 신규 `code/systems/character_profiles.gd`(`CharacterProfiles`)가
-  캐릭터 정의(id/이름/설명/기믹/머리·원피스 색)를 갖고, "광전사"(극단형 —
-  `DiceBag.force_min_max_faces()`를 공격+방어 둘 다에 적용, 몬스터 "다크
-  나이트"와 같은 함수 재사용)/"수호자"(안정형 — 신규 `DiceBag.
-  force_fixed_value_for_die()`로 방어 다이스 "하나만" 고정값, 나머지는 표준
-  유지)를 등록. `RunState.reset_run(character_id: String = "")`으로 시그니처를
-  바꿔 인자 없이 부르는 기존 호출부(패배 후 재시작 등)는 직전 캐릭터를 유지한
-  채 새 주머니에 기믹을 재적용하도록 했다. `character_portrait_placeholder.gd`의
-  머리/원피스 색을 `@export`로 빼서(`set_palette()`) 같은 실루엣을 캐릭터별
-  색으로 구분. `dice_test.gd`에 신규 검증 6개 추가로 회귀 스위트 전체 PASS,
-  `qa_out/character_select_cards.png`(카드 3개, 기본 선택 강조)/
-  `character_select_berserker_selected.png`(카드 클릭 시 강조 이동)/
-  `dungeon_map_berserker_deck.png`·`dungeon_map_guardian_deck.png`(선택 →
-  시작 → 실제 덱 패널까지 전체 경로로 기믹이 반영됨을 확인)/
-  `combat_test_smoke_after_char.png`(기존 화면 회귀 없음)로 검증. 캐릭터 5종
-  중 3종만 구현 — "폭발형"(플레이어 공격턴에 몬스터 "고블린"과 같은 매 턴
-  상태 추적이 필요해 `combat_test.gd` 턴 로직까지 건드려야 하는 더 큰 작업)과
-  다섯 번째 컨셉은 다음 조각으로 남김(아래 "다음 할 일 큐" 14번). 부수적으로
-  QA 훅 사용 시 주의사항 하나를 발견해 "알려진 이슈"에 남김(`GAME_QA_CALL`에
-  인자가 필요한 메서드를 넘기면 창이 멈출 수 있음 — 인자 없는 래퍼로 우회할 것).
+- 일시: 2026-09-09 (85)
+- 작성자: AI 에이전트. 큐 14([대형 기획 1] 플레이어블 캐릭터, 총 5종 중 선택)의
+  남은 조각 중 "폭발형"을 구현해 4/5종을 완료했다. 몬스터 "고블린"의
+  anger_stack 기믹(공격 다이스가 최댓값 면을 보여줄 때마다 스택이 쌓이고,
+  3스택에서 다음 공격 한 턴만 1D20으로 굴림)을 플레이어 공격턴에도 그대로
+  적용하는 방식으로 구현 — `character_profiles.gd`에 캐릭터 "폭발병"
+  (`gimmick: "explosive_stack"`) 추가, `combat_test.gd`에 `player_dice_gimmick`/
+  `player_explosive_stacks`/`player_explosive_pending` 전투 중 상태를 신설해
+  `_do_exchange()`의 플레이어 공격턴 분기에 monster_anger_stack과 병렬 구조로
+  배선했다. 이 기믹은 정적 다이스 개조가 아니라 턴 상태 추적이라
+  `run_state.gd._apply_character_gimmick()`의 match 문에는 걸리지 않고 그대로
+  통과하도록 주석으로 명시. 작업 중 카드가 4개로 늘면서 `character_select.gd`가
+  고정 `CARD_WIDTH=360`로 카드 4개 폭을 계산해 화면 우측이 1280px 밖으로
+  잘려나가는 회귀를 스크린샷에서 발견 — 카드 폭을 캐릭터 수에 따라 동적으로
+  줄이도록(`CARD_WIDTH_MAX`/`ROW_MARGIN` 기반 계산) 고쳐 5종까지도 화면 안에
+  들어오게 했다. `dice_test.gd`에 신규 검증 2개(get_profile(explosive).gimmick,
+  reset_run(explosive)가 다이스 주머니를 표준 그대로 유지하는지) 추가로 회귀
+  스위트 전체 PASS. `qa_out/character_select_4cards_fixed.png`(카드 4개가 겹침/
+  잘림 없이 표시)/`combat_test_explosive_dice.png`(폭발 스택 임계치 도달 →
+  D20 다이스 + 로그 문구)/`dungeon_map_explosive_deck.png`(선택 → 시작 → 덱
+  패널까지, 정적 개조가 없으므로 표준 D4 그대로임을 확인)/
+  `combat_test_smoke_after_explosive.png`(기존 화면 회귀 없음)로 검증. 남은
+  것: 다섯 번째 캐릭터 컨셉/기믹은 여전히 미정(아래 "다음 할 일 큐" 14번), 4종
+  전체의 강화폭/체감 밸런스는 사람 플레이 피드백 필요.
 
 ## 지금 위치
 
@@ -37,15 +36,23 @@
   5방, 전투/상점/특수 이벤트/스토리 이벤트 방 종류, 전투 제외 3종은 방마다
   확률적으로 노출되고 노출된 것끼리는 방마다 결정적으로 순서도 섞임) → 전투
   (다이스 굴려 공방, 승패 후 복귀)까지 이어짐.
-- **플레이어블 캐릭터 (신규, [대형 기획 1]의 첫 조각, 3/5종)**:
-  `character_select.tscn`에서 카드 3개 중 하나를 골라 시작. "견습
+- **플레이어블 캐릭터 ([대형 기획 1], 4/5종)**:
+  `character_select.tscn`에서 카드 4개(화면 폭에 맞춰 카드 폭이 동적으로
+  줄어듦, 5종이 돼도 화면 밖으로 안 잘림) 중 하나를 골라 시작. "견습
   모험가"(기믹 없음)/"광전사"(극단형 — 공격+방어 다이스 전부 min/max만 나옴)/
-  "수호자"(안정형 — 방어 다이스 하나만 항상 고정값). 캐릭터 정의는
-  `code/systems/character_profiles.gd`(`CharacterProfiles.PROFILES`), 적용은
-  `RunState.reset_run(character_id)`가 새 주머니를 만든 직후 한 번(몬스터
-  기믹과 같은 "정적 적용" 방식 — 이후 다이스 개조로 주머니가 바뀌어도
-  재적용되지 않음). 남은 2종("폭발형" + 다섯 번째 컨셉)은 아래 "다음 할 일
-  큐" 14번 참고. 3종의 밸런스/체감이 적당한지는 사람 플레이 피드백 필요.
+  "수호자"(안정형 — 방어 다이스 하나만 항상 고정값)/"폭발병"(폭발형 — 공격
+  다이스가 최댓값 면을 보여줄 때마다 전투 중 스택이 쌓이고 3스택에서 다음
+  공격 한 턴만 1D20으로 굴림, 몬스터 "고블린"의 anger_stack과 같은 메커니즘을
+  플레이어 공격턴에 적용). 캐릭터 정의는
+  `code/systems/character_profiles.gd`(`CharacterProfiles.PROFILES`). "광전사"/
+  "수호자"는 `RunState.reset_run(character_id)`가 새 주머니를 만든 직후 한 번
+  정적으로 다이스를 개조하지만(몬스터 기믹과 같은 방식 — 이후 다이스 개조로
+  주머니가 바뀌어도 재적용되지 않음), "폭발병"은 정적 개조가 없고
+  `combat_test.gd`의 전투 중 상태(`player_dice_gimmick`/`player_explosive_stacks`/
+  `player_explosive_pending`)로 턴마다 추적된다(덱 패널에는 표준 다이스
+  그대로 보이는 게 정상 — 효과는 전투 로그에서만 드러남). 남은 1종(다섯 번째
+  컨셉)은 아래 "다음 할 일 큐" 14번 참고. 4종의 밸런스/체감이 적당한지는 사람
+  플레이 피드백 필요.
 - **다이스 시스템**: `DiceBag`(주머니)+`CombatMath`, D4/D6/D8/D10/D12/D20
   지오메트리 전부 정확히 구현. 재질별(플라스틱/나무/유리/철제) 시각 색 구분.
   몬스터 다이스는 방 진행에 따라 D4→D6→D8로 스케일링.
@@ -131,7 +138,7 @@
   디자인은 여전히 순수하게 사람 기획 대기(2026-09-01부터 — 이미 구현한 다이스
   기믹 3종을 어느 몬스터에 배정하는 게 맞는지도 이게 먼저 나와야 결정 가능),
   AI가 혼자 진전시킬 수 없음 — 아래 "알려진 이슈" 참고. [대형 기획 1](플레이어블
-  캐릭터 4종 추가)은 이번에 3/5종 착수 — 남은 2종은 아래 "다음 할 일 큐" 14번
+  캐릭터)은 4/5종 완료 — 남은 1종(다섯 번째 컨셉)은 아래 "다음 할 일 큐" 14번
   참고. [대형 기획 2](보스 + 3라운드 구조)는 첫 조각(보스 스탯 강화)만 착수 —
   남은 조각(라운드 반복/재진입/최종 클리어 엔딩)은 아래 "다음 할 일 큐" 15번 참고.
 - 상세 이력은 아래 "완료 기록"(최근 10개)과, 그보다 오래된 것은
@@ -479,23 +486,25 @@
     (아래 14/15번 참고) — 그전까지는 이 큐 항목 자체가 사실상 14/15번에
     종속됨. 해금 "순간"에 화면에 토스트/팝업 알림을 줄지(지금은 목록을 직접
     열어야만 확인 가능)는 사람 판단 필요 — 아직 안 만듦.
-14. **(INBOX.md 신규 2026-09-09, [대형 기획 1]) 플레이어블 캐릭터 4종 추가 —
-    3/5종 완료(2026-09-09 (84)).** `code/systems/character_profiles.gd`
+14. **(INBOX.md 신규 2026-09-09, [대형 기획 1]) 플레이어블 캐릭터 — 4/5종
+    완료(2026-09-09 (84)+(85)).** `code/systems/character_profiles.gd`
     (`CharacterProfiles.PROFILES`)에 캐릭터 데이터 구조(id/이름/설명/시작 기믹/
-    머리·원피스 색)를 정의하고, `character_select.tscn`을 카드 1개("확인")에서
-    카드 여러 개 중 하나를 고르는 선택 UI로 확장 완료. 등록된 3종: "견습
+    머리·원피스 색)를 정의하고, `character_select.tscn`을 카드 여러 개 중
+    하나를 고르는 선택 UI(카드 폭이 캐릭터 수에 맞춰 동적으로 줄어들어 화면
+    밖으로 안 잘림, `CARD_WIDTH_MAX`/`ROW_MARGIN`)로 완성. 등록된 4종: "견습
     모험가"(기존, 기믹 없음)/"광전사"(극단형, `DiceBag.force_min_max_faces()`를
-    공격+방어 둘 다에 적용)/"수호자"(안정형, 신규 `DiceBag.
-    force_fixed_value_for_die()`로 방어 다이스 딱 하나만 고정값). 선택된
-    캐릭터의 기믹은 `RunState.reset_run(character_id)`가 새 주머니를 만든
-    직후 적용되고, 인자 없이 부르는 기존 호출부(패배 후 재시작 등)는 직전
-    캐릭터를 유지. 캐릭터별 실루엣은 기존 `character_portrait_placeholder.gd`를
-    색상만 다르게 재사용(`set_palette()` 신규). 남은 조각: (1) "폭발형"
-    (INBOX.md 예시 — 매 턴 상태를 추적해야 하는 몬스터 "고블린"의 분노 스택
-    (`count_max_rolls`)과 같은 패턴, 플레이어 공격턴에도 같은 상태 추적을
-    붙여야 해서 `combat_test.gd`의 턴 로직(`_do_exchange()`)까지 건드려야
-    하는 더 큰 작업 — 다음 조각으로 남김), (2) 다섯 번째 캐릭터 컨셉/기믹은
-    아직 미정(사람이 정하거나 AI가 다음 이터레이션에 제안 가능). 3종의
+    공격+방어 둘 다에 적용)/"수호자"(안정형, `DiceBag.
+    force_fixed_value_for_die()`로 방어 다이스 딱 하나만 고정값)/"폭발병"
+    (폭발형, `combat_test.gd`의 전투 중 상태로 공격 다이스 최댓값 스택을
+    추적해 3스택에서 다음 공격 1D20 — 정적 다이스 개조가 아니라
+    `run_state.gd`의 match 문에는 안 걸리고 combat_test.gd가 직접 처리).
+    "견습/광전사/수호자"는 `RunState.reset_run(character_id)`가 새 주머니를
+    만든 직후 정적으로 기믹을 적용하고, 인자 없이 부르는 기존 호출부(패배 후
+    재시작 등)는 직전 캐릭터를 유지. 캐릭터별 실루엣은 기존
+    `character_portrait_placeholder.gd`를 색상만 다르게 재사용(`set_palette()`).
+    남은 조각: 다섯 번째 캐릭터 컨셉/기믹은 아직 미정(사람이 정하거나 AI가
+    다음 이터레이션에 제안 가능 — INBOX.md 원래 예시 3개인 극단형/안정형/
+    폭발형은 이제 전부 구현됐으므로, 다섯 번째는 새 컨셉이 필요함). 4종의
     강화폭/체감 밸런스가 적당한지는 사람 플레이 피드백 필요.
 15. **(INBOX.md 신규 2026-09-09, [대형 기획 2]) 던전 마지막 보스 + 3라운드 구조 —
     1/3 조각 완료.** 마지막 방(room_index == `RunState.TOTAL_ROOMS - 1`)의
@@ -510,27 +519,6 @@
 
 ## 완료 기록
 
-- **2026-09-09 (75)**: INBOX.md에 새로 채워진 "몬스터별 다이스 특이 특징 관련
-  방향/예시" 3개(고정값 다이스/min·max 전용 다이스/분노 스택→D20) 중, 기존
-  `DiceBag` API(`set_face_value`와 같은 패턴)만으로 새 상태 추적 없이 구현 가능한
-  "min/max 전용 다이스"(중간값 없음, 하이리스크/로우리스크) 하나만 골라 처리 —
-  최상위 지침("큰 시스템 변경 제안은 가장 작고 독립적으로 검증 가능한 조각 하나만")을
-  그대로 따름. `code/systems/dice_bag.gd`에 `force_min_max_faces()`를 추가(각
-  다이스의 면 값을 절반은 최솟값·절반은 최댓값으로 강제, 면 개수/min_possible/
-  max_possible은 그대로 유지). `code/scenes/combat_test.gd`의 `MONSTER_PROFILES`
-  "다크 나이트"(room_index=4에서 등장, D8 다이스로 스케일링된 방)에만
-  `dice_gimmick: "min_max_only"`를 부여하고 `_ready()`에서 몬스터 공격/방어 주머니
-  생성 직후 조건부로 적용. 몬스터별 성격 기획(큐 8)이 아직 없어 "왜 다크
-  나이트인지"는 근거 없는 임시 배정임을 코드 주석/INBOX.md에 명시(성격 기획이
-  나오면 재배정 가능). 이름에도 "[극단]" 표시를 붙여 플레이어가 눈으로 구분할 수
-  있게 함. `dice_test.gd`에 신규 검증 3종(면 구성이 실제로 min/max만 있는지,
-  300회 굴림에서 중간값이 단 한 번도 안 나오는지, room4/room0 config가 서로 영향
-  없는지) 추가해 회귀 스위트 70개 항목 전체 PASS.
-  `qa_out/combat_test_dark_knight_gimmick.png`(`GAME_QA_ROOM_OVERRIDE=4`,
-  `GAME_QA_SETTLE=1`)로 실제 전투 화면에서 몬스터 방어 다이스가 정말 1/8(D8의
-  min/max)만 나오고, "다크 나이트 [극단] HP: 22/22" 라벨이 겹침/잘림 없이 표시됨을
-  확인. 나머지 2개 기믹("고정값 다이스", "분노 스택→D20")은 매 턴 상태 추적과 턴
-  로직 변경이 필요한 더 큰 작업이라 아래 "다음 할 일 큐" 9번에 세분화해서 남김.
 - **2026-09-09 (76)**: INBOX.md "성장의 재미가 없다" 피드백의 방향 1(다이스 개수
   캡 + 그 안에서 교체)을 착수. `DiceBag`에 `MAX_DICE=6`(시작 3개의 2배, 잠정값)
   상수와 `is_full()`을 추가. `DiceItemPool.is_applicable()`이 "다이스 추가"
@@ -771,7 +759,44 @@
   1종)은 아래 "다음 할 일 큐" 14번에 남김. 부수적으로 QA 훅 사용법 관련 위험을
   하나 발견 — 아래 "알려진 이슈" 참고(`GAME_QA_CALL`에 인자가 필요한 메서드를
   넘기면 창이 멈출 수 있음, 인자 없는 래퍼로 우회).
-*(이터레이션 74 이전의 더 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
+- **2026-09-09 (85)**: 큐 14([대형 기획 1] 플레이어블 캐릭터)의 남은 조각 중
+  "폭발형"을 구현해 4/5종 완료. 몬스터 "고블린"의 anger_stack 기믹(공격 다이스가
+  자기 최댓값 면을 보여줄 때마다 스택이 쌓이고, `ANGER_STACK_THRESHOLD`(3)에서
+  다음 공격 한 턴만 1D20으로 굴림)과 완전히 같은 구조를 플레이어 공격턴에
+  적용 — `character_profiles.gd`에 캐릭터 "폭발병"(`gimmick: "explosive_stack"`,
+  주황 계열 팔레트)을 추가하고, `combat_test.gd`에 `player_dice_gimmick`
+  (`_ready()`에서 `CharacterProfiles.get_profile(RunState.character_id)`로 읽음)/
+  `player_explosive_stacks`/`player_explosive_pending`(`EXPLOSIVE_STACK_
+  THRESHOLD`=3, `EXPLOSIVE_DICE_SIDES`=20, 몬스터 상태와 같은 상수값이지만
+  독립적으로 정의) 전투 중 상태를 신설했다. `_do_exchange()`의 atk_bag 선택
+  분기와, 몬스터 anger_stack 집계 블록 바로 아래에 병렬 구조의 플레이어
+  집계 블록(`is_player_attacking and player_dice_gimmick == "explosive_stack"`)을
+  추가 — `used_explosive_dice`로 폭발 굴림 자체가 다시 스택을 쌓지 않도록
+  구분하는 것까지 anger_stack과 동일. 정적 다이스 개조가 아니므로
+  `run_state.gd._apply_character_gimmick()`의 match 문에는 걸리지 않고
+  `_: pass`로 통과함을 주석으로 명시(character_profiles.gd 클래스 주석도
+  갱신). 작업 중 QA 스크린샷(`character_select_4cards.png`)에서 카드가 4개로
+  늘자 고정 `CARD_WIDTH=360`(3개 기준 계산)이 총 폭 1500px를 만들어 화면
+  (1280px) 오른쪽이 잘려나가는 회귀를 발견 — `character_select.gd`를 고쳐
+  `CARD_WIDTH_MAX`(360, 상한)와 `ROW_MARGIN`(20, 좌우 여백)으로 카드 폭을
+  `min(CARD_WIDTH_MAX, (1280 - ROW_MARGIN*2 - (count-1)*GAP) / count)`로
+  동적 계산하도록 바꿔, 캐릭터가 5종이 돼도(다음 조각) 화면 밖으로 안 잘리게
+  했다(`_make_card()`의 모든 `CARD_WIDTH` 참조를 매개변수 `card_width`로 교체).
+  `dice_test.gd`의 `_check_character_profiles`에 신규 검증 2개(get_profile
+  (explosive).gimmick == explosive_stack, reset_run(explosive) 후 공격/방어
+  주머니가 표준 D4x3 그대로인지 — explosive_stack이 정적 개조를 안 하는 것의
+  방증) 추가로 회귀 스위트 전체 PASS. `qa_out/character_select_4cards_fixed.png`
+  (카드 4개 겹침/잘림 없이 표시)/`combat_test_explosive_dice.png`(
+  `_debug_show_explosive_dice()`로 폭발 스택 임계치 도달 상태를 만들어 D20
+  다이스와 "폭발 직전! 다음 공격은 20면체 주사위로 터진다" 로그 문구가 겹침
+  없이 표시됨을 확인)/`dungeon_map_explosive_deck.png`(선택 → 던전 시작 →
+  실제 덱 패널까지 전체 경로, 정적 개조가 없으므로 공격/방어 다이스가
+  표준 1/2/3/4 그대로임을 확인 — "덱 패널에는 안 보이고 전투 로그에서만
+  드러나는 기믹"이라는 설계가 실제로 그렇게 보임)/
+  `combat_test_smoke_after_explosive.png`(기존 화면 회귀 없음)로 검증.
+  남은 것: 다섯 번째 캐릭터 컨셉/기믹은 여전히 미정(아래 "다음 할 일 큐" 14번),
+  4종 전체의 강화폭/체감 밸런스는 사람 플레이 피드백 필요.
+*(이터레이션 75 이전의 더 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임,
 2026-09-09 정리.)*
 
