@@ -93,6 +93,10 @@ func _ready() -> void:
 	all_pass = _check_customize_panel_double_face_chosen_guard(lines) and all_pass
 
 	lines.append("")
+	lines.append("[전투 승리 보상 이중 적용 방지 검증: combat_test.gd _apply_reward_choice]")
+	all_pass = _check_combat_double_reward_guard(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -744,6 +748,61 @@ func _check_combat_double_next_guard(lines: PackedStringArray) -> bool:
 
 	combat.free()
 	RunState.rooms_cleared = rooms_backup
+	return ok
+
+
+## combat_test.gd의 승리 보상 화면(_on_reward_chosen/_on_reward_skipped)도 같은 클래스의
+## 이중 실행 취약점을 갖고 있었다(이터레이션 68) — _clear_reward_ui()의 queue_free()가
+## 그 프레임 끝까지 카드/버튼을 실제로 지우지 않아, 더블클릭 시 같은 아이템이
+## DiceItemPool.apply()로 두 번 적용될 수 있었다. rooms_advance/story_continue와 같은
+## 패턴으로 상태 변경(_apply_reward_choice/_apply_reward_skip)을 UI(_on_reward_*)에서
+## 분리해 script.new()만으로 가드를 검증한다.
+func _check_combat_double_reward_guard(lines: PackedStringArray) -> bool:
+	var ok := true
+	var attack_bag_backup := RunState.player_attack_bag
+
+	RunState.player_attack_bag = DiceBag.new(4, 3)
+	var item: Dictionary = DiceItemPool.ITEMS[0]  # "add_die"
+
+	var combat_script := load("res://code/scenes/combat_test.gd")
+	var combat = combat_script.new()
+
+	var count_before: int = RunState.player_attack_bag.count
+	var first_applied: bool = combat._apply_reward_choice(item, "attack")
+	var first_ok: bool = first_applied and RunState.player_attack_bag.count == count_before + 1
+	ok = first_ok and ok
+	lines.append("  1차 보상 적용: applied=%s count=%d (기대 true, %d) -> %s" % [
+		first_applied, RunState.player_attack_bag.count, count_before + 1, "OK" if first_ok else "FAIL"
+	])
+
+	var second_applied: bool = combat._apply_reward_choice(item, "attack")
+	var guard_ok: bool = not second_applied and RunState.player_attack_bag.count == count_before + 1
+	ok = guard_ok and ok
+	lines.append("  2차 보상 재시도(이미 결정함): applied=%s count=%d (기대 false, 변화 없음) -> %s" % [
+		second_applied, RunState.player_attack_bag.count, "OK" if guard_ok else "FAIL"
+	])
+
+	var skip_after_choice: bool = combat._apply_reward_skip()
+	var skip_guard_ok := not skip_after_choice
+	ok = skip_guard_ok and ok
+	lines.append("  선택 후 건너뛰기 재시도(같은 플래그 공유): applied=%s (기대 false) -> %s" % [
+		skip_after_choice, "OK" if skip_guard_ok else "FAIL"
+	])
+
+	combat.free()
+
+	var combat2_script := load("res://code/scenes/combat_test.gd")
+	var combat2 = combat2_script.new()
+	var first_skip: bool = combat2._apply_reward_skip()
+	var second_skip: bool = combat2._apply_reward_skip()
+	var skip_ok := first_skip and not second_skip
+	ok = skip_ok and ok
+	lines.append("  건너뛰기 단독 이중 실행: first=%s second=%s (기대 true, false) -> %s" % [
+		first_skip, second_skip, "OK" if skip_ok else "FAIL"
+	])
+	combat2.free()
+
+	RunState.player_attack_bag = attack_bag_backup
 	return ok
 
 

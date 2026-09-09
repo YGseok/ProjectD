@@ -91,6 +91,7 @@ var monster_color := Color(1, 1, 1, 0)
 var battle_over := false
 var player_won := false
 var _room_advanced := false
+var _reward_resolved := false
 var _log_lines: Array[String] = []
 var _reward_ui: Array[Node] = []
 var _reward_items: Array[Dictionary] = []
@@ -557,15 +558,42 @@ func _clear_reward_ui() -> void:
 	_reward_ui.clear()
 
 
-func _on_reward_chosen(item: Dictionary, target: String) -> void:
+## shop.gd/event.gd(이터레이션 45)와 같은 이유의 이중 실행 가드. _clear_reward_ui()가
+## queue_free()로 카드/버튼을 지우는데 이는 그 프레임 끝까지 실제로는 트리에 남아있어
+## 클릭 가능한 상태다 — 가드 없이는 버튼을 빠르게 두 번 누르면(더블클릭 등) 같은
+## 아이템이 두 번 적용되거나(dict가 bind()로 같은 item/target을 물고 있음) 골드/눈금
+## 보상과 달리 재검증 수단(예: shop의 "골드 부족")이 없어 조용히 중복 적용될 수 있었다.
+## _apply_room_advance()/_apply_pick()과 같은 패턴으로 상태 변경(_apply_reward_choice)과
+## UI 갱신(_on_reward_chosen)을 분리해, @onready 노드 없이도(script.new()) 가드만
+## 회귀 테스트로 검증할 수 있게 한다. "선택"과 "건너뛰기"는 이 보상 단계의 한 번뿐인
+## 결정을 같은 플래그로 공유한다.
+func _apply_reward_choice(item: Dictionary, target: String) -> bool:
+	if _reward_resolved:
+		return false
+	_reward_resolved = true
 	var bag: DiceBag = RunState.player_attack_bag if target == "attack" else RunState.player_defense_bag
 	DiceItemPool.apply(item, bag)
+	return true
+
+
+func _apply_reward_skip() -> bool:
+	if _reward_resolved:
+		return false
+	_reward_resolved = true
+	return true
+
+
+func _on_reward_chosen(item: Dictionary, target: String) -> void:
+	if not _apply_reward_choice(item, target):
+		return
 	_append_log("아이템 획득: %s (%s 주머니)" % [item["name"], "공격" if target == "attack" else "방어"])
 	_clear_reward_ui()
 	next_button.show()
 
 
 func _on_reward_skipped() -> void:
+	if not _apply_reward_skip():
+		return
 	_clear_reward_ui()
 	next_button.show()
 
