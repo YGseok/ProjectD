@@ -192,6 +192,14 @@ func _monster_dice_sides_for_room(room_index: int) -> int:
 ## 잠정 난이도 스케일링 (DESIGN.md 미확정 — 1번째 방만 확정 수치 그대로 유지).
 ## room_index: 0부터 시작 (RunState.rooms_cleared와 동일한 기준, 즉 몇 번째 몬스터인지).
 ## room_index=0 -> 공격 2D4 / 방어 1D4 / HP10 (DESIGN.md 확정값과 동일).
+##
+## "보스"(INBOX.md 2026-09-09 [대형 기획 2] "던전 마지막에 보스급 몬스터"의 가장 작은
+## 착수 조각): 라운드/재진입 구조 없이, 지금 런의 마지막 방(room_index ==
+## RunState.TOTAL_ROOMS - 1)의 몬스터 스탯만 눈에 띄게 강화한다. 공격 다이스 +2개,
+## 방어 다이스 +1개, HP는 그 방 기본값의 2배(감으로 잡은 잠정값 — 실제 체감 난이도는
+## 사람 플레이 피드백 필요). TOTAL_ROOMS가 5로 고정돼 있는 한 room_index=4만 해당되고,
+## QA에서 GAME_QA_ROOM_OVERRIDE로 더 큰 값(9, 14 등)을 줘도 정확히 일치하지 않는 한
+## 보스로 취급하지 않는다(다음 라운드 개념이 아직 없으므로).
 func _monster_config_for_room(room_index: int) -> Dictionary:
 	var profile: Dictionary = MONSTER_PROFILES[room_index % MONSTER_PROFILES.size()]
 	var cycle := int(room_index / float(MONSTER_PROFILES.size()))
@@ -211,15 +219,25 @@ func _monster_config_for_room(room_index: int) -> Dictionary:
 		name_text += " [고정값 %d]" % gimmick_value
 	elif gimmick == "anger_stack":
 		name_text += " [분노]"
+	var attack_count := 2 + int(room_index / 2.0)
+	var defense_count := 1 + int(room_index / 3.0)
+	var max_hp := 10 + room_index * 3
+	var is_boss: bool = room_index == RunState.TOTAL_ROOMS - 1
+	if is_boss:
+		attack_count += 2
+		defense_count += 1
+		max_hp *= 2
+		name_text += " [보스]"
 	return {
-		"attack_count": 2 + int(room_index / 2.0),
-		"defense_count": 1 + int(room_index / 3.0),
+		"attack_count": attack_count,
+		"defense_count": defense_count,
 		"dice_sides": dice_sides,
-		"max_hp": 10 + room_index * 3,
+		"max_hp": max_hp,
 		"name": name_text,
 		"color": profile["color"],
 		"dice_gimmick": gimmick,
 		"dice_gimmick_value": gimmick_value,
+		"is_boss": is_boss,
 	}
 
 

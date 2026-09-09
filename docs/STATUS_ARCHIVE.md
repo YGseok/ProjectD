@@ -10,6 +10,31 @@
 
 ## 완료 기록 아카이브 (이터레이션 1~50, 오래된 순 아님 — 최신이 위)
 
+- **2026-09-09 (73)**: INBOX.md 큐 0-A에 남아있던 마지막 독립 작업 "다이스 승급
+  이벤트에서, 면 개수가 가장 작은것 교체가 아닌 획득으로 바꾼다. 눈금 획득 또는
+  다이스 승급시, 인벤토리로 들어와서 교체하도록 한다" 처리. `RunState.
+  die_inventory`(pip_inventory와 같은 정수 목록 패턴)를 신규 추가하고,
+  `systems/dice_item_pool.gd`의 "다이스 승급" 아이템(kind=upgrade_die)이 더 이상
+  `apply(item, bag)`로 즉시 어느 주머니의 가장 작은 다이스를 찾아 자동 교체하지
+  않도록 바꿈 — 대신 새 `apply_upgrade_gain(item)`이 `die_inventory`에 새 다이스
+  하나(면 개수만)를 쌓는다. `is_applicable()`도 upgrade_die 전용 "승급 대상 없음"
+  분기를 제거해 항상 true를 반환하도록 단순화(획득 자체는 실패할 일이 없으므로).
+  이 아이템을 제시하는 3곳(`shop.gd`/`event.gd`/`combat_test.gd` 승리 보상)의 UI를
+  모두 attack/defense 두 버튼에서 "구매"/"획득" 단일 버튼으로 바꿈(gain_pips와
+  같은 패턴). `code/scenes/customize_panel.gd`에 새 "다이스 인벤토리" 흐름을
+  추가 — 기존 1단계(눈금 선택) 화면에 "다이스 인벤토리 (N개)" 버튼을 붙여 진입,
+  인벤토리 다이스 선택 → 넣을 자리(공격/방어 주머니 슬롯) 선택 → 즉시 교환(밀려난
+  기존 다이스는 면 개수만 인벤토리로 복귀). 기존 다이스보다 면 개수가 작지 않은
+  자리는 "실제 승급이 아니므로" 비활성화해 의도치 않은 다운그레이드를 막음.
+  `dice_test.gd` 회귀 스위트에 신규 검증 4종(apply_upgrade_gain/is_applicable
+  변경/다이스 인벤토리 교환 로직/이중 실행 방지, event.gd upgrade 가드 포함) 추가,
+  기존 upgrade_die 관련 테스트(옛 "승급 대상 없음" 필터링 기대값)는 새 의미에
+  맞게 재작성해 전체 68개 항목 PASS. `qa_out/shop_upgrade_die.png`(구매 버튼 +
+  골드 차감 확인)/`event_upgrade_die.png`(획득 버튼)/`customize_die_inventory.png`
+  (인벤토리 목록)/`customize_die_target.png`(교체 대상 선택, 다운그레이드 자리
+  비활성화 확인) 4장으로 전부 겹침/크래시 없이 정상 표시됨을 확인. 이 2단계 흐름이
+  실제로 "인지하기 쉬운지", 다이스가 여러 개 쌓였을 때 UX가 번잡하지 않은지는
+  사람 플레이 피드백 필요.
 - **2026-09-09 (72)**: INBOX.md 남은 신규 피드백/큐 0-A 중 "던전 맵 선택지에
   예상 보상/효과 아이콘 표시"(리스크는 보이지만 리턴은 미리 알기 어렵다, 텍스트
   대신 도형/기호로 표현) 처리. 새 `code/scenes/reward_icon.gd`(`RewardIcon`,

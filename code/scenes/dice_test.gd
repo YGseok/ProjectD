@@ -503,6 +503,8 @@ func _check_monster_config_scaling(lines: PackedStringArray) -> bool:
 	])
 
 	# 공식 자체를 room_index 0..6에서 직접 재계산해 대조(경계값 0/1/2/3/4/5/6 전부 확인).
+	# room_index == RunState.TOTAL_ROOMS - 1(지금은 4)은 "보스" 보정(공격+2/방어+1/HP*2)이
+	# 추가로 붙으므로 그 방만 별도로 기대값을 조정한다.
 	var formula_ok := true
 	for idx in range(7):
 		var cfg = combat._monster_config_for_room(idx)
@@ -510,12 +512,28 @@ func _check_monster_config_scaling(lines: PackedStringArray) -> bool:
 		var expected_defense := 1 + int(idx / 3.0)
 		var expected_hp := 10 + idx * 3
 		var expected_sides := 8 if idx >= 4 else (6 if idx >= 2 else 4)
+		if idx == RunState.TOTAL_ROOMS - 1:
+			expected_attack += 2
+			expected_defense += 1
+			expected_hp *= 2
 		if cfg["attack_count"] != expected_attack or cfg["defense_count"] != expected_defense \
 			or cfg["max_hp"] != expected_hp or cfg["dice_sides"] != expected_sides:
 			formula_ok = false
 	ok = formula_ok and ok
-	lines.append("  room 0..6 스케일링 공식 일치(공격/방어/hp/면개수): %s -> %s" % [
+	lines.append("  room 0..6 스케일링 공식 일치(공격/방어/hp/면개수, 보스방 보정 포함): %s -> %s" % [
 		formula_ok, "OK" if formula_ok else "FAIL"
+	])
+
+	# 보스(room_index == TOTAL_ROOMS-1 == 4)만 is_boss=true + 이름에 "[보스]"가 붙어야
+	# 하고, 다른 방(room0/room3)은 영향받지 않아야 한다.
+	var boss_cfg = combat._monster_config_for_room(RunState.TOTAL_ROOMS - 1)
+	var non_boss_cfg = combat._monster_config_for_room(0)
+	var boss_ok: bool = boss_cfg["is_boss"] == true and boss_cfg["name"].ends_with("[보스]") \
+		and non_boss_cfg["is_boss"] == false and not non_boss_cfg["name"].ends_with("[보스]")
+	ok = boss_ok and ok
+	lines.append("  보스 방(room%d) is_boss/이름 태그, room0 영향 없음: boss=%s name=%s room0=%s -> %s" % [
+		RunState.TOTAL_ROOMS - 1, boss_cfg["is_boss"], boss_cfg["name"], non_boss_cfg["is_boss"],
+		"OK" if boss_ok else "FAIL"
 	])
 
 	# 이름 순환: MONSTER_PROFILES 5개를 다 돌면(room_index=5) "강화 " 접두어가 1번,
@@ -592,13 +610,14 @@ func _check_monster_dice_gimmick(lines: PackedStringArray) -> bool:
 	])
 
 	# combat_test.gd _monster_config_for_room(): room4(다크 나이트)만 gimmick이 켜지고
-	# 이름에 "[극단]"이 붙어야 하며, room0(슬라임)은 영향받지 않아야 한다.
+	# 이름에 "[극단]"이 붙어야 하며, room0(슬라임)은 영향받지 않아야 한다. room4는 동시에
+	# "보스" 방(room_index == RunState.TOTAL_ROOMS-1)이라 이름 끝에 "[보스]"도 붙는다.
 	var script := load("res://code/scenes/combat_test.gd")
 	var combat = script.new()
 	var room4_config = combat._monster_config_for_room(4)
-	var room4_ok: bool = room4_config["dice_gimmick"] == "min_max_only" and room4_config["name"] == "다크 나이트 [극단]"
+	var room4_ok: bool = room4_config["dice_gimmick"] == "min_max_only" and room4_config["name"] == "다크 나이트 [극단] [보스]"
 	ok = room4_ok and ok
-	lines.append("  room4 config: dice_gimmick=%s name=%s (기대 min_max_only, '다크 나이트 [극단]') -> %s" % [
+	lines.append("  room4 config: dice_gimmick=%s name=%s (기대 min_max_only, '다크 나이트 [극단] [보스]') -> %s" % [
 		room4_config["dice_gimmick"], room4_config["name"], "OK" if room4_ok else "FAIL"
 	])
 	var room0_config = combat._monster_config_for_room(0)
