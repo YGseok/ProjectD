@@ -60,6 +60,20 @@ const BUTTON_TOP_START := 320.0
 const BUTTON_SPACING := 70.0
 const BUTTON_HEIGHT := 50.0
 
+## 방 종류별로 "무엇을 줄 수 있는지" 카테고리(RewardIcon.category 값). 실제 골드/눈금
+## 수치나 상점 판매 품목은 매번 달라 정확한 값을 미리 보여주기 어려우므로, "카테고리"만
+## 고정 목록으로 둔다 (STATUS.md 큐 0-A 판단 참고).
+## - 전투: 승리 시 골드 + 눈금(확정 1개) + 다이스 아이템(2개 중 선택) 전부 보장.
+## - 상점: 골드로 다이스 아이템을 구매.
+## - 특수 이벤트: 무료로 다이스 아이템 또는 눈금 뭉치 중 하나.
+## - 스토리 이벤트: 선택에 따라 골드가 오르내림(다이스 무관).
+const REWARD_CATEGORIES := {
+	"combat": ["gold", "dice", "pip"],
+	"shop": ["dice"],
+	"event": ["dice", "pip"],
+	"story": ["gold"],
+}
+
 @onready var rooms_cleared_label: Label = $RoomsClearedLabel
 @onready var gold_label: Label = $GoldLabel
 @onready var enter_combat_button: Button = $EnterCombatButton
@@ -76,6 +90,7 @@ var _story_available := true
 var _room_order: Array[String] = ["shop", "event", "story"]
 var _map_line: ColorRect
 var _map_hbox: HBoxContainer
+var _reward_icon_rows: Dictionary = {} # room type -> HBoxContainer, 방 선택 버튼 옆에 붙는 보상 카테고리 아이콘
 
 
 func _ready() -> void:
@@ -85,8 +100,30 @@ func _ready() -> void:
 	enter_story_button.pressed.connect(_on_story_button_pressed)
 	customize_button.pressed.connect(customize_panel.open)
 	_setup_map_strip()
+	_setup_reward_icons()
 	_roll_room_choices()
 	_update_labels()
+
+
+## 방 선택 버튼(전투/상점/특수 이벤트/스토리 이벤트) 옆에 붙일 보상 카테고리 아이콘
+## 줄을 종류별로 미리 하나씩 만들어둔다 (버튼 자체는 노출 여부가 매 방마다 바뀌지만,
+## "이 종류의 방이 뭘 줄 수 있는지"는 고정이라 재사용 가능).
+func _setup_reward_icons() -> void:
+	for t in REWARD_CATEGORIES.keys():
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 4)
+		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		for cat in REWARD_CATEGORIES[t]:
+			row.add_child(_make_reward_icon(cat))
+		add_child(row)
+		_reward_icon_rows[t] = row
+
+
+func _make_reward_icon(category: String) -> RewardIcon:
+	var icon := RewardIcon.new()
+	icon.custom_minimum_size = Vector2(18, 18)
+	icon.category = category
+	return icon
 
 
 ## 현재 방(rooms_cleared) 기준으로 상점/특수 이벤트/스토리 이벤트 노출 여부를 결정한다.
@@ -212,7 +249,7 @@ func _make_map_node(idx: int) -> Control:
 	vbox.add_child(title)
 
 	var opts := _room_options_for_index(idx)
-	vbox.add_child(_make_type_chip("전투", Color(0.5, 0.2, 0.2)))
+	vbox.add_child(_make_type_chip("전투", Color(0.5, 0.2, 0.2), "combat"))
 	var chip_specs := {
 		"shop": ["상점", Color(0.5, 0.42, 0.15)],
 		"event": ["특수 이벤트", Color(0.35, 0.22, 0.5)],
@@ -221,12 +258,15 @@ func _make_map_node(idx: int) -> Control:
 	for t in opts.order:
 		if opts[t]:
 			var spec: Array = chip_specs[t]
-			vbox.add_child(_make_type_chip(spec[0], spec[1]))
+			vbox.add_child(_make_type_chip(spec[0], spec[1], t))
 
 	return panel
 
 
-func _make_type_chip(text: String, color: Color) -> Control:
+## room_type을 넘기면 REWARD_CATEGORIES에 따른 보상 카테고리 아이콘을 텍스트 앞에
+## 붙여, MapStrip 미리보기에서도 "이 방이 뭘 줄 수 있는지"를 도형으로 알 수 있게 한다
+## (INBOX.md 피드백 — 선택지 버튼과 같은 시각 언어를 미리보기에도 반영).
+func _make_type_chip(text: String, color: Color, room_type: String = "") -> Control:
 	var chip := PanelContainer.new()
 	var style := StyleBoxFlat.new()
 	style.bg_color = color
@@ -237,12 +277,23 @@ func _make_type_chip(text: String, color: Color) -> Control:
 	style.content_margin_bottom = 2
 	chip.add_theme_stylebox_override("panel", style)
 
+	var hbox := HBoxContainer.new()
+	hbox.add_theme_constant_override("separation", 3)
+	chip.add_child(hbox)
+
+	if REWARD_CATEGORIES.has(room_type):
+		for cat in REWARD_CATEGORIES[room_type]:
+			var icon := _make_reward_icon(cat)
+			icon.custom_minimum_size = Vector2(12, 12)
+			hbox.add_child(icon)
+
 	var label := Label.new()
 	label.text = text
 	label.add_theme_font_size_override("font_size", 11)
 	label.add_theme_color_override("font_color", Color(0.95, 0.95, 0.95))
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	chip.add_child(label)
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	hbox.add_child(label)
 	return chip
 
 
@@ -257,16 +308,28 @@ func _layout_visible_buttons() -> void:
 		"story": enter_story_button,
 	}
 	var visible_buttons: Array[Button] = [enter_combat_button]
+	var visible_types: Array[String] = ["combat"]
 	for t in _room_order:
 		var btn: Button = type_button_map[t]
 		if btn.visible:
 			visible_buttons.append(btn)
+			visible_types.append(t)
 	visible_buttons.append(customize_button)
+	visible_types.append("")
+
+	for row in _reward_icon_rows.values():
+		row.visible = false
 
 	var y := BUTTON_TOP_START
-	for btn in visible_buttons:
+	for i in visible_buttons.size():
+		var btn: Button = visible_buttons[i]
 		btn.offset_top = y
 		btn.offset_bottom = y + BUTTON_HEIGHT
+		var t: String = visible_types[i]
+		if _reward_icon_rows.has(t):
+			var row: HBoxContainer = _reward_icon_rows[t]
+			row.visible = true
+			row.position = Vector2(btn.offset_right + 16.0, y + (BUTTON_HEIGHT - 18.0) * 0.5)
 		y += BUTTON_SPACING
 
 
