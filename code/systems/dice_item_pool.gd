@@ -37,10 +37,11 @@ const ITEMS: Array[Dictionary] = [
 
 ## n개의 서로 다른 아이템을 무작위로 뽑아 반환한다 (목록보다 많이 요청하면 있는 만큼만).
 ##
-## attack_bag/defense_bag은 하위 호환을 위해 남아있는 인자다 — is_applicable()이 이제
-## 항상 true를 반환하므로(다이스 승급류가 즉시 적용 대신 인벤토리 획득으로 바뀌어
-## "승급 대상 없음" 개념 자체가 사라짐, 2026-09-09) 실제로는 필터링을 하지 않는다.
-## 두 인자를 생략해도 결과는 동일하다.
+## attack_bag/defense_bag을 넘기면 두 주머니 모두에 적용 불가능한 아이템(2026-09-09부터는
+## "add_die"인데 두 주머니가 전부 MAX_DICE 캡에 도달한 경우가 해당)은 후보에서 우선
+## 제외한다 — 부족해지면(applicable.size() < n) 원래 목록으로 폴백해 빈 슬롯이 생기지
+## 않게 한다(2026-09-07 도입 패턴 그대로 유지). 두 인자를 생략하면 필터링 없이 전체
+## 목록에서 뽑는다.
 static func random_choices(n: int, attack_bag: DiceBag = null, defense_bag: DiceBag = null) -> Array[Dictionary]:
 	var items := ITEMS.duplicate(true)
 	if attack_bag != null and defense_bag != null:
@@ -57,6 +58,8 @@ static func random_choices(n: int, attack_bag: DiceBag = null, defense_bag: Dice
 static func apply(item: Dictionary, bag: DiceBag) -> void:
 	match item["kind"]:
 		"add_die":
+			if bag.is_full():
+				return
 			bag.add_die(item["sides"])
 		"boost_weak_face":
 			_boost_weakest_face(bag)
@@ -77,14 +80,25 @@ static func apply_upgrade_gain(item: Dictionary) -> void:
 	RunState.die_inventory.append(item["new_sides"])
 
 
-## item이 bag에 적용했을 때 실제 효과가 있는지 확인한다. add_die/boost_weak_face/
-## uniform_faces는 주머니에 다이스가 하나라도 있으면(항상 그렇다) 언제나 효과가
-## 있으므로 항상 true. upgrade_die는 더 이상 bag에 즉시 적용되지 않고(항상 인벤토리로
-## 획득되기만 하므로, apply_upgrade_gain() 참고) 대상 유무와 무관하게 항상 획득
-## 가능하다 — 예전에는 "승급 대상이 없으면 후보에서 제외"하는 필터링이 여기 있었지만,
-## 이제 획득 자체가 실패할 일이 없으므로 그 로직은 더 이상 필요 없다.
+## item이 bag에 적용했을 때 실제 효과가 있는지 확인한다. boost_weak_face/uniform_faces는
+## 주머니에 다이스가 하나라도 있으면(항상 그렇다) 언제나 효과가 있으므로 항상 true.
+## upgrade_die는 더 이상 bag에 즉시 적용되지 않고(항상 인벤토리로 획득되기만 하므로,
+## apply_upgrade_gain() 참고) 대상 유무와 무관하게 항상 획득 가능. add_die만 예외 —
+## 2026-09-09부터 DiceBag.MAX_DICE 캡이 생겨(성장 방식을 "계속 늘어남"에서 "고정 풀 안
+## 교체"로 바꾸는 첫 조각, INBOX.md 참고) bag이 이미 캡에 도달했으면 더 넣을 자리가
+## 없으므로 false.
 static func is_applicable(item: Dictionary, bag: DiceBag) -> bool:
+	if item.get("kind", "") == "add_die":
+		return not bag.is_full()
 	return true
+
+
+## is_applicable()이 false일 때 버튼에 보여줄 이유 문구. add_die는 "승급 대상 없음"이
+## 의미가 안 맞아(승급이 아니라 추가 아이템이므로) 별도 문구가 필요해서 분리했다.
+static func unavailable_reason(item: Dictionary) -> String:
+	if item.get("kind", "") == "add_die":
+		return "주머니 가득 참 (최대 %d개)" % DiceBag.MAX_DICE
+	return "승급 대상 없음"
 
 
 ## boost_weak_face/uniform_faces가 공통으로 쓰는 "가장 개선이 필요한 다이스/면" 탐색.

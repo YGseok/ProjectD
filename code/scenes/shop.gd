@@ -77,7 +77,7 @@ func _rebuild_items() -> void:
 			button_row.add_child(atk_preview)
 		var atk_applicable := DiceItemPool.is_applicable(item, RunState.player_attack_bag)
 		var atk_btn := Button.new()
-		atk_btn.text = "공격 주머니에 구매" if (afford and atk_applicable) else ("골드 부족" if not afford else "승급 대상 없음")
+		atk_btn.text = "공격 주머니에 구매" if (afford and atk_applicable) else ("골드 부족" if not afford else DiceItemPool.unavailable_reason(item))
 		atk_btn.disabled = not (afford and atk_applicable)
 		atk_btn.custom_minimum_size = Vector2(0, 38)
 		atk_btn.pressed.connect(_on_buy_pressed.bind(item, cost, "attack"))
@@ -88,7 +88,7 @@ func _rebuild_items() -> void:
 			button_row.add_child(def_preview)
 		var def_applicable := DiceItemPool.is_applicable(item, RunState.player_defense_bag)
 		var def_btn := Button.new()
-		def_btn.text = "방어 주머니에 구매" if (afford and def_applicable) else ("골드 부족" if not afford else "승급 대상 없음")
+		def_btn.text = "방어 주머니에 구매" if (afford and def_applicable) else ("골드 부족" if not afford else DiceItemPool.unavailable_reason(item))
 		def_btn.disabled = not (afford and def_applicable)
 		def_btn.custom_minimum_size = Vector2(0, 38)
 		def_btn.pressed.connect(_on_buy_pressed.bind(item, cost, "defense"))
@@ -141,3 +141,14 @@ func _debug_buy_upgrade_item() -> void:
 ## _debug_open_customize와 같은 목적).
 func _debug_open_customize() -> void:
 	customize_panel.open()
+
+
+## qa/visual_qa.gd의 GAME_QA_CALL로 호출하기 위한 QA 전용 훅. DiceBag.MAX_DICE 캡
+## (2026-09-09)에 도달했을 때 "다이스 추가 (D4)" 카드의 두 버튼이 "주머니 가득 참
+## (최대 N개)" 문구로 비활성화되는 것을 실제 화면에서 눈으로 확인하기 위함 —
+## 정상 플레이로는 6개까지 다이스를 사려면 여러 방을 거쳐야 해서 우회함.
+func _debug_show_maxed_attack_bag() -> void:
+	RunState.gold = 999
+	while not RunState.player_attack_bag.is_full():
+		RunState.player_attack_bag.add_die(4)
+	_rebuild_items()

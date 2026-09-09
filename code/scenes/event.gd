@@ -64,7 +64,7 @@ func _rebuild_items() -> void:
 			button_row.add_child(atk_preview)
 		var atk_applicable := DiceItemPool.is_applicable(item, RunState.player_attack_bag)
 		var atk_btn := Button.new()
-		atk_btn.text = "공격 주머니에 적용" if atk_applicable else "승급 대상 없음"
+		atk_btn.text = "공격 주머니에 적용" if atk_applicable else DiceItemPool.unavailable_reason(item)
 		atk_btn.disabled = not atk_applicable
 		atk_btn.custom_minimum_size = Vector2(0, 38)
 		atk_btn.pressed.connect(_on_pick_pressed.bind(item, "attack"))
@@ -75,7 +75,7 @@ func _rebuild_items() -> void:
 			button_row.add_child(def_preview)
 		var def_applicable := DiceItemPool.is_applicable(item, RunState.player_defense_bag)
 		var def_btn := Button.new()
-		def_btn.text = "방어 주머니에 적용" if def_applicable else "승급 대상 없음"
+		def_btn.text = "방어 주머니에 적용" if def_applicable else DiceItemPool.unavailable_reason(item)
 		def_btn.disabled = not def_applicable
 		def_btn.custom_minimum_size = Vector2(0, 38)
 		def_btn.pressed.connect(_on_pick_pressed.bind(item, "defense"))

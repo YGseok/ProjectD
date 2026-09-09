@@ -13,10 +13,23 @@ extends RefCounted
 
 var dice: Array[PackedInt32Array] = []
 
+## INBOX.md 2026-09-09 "성장의 재미가 없다" 피드백 방향 1: 다이스 개수를 계속 늘리는
+## 대신 고정된 풀 안에서 다이스/눈금을 교체하는 방식으로 성장을 표현한다. 그 전제로
+## "주머니 하나에 다이스가 몇 개까지 들어갈 수 있는지" 상한이 필요함 — 시작 3개(공격/
+## 방어 각각 D4x3, DESIGN.md)의 2배인 6개로 잠정 설정. 정확한 캡 수치가 적당한지는
+## 사람이 실제로 5방 런을 플레이해보고 판단해야 하는 영역(밸런스 수치라 임의값으로
+## 둔다는 기존 합의를 따름).
+const MAX_DICE := 6
+
 
 func _init(p_sides: int = 0, p_count: int = 0) -> void:
 	for i in p_count:
 		add_die(p_sides)
+
+
+## 주머니가 캡(MAX_DICE)에 도달해 더 이상 다이스를 추가할 수 없는지 확인한다.
+func is_full() -> bool:
+	return dice.size() >= MAX_DICE
 
 
 ## 주머니 전체를 굴려 눈의 합계를 반환한다 (재보충형: 매번 전체 다이스를 새로 굴림).

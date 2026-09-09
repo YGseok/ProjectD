@@ -45,6 +45,10 @@ func _ready() -> void:
 	all_pass = _check_item_pool(lines) and all_pass
 
 	lines.append("")
+	lines.append("[다이스 개수 캡 검증: dice_bag.gd MAX_DICE / dice_item_pool.gd is_applicable(add_die)]")
+	all_pass = _check_dice_cap(lines) and all_pass
+
+	lines.append("")
 	lines.append("[던전 맵 방 선택지 결정성 검증: dungeon_map.gd _room_options_for_index]")
 	all_pass = _check_dungeon_map_room_options(lines) and all_pass
 
@@ -240,12 +244,13 @@ func _check_item_pool(lines: PackedStringArray) -> bool:
 	var non_upgrade_applicable := DiceItemPool.is_applicable({"kind": "add_die", "sides": 4}, no_target_bag)
 	var non_upgrade_ok := non_upgrade_applicable == true
 	ok = non_upgrade_ok and ok
-	lines.append("  is_applicable(add_die, 항상 적용 가능): %s (기대 true) -> %s" % [non_upgrade_applicable, "OK" if non_upgrade_ok else "FAIL"])
+	lines.append("  is_applicable(add_die, 가득 안 찬 bag): %s (기대 true) -> %s" % [non_upgrade_applicable, "OK" if non_upgrade_ok else "FAIL"])
 
-	# random_choices(n, attack_bag, defense_bag): is_applicable이 항상 true이므로 이제
-	# bag 상태와 무관하게 필터링이 전혀 일어나지 않는다 — 예전에는 "양쪽 다 승급 대상이
-	# 없으면 upgrade_die 제외"였지만, 획득이 실패할 일이 없어진 지금은 항상 전체
-	# 목록(4개)에서 그대로 뽑혀야 한다.
+	# random_choices(n, attack_bag, defense_bag): upgrade_die는 is_applicable이 항상
+	# true이므로 bag 상태와 무관하게 필터링되지 않는다. add_die는 2026-09-09부터
+	# DiceBag.MAX_DICE 캡이 생겨 "두 bag 모두 가득 찬" 경우에만 필터링되는데(아래
+	# _check_dice_cap 참고), 여기 쓰는 bag(count=3, MAX_DICE=6)은 아직 안 가득 찼으므로
+	# 이 테스트에서는 여전히 필터링 없이 전체 목록(4개)에서 그대로 뽑혀야 한다.
 	var maxed_attack := DiceBag.new(6, 3)
 	var maxed_defense := DiceBag.new(6, 3)
 	var unfiltered_size_ok := true
@@ -308,6 +313,75 @@ func _check_item_pool(lines: PackedStringArray) -> bool:
 	var non_effect_ok: bool = non_effect_preview == null
 	ok = non_effect_ok and ok
 	lines.append("  preview_effect(add_die): %s (기대 null) -> %s" % [non_effect_preview, "OK" if non_effect_ok else "FAIL"])
+
+	return ok
+
+
+## INBOX.md 2026-09-09 "성장의 재미가 없다" 피드백 방향 1(다이스 개수를 계속 늘리는
+## 대신 고정 풀 안에서 교체)의 첫 조각인 DiceBag.MAX_DICE 캡이 실제로 add_die류
+## 아이템을 막는지 검증한다. is_full()/is_applicable()/apply()가 서로 어긋나면
+## "버튼은 비활성화됐는데 apply는 조용히 통과함" 같은 불일치가 생길 수 있어 셋을
+## 함께 확인한다.
+func _check_dice_cap(lines: PackedStringArray) -> bool:
+	var ok := true
+
+	var not_full_bag := DiceBag.new(4, 3)
+	var not_full_ok := not_full_bag.is_full() == false
+	ok = not_full_ok and ok
+	lines.append("  is_full(count=3, MAX=%d): %s (기대 false) -> %s" % [
+		DiceBag.MAX_DICE, not_full_bag.is_full(), "OK" if not_full_ok else "FAIL"
+	])
+
+	var full_bag := DiceBag.new(4, DiceBag.MAX_DICE)
+	var full_ok := full_bag.is_full() == true
+	ok = full_ok and ok
+	lines.append("  is_full(count=%d, MAX=%d): %s (기대 true) -> %s" % [
+		DiceBag.MAX_DICE, DiceBag.MAX_DICE, full_bag.is_full(), "OK" if full_ok else "FAIL"
+	])
+
+	var add_item := {"kind": "add_die", "sides": 4}
+	var applicable_when_full := DiceItemPool.is_applicable(add_item, full_bag)
+	var applicable_ok := applicable_when_full == false
+	ok = applicable_ok and ok
+	lines.append("  is_applicable(add_die, 가득 찬 bag): %s (기대 false) -> %s" % [
+		applicable_when_full, "OK" if applicable_ok else "FAIL"
+	])
+
+	DiceItemPool.apply(add_item, full_bag)
+	var apply_noop_ok := full_bag.count == DiceBag.MAX_DICE
+	ok = apply_noop_ok and ok
+	lines.append("  apply(add_die, 가득 찬 bag)은 아무 일도 안 함: count=%d (기대 %d, 변화 없음) -> %s" % [
+		full_bag.count, DiceBag.MAX_DICE, "OK" if apply_noop_ok else "FAIL"
+	])
+
+	var reason := DiceItemPool.unavailable_reason(add_item)
+	var reason_ok := reason.find("가득") >= 0
+	ok = reason_ok and ok
+	lines.append("  unavailable_reason(add_die): \"%s\" (기대 '가득 참' 문구 포함) -> %s" % [
+		reason, "OK" if reason_ok else "FAIL"
+	])
+
+	var upgrade_reason := DiceItemPool.unavailable_reason({"kind": "upgrade_die"})
+	var upgrade_reason_ok := upgrade_reason == "승급 대상 없음"
+	ok = upgrade_reason_ok and ok
+	lines.append("  unavailable_reason(upgrade_die): \"%s\" (기대 '승급 대상 없음') -> %s" % [
+		upgrade_reason, "OK" if upgrade_reason_ok else "FAIL"
+	])
+
+	# 양쪽 주머니 모두 캡에 도달하면 random_choices()가 add_die를 후보에서 제외해야
+	# 한다(대체 후보 3개(upgrade_die/boost_weak_face/uniform_faces)로 충분하므로
+	# 2026-09-07 도입 폴백 없이 바로 필터링됨).
+	var maxed_attack := DiceBag.new(4, DiceBag.MAX_DICE)
+	var maxed_defense := DiceBag.new(4, DiceBag.MAX_DICE)
+	var choices := DiceItemPool.random_choices(3, maxed_attack, maxed_defense)
+	var excludes_add_die := true
+	for c in choices:
+		if c.get("kind", "") == "add_die":
+			excludes_add_die = false
+	ok = excludes_add_die and ok
+	lines.append("  random_choices(3, 양쪽 캡 도달): add_die 후보 제외됨=%s -> %s" % [
+		excludes_add_die, "OK" if excludes_add_die else "FAIL"
+	])
 
 	return ok
 
