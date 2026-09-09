@@ -230,13 +230,24 @@ func _update_labels() -> void:
 		# 매번 다시 그릴 때마다 불려도 unlock()이 멱등(이미 해금됐으면 아무 일도 안 함)
 		# 이라 안전하다.
 		AchievementManager.unlock("round1_clear")
-		rooms_cleared_label.text = "던전 클리어! (%d / %d 방 격파)" % [RunState.rooms_cleared, RunState.TOTAL_ROOMS]
+		# [대형 기획 2] 조각 (b): combat_test.gd의 _apply_room_advance()가 보스를 잡을 때마다
+		# 마지막 라운드가 아니면 즉시 RunState.advance_round()로 rooms_cleared를 0으로
+		# 되돌리므로, 이 분기(is_run_complete()==true)는 이제 실질적으로 "마지막 라운드의
+		# 보스까지 잡은 진짜 최종 클리어" 상태에서만 도달한다. 문구 자체를 "게임 클리어!"로
+		# 바꾸는 것은 다음 조각 (c)의 몫 — 지금은 라운드 번호만 덧붙인다.
+		rooms_cleared_label.text = "라운드 %d/%d · 던전 클리어! (%d / %d 방 격파)" % [
+			RunState.round_index, RunState.TOTAL_ROUNDS, RunState.rooms_cleared, RunState.TOTAL_ROOMS
+		]
 		enter_combat_button.text = "새 런 시작"
 		enter_shop_button.hide()
 		enter_event_button.hide()
 		enter_story_button.hide()
 	else:
-		rooms_cleared_label.text = "클리어한 방: %d / %d" % [RunState.rooms_cleared, RunState.TOTAL_ROOMS]
+		# 라운드 번호를 항상 함께 보여줘 보스를 잡고 새 라운드로 넘어갔을 때(rooms_cleared가
+		# 0으로 리셋된 것) 플레이어가 "왜 방 개수가 줄었지"로 헷갈리지 않게 한다.
+		rooms_cleared_label.text = "라운드 %d/%d · 클리어한 방: %d / %d" % [
+			RunState.round_index, RunState.TOTAL_ROUNDS, RunState.rooms_cleared, RunState.TOTAL_ROOMS
+		]
 		enter_combat_button.text = "전투 방 입장 (%d번째 방)" % (RunState.rooms_cleared + 1)
 		enter_shop_button.text = "상점 입장 (%d번째 방)" % (RunState.rooms_cleared + 1)
 		enter_event_button.text = "특수 이벤트 입장 (%d번째 방)" % (RunState.rooms_cleared + 1)
@@ -427,6 +438,17 @@ func _on_story_button_pressed() -> void:
 ## 진행됐을 때 제대로 갱신되는지 확인하려고 몇 방을 건너뛰어 본다.
 func _debug_advance_rooms(count: int = 2) -> void:
 	RunState.rooms_cleared = min(RunState.rooms_cleared + count, RunState.TOTAL_ROOMS)
+	_roll_room_choices()
+	_update_labels()
+
+
+## QA 전용 — [대형 기획 2] 조각 (b) 검증용. 실제로 3라운드 중 첫 보스까지 잡아야만
+## round_index가 2로 바뀌는데(느림), 여기서는 combat_test.gd의 _apply_room_advance()가
+## 이미 다룬 RunState 상태 전이(dice_test.gd 참고)를 그대로 흉내내 "라운드 2로 넘어간
+## 직후의 던전 맵"이 화면에서 겹침 없이 표시되는지만 스크린샷으로 확인한다.
+func _debug_show_round2() -> void:
+	RunState.round_index = 2
+	RunState.rooms_cleared = 0
 	_roll_room_choices()
 	_update_labels()
 

@@ -8,6 +8,42 @@
 
 ---
 
+- **2026-09-09 (78)**: INBOX.md "부분 처리됨"에 남아있던 "몬스터별 다이스 특이
+  특징" 예시 3개 중 마지막 1개 "분노 스택 → D20"(주사위 x가 나올 때마다 분노
+  스택이 쌓여서 몇 개 이상 쌓이면 다음 턴에 20면체 주사위를 돌린다)을 구현 —
+  이제 예시 3개 전부 구현 완료. `code/systems/dice_bag.gd`에
+  `count_max_rolls(values)`를 추가(각 다이스가 이번 굴림에서 자신의 최댓값 면을
+  보여줬는지 세는 순수 함수, "x"를 "그 다이스의 최댓값 면"으로 해석). `code/
+  scenes/combat_test.gd`에 전투 중에만 유지되는 인스턴스 상태
+  `monster_dice_gimmick`/`monster_anger_stacks`/`monster_anger_pending`을 추가(
+  `_ready()`에서 매 전투 시작마다 리셋). `_do_exchange()`의 몬스터 공격턴 다이스
+  선택 로직을 수정 — 평소엔 `monster_attack_bag`, `monster_anger_pending`이 true면
+  이번 한 턴만 임시 `DiceBag.new(20, 1)`(`ANGER_DICE_SIDES`)로 굴리고 즉시 스택을
+  리셋(`used_anger_dice` 플래그로 이 굴림 자체가 다시 스택을 쌓지 않도록 구분).
+  몬스터 공격 후 `monster_attack_bag.count_max_rolls(atk_values)`로 몇 개의 다이스가
+  최댓값을 보여줬는지 세어 스택에 더하고, `ANGER_STACK_THRESHOLD`(=3, 잠정값)에
+  도달하면 `monster_anger_pending=true`로 다음 턴을 예약(둘 다 `_append_log()`로
+  로그에 표시). `MONSTER_PROFILES`의 "고블린"(room_index=1, 이전엔 기믹 없었음)에
+  `dice_gimmick: "anger_stack"`을 시범 적용, `_monster_config_for_room()`이 이름에
+  "[분노]"를 붙임. `dice_test.gd`에 신규 검증 3종(`count_max_rolls`가 지정한
+  values 배열에서 최댓값 개수를 정확히 세는지 2 케이스, room1 config가
+  anger_stack/'고블린 [분노]'로 배정되고 room0/3/4와 서로 독립적인지) 추가 —
+  회귀 스위트 82개 항목(기존 79 + 신규 3) 전체 PASS(FAIL/error/warning/leak/orphan
+  없음). 실제 트리거는 몬스터 공격 다이스(D4x2)가 우연히 최댓값을 여러 번 보여야
+  하는 확률적 사건(한 턴에 최댓값이 하나라도 나올 확률 약 44%)이라 한 프레임짜리
+  QA 캡처로 자연 발생을 기다릴 수 없어, 기존 `_debug_show_monster_dice_for_room()`
+  등과 같은 패턴으로 `_debug_show_anger_dice()`를 추가 — 임계치 도달 상태를 직접
+  만들고 D20 다이스를 얼려서 스폰한다. 처음엔 분노 발동 문구를 `turn_label.text`에
+  직접 넣었다가 `qa_out/combat_test_anger_dice.png`로 확인해보니 옆
+  `MonsterHPLabel`("고블린 [분노] HP: N/M")과 시각적으로 붙어 보이는 문제를
+  발견 — 실제 프로덕션 코드(`_do_exchange()`)와 동일하게 `_append_log()`로
+  로그에 남기도록 바꿔 재촬영해 해결(수정 후 스크린샷에서 D20 다이스 모양/재질,
+  "고블린 [분노] HP" 라벨, 로그의 분노 발동 문구 전부 겹침 없이 표시됨을 확인).
+  `dungeon_map` 씬도 별도로 크래시 없이 로드됨을 확인(`qa_out/dungeon_map_smoke.png`).
+  몬스터 다이스 특이 특징 3개 전부 구현 완료 — 몬스터 성격 기획(큐 8)이 없어
+  "고블린이 왜 분노 기믹을 갖는지"는 다른 두 몬스터와 마찬가지로 근거 없는 임시
+  배정(성격 기획 나오면 재배정 가능). 임계치(3)와 발동 조건 해석이 실제로 체감
+  좋은 빈도인지는 사람 플레이 피드백 필요.
 - **2026-09-09 (77)**: INBOX.md "부분 처리됨"에 남아있던 "몬스터별 다이스 특이
   특징" 예시 3개 중 (2)에 이어 (1) "고정값 다이스"(굴리지 않고 항상 같은 값)를
   구현. `DiceBag.force_fixed_value(value)`를 추가해 다이스의 모든 면 값을 하나로

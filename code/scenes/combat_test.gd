@@ -101,6 +101,10 @@ var monster_defense_bag: DiceBag
 var monster_name := "몬스터"
 var monster_color := Color(1, 1, 1, 0)
 var monster_dice_gimmick := ""
+## 이번 방의 몬스터가 "보스"였는지([대형 기획 2] 조각 (b)) — _monster_config_for_room()의
+## is_boss를 _ready()에서 그대로 저장해두고, _apply_room_advance()가 승리 시 이 방이
+## 라운드의 마지막(보스) 방이었는지 판단해 RunState.advance_round() 호출 여부를 정하는 데 쓴다.
+var monster_is_boss := false
 
 ## "anger_stack" 기믹 전용 전투 중 상태(패배/승리로 씬이 끝나면 함께 사라짐, RunState에는
 ## 저장 안 함 — 몬스터 개별 전투 한정 상태이므로). 몬스터가 공격턴에 자기 공격 다이스의
@@ -292,6 +296,7 @@ func _ready() -> void:
 	monster_hp = monster_max_hp
 	monster_name = config["name"]
 	monster_color = config["color"]
+	monster_is_boss = config["is_boss"]
 	monster_portrait.set_body_color(monster_color if monster_color.a > 0 else Color(0.5, 0.5, 0.5))
 
 	player_dice_gimmick = CharacterProfiles.get_profile(RunState.character_id).get("gimmick", "")
@@ -695,12 +700,21 @@ func _on_next_button_pressed() -> void:
 
 
 ## 반환값 = 이번 호출이 실제로 적용됐는지 (이미 적용됐으면 false, 아무 것도 안 함).
+## [대형 기획 2] 조각 (b): 이번에 이긴 방이 보스 방(monster_is_boss)이었고 아직 마지막
+## 라운드가 아니면(RunState.is_last_round()) RunState.advance_round()를 불러 라운드를
+## 넘긴다 — advance_round()가 rooms_cleared를 0으로 되돌려주므로, 뒤이어
+## dungeon_map.tscn으로 전환되는 순간 곧바로 "새 라운드의 1번째 방"으로 보인다(별도의
+## "다음 라운드로" 확인 화면 없이 승리 -> 재진입이 한 번에 이어짐). 마지막 라운드의
+## 보스를 잡았을 때는 advance_round()가 스스로 아무 일도 안 하므로(가드) rooms_cleared가
+## TOTAL_ROOMS에 그대로 남아 dungeon_map의 기존 "던전 클리어!"(최종 클리어) 분기로 이어짐.
 func _apply_room_advance() -> bool:
 	if _room_advanced:
 		return false
 	_room_advanced = true
 	if player_won:
 		RunState.rooms_cleared += 1
+		if monster_is_boss and not RunState.is_last_round():
+			RunState.advance_round()
 	else:
 		RunState.reset_run()
 	return true

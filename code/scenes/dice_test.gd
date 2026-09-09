@@ -109,6 +109,10 @@ func _ready() -> void:
 	all_pass = _check_combat_double_next_guard(lines) and all_pass
 
 	lines.append("")
+	lines.append("[보스 방 라운드 진행 검증: combat_test.gd _apply_room_advance / RunState.advance_round]")
+	all_pass = _check_combat_boss_round_advance(lines) and all_pass
+
+	lines.append("")
 	lines.append("[커스터마이징 이중 교환 방지 검증: customize_panel.gd _on_face_chosen]")
 	all_pass = _check_customize_panel_double_face_chosen_guard(lines) and all_pass
 
@@ -1113,6 +1117,63 @@ func _check_combat_double_next_guard(lines: PackedStringArray) -> bool:
 
 	combat.free()
 	RunState.rooms_cleared = rooms_backup
+	return ok
+
+
+## [대형 기획 2] 조각 (b) 검증: combat_test.gd _apply_room_advance()가 보스 방 승리
+## (monster_is_boss=true) + 마지막 라운드가 아닐 때만 RunState.advance_round()를 실제로
+## 불러 라운드를 넘기는지 확인한다. 일반 방 승리(monster_is_boss=false)나 이미 마지막
+## 라운드인 경우는 round_index가 그대로여야 한다(advance_round() 자체의 가드는
+## _check_round_progress()가 이미 검증하므로, 여기서는 _apply_room_advance()가 그 가드를
+## 우회하지 않고 올바른 조건에서만 호출하는지가 초점).
+func _check_combat_boss_round_advance(lines: PackedStringArray) -> bool:
+	var ok := true
+	var rooms_backup := RunState.rooms_cleared
+	var round_backup := RunState.round_index
+
+	var combat_script := load("res://code/scenes/combat_test.gd")
+
+	RunState.round_index = 1
+	RunState.rooms_cleared = RunState.TOTAL_ROOMS - 1
+	var combat1 = combat_script.new()
+	combat1.player_won = true
+	combat1.monster_is_boss = false
+	combat1._apply_room_advance()
+	var case1_ok := RunState.rooms_cleared == RunState.TOTAL_ROOMS and RunState.round_index == 1
+	ok = case1_ok and ok
+	lines.append("  일반 방 승리(보스 아님): rooms=%d round=%d (기대 %d, 1) -> %s" % [
+		RunState.rooms_cleared, RunState.round_index, RunState.TOTAL_ROOMS, "OK" if case1_ok else "FAIL"
+	])
+	combat1.free()
+
+	RunState.round_index = 1
+	RunState.rooms_cleared = RunState.TOTAL_ROOMS - 1
+	var combat2 = combat_script.new()
+	combat2.player_won = true
+	combat2.monster_is_boss = true
+	combat2._apply_room_advance()
+	var case2_ok := RunState.round_index == 2 and RunState.rooms_cleared == 0
+	ok = case2_ok and ok
+	lines.append("  보스 방 승리(1라운드 -> 2라운드): rooms=%d round=%d (기대 0, 2) -> %s" % [
+		RunState.rooms_cleared, RunState.round_index, "OK" if case2_ok else "FAIL"
+	])
+	combat2.free()
+
+	RunState.round_index = RunState.TOTAL_ROUNDS
+	RunState.rooms_cleared = RunState.TOTAL_ROOMS - 1
+	var combat3 = combat_script.new()
+	combat3.player_won = true
+	combat3.monster_is_boss = true
+	combat3._apply_room_advance()
+	var case3_ok := RunState.round_index == RunState.TOTAL_ROUNDS and RunState.rooms_cleared == RunState.TOTAL_ROOMS
+	ok = case3_ok and ok
+	lines.append("  보스 방 승리(마지막 라운드, 최종 클리어): rooms=%d round=%d (기대 %d, %d) -> %s" % [
+		RunState.rooms_cleared, RunState.round_index, RunState.TOTAL_ROOMS, RunState.TOTAL_ROUNDS, "OK" if case3_ok else "FAIL"
+	])
+	combat3.free()
+
+	RunState.rooms_cleared = rooms_backup
+	RunState.round_index = round_backup
 	return ok
 
 
