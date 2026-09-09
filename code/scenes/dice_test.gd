@@ -532,6 +532,21 @@ func _check_die_inventory_exchange(lines: PackedStringArray) -> bool:
 		multi_bag.dice[1].size(), RunState.die_inventory, "OK" if multi_ok else "FAIL"
 	])
 
+	# _has_upgrade_target(new_sides): 양쪽 주머니 모두 new_sides보다 작은 다이스가
+	# 없으면 false를 반환해야 한다(승급 자리 없음 안내 문구를 보여줄지 판단하는 근거).
+	var attack_backup: DiceBag = RunState.player_attack_bag
+	var defense_backup: DiceBag = RunState.player_defense_bag
+	RunState.player_attack_bag = DiceBag.new(8, 1)
+	RunState.player_defense_bag = DiceBag.new(10, 1)
+	var no_target: bool = not panel._has_upgrade_target(6)
+	var has_target: bool = panel._has_upgrade_target(12)
+	ok = no_target and has_target and ok
+	lines.append("  _has_upgrade_target: D8/D10뿐일 때 D6=자리없음(%s, 기대 true), D12=자리있음(%s, 기대 true) -> %s" % [
+		no_target, has_target, "OK" if (no_target and has_target) else "FAIL"
+	])
+	RunState.player_attack_bag = attack_backup
+	RunState.player_defense_bag = defense_backup
+
 	panel.free()
 	RunState.die_inventory = die_backup
 	return ok

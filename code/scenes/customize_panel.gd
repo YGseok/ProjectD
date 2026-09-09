@@ -252,6 +252,17 @@ func _show_die_target_picker(inv_index: int) -> void:
 	y = _add_die_target_rows("공격", RunState.player_attack_bag, y, inv_index, new_sides)
 	y = _add_die_target_rows("방어", RunState.player_defense_bag, y, inv_index, new_sides)
 
+	if not _has_upgrade_target(new_sides):
+		var note := Label.new()
+		note.text = "지금은 D%d보다 작은 자리가 없어 승급할 곳이 없습니다. 다른 눈금/다이스를 먼저 써보거나 나중에 다시 시도하세요." % new_sides
+		note.autowrap_mode = TextServer.AUTOWRAP_WORD
+		note.position = Vector2(200, y)
+		note.size = Vector2(880, 40)
+		note.add_theme_color_override("font_color", Color(0.9, 0.7, 0.3))
+		add_child(note)
+		_ui.append(note)
+		y += 50.0
+
 	var back_btn := Button.new()
 	back_btn.text = "뒤로"
 	back_btn.position = Vector2(200, y + 10)
@@ -259,6 +270,19 @@ func _show_die_target_picker(inv_index: int) -> void:
 	back_btn.pressed.connect(_show_die_inventory_picker)
 	add_child(back_btn)
 	_ui.append(back_btn)
+
+
+## 공격/방어 주머니 어느 쪽이든 new_sides보다 면 개수가 작은 다이스가 하나라도
+## 있는지 확인한다 — 없으면 이번 인벤토리 다이스는 지금 둘 곳이 없다는 뜻이라
+## 안내 문구를 보여준다(버튼이 전부 비활성화된 채 아무 설명 없이 남는 것을 방지).
+func _has_upgrade_target(new_sides: int) -> bool:
+	for faces in RunState.player_attack_bag.dice:
+		if faces.size() < new_sides:
+			return true
+	for faces in RunState.player_defense_bag.dice:
+		if faces.size() < new_sides:
+			return true
+	return false
 
 
 func _add_die_target_rows(bag_label: String, bag: DiceBag, y: float, inv_index: int, new_sides: int) -> float:

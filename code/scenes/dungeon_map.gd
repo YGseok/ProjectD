@@ -417,6 +417,15 @@ func _debug_open_customize_die_target() -> void:
 	customize_panel.debug_open_die_target_picker()
 
 
+## QA 전용 — 인벤토리의 다이스가 두 주머니의 모든 다이스보다 작거나 같아 승급 자리가
+## 하나도 없는 상태에서 2단계 화면에 "승급할 곳이 없다" 안내 문구가 정상 표시되는지
+## 확인하기 위함(이터레이션 74, 모든 버튼이 비활성화된 채 설명 없이 남던 것을 고침).
+func _debug_open_customize_die_target_none() -> void:
+	RunState.die_inventory = [4]
+	customize_panel.open()
+	customize_panel._show_die_target_picker(0)
+
+
 ## QA 전용 — 화면으로는 확인할 수 없는 "실제 교환 로직"(다이스 소모, 밀려난 다이스가
 ## 인벤토리로 돌아오는 것)을 콘솔 출력으로 검증하기 위한 일회성 훅.
 func _debug_verify_die_swap() -> void:
