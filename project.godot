@@ -13,6 +13,7 @@ config/features=PackedStringArray("4.3", "Forward Plus")
 
 VisualQA="*res://code/qa/visual_qa.gd"
 RunState="*res://code/systems/run_state.gd"
+AchievementManager="*res://code/systems/achievement_manager.gd"
 
 [display]
 

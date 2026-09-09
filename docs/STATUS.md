@@ -5,34 +5,34 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-09-09 (78)
-- 작성자: AI 에이전트. INBOX.md "부분 처리됨" 항목("몬스터별 다이스 특이 특징 관련
-  방향/예시")의 마지막 남은 조각 "분노 스택 -> D20"(주사위 x가 나올 때마다 분노
-  스택이 쌓여서 몇 개 이상 쌓이면 다음 턴에 20면체 주사위를 돌린다)을 구현 —
-  이제 예시 3개 전부 구현 완료. `DiceBag.count_max_rolls(values)`를 추가해
-  "x"를 "그 다이스의 최댓값 면"으로 해석(별도 상태 없이 순수 계산만). `combat_test.gd`에
-  전투 중에만 유지되는 상태(`monster_anger_stacks`/`monster_anger_pending`, 씬이
-  끝나면 함께 사라짐)를 추가하고, `_do_exchange()`의 몬스터 공격턴 로직을 수정 —
-  평소엔 `monster_attack_bag`으로 굴리되, 직전 턴에 스택이 `ANGER_STACK_THRESHOLD`
-  (=3, 잠정값)에 도달했으면 이번 한 턴만 임시 `DiceBag.new(20, 1)`로 굴리고 스택을
-  리셋. 몬스터 공격 다이스가 자신의 최댓값 면을 보여줄 때마다
-  `count_max_rolls()`로 세어 스택에 더함. `MONSTER_PROFILES`의 "고블린"(room_index=1,
-  기존엔 기믹 없었음)에 `dice_gimmick: "anger_stack"`을 시범 적용(이름에 "[분노]"
-  표시). `dice_test.gd`에 신규 검증(`count_max_rolls` 단위 검증 2종, room1 config가
-  anger_stack/이름 [분노]로 배정되고 room0/3/4와 서로 독립적인지) 추가해 회귀
-  스위트 82개 항목 전체 PASS(FAIL/error/warning/leak/orphan 없음). 실제 트리거는
-  확률적 사건(D4 다이스 2개가 우연히 여러 번 최댓값을 보여야 함)이라 한 프레임짜리
-  QA 캡처로 자연 발생을 기다릴 수 없어, 다른 `_debug_show_*` 훅들과 같은 패턴으로
-  `_debug_show_anger_dice()`를 추가해 임계치 도달 상태를 직접 만들고 D20 다이스를
-  얼려서 스폰 — `qa_out/combat_test_anger_dice.png`로 D20 모양/재질과 "고블린
-  [분노] HP" 라벨, 분노 발동 로그 문구가 다른 UI(턴 라벨/HP 라벨)와 겹침 없이 표시됨을
-  확인(처음엔 이 문구를 turn_label에 넣었다가 옆 MonsterHPLabel과 붙어 보이는 걸
-  발견해 실제 프로덕션 코드와 동일하게 로그로 옮겨 해결). `dungeon_map` 씬도 별도로
-  크래시 없이 로드됨을 확인. 몬스터 다이스 특이 특징 3개 전부 구현 완료 — 몬스터
-  성격 디자인이 없어 "고블린이 왜 분노 기믹을 갖는지"는 다른 두 몬스터와 마찬가지로
-  근거 없는 임시 배정(성격 기획 나오면 재배정 가능). 임계치(3)와 "최댓값 면 =
-  분노 유발 조건"이라는 해석이 실제로 체감 좋은 빈도로 발동하는지는 사람 플레이
-  피드백 필요.
+- 일시: 2026-09-09 (79)
+- 작성자: AI 에이전트. INBOX.md "남은 이슈"에 남아있던 대형 기획 3개(플레이어블
+  캐릭터 4종/보스+3라운드/업적 시스템) 중, 세션 지침("긴 목록 항목은 시스템(저장/
+  추적/UI) 먼저 만들고 몇 개씩 나눠서 추가")을 그대로 따라 [대형 기획 3] 업적
+  시스템의 "시스템" 부분만 착수. `code/systems/achievement_manager.gd`
+  (`AchievementManager`, Autoload)를 신설해 `user://achievements.json`에 해금
+  상태를 영구 저장(RunState와 달리 새 런을 시작해도 초기화 안 됨) — `unlock(id)`/
+  `is_unlocked(id)`/`get_all_for_display()` API와 QA용 `_debug_reset_for_qa()`를
+  제공. `code/scenes/achievement_panel.gd`(`AchievementPanel`, deck_panel.gd/
+  customize_panel.gd와 같은 "스크립트 하나로 완결된 Control" 패턴)로 잠금/해금
+  상태를 카드 목록으로 보여주는 view-only 오버레이를 만들고, `character_select.tscn`에
+  "업적" 버튼으로 여닫게 배선. 실제 업적은 서로 다른 3개의 후킹 지점을 검증하기
+  위해 3종만 등록: "첫 발걸음"(INBOX #25, `character_select.gd`의 던전 시작 버튼),
+  "던전 클리어"(INBOX #1, `dungeon_map.gd`가 `RunState.is_run_complete()`를 감지하는
+  지점), "거인의 주사위"(INBOX #6, `combat_test.gd` 전투 승리 시 신규 헬퍼
+  `_bag_has_d20()`로 D20 보유 여부 판정). `dice_test.gd`에 신규 검증
+  `_check_achievement_manager`(정의되지 않은 id 거부, 초기 미해금, 해금 후
+  `is_unlocked`, 재해금 시도의 멱등성, `get_all_for_display` 목록 정확성,
+  `_bag_has_d20` 참/거짓 2케이스) 추가로 회귀 스위트 85개 항목 전체 PASS
+  (FAIL/error/warning/leak/orphan 없음). QA 훅 `character_select.gd`의
+  `_debug_show_achievements()`(저장 초기화 -> 1개만 미리 해금 -> 패널 오픈)로
+  `qa_out/character_select_achievements.png`를 찍어 잠김(회색+자물쇠)/해금(금테+
+  별)이 겹침 없이 구분되어 보임을 확인, `dungeon_map`/`combat_test` 두 씬도 별도로
+  크래시 없이 로드/정지됨을 확인(신규 Autoload 등록이 다른 씬에 부작용 없음).
+  나머지 27종 업적과 [대형 기획 1]/[대형 기획 2]는 이번에 손대지 않고 아래 "다음
+  할 일 큐"에 세분화해서 남김 — INBOX.md에는 [대형 기획 3]만 "부분 처리됨"으로
+  옮기고 [대형 기획 1]/[대형 기획 2]는 그대로 "남은 이슈"에 둠(둘 다 이번에 전혀
+  손대지 않았으므로).
 
 ## 지금 위치
 
@@ -65,10 +65,19 @@
   변화), 보상/상점/이벤트 아이템은 카드형 비주얼. combat_test의 "덱 보기" 토글
   패널은 `z_index=10`으로 다른 UI보다 항상 위에 그려지고, 승리 보상 화면이 뜨면
   자동으로 닫히며 보상 카드 영역도 덱 패널과 안 겹치게 폭이 좁혀져 있음.
+- **업적 시스템 (신규, 시스템 골격만 완성)**: `code/systems/achievement_manager.gd`
+  (`AchievementManager`, Autoload)가 `user://achievements.json`에 해금 상태를
+  영구 저장(RunState와 달리 새 런을 시작해도 안 지워짐). `character_select.tscn`의
+  "업적" 버튼으로 `AchievementPanel`(잠금/해금 카드 목록 오버레이)을 열 수 있음.
+  지금은 서로 다른 트리거 지점 검증용 3종만 등록됨(INBOX #25 "첫 발걸음"/#1 "던전
+  클리어"/#6 "거인의 주사위"=D20 보유 승리) — INBOX.md가 제안한 30종 중 나머지
+  27종은 `achievement_manager.gd`의 `DEFINITIONS`에 항목만 추가하고 해당 조건
+  지점에서 `AchievementManager.unlock(id)`를 호출하면 저장/UI가 자동으로
+  따라오는 구조. 아래 "다음 할 일 큐" 13번 참고.
 - **QA 도구**: 실제 창(화면 밖 좌표로 이동해 사람 작업 방해 안 함)으로 스크린샷,
   물리 정지 감지 옵션(`GAME_QA_SETTLE`), 마우스 클릭 시뮬레이션
   (`GAME_QA_CLICK_PATH`), 방 번호 강제 지정(`GAME_QA_ROOM_OVERRIDE`).
-  `dice_test.gd`(스크린샷 없이 로직만 확인하는 텍스트 회귀 스위트, 현재 82개 항목)가
+  `dice_test.gd`(스크린샷 없이 로직만 확인하는 텍스트 회귀 스위트, 현재 85개 항목)가
   `DiceBag`(개수 캡 포함)/`DiceItemPool`(다이스 인벤토리 획득 포함)/`EventItemPool` 판정 로직,
   `dungeon_map.gd`의 방 선택지 노출/순서 결정성, `story_event.gd`의 골드 손실
   클램프, `combat_test.gd`의 몬스터 난이도 스케일링 공식과 다이스 재질 배정,
@@ -100,7 +109,10 @@
   이번에도 손대지 않음(아래 "다음 할 일 큐" 0-A 참고). 몬스터별 성격/특징 디자인은
   여전히 순수하게 사람 기획 대기(2026-09-01부터 — 이미 구현한 다이스 기믹 3종을
   어느 몬스터에 배정하는 게 맞는지도 이게 먼저 나와야 결정 가능), AI가 혼자
-  진전시킬 수 없음 — 아래 "알려진 이슈" 참고.
+  진전시킬 수 없음 — 아래 "알려진 이슈" 참고. [대형 기획 1](플레이어블 캐릭터
+  4종 추가)과 [대형 기획 2](보스 + 3라운드 구조)는 2026-09-09에 새로 들어온
+  제안이고 이번 이터레이션에서 전혀 손대지 않음 — 아래 "다음 할 일 큐" 14/15번에
+  가장 작은 착수 조각을 나눠서 남겨둠.
 - 상세 이력은 아래 "완료 기록"(최근 10개)과, 그보다 오래된 것은
   `docs/STATUS_ARCHIVE.md`(매 이터레이션 읽지 않는 아카이브) 참고.
 
@@ -427,24 +439,40 @@
     이터레이션, 아래 "완료 기록" 참고). "단순 나열된 사각형 각 면에 숫자" 방식(전개도
     방식 대신)으로 구현 — 절차적 StyleBoxFlat 칩이라 별도 아트 에셋 불필요. 남은 것은
     실제로 "어떻게 개조하면 어떤 주사위가 될지 예상하기 쉬운지" 사람 피드백뿐.
+13. **(INBOX.md 신규 2026-09-09, [대형 기획 3] 부분 처리됨) 업적 시스템 — 남은
+    27종 추가.** `code/systems/achievement_manager.gd`(`AchievementManager`)와
+    `code/scenes/achievement_panel.gd`(`AchievementPanel`) 골격은 2026-09-09 (79)에
+    완성됨(위 "지금 위치"/"완료 기록" 참고). 등록된 3종(#25/#1/#6) 외에 INBOX.md가
+    제안한 나머지(#2~5, #7~24, #26~30 — 예: 라운드 2/3 클리어, 보스 격파 계열은
+    [대형 기획 2] 보스 구조가 먼저 있어야 트리거 지점이 생김, 오버킬/무결점 승리/
+    기사회생은 `combat_test.gd` 전투 로직에 판정 추가 필요, 골드 100 보유/상점
+    5회 이용 등은 `RunState`에 카운터 추가 필요)를 몇 개씩 나눠서
+    `DEFINITIONS`에 추가하고 해당 조건 지점에서 `AchievementManager.unlock(id)`를
+    호출하는 작업만 하면 됨(저장/UI는 이미 자동으로 따라옴). 우선순위 없음 —
+    구현이 쉬운 것(카운터 비교류)부터 먼저 해도 되고, 트리거 지점이 자연스러운
+    것부터 해도 됨. 해금 "순간"에 화면에 토스트/팝업 알림을 줄지(지금은 목록을
+    직접 열어야만 확인 가능)는 사람 판단 필요 — 아직 안 만듦.
+14. **(INBOX.md 신규 2026-09-09, [대형 기획 1]) 플레이어블 캐릭터 4종 추가 —
+    미착수.** 사람이 예시로 준 성격(극단형/안정형/폭발형)은 이미 구현된 몬스터
+    다이스 기믹(`DiceBag.force_min_max_faces()`/`force_fixed_value()`/
+    `count_max_rolls()`)과 그대로 재사용 가능. 가장 작은 착수 조각 후보: (a)
+    `MONSTER_PROFILES`와 같은 패턴의 캐릭터 데이터 구조(id/이름/설명/시작 기믹)를
+    정의하고 `character_select.tscn`을 카드 1개("확인")에서 N개 카드 중 하나를
+    고르는 선택 UI로 확장, (b) 선택된 캐릭터의 기믹을 `RunState.reset_run()`
+    시점에 `player_attack_bag`/`player_defense_bag`에 적용, (c) 캐릭터별 실루엣은
+    기존 `character_portrait_placeholder.gd` 패턴 재사용(색상/형태만 변형).
+    캐릭터 5종 각각의 이름/컨셉/기믹 배정은 INBOX.md가 AI 제안도 허용했으므로
+    다음 이터레이션에서 제안안을 이 문서에 먼저 남기고 진행해도 됨.
+15. **(INBOX.md 신규 2026-09-09, [대형 기획 2]) 던전 마지막 보스 + 3라운드 구조 —
+    미착수.** 가장 작은 착수 조각: 지금 마지막 방(5번째)의 몬스터를 "보스"로
+    취급해 HP/공격/방어를 눈에 띄게 강화만 하는 것(라운드 반복 구조 없이 "라운드
+    1의 보스"만 우선 증명). 그 다음 조각: `RunState`에 `round_index`/라운드별
+    클리어 여부를 추가하고, 보스 처치 시 새 던전 맵(라운드 2)으로 재진입하도록
+    `combat_test.gd`/`dungeon_map.gd` 흐름을 배선. "3라운드 전부 클리어 = 최종
+    클리어" 엔딩 화면은 그 다음 단계 — 한 이터레이션에 전부 하려 하지 말 것.
 
 ## 완료 기록
 
-- **2026-09-09 (69)**: INBOX.md 남은 신규 피드백 중 "전투의 재미가 없다.
-  다이스 값이 잘 안보여서 쪼이는 맛이 덜하다"와 "전투에서 이미지로 보여지는
-  부분이 덜한데, 주사위값 사이즈업·체력바 추가 등 정보를 텍스트보다 이미지로
-  표현하는게 좋을 듯" 두 항목을 함께 처리. `combat_test.tscn`에 플레이어/몬스터
-  HP 막대(ColorRect 배경+채움 2쌍)를 HP 라벨 바로 아래 추가하고, `combat_test.gd`의
-  신규 `_update_hp_bar()`가 매 `_update_labels()` 호출마다(=매 교환마다) hp/max_hp
-  비율로 채움 너비를 줄이며 비율에 따라 초록(>50%)/주황(25~50%)/빨강(≤25%)으로
-  색을 바꾼다. 교환 결과를 보여주는 `ShapeDieChip`(다이스 값 칩) 크기도
-  `EXCHANGE_CHIP_SIZE` 34→44px로 키움(라벨 폰트는 칩 크기에 비례해 자동 확대,
-  Y좌표도 LogLabel과 안 겹치게 505→504로 미세 조정). `qa_out/combat_test_hpbars.png`로
-  몬스터 HP가 3/10(30%, 주황색 막대)인 상태와 확대된 다이스 칩이 겹침/크래시
-  없이 정상 표시되는 것을 확인. `dice_test` 회귀 스위트(56개 항목, 로직 변경
-  없음) 전체 PASS로 기존 동작에 영향 없음도 재확인. "다이스 값이 잘 안 보인다"는
-  구체적 지적은 처리됐지만 "쪼이는 맛" 자체가 충분한지는 사람 플레이 판단 필요
-  (INBOX.md 부분 처리 표시).
 - **2026-09-09 (70)**: INBOX.md 남은 신규 피드백 중 "눈금 이벤트가 잘 안뜨는 것
   같다. 눈금은 주사위 교체보다 벨류가 낮으므로, 눈금 여러개 획득하는 이벤트를
   넣어 밸런스를 맞춘다" 처리. 코드 확인 결과 원인이 명확했음 — "특수 이벤트" 방
@@ -652,7 +680,37 @@
   "고블린이 왜 분노 기믹을 갖는지"는 다른 두 몬스터와 마찬가지로 근거 없는 임시
   배정(성격 기획 나오면 재배정 가능). 임계치(3)와 발동 조건 해석이 실제로 체감
   좋은 빈도인지는 사람 플레이 피드백 필요.
-*(이터레이션 67 이전의 더 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
+- **2026-09-09 (79)**: INBOX.md "남은 이슈"의 [대형 기획 3] 업적 시스템 추가 —
+  세션 지침("업적 30종처럼 목록이 긴 항목은 시스템 먼저 만들고 몇 개씩 나눠서
+  추가")을 그대로 따라 "시스템"만 착수. `code/systems/achievement_manager.gd`
+  (`AchievementManager`, Autoload)를 신설 — `user://achievements.json`에 해금
+  상태를 영구 저장(RunState.reset_run()과 무관하게 유지), `unlock(id)`(멱등,
+  새로 해금됐을 때만 true 반환)/`is_unlocked(id)`/`get_all_for_display()` API와
+  QA 전용 `_debug_reset_for_qa()` 제공. `code/scenes/achievement_panel.gd`
+  (`AchievementPanel`, deck_panel.gd/customize_panel.gd와 같은 "스크립트
+  하나로 완결된 Control, 별도 .tscn 불필요" 패턴)로 잠금(회색+자물쇠)/해금(금테+
+  별) 카드 목록 오버레이를 만들고, `character_select.tscn`에 새 "업적" 버튼으로
+  여닫게 배선(`character_select.gd`의 `_on_achievement_pressed()`). 실제
+  업적은 서로 다른 3개의 후킹 지점(버튼 클릭/화면 진입 조건/전투 승리 판정)이
+  전부 제대로 동작하는지 증명하기 위해 3종만 등록: "첫 발걸음"(INBOX #25,
+  `character_select.gd`의 던전 시작 버튼), "던전 클리어"(INBOX #1,
+  `dungeon_map.gd`가 `RunState.is_run_complete()`를 감지하는 지점, `_update_labels()`가
+  여러 번 불려도 unlock()이 멱등이라 안전), "거인의 주사위"(INBOX #6,
+  `combat_test.gd` 전투 승리 시점에 신규 헬퍼 `_bag_has_d20(bag)`으로 공격/방어
+  주머니 중 면 20개짜리 다이스 보유 여부 판정). `dice_test.gd`에 신규
+  `_check_achievement_manager`(정의되지 않은 id 해금 거부, 초기 미해금 상태,
+  최초 해금 성공+반영, 재해금 시도의 멱등성, `get_all_for_display()` 목록
+  정확성, `_bag_has_d20` 참/거짓 2케이스) 추가로 회귀 스위트 85개 항목(기존 82 +
+  신규 3) 전체 PASS(FAIL/error/warning/leak/orphan 없음). QA 훅
+  `character_select.gd`의 `_debug_show_achievements()`(저장 파일 초기화 -> 1개만
+  미리 해금 -> 패널 오픈)로 `qa_out/character_select_achievements.png`를 찍어
+  잠금/해금 두 상태가 겹침 없이 시각적으로 구분됨을 확인, `dungeon_map`/
+  `combat_test` 두 씬도 별도로(`qa_out/dungeon_map_smoke2.png`/
+  `qa_out/combat_test_smoke2.png`) 크래시 없이 로드/정지됨을 확인 — 새 Autoload
+  등록이 기존 씬에 부작용을 주지 않음. 나머지 27종 업적과 [대형 기획 1](캐릭터
+  4종)/[대형 기획 2](보스+3라운드)는 이번에 전혀 손대지 않고 아래 "다음 할 일 큐"
+  13/14/15번에 착수 조각을 나눠서 남김.
+*(이터레이션 68 이전의 더 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임,
 2026-09-09 정리.)*
 

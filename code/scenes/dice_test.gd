@@ -121,6 +121,10 @@ func _ready() -> void:
 	all_pass = _check_combat_double_reward_guard(lines) and all_pass
 
 	lines.append("")
+	lines.append("[업적 시스템 검증: achievement_manager.gd AchievementManager / combat_test.gd _bag_has_d20]")
+	all_pass = _check_achievement_manager(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -1137,6 +1141,81 @@ func _check_combat_double_reward_guard(lines: PackedStringArray) -> bool:
 	combat2.free()
 
 	RunState.player_attack_bag = attack_bag_backup
+	return ok
+
+
+## achievement_manager.gd(AchievementManager Autoload)의 저장/해금/조회 API와
+## combat_test.gd의 _bag_has_d20(win_with_d20 업적 판정용 헬퍼)를 검증한다.
+## _debug_reset_for_qa()로 시작/끝에 저장 파일을 초기화해 이 테스트가 실제 플레이
+## 상태나 다른 QA 실행 결과와 섞이지 않게 한다.
+func _check_achievement_manager(lines: PackedStringArray) -> bool:
+	var ok := true
+
+	AchievementManager._debug_reset_for_qa()
+
+	var unknown_result: bool = AchievementManager.unlock("no_such_id")
+	var unknown_ok := not unknown_result
+	ok = unknown_ok and ok
+	lines.append("  정의되지 않은 id 해금 시도: result=%s (기대 false) -> %s" % [
+		unknown_result, "OK" if unknown_ok else "FAIL"
+	])
+
+	var before_unlock: bool = AchievementManager.is_unlocked("first_run_start")
+	var before_ok := not before_unlock
+	ok = before_ok and ok
+	lines.append("  초기화 직후 is_unlocked(first_run_start): %s (기대 false) -> %s" % [
+		before_unlock, "OK" if before_ok else "FAIL"
+	])
+
+	var first_unlock: bool = AchievementManager.unlock("first_run_start")
+	var first_ok := first_unlock and AchievementManager.is_unlocked("first_run_start")
+	ok = first_ok and ok
+	lines.append("  최초 해금: unlock()=%s is_unlocked()=%s (기대 true, true) -> %s" % [
+		first_unlock, AchievementManager.is_unlocked("first_run_start"), "OK" if first_ok else "FAIL"
+	])
+
+	var second_unlock: bool = AchievementManager.unlock("first_run_start")
+	var idempotent_ok := not second_unlock
+	ok = idempotent_ok and ok
+	lines.append("  같은 id 재해금 시도(멱등성): result=%s (기대 false, 중복 저장 방지) -> %s" % [
+		second_unlock, "OK" if idempotent_ok else "FAIL"
+	])
+
+	var display: Array = AchievementManager.get_all_for_display()
+	var display_ok := display.size() == AchievementManager.DEFINITIONS.size()
+	for e in display:
+		if e.id == "first_run_start":
+			display_ok = display_ok and e.unlocked
+		else:
+			display_ok = display_ok and not e.unlocked
+	ok = display_ok and ok
+	lines.append("  get_all_for_display(): 항목 %d개, first_run_start만 unlocked=true -> %s" % [
+		display.size(), "OK" if display_ok else "FAIL"
+	])
+
+	AchievementManager._debug_reset_for_qa()
+
+	var combat_script := load("res://code/scenes/combat_test.gd")
+	var combat = combat_script.new()
+
+	var bag_with_d20 := DiceBag.new(4, 3)
+	bag_with_d20.add_die(20)
+	var has_d20: bool = combat._bag_has_d20(bag_with_d20)
+	var has_d20_ok := has_d20
+	ok = has_d20_ok and ok
+	lines.append("  _bag_has_d20(D4x3 + D20 1개): %s (기대 true) -> %s" % [
+		has_d20, "OK" if has_d20_ok else "FAIL"
+	])
+
+	var bag_without_d20 := DiceBag.new(4, 3)
+	var no_d20: bool = combat._bag_has_d20(bag_without_d20)
+	var no_d20_ok := not no_d20
+	ok = no_d20_ok and ok
+	lines.append("  _bag_has_d20(D4x3만): %s (기대 false) -> %s" % [
+		no_d20, "OK" if no_d20_ok else "FAIL"
+	])
+
+	combat.free()
 	return ok
 
 

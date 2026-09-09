@@ -162,6 +162,10 @@ func _room_options_for_index(idx: int) -> Dictionary:
 func _update_labels() -> void:
 	gold_label.text = "보유 골드: %d" % RunState.gold
 	if RunState.is_run_complete():
+		# INBOX.md [대형 기획 3] 업적 #1 "라운드 1(첫 던전) 클리어". _update_labels()가
+		# 매번 다시 그릴 때마다 불려도 unlock()이 멱등(이미 해금됐으면 아무 일도 안 함)
+		# 이라 안전하다.
+		AchievementManager.unlock("round1_clear")
 		rooms_cleared_label.text = "던전 클리어! (%d / %d 방 격파)" % [RunState.rooms_cleared, RunState.TOTAL_ROOMS]
 		enter_combat_button.text = "새 런 시작"
 		enter_shop_button.hide()

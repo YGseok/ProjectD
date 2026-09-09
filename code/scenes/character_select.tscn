@@ -1,7 +1,8 @@
-[gd_scene load_steps=5 format=3 uid="uid://qa_character_select"]
+[gd_scene load_steps=6 format=3 uid="uid://qa_character_select"]
 
 [ext_resource type="Script" path="res://code/scenes/character_select.gd" id="1_script"]
 [ext_resource type="Script" path="res://code/scenes/character_portrait_placeholder.gd" id="2_portrait"]
+[ext_resource type="Script" path="res://code/scenes/achievement_panel.gd" id="3_achievements"]
 
 [sub_resource type="LabelSettings" id="LabelSettings_title"]
 font_size = 28
@@ -72,3 +73,13 @@ offset_top = 650.0
 offset_right = 790.0
 offset_bottom = 700.0
 text = "던전 시작"
+
+[node name="AchievementButton" type="Button" parent="."]
+offset_left = 1080.0
+offset_top = 24.0
+offset_right = 1240.0
+offset_bottom = 60.0
+text = "업적"
+
+[node name="AchievementPanel" type="Control" parent="."]
+script = ExtResource("3_achievements")

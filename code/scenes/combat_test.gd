@@ -368,6 +368,12 @@ func _do_exchange(is_player_attacking: bool) -> void:
 		battle_over = true
 		player_won = true
 		turn_label.text = "승리! (몬스터 처치)"
+		# INBOX.md [대형 기획 3] 업적 #6 "D20 다이스를 보유한 채로 전투 승리". D20 다이스는
+		# faces 배열 크기가 20인 다이스로 판별한다(표준 다이스는 add_die(sides)로 만들어져
+		# faces.size() == sides가 항상 성립 — force_fixed_value() 등으로 면 값이 바뀌어도
+		# 면 "개수" 자체는 그대로임).
+		if _bag_has_d20(RunState.player_attack_bag) or _bag_has_d20(RunState.player_defense_bag):
+			AchievementManager.unlock("win_with_d20")
 		var gold_gain := GOLD_REWARD_BASE + RunState.rooms_cleared * GOLD_REWARD_PER_ROOM
 		RunState.gold += gold_gain
 		_append_log("골드 획득: +%d (보유 %d)" % [gold_gain, RunState.gold])
@@ -548,6 +554,15 @@ func _append_log(line: String) -> void:
 	while _log_lines.size() > MAX_LOG_LINES:
 		_log_lines.pop_front()
 	log_label.text = "\n".join(_log_lines)
+
+
+## AchievementManager 업적 "win_with_d20" 판정용. bag 안에 면 20개짜리 다이스가
+## 하나라도 있으면 true.
+func _bag_has_d20(bag: DiceBag) -> bool:
+	for faces in bag.dice:
+		if faces.size() == 20:
+			return true
+	return false
 
 
 ## event.gd의 _on_pick_pressed/_apply_pick(이터레이션 46)와 같은 이유로 이중 실행

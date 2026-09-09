@@ -12,17 +12,38 @@ extends Node2D
 ## RunState.reset_run()으로 새 런 시작 -> dungeon_map.tscn.
 
 @onready var start_button: Button = $StartButton
+@onready var achievement_button: Button = $AchievementButton
+@onready var achievement_panel: AchievementPanel = $AchievementPanel
 
 
 func _ready() -> void:
 	start_button.pressed.connect(_on_start_pressed)
+	achievement_button.pressed.connect(_on_achievement_pressed)
 
 
 func _on_start_pressed() -> void:
+	# INBOX.md [대형 기획 3] 업적 #25 "첫 런 시작" — 던전 시작 버튼을 누른 시점이
+	# 가장 확실한 트리거 지점(캐릭터가 몇 종으로 늘어나도 항상 이 버튼을 거쳐감).
+	AchievementManager.unlock("first_run_start")
 	RunState.reset_run()
 	get_tree().change_scene_to_file("res://code/scenes/dungeon_map.tscn")
+
+
+func _on_achievement_pressed() -> void:
+	if achievement_panel.visible:
+		achievement_panel.close()
+	else:
+		achievement_panel.open()
 
 
 ## QA 전용: 클릭을 흉내낼 수 없는 자동 스크린샷에서 버튼 동작을 검증하기 위한 래퍼.
 func _debug_start_run() -> void:
 	_on_start_pressed()
+
+
+## QA 전용: 이전 QA 실행에서 남은 해금 상태가 섞이지 않도록 초기화한 뒤, 업적 하나를
+## 미리 해금해 "잠김/해금" 두 상태가 동시에 보이는 화면을 스크린샷으로 검증한다.
+func _debug_show_achievements() -> void:
+	AchievementManager._debug_reset_for_qa()
+	AchievementManager.unlock("first_run_start")
+	achievement_panel.open()
