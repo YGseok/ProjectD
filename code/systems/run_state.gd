@@ -36,6 +36,15 @@ extends Node
 ## shop_visits: 업적 "단골 손님"(shop_regular, docs/STATUS.md 큐 13이 예로 든 "상점
 ## 이용 횟수" 카운터)을 위해 추가. shop.gd가 상점을 나갈 때마다 1 증가시킨다.
 ##
+## round_index / TOTAL_ROUNDS: INBOX.md [대형 기획 2] "던전 마지막에 보스급 몬스터,
+## 3라운드(던전) 클리어해야 최종 클리어"의 (a) 조각. 지금 이 파일에는 필드/메서드만
+## 추가하고, 아직 아무 화면도 이걸 사용하지 않는다(다음 조각 (b)가 dungeon_map.gd에서
+## "보스 처치 -> advance_round() -> 방 목록 리셋" 흐름을 배선해야 실제로 라운드가
+## 진행된다). round_index는 1부터 시작(사람이 읽는 "라운드 1/2/3" 표현과 맞춤).
+## advance_round()는 rooms_cleared만 0으로 되돌리고 골드/다이스 주머니/인벤토리는
+## 그대로 유지한다 — 라운드가 바뀌어도 지금까지 쌓은 빌드는 이어지고, 죽거나(패배)
+## 3라운드를 전부 클리어했을 때만 reset_run()으로 처음부터 다시 시작한다는 설계.
+##
 ## character_id: INBOX.md [대형 기획 1] "플레이어블 캐릭터 4종 추가"를 위해 신규 추가.
 ## character_select.gd에서 고른 character_profiles.gd의 프로필 id를 저장해두고,
 ## reset_run()이 새 주머니를 만들 때마다 해당 프로필의 시작 다이스 기믹을 다시
@@ -44,8 +53,10 @@ extends Node
 ## 그대로 둔다 — 새 캐릭터 선택 화면을 다시 거치지 않는 한 캐릭터가 바뀌지 않음).
 
 const TOTAL_ROOMS := 5
+const TOTAL_ROUNDS := 3
 
 var rooms_cleared := 0
+var round_index := 1
 var gold := 0
 var shop_visits := 0
 var character_id: String = CharacterProfiles.PROFILES[0]["id"]
@@ -66,6 +77,7 @@ func reset_run(new_character_id: String = "") -> void:
 	if new_character_id != "":
 		character_id = new_character_id
 	rooms_cleared = 0
+	round_index = 1
 	gold = 0
 	shop_visits = 0
 	player_attack_bag = DiceBag.new(4, 3)
@@ -96,3 +108,18 @@ func _apply_character_gimmick() -> void:
 
 func is_run_complete() -> bool:
 	return rooms_cleared >= TOTAL_ROOMS
+
+
+func is_last_round() -> bool:
+	return round_index >= TOTAL_ROUNDS
+
+
+## 다음 라운드(새 던전)로 넘어간다 — round_index를 올리고 rooms_cleared만 0으로
+## 되돌린다(골드/다이스 주머니/인벤토리는 그대로 유지, 위 클래스 주석 참고). 이미
+## 마지막 라운드면 아무 일도 하지 않는다(호출부가 is_last_round()로 먼저 걸러야 함 —
+## 마지막 라운드 클리어는 "최종 클리어"이지 다음 라운드로의 전진이 아니므로).
+func advance_round() -> void:
+	if is_last_round():
+		return
+	round_index += 1
+	rooms_cleared = 0

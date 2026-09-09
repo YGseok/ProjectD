@@ -129,6 +129,10 @@ func _ready() -> void:
 	all_pass = _check_character_profiles(lines) and all_pass
 
 	lines.append("")
+	lines.append("[라운드 진행 검증: run_state.gd RunState.round_index / advance_round / is_last_round]")
+	all_pass = _check_round_progress(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -1539,4 +1543,58 @@ func _check_character_profiles(lines: PackedStringArray) -> bool:
 	])
 
 	RunState.reset_run(character_backup)
+	return ok
+
+
+## [대형 기획 2] (a) 조각 검증. round_index/TOTAL_ROUNDS/advance_round()/is_last_round()가
+## 아직 어느 화면에서도 쓰이지 않는(다음 조각 (b)가 배선할) 순수 데이터 계층이라, 여기서
+## RunState를 직접 조작해 로직만 확인한다. RunState는 Autoload라 끝나면 reset_run()으로
+## 원상복구한다.
+func _check_round_progress(lines: PackedStringArray) -> bool:
+	var ok := true
+
+	# reset_run()은 항상 round_index를 1로 되돌려야 한다(새 런은 항상 라운드 1부터).
+	RunState.round_index = 2
+	RunState.reset_run()
+	var reset_ok: bool = RunState.round_index == 1
+	ok = reset_ok and ok
+	lines.append("  reset_run(): round_index=%d(기대 1) -> %s" % [RunState.round_index, "OK" if reset_ok else "FAIL"])
+
+	# advance_round()는 round_index를 올리고 rooms_cleared만 0으로 되돌리며, 골드/다이스
+	# 주머니(빌드)는 그대로 유지해야 한다(라운드가 바뀌어도 빌드가 이어진다는 설계).
+	RunState.rooms_cleared = RunState.TOTAL_ROOMS
+	RunState.gold = 77
+	var attack_bag_before := RunState.player_attack_bag
+	RunState.advance_round()
+	var advance_ok: bool = (
+		RunState.round_index == 2
+		and RunState.rooms_cleared == 0
+		and RunState.gold == 77
+		and RunState.player_attack_bag == attack_bag_before
+	)
+	ok = advance_ok and ok
+	lines.append("  advance_round(): round_index=%d(기대 2) rooms_cleared=%d(기대 0) gold=%d(기대 77 유지) 주머니 유지=%s -> %s" % [
+		RunState.round_index, RunState.rooms_cleared, RunState.gold,
+		RunState.player_attack_bag == attack_bag_before, "OK" if advance_ok else "FAIL"
+	])
+
+	# is_last_round()는 round_index가 TOTAL_ROUNDS(3)에 도달했을 때만 true.
+	var not_last_ok: bool = not RunState.is_last_round()
+	RunState.round_index = RunState.TOTAL_ROUNDS
+	var is_last_ok: bool = RunState.is_last_round()
+	ok = not_last_ok and is_last_ok and ok
+	lines.append("  is_last_round(): round_index=2일 때=%s(기대 false) round_index=%d일 때=%s(기대 true) -> %s" % [
+		not not_last_ok, RunState.TOTAL_ROUNDS, is_last_ok, "OK" if (not_last_ok and is_last_ok) else "FAIL"
+	])
+
+	# 마지막 라운드에서 advance_round()를 불러도 아무 일도 하지 않아야 한다(더 진행할
+	# 라운드가 없으므로 — 최종 클리어는 (c) 조각이 다룰 별도 분기).
+	RunState.advance_round()
+	var no_op_ok: bool = RunState.round_index == RunState.TOTAL_ROUNDS
+	ok = no_op_ok and ok
+	lines.append("  advance_round() 마지막 라운드에서 호출: round_index=%d(기대 %d, 변화 없음) -> %s" % [
+		RunState.round_index, RunState.TOTAL_ROUNDS, "OK" if no_op_ok else "FAIL"
+	])
+
+	RunState.reset_run()
 	return ok

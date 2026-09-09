@@ -8,6 +8,24 @@
 
 ---
 
+- **2026-09-09 (77)**: INBOX.md "부분 처리됨"에 남아있던 "몬스터별 다이스 특이
+  특징" 예시 3개 중 (2)에 이어 (1) "고정값 다이스"(굴리지 않고 항상 같은 값)를
+  구현. `DiceBag.force_fixed_value(value)`를 추가해 다이스의 모든 면 값을 하나로
+  통일(`force_min_max_faces()`와 같은 접근, 새 상태 추적 없이 기존 면 값 배열
+  구조만 재사용). `combat_test.gd`의 "오크"(room_index=3, D6)에
+  `dice_gimmick: "fixed_value"`를 시범 적용, 값은 면 개수 평균 반올림
+  (`ceil((sides+1)/2)`, D6 -> 4)으로 계산해 이름에 "[고정값 4]" 표시.
+  `_monster_config_for_room()`이 `dice_gimmick_value`를 함께 반환해 `_ready()`가
+  재계산 없이 그대로 사용. `dice_test.gd`에 신규 검증(면 전체 통일 확인, 50회
+  굴림이 항상 같은 값인지, room3/room4 config 상호 독립성) 추가로 회귀 스위트
+  79개 항목 전체 PASS(FAIL/error/warning/leak/orphan 없음). `qa_out/
+  combat_test_orc_gimmick.png`(`GAME_QA_ROOM_OVERRIDE=3`, `GAME_QA_SETTLE=1`)로
+  실제 전투 화면에서 "오크 [고정값 4]" 라벨과 두 다이스 교환 결과 칩이 둘 다
+  "4"만 표시되는 것을 겹침/크래시 없이 확인, `dungeon_map` 씬도 별도로 크래시
+  없이 로드됨을 확인. 몬스터 다이스 특이 특징 3개 중 2개 완료 — 남은 1개(분노
+  스택→D20)는 턴 로직 자체를 바꿔야 하는 더 큰 작업이라 큐 9에 남김. 몬스터
+  성격 기획(큐 8)은 여전히 사람 입력 대기 — 이번에도 손대지 않음.
+
 ## 완료 기록 아카이브 (이터레이션 1~50, 오래된 순 아님 — 최신이 위)
 
 - **2026-09-09 (76)**: INBOX.md "성장의 재미가 없다" 피드백의 방향 1(다이스 개수

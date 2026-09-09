@@ -5,37 +5,25 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-09-09 (86)
-- 작성자: AI 에이전트. 큐 14([대형 기획 1] 플레이어블 캐릭터, 총 5종 중 선택)의
-  마지막 남은 조각 — 다섯 번째 캐릭터 컨셉/기믹을 AI가 제안·구현해 **5/5종
-  완료**. "폭발병"(explosive_stack, 공격턴 스택 추적)과 대칭 구조로 "방패병"
-  (`gimmick: "guard_stack"`) 추가 — 방어 다이스가 자기 최댓값 면을 3번
-  보여주면 다음 방어 한 턴만 1D20으로 굴려 굳건해지는 기믹. 구현은
-  explosive_stack과 완전히 같은 패턴을 방어턴에 대칭 적용: `combat_test.gd`에
-  `player_guard_stacks`/`player_guard_pending`/`GUARD_STACK_THRESHOLD`(3)/
-  `GUARD_DICE_SIDES`(20) 신설, `_do_exchange()`의 def_bag 선택 분기(기존
-  `monster_defense_bag if is_player_attacking else RunState.player_defense_bag`
-  단순 삼항식을 if/elif/else로 확장)와 몬스터 방어턴 다음에 스택 집계 블록을
-  explosive_stack 블록과 나란히 추가. `character_profiles.gd`/`run_state.gd`
-  (guard_stack도 정적 개조가 없어 match의 `_: pass`로 통과)/
-  `character_select.gd`(`_debug_select_shieldbearer`/
-  `_debug_start_run_as_shieldbearer` QA 래퍼)/`combat_test.gd`
-  (`_debug_show_guard_dice()` QA 래퍼)에 배선. `character_profiles.gd`의
-  PROFILES 배열에 새 항목을 추가하는 Edit 호출이 처음 두 번은 계속
-  "String to replace not found"로 실패했는데, 원인은 Read 도구가 보여주는
-  들여쓰기(줄번호+탭 뒤의 내용)를 내가 손으로 옮겨적으며 탭 개수를 한 칸씩
-  더 넣은 것 — `od -c`로 실제 바이트를 찍어 확인 후 정확한 탭 수로 재시도해
-  해결(다음에 이런 실패가 반복되면 Bash로 원본 바이트를 직접 확인할 것).
-  `dice_test.gd`에 신규 검증 2개(get_profile(shieldbearer).gimmick,
-  reset_run(shieldbearer)가 다이스 주머니를 표준 그대로 유지하는지) 추가로
-  회귀 스위트 전체 PASS. `qa_out/character_select_5cards.png`(카드 5개 겹침/
-  잘림 없이 표시, 카드 폭 동적 계산이 5종에서도 실제로 작동함을 확인)/
-  `combat_test_guard_dice.png`(수호 스택 임계치 도달 → D20 다이스 + "수호
-  태세 완성!" 로그 문구)/`dungeon_map_shieldbearer_deck.png`(선택 → 시작 →
-  덱 패널까지, 정적 개조가 없으므로 공격/방어 다이스가 표준 1/2/3/4 그대로임을
-  확인)/`combat_test_smoke_after_shieldbearer.png`(정지 감지 경로로 기존 화면
-  회귀 없음)로 검증. [대형 기획 1] 자체는 이제 완전히 끝났고, 남은 것은
-  5종 전체의 강화폭/체감 밸런스에 대한 사람 플레이 피드백뿐.
+- 일시: 2026-09-09 (87)
+- 작성자: AI 에이전트. 큐 15([대형 기획 2] 던전 마지막 보스 + 3라운드 구조)의
+  남은 조각 (a)/(b)/(c) 중 **(a) `RunState`에 라운드 번호/라운드별 진행 상태
+  추가만** 진행(지시대로 한 이터레이션에 한 조각만). `code/systems/run_state.gd`에
+  `TOTAL_ROUNDS`(=3, 잠정값)/`round_index`(1부터 시작, `reset_run()`이 항상 1로
+  되돌림)/`is_last_round()`/`advance_round()`(round_index를 올리고
+  rooms_cleared만 0으로 되돌림 — 골드/다이스 주머니/인벤토리는 라운드가 바뀌어도
+  유지되어 빌드가 이어지는 설계, 마지막 라운드에서 부르면 아무 일도 안 함)를
+  추가. **의도적으로 아직 아무 화면도 이 필드/메서드를 쓰지 않는다** — 순수
+  데이터 계층만 먼저 준비한 단계이고, 다음 조각 (b)가 "보스 처치 시
+  `advance_round()` 호출 + 던전 맵 방 목록 리셋"을 `combat_test.gd`/
+  `dungeon_map.gd`에 배선해야 실제로 라운드가 진행된다. `dice_test.gd`에
+  `_check_round_progress()` 신규 검증(reset_run이 round_index를 1로 되돌리는지,
+  advance_round가 round_index/rooms_cleared/골드/다이스 주머니를 각각 올바르게
+  다루는지, is_last_round 참/거짓, 마지막 라운드에서 advance_round가 아무 효과
+  없는지) 추가로 회귀 스위트 전체 PASS. 필드만 추가하고 아직 화면 배선이 없어
+  시각적으로 달라지는 게 없으므로, `qa_out/dungeon_map_round_smoke.png`/
+  `combat_test_round_smoke.png`로 두 핵심 화면이 이번 변경으로 깨지지 않고
+  그대로 로드/정지됨을 확인(회귀 없음 증명이 목적, 새 기능의 시각 증거는 아님).
 
 ## 지금 위치
 
@@ -137,10 +125,13 @@
 - **보스 몬스터 ([대형 기획 2]의 첫 조각)**: 런의 마지막 방
   (room_index == `RunState.TOTAL_ROOMS - 1`, 지금은 4)의 몬스터는 `_monster_
   config_for_room()`에서 `is_boss=true`로 판정돼 공격 다이스 +2개/방어 다이스
-  +1개/최대 HP ×2로 강화되고 이름 끝에 "[보스]" 태그가 붙음. 라운드 반복 구조
-  (보스 처치 후 새 던전으로 재진입, 3라운드 클리어 엔딩)는 아직 없음 — 지금은
-  "5방짜리 런의 마지막 몬스터가 눈에 띄게 강하다"는 것만 증명한 상태. 강화폭이
-  적당한지는 사람 플레이 피드백 필요.
+  +1개/최대 HP ×2로 강화되고 이름 끝에 "[보스]" 태그가 붙음. **라운드 데이터
+  계층은 준비됨(2026-09-09 (87))**: `RunState.round_index`/`TOTAL_ROUNDS`(=3)/
+  `is_last_round()`/`advance_round()`가 추가됐지만, 아직 어느 화면도 이걸
+  호출하지 않아 실제 라운드 반복(보스 처치 후 새 던전으로 재진입, 3라운드
+  클리어 엔딩)은 여전히 동작하지 않음 — 지금은 "5방짜리 런의 마지막 몬스터가
+  눈에 띄게 강하다"는 것만 증명한 상태. 강화폭이 적당한지는 사람 플레이 피드백
+  필요. 다음 조각은 아래 "다음 할 일 큐" 15-(b) 참고.
 - **미착수 INBOX 항목**: "성장의 재미가 없다"의 남은 방향(캐릭터별 쿨다운 스킬)은
   캐릭터가 5종으로 늘었지만 아직 스킬 콘텐츠 자체를 새로 기획해야 하는 더 큰
   작업이라 손대지 않음(아래 "다음 할 일 큐" 0-A 참고). 몬스터별 성격/특징
@@ -518,35 +509,34 @@
     색상만 다르게 재사용(`set_palette()`). 남은 것은 5종 전체의 강화폭/체감
     밸런스가 적당한지 사람 플레이 피드백뿐 — INBOX.md 원 요청은 전부 처리됨.
 15. **(INBOX.md 신규 2026-09-09, [대형 기획 2]) 던전 마지막 보스 + 3라운드 구조 —
-    1/3 조각 완료.** 마지막 방(room_index == `RunState.TOTAL_ROOMS - 1`)의
+    2/3 조각 완료.** 마지막 방(room_index == `RunState.TOTAL_ROOMS - 1`)의
     몬스터를 "보스"로 취급해 HP×2/공격+2개/방어+1개로 강화하는 것은
-    **완료됨(2026-09-09 (83), 위 "완료 기록" 참고)** — 라운드 반복 구조 없이
-    "지금 런의 마지막 몬스터가 눈에 띄게 강하다"는 것만 증명. 남은 조각(순서대로):
-    (a) `RunState`에 `round_index`/라운드별 클리어 여부를 추가, (b) 보스 처치
-    시 새 던전 맵(라운드 2, room_index가 0으로 리셋되되 round_index만 오르는
-    구조)으로 재진입하도록 `combat_test.gd`/`dungeon_map.gd` 흐름 배선, (c)
-    "3라운드 전부 클리어 = 최종 클리어" 엔딩 화면. 한 이터레이션에 하나씩만
-    진행할 것. 보스 강화폭(+2/+1/×2)이 적당한지는 사람 플레이 피드백 필요.
+    **완료됨(2026-09-09 (83), 위 "완료 기록" 참고)**. `RunState`에
+    `round_index`/`TOTAL_ROUNDS`/`is_last_round()`/`advance_round()`를 추가하는
+    (a)도 **완료됨(2026-09-09 (87), 위 "완료 기록" 참고)** — 다만 순수 데이터
+    계층만이고 아직 어느 화면도 호출하지 않아 실제 라운드 반복은 여전히
+    동작하지 않음. 남은 조각(순서대로):
+    - **(b, 다음으로 진행할 것) 보스 처치 시 새 던전 맵(라운드 2)으로 재진입.**
+      `combat_test.gd`가 승리 처리하는 지점(`_apply_room_advance()`,
+      `rooms_cleared += 1` 하는 곳)에서 "이번이 보스 방이었고(`is_boss`) +
+      `RunState.is_last_round()`가 false"인 경우 `RunState.advance_round()`를
+      불러 라운드를 넘기도록 분기 추가. `dungeon_map.gd`의
+      `_update_labels()`가 `RunState.is_run_complete()`일 때 무조건 "던전
+      클리어!"(새 런 시작) UI를 보여주던 것을, "라운드가 남아있으면 다르게"
+      보여주도록 갈라야 함(예: "라운드 N 클리어! 다음 라운드로" 버튼 → 방 목록
+      리셋 후 그대로 dungeon_map에 남아 진행, 최종 라운드 클리어일 때만 기존
+      "새 런 시작" 분기로). `_debug_advance_rooms()` 같은 QA 훅도 라운드 전환
+      경로를 스크린샷으로 확인하려면 새로 필요할 수 있음.
+    - **(c) "3라운드 전부 클리어 = 최종 클리어" 엔딩 화면.** (b)가 배선되면
+      `RunState.is_last_round()`이면서 `is_run_complete()`인 시점을 감지해
+      지금의 "던전 클리어!" 문구를 "게임 클리어!"(최종 승리) 전용 문구/화면으로
+      바꾸는 작업.
+    한 이터레이션에 하나씩만 진행할 것. 보스 강화폭(+2/+1/×2)이 적당한지, 라운드가
+    올라갈수록 보스/몬스터가 더 강해져야 하는지(INBOX.md 원문이 언급했던 부분,
+    아직 미반영)는 사람 플레이 피드백 필요.
 
 ## 완료 기록
 
-- **2026-09-09 (77)**: INBOX.md "부분 처리됨"에 남아있던 "몬스터별 다이스 특이
-  특징" 예시 3개 중 (2)에 이어 (1) "고정값 다이스"(굴리지 않고 항상 같은 값)를
-  구현. `DiceBag.force_fixed_value(value)`를 추가해 다이스의 모든 면 값을 하나로
-  통일(`force_min_max_faces()`와 같은 접근, 새 상태 추적 없이 기존 면 값 배열
-  구조만 재사용). `combat_test.gd`의 "오크"(room_index=3, D6)에
-  `dice_gimmick: "fixed_value"`를 시범 적용, 값은 면 개수 평균 반올림
-  (`ceil((sides+1)/2)`, D6 -> 4)으로 계산해 이름에 "[고정값 4]" 표시.
-  `_monster_config_for_room()`이 `dice_gimmick_value`를 함께 반환해 `_ready()`가
-  재계산 없이 그대로 사용. `dice_test.gd`에 신규 검증(면 전체 통일 확인, 50회
-  굴림이 항상 같은 값인지, room3/room4 config 상호 독립성) 추가로 회귀 스위트
-  79개 항목 전체 PASS(FAIL/error/warning/leak/orphan 없음). `qa_out/
-  combat_test_orc_gimmick.png`(`GAME_QA_ROOM_OVERRIDE=3`, `GAME_QA_SETTLE=1`)로
-  실제 전투 화면에서 "오크 [고정값 4]" 라벨과 두 다이스 교환 결과 칩이 둘 다
-  "4"만 표시되는 것을 겹침/크래시 없이 확인, `dungeon_map` 씬도 별도로 크래시
-  없이 로드됨을 확인. 몬스터 다이스 특이 특징 3개 중 2개 완료 — 남은 1개(분노
-  스택→D20)는 턴 로직 자체를 바꿔야 하는 더 큰 작업이라 큐 9에 남김. 몬스터
-  성격 기획(큐 8)은 여전히 사람 입력 대기 — 이번에도 손대지 않음.
 - **2026-09-09 (78)**: INBOX.md "부분 처리됨"에 남아있던 "몬스터별 다이스 특이
   특징" 예시 3개 중 마지막 1개 "분노 스택 → D20"(주사위 x가 나올 때마다 분노
   스택이 쌓여서 몇 개 이상 쌓이면 다음 턴에 20면체 주사위를 돌린다)을 구현 —
@@ -815,7 +805,26 @@
   더 정확히 옮겨적으려 하기보다 Bash(`od -c`)로 원본 바이트를 바로 확인할
   것. [대형 기획 1]은 이제 완전히 끝났고(INBOX.md 원 요청 전부 처리), 남은
   것은 5종 전체의 강화폭/체감 밸런스에 대한 사람 플레이 피드백뿐.
-*(이터레이션 76 이전의 더 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
+- **2026-09-09 (87)**: 큐 15([대형 기획 2] 던전 마지막 보스 + 3라운드 구조)의
+  남은 조각 (a)/(b)/(c) 중 (a)만 진행 — `code/systems/run_state.gd`에
+  `TOTAL_ROUNDS`(=3, 잠정값)/`round_index`(1부터 시작)/`is_last_round()`/
+  `advance_round()`를 신규 추가. `reset_run()`은 항상 `round_index`를 1로
+  되돌리고, `advance_round()`는 `round_index`만 올리고 `rooms_cleared`를 0으로
+  되돌리며 골드/다이스 주머니/눈금·다이스 인벤토리는 그대로 유지한다(라운드가
+  바뀌어도 지금까지 쌓은 빌드가 이어지고, 죽거나 3라운드를 전부 클리어했을
+  때만 `reset_run()`으로 처음부터 다시 시작한다는 설계 — 클래스 주석에 근거
+  기록). 마지막 라운드에서 `advance_round()`를 불러도 아무 일도 하지 않도록
+  가드. **의도적으로 이번엔 여기까지만** — 아직 `combat_test.gd`/
+  `dungeon_map.gd` 어디도 이 필드/메서드를 호출하지 않아 실제 라운드 진행은
+  동작하지 않는다(다음 조각 (b)가 배선). `code/scenes/dice_test.gd`에
+  `_check_round_progress()` 신규 검증(reset_run이 round_index를 1로 되돌리는지,
+  advance_round가 round_index/rooms_cleared/골드/다이스 주머니를 각각 올바르게
+  다루는지, is_last_round 참/거짓 양쪽, 마지막 라운드에서 advance_round가
+  아무 효과 없는지) 추가로 회귀 스위트 전체 PASS. 화면 배선이 없어 새로 보여줄
+  것은 없지만, `qa_out/dungeon_map_round_smoke.png`/`combat_test_round_smoke.png`
+  로 두 핵심 화면이 이번 변경으로 깨지지 않고 그대로 로드/정지됨을 확인(회귀
+  없음 확인이 목적). 다음 조각(b)은 위 "다음 할 일 큐" 15번 참고.
+*(이터레이션 77 이전의 더 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임,
 2026-09-09 정리.)*
 
