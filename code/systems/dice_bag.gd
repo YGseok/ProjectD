@@ -58,6 +58,28 @@ func set_face_value(die_index: int, face_index: int, value: int) -> void:
 	dice[die_index][face_index] = value
 
 
+## 몬스터 특이 다이스 특징(INBOX.md 2026-09-09 예시: "모든 주사위 눈이 min과 max로만
+## 이루어져 있다 — 중간값 없음, 하이리스크/로우리스크") 구현. 각 다이스의 면 개수는
+## 그대로 두고, 면 값만 절반은 최솟값(1)·절반은 최댓값(sides)으로 강제해 중간값을
+## 없앤다(면 개수가 홀수면 최댓값 쪽에 하나 더 배정). 굴림 결과가 평균값 근처로
+## 몰리지 않고 항상 둘 중 하나로 크게 갈려서, 같은 기댓값이라도 "무난함"이 없는
+## 성향을 만든다.
+func force_min_max_faces() -> void:
+	for d in dice.size():
+		var faces := dice[d]
+		var n := faces.size()
+		if n == 0:
+			continue
+		var min_v: int = faces[0]
+		var max_v: int = faces[0]
+		for v in faces:
+			min_v = min(min_v, v)
+			max_v = max(max_v, v)
+		var min_count := n / 2
+		for i in n:
+			dice[d][i] = min_v if i < min_count else max_v
+
+
 var count: int:
 	get:
 		return dice.size()

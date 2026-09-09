@@ -143,12 +143,20 @@ const PIP_REWARD_MAX_PER_ROOM := 1
 ## 몬스터별 이름/다이스 색 (시각 구분용, 능력치와는 무관). room_index를 이 배열 길이로
 ## 나눈 나머지로 순환시키고, 배열을 다 돌면 이름 앞에 "강화"를 붙여 재사용한다
 ## (DESIGN.md에는 몬스터별 모양/색 자체가 아직 미정이라 잠정 목록).
+##
+## "dice_gimmick"(선택 필드): INBOX.md(2026-09-09) "몬스터별 다이스 특이 특징" 요청의
+## 예시 3개(고정값 다이스 / min·max만 있는 다이스 / 분노 스택 -> D20) 중, DiceBag의
+## 기존 API(set_face_value)만으로 새 상태 추적 없이 구현 가능한 "min_max_only"만 이번
+## 이터레이션에 시범 적용함(가장 작고 독립적으로 검증 가능한 조각). 몬스터별 성격
+## 기획(큐 8)이 아직 없어서 "다크 나이트가 왜 이 특징을 갖는지"는 근거가 없는 임시
+## 배정 — 성격 기획이 나오면 다시 배정할 수 있음. 나머지 2개(고정값/분노 스택)는
+## 상태 추적·턴 로직 변경이 필요해 더 큰 작업이라 STATUS.md 큐로 남겨둠.
 const MONSTER_PROFILES := [
 	{"name": "슬라임", "color": Color(0.35, 0.85, 0.4)},
 	{"name": "고블린", "color": Color(0.75, 0.55, 0.25)},
 	{"name": "해골 전사", "color": Color(0.85, 0.85, 0.8)},
 	{"name": "오크", "color": Color(0.3, 0.55, 0.3)},
-	{"name": "다크 나이트", "color": Color(0.55, 0.25, 0.75)},
+	{"name": "다크 나이트", "color": Color(0.55, 0.25, 0.75), "dice_gimmick": "min_max_only"},
 ]
 
 
@@ -177,6 +185,9 @@ func _monster_config_for_room(room_index: int) -> Dictionary:
 	var name_text: String = profile["name"]
 	if cycle > 0:
 		name_text = "강화 ".repeat(cycle) + name_text
+	var gimmick: String = profile.get("dice_gimmick", "")
+	if gimmick == "min_max_only":
+		name_text += " [극단]"
 	return {
 		"attack_count": 2 + int(room_index / 2.0),
 		"defense_count": 1 + int(room_index / 3.0),
@@ -184,6 +195,7 @@ func _monster_config_for_room(room_index: int) -> Dictionary:
 		"max_hp": 10 + room_index * 3,
 		"name": name_text,
 		"color": profile["color"],
+		"dice_gimmick": gimmick,
 	}
 
 
@@ -206,6 +218,9 @@ func _ready() -> void:
 	var monster_sides: int = config["dice_sides"]
 	monster_attack_bag = DiceBag.new(monster_sides, config["attack_count"])
 	monster_defense_bag = DiceBag.new(monster_sides, config["defense_count"])
+	if config["dice_gimmick"] == "min_max_only":
+		monster_attack_bag.force_min_max_faces()
+		monster_defense_bag.force_min_max_faces()
 	monster_max_hp = config["max_hp"]
 	monster_hp = monster_max_hp
 	monster_name = config["name"]

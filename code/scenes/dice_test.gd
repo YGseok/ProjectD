@@ -57,6 +57,10 @@ func _ready() -> void:
 	all_pass = _check_monster_config_scaling(lines) and all_pass
 
 	lines.append("")
+	lines.append("[몬스터 특이 다이스 검증: dice_bag.gd force_min_max_faces / combat_test.gd dice_gimmick]")
+	all_pass = _check_monster_dice_gimmick(lines) and all_pass
+
+	lines.append("")
 	lines.append("[커스터마이징 눈금 교환 검증: customize_panel.gd _exchange_pip]")
 	all_pass = _check_customize_panel_pip_exchange(lines) and all_pass
 
@@ -447,6 +451,62 @@ func _check_monster_config_scaling(lines: PackedStringArray) -> bool:
 	])
 
 	combat.free()
+	return ok
+
+
+## dice_bag.gd의 force_min_max_faces()는 INBOX.md 피드백(2026-09-09, "몬스터별 다이스
+## 특이 특징" 예시 중 "모든 주사위 눈이 min과 max로만 이루어져 있다")를 구현한 것이다.
+## combat_test.gd는 이 메서드를 "다크 나이트"(MONSTER_PROFILES 4번째, dice_gimmick=
+## "min_max_only") 몬스터에만 시범 적용한다 — room_index=4(다크 나이트가 나오는 방)에서만
+## config["dice_gimmick"]이 켜지고 다른 방(예: room0 슬라임)은 그대로 표준 다이스여야
+## 한다. 300회 반복 굴림으로 중간값이 단 한 번도 안 나오는지까지 직접 확인한다.
+func _check_monster_dice_gimmick(lines: PackedStringArray) -> bool:
+	var ok := true
+
+	# force_min_max_faces(): D6x1의 면 값이 [1,1,1,6,6,6]처럼 절반은 min(1)/절반은
+	# max(6)로만 구성돼야 한다(중간값 2~5 제거). min_possible/max_possible은 원래 다이스와
+	# 동일(1, 6)해야 하지만, 실제 굴림 결과에는 중간값이 전혀 나오지 않아야 한다.
+	var gimmick_bag := DiceBag.new(6, 1)
+	gimmick_bag.force_min_max_faces()
+	var faces_ok := true
+	for v in gimmick_bag.dice[0]:
+		if v != 1 and v != 6:
+			faces_ok = false
+	var range_ok := gimmick_bag.min_possible() == 1 and gimmick_bag.max_possible() == 6
+	ok = faces_ok and range_ok and ok
+	lines.append("  force_min_max_faces(D6x1): faces=%s min=%d max=%d (기대 1/6만, min=1 max=6) -> %s" % [
+		gimmick_bag.dice[0], gimmick_bag.min_possible(), gimmick_bag.max_possible(),
+		"OK" if (faces_ok and range_ok) else "FAIL"
+	])
+
+	var no_middle_ok := true
+	for _i in 300:
+		var v := gimmick_bag.roll()
+		if v != 1 and v != 6:
+			no_middle_ok = false
+	ok = no_middle_ok and ok
+	lines.append("  300회 굴림 중 중간값(2~5) 등장 여부: 없음=%s (기대 true) -> %s" % [
+		no_middle_ok, "OK" if no_middle_ok else "FAIL"
+	])
+
+	# combat_test.gd _monster_config_for_room(): room4(다크 나이트)만 gimmick이 켜지고
+	# 이름에 "[극단]"이 붙어야 하며, room0(슬라임)은 영향받지 않아야 한다.
+	var script := load("res://code/scenes/combat_test.gd")
+	var combat = script.new()
+	var room4_config = combat._monster_config_for_room(4)
+	var room4_ok: bool = room4_config["dice_gimmick"] == "min_max_only" and room4_config["name"] == "다크 나이트 [극단]"
+	ok = room4_ok and ok
+	lines.append("  room4 config: dice_gimmick=%s name=%s (기대 min_max_only, '다크 나이트 [극단]') -> %s" % [
+		room4_config["dice_gimmick"], room4_config["name"], "OK" if room4_ok else "FAIL"
+	])
+	var room0_config = combat._monster_config_for_room(0)
+	var room0_unaffected_ok: bool = room0_config["dice_gimmick"] == "" and room0_config["name"] == "슬라임"
+	ok = room0_unaffected_ok and ok
+	lines.append("  room0 config(영향 없어야 함): dice_gimmick=%s name=%s (기대 빈 문자열, 슬라임) -> %s" % [
+		room0_config["dice_gimmick"], room0_config["name"], "OK" if room0_unaffected_ok else "FAIL"
+	])
+	combat.free()
+
 	return ok
 
 
