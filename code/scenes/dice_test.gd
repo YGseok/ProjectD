@@ -1256,6 +1256,46 @@ func _check_achievement_manager(lines: PackedStringArray) -> bool:
 		new_ids_ok, "OK" if new_ids_ok else "FAIL"
 	])
 
+	var map_script := load("res://code/scenes/dungeon_map.gd")
+	var dmap = map_script.new()
+
+	var pip_true: bool = dmap._is_pip_hoarder(dmap.PIP_HOARDER_THRESHOLD)
+	var pip_false: bool = dmap._is_pip_hoarder(dmap.PIP_HOARDER_THRESHOLD - 1)
+	var pip_ok := pip_true and not pip_false
+	ok = pip_ok and ok
+	lines.append("  _is_pip_hoarder(임계치/임계치-1): %s/%s (기대 true/false) -> %s" % [
+		pip_true, pip_false, "OK" if pip_ok else "FAIL"
+	])
+
+	var die_true: bool = dmap._is_die_hoarder(dmap.DIE_HOARDER_THRESHOLD)
+	var die_false: bool = dmap._is_die_hoarder(dmap.DIE_HOARDER_THRESHOLD - 1)
+	var die_ok := die_true and not die_false
+	ok = die_ok and ok
+	lines.append("  _is_die_hoarder(임계치/임계치-1): %s/%s (기대 true/false) -> %s" % [
+		die_true, die_false, "OK" if die_ok else "FAIL"
+	])
+
+	var full_bag := DiceBag.new(4, DiceBag.MAX_DICE)
+	var not_full_bag := DiceBag.new(4, 3)
+	var maxed_true: bool = dmap._is_bag_maxed(full_bag)
+	var maxed_false: bool = dmap._is_bag_maxed(not_full_bag)
+	var maxed_ok := maxed_true and not maxed_false
+	ok = maxed_ok and ok
+	lines.append("  _is_bag_maxed(가득/안 가득): %s/%s (기대 true/false) -> %s" % [
+		maxed_true, maxed_false, "OK" if maxed_ok else "FAIL"
+	])
+
+	dmap.free()
+
+	var hoard_ids := ["pip_hoarder", "die_hoarder", "bag_maxed"]
+	var hoard_ids_ok := true
+	for id in hoard_ids:
+		hoard_ids_ok = hoard_ids_ok and AchievementManager.DEFINITIONS.has(id) and not AchievementManager.is_unlocked(id)
+	ok = hoard_ids_ok and ok
+	lines.append("  신규 업적 3종(수집가/가득 찬 주머니) 정의 존재 + 초기 미해금: %s -> %s" % [
+		hoard_ids_ok, "OK" if hoard_ids_ok else "FAIL"
+	])
+
 	return ok
 
 

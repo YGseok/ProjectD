@@ -60,6 +60,11 @@ const BUTTON_TOP_START := 320.0
 const BUTTON_SPACING := 70.0
 const BUTTON_HEIGHT := 50.0
 
+## 업적 "눈금 수집가"/"다이스 수집가" 임계치 — 감으로 잡은 잠정값(achievement_manager.gd
+## DEFINITIONS의 pip_hoarder/die_hoarder 문구와 맞춰뒀다).
+const PIP_HOARDER_THRESHOLD := 10
+const DIE_HOARDER_THRESHOLD := 5
+
 ## 방 종류별로 "무엇을 줄 수 있는지" 카테고리(RewardIcon.category 값). 실제 골드/눈금
 ## 수치나 상점 판매 품목은 매번 달라 정확한 값을 미리 보여주기 어려우므로, "카테고리"만
 ## 고정 목록으로 둔다 (STATUS.md 큐 0-A 판단 참고).
@@ -159,8 +164,31 @@ func _room_options_for_index(idx: int) -> Dictionary:
 	return opts
 
 
+## 순수 판정 함수 3종 — dice_test.gd가 script.new() 패턴(_bag_has_d20과 동일)으로
+## 직접 호출해 검증한다.
+func _is_pip_hoarder(pip_count: int) -> bool:
+	return pip_count >= PIP_HOARDER_THRESHOLD
+
+
+func _is_die_hoarder(die_count: int) -> bool:
+	return die_count >= DIE_HOARDER_THRESHOLD
+
+
+func _is_bag_maxed(bag: DiceBag) -> bool:
+	return bag != null and bag.is_full()
+
+
 func _update_labels() -> void:
 	gold_label.text = "보유 골드: %d" % RunState.gold
+	# 업적 "눈금 수집가"/"다이스 수집가"/"가득 찬 주머니" — 어느 화면(상점/특수 이벤트/
+	# 전투 승리 보상)에서 쌓였든 던전 맵으로 돌아올 때마다 검사한다(round1_clear와 같은
+	# 패턴, unlock()이 멱등이라 매번 다시 그려도 안전).
+	if _is_pip_hoarder(RunState.pip_inventory.size()):
+		AchievementManager.unlock("pip_hoarder")
+	if _is_die_hoarder(RunState.die_inventory.size()):
+		AchievementManager.unlock("die_hoarder")
+	if _is_bag_maxed(RunState.player_attack_bag) or _is_bag_maxed(RunState.player_defense_bag):
+		AchievementManager.unlock("bag_maxed")
 	if RunState.is_run_complete():
 		# INBOX.md [대형 기획 3] 업적 #1 "라운드 1(첫 던전) 클리어". _update_labels()가
 		# 매번 다시 그릴 때마다 불려도 unlock()이 멱등(이미 해금됐으면 아무 일도 안 함)
