@@ -8,15 +8,26 @@ class_name CharacterPortraitPlaceholder
 ## INBOX.md 피드백("공방을 주고받을 때는 웃거나 찡그린다", "승리할 때는 즐거워한다",
 ## "패배할 때는 슬퍼하거나 분노한다")을 반영해 표정(expression)에 따라 눈썹/입 모양이
 ## 바뀐다. set_expression()을 호출하면 즉시 다시 그려진다.
+##
+## hair_color/dress_color를 @export로 뺀 것은 [대형 기획 1] 플레이어블 캐릭터 여러
+## 종(character_profiles.gd)을 같은 실루엣 그리기 코드로 색만 다르게 구분하기
+## 위함(2026-09-09 신규) — 실루엣 자체를 새로 그리는 대신 기존 "이쁘장한 여캐"
+## 실루엣의 색 팔레트만 캐릭터별로 바꿔 최소 구분을 준다.
 
 const SKIN_COLOR := Color(0.96, 0.82, 0.72)
-const HAIR_COLOR := Color(0.78, 0.62, 0.86)
-const DRESS_COLOR := Color(0.92, 0.55, 0.66)
 const EYE_COLOR := Color(0.25, 0.2, 0.3)
 const MOUTH_COLOR := Color(0.55, 0.25, 0.3)
 
 ## "neutral" / "happy" / "hurt" / "sad" / "angry"
 @export var expression: String = "neutral"
+@export var hair_color := Color(0.78, 0.62, 0.86)
+@export var dress_color := Color(0.92, 0.55, 0.66)
+
+
+func set_palette(new_hair_color: Color, new_dress_color: Color) -> void:
+	hair_color = new_hair_color
+	dress_color = new_dress_color
+	queue_redraw()
 
 
 func set_expression(new_expression: String) -> void:
@@ -26,17 +37,17 @@ func set_expression(new_expression: String) -> void:
 
 func _draw() -> void:
 	# 머리카락 뒷부분 (얼굴보다 넓은 타원형 블롭)
-	draw_colored_polygon(_ellipse_points(Vector2(0, -30), 68, 78), HAIR_COLOR)
+	draw_colored_polygon(_ellipse_points(Vector2(0, -30), 68, 78), hair_color)
 	# 얼굴 (원)
 	draw_colored_polygon(_ellipse_points(Vector2(0, -20), 52, 56), SKIN_COLOR)
 	# 앞머리 (얼굴 위쪽을 가리는 작은 타원)
-	draw_colored_polygon(_ellipse_points(Vector2(0, -58), 54, 26), HAIR_COLOR)
+	draw_colored_polygon(_ellipse_points(Vector2(0, -58), 54, 26), hair_color)
 	_draw_face(Vector2(-18, -16), Vector2(18, -16), Vector2(0, 6))
 	# 몸통 / 원피스 (사다리꼴)
 	var dress := PackedVector2Array([
 		Vector2(-30, 40), Vector2(30, 40), Vector2(52, 140), Vector2(-52, 140),
 	])
-	draw_colored_polygon(dress, DRESS_COLOR)
+	draw_colored_polygon(dress, dress_color)
 	# 목/어깨 연결부 (피부색 작은 사각형)
 	draw_colored_polygon(PackedVector2Array([
 		Vector2(-14, 30), Vector2(14, 30), Vector2(14, 44), Vector2(-14, 44),

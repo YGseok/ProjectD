@@ -35,12 +35,20 @@ extends Node
 ##
 ## shop_visits: 업적 "단골 손님"(shop_regular, docs/STATUS.md 큐 13이 예로 든 "상점
 ## 이용 횟수" 카운터)을 위해 추가. shop.gd가 상점을 나갈 때마다 1 증가시킨다.
+##
+## character_id: INBOX.md [대형 기획 1] "플레이어블 캐릭터 4종 추가"를 위해 신규 추가.
+## character_select.gd에서 고른 character_profiles.gd의 프로필 id를 저장해두고,
+## reset_run()이 새 주머니를 만들 때마다 해당 프로필의 시작 다이스 기믹을 다시
+## 적용한다(패배 후 combat_test.gd/dungeon_map.gd가 인자 없이 reset_run()을 부르는
+## 기존 호출부들도 "직전에 고른 캐릭터 유지"가 되도록, 인자를 안 주면 character_id를
+## 그대로 둔다 — 새 캐릭터 선택 화면을 다시 거치지 않는 한 캐릭터가 바뀌지 않음).
 
 const TOTAL_ROOMS := 5
 
 var rooms_cleared := 0
 var gold := 0
 var shop_visits := 0
+var character_id: String = CharacterProfiles.PROFILES[0]["id"]
 var player_attack_bag: DiceBag
 var player_defense_bag: DiceBag
 var pip_inventory: Array[int] = []
@@ -51,7 +59,12 @@ func _ready() -> void:
 	reset_run()
 
 
-func reset_run() -> void:
+## new_character_id를 비워두면(기본값) 기존 character_id를 그대로 유지한다 —
+## "캐릭터 선택 화면을 거치지 않고 다시 시작하는" 기존 호출부(패배 후 재시작, 런 클리어
+## 후 재시작)가 방금 고른 캐릭터를 잃지 않게 하기 위함.
+func reset_run(new_character_id: String = "") -> void:
+	if new_character_id != "":
+		character_id = new_character_id
 	rooms_cleared = 0
 	gold = 0
 	shop_visits = 0
@@ -59,6 +72,21 @@ func reset_run() -> void:
 	player_defense_bag = DiceBag.new(4, 3)
 	pip_inventory = []
 	die_inventory = []
+	_apply_character_gimmick()
+
+
+## character_id에 해당하는 프로필의 시작 다이스 기믹을 새로 만든 주머니에 한 번만
+## 적용한다(몬스터 기믹과 같은 "정적 적용" 방식 — combat_test.gd _ready() 참고).
+func _apply_character_gimmick() -> void:
+	var profile := CharacterProfiles.get_profile(character_id)
+	match profile.get("gimmick", ""):
+		"min_max_only":
+			player_attack_bag.force_min_max_faces()
+			player_defense_bag.force_min_max_faces()
+		"fixed_defense_die":
+			player_defense_bag.force_fixed_value_for_die(0, CharacterProfiles.fixed_defense_die_value(4))
+		_:
+			pass
 
 
 func is_run_complete() -> bool:

@@ -1,15 +1,10 @@
-[gd_scene load_steps=6 format=3 uid="uid://qa_character_select"]
+[gd_scene load_steps=4 format=3 uid="uid://qa_character_select"]
 
 [ext_resource type="Script" path="res://code/scenes/character_select.gd" id="1_script"]
-[ext_resource type="Script" path="res://code/scenes/character_portrait_placeholder.gd" id="2_portrait"]
 [ext_resource type="Script" path="res://code/scenes/achievement_panel.gd" id="3_achievements"]
 
 [sub_resource type="LabelSettings" id="LabelSettings_title"]
 font_size = 28
-font_color = Color(0.85, 0.85, 0.85, 1)
-
-[sub_resource type="LabelSettings" id="LabelSettings_body"]
-font_size = 18
 font_color = Color(0.85, 0.85, 0.85, 1)
 
 [node name="CharacterSelect" type="Node2D"]
@@ -28,44 +23,11 @@ offset_bottom = 60.0
 text = "캐릭터 선택"
 label_settings = SubResource("LabelSettings_title")
 
-[node name="CardPanel" type="Panel" parent="."]
-offset_left = 460.0
+[node name="CardsContainer" type="Control" parent="."]
+offset_left = 0.0
 offset_top = 100.0
-offset_right = 820.0
+offset_right = 1280.0
 offset_bottom = 620.0
-
-[node name="Portrait" type="Node2D" parent="CardPanel"]
-position = Vector2(180, 180)
-script = ExtResource("2_portrait")
-
-[node name="NameLabel" type="Label" parent="CardPanel"]
-offset_left = 20.0
-offset_top = 350.0
-offset_right = 340.0
-offset_bottom = 384.0
-text = "견습 모험가"
-horizontal_alignment = 1
-label_settings = SubResource("LabelSettings_title")
-
-[node name="DescLabel" type="Label" parent="CardPanel"]
-offset_left = 20.0
-offset_top = 392.0
-offset_right = 340.0
-offset_bottom = 450.0
-text = "기본 캐릭터 (능력 차이 없음)"
-horizontal_alignment = 1
-autowrap_mode = 2
-label_settings = SubResource("LabelSettings_body")
-
-[node name="PlaceholderNoteLabel" type="Label" parent="CardPanel"]
-offset_left = 20.0
-offset_top = 460.0
-offset_right = 340.0
-offset_bottom = 500.0
-text = "※ 플레이스홀더 실루엣 — 실제 일러스트는 추후 작업"
-horizontal_alignment = 1
-autowrap_mode = 2
-label_settings = SubResource("LabelSettings_body")
 
 [node name="StartButton" type="Button" parent="."]
 offset_left = 490.0

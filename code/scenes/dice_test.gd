@@ -125,6 +125,10 @@ func _ready() -> void:
 	all_pass = _check_achievement_manager(lines) and all_pass
 
 	lines.append("")
+	lines.append("[플레이어블 캐릭터 검증: character_profiles.gd CharacterProfiles / run_state.gd RunState._apply_character_gimmick]")
+	all_pass = _check_character_profiles(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -1412,4 +1416,87 @@ func _check_customize_panel_double_die_chosen_guard(lines: PackedStringArray) ->
 
 	panel.free()
 	RunState.die_inventory = die_backup
+	return ok
+
+
+## [대형 기획 1] 플레이어블 캐릭터 검증. character_profiles.gd의 CharacterProfiles와,
+## run_state.gd RunState.reset_run()이 새 주머니에 캐릭터별 시작 기믹을 실제로
+## 적용하는지 확인한다. RunState는 Autoload라 이 테스트가 상태를 바꾸고 나면 반드시
+## "novice"(기본값)로 되돌려 다른 테스트/QA에 영향을 주지 않게 한다.
+func _check_character_profiles(lines: PackedStringArray) -> bool:
+	var ok := true
+	var character_backup: String = RunState.character_id
+
+	# get_profile(): 정의된 id는 해당 기믹을, 빈 문자열/미정의 id는 PROFILES[0](기믹 없음)로
+	# 폴백해야 한다 — 캐릭터 선택 없이 reset_run()을 그냥 부르는 기존 호출부들이 항상
+	# 유효한 프로필을 얻기 위한 안전장치.
+	var berserker_ok: bool = CharacterProfiles.get_profile("berserker")["gimmick"] == "min_max_only"
+	ok = berserker_ok and ok
+	lines.append("  get_profile(berserker).gimmick=%s (기대 min_max_only) -> %s" % [
+		CharacterProfiles.get_profile("berserker")["gimmick"], "OK" if berserker_ok else "FAIL"
+	])
+	var guardian_ok: bool = CharacterProfiles.get_profile("guardian")["gimmick"] == "fixed_defense_die"
+	ok = guardian_ok and ok
+	lines.append("  get_profile(guardian).gimmick=%s (기대 fixed_defense_die) -> %s" % [
+		CharacterProfiles.get_profile("guardian")["gimmick"], "OK" if guardian_ok else "FAIL"
+	])
+	var fallback_empty_ok: bool = CharacterProfiles.get_profile("")["id"] == CharacterProfiles.PROFILES[0]["id"]
+	var fallback_unknown_ok: bool = CharacterProfiles.get_profile("no_such_id")["id"] == CharacterProfiles.PROFILES[0]["id"]
+	ok = fallback_empty_ok and fallback_unknown_ok and ok
+	lines.append("  get_profile('')/get_profile(no_such_id) 폴백=PROFILES[0] -> %s" % [
+		"OK" if (fallback_empty_ok and fallback_unknown_ok) else "FAIL"
+	])
+
+	# RunState.reset_run("berserker"): 공격/방어 다이스 둘 다 force_min_max_faces() 효과로
+	# 모든 면이 min(1) 또는 max(4)만이어야 한다(중간값 2/3 없음).
+	RunState.reset_run("berserker")
+	var id_ok: bool = RunState.character_id == "berserker"
+	var faces_no_middle_ok := true
+	for faces in RunState.player_attack_bag.dice:
+		for v in faces:
+			if v != 1 and v != 4:
+				faces_no_middle_ok = false
+	for faces in RunState.player_defense_bag.dice:
+		for v in faces:
+			if v != 1 and v != 4:
+				faces_no_middle_ok = false
+	ok = id_ok and faces_no_middle_ok and ok
+	lines.append("  reset_run(berserker): character_id=%s 공격/방어 면 전부 1/4만=%s -> %s" % [
+		RunState.character_id, faces_no_middle_ok, "OK" if (id_ok and faces_no_middle_ok) else "FAIL"
+	])
+
+	# RunState.reset_run("guardian"): 방어 다이스 0번째만 고정값(3)이고, 나머지(1,2번째)는
+	# 표준 D4([1,2,3,4])로 그대로 남아 있어야 한다("다이스 하나만" 고정 — 전체가 아님).
+	RunState.reset_run("guardian")
+	var guardian_id_ok: bool = RunState.character_id == "guardian"
+	var expected_value := CharacterProfiles.fixed_defense_die_value(4)
+	var die0_fixed_ok := true
+	for v in RunState.player_defense_bag.dice[0]:
+		if v != expected_value:
+			die0_fixed_ok = false
+	var other_dice_standard_ok: bool = (
+		RunState.player_defense_bag.dice[1] == PackedInt32Array([1, 2, 3, 4])
+		and RunState.player_defense_bag.dice[2] == PackedInt32Array([1, 2, 3, 4])
+	)
+	var attack_bag_unaffected_ok: bool = RunState.player_attack_bag.dice[0] == PackedInt32Array([1, 2, 3, 4])
+	ok = guardian_id_ok and die0_fixed_ok and other_dice_standard_ok and attack_bag_unaffected_ok and ok
+	lines.append("  reset_run(guardian): 방어다이스0=%s(기대 전부 %d) 방어다이스1/2=표준유지 공격다이스=영향없음 -> %s" % [
+		RunState.player_defense_bag.dice[0], expected_value,
+		"OK" if (guardian_id_ok and die0_fixed_ok and other_dice_standard_ok and attack_bag_unaffected_ok) else "FAIL"
+	])
+
+	# reset_run()을 인자 없이 부르면(패배 후 재시작 등 기존 호출부와 동일한 사용법)
+	# 직전에 고른 캐릭터(guardian)를 유지한 채 새 주머니에 기믹을 다시 적용해야 한다.
+	RunState.reset_run()
+	var keep_character_ok: bool = RunState.character_id == "guardian"
+	var reapplied_ok := true
+	for v in RunState.player_defense_bag.dice[0]:
+		if v != expected_value:
+			reapplied_ok = false
+	ok = keep_character_ok and reapplied_ok and ok
+	lines.append("  reset_run() 인자 없음: character_id 유지=%s 새 주머니에도 기믹 재적용=%s -> %s" % [
+		keep_character_ok, reapplied_ok, "OK" if (keep_character_ok and reapplied_ok) else "FAIL"
+	])
+
+	RunState.reset_run(character_backup)
 	return ok
