@@ -43,6 +43,14 @@ func _rebuild_items() -> void:
 
 		var button_row: VBoxContainer = built["button_row"]
 
+		if item.get("kind", "") == "gain_pips":
+			var pip_btn := Button.new()
+			pip_btn.text = "눈금 획득"
+			pip_btn.custom_minimum_size = Vector2(0, 38)
+			pip_btn.pressed.connect(_on_pick_pips.bind(item))
+			button_row.add_child(pip_btn)
+			continue
+
 		var atk_preview := ItemCardStyle.build_effect_preview(item, RunState.player_attack_bag)
 		if atk_preview:
 			button_row.add_child(atk_preview)
@@ -91,6 +99,31 @@ func _apply_pick(item: Dictionary, target: String) -> bool:
 	return true
 
 
+## gain_pips 아이템(공격/방어 어느 주머니에도 속하지 않고 RunState.pip_inventory에
+## 바로 쌓임) 전용 픽 핸들러. _on_pick_pressed/_apply_pick과 대칭 구조 — attack/defense
+## 대상 선택이 필요 없어서 별도 함수로 분리했다(같은 _picked 플래그를 공유해 이중 실행
+## 가드도 그대로 재사용됨).
+func _on_pick_pips(item: Dictionary) -> void:
+	if not _apply_pips(item):
+		return
+	get_tree().change_scene_to_file("res://code/scenes/dungeon_map.tscn")
+
+
+## 반환값 = 이번 호출이 실제로 적용됐는지 (_apply_pick과 동일한 이중 실행 방지 이유).
+## pip_min..pip_max 개수만큼, 각각 1..6 범위의 무작위 값을 RunState.pip_inventory에
+## 추가한다(전투 승리 보상 1개짜리 눈금과 값 범위는 별개 — "여러 개를 한 번에"가 이
+## 아이템의 핵심이라 개수 쪽에 무게를 둠).
+func _apply_pips(item: Dictionary) -> bool:
+	if _picked:
+		return false
+	_picked = true
+	var count := randi_range(item["pip_min"], item["pip_max"])
+	for i in count:
+		RunState.pip_inventory.append(randi_range(1, 6))
+	RunState.rooms_cleared += 1
+	return true
+
+
 ## qa/visual_qa.gd의 GAME_QA_CALL로 호출하기 위한 인자 없는 래퍼 (QA 전용).
 func _debug_pick_first_for_attack() -> void:
 	_on_pick_pressed(_offered[0], "attack")
@@ -121,3 +154,16 @@ func _debug_verify_d20_pickup() -> void:
 	var after_count := bag.dice.size()
 	var added_sides := bag.dice[after_count - 1].size() if after_count > before_count else -1
 	print("[qa] d20 pickup: before=%d after=%d added_sides=%d" % [before_count, after_count, added_sides])
+
+
+## QA 전용: 새로 추가한 "눈금 주머니 획득" 아이템(gain_pips)을 강제로 목록 맨 앞에
+## 노출시킨다. _debug_force_offer_d20과 같은 이유 — 무작위 2개 중 하나로만 뽑히므로
+## 화면에서 "획득" 버튼 하나짜리 카드가 정상 표시되는지 확인하려면 직접 강제해야 한다.
+func _debug_force_offer_pips() -> void:
+	var pip_item: Dictionary = {}
+	for it in EventItemPool.ITEMS:
+		if it["kind"] == "gain_pips":
+			pip_item = it
+			break
+	_offered = [pip_item, EventItemPool.ITEMS[0]]
+	_rebuild_items()

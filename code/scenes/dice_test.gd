@@ -81,6 +81,10 @@ func _ready() -> void:
 	all_pass = _check_event_double_pick_guard(lines) and all_pass
 
 	lines.append("")
+	lines.append("[특수 이벤트 눈금 획득 검증: event.gd _apply_pips]")
+	all_pass = _check_event_pips_guard(lines) and all_pass
+
+	lines.append("")
 	lines.append("[스토리 이벤트 이중 진행 방지 검증: story_event.gd _on_continue_pressed]")
 	all_pass = _check_story_event_double_continue_guard(lines) and all_pass
 
@@ -686,6 +690,57 @@ func _check_event_double_pick_guard(lines: PackedStringArray) -> bool:
 	event_node.free()
 	RunState.rooms_cleared = rooms_backup
 	RunState.player_attack_bag = attack_bag_backup
+	return ok
+
+
+## event.gd의 새 "눈금 주머니 획득"(gain_pips) 아이템 — INBOX.md 피드백(2026-09-09,
+## "눈금 이벤트가 잘 안뜨는 것 같다. 눈금 여러개 획득하는 이벤트를 넣어 밸런스를
+## 맞춘다")에 따라 추가됨. _apply_pips(item)가 (1) pip_min..pip_max 범위 개수만큼
+## RunState.pip_inventory에 실제로 값을 쌓고 (2) _apply_pick과 동일한 _picked 가드로
+## 이중 실행을 막는지 확인한다(같은 인스턴스화/정리 패턴을 재사용).
+func _check_event_pips_guard(lines: PackedStringArray) -> bool:
+	var ok := true
+	var rooms_backup := RunState.rooms_cleared
+	var pip_backup: Array[int] = RunState.pip_inventory.duplicate()
+
+	RunState.pip_inventory = []
+	var pip_item: Dictionary = {}
+	for it in EventItemPool.ITEMS:
+		if it["kind"] == "gain_pips":
+			pip_item = it
+			break
+	var item_found := pip_item.size() > 0
+	ok = item_found and ok
+	lines.append("  EventItemPool에 gain_pips 아이템 존재 -> %s" % ("OK" if item_found else "FAIL"))
+
+	var event_scene := load("res://code/scenes/event.tscn")
+	var event_node = event_scene.instantiate()
+	add_child(event_node)
+
+	var rooms_before: int = RunState.rooms_cleared
+	var first_applied: bool = event_node._apply_pips(pip_item)
+	var gained: int = RunState.pip_inventory.size()
+	var count_ok := gained >= int(pip_item["pip_min"]) and gained <= int(pip_item["pip_max"])
+	var first_ok: bool = first_applied and RunState.rooms_cleared == rooms_before + 1 and count_ok
+	ok = first_ok and ok
+	lines.append("  1차 적용: applied=%s rooms=%d 획득개수=%d (기대 true, %d, [%d,%d] 범위) -> %s" % [
+		first_applied, RunState.rooms_cleared, gained, rooms_before + 1,
+		pip_item["pip_min"], pip_item["pip_max"], "OK" if first_ok else "FAIL"
+	])
+
+	# 더블클릭 등으로 같은 프레임에 핸들러가 다시 불려도(가드 우회 가정) 눈금이
+	# 중복으로 더 쌓이거나 방을 두 번 클리어 처리해선 안 된다.
+	var second_applied: bool = event_node._apply_pips(pip_item)
+	var guard_ok: bool = not second_applied and RunState.rooms_cleared == rooms_before + 1 and RunState.pip_inventory.size() == gained
+	ok = guard_ok and ok
+	lines.append("  2차 적용 재시도(이미 픽함): applied=%s rooms=%d 획득개수=%d (기대 false, 변화 없음) -> %s" % [
+		second_applied, RunState.rooms_cleared, RunState.pip_inventory.size(), "OK" if guard_ok else "FAIL"
+	])
+
+	remove_child(event_node)
+	event_node.free()
+	RunState.rooms_cleared = rooms_backup
+	RunState.pip_inventory = pip_backup
 	return ok
 
 

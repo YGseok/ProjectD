@@ -33,6 +33,13 @@ const ITEMS: Array[Dictionary] = [
 		"kind": "add_die",
 		"sides": 20,
 	},
+	{
+		"name": "눈금 주머니 획득",
+		"description": "눈금 3~5개를 한 번에 인벤토리에 추가합니다. 커스터마이징에서 원하는 다이스에 나중에 사용할 수 있습니다.",
+		"kind": "gain_pips",
+		"pip_min": 3,
+		"pip_max": 5,
+	},
 ]
 
 
