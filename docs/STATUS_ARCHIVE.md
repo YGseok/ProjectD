@@ -8,6 +8,36 @@
 
 ---
 
+- **2026-09-09 (79)**: INBOX.md "남은 이슈"의 [대형 기획 3] 업적 시스템 추가 —
+  세션 지침("업적 30종처럼 목록이 긴 항목은 시스템 먼저 만들고 몇 개씩 나눠서
+  추가")을 그대로 따라 "시스템"만 착수. `code/systems/achievement_manager.gd`
+  (`AchievementManager`, Autoload)를 신설 — `user://achievements.json`에 해금
+  상태를 영구 저장(RunState.reset_run()과 무관하게 유지), `unlock(id)`(멱등,
+  새로 해금됐을 때만 true 반환)/`is_unlocked(id)`/`get_all_for_display()` API와
+  QA 전용 `_debug_reset_for_qa()` 제공. `code/scenes/achievement_panel.gd`
+  (`AchievementPanel`, deck_panel.gd/customize_panel.gd와 같은 "스크립트
+  하나로 완결된 Control, 별도 .tscn 불필요" 패턴)로 잠금(회색+자물쇠)/해금(금테+
+  별) 카드 목록 오버레이를 만들고, `character_select.tscn`에 새 "업적" 버튼으로
+  여닫게 배선(`character_select.gd`의 `_on_achievement_pressed()`). 실제
+  업적은 서로 다른 3개의 후킹 지점(버튼 클릭/화면 진입 조건/전투 승리 판정)이
+  전부 제대로 동작하는지 증명하기 위해 3종만 등록: "첫 발걸음"(INBOX #25,
+  `character_select.gd`의 던전 시작 버튼), "던전 클리어"(INBOX #1,
+  `dungeon_map.gd`가 `RunState.is_run_complete()`를 감지하는 지점, `_update_labels()`가
+  여러 번 불려도 unlock()이 멱등이라 안전), "거인의 주사위"(INBOX #6,
+  `combat_test.gd` 전투 승리 시점에 신규 헬퍼 `_bag_has_d20(bag)`으로 공격/방어
+  주머니 중 면 20개짜리 다이스 보유 여부 판정). `dice_test.gd`에 신규
+  `_check_achievement_manager`(정의되지 않은 id 해금 거부, 초기 미해금 상태,
+  최초 해금 성공+반영, 재해금 시도의 멱등성, `get_all_for_display()` 목록
+  정확성, `_bag_has_d20` 참/거짓 2케이스) 추가로 회귀 스위트 85개 항목(기존 82 +
+  신규 3) 전체 PASS(FAIL/error/warning/leak/orphan 없음). QA 훅
+  `character_select.gd`의 `_debug_show_achievements()`(저장 파일 초기화 -> 1개만
+  미리 해금 -> 패널 오픈)로 `qa_out/character_select_achievements.png`를 찍어
+  잠금/해금 두 상태가 겹침 없이 시각적으로 구분됨을 확인, `dungeon_map`/
+  `combat_test` 두 씬도 별도로(`qa_out/dungeon_map_smoke2.png`/
+  `qa_out/combat_test_smoke2.png`) 크래시 없이 로드/정지됨을 확인 — 새 Autoload
+  등록이 기존 씬에 부작용을 주지 않음. 나머지 27종 업적과 [대형 기획 1](캐릭터
+  4종)/[대형 기획 2](보스+3라운드)는 이번에 전혀 손대지 않고 아래 "다음 할 일 큐"
+  13/14/15번에 착수 조각을 나눠서 남김.
 - **2026-09-09 (78)**: INBOX.md "부분 처리됨"에 남아있던 "몬스터별 다이스 특이
   특징" 예시 3개 중 마지막 1개 "분노 스택 → D20"(주사위 x가 나올 때마다 분노
   스택이 쌓여서 몇 개 이상 쌓이면 다음 턴에 20면체 주사위를 돌린다)을 구현 —

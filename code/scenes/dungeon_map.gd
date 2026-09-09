@@ -230,14 +230,20 @@ func _update_labels() -> void:
 		# 매번 다시 그릴 때마다 불려도 unlock()이 멱등(이미 해금됐으면 아무 일도 안 함)
 		# 이라 안전하다.
 		AchievementManager.unlock("round1_clear")
-		# [대형 기획 2] 조각 (b): combat_test.gd의 _apply_room_advance()가 보스를 잡을 때마다
+		# [대형 기획 2] 조각 (c): combat_test.gd의 _apply_room_advance()가 보스를 잡을 때마다
 		# 마지막 라운드가 아니면 즉시 RunState.advance_round()로 rooms_cleared를 0으로
-		# 되돌리므로, 이 분기(is_run_complete()==true)는 이제 실질적으로 "마지막 라운드의
-		# 보스까지 잡은 진짜 최종 클리어" 상태에서만 도달한다. 문구 자체를 "게임 클리어!"로
-		# 바꾸는 것은 다음 조각 (c)의 몫 — 지금은 라운드 번호만 덧붙인다.
-		rooms_cleared_label.text = "라운드 %d/%d · 던전 클리어! (%d / %d 방 격파)" % [
-			RunState.round_index, RunState.TOTAL_ROUNDS, RunState.rooms_cleared, RunState.TOTAL_ROOMS
-		]
+		# 되돌리므로, 이 분기(is_run_complete()==true)는 실질적으로 "마지막 라운드의 보스까지
+		# 잡은 진짜 최종 클리어" 상태에서만 도달한다 — RunState.is_last_round()로 다시 한 번
+		# 명시적으로 구분해 "게임 클리어!"(3라운드 완주) 전용 문구를 보여준다(도달 조건이
+		# 우연히 같더라도, 나중에 라운드별 스케일링 등이 바뀌어도 문구 의도가 어긋나지 않게).
+		if RunState.is_last_round():
+			rooms_cleared_label.text = "게임 클리어! 총 %d라운드 완주 (마지막 라운드 %d / %d 방 격파)" % [
+				RunState.TOTAL_ROUNDS, RunState.rooms_cleared, RunState.TOTAL_ROOMS
+			]
+		else:
+			rooms_cleared_label.text = "라운드 %d/%d · 던전 클리어! (%d / %d 방 격파)" % [
+				RunState.round_index, RunState.TOTAL_ROUNDS, RunState.rooms_cleared, RunState.TOTAL_ROOMS
+			]
 		enter_combat_button.text = "새 런 시작"
 		enter_shop_button.hide()
 		enter_event_button.hide()
@@ -449,6 +455,16 @@ func _debug_advance_rooms(count: int = 2) -> void:
 func _debug_show_round2() -> void:
 	RunState.round_index = 2
 	RunState.rooms_cleared = 0
+	_roll_room_choices()
+	_update_labels()
+
+
+## QA 전용 — [대형 기획 2] 조각 (c) 검증용. 실제로 3라운드 전부(보스 3번)를 깨야만
+## 도달하는 "게임 클리어!" 화면을, round_index/rooms_cleared를 마지막 라운드 완료
+## 상태로 직접 맞춰서 겹침 없이 표시되는지만 스크린샷으로 확인한다.
+func _debug_show_final_clear() -> void:
+	RunState.round_index = RunState.TOTAL_ROUNDS
+	RunState.rooms_cleared = RunState.TOTAL_ROOMS
 	_roll_room_choices()
 	_update_labels()
 
