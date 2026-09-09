@@ -304,8 +304,13 @@ func _do_exchange(is_player_attacking: bool) -> void:
 	await get_tree().create_timer(EXCHANGE_PAUSE_TIME).timeout
 
 	if battle_over:
+		# INBOX.md 피드백(2026-09-09) "결과 화면이 나왔을 때, 덱 보기 토글이 열려있다면
+		# 닫힌다" — 결과 화면(보상/패배)이 덱 패널과 겹쳐 보이지 않도록 강제로 닫는다.
+		if deck_panel.visible:
+			deck_panel.visible = false
+			deck_toggle_button.text = "덱 보기"
 		if player_won:
-			next_button.text = "던전으로 돌아가기"
+			next_button.text = "다음"
 			_show_reward_ui()
 		else:
 			next_button.text = "처음부터 다시"
@@ -479,10 +484,13 @@ func _show_reward_ui() -> void:
 	next_button.hide()
 	_add_reward_frame("승리 보상 — 다이스 아이템을 고르고 적용할 주머니를 선택하세요")
 
-	var card_width := 400.0
+	# INBOX.md 피드백(2026-09-09) "덱보기 토글 또는 결과 선택지의 위치를 조정해서 ...
+	# 겹치지 않도록 한다" — 덱 패널(DeckPanel, x=980~1240)이 결과 화면 도중 다시
+	# 열리더라도 겹치지 않도록, 보상 카드 영역을 x=980 앞(140~960)에서 끝나게 좁힌다.
+	var card_width := 380.0
 	var card_height := 260.0
 	var card_y := 185.0
-	var card_x := [200.0, 640.0]
+	var card_x := [160.0, 560.0]
 	for i in _reward_items.size():
 		var item: Dictionary = _reward_items[i]
 		var built := ItemCardStyle.build_card(item)
@@ -518,7 +526,7 @@ func _show_reward_ui() -> void:
 
 	var custom_btn := Button.new()
 	custom_btn.text = "커스터마이징: 눈금 교환"
-	custom_btn.position = Vector2(200, card_y + card_height + 15)
+	custom_btn.position = Vector2(160, card_y + card_height + 15)
 	custom_btn.size = Vector2(340, 40)
 	custom_btn.pressed.connect(_open_customize_from_reward)
 	add_child(custom_btn)
@@ -537,17 +545,19 @@ func _show_reward_ui() -> void:
 ## 면 선택 — 모두 이 위에 그려서 화면을 재활용한다). D8~D12처럼 면이 많은 다이스는
 ## 얼굴 그리드가 두 줄이 될 수 있어 height를 늘려 부를 수 있게 함(기본 420).
 func _add_reward_frame(title_text: String, height: float = 420.0) -> void:
+	# INBOX.md 피드백(2026-09-09) — 폭을 980(DeckPanel 왼쪽 끝)보다 좁게 잡아 덱 패널이
+	# 결과 화면 중에 다시 열려도 겹치지 않게 한다 (위 card_x 주석 참고).
 	var bg := ColorRect.new()
 	bg.color = Color(0, 0, 0, 0.85)
 	bg.position = Vector2(140, 120)
-	bg.size = Vector2(1000, height)
+	bg.size = Vector2(820, height)
 	add_child(bg)
 	_reward_ui.append(bg)
 
 	var title := Label.new()
 	title.text = title_text
 	title.position = Vector2(170, 140)
-	title.size = Vector2(940, 30)
+	title.size = Vector2(760, 30)
 	add_child(title)
 	_reward_ui.append(title)
 
@@ -655,6 +665,18 @@ func _debug_verify_reward_customize_flow() -> void:
 	var hidden_while_open := not next_button.visible
 	customize_panel.close()
 	print("[reward_customize_check] hidden_while_open=%s visible_after_close=%s (기대: true, true)" % [hidden_while_open, next_button.visible])
+
+
+## QA 전용 — INBOX.md 피드백(2026-09-09) "덱보기 토글 또는 결과 선택지의 위치를
+## 조정해서 ... 겹치지 않도록 한다" 검증용. 정상 플레이로 승리 보상 화면까지 도달한
+## 뒤 덱 패널을 다시 여는 것은 물리 정지 대기 때문에 느리므로, 보상 화면을 강제로
+## 띄우고 덱 패널을 곧바로 연 상태로 스크린샷 한 장에서 겹침 여부를 확인한다.
+func _debug_show_reward_with_deck_open() -> void:
+	battle_over = true
+	player_won = true
+	_show_reward_ui()
+	deck_panel.visible = true
+	deck_toggle_button.text = "덱 닫기"
 
 
 ## qa/visual_qa.gd의 GAME_QA_CALL로 호출하기 위한 인자 없는 래퍼 (QA 전용). 정상

@@ -157,6 +157,7 @@ text = "덱 보기"
 
 [node name="DeckPanel" type="PanelContainer" parent="."]
 visible = false
+z_index = 10
 offset_left = 980.0
 offset_top = 150.0
 offset_right = 1240.0
@@ -174,7 +175,7 @@ offset_left = 540.0
 offset_top = 508.0
 offset_right = 740.0
 offset_bottom = 548.0
-text = "던전으로 돌아가기"
+text = "다음"
 
 [node name="LogLabel" type="Label" parent="."]
 offset_left = 140.0
