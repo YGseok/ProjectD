@@ -313,6 +313,21 @@ func _debug_open_customize_face() -> void:
 	customize_panel.debug_open_face_picker()
 
 
+## QA 전용 — 인벤토리에 눈금이 여러 개 쌓인 상태에서 1단계(눈금 선택) 화면의
+## 실제 레이아웃(칩 버튼이 여러 개 나열된 상태)을 확인하기 위함.
+func _debug_open_customize_with_pips() -> void:
+	RunState.pip_inventory = [3, 5, 2]
+	customize_panel.open()
+
+
+## QA 전용 — 2단계(다이스 선택) 화면의 레이아웃을 확인하기 위함.
+func _debug_open_customize_die() -> void:
+	if RunState.pip_inventory.is_empty():
+		RunState.pip_inventory = [3, 5, 2]
+	customize_panel.open()
+	customize_panel._show_die_picker(0)
+
+
 ## QA 전용 — 화면(스크린샷)으로는 확인할 수 없는 "실제 교환 로직"(눈금 소모, 밀려난
 ## 값이 인벤토리로 돌아오는 것, 상한 클램프)을 콘솔 출력으로 검증하기 위한 일회성 훅.
 func _debug_verify_pip_swap() -> void:

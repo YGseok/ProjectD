@@ -69,7 +69,11 @@ func _clear_ui() -> void:
 	_ui.clear()
 
 
-func _add_frame(title_text: String, height: float = 420.0) -> void:
+## subtitle_text가 있으면 제목 아래에 회색 안내 문구를 한 줄 더 붙인다 — INBOX.md
+## 피드백(2026-09-03, 2026-09-09 재차) "내가 어떤 상태인지, 여기서 무엇을 어떻게
+## 할 수 있는지 알 수 있어야 한다"를 반영해 각 단계 호출부에서 "지금 몇 단계인지 +
+## 이 화면에서 고르면 무슨 일이 일어나는지"를 문장으로 명시한다.
+func _add_frame(title_text: String, height: float = 420.0, subtitle_text: String = "") -> void:
 	var bg := ColorRect.new()
 	bg.color = Color(0, 0, 0, 0.9)
 	bg.position = Vector2(140, 120)
@@ -84,6 +88,21 @@ func _add_frame(title_text: String, height: float = 420.0) -> void:
 	add_child(title)
 	_ui.append(title)
 
+	if subtitle_text != "":
+		var subtitle := Label.new()
+		# autowrap_mode를 text/size보다 먼저 설정해야 한다 — Label의 minimum_size는
+		# autowrap이 꺼진 상태(기본값)에서는 줄바꿈 없는 전체 텍스트 폭 그대로라, size를
+		# 먼저 지정하면 Control이 "size는 최소 minimum_size 이상"이라는 제약 때문에 그
+		# 큰 값으로 즉시 클램프해버린다. 그 뒤에 autowrap_mode를 켜도 이미 커진 size는
+		# 저절로 줄어들지 않아 텍스트가 프레임 밖으로 흘러넘친다(실제로 겪은 버그).
+		subtitle.autowrap_mode = TextServer.AUTOWRAP_WORD
+		subtitle.text = subtitle_text
+		subtitle.position = Vector2(170, 172)
+		subtitle.size = Vector2(940, 46)
+		subtitle.add_theme_color_override("font_color", Color(0.75, 0.75, 0.72))
+		add_child(subtitle)
+		_ui.append(subtitle)
+
 
 ## 1단계: 인벤토리에 쌓인 눈금 중 하나를 고른다. 비어있으면 눈금을 얻는 방법을
 ## 안내하고 닫기만 가능하게 한다.
@@ -92,19 +111,23 @@ func _show_pip_picker() -> void:
 
 	var chip_size := 70.0
 	var gap := 14.0
-	var y := 200.0
+	var y := 236.0
 	var x := 200.0
 
 	if RunState.pip_inventory.is_empty():
-		_add_frame("커스터마이징: 인벤토리에 눈금이 없습니다")
+		_add_frame(
+			"커스터마이징 (1/3) — 인벤토리에 눈금이 없습니다",
+			260.0,
+			"눈금은 전투에서 승리하면 얻습니다. 눈금을 얻고 나면 여기서 원하는 다이스의 면과 맞바꿔 개조할 수 있습니다."
+		)
 		var msg := Label.new()
-		msg.text = "전투에서 승리하면 눈금을 얻습니다. 눈금을 다이스의 면과 맞바꿔 개조할 수 있습니다."
-		msg.position = Vector2(200, y)
-		msg.size = Vector2(880, 60)
 		msg.autowrap_mode = TextServer.AUTOWRAP_WORD
+		msg.text = "지금은 맞바꿀 수 있는 눈금이 없어 다음 단계로 진행할 수 없습니다."
+		msg.position = Vector2(200, y)
+		msg.size = Vector2(880, 40)
 		add_child(msg)
 		_ui.append(msg)
-		y += 80.0
+		y += 60.0
 	else:
 		for i in RunState.pip_inventory.size():
 			var value: int = RunState.pip_inventory[i]
@@ -121,7 +144,11 @@ func _show_pip_picker() -> void:
 				x = 200.0
 				y += chip_size + gap
 		y += chip_size + 24.0
-		_add_frame("커스터마이징: 맞바꿀 눈금을 고르세요", max(220.0, y - 120.0))
+		_add_frame(
+			"커스터마이징 (1/3) — 사용할 눈금을 고르세요",
+			max(260.0, y - 120.0),
+			"보유 눈금 %d개 중 다이스 면과 맞바꿀 값을 하나 고르세요. 다음 단계에서 어느 다이스, 어느 면에 넣을지 정합니다." % RunState.pip_inventory.size()
+		)
 
 	var close_btn := Button.new()
 	close_btn.text = "닫기"
@@ -136,9 +163,13 @@ func _show_pip_picker() -> void:
 func _show_die_picker(pip_index: int) -> void:
 	_clear_ui()
 	var pip_value: int = RunState.pip_inventory[pip_index]
-	_add_frame("눈금 [%d]을(를) 넣을 다이스를 고르세요" % pip_value)
+	_add_frame(
+		"커스터마이징 (2/3) — 눈금 [%d]을(를) 넣을 다이스를 고르세요" % pip_value,
+		460.0,
+		"아래 목록은 공격/방어 주머니의 다이스별 현재 면 구성입니다(금색 = 그 다이스의 최댓값). 눈금을 넣을 다이스를 고르면 다음 단계에서 어느 면에 넣을지 정합니다."
+	)
 
-	var y := 190.0
+	var y := 226.0
 	y = _add_die_rows("공격", RunState.player_attack_bag, y, pip_index)
 	y = _add_die_rows("방어", RunState.player_defense_bag, y, pip_index)
 
@@ -185,11 +216,15 @@ func _show_face_picker(bag: DiceBag, die_index: int, pip_index: int) -> void:
 	var faces: PackedInt32Array = bag.dice[die_index]
 	var sides := faces.size()
 	var applied_value: int = min(pip_value, sides)
-	_add_frame("맞바꿀 면을 고르세요 (눈금 [%d] -> 적용 시 %d)" % [pip_value, applied_value], 480.0)
+	_add_frame(
+		"커스터마이징 (3/3) — 맞바꿀 면을 고르세요",
+		520.0,
+		"면을 고르면 그 즉시 눈금 [%d]과 맞바뀝니다 → 이 면은 %d(이)가 됩니다. 원래 있던 값은 사라지지 않고 인벤토리로 돌아갑니다." % [pip_value, applied_value]
+	)
 
 	var chip_size := 80.0
 	var gap := 16.0
-	var y := 210.0
+	var y := 246.0
 	var x := 200.0
 	for fi in faces.size():
 		var caption := Label.new()
