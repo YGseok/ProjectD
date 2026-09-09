@@ -67,6 +67,8 @@ const DICE_SPAWN_ROW_SPACING := 0.5
 
 @onready var player_hp_label: Label = $PlayerHPLabel
 @onready var monster_hp_label: Label = $MonsterHPLabel
+@onready var player_hp_bar_fill: ColorRect = $PlayerHPBarFill
+@onready var monster_hp_bar_fill: ColorRect = $MonsterHPBarFill
 @onready var turn_label: Label = $TurnLabel
 @onready var log_label: Label = $LogLabel
 @onready var dice_root: Node3D = $DiceViewportContainer/DiceViewport/DiceRoot
@@ -80,6 +82,17 @@ const DICE_SPAWN_ROW_SPACING := 0.5
 
 var player_hp := 20
 const PLAYER_MAX_HP := 20
+
+## INBOX.md 피드백(2026-09-09) "체력바 추가 등 정보를 텍스트보다 이미지로 표현하는게
+## 좋을 듯" — HP를 텍스트 라벨뿐 아니라 채워진 정도로 보여주는 막대(ColorRect 2장,
+## combat_test.tscn 참고)를 추가한다. 너비는 각 Bg/Fill의 tscn 초기 크기와 맞춰둠.
+const PLAYER_HP_BAR_WIDTH := 380.0
+const MONSTER_HP_BAR_WIDTH := 340.0
+## 체력 비율에 따라 초록(넉넉) -> 주황(경고) -> 빨강(위험)으로 막대 색이 바뀐다 —
+## "쪼이는 맛"(위기감)을 색으로도 드러내기 위함.
+const HP_BAR_COLOR_HIGH := Color(0.35, 0.85, 0.35)
+const HP_BAR_COLOR_MID := Color(0.95, 0.75, 0.25)
+const HP_BAR_COLOR_LOW := Color(0.9, 0.25, 0.25)
 
 var monster_hp: int
 var monster_max_hp: int
@@ -100,9 +113,13 @@ var _reward_items: Array[Dictionary] = []
 ## 지우고 새로 그린다 (INBOX.md 2026-09-03: "전투 시 어떤 주사위에서 어떤 값이
 ## 나왔는지 이미지로 보이면 좋겠다").
 var _exchange_chip_nodes: Array[Node] = []
-const EXCHANGE_CHIP_SIZE := 34.0
-const EXCHANGE_CHIP_GAP := 6.0
-const EXCHANGE_CHIP_Y := 505.0
+## INBOX.md 피드백(2026-09-09) "전투의 재미가 없다. 다이스 값이 잘 안보여서 쪼이는 맛이
+## 덜하다" — 칩 크기를 34 -> 44로 키워 값이 더 잘 보이게 함(라벨 폰트 크기는
+## ShapeDieChip이 size.y 비례로 자동 조정하므로 숫자도 함께 커짐). Y좌표는 다이스
+## 개수가 많을 때(최대 한 줄) LogLabel(y=556)과 안 겹치도록 같이 조정.
+const EXCHANGE_CHIP_SIZE := 44.0
+const EXCHANGE_CHIP_GAP := 7.0
+const EXCHANGE_CHIP_Y := 504.0
 
 ## 커스터마이징(눈금 교환)은 이제 code/scenes/customize_panel.gd(CustomizePanel)
 ## 하나로 통합됨 — 승리 보상 화면의 "커스터마이징" 버튼도 이 화면 전용 로직 대신 그
@@ -439,6 +456,21 @@ func _clear_exchange_dice_chips() -> void:
 func _update_labels() -> void:
 	player_hp_label.text = "플레이어 HP: %d / %d" % [player_hp, PLAYER_MAX_HP]
 	monster_hp_label.text = "%s HP: %d / %d" % [monster_name, monster_hp, monster_max_hp]
+	_update_hp_bar(player_hp_bar_fill, PLAYER_HP_BAR_WIDTH, player_hp, PLAYER_MAX_HP)
+	_update_hp_bar(monster_hp_bar_fill, MONSTER_HP_BAR_WIDTH, monster_hp, monster_max_hp)
+
+
+## fill(ColorRect)의 너비를 hp/max_hp 비율만큼 줄이고(왼쪽 기준 고정, 오른쪽부터
+## 닳는 형태), 남은 비율에 따라 초록->주황->빨강으로 색을 바꾼다.
+func _update_hp_bar(fill: ColorRect, full_width: float, hp: int, max_hp: int) -> void:
+	var ratio: float = clamp(float(hp) / max_hp, 0.0, 1.0) if max_hp > 0 else 0.0
+	fill.size.x = full_width * ratio
+	if ratio > 0.5:
+		fill.color = HP_BAR_COLOR_HIGH
+	elif ratio > 0.25:
+		fill.color = HP_BAR_COLOR_MID
+	else:
+		fill.color = HP_BAR_COLOR_LOW
 
 
 func _append_log(line: String) -> void:
