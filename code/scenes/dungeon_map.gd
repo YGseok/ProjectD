@@ -65,6 +65,21 @@ const BUTTON_HEIGHT := 50.0
 const PIP_HOARDER_THRESHOLD := 10
 const DIE_HOARDER_THRESHOLD := 5
 
+## 업적 "단골 손님"(shop_regular) 임계치 — 감으로 잡은 잠정값.
+const SHOP_REGULAR_THRESHOLD := 3
+
+## 업적 "재질 수집가"(material_collector)가 재질을 판정하는 기준. combat_test.gd의
+## _material_for_sides()와 같은 면 개수 -> 재질 매핑을 그대로 따른다(다이스 면
+## 개수만으로 재질이 잠정 배정되는 현재 규칙, DESIGN.md "다이스 연출" 참고). 두 스크립트가
+## class_name 없이 각자 씬에 귀속돼 있어 정적 참조 대신 매핑을 각자 갖는다 — 매핑 자체가
+## 5줄짜리 단순 규칙이라 중복 비용보다 씬 간 결합을 피하는 이득이 크다고 판단.
+const MATERIAL_SIDES := {
+	"plastic": [4, 6],
+	"wood": [8],
+	"glass": [10],
+	"metal": [12, 20],
+}
+
 ## 방 종류별로 "무엇을 줄 수 있는지" 카테고리(RewardIcon.category 값). 실제 골드/눈금
 ## 수치나 상점 판매 품목은 매번 달라 정확한 값을 미리 보여주기 어려우므로, "카테고리"만
 ## 고정 목록으로 둔다 (STATUS.md 큐 0-A 판단 참고).
@@ -178,6 +193,23 @@ func _is_bag_maxed(bag: DiceBag) -> bool:
 	return bag != null and bag.is_full()
 
 
+func _is_shop_regular(visits: int) -> bool:
+	return visits >= SHOP_REGULAR_THRESHOLD
+
+
+## 공격/방어 두 주머니를 합쳐 MATERIAL_SIDES의 4개 재질을 전부 동시에 보유했는지 확인한다.
+func _is_material_collector(attack_bag: DiceBag, defense_bag: DiceBag) -> bool:
+	var found: Dictionary = {}
+	for bag in [attack_bag, defense_bag]:
+		if bag == null:
+			continue
+		for faces in bag.dice:
+			for material in MATERIAL_SIDES:
+				if faces.size() in MATERIAL_SIDES[material]:
+					found[material] = true
+	return found.size() >= MATERIAL_SIDES.size()
+
+
 func _update_labels() -> void:
 	gold_label.text = "보유 골드: %d" % RunState.gold
 	# 업적 "눈금 수집가"/"다이스 수집가"/"가득 찬 주머니" — 어느 화면(상점/특수 이벤트/
@@ -189,6 +221,10 @@ func _update_labels() -> void:
 		AchievementManager.unlock("die_hoarder")
 	if _is_bag_maxed(RunState.player_attack_bag) or _is_bag_maxed(RunState.player_defense_bag):
 		AchievementManager.unlock("bag_maxed")
+	if _is_shop_regular(RunState.shop_visits):
+		AchievementManager.unlock("shop_regular")
+	if _is_material_collector(RunState.player_attack_bag, RunState.player_defense_bag):
+		AchievementManager.unlock("material_collector")
 	if RunState.is_run_complete():
 		# INBOX.md [대형 기획 3] 업적 #1 "라운드 1(첫 던전) 클리어". _update_labels()가
 		# 매번 다시 그릴 때마다 불려도 unlock()이 멱등(이미 해금됐으면 아무 일도 안 함)

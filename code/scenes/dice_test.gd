@@ -1285,14 +1285,35 @@ func _check_achievement_manager(lines: PackedStringArray) -> bool:
 		maxed_true, maxed_false, "OK" if maxed_ok else "FAIL"
 	])
 
+	var shop_regular_true: bool = dmap._is_shop_regular(dmap.SHOP_REGULAR_THRESHOLD)
+	var shop_regular_false: bool = dmap._is_shop_regular(dmap.SHOP_REGULAR_THRESHOLD - 1)
+	var shop_regular_ok := shop_regular_true and not shop_regular_false
+	ok = shop_regular_ok and ok
+	lines.append("  _is_shop_regular(임계치/임계치-1): %s/%s (기대 true/false) -> %s" % [
+		shop_regular_true, shop_regular_false, "OK" if shop_regular_ok else "FAIL"
+	])
+
+	var mixed_attack := DiceBag.new(4, 1)
+	mixed_attack.add_die(8)
+	var mixed_defense := DiceBag.new(10, 1)
+	mixed_defense.add_die(20)
+	var collector_true: bool = dmap._is_material_collector(mixed_attack, mixed_defense)
+	var uniform_bag := DiceBag.new(4, 2)
+	var collector_false: bool = dmap._is_material_collector(uniform_bag, uniform_bag)
+	var collector_ok := collector_true and not collector_false
+	ok = collector_ok and ok
+	lines.append("  _is_material_collector(4종 혼합/D4만): %s/%s (기대 true/false) -> %s" % [
+		collector_true, collector_false, "OK" if collector_ok else "FAIL"
+	])
+
 	dmap.free()
 
-	var hoard_ids := ["pip_hoarder", "die_hoarder", "bag_maxed"]
+	var hoard_ids := ["pip_hoarder", "die_hoarder", "bag_maxed", "shop_regular", "material_collector"]
 	var hoard_ids_ok := true
 	for id in hoard_ids:
 		hoard_ids_ok = hoard_ids_ok and AchievementManager.DEFINITIONS.has(id) and not AchievementManager.is_unlocked(id)
 	ok = hoard_ids_ok and ok
-	lines.append("  신규 업적 3종(수집가/가득 찬 주머니) 정의 존재 + 초기 미해금: %s -> %s" % [
+	lines.append("  신규 업적 5종(수집가/가득 찬 주머니/단골 손님/재질 수집가) 정의 존재 + 초기 미해금: %s -> %s" % [
 		hoard_ids_ok, "OK" if hoard_ids_ok else "FAIL"
 	])
 

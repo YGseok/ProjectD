@@ -70,6 +70,14 @@ const DEFINITIONS := {
 		"title": "가득 찬 주머니",
 		"desc": "공격 또는 방어 주머니를 최대 개수(6개)까지 채웠다.",
 	},
+	"shop_regular": {
+		"title": "단골 손님",
+		"desc": "한 런에서 상점을 3회 이상 이용했다.",
+	},
+	"material_collector": {
+		"title": "재질 수집가",
+		"desc": "플라스틱/나무/유리/철제 재질 다이스를 동시에 모두 보유했다.",
+	},
 }
 
 ## id -> 해금 시각(unix time, int). Dictionary 순서가 삽입 순서를 유지하므로 저장/로드

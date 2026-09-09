@@ -32,11 +32,15 @@ extends Node
 ## 기존 다이스도 면 개수만 이 배열로 돌아와(면 값 자체는 표준으로 리셋되지만, 이전
 ## upgrade_die 자동교체도 같은 리셋을 했으므로 새로운 손해는 아님) 다른 자리에 다시
 ## 쓸 수 있다.
+##
+## shop_visits: 업적 "단골 손님"(shop_regular, docs/STATUS.md 큐 13이 예로 든 "상점
+## 이용 횟수" 카운터)을 위해 추가. shop.gd가 상점을 나갈 때마다 1 증가시킨다.
 
 const TOTAL_ROOMS := 5
 
 var rooms_cleared := 0
 var gold := 0
+var shop_visits := 0
 var player_attack_bag: DiceBag
 var player_defense_bag: DiceBag
 var pip_inventory: Array[int] = []
@@ -50,6 +54,7 @@ func _ready() -> void:
 func reset_run() -> void:
 	rooms_cleared = 0
 	gold = 0
+	shop_visits = 0
 	player_attack_bag = DiceBag.new(4, 3)
 	player_defense_bag = DiceBag.new(4, 3)
 	pip_inventory = []

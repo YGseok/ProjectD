@@ -122,6 +122,9 @@ func _debug_buy_first_for_attack() -> void:
 
 
 func _on_leave_pressed() -> void:
+	# 업적 "단골 손님"(shop_regular)이 쓰는 카운터 — dungeon_map.gd의 _update_labels()가
+	# 매번 이 값을 검사한다.
+	RunState.shop_visits += 1
 	RunState.rooms_cleared += 1
 	get_tree().change_scene_to_file("res://code/scenes/dungeon_map.tscn")
 
