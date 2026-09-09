@@ -374,9 +374,17 @@ func _do_exchange(is_player_attacking: bool) -> void:
 		# 면 "개수" 자체는 그대로임).
 		if _bag_has_d20(RunState.player_attack_bag) or _bag_has_d20(RunState.player_defense_bag):
 			AchievementManager.unlock("win_with_d20")
+		if _is_flawless_win(player_hp):
+			AchievementManager.unlock("flawless_win")
+		if _is_comeback_win(player_hp):
+			AchievementManager.unlock("comeback_win")
+		if _is_overkill_win(dmg, monster_max_hp):
+			AchievementManager.unlock("overkill_win")
 		var gold_gain := GOLD_REWARD_BASE + RunState.rooms_cleared * GOLD_REWARD_PER_ROOM
 		RunState.gold += gold_gain
 		_append_log("골드 획득: +%d (보유 %d)" % [gold_gain, RunState.gold])
+		if RunState.gold >= 100:
+			AchievementManager.unlock("gold_100")
 		var pip_max := PIP_REWARD_MAX_BASE + RunState.rooms_cleared * PIP_REWARD_MAX_PER_ROOM
 		var pip_gain := randi_range(PIP_REWARD_MIN, pip_max)
 		RunState.pip_inventory.append(pip_gain)
@@ -563,6 +571,28 @@ func _bag_has_d20(bag: DiceBag) -> bool:
 		if faces.size() == 20:
 			return true
 	return false
+
+
+## AchievementManager 업적 3종(무결점 승리/기사회생/오버킬) 판정용 순수 함수 —
+## _bag_has_d20과 같은 패턴으로 _do_exchange()의 승리 분기에서 호출한다.
+## 체력이 이 값 이하로 떨어진 채로 이긴 경우 "기사회생"으로 친다 (PLAYER_MAX_HP=20의 10%).
+const COMEBACK_HP_THRESHOLD := 2
+
+
+## 승리 시점의 플레이어 HP가 최대 HP 그대로면(이번 전투에서 한 번도 안 맞았으면) true.
+func _is_flawless_win(hp_at_win: int) -> bool:
+	return hp_at_win >= PLAYER_MAX_HP
+
+
+## 승리 시점의 플레이어 HP가 COMEBACK_HP_THRESHOLD 이하로 떨어져 있었으면 true.
+func _is_comeback_win(hp_at_win: int) -> bool:
+	return hp_at_win <= COMEBACK_HP_THRESHOLD
+
+
+## 몬스터를 처치한 한 방의 데미지가 몬스터 최대 체력 이상이면(풀피 상태였어도 한 방에
+## 죽였을 만큼 큰 데미지) true.
+func _is_overkill_win(final_hit_dmg: int, target_max_hp: int) -> bool:
+	return final_hit_dmg >= target_max_hp
 
 
 ## event.gd의 _on_pick_pressed/_apply_pick(이터레이션 46)와 같은 이유로 이중 실행

@@ -5,34 +5,32 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-09-09 (79)
-- 작성자: AI 에이전트. INBOX.md "남은 이슈"에 남아있던 대형 기획 3개(플레이어블
-  캐릭터 4종/보스+3라운드/업적 시스템) 중, 세션 지침("긴 목록 항목은 시스템(저장/
-  추적/UI) 먼저 만들고 몇 개씩 나눠서 추가")을 그대로 따라 [대형 기획 3] 업적
-  시스템의 "시스템" 부분만 착수. `code/systems/achievement_manager.gd`
-  (`AchievementManager`, Autoload)를 신설해 `user://achievements.json`에 해금
-  상태를 영구 저장(RunState와 달리 새 런을 시작해도 초기화 안 됨) — `unlock(id)`/
-  `is_unlocked(id)`/`get_all_for_display()` API와 QA용 `_debug_reset_for_qa()`를
-  제공. `code/scenes/achievement_panel.gd`(`AchievementPanel`, deck_panel.gd/
-  customize_panel.gd와 같은 "스크립트 하나로 완결된 Control" 패턴)로 잠금/해금
-  상태를 카드 목록으로 보여주는 view-only 오버레이를 만들고, `character_select.tscn`에
-  "업적" 버튼으로 여닫게 배선. 실제 업적은 서로 다른 3개의 후킹 지점을 검증하기
-  위해 3종만 등록: "첫 발걸음"(INBOX #25, `character_select.gd`의 던전 시작 버튼),
-  "던전 클리어"(INBOX #1, `dungeon_map.gd`가 `RunState.is_run_complete()`를 감지하는
-  지점), "거인의 주사위"(INBOX #6, `combat_test.gd` 전투 승리 시 신규 헬퍼
-  `_bag_has_d20()`로 D20 보유 여부 판정). `dice_test.gd`에 신규 검증
-  `_check_achievement_manager`(정의되지 않은 id 거부, 초기 미해금, 해금 후
-  `is_unlocked`, 재해금 시도의 멱등성, `get_all_for_display` 목록 정확성,
-  `_bag_has_d20` 참/거짓 2케이스) 추가로 회귀 스위트 85개 항목 전체 PASS
-  (FAIL/error/warning/leak/orphan 없음). QA 훅 `character_select.gd`의
-  `_debug_show_achievements()`(저장 초기화 -> 1개만 미리 해금 -> 패널 오픈)로
-  `qa_out/character_select_achievements.png`를 찍어 잠김(회색+자물쇠)/해금(금테+
-  별)이 겹침 없이 구분되어 보임을 확인, `dungeon_map`/`combat_test` 두 씬도 별도로
-  크래시 없이 로드/정지됨을 확인(신규 Autoload 등록이 다른 씬에 부작용 없음).
-  나머지 27종 업적과 [대형 기획 1]/[대형 기획 2]는 이번에 손대지 않고 아래 "다음
-  할 일 큐"에 세분화해서 남김 — INBOX.md에는 [대형 기획 3]만 "부분 처리됨"으로
-  옮기고 [대형 기획 1]/[대형 기획 2]는 그대로 "남은 이슈"에 둠(둘 다 이번에 전혀
-  손대지 않았으므로).
+- 일시: 2026-09-09 (80)
+- 작성자: AI 에이전트. 큐 13(업적 시스템 — 남은 27종 추가)에서 독립적으로 착수
+  가능한 4종을 골라 등록: "부자"(`gold_100`, 골드 100 이상 보유), "무결점
+  승리"(`flawless_win`, 전투 중 한 대도 안 맞고 승리), "기사회생"(`comeback_win`,
+  HP 2 이하로 떨어진 채 승리), "오버킬"(`overkill_win`, 몬스터 최대 체력 이상의
+  데미지를 한 방에 꽂아 승리). `code/systems/achievement_manager.gd`의
+  `DEFINITIONS`에 4개 항목만 추가하면 저장/UI는 자동으로 따라오는 구조라(79에서
+  만든 그대로) 이 파일 자체는 거의 안 건드림. 실제 판정 로직은 `code/scenes/
+  combat_test.gd`에 `_bag_has_d20`과 같은 패턴의 순수 함수 3개
+  (`_is_flawless_win(hp)`/`_is_comeback_win(hp)`/`_is_overkill_win(dmg, max_hp)`)로
+  추가해 `_do_exchange()`의 승리 분기(몬스터 HP 0 시점)에서 호출, 골드 100 체크는
+  같은 분기의 골드 지급 직후에 `RunState.gold >= 100`으로 바로 확인(별도 카운터
+  불필요, 기존 `gold` 필드 재사용). "기사회생" 임계치(HP≤2, PLAYER_MAX_HP=20의
+  10%)는 감으로 잡은 잠정값. `dice_test.gd`에 신규 검증 6종(순수 함수 3개 각각
+  참/거짓 케이스, DEFINITIONS 개수 7개 이상, 신규 4종 정의 존재+초기 미해금) 추가로
+  회귀 스위트 90개 항목 전체 PASS(FAIL/error/warning/leak/orphan 없음 — "정의되지
+  않은 id" 테스트가 의도적으로 찍는 WARNING 1줄 제외). `qa_out/
+  character_select_achievements2.png`로 업적 패널이 "1/7 달성"으로 늘어난 목록을
+  스크롤바와 함께 겹침 없이 보여주는 것을 확인, `dungeon_map`/`combat_test`
+  스모크도 크래시 없이 통과. 원래 INBOX가 제안한 30종 목록 원문이 보존돼 있지
+  않아 이 4개가 정확히 몇 번 항목이었는지는 알 수 없음(STATUS.md가 예시로만
+  언급했던 "골드 100/오버킬/무결점 승리/기사회생" 계열이라는 것만 확실) —
+  `achievement_manager.gd` 주석에 이 사정을 남겨둠. 등록 7/미등록 23종(정확한
+  개수는 원문 소실로 근사치) 상태, 남은 항목은 [대형 기획 1]/[대형 기획 2]가
+  먼저 있어야 트리거가 생기는 것들(라운드/보스 클리어 계열)과 `RunState`에 카운터
+  추가가 필요한 것들(상점 이용 횟수 등)이 섞여 있음.
 
 ## 지금 위치
 
@@ -65,13 +63,15 @@
   변화), 보상/상점/이벤트 아이템은 카드형 비주얼. combat_test의 "덱 보기" 토글
   패널은 `z_index=10`으로 다른 UI보다 항상 위에 그려지고, 승리 보상 화면이 뜨면
   자동으로 닫히며 보상 카드 영역도 덱 패널과 안 겹치게 폭이 좁혀져 있음.
-- **업적 시스템 (신규, 시스템 골격만 완성)**: `code/systems/achievement_manager.gd`
+- **업적 시스템 (골격 완성 + 7종 등록)**: `code/systems/achievement_manager.gd`
   (`AchievementManager`, Autoload)가 `user://achievements.json`에 해금 상태를
   영구 저장(RunState와 달리 새 런을 시작해도 안 지워짐). `character_select.tscn`의
-  "업적" 버튼으로 `AchievementPanel`(잠금/해금 카드 목록 오버레이)을 열 수 있음.
-  지금은 서로 다른 트리거 지점 검증용 3종만 등록됨(INBOX #25 "첫 발걸음"/#1 "던전
-  클리어"/#6 "거인의 주사위"=D20 보유 승리) — INBOX.md가 제안한 30종 중 나머지
-  27종은 `achievement_manager.gd`의 `DEFINITIONS`에 항목만 추가하고 해당 조건
+  "업적" 버튼으로 `AchievementPanel`(잠금/해금 카드 목록 오버레이, 스크롤 지원)을
+  열 수 있음. 등록된 7종: "첫 발걸음"(INBOX #25, 던전 시작)/"던전 클리어"(#1,
+  라운드 1 완료)/"거인의 주사위"(#6, D20 보유 승리)/"부자"(골드 100 이상
+  보유)/"무결점 승리"(전투 중 무피해 승리)/"기사회생"(HP 2 이하로 승리)/
+  "오버킬"(몬스터 최대 체력 이상 데미지로 승리, 2026-09-09 (80) 신규 4종). 남은
+  항목은 `achievement_manager.gd`의 `DEFINITIONS`에 항목만 추가하고 해당 조건
   지점에서 `AchievementManager.unlock(id)`를 호출하면 저장/UI가 자동으로
   따라오는 구조. 아래 "다음 할 일 큐" 13번 참고.
 - **QA 도구**: 실제 창(화면 밖 좌표로 이동해 사람 작업 방해 안 함)으로 스크린샷,
@@ -440,15 +440,17 @@
     방식 대신)으로 구현 — 절차적 StyleBoxFlat 칩이라 별도 아트 에셋 불필요. 남은 것은
     실제로 "어떻게 개조하면 어떤 주사위가 될지 예상하기 쉬운지" 사람 피드백뿐.
 13. **(INBOX.md 신규 2026-09-09, [대형 기획 3] 부분 처리됨) 업적 시스템 — 남은
-    27종 추가.** `code/systems/achievement_manager.gd`(`AchievementManager`)와
+    항목 추가.** `code/systems/achievement_manager.gd`(`AchievementManager`)와
     `code/scenes/achievement_panel.gd`(`AchievementPanel`) 골격은 2026-09-09 (79)에
-    완성됨(위 "지금 위치"/"완료 기록" 참고). 등록된 3종(#25/#1/#6) 외에 INBOX.md가
-    제안한 나머지(#2~5, #7~24, #26~30 — 예: 라운드 2/3 클리어, 보스 격파 계열은
-    [대형 기획 2] 보스 구조가 먼저 있어야 트리거 지점이 생김, 오버킬/무결점 승리/
-    기사회생은 `combat_test.gd` 전투 로직에 판정 추가 필요, 골드 100 보유/상점
-    5회 이용 등은 `RunState`에 카운터 추가 필요)를 몇 개씩 나눠서
-    `DEFINITIONS`에 추가하고 해당 조건 지점에서 `AchievementManager.unlock(id)`를
-    호출하는 작업만 하면 됨(저장/UI는 이미 자동으로 따라옴). 우선순위 없음 —
+    완성됨. 등록 7종(#25/#1/#6 + 2026-09-09 (80)에 추가한 "부자"/"무결점 승리"/
+    "기사회생"/"오버킬") 외에 INBOX.md가 원래 제안했던 30종 목록 중 남은 항목들
+    (원문이 보존돼 있지 않아 정확한 목록/개수는 알 수 없음 — 예시로 기억하는 것만:
+    라운드 2/3 클리어·보스 격파 계열은 [대형 기획 2] 보스 구조가 먼저 있어야
+    트리거 지점이 생김, 상점 N회 이용·특정 아이템 조합 보유 등은 `RunState`에
+    카운터 추가 필요)를 몇 개씩 나눠서 `DEFINITIONS`에 추가하고 해당 조건
+    지점에서 `AchievementManager.unlock(id)`를 호출하는 작업만 하면 됨(저장/UI는
+    이미 자동으로 따라옴, `_bag_has_d20`/`_is_flawless_win` 같은 "판정 전용 순수
+    함수 + dice_test.gd 단위 검증" 패턴을 그대로 재사용하면 됨). 우선순위 없음 —
     구현이 쉬운 것(카운터 비교류)부터 먼저 해도 되고, 트리거 지점이 자연스러운
     것부터 해도 됨. 해금 "순간"에 화면에 토스트/팝업 알림을 줄지(지금은 목록을
     직접 열어야만 확인 가능)는 사람 판단 필요 — 아직 안 만듦.
@@ -473,27 +475,6 @@
 
 ## 완료 기록
 
-- **2026-09-09 (70)**: INBOX.md 남은 신규 피드백 중 "눈금 이벤트가 잘 안뜨는 것
-  같다. 눈금은 주사위 교체보다 벨류가 낮으므로, 눈금 여러개 획득하는 이벤트를
-  넣어 밸런스를 맞춘다" 처리. 코드 확인 결과 원인이 명확했음 — "특수 이벤트" 방
-  아이템 풀(`EventItemPool.ITEMS`)에는 D8/D12/D20 획득·D10 대승급 4종 다이스
-  아이템만 있었고 눈금(pip)을 주는 항목이 아예 없었음(눈금은 지금까지 전투 승리
-  보상 1개가 유일한 출처). `EventItemPool.ITEMS`에 "눈금 주머니 획득"
-  (`kind: gain_pips`, `pip_min=3`/`pip_max=5`) 아이템을 추가해 `RunState.
-  pip_inventory`에 한 번에 3~5개(각각 1~6 범위 값)를 쌓도록 함. 기존 아이템들은
-  전부 "공격/방어 주머니 중 골라 적용"(`DiceItemPool.apply(item, bag)`) 구조인데
-  눈금은 특정 주머니에 속하지 않아 그대로 재사용할 수 없었음 — `code/scenes/
-  event.gd`에 `_on_pick_pips()`/`_apply_pips()`를 새로 만들고, `_rebuild_items()`가
-  `item.kind == "gain_pips"`일 때만 "눈금 획득" 버튼 하나짜리 카드로 분기하도록
-  수정(기존 이중 실행 방지 `_picked` 플래그는 공유). QA 디버그 훅
-  `_debug_force_offer_pips()`를 추가해 `qa_out/event_pips.png`로 카드가 레이아웃
-  깨짐/겹침 없이 정상 표시됨을 확인. `dice_test.gd`에 새 검증
-  `_check_event_pips_guard`(아이템 존재, 획득 개수가 pip_min..pip_max 범위인지,
-  이중 실행 방지 가드) 추가 — `dice_test` 회귀 스위트 57개 항목(기존 56 + 신규 1)
-  전체 PASS. 등장 확률(5종 중 1개, 무작위 2개만 노출)과 3~5개 수치는 감으로 잡은
-  잠정값 — 실제로 눈금 공급이 충분히 늘었다고 느끼는지는 사람 플레이 피드백 필요
-  (밸런스 수치 자체를 다듬는 것은 "기능 개발 끝난 뒤 마지막에"로 이미 보류
-  합의됨 — 이번 건은 항목이 아예 없던 콘텐츠 공백을 메운 것).
 - **2026-09-09 (71)**: INBOX.md 남은 신규 피드백 중 "던전 선택 화면에서
   커스터마이징:눈금 교환 UI/UX를 인지하기 어렵다. 내가 어떤 상태인지, 여기서
   무엇을 어떻게 할 수 있는지 알 수 있어야 한다" 처리. `code/scenes/
@@ -710,7 +691,25 @@
   등록이 기존 씬에 부작용을 주지 않음. 나머지 27종 업적과 [대형 기획 1](캐릭터
   4종)/[대형 기획 2](보스+3라운드)는 이번에 전혀 손대지 않고 아래 "다음 할 일 큐"
   13/14/15번에 착수 조각을 나눠서 남김.
-*(이터레이션 68 이전의 더 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
+- **2026-09-09 (80)**: 큐 13(업적 시스템 남은 항목 추가)에서 4종을 골라 등록 —
+  "부자"(`gold_100`, 골드 100 이상 보유)/"무결점 승리"(`flawless_win`, 전투 중
+  무피해 승리)/"기사회생"(`comeback_win`, HP 2 이하로 승리)/"오버킬"
+  (`overkill_win`, 몬스터 최대 체력 이상 데미지로 승리). `achievement_manager.gd`
+  `DEFINITIONS`에 4개 항목만 추가(저장/UI는 79에서 만든 구조가 자동으로 처리).
+  `combat_test.gd`에 `_bag_has_d20`과 같은 패턴의 순수 함수 3개
+  (`_is_flawless_win(hp)`/`_is_comeback_win(hp)`/`_is_overkill_win(dmg, max_hp)`)를
+  추가해 `_do_exchange()` 승리 분기에서 호출, 골드 100은 골드 지급 직후
+  `RunState.gold >= 100`으로 바로 확인(새 카운터 불필요). "기사회생" 임계치
+  (HP≤2, PLAYER_MAX_HP=20의 10%)는 감으로 잡은 잠정값. `dice_test.gd`에 신규
+  검증 6종(순수 함수 3개 각각 참/거짓 케이스, DEFINITIONS 개수 7개 이상, 신규
+  4종 정의 존재+초기 미해금) 추가로 회귀 스위트 90개 항목 전체 PASS(의도적으로
+  찍는 WARNING 1줄 제외 error/leak/orphan 없음). `qa_out/
+  character_select_achievements2.png`로 업적 패널이 "1/7 달성"으로 늘어난
+  목록을 스크롤과 함께 겹침 없이 보여줌을 확인, `dungeon_map`/`combat_test`
+  스모크도 크래시 없이 통과. INBOX.md가 원래 제안한 30종 원문이 보존돼 있지
+  않아 이 4개의 정확한 원래 번호는 알 수 없음 — STATUS.md가 예시로 언급했던
+  "골드 100/오버킬/무결점 승리/기사회생" 계열이라는 것만 근거로 등록.
+*(이터레이션 69 이전의 더 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임,
 2026-09-09 정리.)*
 

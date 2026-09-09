@@ -1215,7 +1215,47 @@ func _check_achievement_manager(lines: PackedStringArray) -> bool:
 		no_d20, "OK" if no_d20_ok else "FAIL"
 	])
 
+	var flawless_true: bool = combat._is_flawless_win(combat.PLAYER_MAX_HP)
+	var flawless_false: bool = combat._is_flawless_win(combat.PLAYER_MAX_HP - 1)
+	var flawless_ok := flawless_true and not flawless_false
+	ok = flawless_ok and ok
+	lines.append("  _is_flawless_win(만피/만피-1): %s/%s (기대 true/false) -> %s" % [
+		flawless_true, flawless_false, "OK" if flawless_ok else "FAIL"
+	])
+
+	var comeback_true: bool = combat._is_comeback_win(combat.COMEBACK_HP_THRESHOLD)
+	var comeback_false: bool = combat._is_comeback_win(combat.COMEBACK_HP_THRESHOLD + 1)
+	var comeback_ok := comeback_true and not comeback_false
+	ok = comeback_ok and ok
+	lines.append("  _is_comeback_win(임계치/임계치+1): %s/%s (기대 true/false) -> %s" % [
+		comeback_true, comeback_false, "OK" if comeback_ok else "FAIL"
+	])
+
+	var overkill_true: bool = combat._is_overkill_win(10, 10)
+	var overkill_false: bool = combat._is_overkill_win(9, 10)
+	var overkill_ok := overkill_true and not overkill_false
+	ok = overkill_ok and ok
+	lines.append("  _is_overkill_win(데미지==최대체력/미만): %s/%s (기대 true/false) -> %s" % [
+		overkill_true, overkill_false, "OK" if overkill_ok else "FAIL"
+	])
+
 	combat.free()
+
+	AchievementManager._debug_reset_for_qa()
+	var def_count_ok: bool = AchievementManager.DEFINITIONS.size() >= 7
+	ok = def_count_ok and ok
+	lines.append("  DEFINITIONS 개수 >= 7 (신규 4종 포함): %d -> %s" % [
+		AchievementManager.DEFINITIONS.size(), "OK" if def_count_ok else "FAIL"
+	])
+	var new_ids := ["gold_100", "flawless_win", "comeback_win", "overkill_win"]
+	var new_ids_ok := true
+	for id in new_ids:
+		new_ids_ok = new_ids_ok and AchievementManager.DEFINITIONS.has(id) and not AchievementManager.is_unlocked(id)
+	ok = new_ids_ok and ok
+	lines.append("  신규 업적 4종 정의 존재 + 초기 미해금: %s -> %s" % [
+		new_ids_ok, "OK" if new_ids_ok else "FAIL"
+	])
+
 	return ok
 
 
