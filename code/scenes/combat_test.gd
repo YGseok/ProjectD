@@ -146,16 +146,16 @@ const PIP_REWARD_MAX_PER_ROOM := 1
 ##
 ## "dice_gimmick"(선택 필드): INBOX.md(2026-09-09) "몬스터별 다이스 특이 특징" 요청의
 ## 예시 3개(고정값 다이스 / min·max만 있는 다이스 / 분노 스택 -> D20) 중, DiceBag의
-## 기존 API(set_face_value)만으로 새 상태 추적 없이 구현 가능한 "min_max_only"만 이번
-## 이터레이션에 시범 적용함(가장 작고 독립적으로 검증 가능한 조각). 몬스터별 성격
-## 기획(큐 8)이 아직 없어서 "다크 나이트가 왜 이 특징을 갖는지"는 근거가 없는 임시
-## 배정 — 성격 기획이 나오면 다시 배정할 수 있음. 나머지 2개(고정값/분노 스택)는
-## 상태 추적·턴 로직 변경이 필요해 더 큰 작업이라 STATUS.md 큐로 남겨둠.
+## 기존 API 조합만으로 새 상태 추적 없이 구현 가능한 2개("min_max_only", "fixed_value")를
+## 시범 적용함(가장 작고 독립적으로 검증 가능한 조각씩 나눠 진행). 몬스터별 성격
+## 기획(큐 8)이 아직 없어서 "이 몬스터가 왜 이 특징을 갖는지"는 근거가 없는 임시
+## 배정 — 성격 기획이 나오면 다시 배정할 수 있음. 남은 1개(분노 스택 -> D20)는
+## 매 턴 상태 추적·턴 로직 변경이 필요해 더 큰 작업이라 STATUS.md 큐로 남겨둠.
 const MONSTER_PROFILES := [
 	{"name": "슬라임", "color": Color(0.35, 0.85, 0.4)},
 	{"name": "고블린", "color": Color(0.75, 0.55, 0.25)},
 	{"name": "해골 전사", "color": Color(0.85, 0.85, 0.8)},
-	{"name": "오크", "color": Color(0.3, 0.55, 0.3)},
+	{"name": "오크", "color": Color(0.3, 0.55, 0.3), "dice_gimmick": "fixed_value"},
 	{"name": "다크 나이트", "color": Color(0.55, 0.25, 0.75), "dice_gimmick": "min_max_only"},
 ]
 
@@ -186,16 +186,25 @@ func _monster_config_for_room(room_index: int) -> Dictionary:
 	if cycle > 0:
 		name_text = "강화 ".repeat(cycle) + name_text
 	var gimmick: String = profile.get("dice_gimmick", "")
+	var dice_sides := _monster_dice_sides_for_room(room_index)
+	var gimmick_value := 0
 	if gimmick == "min_max_only":
 		name_text += " [극단]"
+	elif gimmick == "fixed_value":
+		# 다이스 면 개수(sides)의 평균값 근처로 반올림 — "굴려도 늘 같은 값"이 다른
+		# 몬스터의 평균 기댓값과 비슷하게 맞춰지도록 잡은 잠정 공식(밸런스는 사람 피드백
+		# 필요). 예: D6 -> ceil(7/2) = 4.
+		gimmick_value = int(ceil((dice_sides + 1) / 2.0))
+		name_text += " [고정값 %d]" % gimmick_value
 	return {
 		"attack_count": 2 + int(room_index / 2.0),
 		"defense_count": 1 + int(room_index / 3.0),
-		"dice_sides": _monster_dice_sides_for_room(room_index),
+		"dice_sides": dice_sides,
 		"max_hp": 10 + room_index * 3,
 		"name": name_text,
 		"color": profile["color"],
 		"dice_gimmick": gimmick,
+		"dice_gimmick_value": gimmick_value,
 	}
 
 
@@ -221,6 +230,9 @@ func _ready() -> void:
 	if config["dice_gimmick"] == "min_max_only":
 		monster_attack_bag.force_min_max_faces()
 		monster_defense_bag.force_min_max_faces()
+	elif config["dice_gimmick"] == "fixed_value":
+		monster_attack_bag.force_fixed_value(config["dice_gimmick_value"])
+		monster_defense_bag.force_fixed_value(config["dice_gimmick_value"])
 	monster_max_hp = config["max_hp"]
 	monster_hp = monster_max_hp
 	monster_name = config["name"]

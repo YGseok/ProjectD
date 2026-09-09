@@ -93,6 +93,18 @@ func force_min_max_faces() -> void:
 			dice[d][i] = min_v if i < min_count else max_v
 
 
+## 몬스터 특이 다이스 특징(INBOX.md 2026-09-09 예시: "주사위 값 x가 고정 데미지로
+## 들어간다 — 굴리지 않고 항상 같은 값"). 각 다이스의 면 개수는 그대로 두고 모든 면 값을
+## value로 통일한다 — roll_detailed()가 randi_range로 면 "인덱스"를 고르는 기존 구조를
+## 그대로 두어도, 모든 인덱스가 같은 값이면 결과적으로 "굴리지 않고 항상 같은 값"과
+## 동일한 효과를 낸다(별도 상태/플래그 추가 없이 기존 API 조합만으로 구현 가능 —
+## force_min_max_faces()와 같은 접근).
+func force_fixed_value(value: int) -> void:
+	for d in dice.size():
+		for i in dice[d].size():
+			dice[d][i] = value
+
+
 var count: int:
 	get:
 		return dice.size()

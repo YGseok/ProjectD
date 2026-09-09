@@ -61,7 +61,7 @@ func _ready() -> void:
 	all_pass = _check_monster_config_scaling(lines) and all_pass
 
 	lines.append("")
-	lines.append("[몬스터 특이 다이스 검증: dice_bag.gd force_min_max_faces / combat_test.gd dice_gimmick]")
+	lines.append("[몬스터 특이 다이스 검증: dice_bag.gd force_min_max_faces/force_fixed_value / combat_test.gd dice_gimmick]")
 	all_pass = _check_monster_dice_gimmick(lines) and all_pass
 
 	lines.append("")
@@ -528,12 +528,15 @@ func _check_monster_config_scaling(lines: PackedStringArray) -> bool:
 	return ok
 
 
-## dice_bag.gd의 force_min_max_faces()는 INBOX.md 피드백(2026-09-09, "몬스터별 다이스
-## 특이 특징" 예시 중 "모든 주사위 눈이 min과 max로만 이루어져 있다")를 구현한 것이다.
-## combat_test.gd는 이 메서드를 "다크 나이트"(MONSTER_PROFILES 4번째, dice_gimmick=
-## "min_max_only") 몬스터에만 시범 적용한다 — room_index=4(다크 나이트가 나오는 방)에서만
-## config["dice_gimmick"]이 켜지고 다른 방(예: room0 슬라임)은 그대로 표준 다이스여야
-## 한다. 300회 반복 굴림으로 중간값이 단 한 번도 안 나오는지까지 직접 확인한다.
+## dice_bag.gd의 force_min_max_faces()/force_fixed_value()는 INBOX.md 피드백(2026-09-09,
+## "몬스터별 다이스 특이 특징" 예시 중 "모든 주사위 눈이 min과 max로만 이루어져 있다"와
+## "주사위 값 x가 고정 데미지로 들어간다")를 구현한 것이다. combat_test.gd는
+## force_min_max_faces()를 "다크 나이트"(MONSTER_PROFILES 5번째, dice_gimmick=
+## "min_max_only", room_index=4)에, force_fixed_value()를 "오크"(4번째, dice_gimmick=
+## "fixed_value", room_index=3)에 각각 시범 적용한다 — 서로 다른 방에서만 켜지고, 다른
+## 방(예: room0 슬라임)은 그대로 표준 다이스여야 한다. min_max_only는 300회 반복 굴림으로
+## 중간값이 단 한 번도 안 나오는지, fixed_value는 매번 지정한 값만 나오는지까지 직접
+## 확인한다.
 func _check_monster_dice_gimmick(lines: PackedStringArray) -> bool:
 	var ok := true
 
@@ -578,6 +581,40 @@ func _check_monster_dice_gimmick(lines: PackedStringArray) -> bool:
 	ok = room0_unaffected_ok and ok
 	lines.append("  room0 config(영향 없어야 함): dice_gimmick=%s name=%s (기대 빈 문자열, 슬라임) -> %s" % [
 		room0_config["dice_gimmick"], room0_config["name"], "OK" if room0_unaffected_ok else "FAIL"
+	])
+
+	# force_fixed_value(): D6x1의 모든 면이 지정한 값(4) 하나로 통일돼야 하고, 몇 번을
+	# 굴려도 항상 그 값만 나와야 한다("굴리지 않고 항상 같은 값"과 동일한 효과).
+	var fixed_bag := DiceBag.new(6, 1)
+	fixed_bag.force_fixed_value(4)
+	var fixed_faces_ok := true
+	for v in fixed_bag.dice[0]:
+		if v != 4:
+			fixed_faces_ok = false
+	ok = fixed_faces_ok and ok
+	lines.append("  force_fixed_value(D6x1, 4): faces=%s (기대 전부 4) -> %s" % [
+		fixed_bag.dice[0], "OK" if fixed_faces_ok else "FAIL"
+	])
+	var always_same_ok := true
+	for _i in 50:
+		if fixed_bag.roll() != 4:
+			always_same_ok = false
+	ok = always_same_ok and ok
+	lines.append("  50회 굴림이 항상 4인지: %s (기대 true) -> %s" % [
+		always_same_ok, "OK" if always_same_ok else "FAIL"
+	])
+
+	# combat_test.gd _monster_config_for_room(): room3(오크, D6)만 fixed_value gimmick이
+	# 켜지고 이름에 "[고정값 4]"가 붙어야 한다(D6 -> ceil(7/2)=4). min_max_only(room4)와
+	# 서로 영향 없이 독립적으로 동작해야 함.
+	var room3_config = combat._monster_config_for_room(3)
+	var room3_ok: bool = room3_config["dice_gimmick"] == "fixed_value" \
+		and room3_config["dice_gimmick_value"] == 4 \
+		and room3_config["name"] == "오크 [고정값 4]"
+	ok = room3_ok and ok
+	lines.append("  room3 config: dice_gimmick=%s value=%d name=%s (기대 fixed_value/4/'오크 [고정값 4]') -> %s" % [
+		room3_config["dice_gimmick"], room3_config["dice_gimmick_value"], room3_config["name"],
+		"OK" if room3_ok else "FAIL"
 	])
 	combat.free()
 
