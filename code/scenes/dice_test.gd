@@ -61,6 +61,10 @@ func _ready() -> void:
 	all_pass = _check_customize_panel_pip_exchange(lines) and all_pass
 
 	lines.append("")
+	lines.append("[다이스 인벤토리 교환 검증: customize_panel.gd _exchange_die]")
+	all_pass = _check_die_inventory_exchange(lines) and all_pass
+
+	lines.append("")
 	lines.append("[특수 이벤트 아이템 풀 검증: event_item_pool.gd EventItemPool.random_choices]")
 	all_pass = _check_event_item_pool(lines) and all_pass
 
@@ -85,6 +89,10 @@ func _ready() -> void:
 	all_pass = _check_event_pips_guard(lines) and all_pass
 
 	lines.append("")
+	lines.append("[특수 이벤트 다이스 승급 획득 검증: event.gd _apply_upgrade]")
+	all_pass = _check_event_upgrade_guard(lines) and all_pass
+
+	lines.append("")
 	lines.append("[스토리 이벤트 이중 진행 방지 검증: story_event.gd _on_continue_pressed]")
 	all_pass = _check_story_event_double_continue_guard(lines) and all_pass
 
@@ -95,6 +103,10 @@ func _ready() -> void:
 	lines.append("")
 	lines.append("[커스터마이징 이중 교환 방지 검증: customize_panel.gd _on_face_chosen]")
 	all_pass = _check_customize_panel_double_face_chosen_guard(lines) and all_pass
+
+	lines.append("")
+	lines.append("[커스터마이징 다이스 인벤토리 이중 교환 방지 검증: customize_panel.gd _on_die_target_chosen]")
+	all_pass = _check_customize_panel_double_die_chosen_guard(lines) and all_pass
 
 	lines.append("")
 	lines.append("[전투 승리 보상 이중 적용 방지 검증: combat_test.gd _apply_reward_choice]")
@@ -176,11 +188,29 @@ func _check_item_pool(lines: PackedStringArray) -> bool:
 	ok = add_item_ok and ok
 	lines.append("  apply(add_die): count=%d (기대 4) -> %s" % [add_bag.count, "OK" if add_item_ok else "FAIL"])
 
-	var upgrade_bag := DiceBag.new(4, 3)
-	DiceItemPool.apply({"kind": "upgrade_die", "new_sides": 6}, upgrade_bag)
-	var upgrade_ok := upgrade_bag.max_possible() == 14  # 6 + 4 + 4
-	ok = upgrade_ok and ok
-	lines.append("  apply(upgrade_die): max=%d (기대 14) -> %s" % [upgrade_bag.max_possible(), "OK" if upgrade_ok else "FAIL"])
+	# INBOX.md 피드백(2026-09-09) "다이스 승급 이벤트에서, 면 개수가 가장 작은것
+	# 교체가 아닌 획득으로 바꾼다. ... 인벤토리로 들어와서 교체하도록 한다"를 반영해
+	# upgrade_die는 더 이상 apply(item, bag)로 즉시 주머니를 건드리지 않는다 —
+	# apply()에 넘겨도 아무 일도 안 일어나야 하고(match에 해당 분기가 없음), 대신
+	# apply_upgrade_gain(item)이 RunState.die_inventory에 새 다이스를 쌓아야 한다.
+	var die_inv_backup: Array[int] = RunState.die_inventory.duplicate()
+	RunState.die_inventory = []
+
+	var untouched_upgrade_bag := DiceBag.new(4, 3)
+	DiceItemPool.apply({"kind": "upgrade_die", "new_sides": 6}, untouched_upgrade_bag)
+	var apply_noop_ok := untouched_upgrade_bag.max_possible() == 12  # 4+4+4, 안 바뀜
+	ok = apply_noop_ok and ok
+	lines.append("  apply(upgrade_die)는 더 이상 bag을 건드리지 않음: max=%d (기대 12, 변화 없음) -> %s" % [
+		untouched_upgrade_bag.max_possible(), "OK" if apply_noop_ok else "FAIL"
+	])
+
+	DiceItemPool.apply_upgrade_gain({"kind": "upgrade_die", "new_sides": 6})
+	var gain_ok := RunState.die_inventory == [6]
+	ok = gain_ok and ok
+	lines.append("  apply_upgrade_gain(upgrade_die, new_sides=6): die_inventory=%s (기대 [6]) -> %s" % [
+		RunState.die_inventory, "OK" if gain_ok else "FAIL"
+	])
+	RunState.die_inventory = die_inv_backup
 
 	var boost_bag := DiceBag.new(4, 3)
 	DiceItemPool.apply({"kind": "boost_weak_face"}, boost_bag)
@@ -194,70 +224,33 @@ func _check_item_pool(lines: PackedStringArray) -> bool:
 	ok = uniform_ok and ok
 	lines.append("  apply(uniform_faces): min=%d (기대 6) -> %s" % [uniform_bag.min_possible(), "OK" if uniform_ok else "FAIL"])
 
-	# 버그 회귀 테스트: 이미 모든 다이스가 new_sides 이상이면(승급할 대상이 없으면)
-	# upgrade_die가 아무 것도 건드리지 않아야 한다. 예전 코드는 이 경우에도 가장 작은
-	# 다이스를 골라 replace_die()해버려서, 면 개수는 그대로인데 커스터마이징으로 올려둔
-	# 면 값(여기서는 99로 표시)이 표준값(1..6)으로 조용히 리셋되는 버그가 있었다.
-	var no_downgrade_bag := DiceBag.new(6, 1)
-	no_downgrade_bag.set_face_value(0, 0, 99)
-	DiceItemPool.apply({"kind": "upgrade_die", "new_sides": 6}, no_downgrade_bag)
-	var no_downgrade_ok := no_downgrade_bag.dice[0][0] == 99
-	ok = no_downgrade_ok and ok
-	lines.append("  apply(upgrade_die, 승급 대상 없음): face=%d (기대 99, 리셋 안 됨) -> %s" % [no_downgrade_bag.dice[0][0], "OK" if no_downgrade_ok else "FAIL"])
-
-	# is_applicable(): UI가 이 결과로 버튼을 비활성화해 위 회귀 버그와 같은 상황(승급
-	# 대상 없는 아이템을 헛되이 제시하는 것)을 애초에 막는다. 대상이 없는/있는 두
-	# 케이스 모두 확인.
+	# is_applicable(): upgrade_die는 이제 즉시 어느 bag에도 적용되지 않고 항상 인벤토리로
+	# 획득되기만 하므로(apply_upgrade_gain), bag 상태와 무관하게 항상 true여야 한다 —
+	# 예전에는 "승급 대상이 없는 bag이면 false"였지만 그 개념 자체가 사라졌다.
 	var no_target_bag := DiceBag.new(6, 1)
 	var no_target_applicable := DiceItemPool.is_applicable({"kind": "upgrade_die", "new_sides": 6}, no_target_bag)
-	var no_target_ok := no_target_applicable == false
+	var no_target_ok := no_target_applicable == true
 	ok = no_target_ok and ok
-	lines.append("  is_applicable(upgrade_die, 대상 없음): %s (기대 false) -> %s" % [no_target_applicable, "OK" if no_target_ok else "FAIL"])
-
-	var has_target_bag := DiceBag.new(4, 1)
-	var has_target_applicable := DiceItemPool.is_applicable({"kind": "upgrade_die", "new_sides": 6}, has_target_bag)
-	var has_target_ok := has_target_applicable == true
-	ok = has_target_ok and ok
-	lines.append("  is_applicable(upgrade_die, 대상 있음): %s (기대 true) -> %s" % [has_target_applicable, "OK" if has_target_ok else "FAIL"])
+	lines.append("  is_applicable(upgrade_die, 대상 없는 bag): %s (기대 true, 항상 획득 가능) -> %s" % [no_target_applicable, "OK" if no_target_ok else "FAIL"])
 
 	var non_upgrade_applicable := DiceItemPool.is_applicable({"kind": "add_die", "sides": 4}, no_target_bag)
 	var non_upgrade_ok := non_upgrade_applicable == true
 	ok = non_upgrade_ok and ok
 	lines.append("  is_applicable(add_die, 항상 적용 가능): %s (기대 true) -> %s" % [non_upgrade_applicable, "OK" if non_upgrade_ok else "FAIL"])
 
-	# random_choices(n, attack_bag, defense_bag): 두 주머니 모두 승급 대상이 없으면
-	# (여기서는 공격/방어 둘 다 D6x3, upgrade_die new_sides=6) 그 아이템 자체를 후보에서
-	# 제외해야 한다 — 안 그러면 보상 2개 중 하나가 양쪽 버튼 다 비활성화된 채로 뽑혀
-	# 슬롯 하나가 통째로 낭비된다(이번 이터레이션에서 고친 부분). n=2(적용 가능한 3개 중
-	# 2개 요청, 필터링 조건 3>=2 충족)로 셔플 결과와 무관하게 upgrade_die가 절대 안
-	# 뽑히는지 여러 번 반복해 확인한다.
+	# random_choices(n, attack_bag, defense_bag): is_applicable이 항상 true이므로 이제
+	# bag 상태와 무관하게 필터링이 전혀 일어나지 않는다 — 예전에는 "양쪽 다 승급 대상이
+	# 없으면 upgrade_die 제외"였지만, 획득이 실패할 일이 없어진 지금은 항상 전체
+	# 목록(4개)에서 그대로 뽑혀야 한다.
 	var maxed_attack := DiceBag.new(6, 3)
 	var maxed_defense := DiceBag.new(6, 3)
-	var filtered_has_upgrade := false
-	for _i in 20: # 셔플이라 한 번만 확인하면 우연히 안 뽑힐 수 있어 반복 확인
-		var picks := DiceItemPool.random_choices(2, maxed_attack, maxed_defense)
-		for it in picks:
-			if it["kind"] == "upgrade_die":
-				filtered_has_upgrade = true
-	var filtered_ok := not filtered_has_upgrade
-	ok = filtered_ok and ok
-	lines.append("  random_choices(2, 양쪽 승급대상 없음, 20회 반복): upgrade_die포함=%s (기대 false) -> %s" % [
-		filtered_has_upgrade, "OK" if filtered_ok else "FAIL"
-	])
+	var unfiltered_size_ok := true
+	for _i in 5:
+		if DiceItemPool.random_choices(4, maxed_attack, maxed_defense).size() != 4:
+			unfiltered_size_ok = false
+	ok = unfiltered_size_ok and ok
+	lines.append("  random_choices(4, bag 상태 무관, 5회 반복): 항상 4개 반환 -> %s" % ("OK" if unfiltered_size_ok else "FAIL"))
 
-	# n(4)이 필터링 후 남는 후보(3개)보다 많으면, 요청한 개수보다 적게 주는 대신
-	# 안전하게 필터링 이전 전체 목록(4개, upgrade_die 포함)으로 돌아가야 한다 —
-	# "선택지가 아예 부족해지는 것"이 "가끔 비활성화된 아이템이 섞이는 것"보다 더
-	# 나쁜 실패 모드이기 때문.
-	var fallback_choices := DiceItemPool.random_choices(4, maxed_attack, maxed_defense)
-	var fallback_ok := fallback_choices.size() == 4
-	ok = fallback_ok and ok
-	lines.append("  random_choices(4, 적용가능 3개뿐): 개수=%d (기대 4, 부족하면 필터링 이전으로 폴백) -> %s" % [
-		fallback_choices.size(), "OK" if fallback_ok else "FAIL"
-	])
-
-	# 정상 케이스(승급 대상 있음)에서는 필터링이 아무것도 제외하지 않아 기존과 동일하게
-	# 동작해야 한다(하위 호환 확인).
 	var fresh_attack := DiceBag.new(4, 3)
 	var fresh_defense := DiceBag.new(4, 3)
 	var unfiltered_choices := DiceItemPool.random_choices(2, fresh_attack, fresh_defense)
@@ -506,14 +499,52 @@ func _check_customize_panel_pip_exchange(lines: PackedStringArray) -> bool:
 	return ok
 
 
+## customize_panel.gd의 _exchange_die(bag, die_index, inv_index)는 INBOX.md 피드백
+## (2026-09-09) "다이스 승급 이벤트에서, 면 개수가 가장 작은것 교체가 아닌 획득으로
+## 바꾼다. 눈금 획득 또는 다이스 승급시, 인벤토리로 들어와서 교체하도록 한다"로 새로
+## 생긴 로직이다 — _exchange_pip과 대칭 구조(인벤토리 항목과 bag 슬롯을 맞바꾸고,
+## 밀려난 쪽은 인벤토리로 돌아옴)라 같은 패턴으로 검증한다.
+func _check_die_inventory_exchange(lines: PackedStringArray) -> bool:
+	var ok := true
+	var script := load("res://code/scenes/customize_panel.gd")
+	var panel = script.new()
+	var die_backup: Array[int] = RunState.die_inventory.duplicate()
+
+	# 일반 케이스: D4 다이스 1개를 인벤토리의 D8과 교환. bag의 다이스가 8면체로
+	# 바뀌고, 밀려난 옛 면 개수(4)가 인벤토리로 돌아와야 한다(사라지지 않음).
+	var bag := DiceBag.new(4, 1)
+	RunState.die_inventory = [8]
+	panel._exchange_die(bag, 0, 0)
+	var normal_ok: bool = bag.dice[0].size() == 8 and RunState.die_inventory == [4]
+	ok = normal_ok and ok
+	lines.append("  D4 다이스 <-> 인벤토리 D8: 결과 면개수=%d inventory=%s (기대 8, [4]) -> %s" % [
+		bag.dice[0].size(), RunState.die_inventory, "OK" if normal_ok else "FAIL"
+	])
+
+	# 인벤토리에 다이스가 여럿일 때: inv_index로 고른 것만 소모되고, 밀려난 값은 배열
+	# 끝에 추가되며, 나머지는 그대로 유지돼야 한다(개수 보존: 하나 빠지고 하나 참).
+	var multi_bag := DiceBag.new(6, 2)
+	RunState.die_inventory = [8, 10, 12]
+	panel._exchange_die(multi_bag, 1, 1)
+	var multi_ok: bool = multi_bag.dice[1].size() == 10 and RunState.die_inventory == [8, 12, 6]
+	ok = multi_ok and ok
+	lines.append("  다이스 여럿 중 index=1(D10)만 소모, 밀려난 D6은 끝에 추가: 결과=%d inventory=%s (기대 10, [8, 12, 6]) -> %s" % [
+		multi_bag.dice[1].size(), RunState.die_inventory, "OK" if multi_ok else "FAIL"
+	])
+
+	panel.free()
+	RunState.die_inventory = die_backup
+	return ok
+
+
 ## event_item_pool.gd의 EventItemPool.random_choices(n, attack_bag, defense_bag)는
 ## dice_item_pool.gd의 DiceItemPool.random_choices()와 거의 동일한 필터링/폴백 로직을
 ## 별도로 복제해서 갖고 있는데(공유 함수가 아니라 각자 구현), 위 "다이스 아이템 풀 검증"
 ## 섹션이 DiceItemPool 쪽은 15개 넘는 항목으로 촘촘히 검증해온 것과 달리 EventItemPool
 ## 쪽은 지금까지 자동 회귀 테스트가 하나도 없었다 — event.gd(특수 이벤트 방)가 실제
 ## 플레이 경로에서 이 함수를 그대로 호출하므로 검증 공백이었다. EventItemPool.ITEMS
-## 4종 중 필터링 대상(is_applicable이 false가 될 수 있는 것)은 "다이스 대승급
-## (-> D10)" upgrade_die 하나뿐이고, 나머지 3종(add_die 계열)은 항상 적용 가능하다.
+## 5종 전부 DiceItemPool.is_applicable()이 이제 항상 true를 반환하므로(2026-09-09,
+## "다이스 승급"류가 즉시 적용 대신 인벤토리 획득으로 바뀜) 필터링 대상 자체가 없다.
 func _check_event_item_pool(lines: PackedStringArray) -> bool:
 	var ok := true
 
@@ -522,35 +553,19 @@ func _check_event_item_pool(lines: PackedStringArray) -> bool:
 	ok = basic_ok and ok
 	lines.append("  random_choices(2, 필터 없음): 개수=%d (기대 2) -> %s" % [basic_choices.size(), "OK" if basic_ok else "FAIL"])
 
-	# 양쪽 주머니 모두 승급 대상(면 개수 10 미만인 다이스)이 없으면, upgrade_die(-> D10)는
-	# 후보에서 제외돼야 한다 — 안 그러면 보상 2개 중 하나가 양쪽 버튼 다 비활성화된 채로
-	# 뽑혀 슬롯 하나가 낭비된다(DiceItemPool과 같은 이유). 셔플이라 한 번만 확인하면
-	# 우연히 안 뽑힐 수 있어 반복 확인한다.
+	# DiceItemPool.is_applicable()이 이제 항상 true를 반환하므로(2026-09-09, "다이스
+	# 승급"류가 즉시 적용 대신 인벤토리 획득으로 바뀌어 "대상 없음" 개념이 사라짐),
+	# 어떤 bag 상태를 넘겨도 필터링 없이 요청한 개수(5종 중 5개까지)가 그대로 나와야
+	# 한다 — 예전에는 "승급 대상 없는 bag"이면 upgrade_die가 제외됐었다.
 	var maxed_attack := DiceBag.new(10, 3)
 	var maxed_defense := DiceBag.new(10, 3)
-	var filtered_has_upgrade := false
-	for _i in 20:
-		var picks := EventItemPool.random_choices(2, maxed_attack, maxed_defense)
-		for it in picks:
-			if it["kind"] == "upgrade_die":
-				filtered_has_upgrade = true
-	var filtered_ok := not filtered_has_upgrade
-	ok = filtered_ok and ok
-	lines.append("  random_choices(2, 양쪽 승급대상 없음, 20회 반복): upgrade_die포함=%s (기대 false) -> %s" % [
-		filtered_has_upgrade, "OK" if filtered_ok else "FAIL"
-	])
+	var unfiltered_size_ok := true
+	for _i in 5:
+		if EventItemPool.random_choices(5, maxed_attack, maxed_defense).size() != 5:
+			unfiltered_size_ok = false
+	ok = unfiltered_size_ok and ok
+	lines.append("  random_choices(5, bag 상태 무관, 5회 반복): 항상 5개(전체) 반환 -> %s" % ("OK" if unfiltered_size_ok else "FAIL"))
 
-	# n(4)이 필터링 후 남는 후보(3개, add_die 3종)보다 많으면, 안전하게 필터링 이전
-	# 전체 목록(4개, upgrade_die 포함)으로 폴백해야 한다.
-	var fallback_choices := EventItemPool.random_choices(4, maxed_attack, maxed_defense)
-	var fallback_ok := fallback_choices.size() == 4
-	ok = fallback_ok and ok
-	lines.append("  random_choices(4, 적용가능 3개뿐): 개수=%d (기대 4, 부족하면 필터링 이전으로 폴백) -> %s" % [
-		fallback_choices.size(), "OK" if fallback_ok else "FAIL"
-	])
-
-	# 정상 케이스(승급 대상 있음, 예: D4 다이스)에서는 필터링이 아무것도 제외하지 않아
-	# 기존과 동일하게 동작해야 한다(하위 호환 확인).
 	var fresh_attack := DiceBag.new(4, 3)
 	var fresh_defense := DiceBag.new(4, 3)
 	var unfiltered_choices := EventItemPool.random_choices(2, fresh_attack, fresh_defense)
@@ -744,6 +759,54 @@ func _check_event_pips_guard(lines: PackedStringArray) -> bool:
 	return ok
 
 
+## event.gd의 "다이스 대승급 (-> D10)" 아이템(kind=upgrade_die) — INBOX.md 피드백
+## (2026-09-09) "다이스 승급 이벤트에서, 면 개수가 가장 작은것 교체가 아닌 획득으로
+## 바꾼다"에 따라 즉시 적용 대신 인벤토리 획득으로 바뀜. _apply_upgrade(item)가 (1)
+## RunState.die_inventory에 new_sides를 실제로 쌓고 (2) _apply_pick/_apply_pips와
+## 동일한 _picked 가드로 이중 실행을 막는지 확인한다(같은 인스턴스화/정리 패턴 재사용).
+func _check_event_upgrade_guard(lines: PackedStringArray) -> bool:
+	var ok := true
+	var rooms_backup := RunState.rooms_cleared
+	var die_backup: Array[int] = RunState.die_inventory.duplicate()
+
+	RunState.die_inventory = []
+	var upgrade_item: Dictionary = {}
+	for it in EventItemPool.ITEMS:
+		if it["kind"] == "upgrade_die":
+			upgrade_item = it
+			break
+	var item_found := upgrade_item.size() > 0
+	ok = item_found and ok
+	lines.append("  EventItemPool에 upgrade_die 아이템 존재 -> %s" % ("OK" if item_found else "FAIL"))
+
+	var event_scene := load("res://code/scenes/event.tscn")
+	var event_node = event_scene.instantiate()
+	add_child(event_node)
+
+	var rooms_before: int = RunState.rooms_cleared
+	var first_applied: bool = event_node._apply_upgrade(upgrade_item)
+	var first_ok: bool = first_applied and RunState.rooms_cleared == rooms_before + 1 and RunState.die_inventory == [upgrade_item["new_sides"]]
+	ok = first_ok and ok
+	lines.append("  1차 적용: applied=%s rooms=%d die_inventory=%s (기대 true, %d, [%d]) -> %s" % [
+		first_applied, RunState.rooms_cleared, RunState.die_inventory, rooms_before + 1, upgrade_item["new_sides"], "OK" if first_ok else "FAIL"
+	])
+
+	# 더블클릭 등으로 같은 프레임에 핸들러가 다시 불려도(가드 우회 가정) 다이스가
+	# 중복으로 더 쌓이거나 방을 두 번 클리어 처리해선 안 된다.
+	var second_applied: bool = event_node._apply_upgrade(upgrade_item)
+	var guard_ok: bool = not second_applied and RunState.rooms_cleared == rooms_before + 1 and RunState.die_inventory == [upgrade_item["new_sides"]]
+	ok = guard_ok and ok
+	lines.append("  2차 적용 재시도(이미 픽함): applied=%s rooms=%d die_inventory=%s (기대 false, 변화 없음) -> %s" % [
+		second_applied, RunState.rooms_cleared, RunState.die_inventory, "OK" if guard_ok else "FAIL"
+	])
+
+	remove_child(event_node)
+	event_node.free()
+	RunState.rooms_cleared = rooms_backup
+	RunState.die_inventory = die_backup
+	return ok
+
+
 ## story_event.gd/combat_test.gd에도 event.gd와 같은 이중 실행 취약점이 있었다
 ## (이터레이션 47): ContinueButton/NextButton 둘 다 change_scene_to_file() 호출이
 ## 그 프레임 안에서 즉시 씬을 바꾸지 않아, 더블클릭 시 rooms_cleared가 2 증가(방 스킵)할
@@ -898,4 +961,40 @@ func _check_customize_panel_double_face_chosen_guard(lines: PackedStringArray) -
 
 	panel.free()
 	RunState.pip_inventory = pip_backup
+	return ok
+
+
+## customize_panel.gd의 _on_die_target_chosen(bag, die_index, inv_index)는
+## _on_face_chosen과 같은 이유(이터레이션 48과 같은 클래스의 버그)로 _die_chosen_locked
+## 플래그를 갖는다 — 같은 프레임에 같은 버튼이 두 번 눌려도 die_inventory가 조용히
+## 오염되지 않아야 한다.
+func _check_customize_panel_double_die_chosen_guard(lines: PackedStringArray) -> bool:
+	var ok := true
+	var die_backup: Array[int] = RunState.die_inventory.duplicate()
+
+	var script := load("res://code/scenes/customize_panel.gd")
+	var panel = script.new()
+
+	var bag := DiceBag.new(4, 1)
+	RunState.die_inventory = [8, 10]
+	panel._show_die_target_picker(0)
+
+	panel._on_die_target_chosen(bag, 0, 0)
+	var first_ok: bool = bag.dice[0].size() == 8 and RunState.die_inventory == [10, 4]
+	ok = first_ok and ok
+	lines.append("  1차 교환: 면개수=%d inventory=%s (기대 8, [10, 4]) -> %s" % [
+		bag.dice[0].size(), RunState.die_inventory, "OK" if first_ok else "FAIL"
+	])
+
+	# 같은 프레임에 같은 버튼이 다시 눌려도(더블클릭 가정), 이미 교환이 끝난 뒤라
+	# 아무 일도 일어나선 안 된다.
+	panel._on_die_target_chosen(bag, 0, 0)
+	var guard_ok: bool = bag.dice[0].size() == 8 and RunState.die_inventory == [10, 4]
+	ok = guard_ok and ok
+	lines.append("  2차 교환 재시도(이미 교환함): 면개수=%d inventory=%s (기대 변화 없음) -> %s" % [
+		bag.dice[0].size(), RunState.die_inventory, "OK" if guard_ok else "FAIL"
+	])
+
+	panel.free()
+	RunState.die_inventory = die_backup
 	return ok

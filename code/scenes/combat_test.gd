@@ -534,6 +534,14 @@ func _show_reward_ui() -> void:
 
 		var button_row: VBoxContainer = built["button_row"]
 
+		if item.get("kind", "") == "upgrade_die":
+			var upgrade_btn := Button.new()
+			upgrade_btn.text = "다이스 획득 (인벤토리)"
+			upgrade_btn.custom_minimum_size = Vector2(0, 38)
+			upgrade_btn.pressed.connect(_on_reward_upgrade_chosen.bind(item))
+			button_row.add_child(upgrade_btn)
+			continue
+
 		var atk_preview := ItemCardStyle.build_effect_preview(item, RunState.player_attack_bag)
 		if atk_preview:
 			button_row.add_child(atk_preview)
@@ -625,10 +633,28 @@ func _apply_reward_skip() -> bool:
 	return true
 
 
+## upgrade_die 아이템(공격/방어 어느 주머니에도 즉시 속하지 않고 RunState.die_inventory에
+## 바로 쌓임) 전용 — _apply_reward_choice와 같은 이중 실행 가드(_reward_resolved)를 공유한다.
+func _apply_reward_upgrade(item: Dictionary) -> bool:
+	if _reward_resolved:
+		return false
+	_reward_resolved = true
+	DiceItemPool.apply_upgrade_gain(item)
+	return true
+
+
 func _on_reward_chosen(item: Dictionary, target: String) -> void:
 	if not _apply_reward_choice(item, target):
 		return
 	_append_log("아이템 획득: %s (%s 주머니)" % [item["name"], "공격" if target == "attack" else "방어"])
+	_clear_reward_ui()
+	next_button.show()
+
+
+func _on_reward_upgrade_chosen(item: Dictionary) -> void:
+	if not _apply_reward_upgrade(item):
+		return
+	_append_log("아이템 획득: %s (인벤토리)" % item["name"])
 	_clear_reward_ui()
 	next_button.show()
 

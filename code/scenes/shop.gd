@@ -63,6 +63,15 @@ func _rebuild_items() -> void:
 
 		var button_row: VBoxContainer = built["button_row"]
 
+		if item.get("kind", "") == "upgrade_die":
+			var upgrade_btn := Button.new()
+			upgrade_btn.text = "구매 (인벤토리로 획득)" if afford else "골드 부족"
+			upgrade_btn.disabled = not afford
+			upgrade_btn.custom_minimum_size = Vector2(0, 38)
+			upgrade_btn.pressed.connect(_on_buy_upgrade_pressed.bind(item, cost))
+			button_row.add_child(upgrade_btn)
+			continue
+
 		var atk_preview := ItemCardStyle.build_effect_preview(item, RunState.player_attack_bag)
 		if atk_preview:
 			button_row.add_child(atk_preview)
@@ -95,6 +104,16 @@ func _on_buy_pressed(item: Dictionary, cost: int, target: String) -> void:
 	_rebuild_items()
 
 
+## "다이스 승급" 아이템(kind=upgrade_die) 전용 구매 핸들러. attack/defense 대상 선택이
+## 필요 없다 — 어느 다이스와 바꿀지는 인벤토리에 쌓인 뒤 커스터마이징에서 정한다.
+func _on_buy_upgrade_pressed(item: Dictionary, cost: int) -> void:
+	if RunState.gold < cost:
+		return
+	RunState.gold -= cost
+	DiceItemPool.apply_upgrade_gain(item)
+	_rebuild_items()
+
+
 ## qa/visual_qa.gd의 GAME_QA_CALL로 호출하기 위한 인자 없는 래퍼 (QA 전용 — 클릭을
 ## 흉내낼 수 없는 자동 QA로 구매 흐름이 실제로 골드를 깎고 다이스에 반영되는지 확인).
 func _debug_buy_first_for_attack() -> void:
@@ -107,15 +126,15 @@ func _on_leave_pressed() -> void:
 	get_tree().change_scene_to_file("res://code/scenes/dungeon_map.tscn")
 
 
-## qa/visual_qa.gd의 GAME_QA_CALL로 호출하기 위한 QA 전용 훅. 공격/방어 주머니를
-## 전부 D6 다이스로 강제 교체해 "다이스 승급 (-> D6)" 아이템의 승급 대상이 없는 상태를
-## 만든 뒤 목록을 다시 그려서, 새로 추가한 "승급 대상 없음" 비활성화 버튼이 화면에
-## 실제로 정상 표시되는지 스크린샷으로 확인하기 위함이다.
-func _debug_force_no_upgrade_target() -> void:
-	RunState.player_attack_bag = DiceBag.new(6, 3)
-	RunState.player_defense_bag = DiceBag.new(6, 3)
+## qa/visual_qa.gd의 GAME_QA_CALL로 호출하기 위한 QA 전용 훅. "다이스 승급 (-> D6)"
+## 아이템을 구매해 화면에 "구매 (인벤토리로 획득)" 단일 버튼이 정상 표시되고, 실제로
+## RunState.die_inventory에 쌓이는지 확인하기 위함(2026-09-09, INBOX.md 피드백 반영 —
+## 예전에는 승급 대상이 없으면 버튼이 비활성화됐지만 이제 즉시 적용 대상이 없어
+## 항상 구매 가능하다).
+func _debug_buy_upgrade_item() -> void:
 	RunState.gold = 999
-	_rebuild_items()
+	var item: Dictionary = DiceItemPool.ITEMS[1]  # "다이스 승급 (-> D6)"
+	_on_buy_upgrade_pressed(item, ITEM_COSTS.get(item["kind"], 15))
 
 
 ## qa/visual_qa.gd의 GAME_QA_CALL로 호출하기 위한 QA 전용 훅 (dungeon_map.gd의

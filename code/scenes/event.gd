@@ -51,6 +51,14 @@ func _rebuild_items() -> void:
 			button_row.add_child(pip_btn)
 			continue
 
+		if item.get("kind", "") == "upgrade_die":
+			var upgrade_btn := Button.new()
+			upgrade_btn.text = "다이스 획득 (인벤토리)"
+			upgrade_btn.custom_minimum_size = Vector2(0, 38)
+			upgrade_btn.pressed.connect(_on_pick_upgrade.bind(item))
+			button_row.add_child(upgrade_btn)
+			continue
+
 		var atk_preview := ItemCardStyle.build_effect_preview(item, RunState.player_attack_bag)
 		if atk_preview:
 			button_row.add_child(atk_preview)
@@ -124,6 +132,26 @@ func _apply_pips(item: Dictionary) -> bool:
 	return true
 
 
+## upgrade_die 아이템(공격/방어 어느 주머니에도 즉시 속하지 않고 RunState.die_inventory에
+## 바로 쌓임) 전용 픽 핸들러. _on_pick_pips/_apply_pips와 대칭 구조 — attack/defense
+## 대상 선택이 필요 없어서 별도 함수로 분리했다(같은 _picked 플래그를 공유해 이중 실행
+## 가드도 그대로 재사용됨).
+func _on_pick_upgrade(item: Dictionary) -> void:
+	if not _apply_upgrade(item):
+		return
+	get_tree().change_scene_to_file("res://code/scenes/dungeon_map.tscn")
+
+
+## 반환값 = 이번 호출이 실제로 적용됐는지 (_apply_pick/_apply_pips와 동일한 이유).
+func _apply_upgrade(item: Dictionary) -> bool:
+	if _picked:
+		return false
+	_picked = true
+	DiceItemPool.apply_upgrade_gain(item)
+	RunState.rooms_cleared += 1
+	return true
+
+
 ## qa/visual_qa.gd의 GAME_QA_CALL로 호출하기 위한 인자 없는 래퍼 (QA 전용).
 func _debug_pick_first_for_attack() -> void:
 	_on_pick_pressed(_offered[0], "attack")
@@ -166,4 +194,18 @@ func _debug_force_offer_pips() -> void:
 			pip_item = it
 			break
 	_offered = [pip_item, EventItemPool.ITEMS[0]]
+	_rebuild_items()
+
+
+## QA 전용: "다이스 대승급 (-> D10)" 아이템(upgrade_die)을 강제로 목록 맨 앞에
+## 노출시킨다. _debug_force_offer_pips와 같은 이유 — 화면에서 "다이스 획득 (인벤토리)"
+## 단일 버튼 카드가 정상 표시되는지 확인하기 위함(2026-09-09, 즉시 적용 대신 인벤토리
+## 획득으로 바뀐 뒤 새로 필요해진 QA 훅).
+func _debug_force_offer_upgrade() -> void:
+	var upgrade_item: Dictionary = {}
+	for it in EventItemPool.ITEMS:
+		if it["kind"] == "upgrade_die":
+			upgrade_item = it
+			break
+	_offered = [upgrade_item, EventItemPool.ITEMS[0]]
 	_rebuild_items()

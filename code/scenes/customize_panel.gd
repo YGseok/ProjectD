@@ -44,6 +44,11 @@ var _ui: Array[Node] = []
 ## 새로 열릴 때마다 풀리는 이 플래그로 한 번만 실행되게 막는다.
 var _face_chosen_locked := false
 
+## _show_die_target_picker()가 만든 다이스 슬롯 버튼의 이중 실행 방지 플래그.
+## _face_chosen_locked과 같은 이유(같은 프레임 안 더블클릭 등으로 _on_die_target_chosen이
+## 두 번 불리면 die_inventory를 조용히 오염시킬 수 있음) — 새 단계가 열릴 때마다 풀린다.
+var _die_chosen_locked := false
+
 
 func _ready() -> void:
 	visible = false
@@ -150,6 +155,15 @@ func _show_pip_picker() -> void:
 			"보유 눈금 %d개 중 다이스 면과 맞바꿀 값을 하나 고르세요. 다음 단계에서 어느 다이스, 어느 면에 넣을지 정합니다." % RunState.pip_inventory.size()
 		)
 
+	var die_btn := Button.new()
+	die_btn.text = "다이스 인벤토리 (%d개)" % RunState.die_inventory.size()
+	die_btn.disabled = RunState.die_inventory.is_empty()
+	die_btn.position = Vector2(370, y)
+	die_btn.size = Vector2(280, 40)
+	die_btn.pressed.connect(_show_die_inventory_picker)
+	add_child(die_btn)
+	_ui.append(die_btn)
+
 	var close_btn := Button.new()
 	close_btn.text = "닫기"
 	close_btn.position = Vector2(200, y)
@@ -157,6 +171,130 @@ func _show_pip_picker() -> void:
 	close_btn.pressed.connect(close)
 	add_child(close_btn)
 	_ui.append(close_btn)
+
+
+## 다이스 인벤토리 흐름 1단계: RunState.die_inventory(다이스 승급 아이템 획득으로 쌓인
+## "새 다이스의 면 개수" 목록)에서 교체에 쓸 다이스 하나를 고른다. INBOX.md 피드백
+## (2026-09-09) "다이스 승급 이벤트에서, 면 개수가 가장 작은것 교체가 아닌 획득으로
+## 바꾼다. 눈금 획득 또는 다이스 승급시, 인벤토리로 들어와서 교체하도록 한다"를 반영해
+## pip_inventory와 같은 "인벤토리 -> 대상 선택 -> 즉시 교환" 모델을 다이스 승급에도 적용한
+## 것 — 눈금 흐름의 1단계(_show_pip_picker)에 붙은 "다이스 인벤토리" 버튼에서 들어온다.
+func _show_die_inventory_picker() -> void:
+	_clear_ui()
+
+	var chip_size := 70.0
+	var gap := 14.0
+	var y := 236.0
+	var x := 200.0
+
+	if RunState.die_inventory.is_empty():
+		_add_frame(
+			"커스터마이징 — 인벤토리에 다이스가 없습니다",
+			260.0,
+			"다이스는 상점/특수 이벤트/전투 승리 보상의 \"다이스 승급\" 아이템을 얻으면 여기 쌓입니다. 얻고 나면 여기서 원하는 다이스와 맞바꿀 수 있습니다."
+		)
+		var msg := Label.new()
+		msg.autowrap_mode = TextServer.AUTOWRAP_WORD
+		msg.text = "지금은 맞바꿀 수 있는 다이스가 없어 다음 단계로 진행할 수 없습니다."
+		msg.position = Vector2(200, y)
+		msg.size = Vector2(880, 40)
+		add_child(msg)
+		_ui.append(msg)
+		y += 60.0
+	else:
+		for i in RunState.die_inventory.size():
+			var sides: int = RunState.die_inventory[i]
+			var btn := Button.new()
+			btn.text = "D%d" % sides
+			btn.position = Vector2(x, y)
+			FaceChipStyle.style_button(btn, chip_size, false, false)
+			btn.pressed.connect(_show_die_target_picker.bind(i))
+			add_child(btn)
+			_ui.append(btn)
+
+			x += chip_size + gap
+			if x > 1000.0:
+				x = 200.0
+				y += chip_size + gap
+		y += chip_size + 24.0
+		_add_frame(
+			"커스터마이징 — 사용할 다이스를 고르세요",
+			max(260.0, y - 120.0),
+			"보유 다이스 %d개 중 주머니에 넣을 것을 하나 고르세요. 다음 단계에서 어느 다이스와 맞바꿀지 정합니다." % RunState.die_inventory.size()
+		)
+
+	var back_btn := Button.new()
+	back_btn.text = "뒤로"
+	back_btn.position = Vector2(200, y)
+	back_btn.size = Vector2(160, 40)
+	back_btn.pressed.connect(_show_pip_picker)
+	add_child(back_btn)
+	_ui.append(back_btn)
+
+
+## 다이스 인벤토리 흐름 2단계: 고른 다이스를 넣을 자리(공격/방어 주머니 중 하나의
+## 다이스 슬롯)를 고르면 즉시 교환된다. 기존 다이스보다 면 개수가 작거나 같은 자리는
+## "실제로는 승급이 아니게" 되므로 비활성화해 의도치 않은 다운그레이드를 막는다(면
+## 값 자체는 replace_die()가 표준값으로 새로 만들므로, 이미 큰 다이스를 굳이 같은
+## 크기로 바꾸면 커스터마이징한 면 값만 조용히 잃는 손해가 되기 때문 — apply_upgrade_gain()
+## 도입 전 자동교체 버그와 같은 종류의 손해를 방지).
+func _show_die_target_picker(inv_index: int) -> void:
+	_clear_ui()
+	_die_chosen_locked = false
+	var new_sides: int = RunState.die_inventory[inv_index]
+	_add_frame(
+		"커스터마이징 — D%d을(를) 넣을 다이스를 고르세요" % new_sides,
+		460.0,
+		"아래 목록은 공격/방어 주머니의 다이스별 현재 면 개수입니다. 고르면 그 자리가 D%d로 바뀌고, 원래 있던 다이스는 인벤토리로 돌아갑니다(면 개수가 이미 D%d 이상인 자리는 승급이 아니므로 고를 수 없습니다)." % [new_sides, new_sides]
+	)
+
+	var y := 226.0
+	y = _add_die_target_rows("공격", RunState.player_attack_bag, y, inv_index, new_sides)
+	y = _add_die_target_rows("방어", RunState.player_defense_bag, y, inv_index, new_sides)
+
+	var back_btn := Button.new()
+	back_btn.text = "뒤로"
+	back_btn.position = Vector2(200, y + 10)
+	back_btn.size = Vector2(160, 40)
+	back_btn.pressed.connect(_show_die_inventory_picker)
+	add_child(back_btn)
+	_ui.append(back_btn)
+
+
+func _add_die_target_rows(bag_label: String, bag: DiceBag, y: float, inv_index: int, new_sides: int) -> float:
+	for i in bag.dice.size():
+		var faces: PackedInt32Array = bag.dice[i]
+		var is_upgrade := faces.size() < new_sides
+		var btn := Button.new()
+		btn.text = "%s %d — D%d%s" % [bag_label, i + 1, faces.size(), "" if is_upgrade else " (승급 아님)"]
+		btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		btn.disabled = not is_upgrade
+		btn.position = Vector2(200, y)
+		btn.size = Vector2(1080 - 200, 46)
+		btn.pressed.connect(_on_die_target_chosen.bind(bag, i, inv_index))
+		add_child(btn)
+		_ui.append(btn)
+		y += 54.0
+	return y
+
+
+## 인벤토리의 다이스와 주머니 슬롯을 맞바꾼다. 밀려난 기존 다이스는 면 개수만
+## RunState.die_inventory로 돌아온다(면 값 자체는 표준으로 리셋되지만, 예전 자동교체도
+## 같은 리셋을 했으므로 새로운 손해는 아니다). _exchange_pip과 대칭 구조.
+func _exchange_die(bag: DiceBag, die_index: int, inv_index: int) -> void:
+	var new_sides: int = RunState.die_inventory[inv_index]
+	var old_sides: int = bag.dice[die_index].size()
+	bag.replace_die(die_index, new_sides)
+	RunState.die_inventory.remove_at(inv_index)
+	RunState.die_inventory.append(old_sides)
+
+
+func _on_die_target_chosen(bag: DiceBag, die_index: int, inv_index: int) -> void:
+	if _die_chosen_locked:
+		return
+	_die_chosen_locked = true
+	_exchange_die(bag, die_index, inv_index)
+	_show_die_inventory_picker()
 
 
 ## 2단계: 고른 눈금을 적용할 다이스(공격/방어 주머니 중 하나)를 고른다.
@@ -288,3 +426,13 @@ func debug_open_face_picker() -> void:
 		RunState.pip_inventory.append(4)
 	open()
 	_show_face_picker(RunState.player_attack_bag, 0, RunState.pip_inventory.size() - 1)
+
+
+## QA 전용 — debug_open_face_picker()와 같은 목적, 다이스 인벤토리 흐름의 2단계
+## (교체할 자리 선택) 화면을 확인하기 위함. 인벤토리가 비어있으면 확인용 D6 하나를
+## 넣어준다.
+func debug_open_die_target_picker() -> void:
+	if RunState.die_inventory.is_empty():
+		RunState.die_inventory.append(6)
+	open()
+	_show_die_target_picker(RunState.die_inventory.size() - 1)

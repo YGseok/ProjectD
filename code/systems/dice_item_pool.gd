@@ -18,7 +18,7 @@ const ITEMS: Array[Dictionary] = [
 	},
 	{
 		"name": "다이스 승급 (-> D6)",
-		"description": "선택한 주머니에서 면 개수가 가장 작은 다이스 1개를 D6으로 교체합니다.",
+		"description": "D6 다이스 1개를 인벤토리로 획득합니다. 커스터마이징에서 원하는 다이스와 나중에 교체할 수 있습니다.",
 		"kind": "upgrade_die",
 		"new_sides": 6,
 	},
@@ -37,16 +37,10 @@ const ITEMS: Array[Dictionary] = [
 
 ## n개의 서로 다른 아이템을 무작위로 뽑아 반환한다 (목록보다 많이 요청하면 있는 만큼만).
 ##
-## attack_bag/defense_bag을 함께 넘기면, 두 주머니 어느 쪽에도 적용할 수 없는 아이템
-## (예: 공격/방어 다이스가 전부 이미 new_sides 이상이라 승급 대상이 없는 upgrade_die)은
-## 후보에서 아예 제외한다 — 보상으로 2개만 제시되는 화면(전투 승리/특수 이벤트)에서
-## 그런 아이템이 뽑히면 두 버튼이 전부 비활성화돼 사실상 그 슬롯 하나가 통째로
-## 낭비되기 때문("승급 대상이 없을 때 버튼을 비활성화"만으로는 못 막는, 한 단계 위의
-## 같은 종류 낭비 — is_applicable을 아이템 뽑기 단계에도 한 번 더 적용). 필터링 후
-## 후보가 n개보다 적으면(이론상 add_die/boost_weak_face/uniform_faces는 항상 적용
-## 가능하므로 실제로는 거의 발생하지 않음) 안전하게 필터링 이전 전체 목록으로
-## 되돌아간다. 두 인자를 생략하면(기존 호출부와 하위 호환) 필터링 없이 기존과 동일하게
-## 동작한다.
+## attack_bag/defense_bag은 하위 호환을 위해 남아있는 인자다 — is_applicable()이 이제
+## 항상 true를 반환하므로(다이스 승급류가 즉시 적용 대신 인벤토리 획득으로 바뀌어
+## "승급 대상 없음" 개념 자체가 사라짐, 2026-09-09) 실제로는 필터링을 하지 않는다.
+## 두 인자를 생략해도 결과는 동일하다.
 static func random_choices(n: int, attack_bag: DiceBag = null, defense_bag: DiceBag = null) -> Array[Dictionary]:
 	var items := ITEMS.duplicate(true)
 	if attack_bag != null and defense_bag != null:
@@ -64,45 +58,33 @@ static func apply(item: Dictionary, bag: DiceBag) -> void:
 	match item["kind"]:
 		"add_die":
 			bag.add_die(item["sides"])
-		"upgrade_die":
-			# new_sides보다 이미 크거나 같은 다이스만 남아있으면 승급 대상이 없다는 뜻이다.
-			# 이때 그냥 가장 작은 다이스를 골라 replace_die()하면 면 개수는 그대로인 채
-			# 면 값만 표준(1..N)으로 리셋되어, 커스터마이징으로 키워둔 면 값을 조용히
-			# 잃어버리는 "보상인데 사실상 손해"가 된다. 그래서 실제로 면 개수가 늘어나는
-			# 다이스가 있을 때만 교체한다.
-			var idx := _find_smallest_die(bag, item["new_sides"])
-			if idx >= 0:
-				bag.replace_die(idx, item["new_sides"])
 		"boost_weak_face":
 			_boost_weakest_face(bag)
 		"uniform_faces":
 			_uniformize_worst_die(bag)
+		# "upgrade_die"는 여기서 다루지 않는다 — apply_upgrade_gain() 참고.
 
 
-## item이 bag에 적용했을 때 실제 효과가 있는지 확인한다. UI에서 이 결과로 버튼을
-## 비활성화해, "승급 대상이 없어 사실상 헛되이 소모되는" 상황을 애초에 제시하지 않기
-## 위함(upgrade_die의 apply()가 대상이 없을 때 조용히 아무 일도 안 하는 것의 짝).
-## upgrade_die 외 종류(add_die/boost_weak_face/uniform_faces)는 주머니에 다이스가
-## 하나라도 있으면(항상 그렇다) 언제나 효과가 있으므로 항상 true.
+## "다이스 승급"류 아이템(kind=upgrade_die) 전용 획득 함수. INBOX.md 피드백
+## (2026-09-09) "다이스 승급 이벤트에서, 면 개수가 가장 작은것 교체가 아닌 획득으로
+## 바꾼다. ... 인벤토리로 들어와서 교체하도록 한다"를 반영해, 예전처럼 apply(item, bag)로
+## 즉시 어느 주머니의 어느 다이스를 자동으로 골라 교체하지 않는다. 대신 RunState.
+## die_inventory(정수 "면 개수" 목록)에 새 다이스 하나를 쌓아두기만 하고, 실제로 어느
+## 주머니의 어느 슬롯과 바꿀지는 code/scenes/customize_panel.gd에서 플레이어가 나중에
+## 직접 고른다. bag을 필요로 하지 않으므로(어느 주머니 것도 아직 아님) apply(item, bag)와
+## 달리 대상 주머니 인자가 없다 — 항상 성공하므로 is_applicable() 대상도 아니다.
+static func apply_upgrade_gain(item: Dictionary) -> void:
+	RunState.die_inventory.append(item["new_sides"])
+
+
+## item이 bag에 적용했을 때 실제 효과가 있는지 확인한다. add_die/boost_weak_face/
+## uniform_faces는 주머니에 다이스가 하나라도 있으면(항상 그렇다) 언제나 효과가
+## 있으므로 항상 true. upgrade_die는 더 이상 bag에 즉시 적용되지 않고(항상 인벤토리로
+## 획득되기만 하므로, apply_upgrade_gain() 참고) 대상 유무와 무관하게 항상 획득
+## 가능하다 — 예전에는 "승급 대상이 없으면 후보에서 제외"하는 필터링이 여기 있었지만,
+## 이제 획득 자체가 실패할 일이 없으므로 그 로직은 더 이상 필요 없다.
 static func is_applicable(item: Dictionary, bag: DiceBag) -> bool:
-	if item["kind"] == "upgrade_die":
-		return _find_smallest_die(bag, item["new_sides"]) >= 0
 	return true
-
-
-## below_sides가 양수로 주어지면 면 개수가 그 값보다 작은 다이스 중에서만 고른다
-## (upgrade_die가 "실제로 더 커지는" 다이스에만 적용되도록 하기 위함).
-static func _find_smallest_die(bag: DiceBag, below_sides: int = -1) -> int:
-	var best_idx := -1
-	var best_size := 999999
-	for i in bag.dice.size():
-		var sides: int = bag.dice[i].size()
-		if below_sides > 0 and sides >= below_sides:
-			continue
-		if sides < best_size:
-			best_size = sides
-			best_idx = i
-	return best_idx
 
 
 ## boost_weak_face/uniform_faces가 공통으로 쓰는 "가장 개선이 필요한 다이스/면" 탐색.

@@ -401,3 +401,29 @@ func _debug_verify_pip_swap() -> void:
 	print("[pip_swap_check] before=%s after=%s pip_inventory=%s (기대: face0=min(7,%d)=%d, inventory=[%d])" % [
 		before, bag.dice[0], RunState.pip_inventory, before.size(), min(7, before.size()), before[0],
 	])
+
+
+## QA 전용 — 인벤토리에 다이스가 여러 개 쌓인 상태에서 1단계(다이스 선택) 화면의
+## 실제 레이아웃(D6/D8/D10 칩 버튼이 여러 개 나열된 상태)을 확인하기 위함.
+func _debug_open_customize_die_inventory() -> void:
+	RunState.die_inventory = [6, 8, 10]
+	customize_panel.open()
+	customize_panel._show_die_inventory_picker()
+
+
+## QA 전용 — 2단계(교체할 자리 선택) 화면의 레이아웃(승급인 자리/아닌 자리 버튼 구분)을
+## 확인하기 위함.
+func _debug_open_customize_die_target() -> void:
+	customize_panel.debug_open_die_target_picker()
+
+
+## QA 전용 — 화면으로는 확인할 수 없는 "실제 교환 로직"(다이스 소모, 밀려난 다이스가
+## 인벤토리로 돌아오는 것)을 콘솔 출력으로 검증하기 위한 일회성 훅.
+func _debug_verify_die_swap() -> void:
+	RunState.die_inventory = [8]
+	var bag := RunState.player_attack_bag
+	var before_sides := bag.dice[0].size()
+	customize_panel._on_die_target_chosen(bag, 0, 0)
+	print("[die_swap_check] before_sides=%d after_sides=%d die_inventory=%s (기대: after_sides=8, inventory=[%d])" % [
+		before_sides, bag.dice[0].size(), RunState.die_inventory, before_sides,
+	])

@@ -21,6 +21,17 @@ extends Node
 ## 보상으로 여기 쌓이고, code/scenes/customize_panel.gd에서 인벤토리의 눈금 하나와
 ## 다이스의 면 하나를 맞바꾸는 상호작용으로 바뀐다(customize_panel.gd 참고). 바꿔치기
 ## 되어 밀려난 기존 면 값은 다시 이 배열로 돌아온다(교환이므로 눈금이 사라지지 않음).
+##
+## die_inventory: INBOX.md 피드백(2026-09-09) "다이스 승급 이벤트에서, 면 개수가
+## 가장 작은것 교체가 아닌 획득으로 바꾼다. 눈금 획득 또는 다이스 승급시, 인벤토리로
+## 들어와서 교체하도록 한다"를 반영. 기존에는 "다이스 승급" 아이템(kind=upgrade_die)을
+## 고르면 systems/dice_item_pool.gd가 그 즉시 주머니에서 면 개수가 가장 작은 다이스를
+## 찾아 자동으로 교체했는데, 이제는 pip_inventory와 같은 방식으로 "새 다이스의 면
+## 개수"(정수)만 여기 쌓아두고, 실제로 어느 주머니의 어느 다이스와 바꿀지는
+## code/scenes/customize_panel.gd에서 플레이어가 나중에 직접 고른다. 교환으로 밀려난
+## 기존 다이스도 면 개수만 이 배열로 돌아와(면 값 자체는 표준으로 리셋되지만, 이전
+## upgrade_die 자동교체도 같은 리셋을 했으므로 새로운 손해는 아님) 다른 자리에 다시
+## 쓸 수 있다.
 
 const TOTAL_ROOMS := 5
 
@@ -29,6 +40,7 @@ var gold := 0
 var player_attack_bag: DiceBag
 var player_defense_bag: DiceBag
 var pip_inventory: Array[int] = []
+var die_inventory: Array[int] = []
 
 
 func _ready() -> void:
@@ -41,6 +53,7 @@ func reset_run() -> void:
 	player_attack_bag = DiceBag.new(4, 3)
 	player_defense_bag = DiceBag.new(4, 3)
 	pip_inventory = []
+	die_inventory = []
 
 
 func is_run_complete() -> bool:

@@ -23,7 +23,7 @@ const ITEMS: Array[Dictionary] = [
 	},
 	{
 		"name": "다이스 대승급 (-> D10)",
-		"description": "선택한 주머니에서 면 개수가 가장 작은 다이스 1개를 D10으로 교체합니다.",
+		"description": "D10 다이스 1개를 인벤토리로 획득합니다. 커스터마이징에서 원하는 다이스와 나중에 교체할 수 있습니다.",
 		"kind": "upgrade_die",
 		"new_sides": 10,
 	},
@@ -45,10 +45,11 @@ const ITEMS: Array[Dictionary] = [
 
 ## n개의 서로 다른 아이템을 무작위로 뽑아 반환한다 (목록보다 많이 요청하면 있는 만큼만).
 ##
-## attack_bag/defense_bag을 함께 넘기면 systems/dice_item_pool.gd의 DiceItemPool.
-## random_choices()와 같은 이유로, 두 주머니 어느 쪽에도 적용할 수 없는 아이템(예:
-## 다이스 대승급인데 이미 전부 D10 이상)은 후보에서 제외한다(item dict 형식이 같으므로
-## is_applicable도 DiceItemPool 것을 그대로 재사용). 두 인자를 생략하면 기존과 동일.
+## attack_bag/defense_bag은 systems/dice_item_pool.gd의 DiceItemPool.random_choices()와
+## 같은 시그니처를 맞추기 위해 남겨뒀다 — DiceItemPool.is_applicable()이 이제 항상
+## true를 반환하므로(다이스 승급류가 즉시 적용 대신 인벤토리 획득으로 바뀌어 "대상 없음"
+## 개념 자체가 사라짐, 2026-09-09) 실질적인 필터링 효과는 없다. 두 인자를 생략해도
+## 결과는 동일하다.
 static func random_choices(n: int, attack_bag: DiceBag = null, defense_bag: DiceBag = null) -> Array[Dictionary]:
 	var items := ITEMS.duplicate(true)
 	if attack_bag != null and defense_bag != null:
