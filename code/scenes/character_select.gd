@@ -184,6 +184,11 @@ func _debug_select_explosive() -> void:
 	_on_card_selected("explosive")
 
 
+## QA 전용: "방패병" 카드를 고른 상태 검증용 (_debug_select_berserker와 같은 이유).
+func _debug_select_shieldbearer() -> void:
+	_on_card_selected("shieldbearer")
+
+
 ## QA 전용: "광전사"를 고른 채로 실제 던전 시작까지 이어지는 전체 경로를 한 번에
 ## 검증하기 위한 래퍼(선택 -> 시작 -> dungeon_map 전환까지, 실제 플레이와 동일 경로).
 ## 던전 맵의 "공격/방어 주머니" 패널에 1/4만 보이는지(force_min_max_faces 효과)로
@@ -206,6 +211,15 @@ func _debug_start_run_as_guardian() -> void:
 ## combat_test.gd의 전투 중 상태(_debug_show_explosive_dice() 참고)로 확인해야 한다.
 func _debug_start_run_as_explosive() -> void:
 	_on_card_selected("explosive")
+	_on_start_pressed()
+
+
+## QA 전용: "방패병"으로 던전 시작까지 이어지는 전체 경로 검증(_debug_start_run_as_berserker와
+## 같은 이유). guard_stack은 explosive_stack과 마찬가지로 정적 다이스 개조가 없어
+## 덱 패널에는 아무 차이가 안 보이는 게 정상 — 실제 효과는 combat_test.gd의 전투 중
+## 상태(_debug_show_guard_dice() 참고)로 확인해야 한다.
+func _debug_start_run_as_shieldbearer() -> void:
+	_on_card_selected("shieldbearer")
 	_on_start_pressed()
 
 

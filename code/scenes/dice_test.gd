@@ -1445,6 +1445,11 @@ func _check_character_profiles(lines: PackedStringArray) -> bool:
 	lines.append("  get_profile(explosive).gimmick=%s (기대 explosive_stack) -> %s" % [
 		CharacterProfiles.get_profile("explosive")["gimmick"], "OK" if explosive_ok else "FAIL"
 	])
+	var shieldbearer_ok: bool = CharacterProfiles.get_profile("shieldbearer")["gimmick"] == "guard_stack"
+	ok = shieldbearer_ok and ok
+	lines.append("  get_profile(shieldbearer).gimmick=%s (기대 guard_stack) -> %s" % [
+		CharacterProfiles.get_profile("shieldbearer")["gimmick"], "OK" if shieldbearer_ok else "FAIL"
+	])
 	var fallback_empty_ok: bool = CharacterProfiles.get_profile("")["id"] == CharacterProfiles.PROFILES[0]["id"]
 	var fallback_unknown_ok: bool = CharacterProfiles.get_profile("no_such_id")["id"] == CharacterProfiles.PROFILES[0]["id"]
 	ok = fallback_empty_ok and fallback_unknown_ok and ok
@@ -1517,6 +1522,20 @@ func _check_character_profiles(lines: PackedStringArray) -> bool:
 	ok = explosive_id_ok and explosive_bags_standard_ok and ok
 	lines.append("  reset_run(explosive): character_id=%s 공격/방어 주머니 표준 유지(정적 개조 없음)=%s -> %s" % [
 		RunState.character_id, explosive_bags_standard_ok, "OK" if (explosive_id_ok and explosive_bags_standard_ok) else "FAIL"
+	])
+
+	# "방패병"(guard_stack)도 explosive_stack과 마찬가지로 정적 다이스 개조가 없는
+	# 기믹 — reset_run()이 만든 새 주머니는 표준 D4x3 그대로여야 한다(같은 이유로 실제
+	# 스택 추적/D20 전환은 여기서 검증하지 않고 _debug_show_guard_dice()로 육안 확인).
+	RunState.reset_run("shieldbearer")
+	var shieldbearer_id_ok: bool = RunState.character_id == "shieldbearer"
+	var shieldbearer_bags_standard_ok: bool = (
+		RunState.player_attack_bag.dice[0] == PackedInt32Array([1, 2, 3, 4])
+		and RunState.player_defense_bag.dice[0] == PackedInt32Array([1, 2, 3, 4])
+	)
+	ok = shieldbearer_id_ok and shieldbearer_bags_standard_ok and ok
+	lines.append("  reset_run(shieldbearer): character_id=%s 공격/방어 주머니 표준 유지(정적 개조 없음)=%s -> %s" % [
+		RunState.character_id, shieldbearer_bags_standard_ok, "OK" if (shieldbearer_id_ok and shieldbearer_bags_standard_ok) else "FAIL"
 	])
 
 	RunState.reset_run(character_backup)

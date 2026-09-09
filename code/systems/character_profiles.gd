@@ -11,18 +11,18 @@ extends RefCounted
 ## 주머니가 바뀌어도(add_die/replace_die 등) 재적용되지 않는다 — 시작 상태의 개성일
 ## 뿐, 게임 내내 강제되는 제약은 아니다.
 ##
-## 이번 조각은 5종 중 4종 구현(기존 1 + 신규 3). INBOX.md가 예시로 든 세 성격
+## 이번 조각으로 5종 전부 구현(기존 1 + 신규 4). INBOX.md가 예시로 든 세 성격
 ## (극단형/안정형/폭발형) 중 "폭발형"(분노 스택 — 몬스터 "고블린"처럼 매 턴 상태를
 ## 추적하고 턴 로직 자체를 바꿔야 함)은 combat_test.gd의 anger_stack 분기를 플레이어
 ## 공격턴에도 그대로 적용하는 방식(player_dice_gimmick/player_explosive_stacks/
-## player_explosive_pending, combat_test.gd 참고)으로 이번에 완성함 — 이 배열의
-## "gimmick" 필드만으로는 표현할 수 없어서(정적 다이스 개조가 아니라 매 턴 상태 추적이
-## 필요) run_state.gd._apply_character_gimmick()의 match 문에는 걸리지 않고, 대신
+## player_explosive_pending, combat_test.gd 참고)으로 완성했고, 다섯 번째 컨셉
+## "방패병"(guard_stack)은 같은 스택 추적 방식을 플레이어 방어턴에 대칭 적용해
+## 완성함(둘 다 정적 다이스 개조가 아니라 턴 상태 추적이 필요) —
+## run_state.gd._apply_character_gimmick()의 match 문에는 걸리지 않고, 대신
 ## combat_test.gd가 CharacterProfiles.get_profile(RunState.character_id)를 직접 읽어
-## "explosive_stack"일 때만 턴 로직에서 분기한다. 남은 1종(다섯 번째 컨셉)은 아직
-## 미정 — docs/STATUS.md 다음 할 일 큐에 남겨둠. 캐릭터 5종 각각의 이름/컨셉/기믹
-## 배정은 INBOX.md가 "AI가 제안해도 됨"이라고 허용한 것을 따름 — 사람이 다른
-## 이름/배정을 원하면 이 배열만 고치면 됨.
+## "explosive_stack"/"guard_stack"일 때만 턴 로직에서 분기한다. 캐릭터 5종 각각의
+## 이름/컨셉/기믹 배정은 INBOX.md가 "AI가 제안해도 됨"이라고 허용한 것을 따름 —
+## 사람이 다른 이름/배정을 원하면 이 배열만 고치면 됨.
 ##
 ## "gimmick" 필드 값:
 ##   ""              : 기믹 없음 (기존 "견습 모험가")
@@ -34,6 +34,10 @@ extends RefCounted
 ##                     공격 다이스가 최댓값 면을 보여줄 때마다 combat_test.gd가 전투 중
 ##                     상태로 스택을 쌓고, 3스택에서 다음 공격 한 턴만 1D20으로 굴림
 ##                     (몬스터 "고블린"의 anger_stack과 같은 메커니즘, 플레이어 공격턴에 적용)
+##   "guard_stack"   : 정적 다이스 개조 없음(explosive_stack과 동일) — 대신 방어 다이스가
+##                     최댓값 면을 보여줄 때마다 combat_test.gd가 전투 중 상태로 스택을
+##                     쌓고, 3스택에서 다음 방어 한 턴만 1D20으로 굴림 (explosive_stack과
+##                     완전히 같은 메커니즘을 플레이어 방어턴에 대칭 적용)
 const PROFILES := [
 	{
 		"id": "novice",
@@ -66,6 +70,14 @@ const PROFILES := [
 		"gimmick": "explosive_stack",
 		"hair_color": Color(0.95, 0.55, 0.15),
 		"dress_color": Color(0.5, 0.18, 0.05),
+	},
+	{
+		"id": "shieldbearer",
+		"name": "방패병",
+		"desc": "인내형 — 방어 다이스가 최댓값을 보여줄 때마다 수호 스택이 쌓임 (3스택에서 다음 방어가 20면체 주사위로 굳건해짐)",
+		"gimmick": "guard_stack",
+		"hair_color": Color(0.55, 0.6, 0.65),
+		"dress_color": Color(0.2, 0.3, 0.4),
 	},
 ]
 
