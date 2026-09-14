@@ -24,6 +24,18 @@ extends RefCounted
 ## 이름/컨셉/기믹 배정은 INBOX.md가 "AI가 제안해도 됨"이라고 허용한 것을 따름 —
 ## 사람이 다른 이름/배정을 원하면 이 배열만 고치면 됨.
 ##
+## "attack_count"/"defense_count": INBOX.md 2026-09-14 "캐릭터별 현재 개성 및 스타일에
+## 맞추어 시작 주사위를 다르게 한다" 반영. 기존에는 5종 전부 표준 D4x3/D4x3로 동일해서
+## "기믹"만 다르고 시작 다이스 구성 자체는 차이가 없었다. 이제 각 캐릭터의 기믹 방향에
+## 맞춰 공격/방어 다이스 개수 배분을 다르게 준다(면 개수는 DESIGN.md가 확정한 시작
+## D4를 5종 전부 그대로 유지 — 면 개수까지 다르게 하는 건 별도 결정 필요). 값을 생략하면
+## RunState.reset_run()이 기존 기본값(3/3)으로 폴백한다. DiceBag.MAX_DICE(=6)보다 항상
+## 작게 잡아 캡에 안 걸림. 배분 근거(감으로 잡은 잠정값, 재조정 가능):
+##   - 광전사(berserker, 극단형/하이리스크): 공격 4 / 방어 2 — "공격에 몰빵"
+##   - 수호자(guardian, 안정형/방어): 공격 2 / 방어 4 — 광전사와 대칭
+##   - 폭발병(explosive, 공격 다이스 최댓값 스택): 공격 4 / 방어 3 — 스택을 더 자주 쌓게
+##   - 방패병(shieldbearer, 방어 다이스 최댓값 스택): 공격 3 / 방어 4 — 폭발병과 대칭
+##
 ## "gimmick" 필드 값:
 ##   ""              : 기믹 없음 (기존 "견습 모험가")
 ##   "min_max_only"  : 공격+방어 다이스 전부 DiceBag.force_min_max_faces() 적용
@@ -42,40 +54,50 @@ const PROFILES := [
 	{
 		"id": "novice",
 		"name": "견습 모험가",
-		"desc": "기본 캐릭터 (능력 차이 없음)",
+		"desc": "기본 캐릭터 (능력 차이 없음). 시작 다이스: 공격 D4x3 / 방어 D4x3 (표준형)",
 		"gimmick": "",
+		"attack_count": 3,
+		"defense_count": 3,
 		"hair_color": Color(0.78, 0.62, 0.86),
 		"dress_color": Color(0.92, 0.55, 0.66),
 	},
 	{
 		"id": "berserker",
 		"name": "광전사",
-		"desc": "극단형 — 공격/방어 다이스가 항상 최솟값 아니면 최댓값만 나옴 (중간값 없음, 하이리스크 하이리턴)",
+		"desc": "극단형 — 공격/방어 다이스가 항상 최솟값 아니면 최댓값만 나옴 (중간값 없음, 하이리스크 하이리턴). 시작 다이스: 공격 D4x4 / 방어 D4x2 (공격 몰빵)",
 		"gimmick": "min_max_only",
+		"attack_count": 4,
+		"defense_count": 2,
 		"hair_color": Color(0.85, 0.25, 0.2),
 		"dress_color": Color(0.35, 0.1, 0.1),
 	},
 	{
 		"id": "guardian",
 		"name": "수호자",
-		"desc": "안정형 — 방어 다이스 하나가 항상 고정값으로만 나옴 (예측 가능한 안정적 방어)",
+		"desc": "안정형 — 방어 다이스 하나가 항상 고정값으로만 나옴 (예측 가능한 안정적 방어). 시작 다이스: 공격 D4x2 / 방어 D4x4 (방어 몰빵)",
 		"gimmick": "fixed_defense_die",
+		"attack_count": 2,
+		"defense_count": 4,
 		"hair_color": Color(0.4, 0.55, 0.85),
 		"dress_color": Color(0.25, 0.4, 0.55),
 	},
 	{
 		"id": "explosive",
 		"name": "폭발병",
-		"desc": "폭발형 — 공격 다이스가 최댓값을 보여줄 때마다 폭발 스택이 쌓임 (3스택에서 다음 공격이 20면체 주사위로 터짐)",
+		"desc": "폭발형 — 공격 다이스가 최댓값을 보여줄 때마다 폭발 스택이 쌓임 (3스택에서 다음 공격이 20면체 주사위로 터짐). 시작 다이스: 공격 D4x4 / 방어 D4x3 (스택을 더 자주 쌓음)",
 		"gimmick": "explosive_stack",
+		"attack_count": 4,
+		"defense_count": 3,
 		"hair_color": Color(0.95, 0.55, 0.15),
 		"dress_color": Color(0.5, 0.18, 0.05),
 	},
 	{
 		"id": "shieldbearer",
 		"name": "방패병",
-		"desc": "인내형 — 방어 다이스가 최댓값을 보여줄 때마다 수호 스택이 쌓임 (3스택에서 다음 방어가 20면체 주사위로 굳건해짐)",
+		"desc": "인내형 — 방어 다이스가 최댓값을 보여줄 때마다 수호 스택이 쌓임 (3스택에서 다음 방어가 20면체 주사위로 굳건해짐). 시작 다이스: 공격 D4x3 / 방어 D4x4 (스택을 더 자주 쌓음)",
 		"gimmick": "guard_stack",
+		"attack_count": 3,
+		"defense_count": 4,
 		"hair_color": Color(0.55, 0.6, 0.65),
 		"dress_color": Color(0.2, 0.3, 0.4),
 	},

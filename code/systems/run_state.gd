@@ -80,8 +80,9 @@ func reset_run(new_character_id: String = "") -> void:
 	round_index = 1
 	gold = 0
 	shop_visits = 0
-	player_attack_bag = DiceBag.new(4, 3)
-	player_defense_bag = DiceBag.new(4, 3)
+	var profile := CharacterProfiles.get_profile(character_id)
+	player_attack_bag = DiceBag.new(4, profile.get("attack_count", 3))
+	player_defense_bag = DiceBag.new(4, profile.get("defense_count", 3))
 	pip_inventory = []
 	die_inventory = []
 	_apply_character_gimmick()

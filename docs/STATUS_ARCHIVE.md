@@ -8,6 +8,40 @@
 
 ---
 
+- **2026-09-09 (86)**: 큐 14([대형 기획 1] 플레이어블 캐릭터)의 마지막 남은
+  조각 — 다섯 번째 캐릭터 컨셉을 AI가 제안해 구현, **5/5종 완료**. "폭발병"
+  (explosive_stack, 공격 다이스 최댓값 스택 → 3스택에서 다음 공격 1D20)과
+  대칭 구조로 "방패병"(`gimmick: "guard_stack"`)을 추가 — 방어 다이스가
+  최댓값 면을 3번 보여주면 다음 방어 한 턴만 1D20으로 굴려 굳건해짐.
+  `character_profiles.gd` PROFILES에 항목 추가, `combat_test.gd`에
+  `player_guard_stacks`/`player_guard_pending`/`GUARD_STACK_THRESHOLD`(3)/
+  `GUARD_DICE_SIDES`(20) 신설 — `_do_exchange()`의 def_bag 선택을 기존 단순
+  삼항식(`monster_defense_bag if is_player_attacking else RunState.
+  player_defense_bag`)에서 if/elif/else로 확장해 guard_pending일 때 1D20
+  임시 주머니를 쓰도록 하고, 몬스터 방어턴(플레이어 방어턴) 다음에
+  explosive_stack 블록과 나란한 스택 집계 블록을 추가. `run_state.gd`
+  주석 갱신(guard_stack도 정적 개조 없이 match의 `_: pass`로 통과),
+  `character_select.gd`에 `_debug_select_shieldbearer`/`_debug_start_run_
+  as_shieldbearer`, `combat_test.gd`에 `_debug_show_guard_dice()` QA 래퍼
+  추가(모두 기존 explosive 계열 래퍼와 같은 패턴). `dice_test.gd`에 신규
+  검증 2개(get_profile(shieldbearer).gimmick, reset_run(shieldbearer)이
+  다이스 주머니를 표준 그대로 유지하는지) 추가로 회귀 스위트 전체 PASS.
+  `qa_out/character_select_5cards.png`(카드 5개 겹침/잘림 없이 표시 — 기존
+  (85)에서 고친 동적 카드 폭 계산이 5종에서도 실제로 작동함을 확인)/
+  `combat_test_guard_dice.png`(수호 스택 임계치 도달 → D20 다이스 + "수호
+  태세 완성!" 로그 문구, 겹침 없음)/`dungeon_map_shieldbearer_deck.png`
+  (선택 → 시작 → 덱 패널까지 전체 경로, 정적 개조가 없으므로 공격/방어
+  다이스가 표준 1/2/3/4 그대로임을 확인)/
+  `combat_test_smoke_after_shieldbearer.png`(정지 감지 경로로 기존 화면
+  회귀 없음)로 검증. 작업 중 `character_profiles.gd`의 PROFILES 배열에
+  새 항목을 추가하는 Edit 시도가 두 번 연속 "String to replace not
+  found"로 실패했는데, 원인은 Read 도구 출력을 손으로 옮겨적으며 탭 들여쓰기
+  개수를 실제보다 한 칸 더 넣은 것이었다 — `od -c`로 원본 바이트를 직접
+  확인한 뒤에야 정확한 탭 수(객체 키 2탭, 닫는 `},`/여는 `{` 1탭, 배열을
+  닫는 `]` 0탭)를 알 수 있었다. 앞으로 Edit이 반복 실패하면 Read 표시를
+  더 정확히 옮겨적으려 하기보다 Bash(`od -c`)로 원본 바이트를 바로 확인할
+  것. [대형 기획 1]은 이제 완전히 끝났고(INBOX.md 원 요청 전부 처리), 남은
+  것은 5종 전체의 강화폭/체감 밸런스에 대한 사람 플레이 피드백뿐.
 - **2026-09-09 (85)**: 큐 14([대형 기획 1] 플레이어블 캐릭터)의 남은 조각 중
   "폭발형"을 구현해 4/5종 완료. 몬스터 "고블린"의 anger_stack 기믹(공격 다이스가
   자기 최댓값 면을 보여줄 때마다 스택이 쌓이고, `ANGER_STACK_THRESHOLD`(3)에서

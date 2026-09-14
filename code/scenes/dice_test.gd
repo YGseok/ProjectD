@@ -1670,6 +1670,18 @@ func _check_character_profiles(lines: PackedStringArray) -> bool:
 		RunState.character_id, faces_no_middle_ok, "OK" if (id_ok and faces_no_middle_ok) else "FAIL"
 	])
 
+	# INBOX.md 2026-09-14 "캐릭터별 시작 주사위를 다르게 한다" — 각 캐릭터의 시작
+	# 공격/방어 다이스 개수가 character_profiles.gd의 attack_count/defense_count와
+	# 일치해야 한다(광전사=공격4/방어2, novice/기본값=3/3과 달라야 차별화가 된 것).
+	var berserker_count_ok: bool = (
+		RunState.player_attack_bag.count == 4 and RunState.player_defense_bag.count == 2
+	)
+	ok = berserker_count_ok and ok
+	lines.append("  reset_run(berserker) 시작 다이스 개수: 공격=%d(기대 4) 방어=%d(기대 2) -> %s" % [
+		RunState.player_attack_bag.count, RunState.player_defense_bag.count,
+		"OK" if berserker_count_ok else "FAIL"
+	])
+
 	# RunState.reset_run("guardian"): 방어 다이스 0번째만 고정값(3)이고, 나머지(1,2번째)는
 	# 표준 D4([1,2,3,4])로 그대로 남아 있어야 한다("다이스 하나만" 고정 — 전체가 아님).
 	RunState.reset_run("guardian")
@@ -1688,6 +1700,14 @@ func _check_character_profiles(lines: PackedStringArray) -> bool:
 	lines.append("  reset_run(guardian): 방어다이스0=%s(기대 전부 %d) 방어다이스1/2=표준유지 공격다이스=영향없음 -> %s" % [
 		RunState.player_defense_bag.dice[0], expected_value,
 		"OK" if (guardian_id_ok and die0_fixed_ok and other_dice_standard_ok and attack_bag_unaffected_ok) else "FAIL"
+	])
+	var guardian_count_ok: bool = (
+		RunState.player_attack_bag.count == 2 and RunState.player_defense_bag.count == 4
+	)
+	ok = guardian_count_ok and ok
+	lines.append("  reset_run(guardian) 시작 다이스 개수: 공격=%d(기대 2) 방어=%d(기대 4) -> %s" % [
+		RunState.player_attack_bag.count, RunState.player_defense_bag.count,
+		"OK" if guardian_count_ok else "FAIL"
 	])
 
 	# reset_run()을 인자 없이 부르면(패배 후 재시작 등 기존 호출부와 동일한 사용법)
@@ -1718,6 +1738,14 @@ func _check_character_profiles(lines: PackedStringArray) -> bool:
 	lines.append("  reset_run(explosive): character_id=%s 공격/방어 주머니 표준 유지(정적 개조 없음)=%s -> %s" % [
 		RunState.character_id, explosive_bags_standard_ok, "OK" if (explosive_id_ok and explosive_bags_standard_ok) else "FAIL"
 	])
+	var explosive_count_ok: bool = (
+		RunState.player_attack_bag.count == 4 and RunState.player_defense_bag.count == 3
+	)
+	ok = explosive_count_ok and ok
+	lines.append("  reset_run(explosive) 시작 다이스 개수: 공격=%d(기대 4) 방어=%d(기대 3) -> %s" % [
+		RunState.player_attack_bag.count, RunState.player_defense_bag.count,
+		"OK" if explosive_count_ok else "FAIL"
+	])
 
 	# "방패병"(guard_stack)도 explosive_stack과 마찬가지로 정적 다이스 개조가 없는
 	# 기믹 — reset_run()이 만든 새 주머니는 표준 D4x3 그대로여야 한다(같은 이유로 실제
@@ -1731,6 +1759,27 @@ func _check_character_profiles(lines: PackedStringArray) -> bool:
 	ok = shieldbearer_id_ok and shieldbearer_bags_standard_ok and ok
 	lines.append("  reset_run(shieldbearer): character_id=%s 공격/방어 주머니 표준 유지(정적 개조 없음)=%s -> %s" % [
 		RunState.character_id, shieldbearer_bags_standard_ok, "OK" if (shieldbearer_id_ok and shieldbearer_bags_standard_ok) else "FAIL"
+	])
+	var shieldbearer_count_ok: bool = (
+		RunState.player_attack_bag.count == 3 and RunState.player_defense_bag.count == 4
+	)
+	ok = shieldbearer_count_ok and ok
+	lines.append("  reset_run(shieldbearer) 시작 다이스 개수: 공격=%d(기대 3) 방어=%d(기대 4) -> %s" % [
+		RunState.player_attack_bag.count, RunState.player_defense_bag.count,
+		"OK" if shieldbearer_count_ok else "FAIL"
+	])
+
+	# novice(빈 문자열/미정의 id 포함)는 기존과 같이 표준 3/3을 유지해야 한다(회귀 방지 —
+	# attack_count/defense_count 필드가 없는 프로필에도 reset_run()의 profile.get() 폴백이
+	# 여전히 3/3을 주는지 확인).
+	RunState.reset_run("novice")
+	var novice_count_ok: bool = (
+		RunState.player_attack_bag.count == 3 and RunState.player_defense_bag.count == 3
+	)
+	ok = novice_count_ok and ok
+	lines.append("  reset_run(novice) 시작 다이스 개수: 공격=%d(기대 3) 방어=%d(기대 3) -> %s" % [
+		RunState.player_attack_bag.count, RunState.player_defense_bag.count,
+		"OK" if novice_count_ok else "FAIL"
 	])
 
 	RunState.reset_run(character_backup)
