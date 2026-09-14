@@ -13,6 +13,16 @@ extends PanelContainer
 ## combat_test.tscn은 화면이 이미 다이스 뷰포트/초상화/로그로 꽉 차 있어 이 패널을
 ## 넣을 여유 공간이 없다 — 다음 이터레이션에서 레이아웃을 다시 짜야 함 (docs/STATUS.md
 ## 참고).
+##
+## 캐릭터 정보 섹션(2026-09-15): INBOX.md 2026-09-14 "캐릭터 정보 및 보유 스킬을
+## 상시 볼 수 있도록 한다"를 반영. 이 패널이 이미 "전투 제외 화면에서는 상시 표시,
+## 전투 중에는 토글 한 번으로 열람"이라는 정확히 요청된 동작을 하고 있어(위 문서 참고),
+## 새 버튼/패널을 따로 만들지 않고 덱 정보 위에 캐릭터 이름+설명(기믹 포함) 한 섹션만
+## 추가했다 — 새 레이아웃 공간을 확보할 필요가 없어 5개 화면(dungeon_map/shop/event/
+## story_event/combat_test) 모두에 자동으로 반영됨. "보유 스킬"은 현재
+## character_profiles.gd의 gimmick 설명 텍스트가 유일한 캐릭터별 능력이라 그걸
+## 그대로 보여준다 — 이벤트로 얻는 별도 "고유 스킬" 시스템 자체는 아직 없음(DESIGN.md
+## "고유 스킬(이벤트로 획득)은 아직 없음" 참고, 다음 할 일 큐 "캐릭터 스킬 이벤트 신설").
 
 const CHIP_SIZE := 20.0
 const CHIP_GAP := 3.0
@@ -54,7 +64,7 @@ func _process(_delta: float) -> void:
 
 
 func _signature() -> String:
-	return "%s#%s" % [_bag_signature(RunState.player_attack_bag), _bag_signature(RunState.player_defense_bag)]
+	return "%s#%s#%s" % [RunState.character_id, _bag_signature(RunState.player_attack_bag), _bag_signature(RunState.player_defense_bag)]
 
 
 func _bag_signature(bag: DiceBag) -> String:
@@ -70,9 +80,31 @@ func _bag_signature(bag: DiceBag) -> String:
 func _rebuild() -> void:
 	for c in _vbox.get_children():
 		c.queue_free()
+	_add_character_section()
+	_add_spacer()
 	_add_section("공격 주머니", RunState.player_attack_bag)
 	_add_spacer()
 	_add_section("방어 주머니", RunState.player_defense_bag)
+
+
+## 캐릭터 이름 + 설명(기믹 포함)을 덱 정보 위에 보여준다. character_profiles.gd의
+## desc 필드는 캐릭터 선택 화면에서 쓰는 것과 동일한 텍스트를 그대로 재사용 — 별도
+## "요약본"을 새로 만들지 않아 두 화면의 설명이 어긋날 일이 없다.
+func _add_character_section() -> void:
+	var profile := CharacterProfiles.get_profile(RunState.character_id)
+
+	var title := Label.new()
+	title.text = "캐릭터: %s" % profile.get("name", "")
+	title.add_theme_font_size_override("font_size", 15)
+	title.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9))
+	_vbox.add_child(title)
+
+	var desc := Label.new()
+	desc.text = String(profile.get("desc", ""))
+	desc.add_theme_font_size_override("font_size", 12)
+	desc.add_theme_color_override("font_color", Color(0.75, 0.75, 0.75))
+	desc.autowrap_mode = TextServer.AUTOWRAP_WORD
+	_vbox.add_child(desc)
 
 
 func _add_section(title_text: String, bag: DiceBag) -> void:

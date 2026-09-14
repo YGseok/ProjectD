@@ -983,6 +983,17 @@ func _debug_show_reward_with_deck_open() -> void:
 	deck_toggle_button.text = "덱 닫기"
 
 
+## QA 전용 — 이 세션 환경에서 스크린샷 캡처 폭이 1280px 대신 1028px로 잘리는 현상
+## 때문에 화면 오른쪽 끝(x>=980)의 DeckPanel(캐릭터 정보 섹션 포함, 2026-09-15 신규)이
+## 매번 잘려서 안 보임 — 확인용으로 패널을 화면 왼쪽으로 옮기고 열어서 캡처한다
+## (게임 로직에는 영향 없음, dungeon_map.gd의 _debug_move_deck_panel_left와 같은 이유).
+func _debug_move_deck_panel_left() -> void:
+	deck_panel.offset_left = 20.0
+	deck_panel.offset_right = 280.0
+	deck_panel.visible = true
+	deck_toggle_button.text = "덱 닫기"
+
+
 ## qa/visual_qa.gd의 GAME_QA_CALL로 호출하기 위한 인자 없는 래퍼 (QA 전용). 정상
 ## 플레이로는 다이스가 D6/D8/D10으로 섞이려면 승리 보상을 여러 번 받아야 해서 확인이
 ## 느리므로, 공격 주머니 다이스 3개를 강제로 D6/D8/D10으로 바꾸고 즉시 다시 스폰해

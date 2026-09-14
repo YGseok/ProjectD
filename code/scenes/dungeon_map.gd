@@ -119,6 +119,7 @@ const MIN_SHOP_ITEM_COST := 10
 @onready var map_strip: Control = $MapStrip
 @onready var customize_button: Button = $CustomizeButton
 @onready var customize_panel: CustomizePanel = $CustomizePanel
+@onready var deck_panel: DeckPanel = $DeckPanel
 
 var _shop_available := true
 var _event_available := true
@@ -635,6 +636,23 @@ func _debug_open_customize_die_inventory() -> void:
 ## 확인하기 위함.
 func _debug_open_customize_die_target() -> void:
 	customize_panel.debug_open_die_target_picker()
+
+
+## QA 전용 — 이 세션 환경에서 스크린샷 캡처 폭이 1280px 대신 1028px로 잘리는 현상
+## 때문에 화면 오른쪽 끝(x>=980)에 있는 DeckPanel(캐릭터 정보 섹션 포함, 2026-09-15
+## 신규)이 매번 잘려서 안 보임 — 확인용으로 패널을 화면 왼쪽으로 옮겨 캡처한다
+## (게임 로직에는 영향 없음, 이 훅은 QA에서만 호출).
+func _debug_move_deck_panel_left() -> void:
+	deck_panel.offset_left = 20.0
+	deck_panel.offset_right = 280.0
+
+
+## QA 전용 — 위와 같은 이유 + 캐릭터 설명 중 가장 긴 축(광전사)으로도 줄바꿈이 패널
+## 높이를 넘기지 않는지 확인하기 위함.
+func _debug_move_deck_panel_left_berserker() -> void:
+	RunState.character_id = "berserker"
+	deck_panel.offset_left = 20.0
+	deck_panel.offset_right = 280.0
 
 
 ## QA 전용 — 인벤토리의 다이스가 두 주머니의 모든 다이스보다 작거나 같아 승급 자리가
