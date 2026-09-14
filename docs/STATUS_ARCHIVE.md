@@ -8,6 +8,26 @@
 
 ---
 
+- **2026-09-09 (87)**: 큐 15([대형 기획 2] 던전 마지막 보스 + 3라운드 구조)의
+  남은 조각 (a)/(b)/(c) 중 (a)만 진행 — `code/systems/run_state.gd`에
+  `TOTAL_ROUNDS`(=3, 잠정값)/`round_index`(1부터 시작)/`is_last_round()`/
+  `advance_round()`를 신규 추가. `reset_run()`은 항상 `round_index`를 1로
+  되돌리고, `advance_round()`는 `round_index`만 올리고 `rooms_cleared`를 0으로
+  되돌리며 골드/다이스 주머니/눈금·다이스 인벤토리는 그대로 유지한다(라운드가
+  바뀌어도 지금까지 쌓은 빌드가 이어지고, 죽거나 3라운드를 전부 클리어했을
+  때만 `reset_run()`으로 처음부터 다시 시작한다는 설계 — 클래스 주석에 근거
+  기록). 마지막 라운드에서 `advance_round()`를 불러도 아무 일도 하지 않도록
+  가드. **의도적으로 이번엔 여기까지만** — 아직 `combat_test.gd`/
+  `dungeon_map.gd` 어디도 이 필드/메서드를 호출하지 않아 실제 라운드 진행은
+  동작하지 않는다(다음 조각 (b)가 배선). `code/scenes/dice_test.gd`에
+  `_check_round_progress()` 신규 검증(reset_run이 round_index를 1로 되돌리는지,
+  advance_round가 round_index/rooms_cleared/골드/다이스 주머니를 각각 올바르게
+  다루는지, is_last_round 참/거짓 양쪽, 마지막 라운드에서 advance_round가
+  아무 효과 없는지) 추가로 회귀 스위트 전체 PASS. 화면 배선이 없어 새로 보여줄
+  것은 없지만, `qa_out/dungeon_map_round_smoke.png`/`combat_test_round_smoke.png`
+  로 두 핵심 화면이 이번 변경으로 깨지지 않고 그대로 로드/정지됨을 확인(회귀
+  없음 확인이 목적). 다음 조각(b)은 위 "다음 할 일 큐" 15번 참고.
+
 - **2026-09-09 (86)**: 큐 14([대형 기획 1] 플레이어블 캐릭터)의 마지막 남은
   조각 — 다섯 번째 캐릭터 컨셉을 AI가 제안해 구현, **5/5종 완료**. "폭발병"
   (explosive_stack, 공격 다이스 최댓값 스택 → 3스택에서 다음 공격 1D20)과
