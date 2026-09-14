@@ -61,6 +61,10 @@ func _ready() -> void:
 	all_pass = _check_monster_config_scaling(lines) and all_pass
 
 	lines.append("")
+	lines.append("[몬스터 디버그 정보 문구 검증: combat_test.gd _monster_debug_info_text]")
+	all_pass = _check_monster_debug_info_text(lines) and all_pass
+
+	lines.append("")
 	lines.append("[몬스터 특이 다이스 검증: dice_bag.gd force_min_max_faces/force_fixed_value / combat_test.gd dice_gimmick]")
 	all_pass = _check_monster_dice_gimmick(lines) and all_pass
 
@@ -562,6 +566,57 @@ func _check_monster_config_scaling(lines: PackedStringArray) -> bool:
 	ok = cycle_ok and ok
 	lines.append("  이름 순환(room5, room10): %s, %s (기대 강화 슬라임, 강화 강화 슬라임) -> %s" % [
 		cycle1["name"], cycle2["name"], "OK" if cycle_ok else "FAIL"
+	])
+
+	combat.free()
+	return ok
+
+
+## combat_test.gd의 _monster_debug_info_text(config)는 INBOX.md 피드백(2026-09-14)
+## "전투 시, 몬스터 hp바 하단에 해당 몬스터에 대한 스킬/전투 정보를 알려준다"를 구현한
+## 순수 함수 — _monster_config_for_room()이 만든 config dict만 받아 텍스트를 만들고
+## 인스턴스 상태(다이스 굴림 등)를 쓰지 않으므로 다이스를 실제로 굴리지 않고도 검증
+## 가능(_check_monster_config_scaling과 같은 패턴).
+func _check_monster_debug_info_text(lines: PackedStringArray) -> bool:
+	var ok := true
+	var script := load("res://code/scenes/combat_test.gd")
+	var combat = script.new()
+
+	# room0(슬라임, 기믹 없음): 공격/방어 다이스 구성만 나오고 기믹/보스 줄은 없어야 한다.
+	var room0_text: String = combat._monster_debug_info_text(combat._monster_config_for_room(0))
+	var room0_ok: bool = room0_text.contains("공격 2D4") and room0_text.contains("방어 1D4") \
+		and not room0_text.contains("기믹") and not room0_text.contains("보스")
+	ok = room0_ok and ok
+	lines.append("  room0(슬라임, 기믹 없음): %s -> %s" % [
+		room0_text.replace("\n", " / "), "OK" if room0_ok else "FAIL"
+	])
+
+	# room1(고블린, anger_stack): 분노 스택 임계치/굴림 면 수가 문구에 그대로 드러나야 한다.
+	var room1_text: String = combat._monster_debug_info_text(combat._monster_config_for_room(1))
+	var room1_ok: bool = room1_text.contains("분노 스택") \
+		and room1_text.contains(str(combat.ANGER_STACK_THRESHOLD)) \
+		and room1_text.contains("1D%d" % combat.ANGER_DICE_SIDES)
+	ok = room1_ok and ok
+	lines.append("  room1(고블린, anger_stack): %s -> %s" % [
+		room1_text.replace("\n", " / "), "OK" if room1_ok else "FAIL"
+	])
+
+	# room3(오크, fixed_value): 고정값 자체가 문구에 그대로 드러나야 한다.
+	var room3_config = combat._monster_config_for_room(3)
+	var room3_text: String = combat._monster_debug_info_text(room3_config)
+	var room3_ok: bool = room3_text.contains("고정값") \
+		and room3_text.contains(str(room3_config["dice_gimmick_value"]))
+	ok = room3_ok and ok
+	lines.append("  room3(오크, fixed_value=%d): %s -> %s" % [
+		room3_config["dice_gimmick_value"], room3_text.replace("\n", " / "), "OK" if room3_ok else "FAIL"
+	])
+
+	# room4(다크 나이트, min_max_only + 보스): 극단 기믹 문구와 보스 강화 문구가 둘 다 있어야 한다.
+	var room4_text: String = combat._monster_debug_info_text(combat._monster_config_for_room(RunState.TOTAL_ROOMS - 1))
+	var room4_ok: bool = room4_text.contains("극단") and room4_text.contains("보스")
+	ok = room4_ok and ok
+	lines.append("  room4(다크 나이트, min_max_only + 보스): %s -> %s" % [
+		room4_text.replace("\n", " / "), "OK" if room4_ok else "FAIL"
 	])
 
 	combat.free()

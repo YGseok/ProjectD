@@ -67,6 +67,7 @@ const DICE_SPAWN_ROW_SPACING := 0.5
 
 @onready var player_hp_label: Label = $PlayerHPLabel
 @onready var monster_hp_label: Label = $MonsterHPLabel
+@onready var monster_debug_info_label: Label = $MonsterDebugInfoLabel
 @onready var player_hp_bar_fill: ColorRect = $PlayerHPBarFill
 @onready var monster_hp_bar_fill: ColorRect = $MonsterHPBarFill
 @onready var turn_label: Label = $TurnLabel
@@ -264,6 +265,34 @@ func _monster_config_for_room(room_index: int) -> Dictionary:
 	}
 
 
+## INBOX.md 피드백(2026-09-14) "전투 시, 몬스터 hp바 하단에 해당 몬스터에 대한
+## 스킬/전투 정보를 알려준다. 이는 개발용으로 추후 제거되거나 정보를 간소화시킬 수
+## 있다" — 몬스터 이름에 이미 "[분노]"/"[고정값 4]"/"[극단]"/"[보스]" 같은 태그가
+## 붙어있긴 하지만, 그 태그가 정확히 어떤 규칙인지(임계치 몇 번, D몇으로 바뀌는지
+## 등)는 이름만 봐서는 알 수 없었다. _monster_config_for_room()이 만든 config
+## dict만 받는 순수 함수라 인스턴스 상태 없이(다이스를 실제로 굴리지 않고) 바로
+## 검증 가능(dice_test.gd 참고). 사람이 "너무 장황하다"고 피드백하면 이 함수만
+## 줄이면 되고, 완전히 필요 없다고 하면 _ready()의 호출 한 줄과 이 라벨 노드만
+## 지우면 된다.
+func _monster_debug_info_text(config: Dictionary) -> String:
+	var sides: int = config["dice_sides"]
+	var text := "[QA] 공격 %dD%d · 방어 %dD%d" % [
+		config["attack_count"], sides, config["defense_count"], sides
+	]
+	match config.get("dice_gimmick", ""):
+		"anger_stack":
+			text += "\n기믹: 분노 스택 (공격 최댓값 %d회 -> 다음 공격 1D%d)" % [
+				ANGER_STACK_THRESHOLD, ANGER_DICE_SIDES
+			]
+		"fixed_value":
+			text += "\n기믹: 고정값 (항상 %d만 나옴, 안 굴림)" % config["dice_gimmick_value"]
+		"min_max_only":
+			text += "\n기믹: 극단 (최소·최대값만 나옴)"
+	if config.get("is_boss", false):
+		text += "\n[보스] 공격+2 / 방어+1 / HP x2 강화됨"
+	return text
+
+
 ## QA 전용 — GAME_QA_ROOM_OVERRIDE 환경변수(정수)가 있으면 RunState.rooms_cleared
 ## 대신 그 room_index로 몬스터를 구성한다. RunState 자체는 건드리지 않아(다른 화면/
 ## 다음 판에 영향 없음) 순수 QA 검증용. 방마다 몬스터 다이스 개수/모양(sides)이 실제
@@ -298,6 +327,7 @@ func _ready() -> void:
 	monster_color = config["color"]
 	monster_is_boss = config["is_boss"]
 	monster_portrait.set_body_color(monster_color if monster_color.a > 0 else Color(0.5, 0.5, 0.5))
+	monster_debug_info_label.text = _monster_debug_info_text(config)
 
 	player_dice_gimmick = CharacterProfiles.get_profile(RunState.character_id).get("gimmick", "")
 	player_explosive_stacks = 0

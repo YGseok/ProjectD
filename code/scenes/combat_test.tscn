@@ -22,6 +22,12 @@ font_color = Color(1, 0.85, 0.4, 1)
 font_size = 16
 font_color = Color(0.75, 0.8, 0.85, 1)
 
+[sub_resource type="LabelSettings" id="LabelSettings_monster_debug"]
+font_size = 13
+font_color = Color(0.85, 0.85, 0.6, 1)
+outline_size = 3
+outline_color = Color(0.05, 0.05, 0.05, 1)
+
 [sub_resource type="Environment" id="Environment_1"]
 ambient_light_source = 2
 ambient_light_color = Color(1, 1, 1, 1)
@@ -168,6 +174,15 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.55, 0.4, 0)
 shape = SubResource("BoxShape3D_wall_we")
 
 [node name="DiceRoot" type="Node3D" parent="DiceViewportContainer/DiceViewport"]
+
+[node name="MonsterDebugInfoLabel" type="Label" parent="."]
+offset_left = 900.0
+offset_top = 118.0
+offset_right = 1270.0
+offset_bottom = 188.0
+autowrap_mode = 2
+text = ""
+label_settings = SubResource("LabelSettings_monster_debug")
 
 [node name="CustomizeToggleButton" type="Button" parent="."]
 offset_left = 985.0
