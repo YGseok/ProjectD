@@ -8,6 +8,37 @@
 
 ---
 
+- **2026-09-10 (88)**: 큐 15([대형 기획 2] 던전 마지막 보스 + 3라운드 구조)의
+  남은 조각 (b) "보스 처치 시 새 던전 맵(다음 라운드)으로 재진입" 진행. 이번
+  세션 시작 시 `code/scenes/combat_test.gd`에 이전 세션이 커밋 없이 남겨둔
+  `monster_is_boss` 필드(할당만 되고 아무 데서도 쓰이지 않는 상태)가 있어 이를
+  이어받았다. `_apply_room_advance()`가 승리 시 `RunState.rooms_cleared += 1`
+  직후 "이번 방이 보스 방이었고(`monster_is_boss`) 아직 마지막 라운드가
+  아니면(`not RunState.is_last_round()`)" `RunState.advance_round()`를 호출하도록
+  분기 추가. `advance_round()` 자체가 `rooms_cleared`를 0으로 되돌리므로, 당초
+  이전 세션이 계획해뒀던 "dungeon_map.gd에 '라운드 클리어! 다음 라운드로' 확인
+  화면을 새로 만든다"는 방향은 불필요해짐을 확인 — 승리 처리 시점에 이미
+  라운드가 넘어가 있는 상태로 dungeon_map.tscn에 진입하므로, 그 화면은 그냥
+  "새 라운드의 1번째 방"으로 자연스럽게 보인다(방 목록도 `rooms_cleared` 기반
+  결정적 RNG라 자동으로 새로 그려짐). `dungeon_map.gd`의 `is_run_complete()`
+  분기 로직(`_on_combat_button_pressed()`/`_update_labels()`)은 전혀 손대지
+  않음 — 마지막 라운드 보스를 잡으면 `advance_round()`가 스스로 가드로 아무
+  일도 안 해 `rooms_cleared`가 `TOTAL_ROOMS`에 남으므로 기존 "던전 클리어!"
+  분기가 그대로 최종 클리어 화면으로 맞물린다. 다만 라운드가 넘어가면 "클리어한
+  방"이 5->0으로 줄어드는 이유를 알 수 있도록 `rooms_cleared_label`에 "라운드
+  N/3 · " 접두사를 추가(정상 진행/최종 클리어 분기 둘 다). `code/scenes/
+  dice_test.gd`에 `_check_combat_boss_round_advance()` 신규 검증 3케이스(일반
+  방 승리는 `round_index` 불변·`rooms_cleared`만 증가, 보스 방 승리+마지막
+  라운드 아님은 `round_index+1`·`rooms_cleared=0`, 보스 방 승리+마지막
+  라운드는 `advance_round()`의 자체 가드로 변화 없음) 추가로 회귀 스위트 전체
+  PASS. `dungeon_map.gd`에 QA 전용 `_debug_show_round2()` 훅을 추가해 `qa_out/
+  dungeon_map_round2.png`(라운드 2/3 · 클리어한 방: 0/5, 방 목록/공격·방어
+  주머니 패널과 겹침 없이 표시)로 실제 화면을 확인, `qa_out/dungeon_map_
+  round1_smoke.png`(라운드 1/3 기본 상태)와 `combat_test_round_smoke2.png`로
+  이번 변경이 두 핵심 화면을 깨뜨리지 않았음도 함께 확인. 남은 조각은 (c)
+  "3라운드 전부 클리어 = 최종 클리어" 전용 화면/문구 하나뿐 — 위 "다음 할 일
+  큐" 15번 참고.
+
 - **2026-09-09 (82)**: 큐 13(업적 시스템 — 남은 항목 추가)에서 (81)이 남긴
   "새 `RunState` 카운터가 필요한 것들(상점 이용 횟수 등)"을 그대로 집어 2종을
   추가 — "단골 손님"(`shop_regular`, 한 런에서 상점 3회 이상 이용)과 "재질

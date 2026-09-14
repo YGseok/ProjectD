@@ -24,19 +24,30 @@ const TITLE_COLOR := Color(0.95, 0.85, 0.55)
 const DESC_COLOR := Color(0.82, 0.82, 0.82)
 const EXTRA_COLOR := Color(1.0, 0.85, 0.35)
 const PREVIEW_CHIP_SIZE := 16.0
+# 구매 불가(골드 부족) 상태의 카드 색 — INBOX.md(2026-09-14) "골드 부족 버튼이 너무 많이
+# 나온다. 선택 불가능한 품목은 패널 색상을 다르게 하여 비활성 상태임을 알려주는 게 좋을
+# 듯" 반영. 버튼마다 "골드 부족" 텍스트를 반복하는 대신 카드 전체를 어둡게/채도 낮게
+# 칠하고, 상단에 상태 배지 하나만 보여준다.
+const CARD_BG_UNAFFORDABLE := Color(0.09, 0.09, 0.1, 0.97)
+const CARD_BORDER_UNAFFORDABLE := Color(0.35, 0.32, 0.3)
+const STATUS_BADGE_COLOR := Color(0.85, 0.4, 0.4)
 
 
 ## item: DiceItemPool/EventItemPool 아이템 딕셔너리 (최소 "name"/"description" 필요).
 ## extra_label_text: 제목 밑에 작게 덧붙일 보조 문구(예: 상점의 "20 골드"). 빈 문자열이면
 ## 생략.
+## unaffordable: true면 카드 배경/테두리를 어둡게 칠하고, 가격 라벨과 같은 줄에 "골드 부족"
+## 배지를 붙인다(구매 가능 여부는 화면마다 골드 비교로 판정해 넘겨준다 — 이 헬퍼는 표시만
+## 담당). 배지를 별도 줄로 추가하지 않는 이유는 카드 자연 높이가 늘어나 2행 그리드에서
+## 아래 행 카드와 겹치기 때문 — 아래 구현 참고.
 ## 반환값의 "card"를 add_child()로 씬에 붙이고 position/size를 지정한 뒤,
 ## "button_row"에 버튼을 add_child()로 추가하면 카드 안에 세로로 쌓인다(VBoxContainer라
 ## 폭은 카드에 맞춰 자동으로 늘어남, 버튼 높이는 각자 custom_minimum_size로 지정할 것).
-static func build_card(item: Dictionary, extra_label_text: String = "") -> Dictionary:
+static func build_card(item: Dictionary, extra_label_text: String = "", unaffordable: bool = false) -> Dictionary:
 	var card := PanelContainer.new()
 	var style := StyleBoxFlat.new()
-	style.bg_color = CARD_BG
-	style.border_color = CARD_BORDER
+	style.bg_color = CARD_BG_UNAFFORDABLE if unaffordable else CARD_BG
+	style.border_color = CARD_BORDER_UNAFFORDABLE if unaffordable else CARD_BORDER
 	style.set_border_width_all(2)
 	style.set_corner_radius_all(10)
 	style.content_margin_left = 16
@@ -56,12 +67,27 @@ static func build_card(item: Dictionary, extra_label_text: String = "") -> Dicti
 	title.autowrap_mode = TextServer.AUTOWRAP_WORD
 	vbox.add_child(title)
 
-	if extra_label_text != "":
-		var extra := Label.new()
-		extra.text = extra_label_text
-		extra.add_theme_font_size_override("font_size", 14)
-		extra.add_theme_color_override("font_color", EXTRA_COLOR)
-		vbox.add_child(extra)
+	# "골드 부족" 배지는 가격 라벨과 같은 줄(HBoxContainer)에 붙인다 — 별도 줄로 추가하면
+	# 카드 자연 높이가 늘어나 2행 그리드에서 아래 행 카드와 겹치는 회귀가 생겼었다(이번
+	# 이터레이션 중 실제로 발견해 이 방식으로 고침). 가격 표시가 없는 카드(extra_label_text
+	# 빈 문자열)에서 unaffordable인 경우는 지금 없지만, 대비해 그 경우엔 배지만 있는 줄을
+	# 만든다.
+	if extra_label_text != "" or unaffordable:
+		var extra_row := HBoxContainer.new()
+		extra_row.add_theme_constant_override("separation", 10)
+		if extra_label_text != "":
+			var extra := Label.new()
+			extra.text = extra_label_text
+			extra.add_theme_font_size_override("font_size", 14)
+			extra.add_theme_color_override("font_color", EXTRA_COLOR)
+			extra_row.add_child(extra)
+		if unaffordable:
+			var status := Label.new()
+			status.text = "골드 부족"
+			status.add_theme_font_size_override("font_size", 14)
+			status.add_theme_color_override("font_color", STATUS_BADGE_COLOR)
+			extra_row.add_child(status)
+		vbox.add_child(extra_row)
 
 	var desc := Label.new()
 	desc.text = item["description"]

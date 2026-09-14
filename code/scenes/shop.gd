@@ -54,7 +54,7 @@ func _rebuild_items() -> void:
 		var cost: int = ITEM_COSTS.get(item["kind"], 15)
 		var afford := RunState.gold >= cost
 
-		var built := ItemCardStyle.build_card(item, "%d 골드" % cost)
+		var built := ItemCardStyle.build_card(item, "%d 골드" % cost, not afford)
 		var card: PanelContainer = built["card"]
 		card.position = Vector2(card_x[i % 2], floor(i / 2.0) * row_step)
 		card.size = Vector2(card_width, card_height)
@@ -65,19 +65,23 @@ func _rebuild_items() -> void:
 
 		if item.get("kind", "") == "upgrade_die":
 			var upgrade_btn := Button.new()
-			upgrade_btn.text = "구매 (인벤토리로 획득)" if afford else "골드 부족"
+			upgrade_btn.text = "구매 (인벤토리로 획득)"
 			upgrade_btn.disabled = not afford
 			upgrade_btn.custom_minimum_size = Vector2(0, 38)
 			upgrade_btn.pressed.connect(_on_buy_upgrade_pressed.bind(item, cost))
 			button_row.add_child(upgrade_btn)
 			continue
 
+		# 골드 부족 여부는 카드 상단 배지(위 build_card의 unaffordable)가 이미 알려주므로,
+		# 버튼 텍스트에는 반복하지 않는다(2026-09-14 INBOX 피드백 "골드 부족 버튼이 너무
+		# 많이 나온다") — 버튼은 골드가 부족하면 그냥 비활성(disabled)만 되고, 텍스트는
+		# 주머니가 가득 차서 애초에 적용 불가능한 경우(unavailable_reason)에만 바뀐다.
 		var atk_preview := ItemCardStyle.build_effect_preview(item, RunState.player_attack_bag)
 		if atk_preview:
 			button_row.add_child(atk_preview)
 		var atk_applicable := DiceItemPool.is_applicable(item, RunState.player_attack_bag)
 		var atk_btn := Button.new()
-		atk_btn.text = "공격 주머니에 구매" if (afford and atk_applicable) else ("골드 부족" if not afford else DiceItemPool.unavailable_reason(item))
+		atk_btn.text = "공격 주머니에 구매" if atk_applicable else DiceItemPool.unavailable_reason(item)
 		atk_btn.disabled = not (afford and atk_applicable)
 		atk_btn.custom_minimum_size = Vector2(0, 38)
 		atk_btn.pressed.connect(_on_buy_pressed.bind(item, cost, "attack"))
@@ -88,7 +92,7 @@ func _rebuild_items() -> void:
 			button_row.add_child(def_preview)
 		var def_applicable := DiceItemPool.is_applicable(item, RunState.player_defense_bag)
 		var def_btn := Button.new()
-		def_btn.text = "방어 주머니에 구매" if (afford and def_applicable) else ("골드 부족" if not afford else DiceItemPool.unavailable_reason(item))
+		def_btn.text = "방어 주머니에 구매" if def_applicable else DiceItemPool.unavailable_reason(item)
 		def_btn.disabled = not (afford and def_applicable)
 		def_btn.custom_minimum_size = Vector2(0, 38)
 		def_btn.pressed.connect(_on_buy_pressed.bind(item, cost, "defense"))
@@ -154,4 +158,14 @@ func _debug_show_maxed_attack_bag() -> void:
 	RunState.gold = 999
 	while not RunState.player_attack_bag.is_full():
 		RunState.player_attack_bag.add_die(4)
+	_rebuild_items()
+
+
+## qa/visual_qa.gd의 GAME_QA_CALL로 호출하기 위한 QA 전용 훅. 골드를 12로 맞춰 4개 카드
+## 중 "약한 면 강화"(10골드)만 구매 가능하고 나머지 3개(15/20/25골드)는 구매 불가능한
+## 상태를 만든다 — 카드별 "골드 부족" 배지/어두운 카드 색이 구매 가능한 카드와 실제로
+## 구분되어 보이는지 한 화면에서 확인하기 위함(2026-09-15, INBOX.md "골드 부족 버튼이
+## 너무 많이 나온다" 피드백 반영 확인용).
+func _debug_show_partial_gold() -> void:
+	RunState.gold = 12
 	_rebuild_items()
