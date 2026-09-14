@@ -8,6 +8,47 @@
 
 ---
 
+- **2026-09-14 (90)**: docs/feedback/INBOX.md에 2026-09-14일자로 대량(약 30개)의
+  새 플레이테스트 피드백이 추가됨 — 그중 "방 다섯개 클리어 하고, 새 런으로
+  돌게 되는데, 라운드가 진행되어야 한다" 항목을 실제 버그일 가능성이 있다고
+  보고 코드부터 확인, 실제 버그로 확인해 수정. **원인**: 라운드의 마지막 방
+  (`RunState.rooms_cleared == TOTAL_ROOMS - 1`, 지금은 4)의 몬스터만
+  `combat_test.gd`의 `_monster_config_for_room()`이 "보스"로 강화하고,
+  보스를 물리쳐야만(`_apply_room_advance()`) `RunState.advance_round()`가 불려
+  라운드가 넘어가도록 [대형 기획 2]가 배선돼 있었다. 그런데 이 마지막 방에도
+  다른 방과 똑같이 상점/특수 이벤트/스토리 이벤트가 확률적으로 노출될 수
+  있었고, `shop.gd`/`event.gd`/`story_event.gd`는 전투와 무관하게 각자
+  `RunState.rooms_cleared += 1`만 할 뿐 보스/`advance_round()`를 전혀 모른다 —
+  그래서 플레이어가 마지막 방에서 전투 대신 상점/이벤트/스토리를 고르면 보스를
+  만나지도 않은 채 `rooms_cleared`가 `TOTAL_ROOMS`에 도달해버려(`round_index`는
+  1에 그대로 머문 채) "런 클리어" 상태가 되고, `dungeon_map.gd`의 "새 런 시작"
+  버튼이 `RunState.reset_run()`을 불러 라운드 진행 없이 처음부터 다시 시작하는
+  것처럼 보였다(사용자가 보고한 정확한 증상과 일치). **수정**: `dungeon_map.gd`의
+  `_room_options_for_index(idx)`에 `idx == RunState.TOTAL_ROOMS - 1`이면
+  shop/event/story를 전부 `false`(순서 목록도 빈 배열)로 즉시 반환하는 분기를
+  추가 — 라운드의 마지막 방은 이제 "전투" 선택지만 노출되어(보스를 반드시
+  거쳐야만 방을 통과할 수 있음) 이 경로 자체가 막힌다. `_roll_room_choices()`
+  (실제 진행)와 `_make_map_node()`(MapStrip 미리보기) 둘 다 이 함수 하나를
+  그대로 쓰는 구조라 별도 분기 추가 없이 미리보기에도 자동 반영됨. QA 전용
+  `_debug_show_boss_room()`(`rooms_cleared = TOTAL_ROOMS - 1`로 맞추는 0-인자
+  래퍼, `_debug_show_round2()`와 같은 패턴) 훅을 신규 추가. `dice_test.gd`의
+  기존 `_check_dungeon_map_room_options`(idx 0..9에서 order가 항상 shop/event/
+  story 순열이어야 한다는 검증)가 idx=4(보스 방)에서 깨질 것을 발견해, 이
+  idx만 "3종 전부 미노출 + order 빈 배열"을 기대하는 예외로 갱신(다른 idx는
+  기존 검증 그대로 유지) — 회귀 스위트 전체 PASS. `qa_out/
+  dungeon_map_boss_room_combat_only.png`(`_debug_show_boss_room()` 경로,
+  5번째 방에 "전투" 선택지만 보이고 겹침 없음)와 `qa_out/
+  dungeon_map_room1_smoke_after_fix.png`(1번째 방은 기존처럼 상점/특수
+  이벤트/스토리 이벤트가 그대로 확률 노출되는 회귀 없음, MapStrip에서도
+  5번째 방 칩만 "전투" 하나로 줄어든 것을 확인)로 실제 화면 검증. **참고**:
+  이미 진행 중이던 런에서 이 버그로 라운드가 안 넘어간 채 리셋된 세이브는
+  되돌릴 방법이 없음(설계상 `RunState`는 영속 저장이 아니라 세션 메모리) —
+  이번 수정 이후 새로 시작하는 런부터 정상 동작. 이번에 반영 못 한 대량의
+  나머지 2026-09-14 INBOX 항목(키매핑/단축키, 캐릭터 선택 UX 개편, 보상 등급
+  S/A/B/C, 커스터마이징 UX 개편, 특수 이벤트 스토리+리스크/리턴 개편 등)은
+  각각 별도 이터레이션이 필요한 크기라 이번엔 손대지 않음 — 아래 "다음 할 일
+  큐" 16번 참고.
+
 - **2026-09-09 (87)**: 큐 15([대형 기획 2] 던전 마지막 보스 + 3라운드 구조)의
   남은 조각 (a)/(b)/(c) 중 (a)만 진행 — `code/systems/run_state.gd`에
   `TOTAL_ROUNDS`(=3, 잠정값)/`round_index`(1부터 시작)/`is_last_round()`/

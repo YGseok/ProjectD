@@ -11,6 +11,10 @@ extends Control
 ## - "gold": 동전 모양(원 + 안쪽 테두리 원)
 ## - "pip": 주사위 눈금 1개짜리 사각형(눈금 인벤토리 아이템과 같은 개념)
 ## - "dice": 주사위 눈금 3개짜리 사각형(다이스 아이템 — ShapeDieChip과 같은 "주사위" 은유)
+## - "mystery": 물음표(무엇이 나올지 미리 알려주지 않는 방 — INBOX.md 2026-09-14
+##   "특수 이벤트 선택지 옆 아이콘으로... 어떤 보상이 될지 모른다는 느낌의 물음표
+##   아이콘만 있으면 될것 같다" 반영. 특수 이벤트만 매번 dice/pip 중 무엇이 나올지
+##   달라져 카테고리 아이콘이 결과를 스포일링했던 것을 이걸로 대체)
 
 var category: String = "gold":
 	set(v):
@@ -20,6 +24,7 @@ var category: String = "gold":
 const COLOR_GOLD := Color(0.85, 0.7, 0.25)
 const COLOR_PIP := Color(0.3, 0.75, 0.75)
 const COLOR_DICE := Color(0.55, 0.35, 0.75)
+const COLOR_MYSTERY := Color(0.65, 0.65, 0.7)
 const COLOR_FACE_BG := Color(0.92, 0.88, 0.78)
 
 
@@ -37,6 +42,8 @@ func _draw() -> void:
 			_draw_die_face([Vector2(0.5, 0.5)], COLOR_PIP)
 		"dice":
 			_draw_die_face([Vector2(0.28, 0.28), Vector2(0.5, 0.5), Vector2(0.72, 0.72)], COLOR_DICE)
+		"mystery":
+			_draw_mystery()
 		_:
 			pass
 
@@ -46,6 +53,21 @@ func _draw_gold() -> void:
 	var center := size * 0.5
 	draw_circle(center, r, COLOR_GOLD)
 	draw_arc(center, r * 0.6, 0, TAU, 16, Color(0.5, 0.38, 0.1, 0.8), 1.5)
+
+
+## 원형 배지 안에 "?" 글자만 그려, "무엇이 나올지 모른다"는 느낌을 카테고리 형태(동전/
+## 주사위 면)와 구별되게 표현한다.
+func _draw_mystery() -> void:
+	var r := size.x * 0.46
+	var center := size * 0.5
+	draw_circle(center, r, Color(0.22, 0.22, 0.26))
+	draw_arc(center, r * 0.88, 0, TAU, 16, COLOR_MYSTERY, 1.5)
+	var font := ThemeDB.fallback_font
+	var font_size := int(size.y * 0.62)
+	var text := "?"
+	var text_size := font.get_string_size(text, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size)
+	var pos := Vector2(center.x - text_size.x * 0.5, center.y + text_size.y * 0.32)
+	draw_string(font, pos, text, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size, COLOR_MYSTERY)
 
 
 ## 주사위 면(둥근 사각형) 안에 dot_ratios(0..1 비율 좌표) 위치에 점을 찍어, "눈금이 있는

@@ -93,12 +93,15 @@ const MATERIAL_SIDES := {
 ## 고정 목록으로 둔다 (STATUS.md 큐 0-A 판단 참고).
 ## - 전투: 승리 시 골드 + 눈금(확정 1개) + 다이스 아이템(2개 중 선택) 전부 보장.
 ## - 상점: 골드로 다이스 아이템을 구매.
-## - 특수 이벤트: 무료로 다이스 아이템 또는 눈금 뭉치 중 하나.
+## - 특수 이벤트: 무료로 다이스 아이템 또는 눈금 뭉치 중 하나 — 방마다 둘 중 뭐가
+##   나올지 갈리므로, "dice"/"pip" 그대로 보여주면 결과를 미리 스포일링하게 된다.
+##   INBOX.md 2026-09-14 "물음표 아이콘만 있으면 될 것 같다"를 반영해 "mystery"
+##   하나로 통일(2026-09-15).
 ## - 스토리 이벤트: 선택에 따라 골드가 오르내림(다이스 무관).
 const REWARD_CATEGORIES := {
 	"combat": ["gold", "dice", "pip"],
 	"shop": ["dice"],
-	"event": ["dice", "pip"],
+	"event": ["mystery"],
 	"story": ["gold"],
 }
 
@@ -150,7 +153,7 @@ func _setup_reward_legend() -> void:
 	legend.add_theme_constant_override("separation", 16)
 	legend.position = Vector2(560.0, 116.0)
 	legend.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var specs := [["gold", "골드"], ["pip", "눈금"], ["dice", "다이스"]]
+	var specs := [["gold", "골드"], ["pip", "눈금"], ["dice", "다이스"], ["mystery", "미정(이벤트)"]]
 	for spec in specs:
 		var pair := HBoxContainer.new()
 		pair.add_theme_constant_override("separation", 5)
