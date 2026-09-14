@@ -8,30 +8,36 @@ extends RefCounted
 ## apply()는 DiceItemPool.apply()와 동일한 item dict 형식(kind/sides/new_sides)을
 ## 그대로 쓰므로 로직을 새로 만들지 않고 재사용한다.
 
+## "grade"(S/A/B/C) 배정 기준은 dice_item_pool.gd DiceItemPool.ITEMS 주석 참고 — 같은
+## "잠정값" 원칙(면 개수가 클수록 고급)을 그대로 적용.
 const ITEMS: Array[Dictionary] = [
 	{
 		"name": "다면체 주사위 획득 (D8)",
 		"description": "선택한 주머니에 D8 다이스를 1개 추가합니다.",
 		"kind": "add_die",
 		"sides": 8,
+		"grade": "B",
 	},
 	{
 		"name": "다면체 주사위 획득 (D12)",
 		"description": "선택한 주머니에 D12 다이스를 1개 추가합니다.",
 		"kind": "add_die",
 		"sides": 12,
+		"grade": "A",
 	},
 	{
 		"name": "다이스 대승급 (-> D10)",
 		"description": "D10 다이스 1개를 인벤토리로 획득합니다. 커스터마이징에서 원하는 다이스와 나중에 교체할 수 있습니다.",
 		"kind": "upgrade_die",
 		"new_sides": 10,
+		"grade": "A",
 	},
 	{
 		"name": "다면체 주사위 획득 (D20)",
 		"description": "선택한 주머니에 D20 다이스를 1개 추가합니다.",
 		"kind": "add_die",
 		"sides": 20,
+		"grade": "S",
 	},
 	{
 		"name": "눈금 주머니 획득",
@@ -39,6 +45,7 @@ const ITEMS: Array[Dictionary] = [
 		"kind": "gain_pips",
 		"pip_min": 3,
 		"pip_max": 5,
+		"grade": "C",
 	},
 ]
 

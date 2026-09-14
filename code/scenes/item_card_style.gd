@@ -32,6 +32,23 @@ const CARD_BG_UNAFFORDABLE := Color(0.09, 0.09, 0.1, 0.97)
 const CARD_BORDER_UNAFFORDABLE := Color(0.35, 0.32, 0.3)
 const STATUS_BADGE_COLOR := Color(0.85, 0.4, 0.4)
 
+# 보상 등급(S/A/B/C, INBOX.md 2026-09-14) 색상 — "녹색<파란색<보라색<노란색"으로 가치
+# 상승을 표현하라는 지시를 그대로 반영. 등급별 실제 아이템 배정은 dice_item_pool.gd/
+# event_item_pool.gd의 "grade" 필드 주석 참고(잠정값, 사람 피드백 필요).
+const GRADE_COLORS := {
+	"C": Color(0.45, 0.82, 0.45),
+	"B": Color(0.45, 0.65, 0.95),
+	"A": Color(0.72, 0.48, 0.95),
+	"S": Color(0.95, 0.82, 0.25),
+}
+const DEFAULT_GRADE := "C"
+const GRADE_BADGE_TEXT_COLOR := Color(0.08, 0.08, 0.08)
+
+
+## item에 "grade" 필드가 없거나 알 수 없는 값이면 DEFAULT_GRADE(C) 색으로 폴백한다.
+static func grade_color(grade: String) -> Color:
+	return GRADE_COLORS.get(grade, GRADE_COLORS[DEFAULT_GRADE])
+
 
 ## item: DiceItemPool/EventItemPool 아이템 딕셔너리 (최소 "name"/"description" 필요).
 ## extra_label_text: 제목 밑에 작게 덧붙일 보조 문구(예: 상점의 "20 골드"). 빈 문자열이면
@@ -44,10 +61,13 @@ const STATUS_BADGE_COLOR := Color(0.85, 0.4, 0.4)
 ## "button_row"에 버튼을 add_child()로 추가하면 카드 안에 세로로 쌓인다(VBoxContainer라
 ## 폭은 카드에 맞춰 자동으로 늘어남, 버튼 높이는 각자 custom_minimum_size로 지정할 것).
 static func build_card(item: Dictionary, extra_label_text: String = "", unaffordable: bool = false) -> Dictionary:
+	var grade: String = item.get("grade", DEFAULT_GRADE)
+	var gcolor := grade_color(grade)
+
 	var card := PanelContainer.new()
 	var style := StyleBoxFlat.new()
 	style.bg_color = CARD_BG_UNAFFORDABLE if unaffordable else CARD_BG
-	style.border_color = CARD_BORDER_UNAFFORDABLE if unaffordable else CARD_BORDER
+	style.border_color = CARD_BORDER_UNAFFORDABLE if unaffordable else gcolor
 	style.set_border_width_all(2)
 	style.set_corner_radius_all(10)
 	style.content_margin_left = 16
@@ -60,12 +80,18 @@ static func build_card(item: Dictionary, extra_label_text: String = "", unafford
 	vbox.add_theme_constant_override("separation", 8)
 	card.add_child(vbox)
 
+	var title_row := HBoxContainer.new()
+	title_row.add_theme_constant_override("separation", 8)
+	title_row.add_child(_build_grade_badge(grade, gcolor))
+	vbox.add_child(title_row)
+
 	var title := Label.new()
 	title.text = item["name"]
 	title.add_theme_font_size_override("font_size", 18)
-	title.add_theme_color_override("font_color", TITLE_COLOR)
+	title.add_theme_color_override("font_color", TITLE_COLOR if unaffordable else gcolor)
 	title.autowrap_mode = TextServer.AUTOWRAP_WORD
-	vbox.add_child(title)
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title_row.add_child(title)
 
 	# "골드 부족" 배지는 가격 라벨과 같은 줄(HBoxContainer)에 붙인다 — 별도 줄로 추가하면
 	# 카드 자연 높이가 늘어나 2행 그리드에서 아래 행 카드와 겹치는 회귀가 생겼었다(이번
@@ -110,6 +136,28 @@ static func build_card(item: Dictionary, extra_label_text: String = "", unafford
 	vbox.add_child(button_row)
 
 	return {"card": card, "vbox": vbox, "button_row": button_row}
+
+
+## 등급 배지(작은 색칠된 사각형 + 글자) — 카드 왼쪽 위, 타이틀 옆에 붙는다. 등급 색은
+## 항상 진짜 등급을 그대로 보여준다(골드 부족으로 카드가 어두워져도 배지 자체는 원래
+## 등급 색 유지 — "지금은 못 사도 이게 좋은 아이템인지"는 계속 알 수 있어야 하므로).
+static func _build_grade_badge(grade: String, gcolor: Color) -> Control:
+	var badge := PanelContainer.new()
+	var style := StyleBoxFlat.new()
+	style.bg_color = gcolor
+	style.set_corner_radius_all(4)
+	style.content_margin_left = 7
+	style.content_margin_right = 7
+	style.content_margin_top = 2
+	style.content_margin_bottom = 2
+	badge.add_theme_stylebox_override("panel", style)
+
+	var label := Label.new()
+	label.text = grade
+	label.add_theme_font_size_override("font_size", 14)
+	label.add_theme_color_override("font_color", GRADE_BADGE_TEXT_COLOR)
+	badge.add_child(label)
+	return badge
 
 
 ## "완성하면 어떤 주사위가 될지 예상할 수 있게" (INBOX.md 2026-09-02)를 아이템 카드에도

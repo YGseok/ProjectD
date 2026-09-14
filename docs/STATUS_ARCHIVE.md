@@ -8,6 +8,47 @@
 
 ---
 
+- **2026-09-09 (84)**: 큐 14([대형 기획 1] 플레이어블 캐릭터 4종 추가, 총 5종 중
+  선택)의 가장 작은 착수 조각을 진행 — 캐릭터 선택 UI를 카드 1개("확인")에서
+  여러 카드 중 하나를 고르는 형태로 확장하고, 신규 캐릭터 2종(기존 "견습
+  모험가" 포함 총 3종)에 몬스터 다이스 기믹과 같은 API를 재사용한 시작 기믹을
+  부여. 신규 `code/systems/character_profiles.gd`(`CharacterProfiles`)에
+  프로필 배열(id/name/desc/gimmick/hair_color/dress_color)을 정의 —
+  "광전사"(극단형, `gimmick: min_max_only` — `DiceBag.force_min_max_faces()`를
+  공격+방어 주머니 둘 다에 적용, 몬스터 "다크 나이트"와 같은 함수 재사용),
+  "수호자"(안정형, `gimmick: fixed_defense_die` — INBOX.md 예시 문구가 "다이스
+  하나"라고 명시해 몬스터 "오크"의 주머니 전체 고정과 구분되도록
+  `DiceBag`에 신규 `force_fixed_value_for_die(die_index, value)`를 추가해 방어
+  다이스 0번째 하나만 고정, 나머지는 표준 유지). `code/systems/run_state.gd`에
+  `character_id`(기본값 "novice")를 추가하고 `reset_run(new_character_id: String
+  = "")`으로 시그니처 변경 — 인자를 안 주면(기존 3개 호출부: 패배 후 재시작 등)
+  현재 character_id를 그대로 유지한 채 새 주머니에 기믹을 재적용해 "캐릭터
+  선택 화면을 다시 거치지 않아도 고른 캐릭터가 유지"되게 함.
+  `code/scenes/character_portrait_placeholder.gd`의 머리/원피스 색을
+  `HAIR_COLOR`/`DRESS_COLOR` 상수에서 `@export var hair_color`/`dress_color`로
+  바꿔(+`set_palette()`) 같은 실루엣 그리기 코드를 캐릭터별 색 구분에 재사용.
+  `code/scenes/character_select.gd`/`.tscn`을 단일 `CardPanel`에서
+  `dungeon_map.gd`의 `_build_map_strip()`과 같은 "빈 컨테이너 + 코드로 동적
+  생성" 패턴으로 재작성 — `CharacterProfiles.PROFILES`를 순회해 카드를 만들고,
+  클릭한 카드는 업적 패널의 "해금" 카드와 같은 금테로 강조(`_refresh_selection_
+  highlight()`). `dice_test.gd`에 신규 `_check_character_profiles`(get_profile
+  폴백 2종, reset_run(berserker)의 공격+방어 다이스 전체가 1/4만 나오는지,
+  reset_run(guardian)의 방어 다이스 0번째만 고정값(3)이고 1/2번째는 표준
+  유지+공격 다이스는 무관한지, 인자 없는 reset_run()이 직전 캐릭터를 유지하며
+  기믹을 재적용하는지) 추가로 회귀 스위트 전체 PASS(신규 캐릭터 검증 6개 포함).
+  `qa_out/character_select_cards.png`(카드 3개 겹침 없이 표시, 기본 선택 "견습
+  모험가"), `qa_out/character_select_berserker_selected.png`(카드 클릭 시
+  금테가 이동), `qa_out/dungeon_map_berserker_deck.png`·`dungeon_map_guardian_
+  deck.png`(선택 → 던전 시작 → 실제 덱 패널까지 이어지는 전체 경로로, 광전사는
+  공격+방어 둘 다 1/1/4/4만, 수호자는 방어 다이스 하나만 3/3/3/3이고 나머지는
+  1/2/3/4 그대로임을 화면에서 확인)로 4개 화면 검증,
+  `qa_out/combat_test_smoke_after_char.png`로 기존 combat_test/dungeon_map
+  화면도 회귀 없음을 확인. 캐릭터 5종 중 3종만 구현 — 나머지 2종(INBOX.md가
+  예시로 든 "폭발형"은 몬스터 "고블린"의 분노 스택처럼 매 턴 상태 추적과 턴
+  로직 자체를 바꿔야 해서 더 큰 작업이라 이번엔 제외, 그리고 다섯 번째 컨셉
+  1종)은 아래 "다음 할 일 큐" 14번에 남김. 부수적으로 QA 훅 사용법 관련 위험을
+  하나 발견 — 아래 "알려진 이슈" 참고(`GAME_QA_CALL`에 인자가 필요한 메서드를
+  넘기면 창이 멈출 수 있음, 인자 없는 래퍼로 우회).
 - **2026-09-09 (83)**: 큐 15([대형 기획 2] 던전 마지막 보스 + 3라운드 구조)의
   가장 작은 착수 조각(라운드 구조 없이 마지막 방 몬스터 스탯만 강화)을 진행.
   `combat_test.gd`의 `_monster_config_for_room()`에 `is_boss :=

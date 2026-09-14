@@ -8,6 +8,12 @@ extends RefCounted
 ## 잠정값이다. 아이템은 어느 주머니(공격/방어)에 적용할지 플레이어가 고를 수 있어야
 ## 한다는 DESIGN.md 규칙에 맞춰, 아이템 자체는 대상 주머니를 미리 정하지 않고
 ## apply(item, bag) 시점에 넘겨받은 bag에 적용한다.
+##
+## "grade"(S/A/B/C, 2026-09-15 INBOX.md 요청): 보상 카드가 한눈에 가치를 드러내도록
+## code/scenes/item_card_style.gd가 이 값으로 카드 테두리/타이틀 색(초록<파랑<보라<노랑)과
+## 등급 배지를 정한다. 정교한 밸런스 산식은 없고, "면 개수가 큰 다이스일수록/효과 범위가
+## 넓을수록 더 가치있다"는 감으로 잡은 잠정 배정 — 실제로 등급 체감이 적절한지는 사람
+## 플레이 피드백 필요.
 
 const ITEMS: Array[Dictionary] = [
 	{
@@ -15,22 +21,26 @@ const ITEMS: Array[Dictionary] = [
 		"description": "선택한 주머니에 D4 다이스를 1개 추가합니다.",
 		"kind": "add_die",
 		"sides": 4,
+		"grade": "C",
 	},
 	{
 		"name": "다이스 승급 (-> D6)",
 		"description": "D6 다이스 1개를 인벤토리로 획득합니다. 커스터마이징에서 원하는 다이스와 나중에 교체할 수 있습니다.",
 		"kind": "upgrade_die",
 		"new_sides": 6,
+		"grade": "B",
 	},
 	{
 		"name": "약한 면 강화",
 		"description": "선택한 주머니에서 가장 낮은 면 값 하나를 그 다이스의 최댓값으로 올립니다.",
 		"kind": "boost_weak_face",
+		"grade": "C",
 	},
 	{
 		"name": "모든 면 통일 (최댓값)",
 		"description": "선택한 주머니에서 가장 개선이 필요한 다이스 1개를 골라, 그 다이스의 모든 면을 최댓값으로 맞춥니다.",
 		"kind": "uniform_faces",
+		"grade": "B",
 	},
 ]
 

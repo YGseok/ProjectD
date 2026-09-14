@@ -89,6 +89,10 @@ func _ready() -> void:
 	all_pass = _check_material_for_sides(lines) and all_pass
 
 	lines.append("")
+	lines.append("[보상 등급 검증: item_card_style.gd ItemCardStyle.grade_color + 아이템 grade 필드]")
+	all_pass = _check_item_grades(lines) and all_pass
+
+	lines.append("")
 	lines.append("[상점 이중 구매 방지 검증: shop.gd _on_buy_pressed]")
 	all_pass = _check_shop_double_purchase_guard(lines) and all_pass
 
@@ -929,6 +933,45 @@ func _check_material_for_sides(lines: PackedStringArray) -> bool:
 		var pair_ok := actual_name == expected_name
 		ok = pair_ok and ok
 		lines.append("  D%d -> 재질=%s (기대 %s) -> %s" % [sides, actual_name, expected_name, "OK" if pair_ok else "FAIL"])
+	return ok
+
+
+## INBOX.md(2026-09-14) "보상 팝업의 밸류에 따라 등급(S/A/B/C)을 나누고, 카드에 등급을
+## 표시하며 녹색<파랑<보라<노랑 색을 테두리/타이틀에 적용" 반영분 검증.
+## (1) DiceItemPool/EventItemPool의 모든 아이템이 유효한 grade(S/A/B/C)를 갖는지,
+## (2) ItemCardStyle.grade_color()가 등급 4개마다 서로 다른 색을 반환하는지(색이 겹치면
+## "가치 상승"이 눈으로 구별 안 되므로), (3) 알 수 없는/누락된 grade는 C색으로 안전하게
+## 폴백하는지 확인한다.
+func _check_item_grades(lines: PackedStringArray) -> bool:
+	var ok := true
+	var valid_grades := ["S", "A", "B", "C"]
+
+	for item in DiceItemPool.ITEMS:
+		var grade: String = item.get("grade", "")
+		var pair_ok := valid_grades.has(grade)
+		ok = pair_ok and ok
+		lines.append("  DiceItemPool \"%s\" grade=%s -> %s" % [item["name"], grade, "OK" if pair_ok else "FAIL"])
+
+	for item in EventItemPool.ITEMS:
+		var grade: String = item.get("grade", "")
+		var pair_ok := valid_grades.has(grade)
+		ok = pair_ok and ok
+		lines.append("  EventItemPool \"%s\" grade=%s -> %s" % [item["name"], grade, "OK" if pair_ok else "FAIL"])
+
+	var seen_colors: Array[Color] = []
+	var distinct_ok := true
+	for grade in valid_grades:
+		var color := ItemCardStyle.grade_color(grade)
+		if seen_colors.has(color):
+			distinct_ok = false
+		seen_colors.append(color)
+	ok = distinct_ok and ok
+	lines.append("  등급 4종 색상 서로 구별됨 -> %s" % ("OK" if distinct_ok else "FAIL"))
+
+	var fallback_ok := ItemCardStyle.grade_color("?") == ItemCardStyle.grade_color("C")
+	ok = fallback_ok and ok
+	lines.append("  알 수 없는 등급 -> C색 폴백 -> %s" % ("OK" if fallback_ok else "FAIL"))
+
 	return ok
 
 
