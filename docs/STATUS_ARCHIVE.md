@@ -8,6 +8,34 @@
 
 ---
 
+- **2026-09-09 (82)**: 큐 13(업적 시스템 — 남은 항목 추가)에서 (81)이 남긴
+  "새 `RunState` 카운터가 필요한 것들(상점 이용 횟수 등)"을 그대로 집어 2종을
+  추가 — "단골 손님"(`shop_regular`, 한 런에서 상점 3회 이상 이용)과 "재질
+  수집가"(`material_collector`, 공격+방어 주머니에 플라스틱/나무/유리/철제
+  4개 재질 다이스를 동시에 보유). "단골 손님"은 `RunState.shop_visits`(신규
+  카운터, pip_inventory/die_inventory와 같이 `reset_run()`에서 초기화)를
+  신설해 `shop.gd`의 `_on_leave_pressed()`에서 상점 퇴장마다 1씩 증가시킨다.
+  "재질 수집가"는 새 카운터 없이, 다이스 면 개수(sides)로 재질을 잠정 배정하는
+  기존 규칙(`combat_test.gd`의 `_material_for_sides()`와 같은 매핑 — D4/D6=
+  플라스틱, D8=나무, D10=유리, D12/D20=철제)을 `dungeon_map.gd`에
+  `MATERIAL_SIDES` 상수로 재구성해 판정한다(두 스크립트 다 class_name이 없어
+  정적 참조 대신 각자 매핑을 둠 — 5줄짜리 단순 규칙이라 중복 비용보다 씬 간
+  결합 회피 이득이 크다고 판단). 판정 로직은 `_is_shop_regular(visits)`/
+  `_is_material_collector(attack_bag, defense_bag)` 순수 함수 2개
+  (`_is_pip_hoarder`와 같은 패턴)로 분리해 `dungeon_map.gd`의
+  `_update_labels()`에서 매번 검사(눈금/다이스 수집가와 같은 이유 — 상점/전투
+  등 여러 화면에서 값이 바뀌므로 던전 맵 복귀 시점에 확인). `achievement_
+  manager.gd` `DEFINITIONS`에 2개 항목만 추가(저장/UI는 기존 구조 재사용).
+  `dice_test.gd`에 신규 검증 3종(`_is_shop_regular` 참/거짓, `_is_material_
+  collector` 참(4종 혼합 다이스)/거짓(D4만), 신규 2종 정의 존재+초기 미해금)
+  추가로 회귀 스위트 전체 PASS(의도적 WARNING 1줄 제외 error/leak/orphan
+  없음, 업적 정의 12개로 증가). `qa_out/character_select_achievements4.png`
+  (업적 패널이 "1/12 달성"으로 늘어난 목록을 스크롤과 함께 겹침 없이 보여줌)와
+  `qa_out/dungeon_map_shop_material_smoke.png`(던전 맵 레이아웃 변화 없음,
+  크래시 없음)로 확인. 등록 12/미등록 18종(정확한 개수는 원문 소실로 근사치)
+  상태 — "새 카운터만 추가하면 되는" 독립 항목은 이번으로 거의 소진됐고, 남은
+  항목은 대부분 [대형 기획 1]/[대형 기획 2] 선행이 필요함(위 "다음 할 일 큐"
+  13번 참고).
 - **2026-09-10 (89)**: 큐 15([대형 기획 2] 던전 마지막 보스 + 3라운드 구조)의
   마지막 남은 조각 (c) "3라운드 전부 클리어 = 최종 클리어 전용 화면/문구" 진행 —
   이로써 [대형 기획 2] 3/3 조각 전부 완료. `RunState.is_run_complete()`가 (b)의

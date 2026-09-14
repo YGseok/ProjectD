@@ -22,12 +22,14 @@ extends Node2D
 ##
 ## 방 선택지 무작위 노출: STATUS.md 다음 할 일 큐("3개 방 선택지가 매번 전부 노출되는
 ## 대신, 방마다 일부만 무작위로 제시되는 것이 레벨 디자인에 더 가까울 수 있음")를 잠정
-## 반영. "전투 방"은 진행을 보장하기 위해 항상 노출하고, 상점/특수 이벤트/스토리
-## 이벤트는 방(= RunState.rooms_cleared)마다 결정되는 시드로 각각 독립적으로 등장
-## 확률(SHOP_CHANCE/EVENT_CHANCE/STORY_CHANCE)을 굴려 노출 여부를 정한다. 같은
-## 방에서는 씬을 다시 그려도(_update_labels 재호출) 같은 결과가 나오도록 rooms_cleared
-## 기반 시드를 쓰되, 게임 전체의 randi()/randf()(전투 판정 등)와 섞이지 않도록 별도
-## RandomNumberGenerator를 사용한다. 확률 자체는 감으로 잡은 잠정값 — 사람 피드백 필요.
+## 반영. "전투 방"은 진행을 보장하기 위해 항상 노출한다. 특수 이벤트/스토리 이벤트는
+## 방(= RunState.rooms_cleared)마다 결정되는 시드로 각각 독립적으로 등장 확률
+## (EVENT_CHANCE/STORY_CHANCE)을 굴려 노출 여부를 정한다. "상점"은 2026-09-14
+## INBOX.md 지시로 확률 노출에서 고정 노출(SHOP_FIXED_ROOM_INDICES)로 바뀜 — 5방
+## 기준 2번째/4번째 방에만 상시 노출. 같은 방에서는 씬을 다시 그려도(_update_labels
+## 재호출) 같은 결과가 나오도록 rooms_cleared 기반 시드를 쓰되, 게임 전체의
+## randi()/randf()(전투 판정 등)와 섞이지 않도록 별도 RandomNumberGenerator를
+## 사용한다. event/story 확률 자체는 감으로 잡은 잠정값 — 사람 피드백 필요.
 ##
 ## 선택지 순서 섞기: 위 항목이 "순서가 섞이는 것까지는 다루지 않았는데 이게 필요한지는
 ## 사람 피드백 필요"로 남겨뒀던 간극을 채운다. 상점/특수 이벤트/스토리 이벤트(노출된
@@ -53,9 +55,14 @@ extends Node2D
 ## 이미 확정한 "일단은 선형으로" 방향을 벗어나는 더 큰 구조 변경이라 별도 설계 확인 후
 ## 착수하는 게 안전하다고 판단해 이번엔 다루지 않음 (docs/STATUS.md 다음 할 일 큐 참고).
 
-const SHOP_CHANCE := 0.6
 const EVENT_CHANCE := 0.5
 const STORY_CHANCE := 0.5
+## INBOX.md 2026-09-14: "상점은 현재 5개의 방 기준, 2번째 4번째 방에만 추가한다."
+## 예전에는 SHOP_CHANCE(0.6)로 방마다 확률 노출이었으나, 사용자가 고정 위치를
+## 명시적으로 지시해 상점만 확률 노출에서 고정 노출로 바뀜(event/story는 그대로 확률
+## 유지). idx는 0부터 시작하므로 "2번째/4번째 방"은 idx 1/3 — 지금의 TOTAL_ROOMS=5
+## 기준으로 잡은 값이라 방 개수가 바뀌면 이 목록도 사람이 다시 정해야 함.
+const SHOP_FIXED_ROOM_INDICES: Array[int] = [1, 3]
 const BUTTON_TOP_START := 320.0
 const BUTTON_SPACING := 70.0
 const BUTTON_HEIGHT := 50.0
@@ -228,7 +235,7 @@ func _room_options_for_index(idx: int) -> Dictionary:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = idx * 104729 + 7
 	var opts := {
-		"shop": rng.randf() < SHOP_CHANCE,
+		"shop": SHOP_FIXED_ROOM_INDICES.has(idx),
 		"event": rng.randf() < EVENT_CHANCE,
 		"story": rng.randf() < STORY_CHANCE,
 	}
@@ -554,6 +561,21 @@ func _debug_show_final_clear() -> void:
 ## 상점/특수 이벤트/스토리 이벤트 버튼이 전부 숨겨지고 전투 버튼만 보이는지 확인한다.
 func _debug_show_boss_room() -> void:
 	RunState.rooms_cleared = RunState.TOTAL_ROOMS - 1
+	_roll_room_choices()
+	_update_labels()
+
+
+## QA 전용 — 2026-09-15 "상점은 2번째/4번째 방에만" 고정 노출 검증용. idx=1(2번째 방)은
+## SHOP_FIXED_ROOM_INDICES에 포함돼 상점 버튼이 보여야 하고, idx=2(3번째 방)는 빠져있어
+## 상점 버튼이 안 보여야 한다.
+func _debug_show_room2() -> void:
+	RunState.rooms_cleared = 1
+	_roll_room_choices()
+	_update_labels()
+
+
+func _debug_show_room3() -> void:
+	RunState.rooms_cleared = 2
 	_roll_room_choices()
 	_update_labels()
 
