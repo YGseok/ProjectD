@@ -59,6 +59,7 @@ const STORY_CHANCE := 0.5
 const BUTTON_TOP_START := 320.0
 const BUTTON_SPACING := 70.0
 const BUTTON_HEIGHT := 50.0
+const SHOP_GOLD_LABEL_GAP := 22.0
 
 ## 업적 "눈금 수집가"/"다이스 수집가" 임계치 — 감으로 잡은 잠정값(achievement_manager.gd
 ## DEFINITIONS의 pip_hoarder/die_hoarder 문구와 맞춰뒀다).
@@ -94,6 +95,11 @@ const REWARD_CATEGORIES := {
 	"story": ["gold"],
 }
 
+## shop.gd의 ITEM_COSTS 중 가장 싼 값(boost_weak_face=10). 두 스크립트가 class_name 없이
+## 각자 씬에 귀속돼 있어(다른 잠정 매핑들과 같은 이유) 정적 참조 대신 값만 복제해 둔다 —
+## shop.gd의 가격표가 바뀌면 이 상수도 같이 맞춰야 함.
+const MIN_SHOP_ITEM_COST := 10
+
 @onready var rooms_cleared_label: Label = $RoomsClearedLabel
 @onready var gold_label: Label = $GoldLabel
 @onready var enter_combat_button: Button = $EnterCombatButton
@@ -111,6 +117,7 @@ var _room_order: Array[String] = ["shop", "event", "story"]
 var _map_line: ColorRect
 var _map_hbox: HBoxContainer
 var _reward_icon_rows: Dictionary = {} # room type -> HBoxContainer, 방 선택 버튼 옆에 붙는 보상 카테고리 아이콘
+var _shop_gold_label: Label # "상점 입장" 버튼 바로 아래에 보유 골드를 보여주는 라벨
 
 
 func _ready() -> void:
@@ -121,8 +128,47 @@ func _ready() -> void:
 	customize_button.pressed.connect(customize_panel.open)
 	_setup_map_strip()
 	_setup_reward_icons()
+	_setup_reward_legend()
+	_setup_shop_gold_label()
 	_roll_room_choices()
 	_update_labels()
+
+
+## 보상 카테고리 아이콘(RewardIcon)이 무엇을 뜻하는지 설명하는 범례. INBOX.md 피드백
+## ("던전 맵에서 각 보상 아이콘이 무엇을 의미하는지 아이콘 텍스트 또는 범례가 필요할 것
+## 같다")을 반영 — 골드 라벨 옆 빈 공간에 아이콘+텍스트 3쌍을 고정으로 한 번만 그린다
+## (방마다 달라지는 게 아니라 "아이콘 자체의 의미"라 정적으로 충분함).
+func _setup_reward_legend() -> void:
+	var legend := HBoxContainer.new()
+	legend.add_theme_constant_override("separation", 16)
+	legend.position = Vector2(560.0, 116.0)
+	legend.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var specs := [["gold", "골드"], ["pip", "눈금"], ["dice", "다이스"]]
+	for spec in specs:
+		var pair := HBoxContainer.new()
+		pair.add_theme_constant_override("separation", 5)
+		pair.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		pair.add_child(_make_reward_icon(spec[0]))
+		var label := Label.new()
+		label.text = spec[1]
+		label.add_theme_font_size_override("font_size", 13)
+		label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+		pair.add_child(label)
+		legend.add_child(pair)
+	add_child(legend)
+
+
+## "상점 입장" 버튼 바로 아래에 보유 골드를 보여준다(INBOX.md: "상점 입장 버튼 하단에
+## 보유 골드량을 표시해준다. 해당 선택지가 의미가 없음을 보여줘야 한다"). 위치는 상점
+## 버튼이 방마다 노출 여부/순서가 바뀌므로 정적 배치가 불가능해 _layout_visible_buttons()
+## 에서 다른 버튼들과 함께 매번 다시 계산한다.
+func _setup_shop_gold_label() -> void:
+	_shop_gold_label = Label.new()
+	_shop_gold_label.add_theme_font_size_override("font_size", 13)
+	_shop_gold_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_shop_gold_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_shop_gold_label.visible = false
+	add_child(_shop_gold_label)
 
 
 ## 방 선택 버튼(전투/상점/특수 이벤트/스토리 이벤트) 옆에 붙일 보상 카테고리 아이콘
@@ -229,6 +275,14 @@ func _is_material_collector(attack_bag: DiceBag, defense_bag: DiceBag) -> bool:
 
 func _update_labels() -> void:
 	gold_label.text = "보유 골드: %d" % RunState.gold
+	# 상점 버튼 하단 골드 표시 — 가장 싼 품목(MIN_SHOP_ITEM_COST)조차 못 사는 상태면
+	# "구매 가능한 품목 없음"까지 함께 보여줘 그 선택지가 지금 의미 없음을 미리 알린다.
+	if RunState.gold < MIN_SHOP_ITEM_COST:
+		_shop_gold_label.text = "보유 골드: %d (구매 가능한 품목 없음)" % RunState.gold
+		_shop_gold_label.add_theme_color_override("font_color", Color(0.8, 0.4, 0.4))
+	else:
+		_shop_gold_label.text = "보유 골드: %d" % RunState.gold
+		_shop_gold_label.add_theme_color_override("font_color", Color(0.75, 0.75, 0.75))
 	# 업적 "눈금 수집가"/"다이스 수집가"/"가득 찬 주머니" — 어느 화면(상점/특수 이벤트/
 	# 전투 승리 보상)에서 쌓였든 던전 맵으로 돌아올 때마다 검사한다(round1_clear와 같은
 	# 패턴, unlock()이 멱등이라 매번 다시 그려도 안전).
@@ -421,6 +475,7 @@ func _layout_visible_buttons() -> void:
 
 	for row in _reward_icon_rows.values():
 		row.visible = false
+	_shop_gold_label.visible = false
 
 	var y := BUTTON_TOP_START
 	for i in visible_buttons.size():
@@ -432,7 +487,15 @@ func _layout_visible_buttons() -> void:
 			var row: HBoxContainer = _reward_icon_rows[t]
 			row.visible = true
 			row.position = Vector2(btn.offset_right + 16.0, y + (BUTTON_HEIGHT - 18.0) * 0.5)
-		y += BUTTON_SPACING
+		# "상점" 버튼 아래에 골드 라벨이 들어갈 여유(SHOP_GOLD_LABEL_GAP)만큼 다음 버튼과의
+		# 간격을 늘린다 — 다른 버튼들은 기존 BUTTON_SPACING 그대로 유지.
+		var extra_gap := 0.0
+		if t == "shop":
+			_shop_gold_label.visible = true
+			_shop_gold_label.position = Vector2(btn.offset_left, btn.offset_bottom + 2.0)
+			_shop_gold_label.size = Vector2(btn.offset_right - btn.offset_left, 18.0)
+			extra_gap = SHOP_GOLD_LABEL_GAP
+		y += BUTTON_SPACING + extra_gap
 
 
 func _on_combat_button_pressed() -> void:
