@@ -137,6 +137,10 @@ func _ready() -> void:
 	all_pass = _check_achievement_manager(lines) and all_pass
 
 	lines.append("")
+	lines.append("[업적 유형별 아이콘 검증: achievement_manager.gd DEFINITIONS.icon / achievement_icon.gd AchievementIcon]")
+	all_pass = _check_achievement_icons(lines) and all_pass
+
+	lines.append("")
 	lines.append("[플레이어블 캐릭터 검증: character_profiles.gd CharacterProfiles / run_state.gd RunState._apply_character_gimmick]")
 	all_pass = _check_character_profiles(lines) and all_pass
 
@@ -1508,6 +1512,28 @@ func _check_achievement_manager(lines: PackedStringArray) -> bool:
 	lines.append("  신규 업적 5종(수집가/가득 찬 주머니/단골 손님/재질 수집가) 정의 존재 + 초기 미해금: %s -> %s" % [
 		hoard_ids_ok, "OK" if hoard_ids_ok else "FAIL"
 	])
+
+	return ok
+
+
+## INBOX.md 2026-09-14 "업적에 유형별 아이콘을 추가한다"로 achievement_manager.gd
+## DEFINITIONS에 추가한 "icon" 필드가 achievement_icon.gd(AchievementIcon)가 실제로
+## 그릴 수 있는 category(CATEGORIES)와 전부 일치하는지 검증한다 — 오타나 리네임으로
+## 둘이 어긋나면 화면에서 빈 아이콘(match의 `_: pass`)으로만 조용히 실패하므로,
+## _check_item_grades(등급-색 대조)와 같은 패턴으로 문자열 일치를 사전에 잡는다.
+func _check_achievement_icons(lines: PackedStringArray) -> bool:
+	var ok := true
+
+	for id in AchievementManager.DEFINITIONS.keys():
+		var def: Dictionary = AchievementManager.DEFINITIONS[id]
+		var icon: String = def.get("icon", "")
+		var icon_ok := AchievementIcon.CATEGORIES.has(icon)
+		ok = icon_ok and ok
+		lines.append("  \"%s\" icon=%s -> %s" % [id, icon, "OK" if icon_ok else "FAIL"])
+
+	var fallback_ok: bool = AchievementManager.get_all_for_display()[0].icon != ""
+	ok = fallback_ok and ok
+	lines.append("  get_all_for_display() icon 필드 채워짐 -> %s" % ("OK" if fallback_ok else "FAIL"))
 
 	return ok
 

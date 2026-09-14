@@ -20,28 +20,37 @@ extends Node
 
 const SAVE_PATH := "user://achievements.json"
 
-## id -> {title, desc}. desc 끝의 "(INBOX #N)"은 INBOX.md가 제안했던 30종 목록의
+## id -> {title, desc, icon}. desc 끝의 "(INBOX #N)"은 INBOX.md가 제안했던 30종 목록의
 ## 원래 번호 — 나중에 나머지를 추가할 때 어떤 게 남았는지 추적하기 위해 남겨둔다.
+## "icon"은 achievement_icon.gd(AchievementIcon)의 category 문자열(CATEGORIES 참고) —
+## INBOX.md 2026-09-14 "업적에 유형별 아이콘을 추가한다"를 반영해 골드류는 "gold",
+## 다이스류는 "dice" 식으로 업적의 "유형"에 맞춰 배정했다(개별 업적 전용 그림이 아니라
+## 유형 공유 아이콘 — 요청 문구 "유형별 아이콘"을 그대로 따름).
 const DEFINITIONS := {
 	"first_run_start": {
 		"title": "첫 발걸음",
 		"desc": "던전을 처음 시작했다. (INBOX #25)",
+		"icon": "start",
 	},
 	"round1_clear": {
 		"title": "던전 클리어",
 		"desc": "첫 던전(라운드 1)을 클리어했다. (INBOX #1)",
+		"icon": "milestone",
 	},
 	"win_with_d20": {
 		"title": "거인의 주사위",
 		"desc": "D20 다이스를 보유한 채로 전투에서 승리했다. (INBOX #6)",
+		"icon": "dice",
 	},
 	"gold_100": {
 		"title": "부자",
 		"desc": "골드를 한 번에 100 이상 보유했다.",
+		"icon": "gold",
 	},
 	"flawless_win": {
 		"title": "무결점 승리",
 		"desc": "전투 중 단 한 대도 맞지 않고 승리했다.",
+		"icon": "combat",
 	},
 	"comeback_win": {
 		# 임계치(2)는 combat_test.gd의 COMEBACK_HP_THRESHOLD와 맞춰뒀다 (여기서 직접
@@ -49,10 +58,12 @@ const DEFINITIONS := {
 		# 상수 참조가 어려움 — 값이 바뀌면 이 문구도 함께 고쳐야 한다).
 		"title": "기사회생",
 		"desc": "체력이 2 이하로 떨어진 채로 위기를 넘기고 승리했다.",
+		"icon": "combat",
 	},
 	"overkill_win": {
 		"title": "오버킬",
 		"desc": "몬스터의 최대 체력 이상인 데미지를 한 방에 꽂아 넣어 승리했다.",
+		"icon": "combat",
 	},
 	# 아래 3종은 combat_test.gd가 아니라 dungeon_map.gd의 _update_labels()에서 체크한다 —
 	# 눈금/다이스 인벤토리와 주머니 캡은 특정 화면 하나에서만 바뀌는 게 아니라(상점/특수
@@ -61,22 +72,27 @@ const DEFINITIONS := {
 	"pip_hoarder": {
 		"title": "눈금 수집가",
 		"desc": "눈금 인벤토리에 10개 이상을 동시에 보유했다.",
+		"icon": "pip",
 	},
 	"die_hoarder": {
 		"title": "다이스 수집가",
 		"desc": "다이스 인벤토리에 5개 이상을 동시에 보유했다.",
+		"icon": "dice",
 	},
 	"bag_maxed": {
 		"title": "가득 찬 주머니",
 		"desc": "공격 또는 방어 주머니를 최대 개수(6개)까지 채웠다.",
+		"icon": "bag",
 	},
 	"shop_regular": {
 		"title": "단골 손님",
 		"desc": "한 런에서 상점을 3회 이상 이용했다.",
+		"icon": "shop",
 	},
 	"material_collector": {
 		"title": "재질 수집가",
 		"desc": "플라스틱/나무/유리/철제 재질 다이스를 동시에 모두 보유했다.",
+		"icon": "material",
 	},
 }
 
@@ -117,6 +133,7 @@ func get_all_for_display() -> Array:
 			"id": id,
 			"title": def.title,
 			"desc": def.desc,
+			"icon": def.get("icon", "milestone"),
 			"unlocked": is_unlocked(id),
 		})
 	return out

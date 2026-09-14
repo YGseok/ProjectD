@@ -35,6 +35,15 @@ func _clear_ui() -> void:
 	_ui.clear()
 
 
+## QA 전용: 목록 스크롤을 맨 아래로 내려, 위쪽 카드에 가려 안 보이던 나머지 업적
+## (pip/bag/shop/material 아이콘 등)도 스크린샷 한 장으로 확인할 수 있게 한다.
+func _debug_scroll_to_bottom() -> void:
+	for node in _ui:
+		if node is ScrollContainer:
+			node.scroll_vertical = 100000
+			return
+
+
 func _rebuild() -> void:
 	_clear_ui()
 
@@ -107,9 +116,20 @@ func _make_row(entry: Dictionary) -> Control:
 		style.border_color = Color(0.35, 0.35, 0.35)
 	row.add_theme_stylebox_override("panel", style)
 
+	var hbox := HBoxContainer.new()
+	hbox.add_theme_constant_override("separation", 12)
+	row.add_child(hbox)
+
+	var icon := AchievementIcon.new()
+	icon.category = entry.get("icon", "milestone")
+	icon.custom_minimum_size = Vector2(36, 36)
+	if not entry.unlocked:
+		icon.modulate = Color(1, 1, 1, 0.4)
+	hbox.add_child(icon)
+
 	var vbox := VBoxContainer.new()
 	vbox.add_theme_constant_override("separation", 2)
-	row.add_child(vbox)
+	hbox.add_child(vbox)
 
 	var title := Label.new()
 	title.text = ("★ " if entry.unlocked else "🔒 ") + entry.title

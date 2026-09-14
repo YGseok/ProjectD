@@ -5,30 +5,38 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-09-15 (96)
-- 작성자: AI 에이전트. 큐 16(INBOX.md 2026-09-14 대량 피드백) 중 "보상 팝업의
-  밸류에 따라 보상 등급을 나눈다(S/A/B/C 4단계). 보상 카드에 등급을 표시하고,
-  등급에 따라 녹색<파란색<보라색<노란색 색상을 테두리 및 타이틀 텍스트에
-  적용한다" 항목을 처리. `code/systems/dice_item_pool.gd`(4종)/
-  `code/systems/event_item_pool.gd`(5종) 각 아이템 딕셔너리에 "grade"(S/A/B/C)
-  필드를 추가 — "면 개수가 크거나 효과 범위가 넓을수록 고급"이라는 감으로 잡은
-  잠정 배정(다이스 추가 D4=C·약한 면 강화=C·눈금 획득=C, 다이스 승급 D6=B·모든
-  면 통일=B·D8 추가=B, D12 추가=A·D10 승급=A, D20 추가=S 하나뿐). `code/scenes/
-  item_card_style.gd`에 `GRADE_COLORS`(C=초록/B=파랑/A=보라/S=노랑)와
-  `grade_color(grade)`를 추가하고, `build_card()`가 카드 테두리색·타이틀 색을
-  등급색으로 칠하며 타이틀 옆에 작은 등급 배지(색칠된 사각형 + 글자)를 붙이도록
-  수정. 골드 부족(unaffordable) 카드는 기존처럼 배경/테두리를 어둡게 유지하되,
-  등급 배지만은 항상 실제 등급색을 그대로 보여줌(지금 못 사도 이 아이템의
-  가치는 알 수 있게). `dice_test.gd`에 신규 검증 `_check_item_grades`(두 풀의
-  모든 아이템이 유효한 grade를 갖는지, 등급 4종 색이 서로 구별되는지, 알 수
-  없는 등급은 C로 안전 폴백하는지) 추가해 회귀 스위트 전체 PASS. `qa_out/
-  shop_grades.png`(C/B 카드, 골드 부족 상태에서도 배지 유지)/`qa_out/
-  event_grades.png`(C/S 카드 나란히, 색 구별 뚜렷)/`qa_out/
-  combat_reward_grades.png`(전투 승리 보상 화면, B/B 카드, 다이스 결과 미리보기와
-  안 겹침)로 3개 화면 모두 확인. "이미지를 키우고 이미지 위주로 설명해 직관성을
-  높인다"는 이 항목의 나머지 절반은 카드 레이아웃을 다시 짜야 하는 더 큰 작업이라
-  이번엔 손대지 않음 — 아래 "다음 할 일 큐" 16번에 남김. INBOX.md 항목 1개를
-  "처리됨"으로 이동(처리됨 12개 안 넘어 아카이브 불필요).
+- 일시: 2026-09-15 (97)
+- 작성자: AI 에이전트. 큐 16(INBOX.md 2026-09-14 대량 피드백) 중 "업적에 유형별
+  아이콘을 추가한다. 예를 들어 골드 보유 업적이면 금화가 쌓인 아이콘, 다이스
+  관련이면 다이스 모양 아이콘" 항목을 처리("아이콘 추가 2건" 중 업적 아이콘
+  절반). 신규 `code/scenes/achievement_icon.gd`(`AchievementIcon`, `reward_icon.gd`
+  와 같은 "이미지 에셋 없이 `_draw()`로 그리는 절차적 아이콘" 패턴)에 9종
+  category(start/milestone/dice/gold/combat/pip/bag/shop/material)를 도형으로
+  구현(발자국/깃발/주사위 눈/동전 쌓기/검/눈금 면/주머니/좌판/4분할 재질색).
+  `code/systems/achievement_manager.gd`의 `DEFINITIONS` 12종 각각에 "icon" 필드를
+  추가해 업적 "유형"에 맞는 category를 배정(골드 관련=gold, 다이스 관련=dice,
+  전투 판정류(무결점/기사회생/오버킬)=combat 등)하고 `get_all_for_display()`가
+  이 필드를 함께 반환하도록 수정. `code/scenes/achievement_panel.gd`의
+  `_make_row()`가 제목/설명 왼쪽에 `AchievementIcon`을 붙이고(36x36), 잠긴
+  업적은 아이콘도 반투명(modulate alpha 0.4)으로 흐리게 표시. **구현 중 발견/수정한
+  버그**: (1) `_draw_material()`의 `lerp()` 결과를 `var a :=`로 타입 추론했더니
+  Godot이 "Variant로 추론됨" 경고를 에러로 처리(`warnings.treat_as_error`류 설정)해
+  씬 전체가 컴파일 실패하는 것을 실제 스크린샷 시도에서 발견 — `var a: float =`로
+  명시해 해결. (2) 스크롤 목록 아래쪽 업적(pip/bag/shop/material 아이콘)을 QA로
+  보려고 만든 `_debug_scroll_to_bottom()`이 같은 프레임에 바로 호출하면
+  `ScrollContainer`의 `max_value`가 아직 레이아웃 갱신 전이라 무시되던 것을
+  발견 — `character_select.gd`의 `_debug_show_achievements_scrolled()`에서
+  `call_deferred()`로 한 프레임 미뤄 해결. `dice_test.gd`에 신규 검증
+  `_check_achievement_icons`(DEFINITIONS 12종 전부의 icon이 `AchievementIcon.
+  CATEGORIES`에 속하는지, `get_all_for_display()`가 icon 필드를 채우는지) 추가해
+  회귀 스위트 전체 PASS. `qa_out/achievement_panel_icons.png`(위쪽 6개 업적 —
+  발자국/깃발/다이스/동전/검 아이콘, 해금된 첫 항목만 밝고 나머지는 흐림)/
+  `qa_out/achievement_panel_icons_bottom.png`(스크롤 하단 6개 — 검/눈금 면/다이스/
+  주머니/좌판/재질 아이콘)로 9종 category 전부 겹침·크래시 없이 표시됨을 확인.
+  "아이콘 추가 2건" 중 캐릭터 스킬 아이콘은 아직 미착수(스킬 콘텐츠 자체가
+  기믹 설명 텍스트뿐이라 "아이콘을 붙일 대상"부터 애매함 — 아래 "다음 할 일
+  큐" 16번에 남김). INBOX.md 항목 1개를 "처리됨"으로 이동(처리됨 13개로 12개
+  초과해 가장 오래된 1개를 `docs/INBOX_ARCHIVE.md`로 이관).
 
 ## 지금 위치
 
@@ -92,23 +100,27 @@
   등급별 테두리/타이틀 색(초록<파랑<보라<노랑)이 붙어**, 카드 하나만 봐도
   대략적인 가치를 짐작할 수 있음(등급-아이템 배정은 잠정값 — 실제로 등급
   체감이 적절한지 사람 플레이 피드백 필요).
-- **업적 시스템 (골격 완성 + 12종 등록)**: `code/systems/achievement_manager.gd`
-  (`AchievementManager`, Autoload)가 `user://achievements.json`에 해금 상태를
-  영구 저장(RunState와 달리 새 런을 시작해도 안 지워짐). `character_select.tscn`의
-  "업적" 버튼으로 `AchievementPanel`(잠금/해금 카드 목록 오버레이, 스크롤 지원)을
-  열 수 있음. 등록된 12종: "첫 발걸음"(INBOX #25, 던전 시작)/"던전 클리어"(#1,
+- **업적 시스템 (골격 완성 + 12종 등록 + 유형별 아이콘)**: `code/systems/
+  achievement_manager.gd`(`AchievementManager`, Autoload)가
+  `user://achievements.json`에 해금 상태를 영구 저장(RunState와 달리 새 런을
+  시작해도 안 지워짐). `character_select.tscn`의 "업적" 버튼으로
+  `AchievementPanel`(잠금/해금 카드 목록 오버레이, 스크롤 지원)을 열 수 있음.
+  등록된 12종: "첫 발걸음"(INBOX #25, 던전 시작)/"던전 클리어"(#1,
   라운드 1 완료)/"거인의 주사위"(#6, D20 보유 승리)/"부자"(골드 100 이상
   보유)/"무결점 승리"(전투 중 무피해 승리)/"기사회생"(HP 2 이하로 승리)/
   "오버킬"(몬스터 최대 체력 이상 데미지로 승리)/"눈금 수집가"(눈금
   인벤토리 10개 이상)/"다이스 수집가"(다이스 인벤토리 5개 이상)/"가득 찬
   주머니"(주머니가 MAX_DICE=6에 도달)/"단골 손님"(`RunState.
   shop_visits` 3회 이상, 상점 퇴장마다 증가)/"재질 수집가"(공격+방어 주머니에
-  플라스틱/나무/유리/철제 4개 재질 다이스 동시 보유). 남은 항목은
-  `achievement_manager.gd`의 `DEFINITIONS`에 항목만 추가하고 해당 조건
-  지점에서 `AchievementManager.unlock(id)`를 호출하면 저장/UI가 자동으로
-  따라오는 구조지만, 새 RunState 카운터만으로 되는 독립 항목은 거의 소진되어
-  남은 것은 대부분 [대형 기획 1]/[대형 기획 2] 선행이 필요함. 아래 "다음 할
-  일 큐" 13번 참고.
+  플라스틱/나무/유리/철제 4개 재질 다이스 동시 보유). **2026-09-15 (97)부터
+  업적마다 유형별 아이콘(`code/scenes/achievement_icon.gd`의 `AchievementIcon`,
+  category 9종 — 골드류=동전 쌓기, 다이스류=주사위 눈 등)이 카드 왼쪽에 붙어
+  잠긴 상태에서도 어떤 계열의 업적인지 짐작 가능**(잠긴 업적은 아이콘도
+  반투명하게 흐림). 남은 항목은 `achievement_manager.gd`의 `DEFINITIONS`에
+  항목만 추가하고 해당 조건 지점에서 `AchievementManager.unlock(id)`를
+  호출하면 저장/UI(아이콘 포함)가 자동으로 따라오는 구조지만, 새 RunState
+  카운터만으로 되는 독립 항목은 거의 소진되어 남은 것은 대부분 [대형 기획 1]/
+  [대형 기획 2] 선행이 필요함. 아래 "다음 할 일 큐" 13번 참고.
 - **QA 도구**: 실제 창(화면 밖 좌표로 이동해 사람 작업 방해 안 함)으로 스크린샷,
   물리 정지 감지 옵션(`GAME_QA_SETTLE`), 마우스 클릭 시뮬레이션
   (`GAME_QA_CLICK_PATH`), 방 번호 강제 지정(`GAME_QA_ROOM_OVERRIDE`).
@@ -184,9 +196,10 @@
   보상 아이콘 범례 + 상점 입장 버튼 하단 보유 골드 표시((92)에서 수정), 상점
   2번째/4번째 방 고정 노출((93)에서 수정), 상점 골드 부족 카드 색상 구분 +
   선택지 비활성화((94)에서 수정), 전투 화면 몬스터 HP바 하단 디버그 정보 표시
-  ((95)에서 수정), 보상 카드 등급(S/A/B/C) 표시 + 등급별 색상((96)에서 수정,
-  아래 "완료 기록" 참고) 8건만 처리했고, 나머지는 전부 아래
-  "다음 할 일 큐" 16번에 남아있어 다음 이터레이션들이 하나씩 집어가야 함.
+  ((95)에서 수정), 보상 카드 등급(S/A/B/C) 표시 + 등급별 색상((96)에서 수정),
+  업적 유형별 아이콘((97)에서 수정, 아래 "완료 기록" 참고) 9건만 처리했고,
+  나머지는 전부 아래 "다음 할 일 큐" 16번에 남아있어 다음 이터레이션들이
+  하나씩 집어가야 함.
 - 상세 이력은 아래 "완료 기록"(최근 10개)과, 그보다 오래된 것은
   `docs/STATUS_ARCHIVE.md`(매 이터레이션 읽지 않는 아카이브) 참고.
 
@@ -568,7 +581,7 @@
     하는지(INBOX.md 원문이 언급했던 부분, 아직 미반영 — 지금은 라운드 2/3도
     라운드 1과 완전히 같은 몬스터 스케일링을 그대로 재사용)는 사람 플레이
     피드백 필요.
-16. **(INBOX.md 신규 2026-09-14, 대량 피드백 — 5/약 30개만 처리됨) 남은 항목들.**
+16. **(INBOX.md 신규 2026-09-14, 대량 피드백 — 9/약 30개만 처리됨) 남은 항목들.**
     "방 다섯개 클리어 후 라운드가 안 올라간다" 버그(2026-09-14 (90)),
     "커스터마이징 팝업이 보상 아이콘에 뚫리는" 버그(2026-09-14 (91)), 던전 맵
     보상 아이콘 범례 + 상점 입장 버튼 하단 보유 골드 표시(2026-09-15 (92)),
@@ -585,8 +598,14 @@
     - **캐릭터별 시작 주사위 차별화**: 지금은 5종 다 기믹만 다르고 시작
       다이스 자체(면 개수/구성)는 표준 D4x3+D4x3로 동일 — 캐릭터 개성에 맞게
       시작 주사위 구성 자체를 다르게.
-    - **아이콘 추가 2건**: 캐릭터 스킬 아이콘, 업적 유형별 아이콘(골드 계열은
-      금화 아이콘, 다이스 계열은 다이스 아이콘 등).
+    - **아이콘 추가 2건 — 1/2 완료**: ~~업적 유형별 아이콘(골드 계열은 금화
+      아이콘, 다이스 계열은 다이스 아이콘 등)~~ → **완료됨** (2026-09-15 (97),
+      위 "완료 기록" 참고). `code/scenes/achievement_icon.gd`(`AchievementIcon`)가
+      category 9종(start/milestone/dice/gold/combat/pip/bag/shop/material)을
+      절차적으로 그리고, `achievement_manager.gd` DEFINITIONS 12종 각각에 유형에
+      맞는 icon 필드를 배정. 캐릭터 스킬 아이콘은 여전히 미착수 — 지금 "스킬"이
+      `character_profiles.gd`의 기믹 설명 텍스트뿐이라 아이콘을 어디에(카드?
+      덱 패널? 전투 로그?) 어떻게 붙일지부터 정해야 함.
     - ~~**던전 맵 보상 아이콘 범례**~~ → **완료됨** (2026-09-15 (92), 위 "완료
       기록" 참고). `dungeon_map.gd`의 `_setup_reward_legend()`가 골드 라벨
       오른쪽에 RewardIcon(골드/눈금/다이스) + 텍스트 라벨 범례를 상시 표시.
@@ -657,6 +676,49 @@
 
 ## 완료 기록
 
+- **2026-09-15 (97)**: 큐 16(INBOX.md 2026-09-14 대량 피드백, "아이콘 추가 2건")
+  에서 "업적에 유형별 아이콘을 추가한다. 예를 들어 골드 보유 업적이면 금화가
+  쌓인 아이콘, 다이스 관련이면 다이스 모양 아이콘" 항목을 처리. 신규
+  `code/scenes/achievement_icon.gd`(`AchievementIcon`)에 `reward_icon.gd`
+  (`RewardIcon`, 던전 맵 보상 카테고리 아이콘)와 같은 "이미지 에셋 없이
+  `_draw()`로 도형을 그리는 절차적 Control" 패턴으로 category 9종을 구현 —
+  "start"(발자국, 첫 시작류)/"milestone"(깃발, 클리어류)/"dice"(주사위 눈 5개
+  배치 면, 다이스 보유/수집류)/"gold"(동전 3개 쌓기, 골드 보유류)/"combat"
+  (검, 전투 판정류)/"pip"(눈금 1개짜리 면, 눈금 수집류)/"bag"(주머니, 용량류)/
+  "shop"(지붕+좌판, 상점 이용류)/"material"(4분할 색상환, 재질 수집류).
+  `code/systems/achievement_manager.gd`의 `DEFINITIONS` 12종 각 항목에 "icon"
+  필드를 추가해 업적 "유형"에 맞는 category를 배정(골드류=gold, 다이스류=dice
+  식 — 개별 업적 전용 그림이 아니라 요청 문구 "유형별 아이콘" 그대로 유형
+  공유), `get_all_for_display()`가 이 필드를 함께 반환하도록 수정.
+  `code/scenes/achievement_panel.gd`의 `_make_row()`가 제목/설명 왼쪽에
+  `AchievementIcon`(36x36)을 HBoxContainer로 붙이고, 잠긴 업적은 아이콘도
+  반투명(`modulate = Color(1,1,1,0.4)`)하게 흐려 해금/미해금 구분을 아이콘까지
+  일관되게 유지. **구현 중 발견/수정한 버그 2개**: (1) `_draw_material()`에서
+  `lerp()` 결과를 `var a :=`로 타입 추론하게 했더니 Godot이 "Variant로
+  추론됨" 경고를 에러로 처리하는 프로젝트 설정 때문에 achievement_icon.gd
+  전체가 컴파일 실패 → 이를 의존하는 achievement_panel.gd/character_select.gd
+  까지 로드 자체가 깨져 캐릭터 선택 화면조차 안 뜨는 연쇄 실패를 QA
+  스크린샷 시도에서 실제로 발견 — `var a: float = lerp(...)`로 타입을
+  명시해 해결. (2) 목록 아래쪽 업적(pip/bag/shop/material 아이콘)까지
+  스크린샷으로 확인하려고 추가한 `achievement_panel.gd`의
+  `_debug_scroll_to_bottom()`을 같은 프레임에 바로 호출했더니
+  `ScrollContainer.max_value`가 아직 레이아웃 갱신 전(0에 가까움)이라 스크롤이
+  무시되는 것을 발견 — `character_select.gd`의
+  `_debug_show_achievements_scrolled()`에서 `call_deferred()`로 한 프레임
+  미뤄 해결(레이아웃이 끝난 뒤 스크롤값 설정). `dice_test.gd`에 신규 검증
+  `_check_achievement_icons`(DEFINITIONS 12종 전부의 icon이 `AchievementIcon.
+  CATEGORIES`에 속하는지, `get_all_for_display()`가 icon 필드를 채우는지)
+  추가로 회귀 스위트 전체 PASS. `qa_out/achievement_panel_icons.png`(목록
+  위쪽 6개 — 발자국/깃발/다이스/동전/검 아이콘, 해금된 "첫 발걸음"만 밝고
+  나머지는 흐림)/`qa_out/achievement_panel_icons_bottom.png`(스크롤 하단 6개 —
+  검/눈금 면/다이스/주머니/좌판/재질 아이콘)로 9종 category 전부 겹침·잘림·
+  크래시 없이 표시됨을 확인. "아이콘 추가 2건" 중 캐릭터 스킬 아이콘은
+  미착수(지금 "스킬"이 `character_profiles.gd`의 기믹 설명 텍스트뿐이라
+  아이콘을 어디에 붙일지부터 설계 필요) — 아래 "다음 할 일 큐" 16번에 남김.
+  INBOX.md 해당 항목 "처리됨"으로 이동, 처리됨 13개로 12개 초과해 가장 오래된
+  1개를 `docs/INBOX_ARCHIVE.md`로 이관. STATUS.md 완료 기록이 이 항목 추가로
+  11개가 되어, 가장 오래된 (85)(플레이어블 캐릭터 "폭발병" 구현)를
+  STATUS_ARCHIVE.md로 이관.
 - **2026-09-15 (96)**: 큐 16(INBOX.md 2026-09-14 대량 피드백)에서 "보상 팝업의
   밸류에 따라 보상 등급을 나눈다(S/A/B/C). 보상 카드에 등급을 표시하고, 등급에
   따라 녹색<파란색<보라색<노란색 색상을 테두리 및 타이틀 텍스트에 적용한다"
@@ -886,43 +948,6 @@
   S/A/B/C, 커스터마이징 UX 개편, 특수 이벤트 스토리+리스크/리턴 개편 등)은
   각각 별도 이터레이션이 필요한 크기라 이번엔 손대지 않음 — 아래 "다음 할 일
   큐" 16번 참고.
-- **2026-09-09 (85)**: 큐 14([대형 기획 1] 플레이어블 캐릭터)의 남은 조각 중
-  "폭발형"을 구현해 4/5종 완료. 몬스터 "고블린"의 anger_stack 기믹(공격 다이스가
-  자기 최댓값 면을 보여줄 때마다 스택이 쌓이고, `ANGER_STACK_THRESHOLD`(3)에서
-  다음 공격 한 턴만 1D20으로 굴림)과 완전히 같은 구조를 플레이어 공격턴에
-  적용 — `character_profiles.gd`에 캐릭터 "폭발병"(`gimmick: "explosive_stack"`,
-  주황 계열 팔레트)을 추가하고, `combat_test.gd`에 `player_dice_gimmick`
-  (`_ready()`에서 `CharacterProfiles.get_profile(RunState.character_id)`로 읽음)/
-  `player_explosive_stacks`/`player_explosive_pending`(`EXPLOSIVE_STACK_
-  THRESHOLD`=3, `EXPLOSIVE_DICE_SIDES`=20, 몬스터 상태와 같은 상수값이지만
-  독립적으로 정의) 전투 중 상태를 신설했다. `_do_exchange()`의 atk_bag 선택
-  분기와, 몬스터 anger_stack 집계 블록 바로 아래에 병렬 구조의 플레이어
-  집계 블록(`is_player_attacking and player_dice_gimmick == "explosive_stack"`)을
-  추가 — `used_explosive_dice`로 폭발 굴림 자체가 다시 스택을 쌓지 않도록
-  구분하는 것까지 anger_stack과 동일. 정적 다이스 개조가 아니므로
-  `run_state.gd._apply_character_gimmick()`의 match 문에는 걸리지 않고
-  `_: pass`로 통과함을 주석으로 명시(character_profiles.gd 클래스 주석도
-  갱신). 작업 중 QA 스크린샷(`character_select_4cards.png`)에서 카드가 4개로
-  늘자 고정 `CARD_WIDTH=360`(3개 기준 계산)이 총 폭 1500px를 만들어 화면
-  (1280px) 오른쪽이 잘려나가는 회귀를 발견 — `character_select.gd`를 고쳐
-  `CARD_WIDTH_MAX`(360, 상한)와 `ROW_MARGIN`(20, 좌우 여백)으로 카드 폭을
-  `min(CARD_WIDTH_MAX, (1280 - ROW_MARGIN*2 - (count-1)*GAP) / count)`로
-  동적 계산하도록 바꿔, 캐릭터가 5종이 돼도(다음 조각) 화면 밖으로 안 잘리게
-  했다(`_make_card()`의 모든 `CARD_WIDTH` 참조를 매개변수 `card_width`로 교체).
-  `dice_test.gd`의 `_check_character_profiles`에 신규 검증 2개(get_profile
-  (explosive).gimmick == explosive_stack, reset_run(explosive) 후 공격/방어
-  주머니가 표준 D4x3 그대로인지 — explosive_stack이 정적 개조를 안 하는 것의
-  방증) 추가로 회귀 스위트 전체 PASS. `qa_out/character_select_4cards_fixed.png`
-  (카드 4개 겹침/잘림 없이 표시)/`combat_test_explosive_dice.png`(
-  `_debug_show_explosive_dice()`로 폭발 스택 임계치 도달 상태를 만들어 D20
-  다이스와 "폭발 직전! 다음 공격은 20면체 주사위로 터진다" 로그 문구가 겹침
-  없이 표시됨을 확인)/`dungeon_map_explosive_deck.png`(선택 → 던전 시작 →
-  실제 덱 패널까지 전체 경로, 정적 개조가 없으므로 공격/방어 다이스가
-  표준 1/2/3/4 그대로임을 확인 — "덱 패널에는 안 보이고 전투 로그에서만
-  드러나는 기믹"이라는 설계가 실제로 그렇게 보임)/
-  `combat_test_smoke_after_explosive.png`(기존 화면 회귀 없음)로 검증.
-  남은 것: 다섯 번째 캐릭터 컨셉/기믹은 여전히 미정(아래 "다음 할 일 큐" 14번),
-  4종 전체의 강화폭/체감 밸런스는 사람 플레이 피드백 필요.
 - **2026-09-09 (86)**: 큐 14([대형 기획 1] 플레이어블 캐릭터)의 마지막 남은
   조각 — 다섯 번째 캐릭터 컨셉을 AI가 제안해 구현, **5/5종 완료**. "폭발병"
   (explosive_stack, 공격 다이스 최댓값 스택 → 3스택에서 다음 공격 1D20)과

@@ -7,6 +7,38 @@
 
 ---
 
+- [처리됨 - 2026-09-09] 2026-09-09 (몬스터별 다이스 특이 특징 관련 방향/예시)
+  대략적인 방향/예시:
+  - 주사위 값 x가 고정 데미지로 들어간다 (굴리지 않고 항상 같은 값).
+  - 모든 주사위 눈이 min과 max로만 이루어져 있다 (중간값 없음, 하이리스크/로우리스크).
+  - 주사위 x가 나올 때마다 "분노 스택"이 쌓여서, 몇 개 이상 쌓이면 다음 턴에
+    20면체 주사위를 돌린다.
+  → 예시 3개 전부 구현 완료(작은 단위로 나눠 순차 처리, 2026-09-09 (75)/(77)/(78)).
+  "모든 주사위 눈이 min과 max로만 이루어져 있다"는 `DiceBag.force_min_max_faces()`
+  (면 값을 절반은 최솟값·절반은 최댓값으로 강제)로 구현해 `combat_test.gd`
+  `MONSTER_PROFILES`의 "다크 나이트"(room_index=4)에 `dice_gimmick: "min_max_only"`로
+  시범 적용(이름에 "[극단]" 표시). "주사위 값 x가 고정 데미지로 들어간다"는
+  `DiceBag.force_fixed_value(value)`(다이스의 모든 면 값을 하나로 통일 — 어느 면이
+  뽑히든 결과가 항상 같아지므로 "굴리지 않고 고정값"과 동일한 효과, 별도 상태 추적
+  불필요)로 구현해 "오크"(room_index=3)에 `dice_gimmick: "fixed_value"`로 시범
+  적용(값은 면 개수 평균 반올림, D6은 4 — 이름에 "[고정값 4]" 표시). "주사위 x가
+  나올 때마다 분노 스택이 쌓여서 몇 개 이상이면 다음 턴에 20면체를 돌린다"는
+  `DiceBag.count_max_rolls(values)`(x를 "그 다이스의 최댓값 면"으로 해석) +
+  `combat_test.gd`의 전투 중 상태(`monster_anger_stacks`/`monster_anger_pending`,
+  씬이 끝나면 함께 사라짐)로 구현해 "고블린"(room_index=1)에
+  `dice_gimmick: "anger_stack"`으로 시범 적용(3스택에 다음 공격 한 턴만 1D20,
+  이름에 "[분노]" 표시). 어떤 몬스터가 각 특징을 가져야 하는지는 몬스터 성격
+  기획(아래 항목, 여전히 미착수)이 먼저 정해져야 확정할 수 있어 "고블린"/"다크
+  나이트"/"오크" 셋 다 근거 없는 임시 배정 — 성격 기획이 나오면 재배정 가능.
+  `dice_test.gd` 회귀 검증(`force_min_max_faces`/`force_fixed_value`/
+  `count_max_rolls` 각각의 면 구성·반복 굴림·room1/room3/room4/room0 config 상호
+  독립성 대조) 추가로 82개 항목 전체 PASS,
+  `qa_out/combat_test_dark_knight_gimmick.png`(room4, "다크 나이트 [극단]"),
+  `qa_out/combat_test_orc_gimmick.png`(room3, "오크 [고정값 4]", 교환 결과 칩이 둘 다
+  "4"만 표시), `qa_out/combat_test_anger_dice.png`(room1, "고블린 [분노]", 분노
+  발동 시 D20 다이스 + 로그 문구)로 실제 전투 화면 겹침 없음을 확인.
+  docs/STATUS.md 완료 기록(75, 77, 78) 참고.
+
 - [처리됨 - 2026-09-09] 2026-09-09 다이스 승급 이벤트에서, 면 개수가 가장 작은것 교체가
   아닌 획득으로 바꾼다. 눈금 획득 또는 다이스 승급시, 인벤토리로 들어와서 교체하도록
   한다.

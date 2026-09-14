@@ -229,3 +229,15 @@ func _debug_show_achievements() -> void:
 	AchievementManager._debug_reset_for_qa()
 	AchievementManager.unlock("first_run_start")
 	achievement_panel.open()
+
+
+## QA 전용: 업적 유형별 아이콘(achievement_icon.gd)이 목록 아래쪽 항목(pip/bag/shop/
+## material 카테고리)에서도 겹침/누락 없이 그려지는지 스크린샷으로 확인하기 위해,
+## 패널을 연 뒤 스크롤을 맨 아래로 내린다.
+func _debug_show_achievements_scrolled() -> void:
+	_debug_show_achievements()
+	# 목록(ScrollContainer)의 스크롤 범위는 VBoxContainer의 레이아웃 정렬(queue_sort,
+	# 다음 프레임에 처리됨)이 끝나야 갱신되므로, 같은 프레임에 바로 스크롤 값을 설정하면
+	# 아직 갱신 전인 max_value(0에 가까움)로 클램프돼 무시된다 — call_deferred로 한 프레임
+	# 미뤄서 레이아웃이 끝난 뒤에 스크롤하도록 한다.
+	achievement_panel.call_deferred("_debug_scroll_to_bottom")

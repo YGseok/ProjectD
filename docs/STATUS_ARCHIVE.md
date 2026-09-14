@@ -8,6 +8,44 @@
 
 ---
 
+- **2026-09-09 (85)**: 큐 14([대형 기획 1] 플레이어블 캐릭터)의 남은 조각 중
+  "폭발형"을 구현해 4/5종 완료. 몬스터 "고블린"의 anger_stack 기믹(공격 다이스가
+  자기 최댓값 면을 보여줄 때마다 스택이 쌓이고, `ANGER_STACK_THRESHOLD`(3)에서
+  다음 공격 한 턴만 1D20으로 굴림)과 완전히 같은 구조를 플레이어 공격턴에
+  적용 — `character_profiles.gd`에 캐릭터 "폭발병"(`gimmick: "explosive_stack"`,
+  주황 계열 팔레트)을 추가하고, `combat_test.gd`에 `player_dice_gimmick`
+  (`_ready()`에서 `CharacterProfiles.get_profile(RunState.character_id)`로 읽음)/
+  `player_explosive_stacks`/`player_explosive_pending`(`EXPLOSIVE_STACK_
+  THRESHOLD`=3, `EXPLOSIVE_DICE_SIDES`=20, 몬스터 상태와 같은 상수값이지만
+  독립적으로 정의) 전투 중 상태를 신설했다. `_do_exchange()`의 atk_bag 선택
+  분기와, 몬스터 anger_stack 집계 블록 바로 아래에 병렬 구조의 플레이어
+  집계 블록(`is_player_attacking and player_dice_gimmick == "explosive_stack"`)을
+  추가 — `used_explosive_dice`로 폭발 굴림 자체가 다시 스택을 쌓지 않도록
+  구분하는 것까지 anger_stack과 동일. 정적 다이스 개조가 아니므로
+  `run_state.gd._apply_character_gimmick()`의 match 문에는 걸리지 않고
+  `_: pass`로 통과함을 주석으로 명시(character_profiles.gd 클래스 주석도
+  갱신). 작업 중 QA 스크린샷(`character_select_4cards.png`)에서 카드가 4개로
+  늘자 고정 `CARD_WIDTH=360`(3개 기준 계산)이 총 폭 1500px를 만들어 화면
+  (1280px) 오른쪽이 잘려나가는 회귀를 발견 — `character_select.gd`를 고쳐
+  `CARD_WIDTH_MAX`(360, 상한)와 `ROW_MARGIN`(20, 좌우 여백)으로 카드 폭을
+  `min(CARD_WIDTH_MAX, (1280 - ROW_MARGIN*2 - (count-1)*GAP) / count)`로
+  동적 계산하도록 바꿔, 캐릭터가 5종이 돼도(다음 조각) 화면 밖으로 안 잘리게
+  했다(`_make_card()`의 모든 `CARD_WIDTH` 참조를 매개변수 `card_width`로 교체).
+  `dice_test.gd`의 `_check_character_profiles`에 신규 검증 2개(get_profile
+  (explosive).gimmick == explosive_stack, reset_run(explosive) 후 공격/방어
+  주머니가 표준 D4x3 그대로인지 — explosive_stack이 정적 개조를 안 하는 것의
+  방증) 추가로 회귀 스위트 전체 PASS. `qa_out/character_select_4cards_fixed.png`
+  (카드 4개 겹침/잘림 없이 표시)/`combat_test_explosive_dice.png`(
+  `_debug_show_explosive_dice()`로 폭발 스택 임계치 도달 상태를 만들어 D20
+  다이스와 "폭발 직전! 다음 공격은 20면체 주사위로 터진다" 로그 문구가 겹침
+  없이 표시됨을 확인)/`dungeon_map_explosive_deck.png`(선택 → 던전 시작 →
+  실제 덱 패널까지 전체 경로, 정적 개조가 없으므로 공격/방어 다이스가
+  표준 1/2/3/4 그대로임을 확인 — "덱 패널에는 안 보이고 전투 로그에서만
+  드러나는 기믹"이라는 설계가 실제로 그렇게 보임)/
+  `combat_test_smoke_after_explosive.png`(기존 화면 회귀 없음)로 검증.
+  남은 것: 다섯 번째 캐릭터 컨셉/기믹은 여전히 미정(아래 "다음 할 일 큐" 14번),
+  4종 전체의 강화폭/체감 밸런스는 사람 플레이 피드백 필요.
+
 - **2026-09-09 (84)**: 큐 14([대형 기획 1] 플레이어블 캐릭터 4종 추가, 총 5종 중
   선택)의 가장 작은 착수 조각을 진행 — 캐릭터 선택 UI를 카드 1개("확인")에서
   여러 카드 중 하나를 고르는 형태로 확장하고, 신규 캐릭터 2종(기존 "견습
