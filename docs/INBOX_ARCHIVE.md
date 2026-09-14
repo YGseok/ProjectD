@@ -7,6 +7,11 @@
 
 ---
 
+- [처리됨 - 2026-09-09] 2026-09-09 전투 후 던전으로 돌아가기 버튼을 다음 버튼으로
+  텍스트 교체한다.
+  → `code/scenes/combat_test.gd`의 승리 시 `next_button.text`를 "던전으로 돌아가기"에서
+  "다음"으로 교체(`combat_test.tscn`의 기본 텍스트도 동기화). docs/STATUS.md 완료
+  기록(68) 참고.
 - [처리됨 - 2026-09-09] 2026-09-09 덱보기 토글창 오픈 시, 기존 깔려있는 다른 ui나
   이미지보다 상단에 위치해야 한다.
   → `code/scenes/combat_test.tscn`의 `DeckPanel`에 `z_index=10`을 줘서, 보상 카드나
