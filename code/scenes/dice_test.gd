@@ -431,17 +431,23 @@ func _check_dungeon_map_room_options(lines: PackedStringArray) -> bool:
 	# 정확히 한 번씩만 담은 순열이어야 한다 — 버튼 레이아웃(_layout_visible_buttons)과
 	# 칩 나열(_make_map_node)이 둘 다 "for t in opts.order: if opts[t]: ..."로
 	# 순회하므로, order 자체에 값이 빠지거나 중복되면 노출된 방 선택지 하나가 화면에서
-	# 통째로 안 보이거나(버튼 없음) 중복 렌더링될 수 있다.
+	# 통째로 안 보이거나(버튼 없음) 중복 렌더링될 수 있다. 단, 라운드 마지막 방
+	# (idx == TOTAL_ROOMS - 1, 보스 방)은 2026-09-14 버그 수정으로 전투만 가능하도록
+	# 강제되어 shop/event/story가 전부 false + order가 빈 배열인 것이 의도된 예외다.
 	var order_valid := true
 	for idx in range(10):
 		var opts = map._room_options_for_index(idx)
+		if idx == RunState.TOTAL_ROOMS - 1:
+			if opts.shop or opts.event or opts.story or not opts.order.is_empty():
+				order_valid = false
+			continue
 		var sorted_order: Array = opts.order.duplicate()
 		sorted_order.sort()
 		if sorted_order != ["event", "shop", "story"]:
 			order_valid = false
 	ok = order_valid and ok
-	lines.append("  order가 항상 shop/event/story 순열임(idx 0..9 확인): %s -> %s" % [
-		order_valid, "OK" if order_valid else "FAIL"
+	lines.append("  order가 항상 shop/event/story 순열임(idx 0..9, 보스 방 idx=%d는 예외로 3종 전부 미노출 확인): %s -> %s" % [
+		RunState.TOTAL_ROOMS - 1, order_valid, "OK" if order_valid else "FAIL"
 	])
 
 	map.free()

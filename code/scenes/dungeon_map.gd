@@ -161,7 +161,24 @@ func _roll_room_choices() -> void:
 ## 임의의 idx를 받을 수 있어 아직 도달하지 않은 미래 방의 미리보기(MapStrip)에도
 ## 그대로 쓸 수 있다 — 실제로 그 방에 도달했을 때 _roll_room_choices()가 계산하는
 ## 값과 완전히 동일한 공식이라 미리보기와 실제 결과가 어긋나지 않는다.
+##
+## 버그 수정(2026-09-14, INBOX.md "방 다섯개 클리어 하고 새 런으로 돌게 되는데
+## 라운드가 진행되어야 한다"): 라운드의 마지막 방(idx == TOTAL_ROOMS - 1)의 몬스터는
+## combat_test.gd의 _monster_config_for_room()이 "보스"로 취급해 강화하고,
+## 보스를 물리쳐야만(_apply_room_advance()) RunState.advance_round()가 불려 라운드가
+## 넘어간다. 그런데 이 마지막 방에도 상점/특수 이벤트/스토리 이벤트가 노출될 수
+## 있었고, shop.gd/event.gd/story_event.gd는 전투와 무관하게 각자
+## RunState.rooms_cleared += 1만 하고 advance_round()를 전혀 모른다 — 그래서
+## 플레이어가 마지막 방에서 전투 대신 상점/이벤트/스토리를 고르면 보스를 만나지도
+## 않은 채 rooms_cleared가 TOTAL_ROOMS에 도달해버려(라운드는 그대로 1에 머문 채)
+## "런 클리어" 상태가 되고, dungeon_map의 "새 런 시작" 버튼이 RunState.reset_run()을
+## 불러 라운드 진행 없이 처음부터 다시 시작하는 것처럼 보였다. 라운드의 마지막 방은
+## (보스를 반드시 거쳐야 라운드가 넘어가므로) 전투만 가능하도록 강제해 이 경로 자체를
+## 막는다.
 func _room_options_for_index(idx: int) -> Dictionary:
+	if idx == RunState.TOTAL_ROOMS - 1:
+		var empty_order: Array[String] = []
+		return {"shop": false, "event": false, "story": false, "order": empty_order}
 	var rng := RandomNumberGenerator.new()
 	rng.seed = idx * 104729 + 7
 	var opts := {
@@ -465,6 +482,15 @@ func _debug_show_round2() -> void:
 func _debug_show_final_clear() -> void:
 	RunState.round_index = RunState.TOTAL_ROUNDS
 	RunState.rooms_cleared = RunState.TOTAL_ROOMS
+	_roll_room_choices()
+	_update_labels()
+
+
+## QA 전용 — 2026-09-14 버그 수정 검증용. 실제로 4개 방을 다 이겨야만 도달하는
+## 라운드 마지막 방(보스 방, rooms_cleared == TOTAL_ROOMS - 1) 상태를 직접 만들어,
+## 상점/특수 이벤트/스토리 이벤트 버튼이 전부 숨겨지고 전투 버튼만 보이는지 확인한다.
+func _debug_show_boss_room() -> void:
+	RunState.rooms_cleared = RunState.TOTAL_ROOMS - 1
 	_roll_room_choices()
 	_update_labels()
 

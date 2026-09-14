@@ -8,6 +8,24 @@
 
 ---
 
+- **2026-09-09 (80)**: 큐 13(업적 시스템 남은 항목 추가)에서 4종을 골라 등록 —
+  "부자"(`gold_100`, 골드 100 이상 보유)/"무결점 승리"(`flawless_win`, 전투 중
+  무피해 승리)/"기사회생"(`comeback_win`, HP 2 이하로 승리)/"오버킬"
+  (`overkill_win`, 몬스터 최대 체력 이상 데미지로 승리). `achievement_manager.gd`
+  `DEFINITIONS`에 4개 항목만 추가(저장/UI는 79에서 만든 구조가 자동으로 처리).
+  `combat_test.gd`에 `_bag_has_d20`과 같은 패턴의 순수 함수 3개
+  (`_is_flawless_win(hp)`/`_is_comeback_win(hp)`/`_is_overkill_win(dmg, max_hp)`)를
+  추가해 `_do_exchange()` 승리 분기에서 호출, 골드 100은 골드 지급 직후
+  `RunState.gold >= 100`으로 바로 확인(새 카운터 불필요). "기사회생" 임계치
+  (HP≤2, PLAYER_MAX_HP=20의 10%)는 감으로 잡은 잠정값. `dice_test.gd`에 신규
+  검증 6종(순수 함수 3개 각각 참/거짓 케이스, DEFINITIONS 개수 7개 이상, 신규
+  4종 정의 존재+초기 미해금) 추가로 회귀 스위트 90개 항목 전체 PASS(의도적으로
+  찍는 WARNING 1줄 제외 error/leak/orphan 없음). `qa_out/
+  character_select_achievements2.png`로 업적 패널이 "1/7 달성"으로 늘어난
+  목록을 스크롤과 함께 겹침 없이 보여줌을 확인, `dungeon_map`/`combat_test`
+  스모크도 크래시 없이 통과. INBOX.md가 원래 제안한 30종 원문이 보존돼 있지
+  않아 이 4개의 정확한 원래 번호는 알 수 없음 — STATUS.md가 예시로 언급했던
+  "골드 100/오버킬/무결점 승리/기사회생" 계열이라는 것만 근거로 등록.
 - **2026-09-09 (79)**: INBOX.md "남은 이슈"의 [대형 기획 3] 업적 시스템 추가 —
   세션 지침("업적 30종처럼 목록이 긴 항목은 시스템 먼저 만들고 몇 개씩 나눠서
   추가")을 그대로 따라 "시스템"만 착수. `code/systems/achievement_manager.gd`
