@@ -55,7 +55,9 @@
   바뀌면 재배정), 특수 이벤트(`event.gd` — 카드별 공격/방어 적용 또는 눈금획득/
   다이스획득 단일 버튼 + 커스터마이징 버튼, 2026-09-15 (103) 추가), 캐릭터 선택
   (`character_select.gd` — 카드별 "선택" 버튼 5개 + "던전 시작" + "업적" 버튼,
-  2026-09-15 (104) 추가)에 적용했다. `_unhandled_input()`이 숫자 키를 받으면 그
+  2026-09-15 (104) 추가), 상점(`shop.gd` — 아이템 카드 버튼 7개(4종 아이템,
+  upgrade_die만 1버튼·나머지 2버튼씩) + "던전으로 돌아가기" + "커스터마이징",
+  2026-09-15 (105) 추가)에 적용했다. `_unhandled_input()`이 숫자 키를 받으면 그
   순서의 버튼이 실제로 클릭됐을 때와 동일한 `pressed` 시그널을 발생시킨다(클릭과
   다른 경로를 타지 않음). 커스터마이징/업적 패널이 열려있을 때는 뒤에 가려진
   버튼이 함께 눌리지 않도록 숫자 키를 무시한다. `dice_test.gd`에 순수 함수 검증
@@ -63,25 +65,29 @@
   판별, `try_press`의 비활성·범위 밖 버튼 무시)을 추가해 회귀 스위트 전체 PASS.
   화면 검증은 두 방식을 병행: (1) `qa_out/dungeon_map_kbshortcuts.png`/
   `qa_out/story_event_kbshortcuts.png`/`qa_out/event_kbshortcuts.png`/
-  `qa_out/character_select_kbshortcuts.png`로 "[1]/[2]/[3]" 접두어가 겹침 없이
-  보이는지, (2) 실제 `InputEventKey`를 만들어 `_unhandled_input()`에 직접 넣는
-  QA 훅(`_debug_press_shortcut_customize`/`_debug_press_shortcut_1`/
-  `_debug_press_shortcut_2`/`_debug_press_shortcut_7`)으로 "키 입력 -> 버튼
-  클릭과 동일한 결과"까지 실제로 이어지는지 `qa_out/dungeon_map_kb_key3.png`
-  (3번 키로 커스터마이징 패널이 실제로 열림)/`qa_out/story_event_kb_key1.png`
-  (1번 키로 A안이 실제로 선택되어 결과 화면으로 전환)/`qa_out/event_kb_key4.png`
-  (카드 구성에 따라 매번 달라지는 커스터마이징 버튼 인덱스를 동적으로 계산해 키를
-  주입 — 실제로 CustomizePanel이 열림)/`qa_out/character_select_kb_key2.png`
-  (2번 키로 두 번째 카드 "광전사"가 실제로 선택됨)/
-  `qa_out/character_select_kb_key7.png`(7번 키로 업적 패널이 실제로 열림)로 확인.
-  **아직 적용 안 된 화면**: 상점(`shop.gd`, 아이템 카드당 버튼이 최대 2개씩 있어
-  카드 수에 따라 숫자가 9개를 넘을 수 있어 배정 규칙을 더 고민해야 함)/
-  전투(`combat_test.gd`, 덱 보기·커스터마이징 토글 + 다음 버튼 + 승리 보상의
-  동적 카드 버튼들)/업적 패널(`achievement_panel.gd`, "닫기" 버튼 하나뿐이라
-  단축키 실익이 적음) — 같은 `KeyboardShortcuts` 유틸을 그대로 재사용할 수 있는
-  구조라 다음 이터레이션들이 화면별로 이어서 적용하면 됨(`docs/STATUS.md` 다음
-  할 일 큐 16번 "키보드 조작/단축키" 참고, 4/7화면). "전체 조작을 키보드로도"
-  라는 원 요청 전체를 아직 다 커버한 것은 아니라 완전히 처리된 것은 아님.
+  `qa_out/character_select_kbshortcuts.png`/`qa_out/shop_kbshortcuts.png`로
+  "[1]/[2]/[3]" 접두어가 겹침 없이 보이는지, (2) 실제 `InputEventKey`를 만들어
+  `_unhandled_input()`에 직접 넣는 QA 훅(`_debug_press_shortcut_customize`/
+  `_debug_press_shortcut_1`/`_debug_press_shortcut_2`/`_debug_press_shortcut_7`/
+  `_debug_press_shortcut_leave`)으로 "키 입력 -> 버튼 클릭과 동일한 결과"까지
+  실제로 이어지는지 `qa_out/dungeon_map_kb_key3.png`(3번 키로 커스터마이징
+  패널이 실제로 열림)/`qa_out/story_event_kb_key1.png`(1번 키로 A안이 실제로
+  선택되어 결과 화면으로 전환)/`qa_out/event_kb_key4.png`(카드 구성에 따라
+  매번 달라지는 커스터마이징 버튼 인덱스를 동적으로 계산해 키를 주입 — 실제로
+  CustomizePanel이 열림)/`qa_out/character_select_kb_key2.png`(2번 키로 두
+  번째 카드 "광전사"가 실제로 선택됨)/`qa_out/character_select_kb_key7.png`
+  (7번 키로 업적 패널이 실제로 열림)/`qa_out/shop_kb_key9.png`(9번 키로
+  커스터마이징 패널이 실제로 열림)/`qa_out/shop_kb_key8.png`(8번 키로 "던전으로
+  돌아가기"가 실제로 눌려 dungeon_map 씬으로 전환됨)로 확인. **(105)에서 이
+  마지막 검증 중 실제 크래시 버그를 하나 발견해 5개 화면 모두 함께 수정** —
+  바로 아래 별도 항목("씬 전환 버튼 크래시 버그") 참고. **아직 적용 안 된
+  화면**: 전투(`combat_test.gd`, 덱 보기·커스터마이징 토글 + 다음 버튼 + 승리
+  보상의 동적 카드 버튼들)/업적 패널(`achievement_panel.gd`, "닫기" 버튼
+  하나뿐이라 단축키 실익이 적음) — 같은 `KeyboardShortcuts` 유틸을 그대로
+  재사용할 수 있는 구조라 다음 이터레이션들이 화면별로 이어서 적용하면 됨
+  (`docs/STATUS.md` 다음 할 일 큐 16번 "키보드 조작/단축키" 참고, 5/7화면).
+  "전체 조작을 키보드로도"라는 원 요청 전체를 아직 다 커버한 것은 아니라
+  완전히 처리된 것은 아님.
 
 - [부분 처리됨 - 2026-09-15] 2026-09-14 대신 해당 품목이 골드 부족인지, 이미 판매된
   품목인지는 해당 품목 상단에 보여주도록 한다.
@@ -188,6 +194,36 @@
 
 ## 처리됨
 
+- [처리됨 - 2026-09-15] (INBOX.md 요청이 아니라, 키보드 단축키 항목을 이어서 상점
+  화면에 적용하다가 QA로 직접 재현·발견한 크래시 버그) 키보드 단축키가 씬을 바꾸는
+  버튼(방 입장/상점 나가기/스토리 이벤트 "계속"/특수 이벤트 아이템 획득/던전
+  시작)에 배정됐을 때, 숫자 키를 눌러 그 버튼을 누르면 `_unhandled_input()`의
+  `KeyboardShortcuts.try_press(...)` 호출이 버튼의 `pressed` 콜백을 동기 실행해
+  `change_scene_to_file()`이 그 자리에서 씬을 바꾸고, 그 직후 같은 함수의
+  `get_viewport()`가 이미 트리에서 빠져나간 노드에서 호출되어 null을 반환 →
+  `null.set_input_as_handled()` 호출로 스크립트 크래시가 나는 버그.
+  → shop.gd에 신규 QA 훅 `_debug_press_shortcut_leave()`(8번 키로 "던전으로
+  돌아가기" 버튼을 실제로 눌러보는 검증)를 추가해 실행하다가 실제로 재현·발견함
+  (`SCRIPT ERROR: Cannot call method 'set_input_as_handled' on a null value.`).
+  원인은 "버튼을 누르기 *전에* 뷰포트를 미리 받아두지 않고, 누른 *뒤에* 새로
+  `get_viewport()`를 호출한 것" — 고치는 방법은 `get_viewport()` 호출을
+  `try_press()` 앞으로 옮겨 노드가 아직 트리 안에 있을 때 참조를 받아두고,
+  버튼을 누른 뒤에는 그 미리 받아둔 참조로 `set_input_as_handled()`를 부르는
+  것(Viewport 객체 자체는 씬 전환과 무관하게 계속 살아있으므로 미리 받아둔
+  참조는 씬이 바뀐 뒤에도 유효함). 이 패턴이 `_unhandled_input()`을 쓰는 5개
+  화면(dungeon_map/shop/event/story_event/character_select) 전부에 동일하게
+  복사돼 있었으므로(이전 이터레이션 102~104에서 커스터마이징/업적 패널처럼
+  "씬을 안 바꾸는" 버튼만 실제 키 입력으로 검증했고, 씬을 바꾸는 버튼은
+  이번이 처음으로 실제 키 입력 경로로 검증된 것), 5개 파일 모두 같은 방식으로
+  수정했다. 던전 맵에도 신규 QA 훅 `_debug_press_shortcut_2()`(2번째 방으로
+  강제 이동 후 2번 키로 상점 입장을 눌러보는 검증)를 추가해 방 입장 버튼
+  경로에서도 크래시가 재현되지 않음을 `qa_out/dungeon_map_kb_key2.png`(정상적으로
+  상점 화면으로 전환됨)로 확인. `dice_test.gd` 회귀 스위트 전체 PASS(순수 입력
+  처리 순서 변경이라 로직 영향 없음). **이 버그는 실제 플레이에서도 재현
+  가능했을 것으로 추정** — QA 훅이 아니라 사람이 직접 숫자 키로 상점을 나가거나
+  방에 입장했다면 언제든 이 크래시를 겪었을 것(이전 이터레이션들은 씬 전환
+  버튼을 실제 키 입력으로 검증한 적이 없어 발견되지 않았음). docs/STATUS.md
+  완료 기록(105) 참고.
 - [처리됨 - 2026-09-15] 2026-09-14 캐릭터 정보 및 보유 스킬을 상시 볼 수 있도록 한다.
   → 새 버튼/패널을 따로 만들지 않고, 이미 "전투 제외 화면(던전맵/상점/특수 이벤트/
   스토리 이벤트)에서는 상시 표시, 전투 중에는 토글 한 번으로 열람"이라는 정확히
@@ -365,12 +401,5 @@
   항상 같은 결과"만 확인하는 구조라 고정 노출로 바뀌어도 그대로 통과). 상점 위치를
   2/4번째로 고정한 것이 실제로 밸런스상 적당한지(너무 이르거나 늦은 건 아닌지)는
   여전히 사람 플레이 피드백 영역. docs/STATUS.md 완료 기록(93) 참고.
-- [처리됨 - 2026-09-15] 2026-09-14 던전 맵에서 각 보상 아이콘이 무엇을 의미하는지
-  아이콘 텍스트 또는 범례가 필요할 것 같다.
-  → `dungeon_map.gd`에 `_setup_reward_legend()`를 추가해, 골드 라벨 오른쪽 빈 공간에
-  RewardIcon(골드/눈금/다이스 3종) + 텍스트 라벨을 한 줄로 고정 표시하는 범례를 붙였다.
-  방마다 바뀌는 게 아니라 "아이콘 자체의 뜻"이라 `_ready()`에서 한 번만 만들고 이후
-  갱신 불필요. `qa_out/dungeon_map.png`로 골드 라벨/MapStrip과 겹치지 않고 표시됨을
-  확인. docs/STATUS.md 완료 기록(92) 참고.
 *(이보다 오래된 "처리됨" 항목은 `docs/INBOX_ARCHIVE.md`에 보관돼 있음 — 이 파일에는
 최근 12개만 유지해 매 이터레이션 읽기 비용을 줄임, 2026-09-15 정리.)*

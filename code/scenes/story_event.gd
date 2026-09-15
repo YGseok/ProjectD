@@ -49,8 +49,13 @@ func _unhandled_input(event: InputEvent) -> void:
 	var idx := KeyboardShortcuts.digit_index(event)
 	if idx < 0:
 		return
-	if KeyboardShortcuts.try_press(_shortcut_buttons, idx):
-		get_viewport().set_input_as_handled()
+	# get_viewport()는 try_press() 이전에 미리 받아둬야 한다 — "계속" 버튼처럼 눌렸을 때
+	# change_scene_to_file()로 씬을 바꾸는 버튼이면, 이 노드가 try_press() 도중 트리에서
+	# 빠져나가 그 뒤의 get_viewport()가 null을 반환해 set_input_as_handled() 호출이
+	# 크래시한다(shop.gd에서 실제로 겪고 발견해 5개 화면 공통으로 수정, 2026-09-15).
+	var viewport := get_viewport()
+	if KeyboardShortcuts.try_press(_shortcut_buttons, idx) and viewport != null:
+		viewport.set_input_as_handled()
 
 
 func _on_choice_pressed(choice: Dictionary) -> void:

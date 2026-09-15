@@ -525,8 +525,13 @@ func _unhandled_input(event: InputEvent) -> void:
 	var idx := KeyboardShortcuts.digit_index(event)
 	if idx < 0:
 		return
-	if KeyboardShortcuts.try_press(_shortcut_buttons, idx):
-		get_viewport().set_input_as_handled()
+	# get_viewport()는 try_press() 이전에 미리 받아둬야 한다 — 방 입장 버튼처럼 눌렸을 때
+	# change_scene_to_file()로 씬을 바꾸는 버튼이면, 이 노드가 try_press() 도중 트리에서
+	# 빠져나가 그 뒤의 get_viewport()가 null을 반환해 set_input_as_handled() 호출이
+	# 크래시한다(shop.gd에서 실제로 겪고 발견해 5개 화면 공통으로 수정, 2026-09-15).
+	var viewport := get_viewport()
+	if KeyboardShortcuts.try_press(_shortcut_buttons, idx) and viewport != null:
+		viewport.set_input_as_handled()
 
 
 func _on_combat_button_pressed() -> void:
@@ -673,6 +678,20 @@ func _debug_move_deck_panel_left_berserker() -> void:
 	RunState.character_id = "berserker"
 	deck_panel.offset_left = 20.0
 	deck_panel.offset_right = 280.0
+
+
+## QA 전용 — "2번" 단축키(상점 입장, 방 2/4일 때 고정 노출)로 실제 change_scene_to_file()이
+## 일어나는 버튼을 숫자 키로 눌렀을 때 get_viewport()가 null이 되어 크래시하지 않는지
+## 확인하기 위함(shop.gd의 "나가기" 버튼에서 실제로 겪은 버그와 같은 경로 — 이 화면의
+## 방 입장 버튼도 동일하게 씬을 바꾸므로 같은 위험이 있었음, 2026-09-15 수정).
+func _debug_press_shortcut_2() -> void:
+	RunState.rooms_cleared = 1  # 2번째 방으로 이동 — SHOP_FIXED_ROOM_INDICES=[1,3]이라 상점 확정 노출
+	_roll_room_choices()
+	_update_labels()
+	var key := InputEventKey.new()
+	key.pressed = true
+	key.keycode = KEY_2
+	_unhandled_input(key)
 
 
 ## QA 전용 — 실제 숫자 키 입력이 _unhandled_input()을 거쳐 버튼까지 눌리는 전체 경로를
