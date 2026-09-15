@@ -8,6 +8,38 @@
 
 ---
 
+- **2026-09-15 (102)**: 큐 16(INBOX.md 2026-09-14 대량 피드백, "키보드 조작/단축키")
+  중 "키보드로도 조작이 되도록 키매핑 및 단축키를 추가한다" + "단축키가 필요한
+  버튼이면 어떤 단축키인지 버튼에도 표시한다"의 첫 조각을 처리. 신규
+  `code/scenes/keyboard_shortcuts.gd`(`KeyboardShortcuts`, 씬 상태 없는 순수
+  유틸리티, 다른 systems/*.gd 순수 유틸과 같은 패턴)로 "화면에 보이는 선택지
+  버튼 목록에 숫자 1~9 키를 순서대로 배정 + 버튼 텍스트 맨 앞에 '[n] ' 접두어로
+  표시"하는 공용 패턴을 만들고, 던전 맵(`dungeon_map.gd` — 전투/상점/특수 이벤트/
+  스토리 이벤트/커스터마이징 버튼)과 스토리 이벤트(`story_event.gd` — A안/B안/
+  계속/커스터마이징 버튼, 선택 전후로 버튼 구성이 바뀌면 재배정)에 적용했다.
+  `_unhandled_input()`이 숫자 키를 받으면 그 순서의 버튼의 `pressed` 시그널을
+  직접 발생시켜 실제 클릭과 동일한 경로를 타게 하고, 커스터마이징 패널이
+  열려있을 때는 뒤에 가려진 버튼이 함께 눌리지 않도록 무시한다. `apply_hints()`는
+  같은 버튼에 재호출돼도(화면이 다시 그려질 때마다 매번 부르는 게 이 프로젝트의
+  일반적인 패턴) 접두어가 누적되지 않도록 기존 "[n] "을 먼저 지우고 다시 붙인다
+  (구현 중 이 누적 버그를 직접 재현해 발견 — dungeon_map의 CustomizeButton처럼
+  텍스트가 다른 곳에서 리셋되지 않는 버튼에서 실제로 발생했음). `dice_test.gd`에
+  `_check_keyboard_shortcuts` 검증(접두어 배정/누적 방지, 숫자 키 눌림·뗌·비숫자
+  판별, 비활성/범위 밖 버튼 무시)을 추가해 회귀 스위트 전체 PASS. 화면 검증은
+  두 층위로 진행: (1) `qa_out/dungeon_map_kbshortcuts.png`/`qa_out/
+  story_event_kbshortcuts.png`로 "[1]/[2]/[3]" 접두어가 겹침 없이 보이는지, (2)
+  진짜 `InputEventKey`를 만들어 `_unhandled_input()`에 직접 주입하는 QA 훅
+  (`_debug_press_shortcut_customize`/`_debug_press_shortcut_1`)으로 "키 입력이
+  실제로 버튼 클릭과 같은 결과를 내는지"까지 `qa_out/dungeon_map_kb_key3.png`
+  (3번 키 → 커스터마이징 패널이 실제로 열림)/`qa_out/story_event_kb_key1.png`
+  (1번 키 → A안이 실제로 선택되어 결과 화면으로 전환)로 확인. **아직 적용 안 된
+  화면**: 상점(`shop.gd`, 카드당 버튼이 최대 2개씩 있어 카드 수가 늘면 숫자
+  단축키가 9개를 넘을 수 있어 배정 규칙을 더 고민해야 함)/특수 이벤트
+  (`event.gd`)/전투(`combat_test.gd`)/캐릭터 선택(`character_select.gd`)/업적
+  패널(`achievement_panel.gd`) — 같은 `KeyboardShortcuts` 유틸을 그대로 재사용할
+  수 있는 구조라 다음 이터레이션들이 화면별로 이어서 적용하면 됨. INBOX.md 해당
+  두 항목을 "부분 처리됨"으로 이동(완전히 처리된 것은 아님).
+
 - **2026-09-15 (101)**: INBOX.md "남은 이슈"에서 "캐릭터 정보 및 보유 스킬을
   상시 볼 수 있도록 한다"(2026-09-14) 처리. 새 버튼/오버레이를 만들지 않고
   기존 `DeckPanel`(`code/scenes/deck_panel.gd`)을 재사용 — 이 패널은 이미

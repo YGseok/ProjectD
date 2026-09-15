@@ -149,6 +149,10 @@ func _ready() -> void:
 	all_pass = _check_character_profiles(lines) and all_pass
 
 	lines.append("")
+	lines.append("[캐릭터 스킬 아이콘 검증: character_profiles.gd PROFILES.gimmick / skill_icon.gd SkillIcon]")
+	all_pass = _check_skill_icons(lines) and all_pass
+
+	lines.append("")
 	lines.append("[라운드 진행 검증: run_state.gd RunState.round_index / advance_round / is_last_round]")
 	all_pass = _check_round_progress(lines) and all_pass
 
@@ -1642,6 +1646,22 @@ func _check_achievement_icons(lines: PackedStringArray) -> bool:
 	var fallback_ok: bool = AchievementManager.get_all_for_display()[0].icon != ""
 	ok = fallback_ok and ok
 	lines.append("  get_all_for_display() icon 필드 채워짐 -> %s" % ("OK" if fallback_ok else "FAIL"))
+
+	return ok
+
+
+## INBOX.md 2026-09-14 "캐릭터 스킬에 아이콘을 추가한다"로 추가한 skill_icon.gd
+## (SkillIcon)가 character_profiles.gd PROFILES의 모든 gimmick 값을 실제로 그릴 수
+## 있는지 검증한다 — _check_achievement_icons와 같은 패턴(오타/리네임으로 둘이
+## 어긋나면 화면에서 빈 아이콘으로만 조용히 실패하므로 사전에 문자열 일치를 잡음).
+func _check_skill_icons(lines: PackedStringArray) -> bool:
+	var ok := true
+
+	for profile in CharacterProfiles.PROFILES:
+		var gimmick: String = profile.get("gimmick", "")
+		var icon_ok := SkillIcon.CATEGORIES.has(gimmick)
+		ok = icon_ok and ok
+		lines.append("  \"%s\" gimmick=%s -> %s" % [profile["id"], gimmick, "OK" if icon_ok else "FAIL"])
 
 	return ok
 

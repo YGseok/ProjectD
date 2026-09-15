@@ -7,6 +7,21 @@
 
 ---
 
+- [처리됨 - 2026-09-15] 2026-09-14 업적에 유형별 아이콘을 추가한다. 예를 들어
+  골드 보유 업적이면 금화가 쌓인 아이콘. 다이스 관련이면 다이스 모양 아이콘.
+  → 신규 `code/scenes/achievement_icon.gd`(`AchievementIcon`)가 category 9종
+  (start/milestone/dice/gold/combat/pip/bag/shop/material)을 `reward_icon.gd`와
+  같은 절차적 `_draw()` 패턴으로 그린다. `code/systems/achievement_manager.gd`의
+  `DEFINITIONS` 12종 각각에 유형에 맞는 "icon" 필드를 배정(골드 관련 업적=gold,
+  다이스 관련 업적=dice 등)하고, `achievement_panel.gd`의 `_make_row()`가 제목
+  왼쪽에 36x36 아이콘을 붙인다(잠긴 업적은 아이콘도 반투명하게 흐림).
+  `dice_test.gd`에 신규 검증 `_check_achievement_icons` 추가해 회귀 스위트
+  전체 PASS. `qa_out/achievement_panel_icons.png`/`qa_out/
+  achievement_panel_icons_bottom.png`(스크롤 상/하단)로 9종 아이콘 전부
+  겹침 없이 표시됨을 확인. 같은 "아이콘 추가 2건" 중 캐릭터 스킬 아이콘은
+  여전히 미착수(스킬 콘텐츠가 텍스트뿐이라 아이콘을 붙일 대상부터 설계
+  필요) — "남은 이슈"에 별도 줄로 남아있음. docs/STATUS.md 완료 기록(97) 참고.
+
 - [처리됨 - 2026-09-15] 2026-09-14 보상 팝업의 밸류에 따라 보상 등급을 나눈다.
   보상 등급은 잠정적으로 S A B C. 4단계로 구분하여 이름붙인다. / 보상 카드에
   보상 등급을 표시하고, 보상 등급에 따라 녹색<파란색<보라색<노란색 색상을

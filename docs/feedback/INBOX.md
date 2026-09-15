@@ -28,7 +28,6 @@
 (플레이해보고 느낀 점을 이 섹션에 자유롭게 적어주세요.)
 - 2026-09-01 몬스터별 성격 디자인은 추후 기획한다. 할 일 거리에도 저장할 것.
   (여전히 미착수 — 사람의 추가 기획 필요, `docs/STATUS.md` 다음 할 일 큐에 남아있음)
-- 2026-09-14 캐릭터 스킬에 아이콘을 추가한다. 
 - 2026-09-14 특수 이벤트에서 얻어지는 보상이 너무 단순하다. 전투 보상과 별반 다를바 없거나, 리스크 없이 너무 큰 리턴만 있는 것 같다.
 - 2026-09-14 특수 이벤트에 임의의 스토리를 부여하고, 보상과 연결짓는다. 가령, 트랩에 손을 뻗어 20면체 주사위를 집는 상황을 제시하고, 리스크와 리턴을 선택하도록 한다.
 - 2026-09-14 특수 이벤트는 던전앤드래곤의 난이도 체크처럼 주사위를 던져, 성공률을 따지도록 한다.
@@ -143,6 +142,30 @@
   AI는 실제 일러스트를 그릴 수 없음).
 
 ## 처리됨
+
+- [처리됨 - 2026-09-15] 2026-09-14 캐릭터 스킬에 아이콘을 추가한다.
+  → 신규 `code/scenes/skill_icon.gd`(`SkillIcon`)가 `achievement_icon.gd`/
+  `reward_icon.gd`와 같은 절차적 `_draw()` 패턴으로 캐릭터의 "보유 스킬"
+  (`character_profiles.gd`의 gimmick 필드 — 지금 유일한 캐릭터별 능력)을
+  유형별 도형으로 그린다: 없음=빈 원, 극단(min_max_only)=빨간 다이아몬드,
+  고정 방어(fixed_defense_die)=파란 방패, 폭발 스택(explosive_stack)=주황
+  별, 수호 스택(guard_stack)=회색 겹방패. category는 gimmick 문자열을 그대로
+  받아 재매핑 테이블 없이 1:1 대응시켰다. `character_select.gd`의 상세
+  패널("보유 스킬" 줄 왼쪽)과 `deck_panel.gd`의 캐릭터 정보 섹션("캐릭터:
+  이름" 줄 왼쪽) 둘 다에 붙여, 이전에 업적 아이콘(97)에서 "붙일 대상부터
+  설계 필요"로 미뤄뒀던 지점을 기존 UI 두 곳(추가 화면 없이) 재사용으로
+  해결했다. `dice_test.gd`에 신규 `_check_skill_icons`(PROFILES의 모든
+  gimmick 값이 `SkillIcon.CATEGORIES`에 실제로 존재하는지 대조, "업적 아이콘
+  검증"과 같은 패턴)를 추가해 회귀 스위트 전체 PASS.
+  `qa_out/character_select_skill_icon.png`(견습 모험가, 빈 원)/
+  `qa_out/character_select_skill_icon_berserker.png`(광전사, 빨간 다이아몬드)/
+  `_guardian.png`(파란 방패)/`_explosive.png`(주황 별)/`_shieldbearer.png`
+  (회색 겹방패)로 5종 전부 겹침 없이 다르게 표시됨을 확인, `qa_out/
+  dungeon_map_skill_icon.png`(광전사, DeckPanel 캐릭터 정보 섹션)로 두 번째
+  사용처도 확인. 텍스트 설명이 유일한 "스킬"이라 아이콘도 그 다섯 가지
+  기믹 계열만 표현 — 이벤트로 얻는 별도 "고유 스킬"이 생기면 새 category를
+  추가해야 함(다음 할 일 큐 "캐릭터 스킬 이벤트 신설"과 연결). docs/STATUS.md
+  완료 기록(112) 참고.
 
 - [처리됨 - 2026-09-15] 2026-09-14 커스터마이징을 어떻게 하는지 모르겠다. ux가
   헷갈림. 정리하자면, 인벤토리 및 덱 구성이 우선적으로 보여야 한다. 내 덱에
@@ -364,19 +387,5 @@
   시작 → 덱 패널에 공격 4줄/방어 2줄)로 확인. 배분 수치가 실제로 캐릭터
   개성 체감에 도움이 되는지/밸런스가 한쪽으로 쏠리진 않았는지는 사람 플레이
   피드백 필요. docs/STATUS.md 완료 기록(98) 참고.
-- [처리됨 - 2026-09-15] 2026-09-14 업적에 유형별 아이콘을 추가한다. 예를 들어
-  골드 보유 업적이면 금화가 쌓인 아이콘. 다이스 관련이면 다이스 모양 아이콘.
-  → 신규 `code/scenes/achievement_icon.gd`(`AchievementIcon`)가 category 9종
-  (start/milestone/dice/gold/combat/pip/bag/shop/material)을 `reward_icon.gd`와
-  같은 절차적 `_draw()` 패턴으로 그린다. `code/systems/achievement_manager.gd`의
-  `DEFINITIONS` 12종 각각에 유형에 맞는 "icon" 필드를 배정(골드 관련 업적=gold,
-  다이스 관련 업적=dice 등)하고, `achievement_panel.gd`의 `_make_row()`가 제목
-  왼쪽에 36x36 아이콘을 붙인다(잠긴 업적은 아이콘도 반투명하게 흐림).
-  `dice_test.gd`에 신규 검증 `_check_achievement_icons` 추가해 회귀 스위트
-  전체 PASS. `qa_out/achievement_panel_icons.png`/`qa_out/
-  achievement_panel_icons_bottom.png`(스크롤 상/하단)로 9종 아이콘 전부
-  겹침 없이 표시됨을 확인. 같은 "아이콘 추가 2건" 중 캐릭터 스킬 아이콘은
-  여전히 미착수(스킬 콘텐츠가 텍스트뿐이라 아이콘을 붙일 대상부터 설계
-  필요) — "남은 이슈"에 별도 줄로 남아있음. docs/STATUS.md 완료 기록(97) 참고.
 *(이보다 오래된 "처리됨" 항목은 `docs/INBOX_ARCHIVE.md`에 보관돼 있음 — 이 파일에는
 최근 12개만 유지해 매 이터레이션 읽기 비용을 줄임, 2026-09-15 정리.)*

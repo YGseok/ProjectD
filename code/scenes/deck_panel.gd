@@ -90,14 +90,25 @@ func _rebuild() -> void:
 ## 캐릭터 이름 + 설명(기믹 포함)을 덱 정보 위에 보여준다. character_profiles.gd의
 ## desc 필드는 캐릭터 선택 화면에서 쓰는 것과 동일한 텍스트를 그대로 재사용 — 별도
 ## "요약본"을 새로 만들지 않아 두 화면의 설명이 어긋날 일이 없다.
+## 스킬(기믹) 유형 아이콘(SkillIcon, 2026-09-15 신규)을 이름 왼쪽에 붙여, 이 패널만
+## 봐도 캐릭터 선택 화면의 상세 패널과 같은 시각적 언어로 어떤 계열의 기믹인지
+## 짐작 가능하게 한다(INBOX.md 2026-09-14 "캐릭터 스킬에 아이콘을 추가한다").
 func _add_character_section() -> void:
 	var profile := CharacterProfiles.get_profile(RunState.character_id)
+
+	var title_row := HBoxContainer.new()
+	title_row.add_theme_constant_override("separation", 6)
+	var skill_icon := SkillIcon.new()
+	skill_icon.custom_minimum_size = Vector2(18, 18)
+	skill_icon.category = String(profile.get("gimmick", ""))
+	title_row.add_child(skill_icon)
 
 	var title := Label.new()
 	title.text = "캐릭터: %s" % profile.get("name", "")
 	title.add_theme_font_size_override("font_size", 15)
 	title.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9))
-	_vbox.add_child(title)
+	title_row.add_child(title)
+	_vbox.add_child(title_row)
 
 	var desc := Label.new()
 	desc.text = String(profile.get("desc", ""))
