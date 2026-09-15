@@ -8,6 +8,36 @@
 
 ---
 
+- **2026-09-15 (101)**: INBOX.md "남은 이슈"에서 "캐릭터 정보 및 보유 스킬을
+  상시 볼 수 있도록 한다"(2026-09-14) 처리. 새 버튼/오버레이를 만들지 않고
+  기존 `DeckPanel`(`code/scenes/deck_panel.gd`)을 재사용 — 이 패널은 이미
+  dungeon_map/shop/event/story_event 4개 화면에서 상시 표시, combat_test에서는
+  토글 버튼으로 언제든 열람 가능한 상태라 요청된 동작("전투 제외 아무 때나
+  접근")과 정확히 일치했다. `_add_character_section()`을 신설해 덱 정보 위에
+  "캐릭터: <이름>" 제목 + `CharacterProfiles.get_profile(RunState.character_id)`
+  의 `desc`(캐릭터 선택 화면과 동일 텍스트, 기믹 설명 포함) 문단을 추가하고,
+  `_signature()`에 `character_id`를 포함시켜 캐릭터가 바뀌면 패널도 다시
+  그려지게 했다. "보유 스킬"은 지금 `character_profiles.gd`의 기믹 설명 텍스트가
+  캐릭터별 유일한 능력이라 그걸 그대로 보여줌 — 이벤트로 얻는 별도의 "고유 스킬"
+  시스템 자체는 여전히 없음(DESIGN.md에 이미 명시돼 있어 새로 꾸며 적지 않음,
+  "다음 할 일 큐"의 "캐릭터 스킬 이벤트 신설"과 연결). 기존 패널 위치/크기를
+  그대로 써서 5개 화면 전부에 자동으로 반영되므로 레이아웃 충돌 위험이 없다.
+  **QA 시 발견**: 이 세션 환경의 스크린샷 캡처 폭이 1280px 대신 1028px로
+  잘리는 기존 알려진 문제 때문에, 화면 오른쪽 끝(x=980~1240)에 있는 DeckPanel이
+  그냥 찍으면 항상 잘려 나와 새 섹션이 겹침 없이 들어가는지 육안으로 확인할 수
+  없었다 — `dungeon_map.gd`/`combat_test.gd`에 각각 `_debug_move_deck_panel_left()`
+  QA 전용 훅(패널을 화면 왼쪽 x=20~280으로 옮기기만 함, 게임 로직 무관)을 추가해
+  우회. `qa_out/dungeon_map_char_info_left.png`(견습 모험가, 2줄 설명)/
+  `qa_out/dungeon_map_char_info_berserker.png`(광전사 — 5종 중 설명이 가장 긴
+  케이스, 5줄로 줄바꿈돼도 패널 안에 다이스 섹션과 겹침 없이 다 들어감 확인)/
+  `qa_out/combat_test_charinfo_left.png`(전투 화면 토글 패널에서도 정상 렌더링)
+  로 확인. `scripts/qa_shot.sh dice_test`로 회귀 스위트 전체 PASS(순수 UI
+  추가라 로직 영향 없음). INBOX.md 해당 항목 "처리됨"으로 이동, 처리됨이 13개가
+  되어 가장 오래된 1개(2026-09-15 "상점 입장 버튼 하단 보유 골드 표시")를
+  `docs/INBOX_ARCHIVE.md`로 이관. STATUS.md 완료 기록도 이 항목 추가로 11개가
+  되어, 가장 오래된 (91)(커스터마이징 팝업 겹침 버그 수정)을
+  `docs/STATUS_ARCHIVE.md`로 이관.
+
 - **2026-09-15 (99)**: 이번 이터레이션 시작 시 큐를 다시 훑었으나, 남은 독립
   항목(키보드 단축키, 캐릭터 선택 UX 개편, 커스터마이징 UX 전면 개편, 특수
   이벤트 개편)은 전부 여러 화면을 동시에 고쳐야 하는 큰 작업이거나 사람 설계

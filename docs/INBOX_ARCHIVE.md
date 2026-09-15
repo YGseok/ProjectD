@@ -7,6 +7,24 @@
 
 ---
 
+- [처리됨 - 2026-09-15] 2026-09-14 보상 팝업의 밸류에 따라 보상 등급을 나눈다.
+  보상 등급은 잠정적으로 S A B C. 4단계로 구분하여 이름붙인다. / 보상 카드에
+  보상 등급을 표시하고, 보상 등급에 따라 녹색<파란색<보라색<노란색 색상을
+  테두리 및 타이틀 텍스트에 적용한다.
+  → `code/systems/dice_item_pool.gd`(4종)/`code/systems/event_item_pool.gd`
+  (5종)의 아이템 딕셔너리에 "grade"(S/A/B/C) 필드를 추가(면 개수/효과 범위
+  기준 잠정 배정 — 다이스 추가 D4=C/약한 면 강화=C/눈금 획득=C, 다이스 승급
+  D6=B/모든 면 통일=B/D8 추가=B, D12 추가=A/D10 승급=A, D20 추가=S).
+  `code/scenes/item_card_style.gd`에 `GRADE_COLORS`(C=초록/B=파랑/A=보라/
+  S=노랑)와 `grade_color()`를 추가하고, `build_card()`가 카드 테두리·타이틀
+  색을 등급색으로 칠하고 타이틀 옆에 등급 배지를 붙이도록 수정. 골드 부족
+  카드도 배지만은 원래 등급색을 유지. `dice_test.gd`에 신규 검증
+  `_check_item_grades` 추가해 회귀 스위트 전체 PASS. `qa_out/shop_grades.png`/
+  `qa_out/event_grades.png`/`qa_out/combat_reward_grades.png`로 3개 화면 확인.
+  이 항목의 "이미지를 키우고 이미지 위주로 설명" 부분은 별도 줄로 여전히
+  "남은 이슈"에 남아있음(카드 레이아웃을 다시 짜야 하는 더 큰 작업이라 분리
+  처리). docs/STATUS.md 완료 기록(96) 참고.
+
 - [처리됨 - 2026-09-15] 2026-09-14 전투 시, 몬스터 hp바 하단에 해당 몬스터에 대한
   스킬/전투 정보를 알려준다. 이는 개발용으로 추후 제거되거나 정보를 간소화시킬 수 있다.
   → `combat_test.gd`에 순수 함수 `_monster_debug_info_text(config)`를 추가해, 몬스터

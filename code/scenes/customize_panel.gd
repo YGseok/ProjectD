@@ -26,6 +26,18 @@ extends Control
 ##
 ## 별도 .tscn 없이 스크립트 하나로 완결된 Control이다 (deck_panel.gd/shape_die_chip.gd와
 ## 같은 패턴) — 아무 씬에나 Control 노드 하나 만들고 이 스크립트만 붙이면 동작한다.
+##
+## INBOX.md 피드백(2026-09-14) "커스터마이징을 어떻게 하는지 모르겠다. ux가 헷갈림.
+## 인벤토리 및 덱 구성이 우선적으로 보여야 한다. 내 덱에 세팅된 주사위, 내가 보유한
+## 여분 주사위, 내가 보유한 주사위 눈금이 있어야 한다"를 반영해, open()이 여는 첫
+## 화면(_show_pip_picker, 이제 사실상 "허브" 화면)에 눈금 선택지 목록만 있던 것에서
+## 위 세 가지(공격/방어 주머니에 세팅된 다이스와 그 면 구성 — 읽기 전용, 여분 다이스
+## 인벤토리, 보유 눈금)를 전부 한 화면에 같이 보여주도록 확장했다. 여분 다이스 칩을
+## 누르면 기존 "다이스 인벤토리" 중간 화면(_show_die_inventory_picker, 여전히 QA
+## 훅에서 직접 호출 가능하도록 남겨뒀지만 기본 흐름에서는 더 이상 거치지 않음)을 거치지
+## 않고 바로 자리 선택(_show_die_target_picker)으로 들어간다 — 이미 허브에서 어떤
+## 다이스를 갖고 있는지 보이므로 중복 목록 화면이 불필요해짐. 눈금 -> 다이스 -> 면
+## 3단계 교환 로직 자체(아래 원래 주석)는 그대로 유지.
 
 ## 패널이 닫힐 때 발생한다. combat_test.gd처럼 "패널을 닫으면 원래 화면 흐름으로
 ## 돌아가야 하는" 문맥에서 이 시그널로 복귀 시점을 알 수 있다.
@@ -119,60 +131,101 @@ func _add_frame(title_text: String, height: float = 420.0, subtitle_text: String
 		_ui.append(subtitle)
 
 
-## 1단계: 인벤토리에 쌓인 눈금 중 하나를 고른다. 비어있으면 눈금을 얻는 방법을
-## 안내하고 닫기만 가능하게 한다.
+## 허브 화면: 공격/방어 주머니에 세팅된 다이스(읽기 전용), 여분 다이스 인벤토리,
+## 보유 눈금을 한 화면에 같이 보여준다(위 클래스 주석의 2026-09-14 반영 참고). 여분
+## 다이스/눈금 칩을 누르면 각각의 적용 흐름(자리 선택 / 다이스+면 선택)으로 들어간다.
+##
+## 내용물(pending)을 먼저 전부 만들어 배열에 모아두기만 하고, 그 높이를 계산해
+## _add_frame()을 먼저 부른 "다음"에 add_child()한다 — 이 파일의 다른 화면들
+## (_show_die_picker 등)은 항상 "프레임 먼저, 내용은 그 뒤"순으로 add_child해서
+## 내용이 프레임(반투명 검정 배경) 위에 정상적으로 그려지는데, 이 함수만 원래
+## "내용 먼저, 프레임 나중"순이었다 — 내용이 나중에 그려지는 프레임보다 트리 순서상
+## 앞에 있으면 그 밑에 깔려 안 보인다(프레임 알파가 0.9라 완전히 안 보이진 않고
+## 살짝 비쳐 보여서 여태 발견되지 않았을 뿐, 이번에 배경을 불투명 빨강으로 바꿔
+## 테스트해서 실제로 확인함). pending 패턴으로 다른 화면들과 같은 순서를 보장한다.
 func _show_pip_picker() -> void:
 	_clear_ui()
+	var pending: Array[Node] = []
 
-	var chip_size := 70.0
-	var gap := 14.0
-	var y := 236.0
-	var x := 200.0
+	var y := 226.0
+	y = _add_deck_overview(y, pending)
+	y += 14.0
+
+	var inv_label := Label.new()
+	inv_label.text = "여분 다이스 (%d개)" % RunState.die_inventory.size()
+	inv_label.position = Vector2(200, y)
+	inv_label.size = Vector2(400, 22)
+	pending.append(inv_label)
+	y += 26.0
+
+	if RunState.die_inventory.is_empty():
+		var die_hint := Label.new()
+		die_hint.autowrap_mode = TextServer.AUTOWRAP_WORD
+		die_hint.text = "다이스는 상점/특수 이벤트/전투 승리 보상의 \"다이스 승급\" 아이템을 얻으면 여기 쌓입니다."
+		die_hint.position = Vector2(200, y)
+		die_hint.size = Vector2(880, 30)
+		die_hint.add_theme_color_override("font_color", Color(0.7, 0.7, 0.68))
+		pending.append(die_hint)
+		y += 40.0
+	else:
+		var dx := 200.0
+		for i in RunState.die_inventory.size():
+			var sides: int = RunState.die_inventory[i]
+			var dbtn := Button.new()
+			dbtn.text = "D%d" % sides
+			dbtn.position = Vector2(dx, y)
+			FaceChipStyle.style_button(dbtn, 50.0, false, false)
+			dbtn.pressed.connect(_show_die_target_picker.bind(i))
+			pending.append(dbtn)
+
+			dx += 60.0
+			if dx > 1000.0:
+				dx = 200.0
+				y += 60.0
+		y += 60.0
+
+	var pip_label := Label.new()
+	pip_label.text = "보유 눈금 (%d개)" % RunState.pip_inventory.size()
+	pip_label.position = Vector2(200, y)
+	pip_label.size = Vector2(400, 22)
+	pending.append(pip_label)
+	y += 26.0
 
 	if RunState.pip_inventory.is_empty():
-		_add_frame(
-			"커스터마이징 (1/3) — 인벤토리에 눈금이 없습니다",
-			260.0,
-			"눈금은 전투에서 승리하면 얻습니다. 눈금을 얻고 나면 여기서 원하는 다이스의 면과 맞바꿔 개조할 수 있습니다."
-		)
-		var msg := Label.new()
-		msg.autowrap_mode = TextServer.AUTOWRAP_WORD
-		msg.text = "지금은 맞바꿀 수 있는 눈금이 없어 다음 단계로 진행할 수 없습니다."
-		msg.position = Vector2(200, y)
-		msg.size = Vector2(880, 40)
-		add_child(msg)
-		_ui.append(msg)
-		y += 60.0
+		var pip_hint := Label.new()
+		pip_hint.autowrap_mode = TextServer.AUTOWRAP_WORD
+		pip_hint.text = "눈금은 전투에서 승리하면 얻습니다. 얻고 나면 여기서 원하는 다이스의 면과 맞바꿔 개조할 수 있습니다."
+		pip_hint.position = Vector2(200, y)
+		pip_hint.size = Vector2(880, 30)
+		pip_hint.add_theme_color_override("font_color", Color(0.7, 0.7, 0.68))
+		pending.append(pip_hint)
+		y += 40.0
 	else:
+		var px := 200.0
 		for i in RunState.pip_inventory.size():
 			var value: int = RunState.pip_inventory[i]
-			var btn := Button.new()
-			btn.text = str(value)
-			btn.position = Vector2(x, y)
-			FaceChipStyle.style_button(btn, chip_size, false, false)
-			btn.pressed.connect(_show_die_picker.bind(i))
-			add_child(btn)
-			_ui.append(btn)
+			var pbtn := Button.new()
+			pbtn.text = str(value)
+			pbtn.position = Vector2(px, y)
+			FaceChipStyle.style_button(pbtn, 50.0, false, false)
+			pbtn.pressed.connect(_show_die_picker.bind(i))
+			pending.append(pbtn)
 
-			x += chip_size + gap
-			if x > 1000.0:
-				x = 200.0
-				y += chip_size + gap
-		y += chip_size + 24.0
-		_add_frame(
-			"커스터마이징 (1/3) — 사용할 눈금을 고르세요",
-			max(260.0, y - 120.0),
-			"보유 눈금 %d개 중 다이스 면과 맞바꿀 값을 하나 고르세요. 다음 단계에서 어느 다이스, 어느 면에 넣을지 정합니다." % RunState.pip_inventory.size()
-		)
+			px += 60.0
+			if px > 1000.0:
+				px = 200.0
+				y += 60.0
+		y += 60.0
 
-	var die_btn := Button.new()
-	die_btn.text = "다이스 인벤토리 (%d개)" % RunState.die_inventory.size()
-	die_btn.disabled = RunState.die_inventory.is_empty()
-	die_btn.position = Vector2(370, y)
-	die_btn.size = Vector2(280, 40)
-	die_btn.pressed.connect(_show_die_inventory_picker)
-	add_child(die_btn)
-	_ui.append(die_btn)
+	_add_frame(
+		"커스터마이징 — 내 덱 & 인벤토리",
+		max(300.0, y - 120.0 + 60.0),
+		"위는 지금 공격/방어 주머니에 세팅된 다이스입니다(금색 = 그 다이스의 최댓값). 아래 여분 다이스나 눈금 칩을 누르면 원하는 자리에 적용할 수 있습니다."
+	)
+
+	for node in pending:
+		add_child(node)
+		_ui.append(node)
 
 	var close_btn := Button.new()
 	close_btn.text = "닫기"
@@ -181,6 +234,62 @@ func _show_pip_picker() -> void:
 	close_btn.pressed.connect(close)
 	add_child(close_btn)
 	_ui.append(close_btn)
+
+
+## 공격/방어 주머니를 나란히 두 열로 보여준다(읽기 전용). 각 열은 다이스별로 한 줄씩
+## "라벨 + 면 칩 나열"을 그린다 — 눈금/다이스 인벤토리처럼 클릭해서 뭔가를 고르는
+## 곳이 아니라, "지금 내 덱에 뭐가 세팅돼 있는지"를 한눈에 보여주기 위한 용도라
+## 칩 크기를 작게(16px) 잡아 다이스가 몇 개든(최대 MAX_DICE=6) 세로 공간을 아낀다.
+## _show_pip_picker()의 pending 배열에 노드를 쌓기만 하고 add_child는 하지 않는다
+## (위 _show_pip_picker() 주석 참고 — 프레임보다 먼저 그려지면 밑에 깔림).
+func _add_deck_overview(y: float, pending: Array[Node]) -> float:
+	var header_a := Label.new()
+	header_a.text = "공격 주머니"
+	header_a.position = Vector2(200, y)
+	header_a.size = Vector2(400, 20)
+	pending.append(header_a)
+
+	var header_d := Label.new()
+	header_d.text = "방어 주머니"
+	header_d.position = Vector2(650, y)
+	header_d.size = Vector2(400, 20)
+	pending.append(header_d)
+
+	var row_y := y + 24.0
+	var bottom_a := _add_deck_column(RunState.player_attack_bag, "공격", Vector2(200, row_y), pending)
+	var bottom_d := _add_deck_column(RunState.player_defense_bag, "방어", Vector2(650, row_y), pending)
+	return max(bottom_a, bottom_d) + 10.0
+
+
+func _add_deck_column(bag: DiceBag, label_prefix: String, origin: Vector2, pending: Array[Node]) -> float:
+	var chip_size := 16.0
+	var gap := 3.0
+	var wrap_x := origin.x + 420.0
+	var y := origin.y
+
+	for i in bag.dice.size():
+		var faces: PackedInt32Array = bag.dice[i]
+		var label := Label.new()
+		label.text = "%s%d" % [label_prefix, i + 1]
+		label.position = Vector2(origin.x, y)
+		label.size = Vector2(46, chip_size)
+		label.add_theme_font_size_override("font_size", 12)
+		pending.append(label)
+
+		var chip_x := origin.x + 50.0
+		var max_value := faces.size()
+		for v in faces:
+			var chip := FaceChipStyle.make_chip(v, chip_size, false, v == max_value)
+			chip.position = Vector2(chip_x, y)
+			pending.append(chip)
+
+			chip_x += chip_size + gap
+			if chip_x > wrap_x:
+				chip_x = origin.x + 50.0
+				y += chip_size + gap
+		y += chip_size + 6.0
+
+	return y
 
 
 ## 다이스 인벤토리 흐름 1단계: RunState.die_inventory(다이스 승급 아이템 획득으로 쌓인
@@ -212,6 +321,7 @@ func _show_die_inventory_picker() -> void:
 		_ui.append(msg)
 		y += 60.0
 	else:
+		var pending: Array[Node] = []
 		for i in RunState.die_inventory.size():
 			var sides: int = RunState.die_inventory[i]
 			var btn := Button.new()
@@ -219,19 +329,23 @@ func _show_die_inventory_picker() -> void:
 			btn.position = Vector2(x, y)
 			FaceChipStyle.style_button(btn, chip_size, false, false)
 			btn.pressed.connect(_show_die_target_picker.bind(i))
-			add_child(btn)
-			_ui.append(btn)
+			pending.append(btn)
 
 			x += chip_size + gap
 			if x > 1000.0:
 				x = 200.0
 				y += chip_size + gap
 		y += chip_size + 24.0
+		# 프레임(반투명 배경)이 위 버튼들보다 먼저 그려져야 버튼이 그 위에 보인다
+		# (_show_pip_picker() 주석 참고 — 순서를 반대로 하면 버튼이 배경 밑에 깔림).
 		_add_frame(
 			"커스터마이징 — 사용할 다이스를 고르세요",
 			max(260.0, y - 120.0),
 			"보유 다이스 %d개 중 주머니에 넣을 것을 하나 고르세요. 다음 단계에서 어느 다이스와 맞바꿀지 정합니다." % RunState.die_inventory.size()
 		)
+		for node in pending:
+			add_child(node)
+			_ui.append(node)
 
 	var back_btn := Button.new()
 	back_btn.text = "뒤로"
@@ -277,7 +391,7 @@ func _show_die_target_picker(inv_index: int) -> void:
 	back_btn.text = "뒤로"
 	back_btn.position = Vector2(200, y + 10)
 	back_btn.size = Vector2(160, 40)
-	back_btn.pressed.connect(_show_die_inventory_picker)
+	back_btn.pressed.connect(_show_pip_picker)
 	add_child(back_btn)
 	_ui.append(back_btn)
 
