@@ -11,6 +11,14 @@ signal closed
 
 var _ui: Array[Node] = []
 
+## KeyboardShortcuts로 "닫기" 버튼에 "[1] " 단축키를 배정하는 데 쓴다(INBOX.md
+## 2026-09-14 "키보드로도 조작이 되도록" — docs/STATUS.md 큐 16 "키보드 조작/단축키"
+## 마지막 남은 화면, 지금은 버튼이 "닫기" 하나뿐이라 배열도 항상 1개짜리). 다른 5개
+## 화면과 같은 패턴을 재사용하되, 이 패널은 스스로 씬을 바꾸지 않으므로(close()는
+## visible=false만 함) 5개 화면에서 겪었던 "get_viewport()를 try_press() 이후에 부르면
+## 크래시" 문제와는 무관하다 — 그래도 일관성을 위해 미리 받아두는 순서를 그대로 따른다.
+var _shortcut_buttons: Array[Button] = []
+
 
 func _ready() -> void:
 	visible = false
@@ -88,6 +96,24 @@ func _rebuild() -> void:
 	close_button.pressed.connect(close)
 	add_child(close_button)
 	_ui.append(close_button)
+
+	_shortcut_buttons = [close_button]
+	KeyboardShortcuts.apply_hints(_shortcut_buttons)
+
+
+## 숫자 키(1)로 "닫기" 버튼을 누른다(다른 5개 화면과 같은 패턴 재사용). 패널이
+## 닫혀 있을 때는(visible=false) 뒤에 가려진 character_select 화면의 카드/버튼이
+## 함께 눌리지 않도록 무시한다 — character_select.gd도 이 패널이 열려 있을 때 자신의
+## 단축키를 무시하도록 이미 가드돼 있으므로 서로 겹치지 않는다.
+func _unhandled_input(event: InputEvent) -> void:
+	if not visible:
+		return
+	var idx := KeyboardShortcuts.digit_index(event)
+	if idx < 0:
+		return
+	var viewport := get_viewport()
+	if KeyboardShortcuts.try_press(_shortcut_buttons, idx) and viewport != null:
+		viewport.set_input_as_handled()
 
 
 func _make_row(entry: Dictionary) -> Control:

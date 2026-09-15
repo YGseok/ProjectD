@@ -294,3 +294,16 @@ func _debug_press_shortcut_7() -> void:
 	key.pressed = true
 	key.keycode = KEY_7
 	_unhandled_input(key)
+
+
+## QA 전용 — 업적 패널을 연 뒤, 패널 자신의 "[1] 닫기" 단축키(achievement_panel.gd의
+## _unhandled_input())가 실제 숫자 키 입력으로 패널을 닫는지 끝까지 확인한다(7/7화면
+## 완료 검증, docs/STATUS.md 큐 16 "키보드 조작/단축키"). 업적 패널이 character_select의
+## 자식 노드라 이 씬의 _unhandled_input()이 먼저 호출돼도 achievement_panel.visible
+## 가드로 인해 이 씬은 이벤트를 소비하지 않고 그대로 achievement_panel로 전달된다.
+func _debug_press_shortcut_close_achievements() -> void:
+	achievement_panel.open()
+	var key := InputEventKey.new()
+	key.pressed = true
+	key.keycode = KEY_1
+	achievement_panel._unhandled_input(key)
