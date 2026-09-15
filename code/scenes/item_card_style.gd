@@ -23,7 +23,11 @@ const CARD_BORDER := Color(0.55, 0.45, 0.25)
 const TITLE_COLOR := Color(0.95, 0.85, 0.55)
 const DESC_COLOR := Color(0.82, 0.82, 0.82)
 const EXTRA_COLOR := Color(1.0, 0.85, 0.35)
-const PREVIEW_CHIP_SIZE := 16.0
+## INBOX.md 2026-09-14 "보상 팝업/상점 입장 시 설명 텍스트가 너무 길어 잘 안읽힌다.
+## 이미지를 키우고 해당 이미지 위주로 설명해 직관성을 높인다" 반영 — 다이스 면 미리보기
+## 칩을 키워서(16->24) 이미지가 카드의 시각적 중심이 되게 하고, 아래 desc 관련 상수들로
+## 설명 텍스트는 보조 정보로 축소했다.
+const PREVIEW_CHIP_SIZE := 30.0
 # 구매 불가(골드 부족) 상태의 카드 색 — INBOX.md(2026-09-14) "골드 부족 버튼이 너무 많이
 # 나온다. 선택 불가능한 품목은 패널 색상을 다르게 하여 비활성 상태임을 알려주는 게 좋을
 # 듯" 반영. 버튼마다 "골드 부족" 텍스트를 반복하는 대신 카드 전체를 어둡게/채도 낮게
@@ -115,17 +119,22 @@ static func build_card(item: Dictionary, extra_label_text: String = "", unafford
 			extra_row.add_child(status)
 		vbox.add_child(extra_row)
 
-	var desc := Label.new()
-	desc.text = item["description"]
-	desc.add_theme_font_size_override("font_size", 13)
-	desc.add_theme_color_override("font_color", DESC_COLOR)
-	desc.autowrap_mode = TextServer.AUTOWRAP_WORD
-	desc.custom_minimum_size = Vector2(0, 40)
-	vbox.add_child(desc)
-
+	# 이미지(결과 다이스 미리보기)를 설명 텍스트보다 먼저 배치 — "이미지 위주로 보여주고
+	# 설명은 보조 정보로" (INBOX.md 2026-09-14). 결과가 확정적인 아이템(add_die/
+	# upgrade_die)만 이 미리보기가 있고, 나머지(boost_weak_face/uniform_faces)는 여기선
+	# null이라 desc가 카드에서 가장 먼저 보이는 요소로 남는다 — 이 둘은 화면(shop.gd 등)이
+	# 버튼 옆에 build_effect_preview()를 따로 붙인다.
 	var preview := _build_result_die_preview(item)
 	if preview:
 		vbox.add_child(preview)
+
+	var desc := Label.new()
+	desc.text = item["description"]
+	desc.add_theme_font_size_override("font_size", 11)
+	desc.add_theme_color_override("font_color", DESC_COLOR)
+	desc.autowrap_mode = TextServer.AUTOWRAP_WORD
+	desc.custom_minimum_size = Vector2(0, 22)
+	vbox.add_child(desc)
 
 	var spacer := Control.new()
 	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL

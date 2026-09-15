@@ -207,19 +207,32 @@ func _debug_open_customize() -> void:
 	customize_panel.open()
 
 
-## QA 전용: 새로 추가한 D20 아이템(EventItemPool 마지막 항목)을 강제로 목록 맨 앞에
-## 노출시킨다. 아이템은 무작위 2개만 뽑혀 보이므로, 화면에서 실제로 정상 표시되는지
-## 확인하려면 무작위 뽑기에 의존하지 않고 직접 강제할 방법이 필요해서 추가함.
+## QA 전용: D20 아이템을 강제로 목록 맨 앞에 노출시킨다. 아이템은 무작위 2개만 뽑혀
+## 보이므로, 화면에서 실제로 정상 표시되는지 확인하려면 무작위 뽑기에 의존하지 않고
+## 직접 강제할 방법이 필요해서 추가함.
+## kind+sides로 직접 찾는 이유: 예전에는 D20이 EventItemPool.ITEMS의 마지막 항목이라
+## "마지막 항목"으로 가정해 찾았는데, 이후 "눈금 주머니 획득"(gain_pips)이 더 뒤에
+## 추가되면서 그 가정이 깨져 이 훅이 실제로는 D20이 아니라 gain_pips를 보여주고 있었다
+## (2026-09-15 발견 — 카드 이미지/텍스트 레이아웃 개편 중 이 훅으로 D20의 20칸짜리
+## 미리보기가 카드 안에 안 겹치고 들어가는지 확인하려다가 실제로는 다른 아이템이
+## 뜨는 것을 보고 알아챔).
 func _debug_force_offer_d20() -> void:
-	_offered = [EventItemPool.ITEMS[EventItemPool.ITEMS.size() - 1], EventItemPool.ITEMS[0]]
+	_offered = [_find_item_by_sides(20), EventItemPool.ITEMS[0]]
 	_rebuild_items()
+
+
+func _find_item_by_sides(sides: int) -> Dictionary:
+	for it in EventItemPool.ITEMS:
+		if it.get("kind", "") == "add_die" and it.get("sides", -1) == sides:
+			return it
+	return EventItemPool.ITEMS[0]
 
 
 ## QA 전용: D20 아이템을 공격 주머니에 적용했을 때 실제로 sides=20 다이스가 하나
 ## 추가되는지 콘솔로 검증한다 (_debug_force_offer_d20과 짝 — 화면 표시 확인과
 ## 별개로 apply() 로직 자체를 확인).
 func _debug_verify_d20_pickup() -> void:
-	var item: Dictionary = EventItemPool.ITEMS[EventItemPool.ITEMS.size() - 1]
+	var item: Dictionary = _find_item_by_sides(20)
 	var bag := RunState.player_attack_bag
 	var before_count := bag.dice.size()
 	DiceItemPool.apply(item, bag)
