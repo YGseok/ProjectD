@@ -34,6 +34,14 @@ const ROW_MARGIN := 20.0
 var _selected_id: String = CharacterProfiles.PROFILES[0]["id"]
 var _card_panels: Dictionary = {} # id -> PanelContainer (선택 강조 갱신용)
 
+## KeyboardShortcuts로 1~N 숫자 키를 순서대로 배정하는 데 쓴다(INBOX.md 2026-09-14
+## "키보드로도 조작이 되도록" — 던전 맵/스토리 이벤트/특수 이벤트에 이어 이 화면에도
+## 같은 유틸을 재사용, docs/STATUS.md 큐 16 "키보드 조작/단축키" 참고). 캐릭터 카드마다
+## "선택" 버튼(개수는 PROFILES 길이만큼, 지금 5개)이 먼저 오고, 그 뒤로 "던전 시작"/
+## "업적" 두 화면 공용 버튼이 이어진다 — 카드 목록은 _build_cards()에서 한 번만 만들고
+## 이후 카드를 다시 그리지 않으므로(선택은 강조 갱신만 함), 여기서도 한 번만 채우면 된다.
+var _shortcut_buttons: Array[Button] = []
+
 
 func _ready() -> void:
 	start_button.pressed.connect(_on_start_pressed)
@@ -52,17 +60,23 @@ func _build_cards() -> void:
 	var total_width := count * card_width + (count - 1) * CARD_GAP
 	var start_x := (1280.0 - total_width) / 2.0
 
+	var select_buttons: Array[Button] = []
 	for i in count:
 		var profile: Dictionary = CharacterProfiles.PROFILES[i]
-		var card := _make_card(profile, card_width)
+		var card := _make_card(profile, card_width, select_buttons)
 		card.position = Vector2(start_x + i * (card_width + CARD_GAP), 0)
 		cards_container.add_child(card)
 		_card_panels[profile["id"]] = card
 
 	_refresh_selection_highlight()
 
+	_shortcut_buttons = select_buttons
+	_shortcut_buttons.append(start_button)
+	_shortcut_buttons.append(achievement_button)
+	KeyboardShortcuts.apply_hints(_shortcut_buttons)
 
-func _make_card(profile: Dictionary, card_width: float) -> PanelContainer:
+
+func _make_card(profile: Dictionary, card_width: float, select_buttons: Array[Button]) -> PanelContainer:
 	var panel := PanelContainer.new()
 	panel.custom_minimum_size = Vector2(card_width, CARD_HEIGHT)
 	panel.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -114,8 +128,22 @@ func _make_card(profile: Dictionary, card_width: float) -> PanelContainer:
 	select_button.text = "선택"
 	select_button.pressed.connect(_on_card_selected.bind(profile["id"]))
 	vbox.add_child(select_button)
+	select_buttons.append(select_button)
 
 	return panel
+
+
+## 숫자 키(1~9)로 캐릭터 카드 "선택" 버튼(+던전 시작/업적)을 순서대로 누른다
+## (dungeon_map.gd의 같은 패턴 재사용). 업적 패널이 열려있을 때는 뒤에 가려진 버튼이
+## 함께 눌리면 안 되므로 무시한다.
+func _unhandled_input(event: InputEvent) -> void:
+	if achievement_panel.visible:
+		return
+	var idx := KeyboardShortcuts.digit_index(event)
+	if idx < 0:
+		return
+	if KeyboardShortcuts.try_press(_shortcut_buttons, idx):
+		get_viewport().set_input_as_handled()
 
 
 func _on_card_selected(id: String) -> void:
@@ -241,3 +269,23 @@ func _debug_show_achievements_scrolled() -> void:
 	# 아직 갱신 전인 max_value(0에 가까움)로 클램프돼 무시된다 — call_deferred로 한 프레임
 	# 미뤄서 레이아웃이 끝난 뒤에 스크롤하도록 한다.
 	achievement_panel.call_deferred("_debug_scroll_to_bottom")
+
+
+## QA 전용 — 실제 숫자 키 입력이 _unhandled_input()을 거쳐 버튼까지 눌리는 전체 경로를
+## 확인하기 위함(dungeon_map.gd의 _debug_press_shortcut_customize와 같은 이유). "2번"은
+## PROFILES 순서상 두 번째 카드("광전사")의 "선택" 버튼에 배정되므로, 이 키를 눌렀을 때
+## 실제로 광전사 카드가 금테로 강조되는지로 검증한다.
+func _debug_press_shortcut_2() -> void:
+	var key := InputEventKey.new()
+	key.pressed = true
+	key.keycode = KEY_2
+	_unhandled_input(key)
+
+
+## QA 전용 — "7번"은 카드 5장 다음에 오는 "던전 시작"/"업적" 중 두 번째("업적")에
+## 배정되므로, 이 키를 눌렀을 때 AchievementPanel이 실제로 열리는지로 검증한다.
+func _debug_press_shortcut_7() -> void:
+	var key := InputEventKey.new()
+	key.pressed = true
+	key.keycode = KEY_7
+	_unhandled_input(key)
