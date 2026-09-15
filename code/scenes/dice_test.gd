@@ -149,6 +149,10 @@ func _ready() -> void:
 	all_pass = _check_round_progress(lines) and all_pass
 
 	lines.append("")
+	lines.append("[키보드 단축키 검증: keyboard_shortcuts.gd KeyboardShortcuts]")
+	all_pass = _check_keyboard_shortcuts(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -1837,4 +1841,74 @@ func _check_round_progress(lines: PackedStringArray) -> bool:
 	])
 
 	RunState.reset_run()
+	return ok
+
+
+## KeyboardShortcuts(신규, INBOX.md 2026-09-14 "키보드 단축키" 요청 첫 조각)의 세 가지
+## 순수 동작을 검증한다: (1) 버튼 텍스트에 "[n] " 접두어를 순서대로 붙이는지, (2) 같은
+## 버튼 목록에 다시 적용해도 접두어가 누적되지 않는지(화면이 재구성될 때마다 매번 다시
+## 부르는 dungeon_map.gd/story_event.gd 사용 패턴을 그대로 검증), (3) 숫자 키 입력을
+## 인덱스로 바르게 변환하고, 안 보이거나 비활성화된 버튼은 누르지 않는지.
+func _check_keyboard_shortcuts(lines: PackedStringArray) -> bool:
+	var ok := true
+
+	var b1 := Button.new()
+	b1.text = "전투 방 입장 (1번째 방)"
+	var b2 := Button.new()
+	b2.text = "상점 입장 (1번째 방)"
+	var buttons: Array[Button] = [b1, b2]
+
+	KeyboardShortcuts.apply_hints(buttons)
+	var hint_ok: bool = b1.text == "[1] 전투 방 입장 (1번째 방)" and b2.text == "[2] 상점 입장 (1번째 방)"
+	ok = hint_ok and ok
+	lines.append("  apply_hints(): b1='%s' b2='%s' -> %s" % [b1.text, b2.text, "OK" if hint_ok else "FAIL"])
+
+	# 방 번호가 바뀌어 텍스트가 다시 설정된 뒤 같은 버튼 목록에 apply_hints를 또 부르는
+	# 상황(dungeon_map.gd의 _update_labels()가 매번 하는 것과 동일) — 접두어가
+	# "[1] [1] ..." 식으로 쌓이면 안 된다.
+	b1.text = "전투 방 입장 (2번째 방)"
+	KeyboardShortcuts.apply_hints(buttons)
+	var no_stack_ok: bool = b1.text == "[1] 전투 방 입장 (2번째 방)"
+	ok = no_stack_ok and ok
+	lines.append("  apply_hints() 재적용 시 누적 방지: b1='%s' -> %s" % [b1.text, "OK" if no_stack_ok else "FAIL"])
+
+	var key1 := InputEventKey.new()
+	key1.pressed = true
+	key1.keycode = KEY_1
+	var idx1 := KeyboardShortcuts.digit_index(key1)
+	var digit_ok: bool = idx1 == 0
+	lines.append("  digit_index(KEY_1 눌림): idx=%d(기대 0) -> %s" % [idx1, "OK" if digit_ok else "FAIL"])
+
+	var key1_release := InputEventKey.new()
+	key1_release.pressed = false
+	key1_release.keycode = KEY_1
+	var idx_release := KeyboardShortcuts.digit_index(key1_release)
+	var release_ok: bool = idx_release == -1
+	lines.append("  digit_index(KEY_1 뗌): idx=%d(기대 -1, 눌림만 인정) -> %s" % [idx_release, "OK" if release_ok else "FAIL"])
+
+	var key_a := InputEventKey.new()
+	key_a.pressed = true
+	key_a.keycode = KEY_A
+	var idx_a := KeyboardShortcuts.digit_index(key_a)
+	var non_digit_ok: bool = idx_a == -1
+	lines.append("  digit_index(KEY_A 눌림): idx=%d(기대 -1) -> %s" % [idx_a, "OK" if non_digit_ok else "FAIL"])
+
+	# try_press: 보이고 활성화된 버튼만 눌려야 한다.
+	var pressed_count := {"b1": 0, "b2": 0}
+	b1.pressed.connect(func(): pressed_count["b1"] += 1)
+	b2.pressed.connect(func(): pressed_count["b2"] += 1)
+	b2.disabled = true
+	var press_b1_ok: bool = KeyboardShortcuts.try_press(buttons, 0) and pressed_count["b1"] == 1
+	var press_b2_blocked_ok: bool = not KeyboardShortcuts.try_press(buttons, 1) and pressed_count["b2"] == 0
+	ok = digit_ok and release_ok and non_digit_ok and press_b1_ok and press_b2_blocked_ok and ok
+	lines.append("  try_press(): 활성 버튼 누름=%s(기대 true, 1회 호출) 비활성 버튼 무시=%s(기대 true, 0회 호출) -> %s" % [
+		press_b1_ok, press_b2_blocked_ok, "OK" if (press_b1_ok and press_b2_blocked_ok) else "FAIL"
+	])
+
+	var out_of_range_ok: bool = not KeyboardShortcuts.try_press(buttons, 5)
+	ok = out_of_range_ok and ok
+	lines.append("  try_press() 범위 밖 인덱스: %s(기대 false) -> %s" % [not out_of_range_ok, "OK" if out_of_range_ok else "FAIL"])
+
+	b1.queue_free()
+	b2.queue_free()
 	return ok

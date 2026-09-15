@@ -130,6 +130,11 @@ var _map_hbox: HBoxContainer
 var _reward_icon_rows: Dictionary = {} # room type -> HBoxContainer, 방 선택 버튼 옆에 붙는 보상 카테고리 아이콘
 var _shop_gold_label: Label # "상점 입장" 버튼 바로 아래에 보유 골드를 보여주는 라벨
 
+## 지금 화면에 보이는 방 선택 버튼들(+커스터마이징) — _layout_visible_buttons()가 매번
+## 다시 채운다. KeyboardShortcuts로 1~N 숫자 키를 순서대로 배정하는 데 쓴다(INBOX.md
+## 2026-09-14 "키보드로도 조작이 되도록 단축키를 추가한다").
+var _shortcut_buttons: Array[Button] = []
+
 
 func _ready() -> void:
 	enter_combat_button.pressed.connect(_on_combat_button_pressed)
@@ -507,6 +512,21 @@ func _layout_visible_buttons() -> void:
 			_shop_gold_label.size = Vector2(btn.offset_right - btn.offset_left, 18.0)
 			extra_gap = SHOP_GOLD_LABEL_GAP
 		y += BUTTON_SPACING + extra_gap
+	_shortcut_buttons = visible_buttons
+	KeyboardShortcuts.apply_hints(_shortcut_buttons)
+
+
+## 숫자 키(1~9)로 지금 보이는 방 선택 버튼(+커스터마이징)을 순서대로 누른다. 겹치는
+## 오버레이(커스터마이징 패널)가 열려있을 때는 뒤에 가려진 방 버튼이 함께 눌리면 안 되므로
+## 무시한다.
+func _unhandled_input(event: InputEvent) -> void:
+	if customize_panel.visible:
+		return
+	var idx := KeyboardShortcuts.digit_index(event)
+	if idx < 0:
+		return
+	if KeyboardShortcuts.try_press(_shortcut_buttons, idx):
+		get_viewport().set_input_as_handled()
 
 
 func _on_combat_button_pressed() -> void:
@@ -653,6 +673,18 @@ func _debug_move_deck_panel_left_berserker() -> void:
 	RunState.character_id = "berserker"
 	deck_panel.offset_left = 20.0
 	deck_panel.offset_right = 280.0
+
+
+## QA 전용 — 실제 숫자 키 입력이 _unhandled_input()을 거쳐 버튼까지 눌리는 전체 경로를
+## 확인하기 위함(클릭 시뮬레이션(GAME_QA_CLICK_PATH)의 키보드판). "3번" 단축키는 항상
+## 마지막 자리인 "커스터마이징" 버튼에 배정되므로(전투/상점/특수 이벤트/스토리 이벤트가
+## 몇 개 보이든 무관하게), 이 키를 눌렀을 때 CustomizePanel이 실제로 열리는지로
+## 검증한다 — 씬 전환이 없어 스크린샷으로 결과를 바로 확인할 수 있다.
+func _debug_press_shortcut_customize() -> void:
+	var key := InputEventKey.new()
+	key.pressed = true
+	key.keycode = KEY_3
+	_unhandled_input(key)
 
 
 ## QA 전용 — 인벤토리의 다이스가 두 주머니의 모든 다이스보다 작거나 같아 승급 자리가
