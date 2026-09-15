@@ -17,6 +17,12 @@ var _offered: Array[Dictionary] = []
 var _row_ui: Array[Node] = []
 var _picked := false
 
+## 던전 맵/스토리 이벤트와 같은 패턴(KeyboardShortcuts) — 카드 버튼들 + 커스터마이징
+## 버튼을 화면에 나타나는 순서대로 담아 숫자 1~9 키로 누를 수 있게 한다(INBOX.md
+## 2026-09-14). 아이템이 매번 다시 뽑히지 않는 한 카드 구성은 안 바뀌므로 dungeon_map처럼
+## 매 프레임 갱신할 필요는 없고, _rebuild_items()가 호출될 때만 다시 만든다.
+var _shortcut_buttons: Array[Button] = []
+
 
 func _ready() -> void:
 	_offered = EventItemPool.random_choices(2, RunState.player_attack_bag, RunState.player_defense_bag)
@@ -28,6 +34,7 @@ func _rebuild_items() -> void:
 	for node in _row_ui:
 		node.queue_free()
 	_row_ui.clear()
+	_shortcut_buttons.clear()
 
 	var card_width := 320.0
 	var card_height := 300.0
@@ -49,6 +56,7 @@ func _rebuild_items() -> void:
 			pip_btn.custom_minimum_size = Vector2(0, 38)
 			pip_btn.pressed.connect(_on_pick_pips.bind(item))
 			button_row.add_child(pip_btn)
+			_shortcut_buttons.append(pip_btn)
 			continue
 
 		if item.get("kind", "") == "upgrade_die":
@@ -57,6 +65,7 @@ func _rebuild_items() -> void:
 			upgrade_btn.custom_minimum_size = Vector2(0, 38)
 			upgrade_btn.pressed.connect(_on_pick_upgrade.bind(item))
 			button_row.add_child(upgrade_btn)
+			_shortcut_buttons.append(upgrade_btn)
 			continue
 
 		var atk_preview := ItemCardStyle.build_effect_preview(item, RunState.player_attack_bag)
@@ -69,6 +78,7 @@ func _rebuild_items() -> void:
 		atk_btn.custom_minimum_size = Vector2(0, 38)
 		atk_btn.pressed.connect(_on_pick_pressed.bind(item, "attack"))
 		button_row.add_child(atk_btn)
+		_shortcut_buttons.append(atk_btn)
 
 		var def_preview := ItemCardStyle.build_effect_preview(item, RunState.player_defense_bag)
 		if def_preview:
@@ -80,6 +90,23 @@ func _rebuild_items() -> void:
 		def_btn.custom_minimum_size = Vector2(0, 38)
 		def_btn.pressed.connect(_on_pick_pressed.bind(item, "defense"))
 		button_row.add_child(def_btn)
+		_shortcut_buttons.append(def_btn)
+
+	_shortcut_buttons.append(customize_button)
+	KeyboardShortcuts.apply_hints(_shortcut_buttons)
+
+
+## 숫자 키(1~9)로 지금 보이는 카드 버튼(+커스터마이징)을 순서대로 누른다. dungeon_map.gd와
+## 같은 이유로 커스터마이징 패널이 열려있을 때는 뒤에 가려진 버튼이 함께 눌리지 않도록
+## 무시한다.
+func _unhandled_input(event: InputEvent) -> void:
+	if customize_panel.visible:
+		return
+	var idx := KeyboardShortcuts.digit_index(event)
+	if idx < 0:
+		return
+	if KeyboardShortcuts.try_press(_shortcut_buttons, idx):
+		get_viewport().set_input_as_handled()
 
 
 func _on_pick_pressed(item: Dictionary, target: String) -> void:
@@ -155,6 +182,18 @@ func _apply_upgrade(item: Dictionary) -> bool:
 ## qa/visual_qa.gd의 GAME_QA_CALL로 호출하기 위한 인자 없는 래퍼 (QA 전용).
 func _debug_pick_first_for_attack() -> void:
 	_on_pick_pressed(_offered[0], "attack")
+
+
+## QA 전용 — 실제 숫자 키 입력이 _unhandled_input()을 거쳐 커스터마이징 버튼까지 눌리는
+## 전체 경로를 확인하기 위함(dungeon_map.gd/story_event.gd의 _debug_press_shortcut_*와
+## 같은 목적). 커스터마이징 버튼은 항상 _shortcut_buttons의 마지막 자리라 카드 구성(아이템
+## 종류에 따라 카드당 버튼이 1~2개로 달라짐)과 무관하게 인덱스를 동적으로 계산한다.
+func _debug_press_shortcut_customize() -> void:
+	var idx := _shortcut_buttons.size() - 1
+	var key := InputEventKey.new()
+	key.pressed = true
+	key.keycode = KEY_1 + idx
+	_unhandled_input(key)
 
 
 ## qa/visual_qa.gd의 GAME_QA_CALL로 호출하기 위한 QA 전용 훅 (dungeon_map.gd의

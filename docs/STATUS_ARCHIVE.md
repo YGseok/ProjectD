@@ -8,6 +8,29 @@
 
 ---
 
+- **2026-09-15 (93)**: 큐 16(INBOX.md 2026-09-14 대량 피드백)에서 "상점은 현재
+  5개의 방 기준, 2번째 4번째 방에만 추가한다"를 처리. `dungeon_map.gd`의
+  `_room_options_for_index(idx)`에서 상점 노출 판정을 `rng.randf() < SHOP_CHANCE`
+  (60% 확률 노출)에서 `SHOP_FIXED_ROOM_INDICES.has(idx)`(신규 상수, =[1, 3])로
+  교체 — idx는 0부터 시작하므로 "2번째/4번째 방"에만 상시 노출되고 나머지 방(1/3/
+  5번째)에는 아예 안 뜨도록 고정. event/story 노출 판정(EVENT_CHANCE/STORY_CHANCE
+  확률 굴림)은 그대로 유지, 라운드 마지막 방(5번째, idx=4)은 기존처럼 보스 전투만
+  가능하도록 이미 막혀 있어(2026-09-14 (90) 수정) 이번 변경과 무관하게 그대로
+  유지됨. `_roll_room_choices()`(실제 진행)와 `_make_map_node()`(MapStrip 미리보기)
+  둘 다 `_room_options_for_index()` 하나를 공유하는 구조라 별도 분기 추가 없이
+  MapStrip의 방 타입 칩에도 자동 반영됨. QA 검증을 위해 0-인자 디버그 훅
+  `_debug_show_room2()`(rooms_cleared=1)/`_debug_show_room3()`(rooms_cleared=2)를
+  신규 추가(기존 `_debug_show_boss_room()`과 같은 패턴). `qa_out/
+  dungeon_map_room1_shopfix.png`(1번째 방, 상점 없음)/`qa_out/
+  dungeon_map_room2_shop.png`(2번째 방, "상점 입장 (2번째 방)" 버튼 노출)/
+  `qa_out/dungeon_map_room3_noshop.png`(3번째 방, 상점 버튼 없음 — 전투/특수
+  이벤트/스토리 이벤트만)로 3개 상태 모두 겹침/크래시 없이 의도대로 표시됨을
+  확인. `dice_test.gd`의 `_check_dungeon_map_room_options`(결정성 + order가 항상
+  shop/event/story 순열인지 검증)는 노출 여부 값 자체가 아니라 "같은 idx는 항상
+  같은 결과"와 "order 배열 구성"만 확인하는 구조라 고정 노출로 바뀌어도 영향
+  없이 회귀 스위트 전체 PASS. INBOX.md "처리됨"으로 이동. 남은 것은 상점을
+  2/4번째 방에 고정한 것이 실제로 밸런스상 적당한 타이밍인지 사람 플레이
+  피드백뿐.
 - **2026-09-15 (92)**: 큐 16(INBOX.md 2026-09-14 대량 피드백)에서 서로 독립적인
   작은 항목 2개를 처리. **(1) "던전 맵에서 각 보상 아이콘이 무엇을 의미하는지
   아이콘 텍스트 또는 범례가 필요할 것 같다"**: `dungeon_map.gd`에 `_setup_reward_

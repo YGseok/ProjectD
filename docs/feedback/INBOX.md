@@ -50,29 +50,32 @@
   → 신규 `code/scenes/keyboard_shortcuts.gd`(`KeyboardShortcuts`, 씬 상태 없는 순수
   유틸리티)로 "화면에 보이는 선택지 버튼 목록에 숫자 1~9 키를 순서대로 배정 +
   버튼 텍스트 맨 앞에 "[n] " 접두어로 표시" 패턴을 만들고, 던전 맵(`dungeon_map.gd`
-  — 전투/상점/특수 이벤트/스토리 이벤트/커스터마이징 버튼)과 스토리 이벤트
+  — 전투/상점/특수 이벤트/스토리 이벤트/커스터마이징 버튼), 스토리 이벤트
   (`story_event.gd` — A안/B안/계속/커스터마이징 버튼, 선택 전후로 버튼 구성이
-  바뀌면 재배정)에 적용했다. `_unhandled_input()`이 숫자 키를 받으면 그 순서의
-  버튼이 실제로 클릭됐을 때와 동일한 `pressed` 시그널을 발생시킨다(클릭과 다른
-  경로를 타지 않음). 커스터마이징 패널이 열려있을 때는 뒤에 가려진 버튼이 함께
-  눌리지 않도록 숫자 키를 무시한다. `dice_test.gd`에 순수 함수 검증(`apply_hints`
-  재적용 시 접두어 누적 방지, `digit_index`의 눌림/뗌/비숫자 키 판별, `try_press`의
-  비활성·범위 밖 버튼 무시)을 추가해 회귀 스위트 전체 PASS. 화면 검증은 두
-  방식을 병행: (1) `qa_out/dungeon_map_kbshortcuts.png`/`qa_out/
-  story_event_kbshortcuts.png`로 "[1]/[2]/[3]" 접두어가 겹침 없이 보이는지, (2)
+  바뀌면 재배정), 특수 이벤트(`event.gd` — 카드별 공격/방어 적용 또는 눈금획득/
+  다이스획득 단일 버튼 + 커스터마이징 버튼, 2026-09-15 (103) 추가)에 적용했다.
+  `_unhandled_input()`이 숫자 키를 받으면 그 순서의 버튼이 실제로 클릭됐을 때와
+  동일한 `pressed` 시그널을 발생시킨다(클릭과 다른 경로를 타지 않음). 커스터마이징
+  패널이 열려있을 때는 뒤에 가려진 버튼이 함께 눌리지 않도록 숫자 키를 무시한다.
+  `dice_test.gd`에 순수 함수 검증(`apply_hints` 재적용 시 접두어 누적 방지,
+  `digit_index`의 눌림/뗌/비숫자 키 판별, `try_press`의 비활성·범위 밖 버튼 무시)을
+  추가해 회귀 스위트 전체 PASS. 화면 검증은 두 방식을 병행: (1)
+  `qa_out/dungeon_map_kbshortcuts.png`/`qa_out/story_event_kbshortcuts.png`/
+  `qa_out/event_kbshortcuts.png`로 "[1]/[2]/[3]" 접두어가 겹침 없이 보이는지, (2)
   실제 `InputEventKey`를 만들어 `_unhandled_input()`에 직접 넣는 QA 훅
   (`_debug_press_shortcut_customize`/`_debug_press_shortcut_1`)으로 "키 입력 ->
   버튼 클릭과 동일한 결과"까지 실제로 이어지는지 `qa_out/dungeon_map_kb_key3.png`
   (3번 키로 커스터마이징 패널이 실제로 열림)/`qa_out/story_event_kb_key1.png`
-  (1번 키로 A안이 실제로 선택되어 결과 화면으로 전환)로 확인. **아직 적용 안 된
-  화면**: 상점(`shop.gd`, 아이템 카드당 버튼이 최대 2개씩 있어 카드 수에 따라
-  숫자가 9개를 넘을 수 있어 배정 규칙을 더 고민해야 함)/특수 이벤트(`event.gd`)/
-  전투(`combat_test.gd`, 덱 보기·커스터마이징 토글 + 다음 버튼)/캐릭터 선택
-  (`character_select.gd`)/업적 패널(`achievement_panel.gd`) — 같은
-  `KeyboardShortcuts` 유틸을 그대로 재사용할 수 있는 구조라 다음 이터레이션들이
-  화면별로 이어서 적용하면 됨(`docs/STATUS.md` 다음 할 일 큐 16번 "키보드
-  조작/단축키" 참고). "전체 조작을 키보드로도"라는 원 요청 전체를 아직 다
-  커버한 것은 아니라 완전히 처리된 것은 아님.
+  (1번 키로 A안이 실제로 선택되어 결과 화면으로 전환)/`qa_out/event_kb_key4.png`
+  (카드 구성에 따라 매번 달라지는 커스터마이징 버튼 인덱스를 동적으로 계산해 키를
+  주입 — 실제로 CustomizePanel이 열림)로 확인. **아직 적용 안 된 화면**:
+  상점(`shop.gd`, 아이템 카드당 버튼이 최대 2개씩 있어 카드 수에 따라 숫자가
+  9개를 넘을 수 있어 배정 규칙을 더 고민해야 함)/전투(`combat_test.gd`, 덱
+  보기·커스터마이징 토글 + 다음 버튼)/캐릭터 선택(`character_select.gd`)/업적
+  패널(`achievement_panel.gd`) — 같은 `KeyboardShortcuts` 유틸을 그대로 재사용할
+  수 있는 구조라 다음 이터레이션들이 화면별로 이어서 적용하면 됨(`docs/STATUS.md`
+  다음 할 일 큐 16번 "키보드 조작/단축키" 참고, 3/7화면). "전체 조작을 키보드로도"
+  라는 원 요청 전체를 아직 다 커버한 것은 아니라 완전히 처리된 것은 아님.
 
 - [부분 처리됨 - 2026-09-15] 2026-09-14 대신 해당 품목이 골드 부족인지, 이미 판매된
   품목인지는 해당 품목 상단에 보여주도록 한다.
