@@ -145,6 +145,16 @@ var _log_lines: Array[String] = []
 var _reward_ui: Array[Node] = []
 var _reward_items: Array[Dictionary] = []
 
+## dungeon_map.gd/shop.gd 등과 같은 패턴(KeyboardShortcuts) — 지금 화면에 보이는
+## 선택지 버튼(승리 보상 카드/건너뛰기/커스터마이징 또는 "다음")에 숫자 1~9 키를
+## 순서대로 배정한다. 전투 중에는 자동 진행이라 누를 버튼이 "덱 보기" 토글뿐이지만,
+## 화면마다 버튼 구성이 계속 바뀌므로(대기 중 -> 보상 선택 -> 다음) _rebuild_shortcuts()가
+## 그때그때 호출되어 목록을 다시 만든다. 승리 보상 카드의 버튼은 카드 생성 시점에
+## _reward_action_buttons에 함께 담아둔다(카드 자체를 담는 _reward_ui와 별개 — 카드는
+## PanelContainer라 그 안의 실제 클릭 대상은 button_row의 자식 Button들이므로).
+var _reward_action_buttons: Array[Button] = []
+var _shortcut_buttons: Array[Button] = []
+
 ## 이번 교환에서 어떤 다이스가 어떤 값을 냈는지 보여주는 칩(ShapeDieChip). 매 교환마다
 ## 지우고 새로 그린다 (INBOX.md 2026-09-03: "전투 시 어떤 주사위에서 어떤 값이
 ## 나왔는지 이미지로 보이면 좋겠다").
@@ -341,7 +351,45 @@ func _ready() -> void:
 	customize_toggle_button.visible = false
 	customize_panel.closed.connect(_on_customize_panel_closed)
 	_update_labels()
+	_rebuild_shortcuts()
 	_run_battle()
+
+
+## dungeon_map.gd/shop.gd 등과 같은 패턴 — 지금 화면에 실제로 눌러야 할 버튼들을
+## 화면에 보이는 순서(승리 보상 카드/건너뛰기/커스터마이징 -> "다음" -> 커스터마이징
+## 토글 -> 덱 보기 토글)대로 모아 KeyboardShortcuts.apply_hints()로 "[n] " 접두어를
+## 다시 붙인다. 버튼 구성이 바뀌는 지점(전투 시작/승패 판정 직후/보상 선택-건너뛰기/
+## 덱 보기 토글)마다 호출해야 한다 — 안 그러면 예전 구성 그대로 눌리거나(이미 지워진
+## 보상 버튼이 배열에 남아 있음) 덱 보기 버튼의 "[n] " 접두어가 텍스트 갱신으로 지워진
+## 채로 남는다.
+func _rebuild_shortcuts() -> void:
+	var buttons: Array[Button] = []
+	buttons.append_array(_reward_action_buttons)
+	if next_button.visible:
+		buttons.append(next_button)
+	if customize_toggle_button.visible:
+		buttons.append(customize_toggle_button)
+	buttons.append(deck_toggle_button)
+	_shortcut_buttons = buttons
+	KeyboardShortcuts.apply_hints(_shortcut_buttons)
+
+
+## 숫자 키(1~9)로 지금 보이는 전투 화면 버튼을 순서대로 누른다. dungeon_map.gd/shop.gd와
+## 같은 이유로 커스터마이징 패널이 열려있을 때는 뒤에 가려진 버튼이 함께 눌리지 않도록
+## 무시하고, get_viewport()는 try_press() 이후가 아니라 이전에 미리 받아둔다 — "다음"
+## 버튼처럼 눌렸을 때 change_scene_to_file()로 씬을 바꾸는 버튼이면 이 노드가 try_press()
+## 도중 트리에서 빠져나가 그 뒤의 get_viewport()가 null을 반환해 set_input_as_handled()
+## 호출이 크래시하기 때문(2026-09-15 (105)에서 shop.gd 등 5개 화면에서 실제로 겪은
+## 버그와 동일 패턴 — 처음부터 안전한 순서로 작성).
+func _unhandled_input(event: InputEvent) -> void:
+	if customize_panel.visible:
+		return
+	var idx := KeyboardShortcuts.digit_index(event)
+	if idx < 0:
+		return
+	var viewport := get_viewport()
+	if KeyboardShortcuts.try_press(_shortcut_buttons, idx) and viewport != null:
+		viewport.set_input_as_handled()
 
 
 ## INBOX.md 피드백(2026-09-03) "내 공격 덱과 방어 덱이 ... 항상 떠있으면 좋겠다
@@ -352,6 +400,7 @@ func _ready() -> void:
 func _on_deck_toggle_pressed() -> void:
 	deck_panel.visible = not deck_panel.visible
 	deck_toggle_button.text = "덱 닫기" if deck_panel.visible else "덱 보기"
+	_rebuild_shortcuts()
 
 
 ## INBOX.md 피드백(2026-09-03) "커스터마이징은 전투 중에는 불가능해야 한다" — 이전
@@ -538,6 +587,7 @@ func _do_exchange(is_player_attacking: bool) -> void:
 		else:
 			next_button.text = "처음부터 다시"
 			next_button.show()
+			_rebuild_shortcuts()
 
 
 ## 씬에 있는 모든 다이스가 정지했다고 판단될 때까지 기다린다.
@@ -786,6 +836,7 @@ func _show_reward_ui() -> void:
 			upgrade_btn.custom_minimum_size = Vector2(0, 38)
 			upgrade_btn.pressed.connect(_on_reward_upgrade_chosen.bind(item))
 			button_row.add_child(upgrade_btn)
+			_reward_action_buttons.append(upgrade_btn)
 			continue
 
 		var atk_preview := ItemCardStyle.build_effect_preview(item, RunState.player_attack_bag)
@@ -798,6 +849,7 @@ func _show_reward_ui() -> void:
 		atk_btn.custom_minimum_size = Vector2(0, 38)
 		atk_btn.pressed.connect(_on_reward_chosen.bind(item, "attack"))
 		button_row.add_child(atk_btn)
+		_reward_action_buttons.append(atk_btn)
 
 		var def_preview := ItemCardStyle.build_effect_preview(item, RunState.player_defense_bag)
 		if def_preview:
@@ -809,6 +861,7 @@ func _show_reward_ui() -> void:
 		def_btn.custom_minimum_size = Vector2(0, 38)
 		def_btn.pressed.connect(_on_reward_chosen.bind(item, "defense"))
 		button_row.add_child(def_btn)
+		_reward_action_buttons.append(def_btn)
 
 	var custom_btn := Button.new()
 	custom_btn.text = "커스터마이징: 눈금 교환"
@@ -817,6 +870,7 @@ func _show_reward_ui() -> void:
 	custom_btn.pressed.connect(_open_customize_from_reward)
 	add_child(custom_btn)
 	_reward_ui.append(custom_btn)
+	_reward_action_buttons.append(custom_btn)
 
 	var skip_btn := Button.new()
 	skip_btn.text = "건너뛰기"
@@ -825,6 +879,9 @@ func _show_reward_ui() -> void:
 	skip_btn.pressed.connect(_on_reward_skipped)
 	add_child(skip_btn)
 	_reward_ui.append(skip_btn)
+	_reward_action_buttons.append(skip_btn)
+
+	_rebuild_shortcuts()
 
 
 ## 공통 배경+제목 프레임을 그린다 (보상 화면의 3단계 — 아이템 선택 / 다이스 선택 /
@@ -852,6 +909,7 @@ func _clear_reward_ui() -> void:
 	for node in _reward_ui:
 		node.queue_free()
 	_reward_ui.clear()
+	_reward_action_buttons.clear()
 
 
 ## shop.gd/event.gd(이터레이션 45)와 같은 이유의 이중 실행 가드. _clear_reward_ui()가
@@ -895,6 +953,7 @@ func _on_reward_chosen(item: Dictionary, target: String) -> void:
 	_append_log("아이템 획득: %s (%s 주머니)" % [item["name"], "공격" if target == "attack" else "방어"])
 	_clear_reward_ui()
 	next_button.show()
+	_rebuild_shortcuts()
 
 
 func _on_reward_upgrade_chosen(item: Dictionary) -> void:
@@ -903,6 +962,7 @@ func _on_reward_upgrade_chosen(item: Dictionary) -> void:
 	_append_log("아이템 획득: %s (인벤토리)" % item["name"])
 	_clear_reward_ui()
 	next_button.show()
+	_rebuild_shortcuts()
 
 
 func _on_reward_skipped() -> void:
@@ -910,6 +970,7 @@ func _on_reward_skipped() -> void:
 		return
 	_clear_reward_ui()
 	next_button.show()
+	_rebuild_shortcuts()
 
 
 ## 승리 보상 화면에서 "커스터마이징" 버튼을 누르면 다른 화면들과 동일한 공용
@@ -918,6 +979,7 @@ func _on_reward_skipped() -> void:
 ## _on_customize_panel_closed()가 next_button을 다시 보여줘 보상 흐름을 마무리한다.
 func _open_customize_from_reward() -> void:
 	_clear_reward_ui()
+	_rebuild_shortcuts()
 	customize_panel.open()
 
 
@@ -927,6 +989,44 @@ func _open_customize_from_reward() -> void:
 func _on_customize_panel_closed() -> void:
 	if battle_over and player_won:
 		next_button.show()
+		_rebuild_shortcuts()
+
+
+## QA 전용 — 실제 InputEventKey를 만들어 _unhandled_input()에 직접 넣는 방식으로,
+## shop.gd/dungeon_map.gd 등에서 쓴 것과 같은 검증(키 입력 -> 버튼 클릭과 동일한 결과)을
+## combat_test에도 적용한다. "다음" 버튼은 눌리면 change_scene_to_file()로 dungeon_map
+## 씬으로 전환하는 버튼이라(2026-09-15 (105)에서 발견한 크래시 패턴과 동일 계열),
+## 패배 상태를 강제로 만들어 이 버튼이 숫자 키로도 크래시 없이 실제 씬 전환까지
+## 이어지는지 확인하는 용도.
+func _debug_press_shortcut_next() -> void:
+	battle_over = true
+	player_won = false
+	next_button.text = "처음부터 다시"
+	next_button.show()
+	_rebuild_shortcuts()
+	var idx := _shortcut_buttons.find(next_button)
+	var key := InputEventKey.new()
+	key.pressed = true
+	key.keycode = KEY_1 + idx
+	_unhandled_input(key)
+
+
+## QA 전용 — 승리 보상 화면(카드 버튼들)에서 숫자 키로 "건너뛰기" 버튼을 실제로 누르면
+## 카드가 정리되고 next_button이 다시 나타나는지 확인한다(건너뛰기 자체는 씬을 바꾸지
+## 않아 크래시 우려는 없지만, 동적으로 구성이 바뀌는 _reward_action_buttons 기반 단축키
+## 배정이 실제로 올바른 인덱스를 가리키는지 검증하는 용도).
+func _debug_press_shortcut_skip() -> void:
+	battle_over = true
+	player_won = true
+	_show_reward_ui()
+	# "건너뛰기" 버튼은 항상 _reward_action_buttons의 마지막 자리(카드 버튼들 -> 커스터마이징
+	# -> 건너뛰기 순)이고, _shortcut_buttons도 _reward_action_buttons를 그대로 앞에 이어붙이므로
+	# 같은 인덱스를 그대로 쓸 수 있다.
+	var idx := _reward_action_buttons.size() - 1
+	var key := InputEventKey.new()
+	key.pressed = true
+	key.keycode = KEY_1 + idx
+	_unhandled_input(key)
 
 
 ## qa/visual_qa.gd의 GAME_QA_CALL로 호출하기 위한 QA 전용 훅 (dungeon_map.gd의
@@ -981,6 +1081,7 @@ func _debug_show_reward_with_deck_open() -> void:
 	_show_reward_ui()
 	deck_panel.visible = true
 	deck_toggle_button.text = "덱 닫기"
+	_rebuild_shortcuts()
 
 
 ## QA 전용 — 이 세션 환경에서 스크린샷 캡처 폭이 1280px 대신 1028px로 잘리는 현상
