@@ -313,10 +313,13 @@ func _update_labels() -> void:
 	if _is_material_collector(RunState.player_attack_bag, RunState.player_defense_bag):
 		AchievementManager.unlock("material_collector")
 	if RunState.is_run_complete():
-		# INBOX.md [대형 기획 3] 업적 #1 "라운드 1(첫 던전) 클리어". _update_labels()가
-		# 매번 다시 그릴 때마다 불려도 unlock()이 멱등(이미 해금됐으면 아무 일도 안 함)
-		# 이라 안전하다.
-		AchievementManager.unlock("round1_clear")
+		# 라운드별 업적("round1_clear"/"round2_clear"/"game_clear"+캐릭터별 첫 클리어)은
+		# 이제 combat_test.gd의 _apply_room_advance()가 보스를 잡는 정확한 시점에 직접
+		# unlock한다 — 예전에는 여기서 RunState.is_run_complete() 기준으로 "round1_clear"를
+		# 불렀지만, advance_round()가 매 라운드 즉시 rooms_cleared를 0으로 되돌리는 바람에
+		# 이 분기 자체가 사실상 "최종 라운드까지 전부 클리어"할 때만 참이 되어, 이름과
+		# 달리 라운드 1 클리어 시점에는 한 번도 불리지 않던 버그가 있었다(이번 이터레이션
+		# 발견·수정, 아래 combat_test.gd _unlock_round_clear_achievements 참고).
 		# [대형 기획 2] 조각 (c): combat_test.gd의 _apply_room_advance()가 보스를 잡을 때마다
 		# 마지막 라운드가 아니면 즉시 RunState.advance_round()로 rooms_cleared를 0으로
 		# 되돌리므로, 이 분기(is_run_complete()==true)는 실질적으로 "마지막 라운드의 보스까지

@@ -5,19 +5,27 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-09-15 (108)
-- 작성자: AI 에이전트. INBOX.md "캐릭터 선택 화면은 외형과 이름들만 간략하게
-  나오고, 패널 선택시 오른쪽에 상세 정보를 제공한다(캐릭터 정보/초기 다이스/
-  보유 스킬)"를 반영해 캐릭터 선택 화면을 "카드 하나에 모든 정보" 방식에서
-  "왼쪽 좁은 목록(초상+이름+선택 버튼) + 오른쪽 상세 패널" 2단 레이아웃으로
-  개편했다. 큐에 남은 다른 항목들이 대부분 "사람 설계 확인 필요"로 분류돼
-  있었지만, 이 항목은 요청 문구 자체가 배치까지 구체적으로 지정하고 있어
-  추가 설계 결정 없이 바로 구현 가능하다고 판단해 착수했다. `character_
-  profiles.gd`에 `concept`(순수 컨셉 설명 — 기존 `desc`는 건드리지 않고
-  새로 추가, `deck_panel.gd` 등 기존 소비처 영향 없음)/`gimmick_label()`
-  (스킬 이름표) 필드·함수를 신규 추가했다. QA 스크린샷 3장(기본 선택/다른
-  캐릭터 선택 시 패널 갱신/선택→던전 시작 전체 흐름)으로 겹침·크래시 없이
-  동작함을 확인. 자세한 내용은 아래 "완료 기록 (108)" 참고.
+- 일시: 2026-09-15 (109)
+- 작성자: AI 에이전트. INBOX.md에 새로 반영할 미처리 항목이 없어(모두 큐 16
+  하위의 "사람 설계 확인 필요" 항목뿐), 큐 13("업적 시스템 — 남은 항목 추가")의
+  "[대형 기획 1]/[대형 기획 2]가 둘 다 완료돼 트리거 지점이 갖춰졌다"고 정리된
+  라운드 2/3 클리어 + 캐릭터별 첫 클리어 업적 7종(round2_clear/game_clear/
+  clear_novice/clear_berserker/clear_guardian/clear_explosive/
+  clear_shieldbearer, 등록 업적 12→19종)을 추가했다. 착수 전 관련 코드를 다시
+  읽다가 실제 버그를 발견해 함께 고쳤다: 기존 "round1_clear"는 `dungeon_map.gd`
+  가 `RunState.is_run_complete()`(rooms_cleared>=TOTAL_ROOMS) 기준으로
+  판정했는데, 보스를 잡으면 `combat_test.gd`가 마지막 라운드가 아닌 한 그
+  자리에서 즉시 `RunState.advance_round()`로 rooms_cleared를 0으로 되돌려버려
+  이 조건이 실제로는 "최종 라운드까지 전부 클리어"했을 때만 참이 됐음(이름/
+  설명과 달리 라운드 1을 막 끝냈을 때는 한 번도 안 불림). `combat_test.gd`의
+  `_apply_room_advance()`에 `_unlock_round_clear_achievements()`를 추가해
+  `advance_round()`가 라운드 번호를 바꾸기 *전에* 정확한 라운드별 업적을
+  직접 unlock하도록 옮기고, `dungeon_map.gd`의 중복/오판정 호출은 제거했다.
+  `dice_test.gd`에 신규 `_check_round_clear_achievements`로 라운드 1/2/최종
+  전부 정확한 시점에만 해금되는지 검증, `scripts/qa_shot.sh dice_test` 전체
+  PASS. 기존 QA 훅으로 화면 확인(`qa_out/achievements_new_top.png`/
+  `achievements_new_scrolled.png`) — 19종 전부 겹침 없이 표시. 자세한 내용은
+  아래 "완료 기록 (109)" 참고.
 
 ## 지금 위치
 
@@ -99,20 +107,27 @@
   크래시 위험이 없었지만, 일관성을 위해 같은 순서를 그대로 따랐다. 실제
   숫자 키 "1" 입력으로 업적 패널이 크래시 없이 닫히는 것까지 확인했다(아래
   "완료 기록 (107)" 참고).
-- **업적 시스템 (골격 완성 + 12종 등록 + 유형별 아이콘)**: `code/systems/
+- **업적 시스템 (골격 완성 + 19종 등록 + 유형별 아이콘)**: `code/systems/
   achievement_manager.gd`(`AchievementManager`, Autoload)가
   `user://achievements.json`에 해금 상태를 영구 저장(RunState와 달리 새 런을
   시작해도 안 지워짐). `character_select.tscn`의 "업적" 버튼으로
   `AchievementPanel`(잠금/해금 카드 목록 오버레이, 스크롤 지원)을 열 수 있음.
-  등록된 12종은 골드/무피해승리/기사회생/오버킬/눈금·다이스 수집/주머니
-  가득참/상점 단골/재질 수집 등(정확한 목록은 `achievement_manager.gd`의
+  등록된 19종은 골드/무피해승리/기사회생/오버킬/눈금·다이스 수집/주머니
+  가득참/상점 단골/재질 수집 + 2026-09-15 (109) 신규 라운드 2/3(최종) 클리어
+  + 캐릭터별 첫 클리어 5종 등(정확한 목록은 `achievement_manager.gd`의
   `DEFINITIONS` 참고). 업적마다 유형별 아이콘(`code/scenes/achievement_icon.gd`의
   `AchievementIcon`, category 9종)이 카드 왼쪽에 붙어 잠긴 상태에서도 어떤
-  계열인지 짐작 가능(잠긴 업적은 아이콘도 반투명). 남은 항목은
-  `DEFINITIONS`에 항목만 추가하면 저장/UI가 자동으로 따라오는 구조지만,
-  새 RunState 카운터만으로 되는 독립 항목은 거의 소진 — 남은 것은 대부분
-  [대형 기획 1]/[대형 기획 2] 조합(라운드/캐릭터별 클리어 등) 필요. 아래
-  "다음 할 일 큐" 13번 참고.
+  계열인지 짐작 가능(잠긴 업적은 아이콘도 반투명, 신규 7종은 전부 "milestone"
+  재사용). (109)에서 라운드 클리어 판정 위치를 옮기며 실제 버그도 하나
+  고쳤다 — 기존 "round1_clear"가 `dungeon_map.gd`의 `RunState.
+  is_run_complete()` 기준으로 판정돼, `combat_test.gd`가 보스를 잡을 때마다
+  즉시 `advance_round()`로 rooms_cleared를 되돌리는 것과 겹쳐 실제로는 "최종
+  라운드까지 전부 클리어"할 때만 불렸던 것을 `combat_test.gd`의
+  `_apply_room_advance()`에서 라운드 번호가 바뀌기 전에 직접 unlock하도록
+  고침(아래 "완료 기록 (109)" 참고). 남은 항목은 `DEFINITIONS`에 항목만
+  추가하면 저장/UI가 자동으로 따라오는 구조 — 원 INBOX 30종 목록 중 나머지는
+  원문 미보존이라 정확한 개수는 알 수 없음. 해금 "순간" 토스트/팝업 알림은
+  여전히 없음(목록을 직접 열어야만 확인 가능) — 필요한지는 사람 판단.
 - **QA 도구**: 실제 창(화면 밖 좌표로 이동)으로 스크린샷, 물리 정지 감지
   옵션(`GAME_QA_SETTLE`), 마우스 클릭 시뮬레이션(`GAME_QA_CLICK_PATH`), 방
   번호 강제 지정(`GAME_QA_ROOM_OVERRIDE`). `dice_test.gd`(스크린샷 없이
@@ -481,25 +496,22 @@
 13. **(INBOX.md 신규 2026-09-09, [대형 기획 3] 부분 처리됨) 업적 시스템 — 남은
     항목 추가.** `code/systems/achievement_manager.gd`(`AchievementManager`)와
     `code/scenes/achievement_panel.gd`(`AchievementPanel`) 골격은 2026-09-09 (79)에
-    완성됨. 등록 12종(#25/#1/#6 + (80)의 "부자"/"무결점 승리"/"기사회생"/"오버킬" +
+    완성됨. 등록 19종(#25/#1/#6 + (80)의 "부자"/"무결점 승리"/"기사회생"/"오버킬" +
     (81)의 "눈금 수집가"/"다이스 수집가"/"가득 찬 주머니" + (82)의 "단골 손님"/
-    "재질 수집가") 외에 INBOX.md가 원래 제안했던 30종 목록 중 남은 항목들
-    (원문이 보존돼 있지 않아 정확한 목록/개수는 알 수 없음 — 예시로 기억하는 것만:
-    라운드 2/3 클리어·보스 격파 계열은 [대형 기획 2] 보스 구조가 먼저 있어야
-    트리거 지점이 생김)을 몇 개씩 나눠서 `DEFINITIONS`에 추가하고 해당 조건
-    지점에서 `AchievementManager.unlock(id)`를 호출하는 작업만 하면 됨(저장/UI는
-    이미 자동으로 따라옴, `_bag_has_d20`/`_is_flawless_win` 같은 "판정 전용 순수
-    함수 + dice_test.gd 단위 검증" 패턴을 그대로 재사용하면 됨). **다만 (82)
-    이후로는 "새 RunState 카운터만 추가하면 되는" 독립 항목(상점 이용 횟수, 재질
-    보유 등)이 거의 소진된 상태** — 남은 후보 대부분이 캐릭터별 보스 클리어
-    5종처럼 [대형 기획 1]과 [대형 기획 2]가 **둘 다** 있어야 트리거 지점이
-    생기는 것들이었는데, [대형 기획 1](5종 캐릭터, 2026-09-09)과 [대형 기획 2]
-    (라운드/보스 구조, 2026-09-10 (89))가 **둘 다 이제 완료돼** 트리거 지점
-    자체는 이제 다 갖춰짐 — 예를 들면 `RunState.round_index`/보스 처치 시점을
-    조합해 "라운드 2/3 클리어"/"최종 보스(3라운드) 격파"/"광전사로 첫 클리어"
-    같은 캐릭터·라운드 조합 업적을 바로 추가할 수 있는 상태(다음 이터레이션
-    후보). 해금 "순간"에 화면에 토스트/팝업 알림을 줄지(지금은 목록을 직접
-    열어야만 확인 가능)는 사람 판단 필요 — 아직 안 만듦.
+    "재질 수집가" + **(109)에서 완료**: 라운드 2/3(최종) 클리어(`round2_clear`/
+    `game_clear`) + 캐릭터별 첫 클리어 5종(`clear_<character_id>`) — 아래 "완료
+    기록 (109)" 참고). INBOX.md가 원래 제안했던 30종 목록 중 남은 항목들(원문이
+    보존돼 있지 않아 정확한 목록/개수는 알 수 없음)을 몇 개씩 나눠서
+    `DEFINITIONS`에 추가하고 해당 조건 지점에서 `AchievementManager.unlock(id)`를
+    호출하는 작업만 하면 됨(저장/UI는 이미 자동으로 따라옴, `_bag_has_d20`/
+    `_is_flawless_win` 같은 "판정 전용 순수 함수 + dice_test.gd 단위 검증" 패턴을
+    그대로 재사용하면 됨). [대형 기획 1](5종 캐릭터)/[대형 기획 2](라운드/보스
+    구조) 조합이 필요했던 "캐릭터별 클리어" 계열까지 (109)로 처리했으므로, 두
+    대형 기획을 조합해야 풀리는 후보는 이제 소진됨 — 남은 후보가 있다면 새로운
+    RunState 카운터나 판정 조건을 먼저 설계해야 함(구체적으로 뭐가 남았는지는
+    원문 미보존이라 사람이 다시 목록을 정리해줘야 알 수 있음). 해금 "순간"에
+    화면에 토스트/팝업 알림을 줄지(지금은 목록을 직접 열어야만 확인 가능)는
+    사람 판단 필요 — 아직 안 만듦.
 14. ~~(INBOX.md 신규 2026-09-09, [대형 기획 1]) 플레이어블 캐릭터 — 5종 중
     선택~~ → **완료됨(2026-09-09 (84)+(85)+(86)), 5/5종.**
     `code/systems/character_profiles.gd`(`CharacterProfiles.PROFILES`)에
@@ -674,6 +686,55 @@
 
 ## 완료 기록
 
+- **2026-09-15 (109)**: 큐 13("[대형 기획 3] 업적 시스템 — 남은 항목 추가")에서
+  "[대형 기획 1](5종 캐릭터)/[대형 기획 2](라운드·보스 구조)가 둘 다 완료돼
+  트리거 지점이 갖춰졌다"고 정리해뒀던 라운드 2/3 클리어 + 캐릭터별 첫 클리어
+  업적을 실제로 추가했다. INBOX.md에 새로 반영할 미처리 항목이 없어 큐에서
+  "설계 결정 없이 바로 진행 가능한" 항목을 찾다가, 트리거 지점이 이미 갖춰졌다고
+  적혀 있던 이 항목을 선택. 착수 전 관련 코드를 다시 읽다가 실제 버그를 하나
+  발견했다: `code/scenes/dungeon_map.gd`의 `_update_labels()`가 `RunState.
+  is_run_complete()`(rooms_cleared >= TOTAL_ROOMS) 기준으로 "round1_clear"를
+  판정하고 있었는데, `combat_test.gd`의 `_apply_room_advance()`는 보스를 잡으면
+  마지막 라운드가 아닌 한 그 자리에서 즉시 `RunState.advance_round()`를 불러
+  rooms_cleared를 0으로 되돌려버린다 — 그래서 `is_run_complete()`가 참이 되는
+  경우는 사실상 "최종 라운드까지 전부 클리어"했을 때뿐이었고, "라운드 1(첫
+  던전)을 클리어했다"는 이름/설명과 달리 라운드 1을 막 끝냈을 때는 한 번도
+  불리지 않는 상태였다(순수 로직 재검토로 찾은 버그 — 크래시나 스크린샷으로
+  드러나는 종류가 아니라 이번에 코드를 다시 읽으며 발견함).
+  **수정**: `combat_test.gd`의 `_apply_room_advance()`에 신규
+  `_unlock_round_clear_achievements(cleared_round)`를 추가해, `RunState.
+  advance_round()`가 `round_index`를 바꾸기 *전에*(= "방금 몇 번째 라운드를
+  끝냈는지"를 정확히 아는 유일한 시점) 라운드별 업적을 직접 unlock하도록
+  옮겼다: `cleared_round == 1`이면 `round1_clear`(기존 정의 재사용, 이제야
+  실제로 라운드 1 클리어 시점에 정확히 불림), `== 2`면 신규 `round2_clear`,
+  `== RunState.TOTAL_ROUNDS`(3)면 신규 `game_clear` + 지금 플레이 중인 캐릭터
+  전용 `clear_<character_id>`(`_character_clear_achievement_id()`)까지 함께
+  unlock. `dungeon_map.gd`의 기존 `AchievementManager.unlock("round1_clear")`
+  호출은 이제 틀린 시점에 불리는 중복 호출이라 제거하고 그 경위를 주석으로
+  남겼다. `code/systems/achievement_manager.gd`의 `DEFINITIONS`에 7종 신규
+  추가: `round2_clear`("라운드 2 클리어")/`game_clear`("최종 승리") + 캐릭터
+  5종 각각의 `clear_novice`/`clear_berserker`/`clear_guardian`/
+  `clear_explosive`/`clear_shieldbearer`("~로 첫 클리어", 전부 icon="milestone"
+  재사용 — 새 아이콘 카테고리를 만들 필요는 없다고 판단). 이제 등록 업적이
+  12종 → 19종.
+  **QA 검증**: `code/scenes/dice_test.gd`에 신규
+  `_check_round_clear_achievements`를 추가해(`combat_test.gd`를 씬 로드 없이
+  스크립트만 `.new()`로 인스턴스화해 `_apply_room_advance()`를 직접 호출하는
+  기존 `_check_combat_boss_round_advance`와 같은 패턴) 라운드 1/2/최종 클리어
+  각각 올바른 업적만 unlock되고 더 앞서/늦게 해금되지 않는지, 일반 방 승리
+  (monster_is_boss=false)는 아무 라운드 업적도 건드리지 않는지, 캐릭터 5종
+  전부 `clear_<id>` 정의가 존재하는지 검증 — `scripts/qa_shot.sh dice_test`로
+  전체 PASS(기존 케이스 포함, 새로 발견된 회귀 없음). 화면 검증은 이미 있던
+  QA 훅 `character_select.gd`의 `_debug_show_achievements`/
+  `_debug_show_achievements_scrolled`를 그대로 재사용(새 훅 불필요) —
+  `qa_out/achievements_new_top.png`(19종 중 "잠김/해금" 최상단 6개, 겹침 없이
+  표시)/`qa_out/achievements_new_scrolled.png`(스크롤 최하단 — 신규 7종 중
+  "최종 승리"+캐릭터 5종 첫 클리어가 겹침 없이 전부 보임, 헤더가 "업적 (1 /
+  19 달성)"으로 정확히 갱신됨)로 확인. 남은 것: 남은 업적 후보(원 INBOX 30종
+  목록 중 나머지, 원문 미보존이라 정확한 개수는 알 수 없음)는 여전히
+  `DEFINITIONS`에 항목만 추가하면 되는 구조로 남아있고, 해금 "순간" 토스트/
+  팝업 알림은 여전히 없음(목록을 직접 열어야만 확인 가능) — 이건 사람 판단
+  필요.
 - **2026-09-15 (108)**: 큐 16(INBOX.md 2026-09-14 대량 피드백)의 "캐릭터 선택 화면
   UX 개편" 처리. INBOX.md 원문: "캐릭터 선택 화면은 외형과 이름들만 간략하게
   나오고, 패널 선택시 오른쪽에 패널을 띄워, 상세 정보를 제공한다. 내용은 캐릭터
@@ -998,33 +1059,6 @@
   (89)/(83)/(87)/(88) 보스+3라운드)를 `docs/INBOX_ARCHIVE.md`로 이관. 이 항목
   추가로 STATUS.md 완료 기록도 11개가 되어, 가장 오래된 (87)(라운드 데이터
   계층 신설)을 `docs/STATUS_ARCHIVE.md`로 이관.
-- **2026-09-15 (98)**: 큐 16(INBOX.md 2026-09-14 대량 피드백)에서 "캐릭터별 현재
-  개성 및 스타일에 맞추어 시작 주사위를 다르게 한다" 항목을 처리. 기존에는 5종
-  캐릭터 전부 표준 D4x3(공격)/D4x3(방어)로 동일하고 기믹(min/max, 고정값, 스택)만
-  달랐음 — `code/systems/character_profiles.gd`의 `PROFILES` 각 항목에
-  `attack_count`/`defense_count` 필드를 신규 추가해 캐릭터별 공격/방어 다이스
-  "개수" 배분을 다르게 했다(면 개수는 5종 전부 D4로 동일 유지, DESIGN.md가 확정한
-  시작 재질/면수 방향은 안 건드림): 견습 모험가(기본값) 3/3, 광전사(극단형,
-  "공격에 몰빵") 4/2, 수호자(안정형, 방어 위주) 2/4, 폭발병(공격 다이스 최댓값
-  스택을 더 자주 쌓게) 4/3, 방패병(방어 다이스 최댓값 스택을 더 자주 쌓게) 3/4.
-  `code/systems/run_state.gd`의 `reset_run()`이 `DiceBag.new(4, 3)` 하드코딩
-  대신 `CharacterProfiles.get_profile(character_id)`의 두 필드(`profile.get(...,
-  3)` 폴백 — 필드가 없는 프로필도 안전하게 기존 3/3으로 동작)로 주머니 크기를
-  정하도록 수정. 각 캐릭터 카드의 `desc` 텍스트에도 "시작 다이스: 공격 D4xN /
-  방어 D4xN (요약)" 문구를 덧붙여 캐릭터 선택 화면에서 바로 차이를 알 수 있게 함.
-  `dice_test.gd`의 `_check_character_profiles`에 5종 전부(berserker/guardian/
-  explosive/shieldbearer/novice) 주머니 개수 검증을 신규 추가(기존 기믹 검증과
-  나란히)해 회귀 스위트 전체 PASS. `qa_out/character_select_dice_desc.png`(4개
-  카드 desc 텍스트에 시작 다이스 문구가 오버플로/겹침 없이 표시)/
-  `qa_out/dungeon_map_berserker_deck.png`(광전사로 실제 런 시작 → 덱 패널에
-  공격 4줄/방어 2줄이 겹침 없이 표시, 값도 min/max 기믹대로 1 또는 4만 보임)로
-  확인. `docs/DESIGN.md`의 "초기 다이스 구성 (플레이어)" 절도 "견습 모험가만
-  D4x3/D4x3 기본값"으로 갱신하고 캐릭터별 배분표를 추가해 실제 코드와 어긋나지
-  않게 함. 남은 것은 이 개수 배분이 실제로 캐릭터 개성 체감에 도움이 되는지,
-  밸런스가 한쪽으로 너무 쏠리진 않았는지 사람 플레이 피드백뿐(다른 잠정 수치들과
-  같은 성격). INBOX.md 해당 항목 "처리됨"으로 이동. STATUS.md 완료 기록이 이
-  항목 추가로 11개가 되어, 가장 오래된 (86)(플레이어블 캐릭터 "방패병" 구현)을
-  STATUS_ARCHIVE.md로 이관.
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임,
 2026-09-15 정리.)*

@@ -141,6 +141,10 @@ func _ready() -> void:
 	all_pass = _check_achievement_icons(lines) and all_pass
 
 	lines.append("")
+	lines.append("[라운드/캐릭터 클리어 업적 검증: combat_test.gd _apply_room_advance / _unlock_round_clear_achievements]")
+	all_pass = _check_round_clear_achievements(lines) and all_pass
+
+	lines.append("")
 	lines.append("[플레이어블 캐릭터 검증: character_profiles.gd CharacterProfiles / run_state.gd RunState._apply_character_gimmick]")
 	all_pass = _check_character_profiles(lines) and all_pass
 
@@ -1286,6 +1290,106 @@ func _check_combat_boss_round_advance(lines: PackedStringArray) -> bool:
 
 	RunState.rooms_cleared = rooms_backup
 	RunState.round_index = round_backup
+	return ok
+
+
+## STATUS.md 큐 13 검증: combat_test.gd의 _apply_room_advance()가 보스를 잡은 시점에
+## 라운드 1/2/최종(라운드 3) 클리어 업적과, 최종 클리어일 때는 지금 플레이 중인
+## 캐릭터 전용 "clear_<id>" 업적까지 정확히 unlock하는지 확인한다. 이 작업 중 발견한
+## 버그(예전에는 dungeon_map.gd가 RunState.is_run_complete() 기준으로 "round1_clear"를
+## 판정해, advance_round()가 매 라운드 즉시 rooms_cleared를 0으로 되돌리는 바람에 실제로는
+## "최종 라운드까지 전부 클리어"할 때만 불렸던 것)의 회귀를 막기 위한 케이스다.
+func _check_round_clear_achievements(lines: PackedStringArray) -> bool:
+	var ok := true
+	var rooms_backup := RunState.rooms_cleared
+	var round_backup := RunState.round_index
+	var character_backup := RunState.character_id
+
+	AchievementManager._debug_reset_for_qa()
+	var combat_script := load("res://code/scenes/combat_test.gd")
+
+	# 라운드 1 보스 클리어 -> "round1_clear"만 해금, round2_clear/game_clear는 아직 아님.
+	RunState.round_index = 1
+	RunState.rooms_cleared = RunState.TOTAL_ROOMS - 1
+	var combat1 = combat_script.new()
+	combat1.player_won = true
+	combat1.monster_is_boss = true
+	combat1._apply_room_advance()
+	var round1_ok := AchievementManager.is_unlocked("round1_clear")
+	var round1_no_overreach_ok := (not AchievementManager.is_unlocked("round2_clear")
+		and not AchievementManager.is_unlocked("game_clear"))
+	ok = round1_ok and round1_no_overreach_ok and ok
+	lines.append("  라운드 1 보스 클리어: round1_clear=%s(기대 true) round2/game_clear=%s(기대 둘 다 false) -> %s" % [
+		AchievementManager.is_unlocked("round1_clear"),
+		[AchievementManager.is_unlocked("round2_clear"), AchievementManager.is_unlocked("game_clear")],
+		"OK" if (round1_ok and round1_no_overreach_ok) else "FAIL"
+	])
+	combat1.free()
+
+	# 라운드 2 보스 클리어 -> "round2_clear" 추가 해금, game_clear는 아직 아님.
+	RunState.round_index = 2
+	RunState.rooms_cleared = RunState.TOTAL_ROOMS - 1
+	var combat2 = combat_script.new()
+	combat2.player_won = true
+	combat2.monster_is_boss = true
+	combat2._apply_room_advance()
+	var round2_ok := AchievementManager.is_unlocked("round2_clear")
+	var round2_no_overreach_ok := not AchievementManager.is_unlocked("game_clear")
+	ok = round2_ok and round2_no_overreach_ok and ok
+	lines.append("  라운드 2 보스 클리어: round2_clear=%s(기대 true) game_clear=%s(기대 false) -> %s" % [
+		AchievementManager.is_unlocked("round2_clear"), AchievementManager.is_unlocked("game_clear"),
+		"OK" if (round2_ok and round2_no_overreach_ok) else "FAIL"
+	])
+	combat2.free()
+
+	# 마지막 라운드(TOTAL_ROUNDS) 보스 클리어 -> "game_clear" + 캐릭터 전용
+	# "clear_<character_id>"까지 해금(광전사로 검증).
+	RunState.character_id = "berserker"
+	RunState.round_index = RunState.TOTAL_ROUNDS
+	RunState.rooms_cleared = RunState.TOTAL_ROOMS - 1
+	var combat3 = combat_script.new()
+	combat3.player_won = true
+	combat3.monster_is_boss = true
+	combat3._apply_room_advance()
+	var game_clear_ok := AchievementManager.is_unlocked("game_clear")
+	var char_clear_ok := AchievementManager.is_unlocked("clear_berserker")
+	var other_char_not_unlocked_ok := not AchievementManager.is_unlocked("clear_guardian")
+	ok = game_clear_ok and char_clear_ok and other_char_not_unlocked_ok and ok
+	lines.append("  마지막 라운드 보스 클리어(광전사): game_clear=%s clear_berserker=%s(기대 둘 다 true) clear_guardian=%s(기대 false) -> %s" % [
+		game_clear_ok, char_clear_ok, AchievementManager.is_unlocked("clear_guardian"),
+		"OK" if (game_clear_ok and char_clear_ok and other_char_not_unlocked_ok) else "FAIL"
+	])
+	combat3.free()
+
+	# 일반 방 승리(monster_is_boss=false)는 어떤 라운드 클리어 업적도 건드리지 않아야 한다.
+	AchievementManager._debug_reset_for_qa()
+	RunState.round_index = 1
+	RunState.rooms_cleared = RunState.TOTAL_ROOMS - 1
+	var combat4 = combat_script.new()
+	combat4.player_won = true
+	combat4.monster_is_boss = false
+	combat4._apply_room_advance()
+	var no_boss_no_unlock_ok := (not AchievementManager.is_unlocked("round1_clear")
+		and not AchievementManager.is_unlocked("game_clear"))
+	ok = no_boss_no_unlock_ok and ok
+	lines.append("  일반 방 승리(보스 아님): 라운드 클리어 업적 전부 미해금=%s(기대 true) -> %s" % [
+		no_boss_no_unlock_ok, "OK" if no_boss_no_unlock_ok else "FAIL"
+	])
+	combat4.free()
+
+	var all_clear_ids := ["clear_novice", "clear_berserker", "clear_guardian", "clear_explosive", "clear_shieldbearer"]
+	var all_ids_defined_ok := true
+	for id in all_clear_ids:
+		all_ids_defined_ok = all_ids_defined_ok and AchievementManager.DEFINITIONS.has(id)
+	ok = all_ids_defined_ok and ok
+	lines.append("  캐릭터 5종 전부 \"clear_<id>\" 업적 정의 존재: %s -> %s" % [
+		all_ids_defined_ok, "OK" if all_ids_defined_ok else "FAIL"
+	])
+
+	AchievementManager._debug_reset_for_qa()
+	RunState.rooms_cleared = rooms_backup
+	RunState.round_index = round_backup
+	RunState.character_id = character_backup
 	return ok
 
 

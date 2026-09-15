@@ -94,6 +94,49 @@ const DEFINITIONS := {
 		"desc": "플라스틱/나무/유리/철제 재질 다이스를 동시에 모두 보유했다.",
 		"icon": "material",
 	},
+	# 아래 7종(라운드 2/최종 클리어 + 캐릭터별 첫 클리어)은 STATUS.md 큐 13이
+	# "[대형 기획 1](5종 캐릭터)/[대형 기획 2](라운드·보스 구조)가 둘 다 완료돼 트리거
+	# 지점이 갖춰졌다"고 정리한 항목 — combat_test.gd의 _apply_room_advance()가 보스를
+	# 잡은 시점(advance_round()로 round_index가 바뀌기 전)에 직접 unlock한다. 이 작업 중
+	# 기존 "round1_clear"가 실제로는 라운드 1이 아니라 "최종 라운드까지 전부 클리어"할
+	# 때만 불렸던 버그(advance_round()가 매 라운드 즉시 rooms_cleared를 0으로 되돌려,
+	# dungeon_map.gd의 RunState.is_run_complete() 기준 판정이 마지막 라운드 클리어와만
+	# 겹쳤던 것)를 발견해 함께 고쳤다 — 아래 combat_test.gd 참고.
+	"round2_clear": {
+		"title": "라운드 2 클리어",
+		"desc": "두 번째 라운드(던전)를 클리어했다.",
+		"icon": "milestone",
+	},
+	"game_clear": {
+		"title": "최종 승리",
+		"desc": "3라운드 전부 클리어하고 최종 보스를 물리쳤다.",
+		"icon": "milestone",
+	},
+	"clear_novice": {
+		"title": "견습 모험가로 첫 클리어",
+		"desc": "견습 모험가로 최종 클리어(3라운드 전부)에 성공했다.",
+		"icon": "milestone",
+	},
+	"clear_berserker": {
+		"title": "광전사로 첫 클리어",
+		"desc": "광전사로 최종 클리어(3라운드 전부)에 성공했다.",
+		"icon": "milestone",
+	},
+	"clear_guardian": {
+		"title": "수호자로 첫 클리어",
+		"desc": "수호자로 최종 클리어(3라운드 전부)에 성공했다.",
+		"icon": "milestone",
+	},
+	"clear_explosive": {
+		"title": "폭발병으로 첫 클리어",
+		"desc": "폭발병으로 최종 클리어(3라운드 전부)에 성공했다.",
+		"icon": "milestone",
+	},
+	"clear_shieldbearer": {
+		"title": "방패병으로 첫 클리어",
+		"desc": "방패병으로 최종 클리어(3라운드 전부)에 성공했다.",
+		"icon": "milestone",
+	},
 }
 
 ## id -> 해금 시각(unix time, int). Dictionary 순서가 삽입 순서를 유지하므로 저장/로드

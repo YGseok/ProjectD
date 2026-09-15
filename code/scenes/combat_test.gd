@@ -793,11 +793,38 @@ func _apply_room_advance() -> bool:
 	_room_advanced = true
 	if player_won:
 		RunState.rooms_cleared += 1
-		if monster_is_boss and not RunState.is_last_round():
-			RunState.advance_round()
+		if monster_is_boss:
+			# advance_round()가 round_index를 바꾸기 전에, "방금 어느 라운드를 끝냈는지"를
+			# 정확히 알 수 있는 유일한 시점 — dungeon_map.gd에서 RunState.is_run_complete()
+			# 기준으로 판정하면 advance_round()가 매 라운드 즉시 rooms_cleared를 0으로
+			# 되돌려버려 "최종 라운드까지 전부 클리어"할 때만 참이 되므로 여기서 처리한다.
+			_unlock_round_clear_achievements(RunState.round_index)
+			if not RunState.is_last_round():
+				RunState.advance_round()
 	else:
 		RunState.reset_run()
 	return true
+
+
+## 보스를 잡아 cleared_round(라운드 번호)를 막 끝낸 순간 불린다. 큐 13("[대형 기획 1]
+## 5종 캐릭터 + [대형 기획 2] 라운드/보스 구조가 둘 다 갖춰져 트리거 지점이 생겼다")를
+## 반영 — 라운드 1/2 클리어와, 마지막 라운드(TOTAL_ROUNDS) 클리어 시 "최종 승리" +
+## 지금 플레이 중인 캐릭터 전용 "~로 첫 클리어" 업적을 함께 해금한다.
+func _unlock_round_clear_achievements(cleared_round: int) -> void:
+	if cleared_round == 1:
+		AchievementManager.unlock("round1_clear")
+	elif cleared_round == 2:
+		AchievementManager.unlock("round2_clear")
+	elif cleared_round == RunState.TOTAL_ROUNDS:
+		AchievementManager.unlock("game_clear")
+		AchievementManager.unlock(_character_clear_achievement_id(RunState.character_id))
+
+
+## character_id(예: "berserker") -> achievement_manager.gd DEFINITIONS의 "clear_<id>" 키.
+## 새 캐릭터를 추가할 때 이 함수는 그대로 두고 DEFINITIONS에 "clear_<새id>" 항목만
+## 추가하면 된다(character_profiles.gd의 id 값과 이름이 그대로 맞아떨어지는 구조).
+func _character_clear_achievement_id(char_id: String) -> String:
+	return "clear_%s" % char_id
 
 
 ## 승리 시 다이스 개조 아이템 2개를 제시하고, 어느 주머니(공격/방어)에 적용할지
