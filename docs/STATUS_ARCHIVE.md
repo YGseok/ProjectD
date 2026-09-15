@@ -8,6 +8,49 @@
 
 ---
 
+- **2026-09-15 (97)**: 큐 16(INBOX.md 2026-09-14 대량 피드백, "아이콘 추가 2건")
+  에서 "업적에 유형별 아이콘을 추가한다. 예를 들어 골드 보유 업적이면 금화가
+  쌓인 아이콘, 다이스 관련이면 다이스 모양 아이콘" 항목을 처리. 신규
+  `code/scenes/achievement_icon.gd`(`AchievementIcon`)에 `reward_icon.gd`
+  (`RewardIcon`, 던전 맵 보상 카테고리 아이콘)와 같은 "이미지 에셋 없이
+  `_draw()`로 도형을 그리는 절차적 Control" 패턴으로 category 9종을 구현 —
+  "start"(발자국, 첫 시작류)/"milestone"(깃발, 클리어류)/"dice"(주사위 눈 5개
+  배치 면, 다이스 보유/수집류)/"gold"(동전 3개 쌓기, 골드 보유류)/"combat"
+  (검, 전투 판정류)/"pip"(눈금 1개짜리 면, 눈금 수집류)/"bag"(주머니, 용량류)/
+  "shop"(지붕+좌판, 상점 이용류)/"material"(4분할 색상환, 재질 수집류).
+  `code/systems/achievement_manager.gd`의 `DEFINITIONS` 12종 각 항목에 "icon"
+  필드를 추가해 업적 "유형"에 맞는 category를 배정(골드류=gold, 다이스류=dice
+  식 — 개별 업적 전용 그림이 아니라 요청 문구 "유형별 아이콘" 그대로 유형
+  공유), `get_all_for_display()`가 이 필드를 함께 반환하도록 수정.
+  `code/scenes/achievement_panel.gd`의 `_make_row()`가 제목/설명 왼쪽에
+  `AchievementIcon`(36x36)을 HBoxContainer로 붙이고, 잠긴 업적은 아이콘도
+  반투명(`modulate = Color(1,1,1,0.4)`)하게 흐려 해금/미해금 구분을 아이콘까지
+  일관되게 유지. **구현 중 발견/수정한 버그 2개**: (1) `_draw_material()`에서
+  `lerp()` 결과를 `var a :=`로 타입 추론하게 했더니 Godot이 "Variant로
+  추론됨" 경고를 에러로 처리하는 프로젝트 설정 때문에 achievement_icon.gd
+  전체가 컴파일 실패 → 이를 의존하는 achievement_panel.gd/character_select.gd
+  까지 로드 자체가 깨져 캐릭터 선택 화면조차 안 뜨는 연쇄 실패를 QA
+  스크린샷 시도에서 실제로 발견 — `var a: float = lerp(...)`로 타입을
+  명시해 해결. (2) 목록 아래쪽 업적(pip/bag/shop/material 아이콘)까지
+  스크린샷으로 확인하려고 추가한 `achievement_panel.gd`의
+  `_debug_scroll_to_bottom()`을 같은 프레임에 바로 호출했더니
+  `ScrollContainer.max_value`가 아직 레이아웃 갱신 전(0에 가까움)이라 스크롤이
+  무시되는 것을 발견 — `character_select.gd`의
+  `_debug_show_achievements_scrolled()`에서 `call_deferred()`로 한 프레임
+  미뤄 해결(레이아웃이 끝난 뒤 스크롤값 설정). `dice_test.gd`에 신규 검증
+  `_check_achievement_icons`(DEFINITIONS 12종 전부의 icon이 `AchievementIcon.
+  CATEGORIES`에 속하는지, `get_all_for_display()`가 icon 필드를 채우는지)
+  추가로 회귀 스위트 전체 PASS. `qa_out/achievement_panel_icons.png`(목록
+  위쪽 6개 — 발자국/깃발/다이스/동전/검 아이콘, 해금된 "첫 발걸음"만 밝고
+  나머지는 흐림)/`qa_out/achievement_panel_icons_bottom.png`(스크롤 하단 6개 —
+  검/눈금 면/다이스/주머니/좌판/재질 아이콘)로 9종 category 전부 겹침·잘림·
+  크래시 없이 표시됨을 확인. "아이콘 추가 2건" 중 캐릭터 스킬 아이콘은
+  미착수(지금 "스킬"이 `character_profiles.gd`의 기믹 설명 텍스트뿐이라
+  아이콘을 어디에 붙일지부터 설계 필요) — 아래 "다음 할 일 큐" 16번에 남김.
+  INBOX.md 해당 항목 "처리됨"으로 이동, 처리됨 13개로 12개 초과해 가장 오래된
+  1개를 `docs/INBOX_ARCHIVE.md`로 이관. STATUS.md 완료 기록이 이 항목 추가로
+  11개가 되어, 가장 오래된 (85)(플레이어블 캐릭터 "폭발병" 구현)를
+  STATUS_ARCHIVE.md로 이관.
 - **2026-09-15 (96)**: 큐 16(INBOX.md 2026-09-14 대량 피드백)에서 "보상 팝업의
   밸류에 따라 보상 등급을 나눈다(S/A/B/C). 보상 카드에 등급을 표시하고, 등급에
   따라 녹색<파란색<보라색<노란색 색상을 테두리 및 타이틀 텍스트에 적용한다"

@@ -16,23 +16,38 @@ extends Node2D
 ## (기본값: 첫 번째 프로필) -> "던전 시작" 버튼 -> RunState.reset_run(선택한 id)로
 ## 새 런 시작 -> dungeon_map.tscn.
 
-## CARD_WIDTH_MAX: 캐릭터 수가 적을 때(지금 4종) 카드가 이보다 넓어지지 않게 하는 상한.
-## ROW_MARGIN: 카드 줄 좌우로 남겨두는 여백 — 이 안쪽 폭(1280 - ROW_MARGIN*2)을 카드
-## 개수만큼 나눠 카드 폭을 정하므로, 캐릭터가 늘어나도(5종까지 예정, docs/STATUS.md
-## 다음 할 일 큐 14번) 카드가 화면 밖으로 밀려나지 않는다(4종째부터 실제로 1280px를
-## 넘겨 화면 오른쪽이 잘리던 버그를 이번에 고침 — 폭발병 카드 QA 스크린샷에서 발견).
-const CARD_WIDTH_MAX := 360.0
-const CARD_HEIGHT := 500.0
-const CARD_GAP := 20.0
-const ROW_MARGIN := 20.0
+## CARD_WIDTH/CARD_HEIGHT/CARD_GAP: 왼쪽 카드 목록(초상+이름만, INBOX.md 2026-09-14
+## "외형과 이름들만 간략하게 나오고, 패널 선택시 오른쪽에 상세 정보를 제공"을 반영해
+## 2026-09-15에 "카드 하나에 모든 정보" 방식에서 "간략한 목록 + 오른쪽 상세 패널"
+## 방식으로 개편)의 한 행 크기. 예전에는 카드 폭을 캐릭터 수에 맞춰 동적으로 계산했지만
+## (화면 폭을 5등분), 이제는 카드가 세로로 쌓이는 목록이라 폭이 고정이어도 캐릭터가
+## 늘어나도(6종째부터는 CardsContainer 높이를 넘어 스크롤이 필요해질 수 있음 — 지금
+## 5종까지는 문제 없음) 문제가 없다.
+const CARD_WIDTH := 360.0
+const CARD_HEIGHT := 92.0
+const CARD_GAP := 12.0
+## PORTRAIT_SCALE: CharacterPortraitPlaceholder는 원래 카드 전체(약 136x248px)를 채우는
+## 크기로 그려지므로, 목록의 작은 초상 칸에 맞추려면 축소해야 한다(Node2D.scale 사용 —
+## _draw() 좌표 자체를 다시 계산하지 않고 그대로 축소).
+const PORTRAIT_SCALE := 0.32
 
 @onready var cards_container: Control = $CardsContainer
+@onready var detail_container: Control = $DetailPanelContainer
 @onready var start_button: Button = $StartButton
 @onready var achievement_button: Button = $AchievementButton
 @onready var achievement_panel: AchievementPanel = $AchievementPanel
 
 var _selected_id: String = CharacterProfiles.PROFILES[0]["id"]
 var _card_panels: Dictionary = {} # id -> PanelContainer (선택 강조 갱신용)
+
+## 상세 정보 패널(오른쪽)의 자식 노드들. _build_detail_panel()에서 한 번만 만들고,
+## 카드를 고를 때마다 _refresh_detail_panel()이 텍스트/초상만 바꿔 다시 만들지 않는다
+## (매번 새로 만들면 불필요하게 무겁고, 스크롤 위치 등 상태가 있다면 리셋될 수 있음).
+var _detail_portrait: CharacterPortraitPlaceholder
+var _detail_name_label: Label
+var _detail_concept_label: Label
+var _detail_dice_label: Label
+var _detail_skill_label: Label
 
 ## KeyboardShortcuts로 1~N 숫자 키를 순서대로 배정하는 데 쓴다(INBOX.md 2026-09-14
 ## "키보드로도 조작이 되도록" — 던전 맵/스토리 이벤트/특수 이벤트에 이어 이 화면에도
@@ -46,6 +61,7 @@ var _shortcut_buttons: Array[Button] = []
 func _ready() -> void:
 	start_button.pressed.connect(_on_start_pressed)
 	achievement_button.pressed.connect(_on_achievement_pressed)
+	_build_detail_panel()
 	_build_cards()
 
 
@@ -54,21 +70,16 @@ func _build_cards() -> void:
 		c.queue_free()
 	_card_panels.clear()
 
-	var count := CharacterProfiles.PROFILES.size()
-	var available_width := 1280.0 - ROW_MARGIN * 2.0
-	var card_width: float = min(CARD_WIDTH_MAX, (available_width - (count - 1) * CARD_GAP) / count)
-	var total_width := count * card_width + (count - 1) * CARD_GAP
-	var start_x := (1280.0 - total_width) / 2.0
-
 	var select_buttons: Array[Button] = []
-	for i in count:
+	for i in CharacterProfiles.PROFILES.size():
 		var profile: Dictionary = CharacterProfiles.PROFILES[i]
-		var card := _make_card(profile, card_width, select_buttons)
-		card.position = Vector2(start_x + i * (card_width + CARD_GAP), 0)
+		var card := _make_card(profile, select_buttons)
+		card.position = Vector2(0, i * (CARD_HEIGHT + CARD_GAP))
 		cards_container.add_child(card)
 		_card_panels[profile["id"]] = card
 
 	_refresh_selection_highlight()
+	_refresh_detail_panel()
 
 	_shortcut_buttons = select_buttons
 	_shortcut_buttons.append(start_button)
@@ -76,61 +87,126 @@ func _build_cards() -> void:
 	KeyboardShortcuts.apply_hints(_shortcut_buttons)
 
 
-func _make_card(profile: Dictionary, card_width: float, select_buttons: Array[Button]) -> PanelContainer:
+## 목록 한 행: 작은 초상 + 이름 + "선택" 버튼뿐(INBOX.md 요청대로 "외형과 이름들만
+## 간략하게"). 컨셉 설명/시작 다이스/스킬 같은 상세 정보는 더 이상 카드에 없고
+## 오른쪽 DetailPanel로 옮겨졌다.
+func _make_card(profile: Dictionary, select_buttons: Array[Button]) -> PanelContainer:
 	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(card_width, CARD_HEIGHT)
+	panel.custom_minimum_size = Vector2(CARD_WIDTH, CARD_HEIGHT)
 	panel.mouse_filter = Control.MOUSE_FILTER_STOP
 
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 8)
-	vbox.set_anchors_preset(Control.PRESET_FULL_RECT)
-	panel.add_child(vbox)
+	var hbox := HBoxContainer.new()
+	hbox.add_theme_constant_override("separation", 12)
+	hbox.set_anchors_preset(Control.PRESET_FULL_RECT)
+	panel.add_child(hbox)
 
 	var portrait_holder := Control.new()
-	portrait_holder.custom_minimum_size = Vector2(card_width, 260)
+	portrait_holder.custom_minimum_size = Vector2(56, CARD_HEIGHT)
 	var portrait := CharacterPortraitPlaceholder.new()
-	# 실루엣 그리기 범위(대략 position 기준 y -108 ~ +140, character_portrait_placeholder.gd
-	# _draw() 참고, 폭은 최대 ~136px로 card_width보다 항상 작음)가 holder 높이(260) 안에
-	# 들어오도록 y를 114로 둠 — VBoxContainer는 Node2D의 실제 그려지는 범위를 모르고
-	# holder의 custom_minimum_size만 공간으로 예약하므로, 여기서 안 맞추면 아래 이름
-	# 라벨과 겹친다.
-	portrait.position = Vector2(card_width / 2.0, 114)
+	portrait.scale = Vector2(PORTRAIT_SCALE, PORTRAIT_SCALE)
+	# 실루엣 그리기 범위는 원본 스케일 기준 x -68~68 / y -108~140(character_portrait_
+	# placeholder.gd 참고). PORTRAIT_SCALE(0.32)을 곱하면 x -21.8~21.8 / y -34.6~44.8 —
+	# holder(56 x CARD_HEIGHT) 안에서 가로는 중앙(28), 세로는 위/아래 범위 중간이 holder
+	# 세로 중앙(CARD_HEIGHT/2)에 오도록 원점을 살짝 위로 올린다((-34.6+44.8)/2 ≈ 5.1).
+	portrait.position = Vector2(28, CARD_HEIGHT / 2.0 - 5)
 	portrait.set_palette(profile["hair_color"], profile["dress_color"])
 	portrait_holder.add_child(portrait)
-	vbox.add_child(portrait_holder)
+	hbox.add_child(portrait_holder)
 
 	var name_label := Label.new()
 	name_label.text = profile["name"]
-	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	name_label.add_theme_font_size_override("font_size", 24)
+	name_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	name_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	name_label.add_theme_font_size_override("font_size", 20)
 	name_label.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9))
-	vbox.add_child(name_label)
-
-	var desc_label := Label.new()
-	desc_label.text = profile["desc"]
-	desc_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	desc_label.autowrap_mode = TextServer.AUTOWRAP_WORD
-	desc_label.custom_minimum_size = Vector2(card_width - 40, 0)
-	desc_label.add_theme_font_size_override("font_size", 15)
-	desc_label.add_theme_color_override("font_color", Color(0.8, 0.8, 0.8))
-	vbox.add_child(desc_label)
-
-	var note_label := Label.new()
-	note_label.text = "※ 플레이스홀더 실루엣 — 실제 일러스트는 추후 작업"
-	note_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	note_label.autowrap_mode = TextServer.AUTOWRAP_WORD
-	note_label.custom_minimum_size = Vector2(card_width - 40, 0)
-	note_label.add_theme_font_size_override("font_size", 12)
-	note_label.add_theme_color_override("font_color", Color(0.55, 0.55, 0.55))
-	vbox.add_child(note_label)
+	hbox.add_child(name_label)
 
 	var select_button := Button.new()
 	select_button.text = "선택"
+	select_button.custom_minimum_size = Vector2(64, 0)
 	select_button.pressed.connect(_on_card_selected.bind(profile["id"]))
-	vbox.add_child(select_button)
+	hbox.add_child(select_button)
 	select_buttons.append(select_button)
 
 	return panel
+
+
+## 오른쪽 상세 정보 패널의 뼈대(패널 배경 + 제목/초상/설명/시작 다이스/보유 스킬
+## 라벨)를 한 번만 만든다. 실제 내용은 _refresh_detail_panel()이 채운다.
+func _build_detail_panel() -> void:
+	var panel := PanelContainer.new()
+	panel.set_anchors_preset(Control.PRESET_FULL_RECT)
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.12, 0.12, 0.15, 0.95)
+	style.border_color = Color(0.4, 0.4, 0.45)
+	style.set_border_width_all(2)
+	style.set_corner_radius_all(10)
+	style.content_margin_left = 28
+	style.content_margin_right = 28
+	style.content_margin_top = 24
+	style.content_margin_bottom = 24
+	panel.add_theme_stylebox_override("panel", style)
+	detail_container.add_child(panel)
+
+	var hbox := HBoxContainer.new()
+	hbox.add_theme_constant_override("separation", 28)
+	panel.add_child(hbox)
+
+	var portrait_holder := Control.new()
+	portrait_holder.custom_minimum_size = Vector2(160, 0)
+	_detail_portrait = CharacterPortraitPlaceholder.new()
+	_detail_portrait.position = Vector2(80, 120)
+	portrait_holder.add_child(_detail_portrait)
+	hbox.add_child(portrait_holder)
+
+	var info_vbox := VBoxContainer.new()
+	info_vbox.add_theme_constant_override("separation", 14)
+	info_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hbox.add_child(info_vbox)
+
+	_detail_name_label = Label.new()
+	_detail_name_label.add_theme_font_size_override("font_size", 30)
+	_detail_name_label.add_theme_color_override("font_color", Color(0.95, 0.85, 0.5))
+	info_vbox.add_child(_detail_name_label)
+
+	_detail_concept_label = _make_detail_body_label()
+	info_vbox.add_child(_detail_concept_label)
+
+	_detail_dice_label = _make_detail_body_label()
+	info_vbox.add_child(_detail_dice_label)
+
+	_detail_skill_label = _make_detail_body_label()
+	info_vbox.add_child(_detail_skill_label)
+
+	var note_label := Label.new()
+	note_label.text = "※ 플레이스홀더 실루엣 — 실제 일러스트는 추후 작업"
+	note_label.autowrap_mode = TextServer.AUTOWRAP_WORD
+	note_label.add_theme_font_size_override("font_size", 12)
+	note_label.add_theme_color_override("font_color", Color(0.55, 0.55, 0.55))
+	info_vbox.add_child(note_label)
+
+
+func _make_detail_body_label() -> Label:
+	var label := Label.new()
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD
+	label.add_theme_font_size_override("font_size", 16)
+	label.add_theme_color_override("font_color", Color(0.85, 0.85, 0.85))
+	return label
+
+
+## 선택된 캐릭터가 바뀔 때마다 상세 패널 내용을 갱신한다. "시작 다이스"는 desc의
+## 서술형 문장을 다시 파싱하지 않고 attack_count/defense_count에서 직접 만들어
+## (DESIGN.md 확정대로 면 개수는 5종 전부 D4) 캐릭터별 수치 변경에 항상 정확하다.
+func _refresh_detail_panel() -> void:
+	var profile := CharacterProfiles.get_profile(_selected_id)
+	_detail_portrait.set_palette(profile["hair_color"], profile["dress_color"])
+	_detail_name_label.text = profile["name"]
+	_detail_concept_label.text = "설명: %s" % String(profile.get("concept", profile.get("desc", "")))
+	_detail_dice_label.text = "시작 다이스: 공격 D4 x%d / 방어 D4 x%d" % [
+		int(profile.get("attack_count", 3)), int(profile.get("defense_count", 3))
+	]
+	_detail_skill_label.text = "보유 스킬: %s" % CharacterProfiles.gimmick_label(String(profile.get("gimmick", "")))
 
 
 ## 숫자 키(1~9)로 캐릭터 카드 "선택" 버튼(+던전 시작/업적)을 순서대로 누른다
@@ -154,6 +230,7 @@ func _unhandled_input(event: InputEvent) -> void:
 func _on_card_selected(id: String) -> void:
 	_selected_id = id
 	_refresh_selection_highlight()
+	_refresh_detail_panel()
 
 
 ## 선택된 카드는 금테(업적 패널의 "해금" 카드와 같은 색 언어), 나머지는 회색 테두리로

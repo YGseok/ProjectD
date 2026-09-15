@@ -50,11 +50,25 @@ extends RefCounted
 ##                     최댓값 면을 보여줄 때마다 combat_test.gd가 전투 중 상태로 스택을
 ##                     쌓고, 3스택에서 다음 방어 한 턴만 1D20으로 굴림 (explosive_stack과
 ##                     완전히 같은 메커니즘을 플레이어 방어턴에 대칭 적용)
+## GIMMICK_LABELS: 캐릭터 선택 화면의 상세 정보 패널(2026-09-15 신설, INBOX.md
+## 2026-09-14 "패널 선택시 오른쪽에 상세 정보를 제공, 초기 제공 주사위/보유 스킬 등"
+## 반영)에서 "보유 스킬" 줄에 쓸 짧은 이름표. gimmick 필드 값(위 주석 참고) ->
+## 사람이 읽는 짧은 이름. "desc"의 긴 서술형 설명과 별개로, 목록에서 한눈에 훑어볼
+## 짧은 라벨이 필요해 추가했다.
+const GIMMICK_LABELS := {
+	"": "없음 (표준 다이스)",
+	"min_max_only": "극단 (Min/Max 전용, 중간값 없음)",
+	"fixed_defense_die": "고정 방어 (방어 다이스 1개 항상 같은 값)",
+	"explosive_stack": "폭발 스택 (공격 최댓값 3회 누적 → 1D20)",
+	"guard_stack": "수호 스택 (방어 최댓값 3회 누적 → 1D20)",
+}
+
 const PROFILES := [
 	{
 		"id": "novice",
 		"name": "견습 모험가",
 		"desc": "기본 캐릭터 (능력 차이 없음). 시작 다이스: 공격 D4x3 / 방어 D4x3 (표준형)",
+		"concept": "기본 캐릭터 (능력 차이 없음).",
 		"gimmick": "",
 		"attack_count": 3,
 		"defense_count": 3,
@@ -65,6 +79,7 @@ const PROFILES := [
 		"id": "berserker",
 		"name": "광전사",
 		"desc": "극단형 — 공격/방어 다이스가 항상 최솟값 아니면 최댓값만 나옴 (중간값 없음, 하이리스크 하이리턴). 시작 다이스: 공격 D4x4 / 방어 D4x2 (공격 몰빵)",
+		"concept": "극단형 — 공격/방어 다이스가 항상 최솟값 아니면 최댓값만 나옴 (중간값 없음, 하이리스크 하이리턴).",
 		"gimmick": "min_max_only",
 		"attack_count": 4,
 		"defense_count": 2,
@@ -75,6 +90,7 @@ const PROFILES := [
 		"id": "guardian",
 		"name": "수호자",
 		"desc": "안정형 — 방어 다이스 하나가 항상 고정값으로만 나옴 (예측 가능한 안정적 방어). 시작 다이스: 공격 D4x2 / 방어 D4x4 (방어 몰빵)",
+		"concept": "안정형 — 방어 다이스 하나가 항상 고정값으로만 나옴 (예측 가능한 안정적 방어).",
 		"gimmick": "fixed_defense_die",
 		"attack_count": 2,
 		"defense_count": 4,
@@ -85,6 +101,7 @@ const PROFILES := [
 		"id": "explosive",
 		"name": "폭발병",
 		"desc": "폭발형 — 공격 다이스가 최댓값을 보여줄 때마다 폭발 스택이 쌓임 (3스택에서 다음 공격이 20면체 주사위로 터짐). 시작 다이스: 공격 D4x4 / 방어 D4x3 (스택을 더 자주 쌓음)",
+		"concept": "폭발형 — 공격 다이스가 최댓값을 보여줄 때마다 폭발 스택이 쌓임 (3스택에서 다음 공격이 20면체 주사위로 터짐).",
 		"gimmick": "explosive_stack",
 		"attack_count": 4,
 		"defense_count": 3,
@@ -95,6 +112,7 @@ const PROFILES := [
 		"id": "shieldbearer",
 		"name": "방패병",
 		"desc": "인내형 — 방어 다이스가 최댓값을 보여줄 때마다 수호 스택이 쌓임 (3스택에서 다음 방어가 20면체 주사위로 굳건해짐). 시작 다이스: 공격 D4x3 / 방어 D4x4 (스택을 더 자주 쌓음)",
+		"concept": "인내형 — 방어 다이스가 최댓값을 보여줄 때마다 수호 스택이 쌓임 (3스택에서 다음 방어가 20면체 주사위로 굳건해짐).",
 		"gimmick": "guard_stack",
 		"attack_count": 3,
 		"defense_count": 4,
@@ -112,6 +130,13 @@ static func get_profile(id: String) -> Dictionary:
 		if p["id"] == id:
 			return p
 	return PROFILES[0]
+
+
+## gimmick 필드 값 -> GIMMICK_LABELS의 짧은 사람 읽기용 이름표. 모르는 값이 들어오면
+## (새 기믹을 추가하고 라벨을 깜빡한 경우) 원래 문자열을 그대로 반환해 완전히
+## 빈 화면이 되는 대신 최소한 뭔가는 보이게 한다.
+static func gimmick_label(gimmick: String) -> String:
+	return GIMMICK_LABELS.get(gimmick, gimmick)
 
 
 ## 방어 다이스 고정값 계산: 몬스터 "오크"(fixed_value)와 같은 공식(면 개수 평균 반올림)을
