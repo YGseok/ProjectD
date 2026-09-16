@@ -48,7 +48,8 @@ extends RefCounted
 ## "gimmick" 필드 값:
 ##   ""              : 기믹 없음 (기존 "견습 모험가")
 ##   "min_max_only"  : 공격+방어 다이스 전부 DiceBag.force_min_max_faces() 적용
-##                     (중간값 없음, 하이리스크/로우리스크 — 몬스터 "다크 나이트"와 같은 기믹)
+##                     (중간값 없음, 하이리스크/로우리스크 — 몬스터 "오크"와 같은 기믹,
+##                     2026-09-16 [미니 기획 A]-1로 "다크 나이트"에서 옮겨짐)
 ##   "fixed_defense_die": 방어 다이스 중 0번째 하나만 DiceBag.force_fixed_value_for_die()로
 ##                     고정값(굴리지 않는 것과 동일 효과) — 예측 가능한 안정적 방어 한 조각
 ##   "explosive_stack": 정적 다이스 개조 없음(run_state.gd에서는 아무 일도 안 함) — 대신
@@ -153,7 +154,8 @@ static func gimmick_label(gimmick: String) -> String:
 	return GIMMICK_LABELS.get(gimmick, gimmick)
 
 
-## 방어 다이스 고정값 계산: 몬스터 "오크"(fixed_value)와 같은 공식(면 개수 평균 반올림)을
-## 재사용해 D4 기준 3(=ceil(5/2))이 되도록 한다 — 새 밸런스 상수를 따로 만들지 않음.
+## 방어 다이스 고정값 계산: 몬스터 "해골 전사"(fixed_value, 2026-09-16 [미니 기획 A]-1로
+## "오크"에서 옮겨짐)와 같은 공식(면 개수 평균 반올림)을 재사용해 D4 기준 3(=ceil(5/2))이
+## 되도록 한다 — 새 밸런스 상수를 따로 만들지 않음.
 static func fixed_defense_die_value(sides: int) -> int:
 	return ceili((sides + 1) / 2.0)

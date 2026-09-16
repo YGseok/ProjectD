@@ -107,9 +107,10 @@ func force_fixed_value(value: int) -> void:
 
 ## force_fixed_value()와 같은 접근이지만 주머니 전체가 아니라 die_index번째 다이스
 ## 하나만 고정값으로 만든다. [대형 기획 1] 플레이어블 캐릭터 "수호자"(안정형 —
-## "다이스 하나가 항상 고정값") 기믹에서 씀. 몬스터의 "오크"(fixed_value)는 주머니
-## 전체가 고정값이지만, 캐릭터 기믹은 INBOX.md 예시 문구가 명시적으로 "다이스 하나"라고
-## 해서 나머지 다이스는 그대로 굴러가는 구분을 둔다.
+## "다이스 하나가 항상 고정값") 기믹에서 씀. 몬스터의 "해골 전사"(fixed_value,
+## 2026-09-16 [미니 기획 A]-1로 "오크"에서 옮겨짐)는 주머니 전체가 고정값이지만,
+## 캐릭터 기믹은 INBOX.md 예시 문구가 명시적으로 "다이스 하나"라고 해서 나머지
+## 다이스는 그대로 굴러가는 구분을 둔다.
 func force_fixed_value_for_die(die_index: int, value: int) -> void:
 	for i in dice[die_index].size():
 		dice[die_index][i] = value

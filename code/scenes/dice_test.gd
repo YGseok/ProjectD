@@ -633,21 +633,32 @@ func _check_monster_debug_info_text(lines: PackedStringArray) -> bool:
 		room1_text.replace("\n", " / "), "OK" if room1_ok else "FAIL"
 	])
 
-	# room3(오크, fixed_value): 고정값 자체가 문구에 그대로 드러나야 한다.
-	var room3_config = combat._monster_config_for_room(3)
-	var room3_text: String = combat._monster_debug_info_text(room3_config)
-	var room3_ok: bool = room3_text.contains("고정값") \
-		and room3_text.contains(str(room3_config["dice_gimmick_value"]))
-	ok = room3_ok and ok
-	lines.append("  room3(오크, fixed_value=%d): %s -> %s" % [
-		room3_config["dice_gimmick_value"], room3_text.replace("\n", " / "), "OK" if room3_ok else "FAIL"
+	# room2(해골 전사, fixed_value): 고정값 자체가 문구에 그대로 드러나야 한다
+	# (2026-09-16 [미니 기획 A]-1로 "오크"에서 옮겨짐).
+	var room2_config = combat._monster_config_for_room(2)
+	var room2_text: String = combat._monster_debug_info_text(room2_config)
+	var room2_ok: bool = room2_text.contains("고정값") \
+		and room2_text.contains(str(room2_config["dice_gimmick_value"]))
+	ok = room2_ok and ok
+	lines.append("  room2(해골 전사, fixed_value=%d): %s -> %s" % [
+		room2_config["dice_gimmick_value"], room2_text.replace("\n", " / "), "OK" if room2_ok else "FAIL"
 	])
 
-	# room4(다크 나이트, min_max_only + 보스): 극단 기믹 문구와 보스 강화 문구가 둘 다 있어야 한다.
+	# room3(오크, min_max_only): 극단 기믹 문구가 드러나야 한다
+	# (2026-09-16 [미니 기획 A]-1로 "다크 나이트"에서 옮겨짐).
+	var room3_text: String = combat._monster_debug_info_text(combat._monster_config_for_room(3))
+	var room3_ok: bool = room3_text.contains("극단")
+	ok = room3_ok and ok
+	lines.append("  room3(오크, min_max_only): %s -> %s" % [
+		room3_text.replace("\n", " / "), "OK" if room3_ok else "FAIL"
+	])
+
+	# room4(다크 나이트, 기믹 없음 + 보스): steady_guard는 아직 미구현([미니 기획 A]-2,
+	# 별도 이터레이션) — 지금은 보스 강화 문구만 있어야 하고 기믹 문구는 없어야 한다.
 	var room4_text: String = combat._monster_debug_info_text(combat._monster_config_for_room(RunState.TOTAL_ROOMS - 1))
-	var room4_ok: bool = room4_text.contains("극단") and room4_text.contains("보스")
+	var room4_ok: bool = room4_text.contains("보스") and not room4_text.contains("기믹")
 	ok = room4_ok and ok
-	lines.append("  room4(다크 나이트, min_max_only + 보스): %s -> %s" % [
+	lines.append("  room4(다크 나이트, 기믹 없음 + 보스): %s -> %s" % [
 		room4_text.replace("\n", " / "), "OK" if room4_ok else "FAIL"
 	])
 
@@ -659,10 +670,12 @@ func _check_monster_debug_info_text(lines: PackedStringArray) -> bool:
 ## 피드백(2026-09-09, "몬스터별 다이스 특이 특징" 예시 3개: "모든 주사위 눈이 min과
 ## max로만 이루어져 있다" / "주사위 값 x가 고정 데미지로 들어간다" / "주사위 x가 나올
 ## 때마다 분노 스택이 쌓여서 몇 개 이상이면 다음 턴에 20면체를 돌린다")를 구현한 것이다.
-## combat_test.gd는 force_min_max_faces()를 "다크 나이트"(MONSTER_PROFILES 5번째,
-## dice_gimmick="min_max_only", room_index=4)에, force_fixed_value()를 "오크"(4번째,
-## dice_gimmick="fixed_value", room_index=3)에, count_max_rolls() 기반 분노 스택 집계를
-## "고블린"(2번째, dice_gimmick="anger_stack", room_index=1)에 각각 시범 적용한다 —
+## combat_test.gd는 2026-09-16 [미니 기획 A]-1(몬스터 성격 기획)로 재배정된 뒤
+## force_min_max_faces()를 "오크"(MONSTER_PROFILES 4번째, dice_gimmick="min_max_only",
+## room_index=3)에, force_fixed_value()를 "해골 전사"(3번째, dice_gimmick="fixed_value",
+## room_index=2)에, count_max_rolls() 기반 분노 스택 집계를 "고블린"(2번째,
+## dice_gimmick="anger_stack", room_index=1)에 각각 적용한다("다크 나이트"는 신규 기믹
+## steady_guard가 배정될 예정이나 아직 미구현이라 room_index=4는 현재 기믹 없음) —
 ## 서로 다른 방에서만 켜지고, 다른 방(예: room0 슬라임)은 그대로 표준 다이스여야 한다.
 ## min_max_only는 300회 반복 굴림으로 중간값이 단 한 번도 안 나오는지, fixed_value는
 ## 매번 지정한 값만 나오는지까지 직접 확인한다. anger_stack의 "다음 턴 D20 전환"
@@ -714,15 +727,23 @@ func _check_monster_dice_gimmick(lines: PackedStringArray) -> bool:
 		no_middle_ok, "OK" if no_middle_ok else "FAIL"
 	])
 
-	# combat_test.gd _monster_config_for_room(): room4(다크 나이트)만 gimmick이 켜지고
-	# 이름에 "[극단]"이 붙어야 하며, room0(슬라임)은 영향받지 않아야 한다. room4는 동시에
-	# "보스" 방(room_index == RunState.TOTAL_ROOMS-1)이라 이름 끝에 "[보스]"도 붙는다.
+	# combat_test.gd _monster_config_for_room(): 2026-09-16 [미니 기획 A]-1로 min_max_only가
+	# "다크 나이트"에서 "오크"(room3)로 옮겨졌다 — room3만 gimmick이 켜지고 이름에 "[극단]"이
+	# 붙어야 하며, room0(슬라임)은 영향받지 않아야 한다. room4(다크 나이트)는 steady_guard가
+	# 아직 미구현([미니 기획 A]-2, 별도 이터레이션)이라 지금은 기믹이 비어있어야 하고,
+	# "보스" 방(room_index == RunState.TOTAL_ROOMS-1)이라 이름 끝에 "[보스]"만 붙는다.
 	var script := load("res://code/scenes/combat_test.gd")
 	var combat = script.new()
+	var room3_minmax_config = combat._monster_config_for_room(3)
+	var room3_minmax_ok: bool = room3_minmax_config["dice_gimmick"] == "min_max_only" and room3_minmax_config["name"] == "오크 [극단]"
+	ok = room3_minmax_ok and ok
+	lines.append("  room3 config: dice_gimmick=%s name=%s (기대 min_max_only, '오크 [극단]') -> %s" % [
+		room3_minmax_config["dice_gimmick"], room3_minmax_config["name"], "OK" if room3_minmax_ok else "FAIL"
+	])
 	var room4_config = combat._monster_config_for_room(4)
-	var room4_ok: bool = room4_config["dice_gimmick"] == "min_max_only" and room4_config["name"] == "다크 나이트 [극단] [보스]"
+	var room4_ok: bool = room4_config["dice_gimmick"] == "" and room4_config["name"] == "다크 나이트 [보스]"
 	ok = room4_ok and ok
-	lines.append("  room4 config: dice_gimmick=%s name=%s (기대 min_max_only, '다크 나이트 [극단] [보스]') -> %s" % [
+	lines.append("  room4 config(steady_guard 미구현, 보스만 적용): dice_gimmick=%s name=%s (기대 빈 문자열, '다크 나이트 [보스]') -> %s" % [
 		room4_config["dice_gimmick"], room4_config["name"], "OK" if room4_ok else "FAIL"
 	])
 	var room0_config = combat._monster_config_for_room(0)
@@ -753,17 +774,18 @@ func _check_monster_dice_gimmick(lines: PackedStringArray) -> bool:
 		always_same_ok, "OK" if always_same_ok else "FAIL"
 	])
 
-	# combat_test.gd _monster_config_for_room(): room3(오크, D6)만 fixed_value gimmick이
-	# 켜지고 이름에 "[고정값 4]"가 붙어야 한다(D6 -> ceil(7/2)=4). min_max_only(room4)와
+	# combat_test.gd _monster_config_for_room(): 2026-09-16 [미니 기획 A]-1로 fixed_value가
+	# "오크"에서 "해골 전사"(room2)로 옮겨졌다 — room2(해골 전사, D6)만 fixed_value gimmick이
+	# 켜지고 이름에 "[고정값 4]"가 붙어야 한다(D6 -> ceil(7/2)=4). min_max_only(room3)와
 	# 서로 영향 없이 독립적으로 동작해야 함.
-	var room3_config = combat._monster_config_for_room(3)
-	var room3_ok: bool = room3_config["dice_gimmick"] == "fixed_value" \
-		and room3_config["dice_gimmick_value"] == 4 \
-		and room3_config["name"] == "오크 [고정값 4]"
-	ok = room3_ok and ok
-	lines.append("  room3 config: dice_gimmick=%s value=%d name=%s (기대 fixed_value/4/'오크 [고정값 4]') -> %s" % [
-		room3_config["dice_gimmick"], room3_config["dice_gimmick_value"], room3_config["name"],
-		"OK" if room3_ok else "FAIL"
+	var room2_config = combat._monster_config_for_room(2)
+	var room2_ok: bool = room2_config["dice_gimmick"] == "fixed_value" \
+		and room2_config["dice_gimmick_value"] == 4 \
+		and room2_config["name"] == "해골 전사 [고정값 4]"
+	ok = room2_ok and ok
+	lines.append("  room2 config: dice_gimmick=%s value=%d name=%s (기대 fixed_value/4/'해골 전사 [고정값 4]') -> %s" % [
+		room2_config["dice_gimmick"], room2_config["dice_gimmick_value"], room2_config["name"],
+		"OK" if room2_ok else "FAIL"
 	])
 
 	# room1(고블린)만 anger_stack gimmick이 켜지고 이름에 "[분노]"가 붙어야 하며, room0/3/4와

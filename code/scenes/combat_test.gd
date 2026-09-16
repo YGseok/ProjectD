@@ -192,18 +192,25 @@ const PIP_REWARD_MAX_PER_ROOM := 1
 ##
 ## "dice_gimmick"(선택 필드): INBOX.md(2026-09-09) "몬스터별 다이스 특이 특징" 요청의
 ## 예시 3개(고정값 다이스 / min·max만 있는 다이스 / 분노 스택 -> D20)를 전부 시범
-## 적용함(작고 독립적으로 검증 가능한 조각씩 나눠 진행). 몬스터별 성격 기획(큐 8)이
-## 아직 없어서 "이 몬스터가 왜 이 특징을 갖는지"는 근거가 없는 임시 배정 — 성격
-## 기획이 나오면 다시 배정할 수 있음. "anger_stack"(분노 스택 -> D20)은 매 턴 상태
-## 추적이 필요해 monster_anger_stacks/monster_anger_pending으로 전투 중에만 유지되는
-## 상태를 추가로 둠(_do_exchange() 참고) — 새 몬스터 배정이 아니라 기존 3종 중 아직
-## 기믹이 없던 "고블린"에 적용.
+## 적용함(작고 독립적으로 검증 가능한 조각씩 나눠 진행). "anger_stack"(분노 스택 ->
+## D20)은 매 턴 상태 추적이 필요해 monster_anger_stacks/monster_anger_pending으로
+## 전투 중에만 유지되는 상태를 추가로 둠(_do_exchange() 참고).
+##
+## 2026-09-16 [미니 기획 A]-1(INBOX.md 2026-09-15 몬스터 성격 기획)로 fixed_value/
+## min_max_only 배정을 성격에 맞게 재배정함(코드 스왑만, 로직 자체는 그대로):
+##   - "해골 전사"(감정 없이 명령대로만 움직이는 병사): fixed_value를 "오크"에서 옮겨받음.
+##   - "오크"(힘만 믿고 저돌적으로 날뛰는 성격, 전부 아니면 전무): min_max_only를
+##     "다크 나이트"에서 옮겨받음.
+##   - "다크 나이트"(차갑고 노련하며 방어에서 흔들리지 않는 기사)는 신규 기믹
+##     `steady_guard`가 배정될 예정이나 아직 미구현([미니 기획 A]-2, 별도 이터레이션) —
+##     지금은 일시적으로 기믹 없음.
+##   - "슬라임"(무기력하고 단순함)/"고블린"(성급하고 화를 잘 냄)은 기존 그대로 유지.
 const MONSTER_PROFILES := [
 	{"name": "슬라임", "color": Color(0.35, 0.85, 0.4)},
 	{"name": "고블린", "color": Color(0.75, 0.55, 0.25), "dice_gimmick": "anger_stack"},
-	{"name": "해골 전사", "color": Color(0.85, 0.85, 0.8)},
-	{"name": "오크", "color": Color(0.3, 0.55, 0.3), "dice_gimmick": "fixed_value"},
-	{"name": "다크 나이트", "color": Color(0.55, 0.25, 0.75), "dice_gimmick": "min_max_only"},
+	{"name": "해골 전사", "color": Color(0.85, 0.85, 0.8), "dice_gimmick": "fixed_value"},
+	{"name": "오크", "color": Color(0.3, 0.55, 0.3), "dice_gimmick": "min_max_only"},
+	{"name": "다크 나이트", "color": Color(0.55, 0.25, 0.75)},
 ]
 
 
