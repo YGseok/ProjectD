@@ -177,6 +177,10 @@ func _ready() -> void:
 	all_pass = _check_skill_event_structure(lines) and all_pass
 
 	lines.append("")
+	lines.append("[캐릭터 스킬 실제 효과 검증: dice_bag.gd apply_flat_bonus / skill_pool.gd UNIQUE_SKILLS / combat_test.gd _apply_spare_die+player_frenzy_active]")
+	all_pass = _check_skill_effects(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -2365,4 +2369,78 @@ func _check_skill_event_structure(lines: PackedStringArray) -> bool:
 	event_node.free()
 	RunState.skill_flags = flags_backup
 	RunState.rooms_cleared = rooms_backup
+	return ok
+
+
+## [미니 기획 C]-3/4(INBOX.md, 2026-09-16) 실제 전투 효과 배선 검증. combat_test.gd의
+## _do_exchange()는 물리 다이스/뷰포트에 의존해 직접 호출하기 어려우므로(다른
+## _check_combat_* 테스트들처럼 물리 의존 없는 순수 헬퍼만 골라 검증), 여기서는
+## (1) DiceBag.apply_flat_bonus()(심호흡의 계산식), (2) SkillPool.UNIQUE_SKILLS
+## 캐릭터 필터(광기 심화가 광전사에게만 제시되는지), (3) combat_test.gd._apply_spare_die()
+## (여분의 "가장 낮은 값을 여분 다이스로 대체" 로직)를 각각 검증한다.
+func _check_skill_effects(lines: PackedStringArray) -> bool:
+	var ok := true
+
+	# (1) 심호흡: apply_flat_bonus는 값 +1을 하되 그 다이스 면 개수(sides)를 상한으로 한다.
+	var breath_bag := DiceBag.new(4, 3)
+	var breath_before: Array = [1, 3, 4]
+	var breath_after: Array = breath_bag.apply_flat_bonus(breath_before, 1)
+	var breath_ok: bool = breath_after == [2, 4, 4]
+	ok = breath_ok and ok
+	lines.append("  DiceBag.apply_flat_bonus([1,3,4], +1) on D4x3 = %s (기대 [2,4,4], 4는 상한 유지) -> %s" % [
+		breath_after, "OK" if breath_ok else "FAIL"
+	])
+
+	# (2) 광기 심화(frenzy_deepen)는 광전사(berserker) 전용 후보로만 제시되고, 다른
+	# 캐릭터나 character_id 미지정 호출에는 섞이지 않는다.
+	var flags_backup: Array[String] = RunState.skill_flags.duplicate()
+	RunState.skill_flags = []
+	var berserker_choices := SkillPool.available_choices(SkillPool.SKILLS.size() + SkillPool.UNIQUE_SKILLS.size(), "berserker")
+	var berserker_has_frenzy := false
+	for s in berserker_choices:
+		if s["id"] == "frenzy_deepen":
+			berserker_has_frenzy = true
+	var novice_choices := SkillPool.available_choices(SkillPool.SKILLS.size() + SkillPool.UNIQUE_SKILLS.size(), "novice")
+	var novice_has_frenzy := false
+	for s in novice_choices:
+		if s["id"] == "frenzy_deepen":
+			novice_has_frenzy = true
+	var no_char_choices := SkillPool.available_choices(SkillPool.SKILLS.size() + SkillPool.UNIQUE_SKILLS.size())
+	var no_char_has_frenzy := false
+	for s in no_char_choices:
+		if s["id"] == "frenzy_deepen":
+			no_char_has_frenzy = true
+	var frenzy_filter_ok: bool = berserker_has_frenzy and not novice_has_frenzy and not no_char_has_frenzy
+	ok = frenzy_filter_ok and ok
+	lines.append("  '광기 심화' 캐릭터 필터: berserker=%s novice=%s 미지정=%s (기대 true/false/false) -> %s" % [
+		berserker_has_frenzy, novice_has_frenzy, no_char_has_frenzy, "OK" if frenzy_filter_ok else "FAIL"
+	])
+	RunState.skill_flags = flags_backup
+
+	# (3) 여분: _apply_spare_die()는 항상 가장 낮은 값이 있던 자리만 바꾸고(다른 자리는
+	# 그대로), 결과값이 원래 값보다 낮아지는 일은 없다. 여분 다이스가 D4라 여러 번
+	# 시도하면 최소 한 번은 원래 최저값(1)보다 높은 값으로 대체돼야 한다(확률적 검증,
+	# _check_range()가 쓰는 "여러 번 굴려 범위 확인" 패턴과 동일).
+	var combat_script := load("res://code/scenes/combat_test.gd")
+	var combat = combat_script.new()
+	var spare_bag := DiceBag.new(4, 3)
+	var untouched_ok := true
+	var never_decreased_ok := true
+	var replaced_at_least_once := false
+	for i in 60:
+		var values: Array = [1, 4, 2]
+		var adjusted: Array = combat._apply_spare_die(spare_bag, values)
+		if adjusted[1] != 4 or adjusted[2] != 2:
+			untouched_ok = false
+		if adjusted[0] < 1 or adjusted[0] > 4:
+			never_decreased_ok = false
+		if adjusted[0] > 1:
+			replaced_at_least_once = true
+	var spare_ok: bool = untouched_ok and never_decreased_ok and replaced_at_least_once
+	ok = spare_ok and ok
+	lines.append("  _apply_spare_die(): 최저값 자리만 변경=%s 범위[1,4] 유지=%s 최소 1회 대체 관측=%s -> %s" % [
+		untouched_ok, never_decreased_ok, replaced_at_least_once, "OK" if spare_ok else "FAIL"
+	])
+	combat.free()
+
 	return ok

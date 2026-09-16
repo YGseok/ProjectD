@@ -65,7 +65,7 @@ func _ready() -> void:
 	continue_button.hide()
 	continue_button.pressed.connect(_on_continue_after_fail_pressed)
 
-	var skill_candidates := SkillPool.available_choices(2)
+	var skill_candidates := SkillPool.available_choices(2, RunState.character_id)
 	_is_skill_event = not skill_candidates.is_empty() and randf() < SKILL_EVENT_CHANCE
 	if _is_skill_event:
 		_setup_skill_event(skill_candidates)
@@ -484,7 +484,7 @@ func _debug_open_customize() -> void:
 ## QA 전용: 스킬 이벤트 분기(30% 확률)가 실제로 카드 2장을 겹침 없이 보여주는지
 ## 확인하기 위해, _ready()의 확률 결과와 무관하게 강제로 스킬 이벤트 화면을 그린다.
 func _debug_force_skill_event() -> void:
-	_setup_skill_event(SkillPool.available_choices(2))
+	_setup_skill_event(SkillPool.available_choices(2, RunState.character_id))
 
 
 ## QA 전용: 스킬을 실제로 습득하면 RunState.skill_flags에 반영되는지, 이미 보유한

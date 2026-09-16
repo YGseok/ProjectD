@@ -158,6 +158,23 @@ func apply_steady_guard(values: Array) -> Array:
 	return adjusted
 
 
+## 캐릭터 스킬 "심호흡"(INBOX.md [미니 기획 C]-3, 2026-09-16) 전용 헬퍼 — apply_steady_guard()와
+## 같은 접근(원본 배열은 건드리지 않고 보정된 새 배열을 반환)이지만, 하한선이 아니라 매
+## 다이스 결과값에 고정 보너스를 더하고 그 다이스의 면 개수(sides)를 상한으로 클램프한다.
+## 이름을 스킬 전용으로 짓지 않은 이유: "결과값에 +n, 면 개수가 상한"이라는 동작 자체는
+## 다른 스킬/아이템에서도 재사용할 수 있는 일반적인 계산이라 DiceBag의 범용 API로 둔다.
+func apply_flat_bonus(values: Array, bonus: int) -> Array:
+	var adjusted := values.duplicate()
+	for i in dice.size():
+		if i >= adjusted.size():
+			continue
+		var sides: int = dice[i].size()
+		if sides == 0:
+			continue
+		adjusted[i] = min(adjusted[i] + bonus, sides)
+	return adjusted
+
+
 var count: int:
 	get:
 		return dice.size()

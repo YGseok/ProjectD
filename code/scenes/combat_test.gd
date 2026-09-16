@@ -137,6 +137,19 @@ var player_guard_pending := false
 const GUARD_STACK_THRESHOLD := 3
 const GUARD_DICE_SIDES := 20
 
+## 캐릭터 스킬(RunState.skill_flags) 전투 중 상태 — INBOX.md [미니 기획 C]-3/4
+## (2026-09-16)가 확정한 공용 스킬 2종 + 광전사 전용 고유 스킬 1종의 실제 효과 배선.
+## player_deep_breath_used: "심호흡"이 이번 전투에서 이미 적용됐는지(첫 방어턴 1회
+## 한정이라 전투마다, 즉 _ready()마다 초기화).
+var player_deep_breath_used := false
+## player_frenzy_active: "광기 심화"(광전사 전용 고유 스킬) 보유 여부. RunState.
+## skill_flags는 캐릭터와 무관하게 문자열만 쌓이므로, SkillPool이 캐릭터 필터로
+## 이 스킬을 광전사에게만 제시했다는 전제 하에 플래그 존재 여부만 확인한다. true이면
+## 아래 _do_exchange()에서 player_dice_gimmick이 "explosive_stack"이 아니어도(광전사
+## 본인 기믹은 min_max_only) 폭발 스택 파이프라인을 그대로 열어주고, 보너스 턴은
+## 1D20 한 번이 아니라 두 번 굴려 더 높은 값을 채택한다.
+var player_frenzy_active := false
+
 var battle_over := false
 var player_won := false
 var _room_advanced := false
@@ -372,6 +385,8 @@ func _ready() -> void:
 	player_explosive_pending = false
 	player_guard_stacks = 0
 	player_guard_pending = false
+	player_deep_breath_used = false
+	player_frenzy_active = RunState.skill_flags.has("frenzy_deepen")
 
 	next_button.pressed.connect(_on_next_button_pressed)
 	deck_toggle_button.pressed.connect(_on_deck_toggle_pressed)
@@ -462,7 +477,7 @@ func _do_exchange(is_player_attacking: bool) -> void:
 	var used_guard_dice := false
 	var atk_bag: DiceBag
 	if is_player_attacking:
-		if player_dice_gimmick == "explosive_stack" and player_explosive_pending:
+		if (player_dice_gimmick == "explosive_stack" or player_frenzy_active) and player_explosive_pending:
 			atk_bag = DiceBag.new(EXPLOSIVE_DICE_SIDES, 1)
 			used_explosive_dice = true
 		else:
@@ -503,6 +518,27 @@ func _do_exchange(is_player_attacking: bool) -> void:
 	# 계산과 화면에 보이는 결과 칩(_show_exchange_dice_chips) 둘 다 보정된 값을 쓴다.
 	if is_player_attacking and monster_dice_gimmick == "steady_guard":
 		def_values = def_bag.apply_steady_guard(def_values)
+	# "광기 심화"(INBOX.md [미니 기획 C]-4): 이번 공격턴이 폭발 스택 보너스 턴(1D20)이고
+	# 광기 심화를 보유했다면, 한 번 더 굴려 더 높은 값을 채택한다("두 번 굴려 advantage").
+	if used_explosive_dice and player_frenzy_active:
+		var frenzy_reroll: Array = atk_bag.roll_detailed()
+		if frenzy_reroll[0] > atk_values[0]:
+			_append_log("광기 심화: %d 대신 %d 채택 (1D20 두 번 중 최댓값)" % [atk_values[0], frenzy_reroll[0]])
+			atk_values[0] = frenzy_reroll[0]
+		else:
+			_append_log("광기 심화: %d 유지 (1D20 두 번 중 최댓값)" % atk_values[0])
+	# "여분"(INBOX.md [미니 기획 C]-3): 폭발 보너스 턴이 아닌 평소 공격턴마다 여분
+	# 다이스를 하나 더 굴려, 이번 공격에서 가장 낮았던 다이스 값보다 높으면 그 자리를
+	# 대체한다(advantage를 가장 약한 다이스 한 곳에만 적용) — "이번 런 내내 유지"이므로
+	# skill_flags에 남아있는 한 매 공격턴 계속 적용된다.
+	if is_player_attacking and not used_explosive_dice and RunState.skill_flags.has("spare_die"):
+		atk_values = _apply_spare_die(atk_bag, atk_values)
+	# "심호흡"(INBOX.md [미니 기획 C]-3): 이번 전투의 첫 방어턴 한 번만, 방어 다이스
+	# 결과값 전부에 +1(다이스별 면 개수가 상한 — DiceBag.apply_flat_bonus() 참고).
+	if not is_player_attacking and RunState.skill_flags.has("deep_breath") and not player_deep_breath_used:
+		def_values = def_bag.apply_flat_bonus(def_values, 1)
+		player_deep_breath_used = true
+		_append_log("심호흡 효과: 방어 다이스 결과값 +1 (이번 전투 최초 1회)")
 	var atk_total := 0
 	for v in atk_values:
 		atk_total += v
@@ -538,19 +574,20 @@ func _do_exchange(is_player_attacking: bool) -> void:
 					monster_anger_pending = true
 					_append_log("몬스터가 분노했다! 다음 공격은 20면체 주사위로 굴린다")
 
-	if is_player_attacking and player_dice_gimmick == "explosive_stack":
+	if is_player_attacking and (player_dice_gimmick == "explosive_stack" or player_frenzy_active):
 		if used_explosive_dice:
 			player_explosive_stacks = 0
 			player_explosive_pending = false
-			_append_log("폭발이 진정됐다 (폭발 스택 초기화)")
+			_append_log("광기가 가라앉았다 (스택 초기화)" if player_frenzy_active else "폭발이 진정됐다 (폭발 스택 초기화)")
 		else:
 			var max_hits: int = RunState.player_attack_bag.count_max_rolls(atk_values)
 			if max_hits > 0:
 				player_explosive_stacks += max_hits
-				_append_log("폭발 스택 +%d (%d/%d)" % [max_hits, player_explosive_stacks, EXPLOSIVE_STACK_THRESHOLD])
+				var stack_label := "광기" if player_frenzy_active else "폭발"
+				_append_log("%s 스택 +%d (%d/%d)" % [stack_label, max_hits, player_explosive_stacks, EXPLOSIVE_STACK_THRESHOLD])
 				if player_explosive_stacks >= EXPLOSIVE_STACK_THRESHOLD:
 					player_explosive_pending = true
-					_append_log("폭발 직전! 다음 공격은 20면체 주사위로 터진다")
+					_append_log("광기가 정점에 달했다! 다음 공격은 1D20을 두 번 굴려 더 높은 값을 채택한다" if player_frenzy_active else "폭발 직전! 다음 공격은 20면체 주사위로 터진다")
 
 	if not is_player_attacking and player_dice_gimmick == "guard_stack":
 		if used_guard_dice:
@@ -760,6 +797,30 @@ func _update_hp_bar(fill: ColorRect, full_width: float, hp: int, max_hp: int) ->
 		fill.color = HP_BAR_COLOR_MID
 	else:
 		fill.color = HP_BAR_COLOR_LOW
+
+
+## "여분" 스킬(INBOX.md [미니 기획 C]-3) 전용 헬퍼 — bag의 첫 번째 다이스와 같은 면
+## 개수의 여분 다이스 1개를 새로 굴려, values 중 가장 낮은 값보다 높으면 그 자리를
+## 대체한 새 배열을 반환한다(원본 배열은 건드리지 않음, DiceBag.apply_steady_guard()와
+## 같은 "새 배열 반환" 관례). bag이 비어있으면(이론상 발생하지 않지만 방어적으로) D4를
+## 기본값으로 쓴다.
+func _apply_spare_die(bag: DiceBag, values: Array) -> Array:
+	if values.is_empty():
+		return values
+	var spare_sides := 4
+	if bag.dice.size() > 0:
+		spare_sides = bag.dice[0].size()
+	var spare_bag := DiceBag.new(spare_sides, 1)
+	var spare_value: int = spare_bag.roll_detailed()[0]
+	var adjusted: Array = values.duplicate()
+	var min_index := 0
+	for i in adjusted.size():
+		if adjusted[i] < adjusted[min_index]:
+			min_index = i
+	if spare_value > adjusted[min_index]:
+		_append_log("여분 다이스 결과 %d로 최저 공격 다이스 값 %d 대체" % [spare_value, adjusted[min_index]])
+		adjusted[min_index] = spare_value
+	return adjusted
 
 
 func _append_log(line: String) -> void:
