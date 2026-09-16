@@ -58,6 +58,17 @@ extends Node
 ## DiceBag으로 감쌀 필요가 없다(이 다이스는 커스터마이징 대상이 아니므로 개조 상태를
 ## 들고 있을 이유가 없음). 실제로 이 값을 굴려서 판정하는 로직([미니 기획 B]-2/3)은
 ## 아직 없음 — 지금은 event_die_visual.gd로 "이런 모양의 다이스가 있다"만 보여준다.
+##
+## skill_flags: INBOX.md [미니 기획 C] "캐릭터 스킬 부여 이벤트" 1~2단계
+## (2026-09-16) 반영. "이번 런 동안 유지되는 영구 버프"를 전투 시스템을 새로 만들지
+## 않고 표현하기 위한 최소 구조 — 획득한 스킬 id(문자열)만 쌓아두는 배열이다.
+## systems/skill_pool.gd(SkillPool)가 "특수 이벤트" 방에서 가끔 제시하는 스킬 후보를
+## 정의하고, 플레이어가 고르면 SkillPool.grant()로 여기에 추가된다. reset_run()마다
+## 비워져 새 런에서는 다시 처음부터 골라야 한다(pip_inventory/die_inventory와 같은
+## "패배 시 리셋" 관례). **이 배열을 읽어 실제 전투 보너스를 적용하는 쪽
+## (combat_test.gd)은 아직 구현하지 않음** — 이번 이터레이션은 "구조 + 배열"까지만
+## 진행하기로 확정된 범위이고, 다음 이터레이션이 SkillPool.SKILLS의 각 스킬 효과를
+## combat_test.gd에 실제로 배선해야 한다(DESIGN.md/STATUS.md 참고).
 
 const TOTAL_ROOMS := 5
 const TOTAL_ROUNDS := 3
@@ -72,6 +83,7 @@ var player_attack_bag: DiceBag
 var player_defense_bag: DiceBag
 var pip_inventory: Array[int] = []
 var die_inventory: Array[int] = []
+var skill_flags: Array[String] = []
 
 
 func _ready() -> void:
@@ -94,6 +106,7 @@ func reset_run(new_character_id: String = "") -> void:
 	event_die_sides = profile.get("event_die_sides", 6)
 	pip_inventory = []
 	die_inventory = []
+	skill_flags = []
 	_apply_character_gimmick()
 
 

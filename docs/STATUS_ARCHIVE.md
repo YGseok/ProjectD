@@ -8,6 +8,56 @@
 
 ---
 
+- **2026-09-15 (109)**: 큐 13("[대형 기획 3] 업적 시스템 — 남은 항목 추가")에서
+  "[대형 기획 1](5종 캐릭터)/[대형 기획 2](라운드·보스 구조)가 둘 다 완료돼
+  트리거 지점이 갖춰졌다"고 정리해뒀던 라운드 2/3 클리어 + 캐릭터별 첫 클리어
+  업적을 실제로 추가했다. INBOX.md에 새로 반영할 미처리 항목이 없어 큐에서
+  "설계 결정 없이 바로 진행 가능한" 항목을 찾다가, 트리거 지점이 이미 갖춰졌다고
+  적혀 있던 이 항목을 선택. 착수 전 관련 코드를 다시 읽다가 실제 버그를 하나
+  발견했다: `code/scenes/dungeon_map.gd`의 `_update_labels()`가 `RunState.
+  is_run_complete()`(rooms_cleared >= TOTAL_ROOMS) 기준으로 "round1_clear"를
+  판정하고 있었는데, `combat_test.gd`의 `_apply_room_advance()`는 보스를 잡으면
+  마지막 라운드가 아닌 한 그 자리에서 즉시 `RunState.advance_round()`를 불러
+  rooms_cleared를 0으로 되돌려버린다 — 그래서 `is_run_complete()`가 참이 되는
+  경우는 사실상 "최종 라운드까지 전부 클리어"했을 때뿐이었고, "라운드 1(첫
+  던전)을 클리어했다"는 이름/설명과 달리 라운드 1을 막 끝냈을 때는 한 번도
+  불리지 않는 상태였다(순수 로직 재검토로 찾은 버그 — 크래시나 스크린샷으로
+  드러나는 종류가 아니라 이번에 코드를 다시 읽으며 발견함).
+  **수정**: `combat_test.gd`의 `_apply_room_advance()`에 신규
+  `_unlock_round_clear_achievements(cleared_round)`를 추가해, `RunState.
+  advance_round()`가 `round_index`를 바꾸기 *전에*(= "방금 몇 번째 라운드를
+  끝냈는지"를 정확히 아는 유일한 시점) 라운드별 업적을 직접 unlock하도록
+  옮겼다: `cleared_round == 1`이면 `round1_clear`(기존 정의 재사용, 이제야
+  실제로 라운드 1 클리어 시점에 정확히 불림), `== 2`면 신규 `round2_clear`,
+  `== RunState.TOTAL_ROUNDS`(3)면 신규 `game_clear` + 지금 플레이 중인 캐릭터
+  전용 `clear_<character_id>`(`_character_clear_achievement_id()`)까지 함께
+  unlock. `dungeon_map.gd`의 기존 `AchievementManager.unlock("round1_clear")`
+  호출은 이제 틀린 시점에 불리는 중복 호출이라 제거하고 그 경위를 주석으로
+  남겼다. `code/systems/achievement_manager.gd`의 `DEFINITIONS`에 7종 신규
+  추가: `round2_clear`("라운드 2 클리어")/`game_clear`("최종 승리") + 캐릭터
+  5종 각각의 `clear_novice`/`clear_berserker`/`clear_guardian`/
+  `clear_explosive`/`clear_shieldbearer`("~로 첫 클리어", 전부 icon="milestone"
+  재사용 — 새 아이콘 카테고리를 만들 필요는 없다고 판단). 이제 등록 업적이
+  12종 → 19종.
+  **QA 검증**: `code/scenes/dice_test.gd`에 신규
+  `_check_round_clear_achievements`를 추가해(`combat_test.gd`를 씬 로드 없이
+  스크립트만 `.new()`로 인스턴스화해 `_apply_room_advance()`를 직접 호출하는
+  기존 `_check_combat_boss_round_advance`와 같은 패턴) 라운드 1/2/최종 클리어
+  각각 올바른 업적만 unlock되고 더 앞서/늦게 해금되지 않는지, 일반 방 승리
+  (monster_is_boss=false)는 아무 라운드 업적도 건드리지 않는지, 캐릭터 5종
+  전부 `clear_<id>` 정의가 존재하는지 검증 — `scripts/qa_shot.sh dice_test`로
+  전체 PASS(기존 케이스 포함, 새로 발견된 회귀 없음). 화면 검증은 이미 있던
+  QA 훅 `character_select.gd`의 `_debug_show_achievements`/
+  `_debug_show_achievements_scrolled`를 그대로 재사용(새 훅 불필요) —
+  `qa_out/achievements_new_top.png`(19종 중 "잠김/해금" 최상단 6개, 겹침 없이
+  표시)/`qa_out/achievements_new_scrolled.png`(스크롤 최하단 — 신규 7종 중
+  "최종 승리"+캐릭터 5종 첫 클리어가 겹침 없이 전부 보임, 헤더가 "업적 (1 /
+  19 달성)"으로 정확히 갱신됨)로 확인. 남은 것: 남은 업적 후보(원 INBOX 30종
+  목록 중 나머지, 원문 미보존이라 정확한 개수는 알 수 없음)는 여전히
+  `DEFINITIONS`에 항목만 추가하면 되는 구조로 남아있고, 해금 "순간" 토스트/
+  팝업 알림은 여전히 없음(목록을 직접 열어야만 확인 가능) — 이건 사람 판단
+  필요.
+
 - **2026-09-15 (108)**: 큐 16(INBOX.md 2026-09-14 대량 피드백)의 "캐릭터 선택 화면
   UX 개편" 처리. INBOX.md 원문: "캐릭터 선택 화면은 외형과 이름들만 간략하게
   나오고, 패널 선택시 오른쪽에 패널을 띄워, 상세 정보를 제공한다. 내용은 캐릭터

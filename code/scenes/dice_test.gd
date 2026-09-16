@@ -173,6 +173,10 @@ func _ready() -> void:
 	all_pass = _check_keyboard_shortcuts(lines) and all_pass
 
 	lines.append("")
+	lines.append("[캐릭터 스킬 이벤트 구조 검증: skill_pool.gd SkillPool / event.gd _setup_skill_event / RunState.skill_flags]")
+	all_pass = _check_skill_event_structure(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -2272,4 +2276,93 @@ func _check_keyboard_shortcuts(lines: PackedStringArray) -> bool:
 
 	b1.queue_free()
 	b2.queue_free()
+	return ok
+
+
+## [미니 기획 C]-1/2(INBOX.md, 2026-09-16) 검증. (1) SkillPool.SKILLS에 최소 2종이
+## 정의돼 있는지, (2) available_choices()가 이미 RunState.skill_flags에 있는 id를
+## 후보에서 제외하는지, (3) grant()가 중복 없이 추가하는지, (4) 실제 event.tscn을
+## 인스턴스화해 _setup_skill_event()/_apply_skill_pick()이 카드 표시·방 진행·이중
+## 실행 가드까지 정상 동작하는지(_apply_pick/_apply_pips/_apply_upgrade와 같은
+## 패턴의 이중 실행 가드 검증).
+func _check_skill_event_structure(lines: PackedStringArray) -> bool:
+	var ok := true
+	var flags_backup: Array[String] = RunState.skill_flags.duplicate()
+	var rooms_backup := RunState.rooms_cleared
+
+	var skills_defined_ok: bool = SkillPool.SKILLS.size() >= 2
+	ok = skills_defined_ok and ok
+	lines.append("  SkillPool.SKILLS 개수=%d(기대 2 이상) -> %s" % [
+		SkillPool.SKILLS.size(), "OK" if skills_defined_ok else "FAIL"
+	])
+
+	RunState.skill_flags = []
+	var full_choices := SkillPool.available_choices(SkillPool.SKILLS.size())
+	var full_choices_ok: bool = full_choices.size() == SkillPool.SKILLS.size()
+	ok = full_choices_ok and ok
+	lines.append("  스킬 미보유 상태 available_choices(전체)=%d(기대 %d) -> %s" % [
+		full_choices.size(), SkillPool.SKILLS.size(), "OK" if full_choices_ok else "FAIL"
+	])
+
+	var first_id: String = SkillPool.SKILLS[0]["id"]
+	SkillPool.grant(first_id)
+	var grant_ok: bool = RunState.skill_flags.has(first_id) and RunState.skill_flags.count(first_id) == 1
+	ok = grant_ok and ok
+	lines.append("  grant('%s') 후 skill_flags=%s -> %s" % [first_id, RunState.skill_flags, "OK" if grant_ok else "FAIL"])
+
+	SkillPool.grant(first_id)
+	var grant_dedup_ok: bool = RunState.skill_flags.count(first_id) == 1
+	ok = grant_dedup_ok and ok
+	lines.append("  grant('%s') 재호출(중복) 후 개수=%d(기대 1) -> %s" % [
+		first_id, RunState.skill_flags.count(first_id), "OK" if grant_dedup_ok else "FAIL"
+	])
+
+	var remaining_choices := SkillPool.available_choices(SkillPool.SKILLS.size())
+	var still_offers_owned := false
+	for s in remaining_choices:
+		if s["id"] == first_id:
+			still_offers_owned = true
+	var exclude_owned_ok: bool = not still_offers_owned
+	ok = exclude_owned_ok and ok
+	lines.append("  이미 보유한 스킬은 후보에서 제외 -> %s" % ("OK" if exclude_owned_ok else "FAIL"))
+
+	# 실제 event.tscn을 인스턴스화해 스킬 이벤트 화면 구성 + 픽업 가드까지 확인한다
+	# (event.gd _apply_pick/_apply_pips/_apply_upgrade와 같은 검증 패턴).
+	RunState.skill_flags = []
+	var event_scene := load("res://code/scenes/event.tscn")
+	var event_node = event_scene.instantiate()
+	add_child(event_node)
+
+	var candidate: Dictionary = SkillPool.SKILLS[0]
+	var offer: Array[Dictionary] = [candidate]
+	event_node._setup_skill_event(offer)
+	var offer_ok: bool = event_node._row_ui.size() == 1
+	ok = offer_ok and ok
+	lines.append("  _setup_skill_event() 카드 1장 표시: row_ui=%d(기대 1) -> %s" % [
+		event_node._row_ui.size(), "OK" if offer_ok else "FAIL"
+	])
+
+	var rooms_before: int = RunState.rooms_cleared
+	var first_applied: bool = event_node._apply_skill_pick(candidate)
+	var pick_ok: bool = (
+		first_applied
+		and RunState.skill_flags.has(candidate["id"])
+		and RunState.rooms_cleared == rooms_before + 1
+	)
+	ok = pick_ok and ok
+	lines.append("  _apply_skill_pick() 1차: applied=%s skill_flags=%s rooms=%d(기대 %d) -> %s" % [
+		first_applied, RunState.skill_flags, RunState.rooms_cleared, rooms_before + 1, "OK" if pick_ok else "FAIL"
+	])
+
+	var second_applied: bool = event_node._apply_skill_pick(candidate)
+	var guard_ok: bool = not second_applied and RunState.rooms_cleared == rooms_before + 1
+	ok = guard_ok and ok
+	lines.append("  _apply_skill_pick() 2차(이미 픽함): applied=%s rooms=%d(변화 없음 기대) -> %s" % [
+		second_applied, RunState.rooms_cleared, "OK" if guard_ok else "FAIL"
+	])
+
+	remove_child(event_node)
+	event_node.free()
+	RunState.skill_flags = flags_backup
+	RunState.rooms_cleared = rooms_backup
 	return ok

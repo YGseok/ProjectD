@@ -5,22 +5,27 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-09-16 (118)
-- 작성자: AI 에이전트. [미니 기획 A](몬스터별 성격 디자인)의 마지막 3단계
-  (personality 필드+표시)를 처리해 [미니 기획 A] 전체(1단계 기믹 재배정(116) ->
-  2단계 steady_guard 신규 기믹(117) -> 3단계 personality)를 완료했다.
-  `combat_test.gd`의 `MONSTER_PROFILES` 5종 각각에 `personality`(1줄 성격 요약)
-  필드를 추가하고, `_monster_debug_info_text()`가 몬스터 HP바 아래 디버그 정보
-  줄에 "성격: ..."로 함께 표시하도록 했다. `docs/DESIGN.md`에 "던전 몬스터
-  (5종)" 표(이름/성격/기믹/효과)를 신설해 캐릭터 표와 같은 형식으로 반영.
-  `dice_test.gd`에 personality 문구 검증 추가, `bash scripts/qa_shot.sh
-  dice_test` 전체 PASS. `GAME_QA_ROOM_OVERRIDE=4`로 다크 나이트 전투를 정지
-  감지 후 캡처해 성격 문구가 디버그 정보 줄에 겹침 없이 표시됨을 확인
-  (`qa_out/combat_test_personality.png`). INBOX.md의 [미니 기획 A] 원본 항목
-  (2026-09-01 몬스터 성격 기획 + 몬스터별 다이스 특이 특징)도 함께 "처리됨"으로
-  이동, "처리됨" 12개 한도 유지를 위해 가장 오래된 1건을 INBOX_ARCHIVE.md로
-  이관. STATUS.md 완료 기록도 10개 한도 유지를 위해 (108)을 STATUS_ARCHIVE.md로
-  이관했다. 자세한 내용은 아래 "완료 기록 (118)" 참고.
+- 일시: 2026-09-16 (119)
+- 작성자: AI 에이전트. [미니 기획 A]/[B]가 모두 완료돼 유일하게 남은 미니
+  기획인 INBOX.md [미니 기획 C]("캐릭터 스킬 부여 이벤트")를 1~2번까지
+  구현했다(지시받은 범위 그대로 — "방 종류 확장 없이 기존 물음표 이벤트가
+  스킬 이벤트로도 나올 수 있게 하는 구조 + RunState.skill_flags 배열 추가").
+  `code/scenes/event.gd`가 `_ready()`에서 30% 확률(`SKILL_EVENT_CHANCE`)로
+  기존 안전/위험 아이템 흐름(`_setup_item_event()`로 분리) 대신 스킬 후보 카드
+  2장(`_setup_skill_event()`, `ItemCardStyle.build_card()` 재사용)을 보여주는
+  분기를 추가했다. 신규 `code/systems/skill_pool.gd`(`SkillPool`)가 공용 스킬
+  2종("심호흡"/"여분") 정의와 `available_choices()`/`grant()`를 담당하고,
+  `RunState.skill_flags: Array[String]`(reset_run()마다 초기화)에 획득한 스킬
+  id가 쌓인다. **실제 전투 보너스 적용(combat_test.gd 배선)은 아직 없음** —
+  이번 이터레이션 범위를 벗어남, 다음 이터레이션들이 이어감. 구현 중
+  `_ready()`의 새 확률 분기가 event.tscn을 인스턴스화하는 기존 회귀 테스트
+  하나를 가끔(우연히 스킬 이벤트로 열렸을 때) 깨뜨리는 걸 발견해
+  `_clear_row_ui()` 헬퍼로 고쳤다. `dice_test.gd`에 신규 검증 추가,
+  `bash scripts/qa_shot.sh dice_test` 전체 PASS. `_debug_force_skill_event()`
+  QA 훅으로 `qa_out/event_skill_offer.png`(카드 2장 겹침 없이 표시) 확인.
+  `docs/DESIGN.md`의 "플레이어블 캐릭터" 절에 이 구조/한계를 반영. INBOX.md
+  [미니 기획 C] 항목은 완전히 끝나지 않아 "남은 이슈"에 그대로 두고 진행
+  상황만 주석으로 추가(3~5번 남음). 자세한 내용은 아래 "완료 기록 (119)" 참고.
 
 ## 지금 위치
 
@@ -70,6 +75,17 @@
   비교, 성공 시 A/S급 무작위 획득·실패 시 보상 없음) 2택으로 통일됐다
   (`code/scenes/event.gd`). flavor 문구는 안전/위험 어느 쪽으로 얻었든 그대로
   재사용된다(전용 문구 분리 없음). 자세한 내용은 아래 "완료 기록 (115)" 참고.
+  **2026-09-16 (119)부터 이 "특수 이벤트" 방이 가끔(30% 확률, `event.gd`의
+  `SKILL_EVENT_CHANCE`) 아이템 대신 "스킬 이벤트"로도 나온다** — INBOX.md
+  [미니 기획 C] 1~2번. 공용 스킬 후보(`code/systems/skill_pool.gd`의
+  `SkillPool.SKILLS`, 지금은 "심호흡"/"여분" 2종) 중 아직 안 가진 것 1~2개를
+  카드로 보여주고 고르면 `RunState.skill_flags`(문자열 배열, `reset_run()`마다
+  초기화)에 쌓인다. 방 아이콘은 여전히 물음표 하나뿐이라 스킬/아이템 어느
+  쪽이 나올지 미리 알 수 없음. **다만 이 배열을 읽어 실제 전투 보너스를
+  적용하는 로직(`combat_test.gd`)은 아직 없어서, 지금은 스킬을 "습득"할 수는
+  있지만 아무 효과도 없다** — 다음 이터레이션들이 [미니 기획 C] 3~5번(공용
+  스킬 효과 배선, 캐릭터별 고유 스킬 1종)을 이어서 채워야 한다. 자세한 내용은
+  아래 "완료 기록 (119)" 참고.
 - **다이스 시스템**: `DiceBag`(주머니)+`CombatMath`, D4/D6/D8/D10/D12/D20
   지오메트리 전부 정확히 구현. 재질별(플라스틱/나무/유리/철제) 시각 색 구분.
   몬스터 다이스는 방 진행에 따라 D4→D6→D8로 스케일링. `DiceBag.MAX_DICE`(=6)
@@ -204,8 +220,12 @@
   더 이상 "사람 설계 확인 필요" 상태가 아님(INBOX.md 참고) — **[미니 기획 B]는
   2026-09-16 (115)로 4개 조각(4/1/2+3) 전부 완료됐고**, **[미니 기획 A](몬스터
   성격)도 (118)로 3/3단계(기믹 재배정 + steady_guard + personality 필드/표시)
-  전부 완료됨**. 남은 것은 [미니 기획 C](캐릭터 스킬 이벤트)뿐 — 하위 단계별로
-  다음 이터레이션들이 이어서 구현하면 됨.
+  전부 완료됨**. **[미니 기획 C](캐릭터 스킬 이벤트)는 2026-09-16 (119)로
+  5단계 중 1~2번(기존 물음표 이벤트가 스킬 이벤트로도 나오는 구조 +
+  `RunState.skill_flags` 배열)이 완료됐고**, 3~5번(공용 스킬 2종/고유 스킬
+  1종의 실제 전투 효과 배선)이 다음 이터레이션들의 몫으로 남음 — 지금은
+  스킬을 "습득"할 수는 있지만 아무 효과도 없는 상태(아래 "완료 기록 (119)"
+  참고).
 - 상세 이력은 아래 "완료 기록"(최근 10개)과, 그보다 오래된 것은
   `docs/STATUS_ARCHIVE.md`(매 이터레이션 읽지 않는 아카이브) 참고.
 
@@ -735,23 +755,32 @@
       "완료 기록" 참고). `reward_icon.gd`에 "mystery" 카테고리를 추가하고
       `dungeon_map.gd`의 `REWARD_CATEGORIES["event"]`를 `["mystery"]`로 교체.
     - **[미니 기획 C] 캐릭터 스킬 부여 이벤트** — INBOX.md 2026-09-15에서 구체적인
-      구조까지 확정됨(더 이상 "사람 설계 대기" 아님, [미니 기획 A]가 (118)로
-      끝났으니 이제 유일하게 남은 미니 기획). 하위 단계별로 나눠 진행할 것:
-      1. 새 방 종류를 만들지 않고, 기존 "특수 이벤트" 방이 가끔 아이템 보상
-         대신 "스킬 이벤트"로 나오게 한다(아이콘은 기존 "mystery" 물음표 그대로
-         — 스포일링 방지).
-      2. `RunState`에 `skill_flags: Array[String]`를 추가, 획득한 스킬 id를
-         담는다. `combat_test.gd`가 전투 시작 시 확인해 보너스 적용.
-      3. 공용 스킬(모든 캐릭터) 최소 2종: "심호흡"(매 전투 첫 턴 방어 다이스
-         결과값 +1, 상한은 면 개수) / "여분"(매 전투 시작 시 공격 다이스 1개를
-         추가로 굴려 더 높은 값 채택, 이번 런 끝까지 유지).
+      구조까지 확정됨([미니 기획 A]/[B] 완료 후 유일하게 남은 미니 기획).
+      **1~2번은 2026-09-16 (119)에서 완료** — 아래 "완료 기록 (119)" 참고.
+      남은 하위 단계:
+      1. ~~새 방 종류를 만들지 않고, 기존 "특수 이벤트" 방이 가끔 아이템 보상
+         대신 "스킬 이벤트"로 나오게 한다~~ → **완료 (119)**.
+         `event.gd`가 `SKILL_EVENT_CHANCE`(0.3, 잠정값) 확률로 `_setup_skill_
+         event()`에 분기, 아이콘은 기존 "mystery" 물음표 그대로 유지.
+      2. ~~`RunState`에 `skill_flags: Array[String]`를 추가, 획득한 스킬 id를
+         담는다.~~ → **배열 자체는 완료 (119)**. `RunState.skill_flags` +
+         신규 `code/systems/skill_pool.gd`(`SkillPool`)로 후보 정의/뽑기/부여
+         담당. **다만 "`combat_test.gd`가 전투 시작 시 확인해 보너스 적용"
+         부분은 아직 — 지금은 스킬을 습득할 수는 있지만 효과가 없음.**
+      3. 공용 스킬(모든 캐릭터) 최소 2종은 정의만 됨(`SkillPool.SKILLS`의
+         "심호흡"/"여분", 이름/문구는 (119)에서 그대로 반영) — **실제 전투
+         보너스 적용(combat_test.gd 배선)이 남은 작업.** "심호흡": 매 전투
+         첫 턴 방어 다이스 결과값 +1, 상한은 면 개수. "여분": 매 전투 시작 시
+         공격 다이스 1개를 추가로 굴려 더 높은 값 채택, 이번 런 끝까지 유지.
       4. 고유 스킬(캐릭터 기믹과 시너지) 최소 1종만 우선 구현 — 예: 광전사
          (`min_max_only`) 전용 "광기 심화"(폭발 스택 3 도달 시 보너스 턴이
          1D20 두 번 굴려 더 높은 값 채택). 나머지 4캐릭터 전용 스킬은 이
          하나가 잘 동작하는 걸 확인한 뒤 같은 패턴으로 추가(한 이터레이션에
-         5개 다 만들지 말 것).
-      5. 스킬 획득 UI는 "스킬 후보 2개 중 1개 선택" — 기존 `ItemCardStyle`을
-         재사용할 수 있으면 재사용(새 위젯을 만들기 전에 먼저 검토).
+         5개 다 만들지 말 것). 공용 스킬(3번)의 효과 적용을 먼저 끝내고
+         착수하는 게 자연스러움(같은 combat_test.gd 배선 지점을 공유).
+      5. ~~스킬 획득 UI는 "스킬 후보 2개 중 1개 선택" — 기존 `ItemCardStyle`을
+         재사용할 수 있으면 재사용~~ → **완료 (119)**. `event.gd`의
+         `_show_skill_offer()`가 `ItemCardStyle.build_card()`를 그대로 재사용.
       한 이터레이션에 위 단계 하나씩만 진행할 것(기존 세션 지침과 동일). 자세한
       원문은 `docs/feedback/INBOX.md`의 "[미니 기획 C]" 참고.
     - ~~**캐릭터 정보 상시 열람**: 캐릭터 정보/보유 스킬을 아무 때나 볼 수 있게.~~
@@ -769,6 +798,64 @@
       옮겨 적은 스냅샷이므로 코드와 어긋나지 않게 유지 필요.
 
 ## 완료 기록
+
+- **2026-09-16 (119)**: [미니 기획 A]/[미니 기획 B]가 모두 완료돼 유일하게 남은
+  미니 기획인 INBOX.md [미니 기획 C] "캐릭터 스킬 부여 이벤트"의 1~2번을
+  구현했다(3~5번은 다음 이터레이션 이후로 남김 — 세션 지침 "하위 단계별로
+  나눠 진행" 반영).
+  **1번(방 종류 추가 없이, 기존 "특수 이벤트" 방이 가끔 스킬 이벤트로도 나오게)**:
+  `code/scenes/event.gd`의 `_ready()`가 이제 `SkillPool.available_choices(2)`로
+  받은 후보가 있고 `randf() < SKILL_EVENT_CHANCE`(0.3, 잠정값)일 때
+  `_setup_skill_event()`로 분기한다 — 기존 안전/위험 흐름은 새로 분리한
+  `_setup_item_event()`로 그대로 옮겼을 뿐 동작 변경 없음. 스킬 이벤트가 되면
+  안전/위험 버튼 대신 스킬 후보 카드(1~2장, `ItemCardStyle.build_card()`를 그대로
+  재사용 — [미니 기획 C]-5가 요청한 "기존 카드 UI 재사용" 반영, item dict에
+  없는 "kind"/"grade" 필드는 build_card()가 기본값으로 자연스럽게 처리)를
+  보여주고, 고르면 `SkillPool.grant()`로 획득 후 방을 소비한다. 방 아이콘은
+  여전히 물음표(mystery) 하나뿐이라 어느 쪽이 나올지 미리 알 수 없음(스포일링
+  방지 요구사항 그대로 유지).
+  **2번(RunState.skill_flags 배열)**: `code/systems/run_state.gd`에
+  `skill_flags: Array[String] = []`를 추가하고 `reset_run()`마다 초기화(다른
+  런 전용 인벤토리들과 같은 "패배 시 리셋" 관례). 신규
+  `code/systems/skill_pool.gd`(`SkillPool`)가 스킬 후보 정의(`SKILLS` — 공용
+  스킬 2종 "심호흡"/"여분", [미니 기획 C]-3이 이미 확정한 이름/수치 그대로
+  옮겨 적음)와 `available_choices(n)`(이미 보유한 스킬은 후보에서 자동 제외)/
+  `grant(skill_id)`(중복 방지)를 담당. **다만 이번 이터레이션 범위는 "구조 +
+  배열"까지로 명시적으로 한정됐고, `combat_test.gd`가 이 배열을 읽어 실제
+  전투 보너스를 적용하는 로직은 아직 연결하지 않았다** — 지금은 스킬을
+  "습득"할 수는 있지만 효과가 없는 상태([미니 기획 C]-3의 나머지 절반 +
+  -4/-5는 다음 이터레이션들이 이어감). `docs/DESIGN.md`의 "플레이어블 캐릭터"
+  절도 이 구조/한계를 명시하도록 갱신.
+  **QA 검증**: `code/scenes/dice_test.gd`에 신규 `_check_skill_event_structure`
+  추가 — SkillPool.SKILLS 개수, available_choices()의 보유 스킬 제외 로직,
+  grant()의 중복 방지, 실제 event.tscn을 인스턴스화해 `_setup_skill_event()`가
+  카드를 정확한 개수만큼 그리는지, `_apply_skill_pick()`이 스킬 부여+방 진행+
+  이중 실행 가드(기존 `_apply_pick`/`_apply_pips`/`_apply_upgrade`와 동일한
+  `_picked` 플래그 공유)까지 정상 동작하는지 검증. 이 작업 중 두 가지 회귀를
+  발견해 함께 고쳤다: (a) `event_node._setup_skill_event([candidate])`처럼
+  untyped 배열 리터럴을 `Array[Dictionary]` 매개변수에 넘기면 "Invalid type"
+  스크립트 오류가 나는 것을 발견해 테스트 쪽에서 명시적으로 타입 선언한 지역
+  변수를 거치도록 수정. (b) 더 중요한 발견 — `_ready()`의 30% 확률 분기 때문에
+  `event.tscn`을 인스턴스화하는 기존 회귀 테스트
+  (`_check_event_safe_risky_choice`의 "위험 감수 강제 실패" 검증)가 가끔(그
+  인스턴스가 우연히 스킬 이벤트로 열렸을 때) `_row_ui`에 스킬 카드가 남아있는
+  상태로 시작해 "아이템 카드 없음"을 기대하는 어서션이 깨지는 것을 실제로
+  재현했다(`_show_fail()`이 `_row_ui`를 정리하지 않는 기존 동작과, 이번에
+  새로 생긴 "인스턴스가 스킬/아이템 어느 쪽으로 열릴지 모른다"는 상황이
+  겹쳐서 생긴 새 버그). `_show_item_offer`/`_show_skill_offer`가 공유하는
+  `_clear_row_ui()` 헬퍼를 신설하고, `_debug_force_risky_success/failure()`
+  QA 훅이 이 헬퍼로 먼저 정리한 뒤 결정적 경로를 재현하도록 고쳐 두 분기
+  어느 쪽으로 열렸든 안정적으로 검증되게 했다. `bash scripts/qa_shot.sh
+  dice_test` 전체 PASS(신규 3건 + 기존 전체 회귀 없음). 화면 검증은
+  `_debug_force_skill_event()`(신규 QA 훅)로 `qa_out/event_skill_offer.png`
+  캡처 — "심호흡"/"여분" 카드 2장이 겹침 없이 나란히 표시되고 DeckPanel과도
+  안 겹침, 단축키 [1]/[2]/[3]도 정확히 배정됨을 확인. `_debug_verify_skill_
+  pickup()`으로 콘솔에서 `grant()` 후 `RunState.skill_flags`에 반영되고
+  두 번째 후보 목록에서 방금 얻은 스킬이 제외되는 것도 확인
+  (`qa_out/event_skill_pickup_check.png`). 기존 아이템 이벤트 경로도
+  `qa_out/event_default_check.png`로 회귀 없음을 재확인. 남은 것: [미니 기획
+  C]-3(공용 스킬 2종 실제 효과)/-4(고유 스킬 1종)/-5(UI는 이미 카드 재사용으로
+  충족) — 다음 이터레이션이 이어서 처리.
 
 - **2026-09-16 (118)**: INBOX.md [미니 기획 A] "몬스터별 성격 디자인"의 3단계
   ((1)기믹 재배정 -> (2)신규 기믹 steady_guard -> (3)personality 필드+표시) 중
@@ -1155,58 +1242,9 @@
   권한 모드에서 `rm`/`Remove-Item`/`mv` 모두 이 두 파일에 대해 "승인 필요"로
   거부됨(사람 없는 무인 세션이라 승인 불가) — 아래 "알려진 이슈"에 새로 기록.
   이번 커밋에는 이 두 파일을 추가하지 않음(git add로 의도적으로 제외).
-- **2026-09-15 (109)**: 큐 13("[대형 기획 3] 업적 시스템 — 남은 항목 추가")에서
-  "[대형 기획 1](5종 캐릭터)/[대형 기획 2](라운드·보스 구조)가 둘 다 완료돼
-  트리거 지점이 갖춰졌다"고 정리해뒀던 라운드 2/3 클리어 + 캐릭터별 첫 클리어
-  업적을 실제로 추가했다. INBOX.md에 새로 반영할 미처리 항목이 없어 큐에서
-  "설계 결정 없이 바로 진행 가능한" 항목을 찾다가, 트리거 지점이 이미 갖춰졌다고
-  적혀 있던 이 항목을 선택. 착수 전 관련 코드를 다시 읽다가 실제 버그를 하나
-  발견했다: `code/scenes/dungeon_map.gd`의 `_update_labels()`가 `RunState.
-  is_run_complete()`(rooms_cleared >= TOTAL_ROOMS) 기준으로 "round1_clear"를
-  판정하고 있었는데, `combat_test.gd`의 `_apply_room_advance()`는 보스를 잡으면
-  마지막 라운드가 아닌 한 그 자리에서 즉시 `RunState.advance_round()`를 불러
-  rooms_cleared를 0으로 되돌려버린다 — 그래서 `is_run_complete()`가 참이 되는
-  경우는 사실상 "최종 라운드까지 전부 클리어"했을 때뿐이었고, "라운드 1(첫
-  던전)을 클리어했다"는 이름/설명과 달리 라운드 1을 막 끝냈을 때는 한 번도
-  불리지 않는 상태였다(순수 로직 재검토로 찾은 버그 — 크래시나 스크린샷으로
-  드러나는 종류가 아니라 이번에 코드를 다시 읽으며 발견함).
-  **수정**: `combat_test.gd`의 `_apply_room_advance()`에 신규
-  `_unlock_round_clear_achievements(cleared_round)`를 추가해, `RunState.
-  advance_round()`가 `round_index`를 바꾸기 *전에*(= "방금 몇 번째 라운드를
-  끝냈는지"를 정확히 아는 유일한 시점) 라운드별 업적을 직접 unlock하도록
-  옮겼다: `cleared_round == 1`이면 `round1_clear`(기존 정의 재사용, 이제야
-  실제로 라운드 1 클리어 시점에 정확히 불림), `== 2`면 신규 `round2_clear`,
-  `== RunState.TOTAL_ROUNDS`(3)면 신규 `game_clear` + 지금 플레이 중인 캐릭터
-  전용 `clear_<character_id>`(`_character_clear_achievement_id()`)까지 함께
-  unlock. `dungeon_map.gd`의 기존 `AchievementManager.unlock("round1_clear")`
-  호출은 이제 틀린 시점에 불리는 중복 호출이라 제거하고 그 경위를 주석으로
-  남겼다. `code/systems/achievement_manager.gd`의 `DEFINITIONS`에 7종 신규
-  추가: `round2_clear`("라운드 2 클리어")/`game_clear`("최종 승리") + 캐릭터
-  5종 각각의 `clear_novice`/`clear_berserker`/`clear_guardian`/
-  `clear_explosive`/`clear_shieldbearer`("~로 첫 클리어", 전부 icon="milestone"
-  재사용 — 새 아이콘 카테고리를 만들 필요는 없다고 판단). 이제 등록 업적이
-  12종 → 19종.
-  **QA 검증**: `code/scenes/dice_test.gd`에 신규
-  `_check_round_clear_achievements`를 추가해(`combat_test.gd`를 씬 로드 없이
-  스크립트만 `.new()`로 인스턴스화해 `_apply_room_advance()`를 직접 호출하는
-  기존 `_check_combat_boss_round_advance`와 같은 패턴) 라운드 1/2/최종 클리어
-  각각 올바른 업적만 unlock되고 더 앞서/늦게 해금되지 않는지, 일반 방 승리
-  (monster_is_boss=false)는 아무 라운드 업적도 건드리지 않는지, 캐릭터 5종
-  전부 `clear_<id>` 정의가 존재하는지 검증 — `scripts/qa_shot.sh dice_test`로
-  전체 PASS(기존 케이스 포함, 새로 발견된 회귀 없음). 화면 검증은 이미 있던
-  QA 훅 `character_select.gd`의 `_debug_show_achievements`/
-  `_debug_show_achievements_scrolled`를 그대로 재사용(새 훅 불필요) —
-  `qa_out/achievements_new_top.png`(19종 중 "잠김/해금" 최상단 6개, 겹침 없이
-  표시)/`qa_out/achievements_new_scrolled.png`(스크롤 최하단 — 신규 7종 중
-  "최종 승리"+캐릭터 5종 첫 클리어가 겹침 없이 전부 보임, 헤더가 "업적 (1 /
-  19 달성)"으로 정확히 갱신됨)로 확인. 남은 것: 남은 업적 후보(원 INBOX 30종
-  목록 중 나머지, 원문 미보존이라 정확한 개수는 알 수 없음)는 여전히
-  `DEFINITIONS`에 항목만 추가하면 되는 구조로 남아있고, 해금 "순간" 토스트/
-  팝업 알림은 여전히 없음(목록을 직접 열어야만 확인 가능) — 이건 사람 판단
-  필요.
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임,
-2026-09-16 정리. 이번 이터레이션에서 (108)을 그리로 옮겼다.)*
+2026-09-16 정리. 이번 이터레이션에서 (109)를 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 
