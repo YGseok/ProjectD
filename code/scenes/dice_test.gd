@@ -614,9 +614,11 @@ func _check_monster_debug_info_text(lines: PackedStringArray) -> bool:
 	var script := load("res://code/scenes/combat_test.gd")
 	var combat = script.new()
 
-	# room0(슬라임, 기믹 없음): 공격/방어 다이스 구성만 나오고 기믹/보스 줄은 없어야 한다.
+	# room0(슬라임, 기믹 없음): 공격/방어 다이스 구성 + 성격 문구가 나오고 기믹/보스 줄은
+	# 없어야 한다 ([미니 기획 A]-3, 2026-09-16으로 personality 필드가 추가됨).
 	var room0_text: String = combat._monster_debug_info_text(combat._monster_config_for_room(0))
 	var room0_ok: bool = room0_text.contains("공격 2D4") and room0_text.contains("방어 1D4") \
+		and room0_text.contains("성격: 무기력하고 단순함") \
 		and not room0_text.contains("기믹") and not room0_text.contains("보스")
 	ok = room0_ok and ok
 	lines.append("  room0(슬라임, 기믹 없음): %s -> %s" % [
@@ -658,7 +660,8 @@ func _check_monster_debug_info_text(lines: PackedStringArray) -> bool:
 	var room4_config: Dictionary = combat._monster_config_for_room(RunState.TOTAL_ROOMS - 1)
 	var room4_text: String = combat._monster_debug_info_text(room4_config)
 	var room4_ok: bool = room4_text.contains("보스") and room4_text.contains("철벽") \
-		and room4_text.contains(str(room4_config["dice_gimmick_value"]))
+		and room4_text.contains(str(room4_config["dice_gimmick_value"])) \
+		and room4_text.contains("성격: 차갑고 노련하며 방어에서 흔들리지 않는 기사")
 	ok = room4_ok and ok
 	lines.append("  room4(다크 나이트, steady_guard=%d + 보스): %s -> %s" % [
 		room4_config["dice_gimmick_value"], room4_text.replace("\n", " / "), "OK" if room4_ok else "FAIL"

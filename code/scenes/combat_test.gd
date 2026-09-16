@@ -208,12 +208,16 @@ const PIP_REWARD_MAX_PER_ROOM := 1
 ## apply_steady_guard() 참고). fixed_value/min_max_only처럼 _ready()에서 면 값
 ## 자체를 바꾸는 방식이 아니라, _do_exchange()에서 매 방어턴 굴림 "결과"만 사후
 ## 보정하는 방식이라 이 dict에는 별도 표시가 필요 없음(문자열 키만 배정).
+## [미니 기획 A]-3(2026-09-16): 5종 각각에 "personality" 필드(1줄, INBOX.md
+## 2026-09-15가 확정한 성격 요약)를 추가한다. dice_gimmick 배정 근거를 문구로도
+## 확인할 수 있게 하려는 목적 — _monster_config_for_room()이 그대로 config에 담아
+## 넘기고, _monster_debug_info_text()가 디버그 표시줄에 함께 보여준다.
 const MONSTER_PROFILES := [
-	{"name": "슬라임", "color": Color(0.35, 0.85, 0.4)},
-	{"name": "고블린", "color": Color(0.75, 0.55, 0.25), "dice_gimmick": "anger_stack"},
-	{"name": "해골 전사", "color": Color(0.85, 0.85, 0.8), "dice_gimmick": "fixed_value"},
-	{"name": "오크", "color": Color(0.3, 0.55, 0.3), "dice_gimmick": "min_max_only"},
-	{"name": "다크 나이트", "color": Color(0.55, 0.25, 0.75), "dice_gimmick": "steady_guard"},
+	{"name": "슬라임", "color": Color(0.35, 0.85, 0.4), "personality": "무기력하고 단순함"},
+	{"name": "고블린", "color": Color(0.75, 0.55, 0.25), "dice_gimmick": "anger_stack", "personality": "성급하고 화를 잘 냄"},
+	{"name": "해골 전사", "color": Color(0.85, 0.85, 0.8), "dice_gimmick": "fixed_value", "personality": "감정 없이 명령대로만 움직이는 병사, 늘 같은 힘으로 정확하게 타격"},
+	{"name": "오크", "color": Color(0.3, 0.55, 0.3), "dice_gimmick": "min_max_only", "personality": "힘만 믿고 저돌적으로 날뛰는 성격, 전부 아니면 전무"},
+	{"name": "다크 나이트", "color": Color(0.55, 0.25, 0.75), "dice_gimmick": "steady_guard", "personality": "차갑고 노련하며 방어에서 흔들리지 않는 기사"},
 ]
 
 
@@ -288,6 +292,7 @@ func _monster_config_for_room(room_index: int) -> Dictionary:
 		"dice_gimmick": gimmick,
 		"dice_gimmick_value": gimmick_value,
 		"is_boss": is_boss,
+		"personality": profile.get("personality", ""),
 	}
 
 
@@ -305,6 +310,9 @@ func _monster_debug_info_text(config: Dictionary) -> String:
 	var text := "[QA] 공격 %dD%d · 방어 %dD%d" % [
 		config["attack_count"], sides, config["defense_count"], sides
 	]
+	var personality: String = config.get("personality", "")
+	if personality != "":
+		text += "\n성격: %s" % personality
 	match config.get("dice_gimmick", ""):
 		"anger_stack":
 			text += "\n기믹: 분노 스택 (공격 최댓값 %d회 -> 다음 공격 1D%d)" % [
