@@ -49,6 +49,8 @@ var _detail_concept_label: Label
 var _detail_dice_label: Label
 var _detail_skill_label: Label
 var _detail_skill_icon: SkillIcon
+var _detail_event_die_label: Label
+var _detail_event_die_visual: EventDieVisual
 
 ## KeyboardShortcuts로 1~N 숫자 키를 순서대로 배정하는 데 쓴다(INBOX.md 2026-09-14
 ## "키보드로도 조작이 되도록" — 던전 맵/스토리 이벤트/특수 이벤트에 이어 이 화면에도
@@ -187,6 +189,19 @@ func _build_detail_panel() -> void:
 	skill_row.add_child(_detail_skill_label)
 	info_vbox.add_child(skill_row)
 
+	# 이벤트 주사위(INBOX.md 2026-09-15 [미니 기획 B]-4): 공격/방어와 별개인 특수 이벤트
+	# 전용 다이스 — 로마 숫자 육각 칩(EventDieVisual)으로 일반 다이스와 구분해서 보여준다.
+	# 지금은 5종 전부 D6로 같아 값도 항상 같지만, 필드 구조 자체는 캐릭터별로 열려 있다.
+	var event_die_row := HBoxContainer.new()
+	event_die_row.add_theme_constant_override("separation", 8)
+	_detail_event_die_visual = EventDieVisual.new()
+	_detail_event_die_visual.custom_minimum_size = Vector2(28, 28)
+	event_die_row.add_child(_detail_event_die_visual)
+	_detail_event_die_label = _make_detail_body_label()
+	_detail_event_die_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	event_die_row.add_child(_detail_event_die_label)
+	info_vbox.add_child(event_die_row)
+
 	var note_label := Label.new()
 	note_label.text = "※ 플레이스홀더 실루엣 — 실제 일러스트는 추후 작업"
 	note_label.autowrap_mode = TextServer.AUTOWRAP_WORD
@@ -216,6 +231,9 @@ func _refresh_detail_panel() -> void:
 	]
 	_detail_skill_label.text = "보유 스킬: %s" % CharacterProfiles.gimmick_label(String(profile.get("gimmick", "")))
 	_detail_skill_icon.category = String(profile.get("gimmick", ""))
+	var event_sides: int = int(profile.get("event_die_sides", 6))
+	_detail_event_die_label.text = "이벤트 주사위: D%d (로마 숫자로 표기, 커스터마이징 불가)" % event_sides
+	_detail_event_die_visual.value = 1
 
 
 ## 숫자 키(1~9)로 캐릭터 카드 "선택" 버튼(+던전 시작/업적)을 순서대로 누른다

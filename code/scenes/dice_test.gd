@@ -153,6 +153,10 @@ func _ready() -> void:
 	all_pass = _check_skill_icons(lines) and all_pass
 
 	lines.append("")
+	lines.append("[이벤트 주사위 필드 검증: character_profiles.gd PROFILES.event_die_sides / run_state.gd RunState.event_die_sides / event_die_visual.gd EventDieVisual]")
+	all_pass = _check_event_die_sides(lines) and all_pass
+
+	lines.append("")
 	lines.append("[라운드 진행 검증: run_state.gd RunState.round_index / advance_round / is_last_round]")
 	all_pass = _check_round_progress(lines) and all_pass
 
@@ -1662,6 +1666,45 @@ func _check_skill_icons(lines: PackedStringArray) -> bool:
 		var icon_ok := SkillIcon.CATEGORIES.has(gimmick)
 		ok = icon_ok and ok
 		lines.append("  \"%s\" gimmick=%s -> %s" % [profile["id"], gimmick, "OK" if icon_ok else "FAIL"])
+
+	return ok
+
+
+## INBOX.md 2026-09-15 [미니 기획 B]-4 검증. (1) PROFILES 5종 전부 event_die_sides
+## 필드가 있고 지금은 전부 6이어야 함(DESIGN.md 확정대로 아직 캐릭터별 차등 없음).
+## (2) RunState.reset_run(id)가 이 필드를 event_die_sides로 그대로 복사하는지.
+## (3) EventDieVisual._to_roman()이 1~6을 I~VI로, 표 밖 값은 숫자 폴백으로 바꾸는지.
+func _check_event_die_sides(lines: PackedStringArray) -> bool:
+	var ok := true
+	var character_backup: String = RunState.character_id
+
+	for profile in CharacterProfiles.PROFILES:
+		var sides: int = int(profile.get("event_die_sides", -1))
+		var sides_ok := sides == 6
+		ok = sides_ok and ok
+		lines.append("  \"%s\" event_die_sides=%d(기대 6) -> %s" % [profile["id"], sides, "OK" if sides_ok else "FAIL"])
+
+	RunState.reset_run("berserker")
+	var run_state_ok: bool = RunState.event_die_sides == 6
+	ok = run_state_ok and ok
+	lines.append("  reset_run(berserker) 후 RunState.event_die_sides=%d(기대 6) -> %s" % [
+		RunState.event_die_sides, "OK" if run_state_ok else "FAIL"
+	])
+	RunState.reset_run(character_backup)
+
+	var visual := EventDieVisual.new()
+	var roman_ok: bool = (
+		visual._to_roman(1) == "I" and visual._to_roman(4) == "IV" and visual._to_roman(6) == "VI"
+	)
+	ok = roman_ok and ok
+	lines.append("  EventDieVisual._to_roman(1/4/6)=%s/%s/%s(기대 I/IV/VI) -> %s" % [
+		visual._to_roman(1), visual._to_roman(4), visual._to_roman(6), "OK" if roman_ok else "FAIL"
+	])
+	var fallback_ok: bool = visual._to_roman(99) == "99"
+	ok = fallback_ok and ok
+	lines.append("  EventDieVisual._to_roman(99)=%s(기대 표 밖이라 숫자 폴백 \"99\") -> %s" % [
+		visual._to_roman(99), "OK" if fallback_ok else "FAIL"
+	])
 
 	return ok
 

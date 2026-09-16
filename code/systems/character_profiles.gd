@@ -36,6 +36,15 @@ extends RefCounted
 ##   - 폭발병(explosive, 공격 다이스 최댓값 스택): 공격 4 / 방어 3 — 스택을 더 자주 쌓게
 ##   - 방패병(shieldbearer, 방어 다이스 최댓값 스택): 공격 3 / 방어 4 — 폭발병과 대칭
 ##
+## "event_die_sides": INBOX.md 2026-09-15 [미니 기획 B]-4 "공격/방어 주사위처럼 직업마다
+## 특수 이벤트용 이벤트 주사위 1개가 있으면 어떨까" 반영의 첫 조각(4번 -> 1 -> 2+3 순서
+## 권장 중 4번). 특수 이벤트 "위험을 감수하기" 판정에 쓸 별도 다이스의 면 개수 — 공격/
+## 방어 주머니(DiceBag)와 무관한 독립 필드라 눈금 교환/승급 등 커스터마이징 대상에서
+## 자동으로 제외된다. 지금은 5종 전부 6(=D6)으로 동일 — "직업별로 다른 이벤트 주사위"라는
+## 원 요청의 구조만 미리 열어두고, 실제 차등 부여는 이벤트 특화 캐릭터가 생기면 그때 값만
+## 바꾸면 됨. 실제 판정 로직([미니 기획 B]-2/3)과 로마 숫자 시각화 사용처는 아직 없음 —
+## 이번 조각은 필드 + event_die_visual.gd 시각화 컴포넌트까지만.
+##
 ## "gimmick" 필드 값:
 ##   ""              : 기믹 없음 (기존 "견습 모험가")
 ##   "min_max_only"  : 공격+방어 다이스 전부 DiceBag.force_min_max_faces() 적용
@@ -72,6 +81,7 @@ const PROFILES := [
 		"gimmick": "",
 		"attack_count": 3,
 		"defense_count": 3,
+		"event_die_sides": 6,
 		"hair_color": Color(0.78, 0.62, 0.86),
 		"dress_color": Color(0.92, 0.55, 0.66),
 	},
@@ -83,6 +93,7 @@ const PROFILES := [
 		"gimmick": "min_max_only",
 		"attack_count": 4,
 		"defense_count": 2,
+		"event_die_sides": 6,
 		"hair_color": Color(0.85, 0.25, 0.2),
 		"dress_color": Color(0.35, 0.1, 0.1),
 	},
@@ -94,6 +105,7 @@ const PROFILES := [
 		"gimmick": "fixed_defense_die",
 		"attack_count": 2,
 		"defense_count": 4,
+		"event_die_sides": 6,
 		"hair_color": Color(0.4, 0.55, 0.85),
 		"dress_color": Color(0.25, 0.4, 0.55),
 	},
@@ -105,6 +117,7 @@ const PROFILES := [
 		"gimmick": "explosive_stack",
 		"attack_count": 4,
 		"defense_count": 3,
+		"event_die_sides": 6,
 		"hair_color": Color(0.95, 0.55, 0.15),
 		"dress_color": Color(0.5, 0.18, 0.05),
 	},
@@ -116,6 +129,7 @@ const PROFILES := [
 		"gimmick": "guard_stack",
 		"attack_count": 3,
 		"defense_count": 4,
+		"event_die_sides": 6,
 		"hair_color": Color(0.55, 0.6, 0.65),
 		"dress_color": Color(0.2, 0.3, 0.4),
 	},

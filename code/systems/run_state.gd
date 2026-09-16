@@ -51,6 +51,13 @@ extends Node
 ## 적용한다(패배 후 combat_test.gd/dungeon_map.gd가 인자 없이 reset_run()을 부르는
 ## 기존 호출부들도 "직전에 고른 캐릭터 유지"가 되도록, 인자를 안 주면 character_id를
 ## 그대로 둔다 — 새 캐릭터 선택 화면을 다시 거치지 않는 한 캐릭터가 바뀌지 않음).
+##
+## event_die_sides: INBOX.md 2026-09-15 [미니 기획 B]-4 반영. character_profiles.gd의
+## event_die_sides 필드를 reset_run()이 그대로 복사해둔다 — player_attack_bag/
+## player_defense_bag(DiceBag)과 달리 눈금 개수가 아니라 "면 개수" 정수 하나뿐이라
+## DiceBag으로 감쌀 필요가 없다(이 다이스는 커스터마이징 대상이 아니므로 개조 상태를
+## 들고 있을 이유가 없음). 실제로 이 값을 굴려서 판정하는 로직([미니 기획 B]-2/3)은
+## 아직 없음 — 지금은 event_die_visual.gd로 "이런 모양의 다이스가 있다"만 보여준다.
 
 const TOTAL_ROOMS := 5
 const TOTAL_ROUNDS := 3
@@ -60,6 +67,7 @@ var round_index := 1
 var gold := 0
 var shop_visits := 0
 var character_id: String = CharacterProfiles.PROFILES[0]["id"]
+var event_die_sides: int = 6
 var player_attack_bag: DiceBag
 var player_defense_bag: DiceBag
 var pip_inventory: Array[int] = []
@@ -83,6 +91,7 @@ func reset_run(new_character_id: String = "") -> void:
 	var profile := CharacterProfiles.get_profile(character_id)
 	player_attack_bag = DiceBag.new(4, profile.get("attack_count", 3))
 	player_defense_bag = DiceBag.new(4, profile.get("defense_count", 3))
+	event_die_sides = profile.get("event_die_sides", 6)
 	pip_inventory = []
 	die_inventory = []
 	_apply_character_gimmick()
