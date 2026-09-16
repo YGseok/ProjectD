@@ -23,6 +23,10 @@ const CARD_BORDER := Color(0.55, 0.45, 0.25)
 const TITLE_COLOR := Color(0.95, 0.85, 0.55)
 const DESC_COLOR := Color(0.82, 0.82, 0.82)
 const EXTRA_COLOR := Color(1.0, 0.85, 0.35)
+## 상황 설명 문구("flavor" 필드, 2026-09-16) 전용 색 — 기계적 효과 설명(DESC_COLOR)과
+## 구별되게 살짝 누런 양피지 톤을 준다. EventItemPool.ITEMS만 이 필드를 쓰므로
+## DiceItemPool 기반 카드(상점/전투 보상)에는 아무 영향 없음.
+const FLAVOR_COLOR := Color(0.72, 0.68, 0.55)
 ## INBOX.md 2026-09-14 "보상 팝업/상점 입장 시 설명 텍스트가 너무 길어 잘 안읽힌다.
 ## 이미지를 키우고 해당 이미지 위주로 설명해 직관성을 높인다" 반영 — 다이스 면 미리보기
 ## 칩을 키워서(16->24) 이미지가 카드의 시각적 중심이 되게 하고, 아래 desc 관련 상수들로
@@ -118,6 +122,18 @@ static func build_card(item: Dictionary, extra_label_text: String = "", unafford
 			status.add_theme_color_override("font_color", STATUS_BADGE_COLOR)
 			extra_row.add_child(status)
 		vbox.add_child(extra_row)
+
+	# 상황 설명 문구(flavor) — 있으면 이미지/기계적 설명보다 먼저 보여준다("이 아이템을
+	# 얻게 된 상황"이 가장 먼저 읽혀야 자연스러움). EventItemPool.ITEMS에만 있는 필드라
+	# 없는 카드(DiceItemPool 기반)는 이 블록 전체를 건너뛴다.
+	var flavor_text: String = item.get("flavor", "")
+	if flavor_text != "":
+		var flavor := Label.new()
+		flavor.text = flavor_text
+		flavor.add_theme_font_size_override("font_size", 12)
+		flavor.add_theme_color_override("font_color", FLAVOR_COLOR)
+		flavor.autowrap_mode = TextServer.AUTOWRAP_WORD
+		vbox.add_child(flavor)
 
 	# 이미지(결과 다이스 미리보기)를 설명 텍스트보다 먼저 배치 — "이미지 위주로 보여주고
 	# 설명은 보조 정보로" (INBOX.md 2026-09-14). 결과가 확정적인 아이템(add_die/

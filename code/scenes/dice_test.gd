@@ -157,6 +157,10 @@ func _ready() -> void:
 	all_pass = _check_event_die_sides(lines) and all_pass
 
 	lines.append("")
+	lines.append("[특수 이벤트 상황 문구 검증: event_item_pool.gd EventItemPool.ITEMS.flavor / item_card_style.gd ItemCardStyle.build_card]")
+	all_pass = _check_event_item_flavor(lines) and all_pass
+
+	lines.append("")
 	lines.append("[라운드 진행 검증: run_state.gd RunState.round_index / advance_round / is_last_round]")
 	all_pass = _check_round_progress(lines) and all_pass
 
@@ -1705,6 +1709,56 @@ func _check_event_die_sides(lines: PackedStringArray) -> bool:
 	lines.append("  EventDieVisual._to_roman(99)=%s(기대 표 밖이라 숫자 폴백 \"99\") -> %s" % [
 		visual._to_roman(99), "OK" if fallback_ok else "FAIL"
 	])
+
+	return ok
+
+
+## EventItemPool.ITEMS 전부가 "flavor"(상황 설명 문구, 2026-09-16 [미니 기획 B] 1번)를
+## 빈 문자열 아니게 갖고 있는지, item_card_style.gd의 build_card()가 그 필드가 있을 때
+## 카드에 실제로 Label을 추가하는지(없을 땐 추가 안 함 — DiceItemPool 카드에 영향 없어야
+## 함)를 확인한다. _check_item_grades와 같은 패턴.
+func _check_event_item_flavor(lines: PackedStringArray) -> bool:
+	var ok := true
+	for item in EventItemPool.ITEMS:
+		var flavor: String = item.get("flavor", "")
+		var has_flavor := flavor != ""
+		ok = has_flavor and ok
+		lines.append("  EventItemPool \"%s\" flavor 존재 -> %s" % [item["name"], "OK" if has_flavor else "FAIL"])
+
+	# gain_pips 아이템(다이스 미리보기 칩이 없는 가장 단순한 카드)으로 검증 — 결과 다이스
+	# 미리보기 노드(ShapeDieChip)를 트리 밖에서 만들었다가 곧장 free()하면 리소스 정리
+	# 타이밍이 꼬여 "1 resources still in use at exit" 경고가 나는 걸 이번에 직접 겪어서,
+	# 미리보기가 없는 아이템으로 바꾸고 add_child()/queue_free()로 정상적인 트리 생명주기를
+	# 따르도록 했다.
+	var pip_item: Dictionary = {}
+	for it in EventItemPool.ITEMS:
+		if it["kind"] == "gain_pips":
+			pip_item = it
+			break
+
+	var with_flavor := ItemCardStyle.build_card(pip_item)
+	add_child(with_flavor["card"])
+	var with_flavor_vbox: VBoxContainer = with_flavor["vbox"]
+	var with_flavor_found := false
+	for child in with_flavor_vbox.get_children():
+		if child is Label and child.text == pip_item["flavor"]:
+			with_flavor_found = true
+	ok = with_flavor_found and ok
+	lines.append("  flavor 있는 아이템 -> 카드에 flavor Label 추가됨 -> %s" % ("OK" if with_flavor_found else "FAIL"))
+	with_flavor["card"].queue_free()
+
+	var no_flavor_item: Dictionary = DiceItemPool.ITEMS[0]
+	var without_flavor := ItemCardStyle.build_card(no_flavor_item)
+	add_child(without_flavor["card"])
+	var without_flavor_vbox: VBoxContainer = without_flavor["vbox"]
+	var without_flavor_found := false
+	for child in without_flavor_vbox.get_children():
+		if child is Label and child.get_theme_color("font_color") == ItemCardStyle.FLAVOR_COLOR:
+			without_flavor_found = true
+	var no_flavor_ok := not without_flavor_found
+	ok = no_flavor_ok and ok
+	lines.append("  flavor 없는 아이템(DiceItemPool) -> 카드에 flavor Label 없음 -> %s" % ("OK" if no_flavor_ok else "FAIL"))
+	without_flavor["card"].queue_free()
 
 	return ok
 

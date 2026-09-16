@@ -8,6 +8,35 @@
 
 ---
 
+- **2026-09-15 (104)**: 큐 16(INBOX.md 2026-09-14 대량 피드백, "키보드 조작/단축키")의
+  이어지는 조각 — (102)/(103)에서 던전 맵/스토리 이벤트/특수 이벤트에 붙였던
+  `KeyboardShortcuts` 패턴을 `code/scenes/character_select.gd`(캐릭터 선택 화면)에도
+  적용했다(4/7화면). `_build_cards()`가 카드를 만들 때마다 각 카드의 "선택" 버튼을
+  `select_buttons` 배열에 순서대로 모으고, 카드 생성이 끝난 뒤 `start_button`/
+  `achievement_button`을 이어 붙여 `_shortcut_buttons`로 저장 후
+  `KeyboardShortcuts.apply_hints()`를 호출한다(카드 5장 -> 1~5번, 던전 시작 ->
+  6번, 업적 -> 7번). 카드를 고르는 동작(`_on_card_selected`)은 강조 표시만 갱신할
+  뿐 버튼을 다시 만들지 않으므로, 다른 화면과 달리 `_build_cards()` 호출 시점에만
+  한 번 배정하면 충분했다(선택할 때마다 재배정할 필요 없음 — 이 화면만의 특징).
+  `_unhandled_input()`은 던전 맵과 동일한 패턴(숫자 키 -> `try_press`)이되, 이 화면의
+  오버레이는 `CustomizePanel`이 아니라 `AchievementPanel`이라 그쪽이 열려있을 때
+  숫자 키를 무시하도록 가드했다. `KeyboardShortcuts` 자체는 이미 `dice_test.gd`가
+  순수 함수로 검증하고 있어 이번에도 화면 전용 신규 테스트는 추가하지 않음(다른
+  3개 화면 때와 같은 판단). `scripts/qa_shot.sh dice_test`로 회귀 스위트 전체 PASS
+  재확인. 화면 검증은 (1) `qa_out/character_select_kbshortcuts.png`로 "[1]~[4]"/
+  "[6]" 접두어가 카드/버튼에 겹침 없이 표시되는지(이 세션 환경의 스크린샷 폭 잘림
+  때문에 5번째 카드와 "[7] 업적" 버튼은 화면 밖으로 잘려 안 보임 — 아래 (2)로 실제
+  동작은 별도 확인), (2) 진짜 `InputEventKey`를 `_unhandled_input()`에 주입하는 QA
+  훅 `_debug_press_shortcut_2()`(KEY_2 -> `qa_out/character_select_kb_key2.png`,
+  두 번째 카드 "광전사"가 실제로 금테로 선택됨)/`_debug_press_shortcut_7()`
+  (KEY_7 -> `qa_out/character_select_kb_key7.png`, `AchievementPanel`이 실제로
+  열림)로 "숫자 키 입력이 클릭과 동일한 결과로 이어지는지"까지 확인. INBOX.md
+  "부분 처리됨"의 키보드 단축키 항목 설명을 4/7화면으로 갱신(남은 화면: 상점/전투/
+  업적 패널 — 상점은 카드당 버튼이 최대 2개씩 있어 숫자가 9개를 넘을 수 있는 문제가
+  여전히 남아있고, 업적 패널은 "닫기" 버튼 하나뿐이라 단축키를 붙일 실익이 적어
+  후순위). 완료 기록이 이 항목 추가로 11개가 되어, 가장 오래된 (94)(상점 골드 부족
+  카드 표시/구매 비활성화)를 `docs/STATUS_ARCHIVE.md`로 이관.
+
 - **2026-09-15 (103)**: 큐 16(INBOX.md 2026-09-14 대량 피드백, "키보드 조작/단축키")의
   이어지는 조각 — (102)에서 던전 맵/스토리 이벤트 두 화면에 붙였던 `KeyboardShortcuts`
   패턴을 특수 이벤트(`code/scenes/event.gd`)에도 적용했다. 이 화면은 카드 2개가
