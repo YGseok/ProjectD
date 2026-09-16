@@ -64,6 +64,36 @@ const ITEMS: Array[Dictionary] = [
 ]
 
 
+## grades에 등급이 속하는 아이템만 걸러 반환한다. event.gd의 "안전/위험" 선택지
+## (2026-09-16 [미니 기획 B] 2~3번)가 안전=C급, 위험 성공=A/S급 풀을 나누는 데 쓴다 —
+## 등급이 늘어나도(예: 나중에 C급 아이템이 여러 개가 되어도) 이 필터만으로 자동 대응된다.
+static func items_of_grade(grades: Array[String]) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for item in ITEMS:
+		if grades.has(item.get("grade", "")):
+			result.append(item)
+	return result
+
+
+## "안전하게 넘어가기" 선택지가 지급하는 확정 아이템 — C급 중 무작위 1개(지금은
+## "눈금 주머니 획득" 하나뿐이라 사실상 고정이지만, 나중에 C급이 늘어나면 자동으로
+## 무작위 선택이 된다). C급이 하나도 없는 예외 상황(설정 실수)이면 ITEMS 전체로 폴백해
+## 빈 결과를 돌려주지 않는다.
+static func random_safe_item() -> Dictionary:
+	var pool := items_of_grade(["C"])
+	if pool.is_empty():
+		pool = ITEMS
+	return pool[randi() % pool.size()]
+
+
+## "위험을 감수하기" 성공 시 지급하는 아이템 — A/S급 중 무작위 1개.
+static func random_risky_item() -> Dictionary:
+	var pool := items_of_grade(["A", "S"])
+	if pool.is_empty():
+		pool = ITEMS
+	return pool[randi() % pool.size()]
+
+
 ## n개의 서로 다른 아이템을 무작위로 뽑아 반환한다 (목록보다 많이 요청하면 있는 만큼만).
 ##
 ## attack_bag/defense_bag은 systems/dice_item_pool.gd의 DiceItemPool.random_choices()와

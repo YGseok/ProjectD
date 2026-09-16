@@ -21,11 +21,50 @@ offset_left = 40.0
 offset_top = 24.0
 offset_right = 1240.0
 offset_bottom = 60.0
-text = "특수 이벤트 — 무료로 하나를 골라 다이스를 강화하세요"
+text = "특수 이벤트 — 안전하게 넘어갈까, 위험을 감수할까?"
 label_settings = SubResource("LabelSettings_title")
 
+[node name="PromptLabel" type="Label" parent="."]
+offset_left = 40.0
+offset_top = 68.0
+offset_right = 1240.0
+offset_bottom = 98.0
+text = "이상한 기운이 느껴지는 방이다."
+
+[node name="SafeButton" type="Button" parent="."]
+offset_left = 260.0
+offset_top = 116.0
+offset_right = 620.0
+offset_bottom = 176.0
+text = "안전하게 넘어가기"
+
+[node name="RiskyButton" type="Button" parent="."]
+offset_left = 660.0
+offset_top = 116.0
+offset_right = 1020.0
+offset_bottom = 176.0
+text = "위험을 감수하기"
+
+[node name="RollRoot" type="Node2D" parent="."]
+position = Vector2(400, 200)
+
 [node name="ItemsRoot" type="Node2D" parent="."]
-position = Vector2(300, 140)
+position = Vector2(480, 300)
+
+[node name="FailLabel" type="Label" parent="."]
+offset_left = 260.0
+offset_top = 300.0
+offset_right = 1020.0
+offset_bottom = 360.0
+autowrap_mode = 3
+text = "아쉽게도 손에 넣지 못했다..."
+
+[node name="ContinueButton" type="Button" parent="."]
+offset_left = 360.0
+offset_top = 650.0
+offset_right = 660.0
+offset_bottom = 695.0
+text = "계속"
 
 [node name="CustomizeButton" type="Button" parent="."]
 offset_left = 40.0

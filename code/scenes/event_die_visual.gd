@@ -32,7 +32,11 @@ var font_color: Color = Color(0.92, 0.85, 0.6)
 var _label: Label
 
 
-func _to_roman(v: int) -> String:
+## static인 이유: INBOX.md [미니 기획 B]-3(event.gd의 위험 판정 결과 문구)이 인스턴스를
+## 만들지 않고도 "굴린 값 -> 로마 숫자"를 바로 얻을 수 있어야 해서(EventDieVisual._to_roman(roll)
+## 형태로 직접 호출). ROMAN 상수만 참조하고 인스턴스 상태를 쓰지 않으므로 static으로 바꿔도
+## 기존 호출부(_ready()/setter, dice_test.gd의 instance._to_roman() 호출 모두)는 그대로 동작한다.
+static func _to_roman(v: int) -> String:
 	if v >= 1 and v < ROMAN.size():
 		return ROMAN[v]
 	return str(v) # 로마 숫자 표를 벗어나는 값(면 개수가 10 넘는 이벤트 다이스가 생기면)은

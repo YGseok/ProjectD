@@ -8,6 +8,58 @@
 
 ---
 
+- **2026-09-15 (105)**: 큐 16(INBOX.md 2026-09-14 대량 피드백, "키보드 조작/단축키")의
+  이어지는 조각 — (102)/(103)/(104)에서 던전 맵/스토리 이벤트/특수 이벤트/캐릭터
+  선택에 붙였던 `KeyboardShortcuts` 패턴을 `code/scenes/shop.gd`(상점)에도
+  적용했다(5/7화면). `_rebuild_items()`가 아이템 카드 버튼(add_die/boost_weak_face/
+  uniform_faces는 공격/방어 2버튼씩, upgrade_die는 단일 1버튼 — 지금 `DiceItemPool.
+  ITEMS` 4종 기준 총 7개)을 만들 때마다 `_shortcut_buttons`에 순서대로 담고,
+  루프가 끝난 뒤 `leave_button`("던전으로 돌아가기")과 `customize_button`을 이어
+  붙여 `KeyboardShortcuts.apply_hints()`를 호출한다(다른 화면과 동일 패턴). 이전
+  이터레이션 STATUS.md가 "상점은 카드당 버튼이 최대 2개씩이라 숫자가 9개를
+  넘을 수 있어 배정 규칙을 더 고민해야 한다"고 우려했던 부분은, 실제로 계산해보니
+  7(아이템 버튼) + 1(나가기) + 1(커스터마이징) = 9로 1~9 범위에 정확히 들어와
+  별도 규칙 없이 그대로 적용 가능했다(아이템 종류가 5종 이상으로 늘면 그때 다시
+  검토 필요 — `apply_hints()`는 10번째부터 접두어를 안 붙일 뿐 클릭 자체는
+  계속 가능하므로 기능이 없어지지는 않음).
+  **부수 발견 — 실제 크래시 버그 수정**: "던전으로 돌아가기" 버튼까지 실제
+  숫자 키 입력으로 검증하려고 신규 QA 훅 `_debug_press_shortcut_leave()`를
+  만들어 실행했다가, `SCRIPT ERROR: Cannot call method 'set_input_as_handled'
+  on a null value.`(shop.gd:128, `_unhandled_input()`)를 실제로 재현했다. 원인:
+  `_unhandled_input()`이 `KeyboardShortcuts.try_press(_shortcut_buttons, idx)`로
+  버튼을 누른 *뒤에* `get_viewport()`를 새로 호출하는데, 눌린 버튼이
+  "던전으로 돌아가기"면 그 `pressed` 콜백(`_on_leave_pressed`)이 그 자리에서
+  `get_tree().change_scene_to_file(...)`을 불러 shop 씬 노드가 트리 밖으로
+  나가버리고, 그 직후의 `get_viewport()`가 null을 반환해 크래시했다. 수정:
+  `get_viewport()` 호출을 `try_press()` *이전*(노드가 아직 트리 안에 있어
+  유효한 시점)으로 옮겨 지역 변수에 미리 담아두고, 버튼을 누른 뒤에는 그
+  미리 담아둔 참조로 `set_input_as_handled()`를 부르도록 바꿨다(Viewport
+  객체 자체는 씬 전환과 무관하게 계속 살아있으므로 미리 받아둔 참조는 씬이
+  바뀐 뒤에도 유효함). 이 취약한 패턴이 `_unhandled_input()`을 쓰는 5개 화면
+  (dungeon_map.gd/shop.gd/event.gd/story_event.gd/character_select.gd) 전부에
+  글자 그대로 복사돼 있었다 — 이전 이터레이션들(102~104)은 커스터마이징
+  패널·업적 패널처럼 "씬을 안 바꾸는" 버튼만 실제 키 입력으로 검증했었고,
+  씬을 바꾸는 버튼(방 입장/나가기/계속/아이템 획득/던전 시작)을 실제 키
+  입력 경로로 검증한 것은 이번이 처음이라 지금까지 발견되지 않았던 것으로
+  보인다. 같은 이유로 5개 파일 모두 동일하게 수정했고, 던전 맵에도 신규 QA
+  훅 `_debug_press_shortcut_2()`(2번째 방으로 강제 이동 후 2번 키로 상점
+  입장을 실제로 눌러보는 검증)를 추가해 방 입장 버튼 경로에서도 크래시가
+  재현되지 않고 정상적으로 상점 씬까지 전환됨을 확인했다. **이 버그는 실제
+  플레이에서도 재현 가능했을 것으로 추정된다** — 사람이 직접 숫자 키로 상점을
+  나가거나 방에 입장했다면 언제든 겪었을 크래시다. `dice_test.gd` 회귀
+  스위트는 순수 함수(`KeyboardShortcuts`)에는 변경이 없어(입력 처리 순서만
+  바뀜) 전체 PASS 그대로 유지. 화면 검증: `qa_out/shop_kbshortcuts.png`
+  ("[1]~[9]" 접두어 9개가 카드/버튼에 겹침 없이 표시), `qa_out/shop_kb_key9.png`
+  (9번 키로 커스터마이징 패널이 실제로 열림), `qa_out/shop_kb_key8.png`
+  (수정 후 재실행 — 크래시 없이 8번 키로 dungeon_map 씬으로 정상 전환됨),
+  `qa_out/dungeon_map_kb_key2.png`(2번 키로 상점 씬으로 정상 전환됨). INBOX.md
+  "부분 처리됨"의 키보드 단축키 항목 설명을 5/7화면으로 갱신하고, 크래시 버그
+  발견·수정 건은 INBOX.md 요청 항목은 아니었지만 "처리됨" 섹션에 새 항목으로
+  기록(처리됨 13개로 12개 초과해 가장 오래된 1개(2026-09-15 "던전 맵 보상
+  아이콘 범례")를 `docs/INBOX_ARCHIVE.md`로 이관). STATUS.md 완료 기록이 이
+  항목 추가로 11개가 되어, 가장 오래된 (100)(특수 이벤트 물음표 아이콘)을
+  `docs/STATUS_ARCHIVE.md`로 이관.
+
 - **2026-09-15 (104)**: 큐 16(INBOX.md 2026-09-14 대량 피드백, "키보드 조작/단축키")의
   이어지는 조각 — (102)/(103)에서 던전 맵/스토리 이벤트/특수 이벤트에 붙였던
   `KeyboardShortcuts` 패턴을 `code/scenes/character_select.gd`(캐릭터 선택 화면)에도

@@ -1,73 +1,185 @@
 extends Node2D
-## 특수 이벤트 방 (INBOX.md: "특수한 이벤트에서는 주사위를 늘리는 이벤트를 제공한다.
-## 다면체 주사위가 나올 수 있다").
+## 특수 이벤트 방 (INBOX.md [미니 기획 B] 2~3번, 2026-09-16).
 ##
-## 상점(shop.gd)과 달리 골드를 쓰지 않는다 — 무작위로 제시된 2개 중 하나를 무료로 골라
-## 공격/방어 주머니 중 원하는 쪽에 적용하면 그 자리에서 방을 소비하고 던전 맵으로
-## 돌아간다 (전투 승리 보상 화면과 비슷한 "2개 중 1개 선택" 형식을 재사용).
+## 예전에는 무작위 2개 중 하나를 무료로 골라 즉시 획득하는 방식이었는데(리스크 없음),
+## 이제 선택지를 항상 2개로 통일한다 — "안전하게 넘어가기"(리스크 없음, 확정 C급 아이템)
+## / "위험을 감수하기"(RunState.event_die_sides를 1회 굴려 DC와 비교, 성공하면 A/S급
+## 무작위 1개, 실패하면 보상 없음). DC = min(5, 3 + room_index / 2) — DESIGN.md에
+## 명시된 정수 나눗셈 공식 그대로(room_index는 RunState.rooms_cleared와 동일 기준).
 ##
-## systems/event_item_pool.gd(EventItemPool)의 아이템을 사용하며, apply()는
-## DiceItemPool.apply()를 그대로 재사용한다 (item dict 형식이 같음).
+## systems/event_item_pool.gd(EventItemPool)의 등급(grade) 필터로 안전/위험 풀을
+## 나누고, apply()는 DiceItemPool.apply()를 그대로 재사용한다(item dict 형식이 같음).
+## 아이템을 실제로 주머니에 넣거나 인벤토리에 담는 로직(_apply_pick/_apply_pips/
+## _apply_upgrade, _on_pick_* 핸들러)은 예전 구현을 그대로 유지했다 — dice_test.gd의
+## 기존 회귀 테스트가 이 함수들을 직접 호출해 이중 실행 가드를 검증하므로, 시그니처와
+## 동작을 바꾸지 않아야 그 테스트들이 계속 유효하다.
 
 @onready var items_root: Node2D = $ItemsRoot
+@onready var roll_root: Node2D = $RollRoot
 @onready var customize_button: Button = $CustomizeButton
 @onready var customize_panel: CustomizePanel = $CustomizePanel
+@onready var prompt_label: Label = $PromptLabel
+@onready var safe_button: Button = $SafeButton
+@onready var risky_button: Button = $RiskyButton
+@onready var fail_label: Label = $FailLabel
+@onready var continue_button: Button = $ContinueButton
 
-var _offered: Array[Dictionary] = []
-var _row_ui: Array[Node] = []
+## 안전/위험 중 하나를 이미 골랐는지(중복 클릭으로 두 선택지가 동시에 진행되는 것을
+## 막음) — _picked(아래, 아이템 적용/실패 계속 단계의 이중 실행 가드)와는 별개 지점이라
+## 별도 플래그가 필요하다.
+var _choice_made := false
+## 아이템 적용(_apply_pick/_apply_pips/_apply_upgrade) 또는 실패 후 "계속"의 이중 실행
+## 방지 가드 — 예전 event.gd의 _picked와 동일한 이름/역할을 유지(테스트 호환).
 var _picked := false
 
-## 던전 맵/스토리 이벤트와 같은 패턴(KeyboardShortcuts) — 카드 버튼들 + 커스터마이징
-## 버튼을 화면에 나타나는 순서대로 담아 숫자 1~9 키로 누를 수 있게 한다(INBOX.md
-## 2026-09-14). 아이템이 매번 다시 뽑히지 않는 한 카드 구성은 안 바뀌므로 dungeon_map처럼
-## 매 프레임 갱신할 필요는 없고, _rebuild_items()가 호출될 때만 다시 만든다.
+var _dc: int
+var _row_ui: Array[Node] = []
 var _shortcut_buttons: Array[Button] = []
 
 
 func _ready() -> void:
-	_offered = EventItemPool.random_choices(2, RunState.player_attack_bag, RunState.player_defense_bag)
+	_dc = difficulty_for_room(RunState.rooms_cleared)
+	prompt_label.text = "이상한 기운이 느껴지는 방이다. 안전하게 지나칠 것인가, 위험을 무릅쓸 것인가?"
+	safe_button.text = "안전하게 넘어가기 (확정 C급 획득)"
+	risky_button.text = "위험을 감수하기 (이벤트 주사위 D%d, %d 이상 성공)" % [RunState.event_die_sides, _dc]
+	safe_button.pressed.connect(_on_safe_pressed)
+	risky_button.pressed.connect(_on_risky_pressed)
 	customize_button.pressed.connect(customize_panel.open)
-	_rebuild_items()
+	fail_label.hide()
+	continue_button.hide()
+	continue_button.pressed.connect(_on_continue_after_fail_pressed)
+	_refresh_shortcuts([safe_button, risky_button, customize_button])
 
 
-func _rebuild_items() -> void:
+## DC 공식(DESIGN.md [미니 기획 B]-3): 방 0~1은 DC3, 2~3은 DC4, 4 이상은 DC5(상한).
+## room_index는 RunState.rooms_cleared와 같은 기준(0부터 시작, 몇 번째 몬스터/방인지).
+static func difficulty_for_room(room_index: int) -> int:
+	return min(5, 3 + room_index / 2)
+
+
+func _refresh_shortcuts(buttons: Array[Button]) -> void:
+	_shortcut_buttons = buttons
+	KeyboardShortcuts.apply_hints(_shortcut_buttons)
+
+
+## dungeon_map.gd 등과 같은 이유(2026-09-15) — 씬을 바꾸는 버튼(아이템 획득/커스터마이징
+## 없음이므로 여기선 해당 없지만 패턴 일관성을 위해 동일하게 get_viewport()를 try_press()
+## 이전에 미리 받아둔다.
+func _unhandled_input(event: InputEvent) -> void:
+	if customize_panel.visible:
+		return
+	var idx := KeyboardShortcuts.digit_index(event)
+	if idx < 0:
+		return
+	var viewport := get_viewport()
+	if KeyboardShortcuts.try_press(_shortcut_buttons, idx) and viewport != null:
+		viewport.set_input_as_handled()
+
+
+func _on_safe_pressed() -> void:
+	if _choice_made:
+		return
+	_choice_made = true
+	safe_button.hide()
+	risky_button.hide()
+	_show_item_offer(EventItemPool.random_safe_item())
+
+
+func _on_risky_pressed() -> void:
+	if _choice_made:
+		return
+	_choice_made = true
+	safe_button.hide()
+	risky_button.hide()
+	_resolve_risky(randi_range(1, RunState.event_die_sides))
+
+
+## roll을 인자로 받아 QA에서 결정적으로 강제할 수 있게 한다(아래 _debug_force_risky_*).
+func _resolve_risky(roll: int) -> void:
+	var success := roll >= _dc
+	_show_roll_result(roll, success)
+	if success:
+		_show_item_offer(EventItemPool.random_risky_item())
+	else:
+		_show_fail()
+
+
+## 로마 숫자 육각 칩(EventDieVisual) + 결과 문구를 roll_root 아래에 만든다. 화면당
+## 한 번만 호출되므로(다시 굴리는 경로가 없음) 기존 자식을 지우는 처리는 필요 없다.
+func _show_roll_result(roll: int, success: bool) -> void:
+	var visual := EventDieVisual.new()
+	visual.custom_minimum_size = Vector2(56, 56)
+	visual.position = Vector2(0, 0)
+	roll_root.add_child(visual)
+	visual.value = roll
+
+	var label := Label.new()
+	label.position = Vector2(70, 14)
+	label.text = "이벤트 주사위 결과: %s (%d) — DC %d 이상 필요 → %s" % [
+		EventDieVisual._to_roman(roll), roll, _dc, "성공!" if success else "실패..."
+	]
+	label.add_theme_font_size_override("font_size", 18)
+	label.add_theme_color_override("font_color", Color(0.7, 0.95, 0.6) if success else Color(0.9, 0.5, 0.45))
+	roll_root.add_child(label)
+
+
+func _show_fail() -> void:
+	fail_label.text = "아쉽게도 손에 넣지 못했다... 이번 기회는 여기서 끝이다."
+	fail_label.show()
+	continue_button.show()
+	_refresh_shortcuts([continue_button, customize_button])
+
+
+func _on_continue_after_fail_pressed() -> void:
+	if not _apply_fail():
+		return
+	get_tree().change_scene_to_file("res://code/scenes/dungeon_map.tscn")
+
+
+## 실패 시에도 "방을 하나 소비했다"는 진행은 그대로 인정한다(DESIGN.md — "페널티는
+## 이번 기회를 놓침 그 자체로 충분"). _apply_pick/_apply_pips/_apply_upgrade와 동일한
+## _picked 가드를 공유해 더블클릭으로 방이 두 번 소비되지 않게 한다.
+func _apply_fail() -> bool:
+	if _picked:
+		return false
+	_picked = true
+	RunState.rooms_cleared += 1
+	return true
+
+
+## 안전/위험 성공 양쪽이 공유하는 단일 아이템 카드 표시. 예전 _rebuild_items()가 2개
+## 아이템을 나란히 보여주던 것을 1개짜리로 단순화했을 뿐, 카드 구성/버튼 배선 로직
+## 자체는 그대로다.
+func _show_item_offer(item: Dictionary) -> void:
 	for node in _row_ui:
 		node.queue_free()
 	_row_ui.clear()
-	_shortcut_buttons.clear()
 
-	var card_width := 320.0
-	var card_height := 300.0
-	var card_x := [0.0, 360.0]
-	for i in _offered.size():
-		var item: Dictionary = _offered[i]
-		var built := ItemCardStyle.build_card(item)
-		var card: PanelContainer = built["card"]
-		card.position = Vector2(card_x[i], 0.0)
-		card.size = Vector2(card_width, card_height)
-		items_root.add_child(card)
-		_row_ui.append(card)
+	var built := ItemCardStyle.build_card(item)
+	var card: PanelContainer = built["card"]
+	card.position = Vector2(0.0, 0.0)
+	card.size = Vector2(320.0, 300.0)
+	items_root.add_child(card)
+	_row_ui.append(card)
 
-		var button_row: VBoxContainer = built["button_row"]
+	var button_row: VBoxContainer = built["button_row"]
+	var offer_buttons: Array[Button] = []
 
-		if item.get("kind", "") == "gain_pips":
-			var pip_btn := Button.new()
-			pip_btn.text = "눈금 획득"
-			pip_btn.custom_minimum_size = Vector2(0, 38)
-			pip_btn.pressed.connect(_on_pick_pips.bind(item))
-			button_row.add_child(pip_btn)
-			_shortcut_buttons.append(pip_btn)
-			continue
-
-		if item.get("kind", "") == "upgrade_die":
-			var upgrade_btn := Button.new()
-			upgrade_btn.text = "다이스 획득 (인벤토리)"
-			upgrade_btn.custom_minimum_size = Vector2(0, 38)
-			upgrade_btn.pressed.connect(_on_pick_upgrade.bind(item))
-			button_row.add_child(upgrade_btn)
-			_shortcut_buttons.append(upgrade_btn)
-			continue
-
+	if item.get("kind", "") == "gain_pips":
+		var pip_btn := Button.new()
+		pip_btn.text = "눈금 획득"
+		pip_btn.custom_minimum_size = Vector2(0, 38)
+		pip_btn.pressed.connect(_on_pick_pips.bind(item))
+		button_row.add_child(pip_btn)
+		offer_buttons.append(pip_btn)
+	elif item.get("kind", "") == "upgrade_die":
+		var upgrade_btn := Button.new()
+		upgrade_btn.text = "다이스 획득 (인벤토리)"
+		upgrade_btn.custom_minimum_size = Vector2(0, 38)
+		upgrade_btn.pressed.connect(_on_pick_upgrade.bind(item))
+		button_row.add_child(upgrade_btn)
+		offer_buttons.append(upgrade_btn)
+	else:
 		var atk_preview := ItemCardStyle.build_effect_preview(item, RunState.player_attack_bag)
 		if atk_preview:
 			button_row.add_child(atk_preview)
@@ -78,7 +190,7 @@ func _rebuild_items() -> void:
 		atk_btn.custom_minimum_size = Vector2(0, 38)
 		atk_btn.pressed.connect(_on_pick_pressed.bind(item, "attack"))
 		button_row.add_child(atk_btn)
-		_shortcut_buttons.append(atk_btn)
+		offer_buttons.append(atk_btn)
 
 		var def_preview := ItemCardStyle.build_effect_preview(item, RunState.player_defense_bag)
 		if def_preview:
@@ -90,28 +202,10 @@ func _rebuild_items() -> void:
 		def_btn.custom_minimum_size = Vector2(0, 38)
 		def_btn.pressed.connect(_on_pick_pressed.bind(item, "defense"))
 		button_row.add_child(def_btn)
-		_shortcut_buttons.append(def_btn)
+		offer_buttons.append(def_btn)
 
-	_shortcut_buttons.append(customize_button)
-	KeyboardShortcuts.apply_hints(_shortcut_buttons)
-
-
-## 숫자 키(1~9)로 지금 보이는 카드 버튼(+커스터마이징)을 순서대로 누른다. dungeon_map.gd와
-## 같은 이유로 커스터마이징 패널이 열려있을 때는 뒤에 가려진 버튼이 함께 눌리지 않도록
-## 무시한다.
-func _unhandled_input(event: InputEvent) -> void:
-	if customize_panel.visible:
-		return
-	var idx := KeyboardShortcuts.digit_index(event)
-	if idx < 0:
-		return
-	# get_viewport()는 try_press() 이전에 미리 받아둬야 한다 — 아이템 픽 버튼처럼 눌렸을 때
-	# change_scene_to_file()로 씬을 바꾸는 버튼이면, 이 노드가 try_press() 도중 트리에서
-	# 빠져나가 그 뒤의 get_viewport()가 null을 반환해 set_input_as_handled() 호출이
-	# 크래시한다(shop.gd에서 실제로 겪고 발견해 5개 화면 공통으로 수정, 2026-09-15).
-	var viewport := get_viewport()
-	if KeyboardShortcuts.try_press(_shortcut_buttons, idx) and viewport != null:
-		viewport.set_input_as_handled()
+	offer_buttons.append(customize_button)
+	_refresh_shortcuts(offer_buttons)
 
 
 func _on_pick_pressed(item: Dictionary, target: String) -> void:
@@ -184,9 +278,83 @@ func _apply_upgrade(item: Dictionary) -> bool:
 	return true
 
 
-## qa/visual_qa.gd의 GAME_QA_CALL로 호출하기 위한 인자 없는 래퍼 (QA 전용).
-func _debug_pick_first_for_attack() -> void:
-	_on_pick_pressed(_offered[0], "attack")
+func _find_item_by_sides(sides: int) -> Dictionary:
+	for it in EventItemPool.ITEMS:
+		if it.get("kind", "") == "add_die" and it.get("sides", -1) == sides:
+			return it
+	return EventItemPool.ITEMS[0]
+
+
+func _find_item_by_kind(kind: String) -> Dictionary:
+	for it in EventItemPool.ITEMS:
+		if it.get("kind", "") == kind:
+			return it
+	return EventItemPool.ITEMS[0]
+
+
+## qa/visual_qa.gd의 GAME_QA_CALL로 호출하기 위한 인자 없는 래퍼 (QA 전용). 안전
+## 선택지를 눌러 확정 C급 아이템(지금은 gain_pips 하나뿐) 카드까지 화면에 나오는지
+## 확인한다.
+func _debug_pick_safe() -> void:
+	_on_safe_pressed()
+
+
+## QA 전용: 실제 randi_range() 대신 항상 최댓값(event_die_sides)을 굴린 것으로 강제해
+## "위험을 감수하기" 성공 경로(A/S급 카드 표시까지)를 결정적으로 재현한다. DC가 아무리
+## 커져도(최대 5) 이벤트 다이스 최댓값은 항상 DC 이상이므로 반드시 성공한다.
+func _debug_force_risky_success() -> void:
+	_choice_made = true
+	safe_button.hide()
+	risky_button.hide()
+	_resolve_risky(RunState.event_die_sides)
+
+
+## QA 전용: 항상 최솟값(1)을 굴린 것으로 강제해 실패 경로("아쉽게도..." + 계속 버튼)를
+## 결정적으로 재현한다. DC는 항상 3 이상이므로 1은 반드시 실패한다.
+func _debug_force_risky_failure() -> void:
+	_choice_made = true
+	safe_button.hide()
+	risky_button.hide()
+	_resolve_risky(1)
+
+
+## QA 전용: D20 아이템(위험 성공 풀의 S급)이 카드에 안 겹치고 표시되는지 확인하기 위해
+## 안전/위험 선택 없이 곧바로 카드를 강제로 띄운다.
+func _debug_force_show_d20() -> void:
+	_choice_made = true
+	safe_button.hide()
+	risky_button.hide()
+	_show_item_offer(_find_item_by_sides(20))
+
+
+## QA 전용: "눈금 주머니 획득"(gain_pips, 안전 선택지의 유일한 C급) 카드가 정상
+## 표시되는지 확인.
+func _debug_force_show_pips() -> void:
+	_choice_made = true
+	safe_button.hide()
+	risky_button.hide()
+	_show_item_offer(_find_item_by_kind("gain_pips"))
+
+
+## QA 전용: "다이스 대승급 (-> D10)"(upgrade_die, 위험 성공 풀의 A급) 카드가 정상
+## 표시되는지 확인.
+func _debug_force_show_upgrade() -> void:
+	_choice_made = true
+	safe_button.hide()
+	risky_button.hide()
+	_show_item_offer(_find_item_by_kind("upgrade_die"))
+
+
+## QA 전용: D20 아이템을 공격 주머니에 적용했을 때 실제로 sides=20 다이스가 하나
+## 추가되는지 콘솔로 검증한다 (apply() 로직 자체를 확인, 화면 표시와는 별개).
+func _debug_verify_d20_pickup() -> void:
+	var item: Dictionary = _find_item_by_sides(20)
+	var bag := RunState.player_attack_bag
+	var before_count := bag.dice.size()
+	DiceItemPool.apply(item, bag)
+	var after_count := bag.dice.size()
+	var added_sides := bag.dice[after_count - 1].size() if after_count > before_count else -1
+	print("[qa] d20 pickup: before=%d after=%d added_sides=%d" % [before_count, after_count, added_sides])
 
 
 ## QA 전용 — 실제 숫자 키 입력이 _unhandled_input()을 거쳐 커스터마이징 버튼까지 눌리는
@@ -205,64 +373,3 @@ func _debug_press_shortcut_customize() -> void:
 ## _debug_open_customize와 같은 목적).
 func _debug_open_customize() -> void:
 	customize_panel.open()
-
-
-## QA 전용: D20 아이템을 강제로 목록 맨 앞에 노출시킨다. 아이템은 무작위 2개만 뽑혀
-## 보이므로, 화면에서 실제로 정상 표시되는지 확인하려면 무작위 뽑기에 의존하지 않고
-## 직접 강제할 방법이 필요해서 추가함.
-## kind+sides로 직접 찾는 이유: 예전에는 D20이 EventItemPool.ITEMS의 마지막 항목이라
-## "마지막 항목"으로 가정해 찾았는데, 이후 "눈금 주머니 획득"(gain_pips)이 더 뒤에
-## 추가되면서 그 가정이 깨져 이 훅이 실제로는 D20이 아니라 gain_pips를 보여주고 있었다
-## (2026-09-15 발견 — 카드 이미지/텍스트 레이아웃 개편 중 이 훅으로 D20의 20칸짜리
-## 미리보기가 카드 안에 안 겹치고 들어가는지 확인하려다가 실제로는 다른 아이템이
-## 뜨는 것을 보고 알아챔).
-func _debug_force_offer_d20() -> void:
-	_offered = [_find_item_by_sides(20), EventItemPool.ITEMS[0]]
-	_rebuild_items()
-
-
-func _find_item_by_sides(sides: int) -> Dictionary:
-	for it in EventItemPool.ITEMS:
-		if it.get("kind", "") == "add_die" and it.get("sides", -1) == sides:
-			return it
-	return EventItemPool.ITEMS[0]
-
-
-## QA 전용: D20 아이템을 공격 주머니에 적용했을 때 실제로 sides=20 다이스가 하나
-## 추가되는지 콘솔로 검증한다 (_debug_force_offer_d20과 짝 — 화면 표시 확인과
-## 별개로 apply() 로직 자체를 확인).
-func _debug_verify_d20_pickup() -> void:
-	var item: Dictionary = _find_item_by_sides(20)
-	var bag := RunState.player_attack_bag
-	var before_count := bag.dice.size()
-	DiceItemPool.apply(item, bag)
-	var after_count := bag.dice.size()
-	var added_sides := bag.dice[after_count - 1].size() if after_count > before_count else -1
-	print("[qa] d20 pickup: before=%d after=%d added_sides=%d" % [before_count, after_count, added_sides])
-
-
-## QA 전용: 새로 추가한 "눈금 주머니 획득" 아이템(gain_pips)을 강제로 목록 맨 앞에
-## 노출시킨다. _debug_force_offer_d20과 같은 이유 — 무작위 2개 중 하나로만 뽑히므로
-## 화면에서 "획득" 버튼 하나짜리 카드가 정상 표시되는지 확인하려면 직접 강제해야 한다.
-func _debug_force_offer_pips() -> void:
-	var pip_item: Dictionary = {}
-	for it in EventItemPool.ITEMS:
-		if it["kind"] == "gain_pips":
-			pip_item = it
-			break
-	_offered = [pip_item, EventItemPool.ITEMS[0]]
-	_rebuild_items()
-
-
-## QA 전용: "다이스 대승급 (-> D10)" 아이템(upgrade_die)을 강제로 목록 맨 앞에
-## 노출시킨다. _debug_force_offer_pips와 같은 이유 — 화면에서 "다이스 획득 (인벤토리)"
-## 단일 버튼 카드가 정상 표시되는지 확인하기 위함(2026-09-09, 즉시 적용 대신 인벤토리
-## 획득으로 바뀐 뒤 새로 필요해진 QA 훅).
-func _debug_force_offer_upgrade() -> void:
-	var upgrade_item: Dictionary = {}
-	for it in EventItemPool.ITEMS:
-		if it["kind"] == "upgrade_die":
-			upgrade_item = it
-			break
-	_offered = [upgrade_item, EventItemPool.ITEMS[0]]
-	_rebuild_items()

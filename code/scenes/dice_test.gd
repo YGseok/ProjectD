@@ -161,6 +161,10 @@ func _ready() -> void:
 	all_pass = _check_event_item_flavor(lines) and all_pass
 
 	lines.append("")
+	lines.append("[특수 이벤트 안전/위험 선택 + DC 난이도 체크 검증: event.gd difficulty_for_room / _resolve_risky / _apply_fail, event_item_pool.gd random_safe_item / random_risky_item]")
+	all_pass = _check_event_safe_risky_choice(lines) and all_pass
+
+	lines.append("")
 	lines.append("[라운드 진행 검증: run_state.gd RunState.round_index / advance_round / is_last_round]")
 	all_pass = _check_round_progress(lines) and all_pass
 
@@ -1183,6 +1187,86 @@ func _check_event_upgrade_guard(lines: PackedStringArray) -> bool:
 	event_node.free()
 	RunState.rooms_cleared = rooms_backup
 	RunState.die_inventory = die_backup
+	return ok
+
+
+## INBOX.md [미니 기획 B] 2~3번(2026-09-16, "선택지를 안전하게 넘어가기/위험을
+## 감수하기 2개로 통일" + "이벤트 다이스로 DC 난이도 체크") 검증. (1)
+## event.gd.difficulty_for_room()이 DESIGN.md 공식(min(5, 3 + room_index/2))대로
+## 방 0~1=DC3, 2~3=DC4, 4 이상=DC5를 내는지. (2) EventItemPool.random_safe_item()이
+## 항상 C급만, random_risky_item()이 항상 A/S급만 반환하는지. (3) "위험을 감수하기"를
+## RNG 없이 결정적으로 강제(_debug_force_risky_success/failure)했을 때 성공하면 아이템
+## 카드(_row_ui)가 뜨고 실패하면 실패 문구+계속 버튼만 뜨는지. (4) 실패 후 "계속"
+## (_apply_fail)이 _apply_pick/_apply_pips/_apply_upgrade와 동일한 이중 실행 가드를
+## 갖는지(같은 _picked 플래그 재사용).
+func _check_event_safe_risky_choice(lines: PackedStringArray) -> bool:
+	var ok := true
+	var event_script := load("res://code/scenes/event.gd")
+
+	var dc0: int = event_script.difficulty_for_room(0)
+	var dc1: int = event_script.difficulty_for_room(1)
+	var dc2: int = event_script.difficulty_for_room(2)
+	var dc3: int = event_script.difficulty_for_room(3)
+	var dc4: int = event_script.difficulty_for_room(4)
+	var dc10: int = event_script.difficulty_for_room(10)
+	var dc_ok := dc0 == 3 and dc1 == 3 and dc2 == 4 and dc3 == 4 and dc4 == 5 and dc10 == 5
+	ok = dc_ok and ok
+	lines.append("  difficulty_for_room(0/1/2/3/4/10)=%d/%d/%d/%d/%d/%d(기대 3/3/4/4/5/5) -> %s" % [
+		dc0, dc1, dc2, dc3, dc4, dc10, "OK" if dc_ok else "FAIL"
+	])
+
+	var safe_grades_ok := true
+	for i in 20:
+		if String(EventItemPool.random_safe_item().get("grade", "")) != "C":
+			safe_grades_ok = false
+	ok = safe_grades_ok and ok
+	lines.append("  random_safe_item() 20회 전부 grade=C -> %s" % ("OK" if safe_grades_ok else "FAIL"))
+
+	var risky_grades_ok := true
+	for i in 20:
+		var g: String = EventItemPool.random_risky_item().get("grade", "")
+		if g != "A" and g != "S":
+			risky_grades_ok = false
+	ok = risky_grades_ok and ok
+	lines.append("  random_risky_item() 20회 전부 grade=A/S -> %s" % ("OK" if risky_grades_ok else "FAIL"))
+
+	var rooms_backup := RunState.rooms_cleared
+	RunState.rooms_cleared = 0
+
+	var event_scene := load("res://code/scenes/event.tscn")
+	var success_node = event_scene.instantiate()
+	add_child(success_node)
+	success_node._debug_force_risky_success()
+	var success_card_ok: bool = success_node._row_ui.size() == 1
+	ok = success_card_ok and ok
+	lines.append("  위험 감수 강제 성공 -> 아이템 카드 표시(_row_ui.size()==1) -> %s" % ("OK" if success_card_ok else "FAIL"))
+	remove_child(success_node)
+	success_node.free()
+
+	var fail_node = event_scene.instantiate()
+	add_child(fail_node)
+	fail_node._debug_force_risky_failure()
+	var fail_ui_ok: bool = fail_node.fail_label.visible and fail_node.continue_button.visible and fail_node._row_ui.is_empty()
+	ok = fail_ui_ok and ok
+	lines.append("  위험 감수 강제 실패 -> 실패 문구+계속 버튼 표시, 아이템 카드 없음 -> %s" % ("OK" if fail_ui_ok else "FAIL"))
+
+	var rooms_before: int = RunState.rooms_cleared
+	var first_applied: bool = fail_node._apply_fail()
+	var first_ok: bool = first_applied and RunState.rooms_cleared == rooms_before + 1
+	ok = first_ok and ok
+	lines.append("  실패 후 계속(1차): applied=%s rooms=%d(기대 %d) -> %s" % [
+		first_applied, RunState.rooms_cleared, rooms_before + 1, "OK" if first_ok else "FAIL"
+	])
+	var second_applied: bool = fail_node._apply_fail()
+	var guard_ok: bool = not second_applied and RunState.rooms_cleared == rooms_before + 1
+	ok = guard_ok and ok
+	lines.append("  실패 후 계속(2차, 이중 실행 가드): applied=%s rooms=%d(변화 없어야 함) -> %s" % [
+		second_applied, RunState.rooms_cleared, "OK" if guard_ok else "FAIL"
+	])
+	remove_child(fail_node)
+	fail_node.free()
+
+	RunState.rooms_cleared = rooms_backup
 	return ok
 
 
