@@ -1257,8 +1257,10 @@ func _check_event_upgrade_guard(lines: PackedStringArray) -> bool:
 ## INBOX.md [미니 기획 B] 2~3번(2026-09-16, "선택지를 안전하게 넘어가기/위험을
 ## 감수하기 2개로 통일" + "이벤트 다이스로 DC 난이도 체크") 검증. (1)
 ## event.gd.difficulty_for_room()이 DESIGN.md 공식(min(5, 3 + room_index/2))대로
-## 방 0~1=DC3, 2~3=DC4, 4 이상=DC5를 내는지. (2) EventItemPool.random_safe_item()이
-## 항상 C급만, random_risky_item()이 항상 A/S급만 반환하는지. (3) "위험을 감수하기"를
+## 방 0~1=DC3, 2~3=DC4, 4 이상=DC5를 내는지. (2) [기획자 결정 - 2026-09-16, B급(D8)
+## 사각지대 해결안 (b)] EventItemPool.random_safe_item()이 C/B급만(B는 가중치가 낮아
+## 드물게), random_risky_item()이 B/A/S급만(B는 가중치가 낮아 드물게) 반환하고, 두 풀
+## 모두에서 B급이 실제로 뽑힐 수 있는지(사각지대가 없는지). (3) "위험을 감수하기"를
 ## RNG 없이 결정적으로 강제(_debug_force_risky_success/failure)했을 때 성공하면 아이템
 ## 카드(_row_ui)가 뜨고 실패하면 실패 문구+계속 버튼만 뜨는지. (4) 실패 후 "계속"
 ## (_apply_fail)이 _apply_pick/_apply_pips/_apply_upgrade와 동일한 이중 실행 가드를
@@ -1279,20 +1281,36 @@ func _check_event_safe_risky_choice(lines: PackedStringArray) -> bool:
 		dc0, dc1, dc2, dc3, dc4, dc10, "OK" if dc_ok else "FAIL"
 	])
 
+	## [기획자 결정 - 2026-09-16] B급(D8) 사각지대 해결안 (b) 검증: 안전 풀은 C/B만,
+	## 위험 성공 풀은 B/A/S만 나와야 하고(등급 범위 자체는 여전히 좁힘), B급은 두 풀
+	## 모두에서 뽑힐 수 있어야 한다(가중치가 낮아 드물 뿐 불가능하지 않아야 함).
 	var safe_grades_ok := true
-	for i in 20:
-		if String(EventItemPool.random_safe_item().get("grade", "")) != "C":
+	var safe_saw_b := false
+	for i in 200:
+		var g_safe: String = EventItemPool.random_safe_item().get("grade", "")
+		if g_safe != "C" and g_safe != "B":
 			safe_grades_ok = false
+		if g_safe == "B":
+			safe_saw_b = true
 	ok = safe_grades_ok and ok
-	lines.append("  random_safe_item() 20회 전부 grade=C -> %s" % ("OK" if safe_grades_ok else "FAIL"))
+	ok = safe_saw_b and ok
+	lines.append("  random_safe_item() 200회 전부 grade=C/B, B급 목격 -> %s (B 목격: %s)" % [
+		"OK" if safe_grades_ok else "FAIL", "예" if safe_saw_b else "아니오"
+	])
 
 	var risky_grades_ok := true
-	for i in 20:
+	var risky_saw_b := false
+	for i in 200:
 		var g: String = EventItemPool.random_risky_item().get("grade", "")
-		if g != "A" and g != "S":
+		if g != "B" and g != "A" and g != "S":
 			risky_grades_ok = false
+		if g == "B":
+			risky_saw_b = true
 	ok = risky_grades_ok and ok
-	lines.append("  random_risky_item() 20회 전부 grade=A/S -> %s" % ("OK" if risky_grades_ok else "FAIL"))
+	ok = risky_saw_b and ok
+	lines.append("  random_risky_item() 200회 전부 grade=B/A/S, B급 목격 -> %s (B 목격: %s)" % [
+		"OK" if risky_grades_ok else "FAIL", "예" if risky_saw_b else "아니오"
+	])
 
 	var rooms_backup := RunState.rooms_cleared
 	RunState.rooms_cleared = 0

@@ -65,8 +65,8 @@ const ITEMS: Array[Dictionary] = [
 
 
 ## grades에 등급이 속하는 아이템만 걸러 반환한다. event.gd의 "안전/위험" 선택지
-## (2026-09-16 [미니 기획 B] 2~3번)가 안전=C급, 위험 성공=A/S급 풀을 나누는 데 쓴다 —
-## 등급이 늘어나도(예: 나중에 C급 아이템이 여러 개가 되어도) 이 필터만으로 자동 대응된다.
+## (2026-09-16 [미니 기획 B] 2~3번)가 안전/위험 풀을 나누는 데 쓴다 — 등급이 늘어나도
+## (예: 나중에 C급 아이템이 여러 개가 되어도) 이 필터만으로 자동 대응된다.
 static func items_of_grade(grades: Array[String]) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for item in ITEMS:
@@ -75,23 +75,51 @@ static func items_of_grade(grades: Array[String]) -> Array[Dictionary]:
 	return result
 
 
-## "안전하게 넘어가기" 선택지가 지급하는 확정 아이템 — C급 중 무작위 1개(지금은
-## "눈금 주머니 획득" 하나뿐이라 사실상 고정이지만, 나중에 C급이 늘어나면 자동으로
-## 무작위 선택이 된다). C급이 하나도 없는 예외 상황(설정 실수)이면 ITEMS 전체로 폴백해
-## 빈 결과를 돌려주지 않는다.
+## 등급별 가중치로 pool에서 무작위 1개를 뽑는다(가중치가 클수록 자주 뽑힘). pool이
+## 비어있으면 빈 Dictionary를 돌려주지 않도록 호출부에서 항상 폴백을 준비해야 한다.
+static func _weighted_pick(pool: Array[Dictionary], weight_by_grade: Dictionary) -> Dictionary:
+	var total_weight := 0.0
+	for item in pool:
+		total_weight += float(weight_by_grade.get(item.get("grade", ""), 1.0))
+	var roll := randf() * total_weight
+	var cumulative := 0.0
+	for item in pool:
+		cumulative += float(weight_by_grade.get(item.get("grade", ""), 1.0))
+		if roll < cumulative:
+			return item
+	return pool[pool.size() - 1]
+
+
+## [기획자 결정 - 2026-09-16] "특수 이벤트 B급(D8) 사각지대" 해결안 (b): 등급 재배정(a)도
+## D8 제외(c)도 하지 않고, 안전/위험 풀의 등급 경계를 B급에서 겹치게 넓힌다 — B급은
+## 안전(하위 절반 이하, C~B)과 위험 성공(상위 절반 이상, B~A) 양쪽 모두에 걸린다. 이걸로
+## "안전으로는 절대 못 얻고 위험 성공으로도 절대 못 얻는" 사각지대가 사라진다. "리스크
+## 대비 리턴" 차이는 등급별 가중치로 유지 — 안전은 C가 훨씬 흔하고 B는 드묾(C:B = 5:1),
+## 위험 성공은 B/A/S가 전부 나오되 상위 등급일수록 흔함(B:A:S = 1:2:3, 위험을 감수한
+## 보상이므로). 정확한 가중치 수치는 잠정값 — 사람 피드백으로 나중에 조정 가능.
+const SAFE_GRADES: Array[String] = ["C", "B"]
+const SAFE_GRADE_WEIGHTS := {"C": 5.0, "B": 1.0}
+const RISKY_GRADES: Array[String] = ["B", "A", "S"]
+const RISKY_GRADE_WEIGHTS := {"B": 1.0, "A": 2.0, "S": 3.0}
+
+
+## "안전하게 넘어가기" 선택지가 지급하는 아이템 — C~B급 중 가중치 무작위 1개(C가 훨씬
+## 흔함). 해당 등급이 하나도 없는 예외 상황(설정 실수)이면 ITEMS 전체로 폴백해 빈 결과를
+## 돌려주지 않는다.
 static func random_safe_item() -> Dictionary:
-	var pool := items_of_grade(["C"])
+	var pool := items_of_grade(SAFE_GRADES)
 	if pool.is_empty():
 		pool = ITEMS
-	return pool[randi() % pool.size()]
+	return _weighted_pick(pool, SAFE_GRADE_WEIGHTS)
 
 
-## "위험을 감수하기" 성공 시 지급하는 아이템 — A/S급 중 무작위 1개.
+## "위험을 감수하기" 성공 시 지급하는 아이템 — B~S급 중 가중치 무작위 1개(상위 등급일수록
+## 흔함).
 static func random_risky_item() -> Dictionary:
-	var pool := items_of_grade(["A", "S"])
+	var pool := items_of_grade(RISKY_GRADES)
 	if pool.is_empty():
 		pool = ITEMS
-	return pool[randi() % pool.size()]
+	return _weighted_pick(pool, RISKY_GRADE_WEIGHTS)
 
 
 ## n개의 서로 다른 아이템을 무작위로 뽑아 반환한다 (목록보다 많이 요청하면 있는 만큼만).
