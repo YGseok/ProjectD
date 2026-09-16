@@ -8,6 +8,39 @@
 
 ---
 
+- **2026-09-15 (107)**: 큐 16(INBOX.md 2026-09-14 대량 피드백, "키보드 조작/단축키")의
+  마지막 조각 — (102)~(106)에서 던전 맵/스토리 이벤트/특수 이벤트/캐릭터 선택/
+  상점/전투에 붙였던 `KeyboardShortcuts` 패턴을 업적 패널(`code/scenes/
+  achievement_panel.gd`)에도 적용해 7/7화면을 모두 완료했다. 업적 패널은 버튼이
+  "닫기" 하나뿐이라 다른 화면들보다 훨씬 단순했다 — `_rebuild()`가 `close_button`을
+  만든 직후 `_shortcut_buttons = [close_button]`로 담고 `KeyboardShortcuts.
+  apply_hints()`를 호출하면 끝. 다른 5개 화면과 근본적으로 다른 점 하나: 이
+  패널은 `close()`가 `visible = false`만 할 뿐 `change_scene_to_file()`로 씬을
+  바꾸지 않으므로, (105)에서 발견해 5개 화면에 전파했던 "씬을 바꾸는 버튼을
+  `try_press()`로 누른 뒤 `get_viewport()`를 부르면 크래시" 문제가 애초에
+  발생할 수 없는 구조다 — 그래도 코드 일관성을 위해 `get_viewport()`를
+  `try_press()` 이전에 미리 받아두는 순서는 그대로 따랐다. 입력 처리 순서도
+  간단했다: `AchievementPanel`은 `character_select` 씬의 자식 노드이고,
+  `character_select.gd`의 `_unhandled_input()`이 이미 `if achievement_panel.
+  visible: return`으로 패널이 열려 있을 때 자신의 숫자 키 입력을 소비하지 않고
+  그대로 두도록 가드돼 있었으므로, `achievement_panel.gd`에 `if not visible:
+  return` 가드를 가진 자체 `_unhandled_input()`을 추가하는 것만으로 두 스크립트의
+  입력 처리가 서로 겹치지 않고 자연스럽게 나뉘었다(어느 쪽이 먼저 이벤트를 받든
+  결과가 같음 — 패널이 열려 있으면 character_select 쪽은 이벤트를 소비하지
+  않고 achievement_panel 쪽이 처리, 패널이 닫혀 있으면 반대).
+  **QA 검증**: `dice_test.gd` 회귀 스위트 전체 PASS(순수 입력 처리 추가라 로직
+  영향 없음). `qa_out/character_select_achv_shortcut.png`(업적 패널이 열린
+  상태에서 "닫기" 버튼에 "[1] " 접두어가 카드/목록과 겹침 없이 표시)로 화면
+  확인. 크래시 우려가 없는 화면이지만 실제 키 입력 경로도 신규 QA 훅
+  `_debug_press_shortcut_close_achievements()`(character_select.gd — 업적 패널을
+  연 뒤 숫자 "1" 키를 achievement_panel의 `_unhandled_input()`에 직접 주입)로
+  검증: `qa_out/character_select_achv_key_close.png`로 패널이 실제로 닫히고
+  크래시 없이 캐릭터 선택 화면으로 정상 복귀함을 확인. INBOX.md "부분 처리됨"의
+  키보드 단축키 항목을 7/7화면 완료로 갱신하고 "처리됨" 섹션으로 이동(처리됨
+  12개를 넘어 가장 오래된 1개를 `docs/INBOX_ARCHIVE.md`로 이관). STATUS.md
+  완료 기록이 이 항목 추가로 11개가 되어, 가장 오래된 (96)(보상 등급 S/A/B/C)을
+  `docs/STATUS_ARCHIVE.md`로 이관.
+
 - **2026-09-15 (106)**: 큐 16(INBOX.md 2026-09-14 대량 피드백, "키보드 조작/단축키")의
   이어지는 조각 — (102)~(105)에서 던전 맵/스토리 이벤트/특수 이벤트/캐릭터 선택/
   상점에 붙였던 `KeyboardShortcuts` 패턴을 마지막으로 전투 화면(`code/scenes/

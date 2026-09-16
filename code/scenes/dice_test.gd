@@ -653,13 +653,15 @@ func _check_monster_debug_info_text(lines: PackedStringArray) -> bool:
 		room3_text.replace("\n", " / "), "OK" if room3_ok else "FAIL"
 	])
 
-	# room4(다크 나이트, 기믹 없음 + 보스): steady_guard는 아직 미구현([미니 기획 A]-2,
-	# 별도 이터레이션) — 지금은 보스 강화 문구만 있어야 하고 기믹 문구는 없어야 한다.
-	var room4_text: String = combat._monster_debug_info_text(combat._monster_config_for_room(RunState.TOTAL_ROOMS - 1))
-	var room4_ok: bool = room4_text.contains("보스") and not room4_text.contains("기믹")
+	# room4(다크 나이트, steady_guard + 보스, [미니 기획 A]-2로 2026-09-16 구현): 하한선
+	# 값(D8 -> ceil(8/2)=4)과 보스 강화 문구가 둘 다 있어야 한다.
+	var room4_config: Dictionary = combat._monster_config_for_room(RunState.TOTAL_ROOMS - 1)
+	var room4_text: String = combat._monster_debug_info_text(room4_config)
+	var room4_ok: bool = room4_text.contains("보스") and room4_text.contains("철벽") \
+		and room4_text.contains(str(room4_config["dice_gimmick_value"]))
 	ok = room4_ok and ok
-	lines.append("  room4(다크 나이트, 기믹 없음 + 보스): %s -> %s" % [
-		room4_text.replace("\n", " / "), "OK" if room4_ok else "FAIL"
+	lines.append("  room4(다크 나이트, steady_guard=%d + 보스): %s -> %s" % [
+		room4_config["dice_gimmick_value"], room4_text.replace("\n", " / "), "OK" if room4_ok else "FAIL"
 	])
 
 	combat.free()
@@ -674,9 +676,10 @@ func _check_monster_debug_info_text(lines: PackedStringArray) -> bool:
 ## force_min_max_faces()를 "오크"(MONSTER_PROFILES 4번째, dice_gimmick="min_max_only",
 ## room_index=3)에, force_fixed_value()를 "해골 전사"(3번째, dice_gimmick="fixed_value",
 ## room_index=2)에, count_max_rolls() 기반 분노 스택 집계를 "고블린"(2번째,
-## dice_gimmick="anger_stack", room_index=1)에 각각 적용한다("다크 나이트"는 신규 기믹
-## steady_guard가 배정될 예정이나 아직 미구현이라 room_index=4는 현재 기믹 없음) —
-## 서로 다른 방에서만 켜지고, 다른 방(예: room0 슬라임)은 그대로 표준 다이스여야 한다.
+## dice_gimmick="anger_stack", room_index=1)에 각각 적용한다. [미니 기획 A]-2(2026-09-16,
+## 별도 이터레이션)로 "다크 나이트"(5번째, dice_gimmick="steady_guard", room_index=4)에
+## apply_steady_guard() 기반 방어 결과 하한선 보정이 배정됐다 — 서로 다른 방에서만
+## 켜지고, 다른 방(예: room0 슬라임)은 그대로 표준 다이스여야 한다.
 ## min_max_only는 300회 반복 굴림으로 중간값이 단 한 번도 안 나오는지, fixed_value는
 ## 매번 지정한 값만 나오는지까지 직접 확인한다. anger_stack의 "다음 턴 D20 전환"
 ## 자체(monster_anger_pending 소비, _do_exchange())는 @onready 씬 노드가 필요해 이
@@ -729,9 +732,9 @@ func _check_monster_dice_gimmick(lines: PackedStringArray) -> bool:
 
 	# combat_test.gd _monster_config_for_room(): 2026-09-16 [미니 기획 A]-1로 min_max_only가
 	# "다크 나이트"에서 "오크"(room3)로 옮겨졌다 — room3만 gimmick이 켜지고 이름에 "[극단]"이
-	# 붙어야 하며, room0(슬라임)은 영향받지 않아야 한다. room4(다크 나이트)는 steady_guard가
-	# 아직 미구현([미니 기획 A]-2, 별도 이터레이션)이라 지금은 기믹이 비어있어야 하고,
-	# "보스" 방(room_index == RunState.TOTAL_ROOMS-1)이라 이름 끝에 "[보스]"만 붙는다.
+	# 붙어야 하며, room0(슬라임)은 영향받지 않아야 한다. room4(다크 나이트)는 [미니 기획 A]-2
+	# (2026-09-16, 별도 이터레이션)로 steady_guard가 배정돼 이름에 "[철벽]"이 붙고,
+	# "보스" 방(room_index == RunState.TOTAL_ROOMS-1)이라 그 뒤에 "[보스]"까지 이어 붙는다.
 	var script := load("res://code/scenes/combat_test.gd")
 	var combat = script.new()
 	var room3_minmax_config = combat._monster_config_for_room(3)
@@ -741,10 +744,13 @@ func _check_monster_dice_gimmick(lines: PackedStringArray) -> bool:
 		room3_minmax_config["dice_gimmick"], room3_minmax_config["name"], "OK" if room3_minmax_ok else "FAIL"
 	])
 	var room4_config = combat._monster_config_for_room(4)
-	var room4_ok: bool = room4_config["dice_gimmick"] == "" and room4_config["name"] == "다크 나이트 [보스]"
+	var room4_ok: bool = room4_config["dice_gimmick"] == "steady_guard" \
+		and room4_config["dice_gimmick_value"] == 4 \
+		and room4_config["name"] == "다크 나이트 [철벽] [보스]"
 	ok = room4_ok and ok
-	lines.append("  room4 config(steady_guard 미구현, 보스만 적용): dice_gimmick=%s name=%s (기대 빈 문자열, '다크 나이트 [보스]') -> %s" % [
-		room4_config["dice_gimmick"], room4_config["name"], "OK" if room4_ok else "FAIL"
+	lines.append("  room4 config: dice_gimmick=%s value=%d name=%s (기대 steady_guard/4/'다크 나이트 [철벽] [보스]') -> %s" % [
+		room4_config["dice_gimmick"], room4_config["dice_gimmick_value"], room4_config["name"],
+		"OK" if room4_ok else "FAIL"
 	])
 	var room0_config = combat._monster_config_for_room(0)
 	var room0_unaffected_ok: bool = room0_config["dice_gimmick"] == "" and room0_config["name"] == "슬라임"
@@ -772,6 +778,31 @@ func _check_monster_dice_gimmick(lines: PackedStringArray) -> bool:
 	ok = always_same_ok and ok
 	lines.append("  50회 굴림이 항상 4인지: %s (기대 true) -> %s" % [
 		always_same_ok, "OK" if always_same_ok else "FAIL"
+	])
+
+	# apply_steady_guard() ([미니 기획 A]-2, "다크 나이트"): D6x3 주머니에서 하한선은
+	# ceil(6/2.0)=3 — 이 값 미만(1,2)은 3으로 끌어올려지고, 그 이상(3,4,5,6)은 그대로
+	# 유지돼야 한다. 면 값 자체(dice 배열)는 건드리지 않고 굴림 "결과값"만 보정하는지도
+	# 함께 확인(force_fixed_value처럼 faces를 바꿔버리면 이후 다른 굴림까지 영향을 주므로).
+	var guard_bag := DiceBag.new(6, 3)
+	var guard_input := [1, 2, 3]
+	var guard_adjusted: Array = guard_bag.apply_steady_guard(guard_input)
+	var guard_floor_ok: bool = guard_adjusted == [3, 3, 3]
+	ok = guard_floor_ok and ok
+	lines.append("  apply_steady_guard(D6x3, [1,2,3]): adjusted=%s (기대 [3,3,3]) -> %s" % [
+		guard_adjusted, "OK" if guard_floor_ok else "FAIL"
+	])
+	var guard_high_input := [4, 5, 6]
+	var guard_high_adjusted: Array = guard_bag.apply_steady_guard(guard_high_input)
+	var guard_high_ok: bool = guard_high_adjusted == [4, 5, 6]
+	ok = guard_high_ok and ok
+	lines.append("  apply_steady_guard(D6x3, [4,5,6], 하한선 이상은 그대로): adjusted=%s (기대 [4,5,6]) -> %s" % [
+		guard_high_adjusted, "OK" if guard_high_ok else "FAIL"
+	])
+	var guard_faces_untouched_ok: bool = guard_bag.dice[0][0] == 1
+	ok = guard_faces_untouched_ok and ok
+	lines.append("  apply_steady_guard 호출 후 면 값 자체는 안 바뀜: dice[0][0]=%d (기대 1) -> %s" % [
+		guard_bag.dice[0][0], "OK" if guard_faces_untouched_ok else "FAIL"
 	])
 
 	# combat_test.gd _monster_config_for_room(): 2026-09-16 [미니 기획 A]-1로 fixed_value가

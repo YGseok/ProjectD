@@ -135,6 +135,29 @@ func count_max_rolls(values: Array) -> int:
 	return hits
 
 
+## 몬스터 특이 다이스 특징(INBOX.md 2026-09-15 [미니 기획 A]-2, "다크 나이트": 차갑고
+## 노련하며 방어에서 흔들리지 않는 기사). force_min_max_faces()/force_fixed_value()와
+## 달리 다이스의 "면 값" 자체는 그대로 두고, 굴림 "결과값"만 사후 보정한다 — 매번 다른
+## 값이 나오되, 그 값이 그 다이스 면 개수의 절반(올림, 예: D4->2, D6->3, D8->4)보다
+## 낮으면 절반값으로 끌어올린다("방어가 흔들리지 않는다" = 낮은 방어값이 잘 안 나옴).
+## fixed_value(항상 완전히 같은 값)와 달리 하한선만 보장하고 그 이상 값은 그대로 두는
+## 점이 차별점(캐릭터 기믹 fixed_defense_die와도 다름 — 그건 다이스 하나를 완전 고정).
+## values는 roll_detailed()가 반환한 것과 같은 순서/길이를 기대하며, 원본 배열은
+## 건드리지 않고 보정된 새 배열을 반환한다.
+func apply_steady_guard(values: Array) -> Array:
+	var adjusted := values.duplicate()
+	for i in dice.size():
+		if i >= adjusted.size():
+			continue
+		var sides: int = dice[i].size()
+		if sides == 0:
+			continue
+		var floor_value := int(ceil(sides / 2.0))
+		if adjusted[i] < floor_value:
+			adjusted[i] = floor_value
+	return adjusted
+
+
 var count: int:
 	get:
 		return dice.size()

@@ -201,16 +201,19 @@ const PIP_REWARD_MAX_PER_ROOM := 1
 ##   - "해골 전사"(감정 없이 명령대로만 움직이는 병사): fixed_value를 "오크"에서 옮겨받음.
 ##   - "오크"(힘만 믿고 저돌적으로 날뛰는 성격, 전부 아니면 전무): min_max_only를
 ##     "다크 나이트"에서 옮겨받음.
-##   - "다크 나이트"(차갑고 노련하며 방어에서 흔들리지 않는 기사)는 신규 기믹
-##     `steady_guard`가 배정될 예정이나 아직 미구현([미니 기획 A]-2, 별도 이터레이션) —
-##     지금은 일시적으로 기믹 없음.
 ##   - "슬라임"(무기력하고 단순함)/"고블린"(성급하고 화를 잘 냄)은 기존 그대로 유지.
+## [미니 기획 A]-2(2026-09-16, 별도 이터레이션)로 "다크 나이트"(차갑고 노련하며
+## 방어에서 흔들리지 않는 기사)에 신규 기믹 `steady_guard`를 배정함 — 방어 다이스
+## 굴림 결과가 면 개수 절반(올림)보다 낮으면 절반값으로 끌어올림(DiceBag.
+## apply_steady_guard() 참고). fixed_value/min_max_only처럼 _ready()에서 면 값
+## 자체를 바꾸는 방식이 아니라, _do_exchange()에서 매 방어턴 굴림 "결과"만 사후
+## 보정하는 방식이라 이 dict에는 별도 표시가 필요 없음(문자열 키만 배정).
 const MONSTER_PROFILES := [
 	{"name": "슬라임", "color": Color(0.35, 0.85, 0.4)},
 	{"name": "고블린", "color": Color(0.75, 0.55, 0.25), "dice_gimmick": "anger_stack"},
 	{"name": "해골 전사", "color": Color(0.85, 0.85, 0.8), "dice_gimmick": "fixed_value"},
 	{"name": "오크", "color": Color(0.3, 0.55, 0.3), "dice_gimmick": "min_max_only"},
-	{"name": "다크 나이트", "color": Color(0.55, 0.25, 0.75)},
+	{"name": "다크 나이트", "color": Color(0.55, 0.25, 0.75), "dice_gimmick": "steady_guard"},
 ]
 
 
@@ -260,6 +263,12 @@ func _monster_config_for_room(room_index: int) -> Dictionary:
 		name_text += " [고정값 %d]" % gimmick_value
 	elif gimmick == "anger_stack":
 		name_text += " [분노]"
+	elif gimmick == "steady_guard":
+		# 방어 다이스 결과의 하한선("면 개수 절반, 올림") — DiceBag.apply_steady_guard()와
+		# 정확히 같은 공식(ceil(sides/2.0))을 여기서도 계산해 디버그 문구에 노출한다.
+		# 예: D4 -> 2, D6 -> 3, D8 -> 4.
+		gimmick_value = int(ceil(dice_sides / 2.0))
+		name_text += " [철벽]"
 	var attack_count := 2 + int(room_index / 2.0)
 	var defense_count := 1 + int(room_index / 3.0)
 	var max_hp := 10 + room_index * 3
@@ -305,6 +314,10 @@ func _monster_debug_info_text(config: Dictionary) -> String:
 			text += "\n기믹: 고정값 (항상 %d만 나옴, 안 굴림)" % config["dice_gimmick_value"]
 		"min_max_only":
 			text += "\n기믹: 극단 (최소·최대값만 나옴)"
+		"steady_guard":
+			text += "\n기믹: 철벽 방어 (방어 다이스 결과가 %d 미만이면 %d로 보정)" % [
+				config["dice_gimmick_value"], config["dice_gimmick_value"]
+			]
 	if config.get("is_boss", false):
 		text += "\n[보스] 공격+2 / 방어+1 / HP x2 강화됨"
 	return text
@@ -477,6 +490,11 @@ func _do_exchange(is_player_attacking: bool) -> void:
 
 	var atk_values := atk_bag.roll_detailed()
 	var def_values := def_bag.roll_detailed()
+	# "steady_guard" 기믹(다크 나이트, [미니 기획 A]-2): 몬스터가 방어턴일 때만(플레이어
+	# 공격턴, def_bag == monster_defense_bag) 굴림 결과에 하한선을 적용한다 — 실제 데미지
+	# 계산과 화면에 보이는 결과 칩(_show_exchange_dice_chips) 둘 다 보정된 값을 쓴다.
+	if is_player_attacking and monster_dice_gimmick == "steady_guard":
+		def_values = def_bag.apply_steady_guard(def_values)
 	var atk_total := 0
 	for v in atk_values:
 		atk_total += v
