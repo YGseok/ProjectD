@@ -487,6 +487,21 @@ func _debug_force_skill_event() -> void:
 	_setup_skill_event(SkillPool.available_choices(2, RunState.character_id))
 
 
+## QA 전용: "수호 심화"(수호자 전용 고유 스킬) 카드가 실제로 후보에 섞여 표시되는지
+## 확인하기 위해, RunState.character_id를 강제로 "guardian"으로 바꾸고 스킬 이벤트를
+## 다시 그린다(_debug_force_skill_event와 같은 목적, frenzy_deepen 검증 때는 캐릭터
+## 선택 화면을 거쳐야 했던 것과 달리 이 씬 하나로 바로 확인 가능하게 하는 전용 훅).
+func _debug_force_skill_event_as_guardian() -> void:
+	RunState.character_id = "guardian"
+	RunState.skill_flags = []
+	# 무작위 추첨(available_choices)이 아니라 "수호 심화"가 포함된 2장을 직접 골라
+	# 넘긴다 — 실제 게임에서 보이는 카드 개수(항상 2장)와 정확히 같은 레이아웃으로
+	# 검증하기 위함(무작위 추첨으로는 3종 후보 중 2장만 뽑히는 매번의 실행에서 수호
+	# 심화가 빠질 수 있어 화면 확인이 불안정했음). 무작위 추첨/캐릭터 필터 로직
+	# 자체는 dice_test.gd가 이미 검증하므로 이 QA 훅은 카드 렌더링/겹침 확인이 목적.
+	_setup_skill_event([SkillPool.SKILLS[0], SkillPool.UNIQUE_SKILLS[1]])
+
+
 ## QA 전용: 스킬을 실제로 습득하면 RunState.skill_flags에 반영되는지, 이미 보유한
 ## 스킬은 두 번째 후보 목록에서 제외되는지를 콘솔로 검증한다(apply 로직 확인, 화면
 ## 표시와는 별개).

@@ -2433,6 +2433,23 @@ func _check_skill_effects(lines: PackedStringArray) -> bool:
 	lines.append("  '광기 심화' 캐릭터 필터: berserker=%s novice=%s 미지정=%s (기대 true/false/false) -> %s" % [
 		berserker_has_frenzy, novice_has_frenzy, no_char_has_frenzy, "OK" if frenzy_filter_ok else "FAIL"
 	])
+
+	# (2b) 수호 심화(guard_deepen)는 frenzy_deepen과 대칭으로 수호자(guardian) 전용
+	# 후보로만 제시된다.
+	var guardian_choices := SkillPool.available_choices(SkillPool.SKILLS.size() + SkillPool.UNIQUE_SKILLS.size(), "guardian")
+	var guardian_has_guard_deepen := false
+	for s in guardian_choices:
+		if s["id"] == "guard_deepen":
+			guardian_has_guard_deepen = true
+	var berserker_has_guard_deepen := false
+	for s in berserker_choices:
+		if s["id"] == "guard_deepen":
+			berserker_has_guard_deepen = true
+	var guard_deepen_filter_ok: bool = guardian_has_guard_deepen and not berserker_has_guard_deepen
+	ok = guard_deepen_filter_ok and ok
+	lines.append("  '수호 심화' 캐릭터 필터: guardian=%s berserker=%s (기대 true/false) -> %s" % [
+		guardian_has_guard_deepen, berserker_has_guard_deepen, "OK" if guard_deepen_filter_ok else "FAIL"
+	])
 	RunState.skill_flags = flags_backup
 
 	# (3) 여분: _apply_spare_die()는 항상 가장 낮은 값이 있던 자리만 바꾸고(다른 자리는

@@ -149,6 +149,12 @@ var player_deep_breath_used := false
 ## 본인 기믹은 min_max_only) 폭발 스택 파이프라인을 그대로 열어주고, 보너스 턴은
 ## 1D20 한 번이 아니라 두 번 굴려 더 높은 값을 채택한다.
 var player_frenzy_active := false
+## player_guard_deepen_active: "수호 심화"(수호자 전용 고유 스킬) 보유 여부.
+## frenzy_deepen과 완전히 대칭 구조(공격 스택 대신 방어 스택) — 수호자 본인 기믹은
+## fixed_defense_die라 원래 guard_stack 파이프라인이 없지만, 이 스킬을 획득하면
+## player_dice_gimmick이 "guard_stack"이 아니어도 방패병과 같은 스택 파이프라인이
+## 열리고, 보너스 방어턴은 1D20 한 번이 아니라 두 번 굴려 더 높은 값을 채택한다.
+var player_guard_deepen_active := false
 
 var battle_over := false
 var player_won := false
@@ -387,6 +393,7 @@ func _ready() -> void:
 	player_guard_pending = false
 	player_deep_breath_used = false
 	player_frenzy_active = RunState.skill_flags.has("frenzy_deepen")
+	player_guard_deepen_active = RunState.skill_flags.has("guard_deepen")
 
 	next_button.pressed.connect(_on_next_button_pressed)
 	deck_toggle_button.pressed.connect(_on_deck_toggle_pressed)
@@ -493,7 +500,7 @@ func _do_exchange(is_player_attacking: bool) -> void:
 	var def_bag: DiceBag
 	if is_player_attacking:
 		def_bag = monster_defense_bag
-	elif player_dice_gimmick == "guard_stack" and player_guard_pending:
+	elif (player_dice_gimmick == "guard_stack" or player_guard_deepen_active) and player_guard_pending:
 		def_bag = DiceBag.new(GUARD_DICE_SIDES, 1)
 		used_guard_dice = true
 	else:
@@ -527,6 +534,16 @@ func _do_exchange(is_player_attacking: bool) -> void:
 			atk_values[0] = frenzy_reroll[0]
 		else:
 			_append_log("광기 심화: %d 유지 (1D20 두 번 중 최댓값)" % atk_values[0])
+	# "수호 심화"(수호자 전용 고유 스킬, frenzy_deepen과 완전히 대칭): 이번 방어턴이
+	# 수호 스택 보너스 턴(1D20)이고 수호 심화를 보유했다면, 한 번 더 굴려 더 높은 값을
+	# 채택한다.
+	if used_guard_dice and player_guard_deepen_active:
+		var guard_reroll: Array = def_bag.roll_detailed()
+		if guard_reroll[0] > def_values[0]:
+			_append_log("수호 심화: %d 대신 %d 채택 (1D20 두 번 중 최댓값)" % [def_values[0], guard_reroll[0]])
+			def_values[0] = guard_reroll[0]
+		else:
+			_append_log("수호 심화: %d 유지 (1D20 두 번 중 최댓값)" % def_values[0])
 	# "여분"(INBOX.md [미니 기획 C]-3): 폭발 보너스 턴이 아닌 평소 공격턴마다 여분
 	# 다이스를 하나 더 굴려, 이번 공격에서 가장 낮았던 다이스 값보다 높으면 그 자리를
 	# 대체한다(advantage를 가장 약한 다이스 한 곳에만 적용) — "이번 런 내내 유지"이므로
@@ -589,19 +606,20 @@ func _do_exchange(is_player_attacking: bool) -> void:
 					player_explosive_pending = true
 					_append_log("광기가 정점에 달했다! 다음 공격은 1D20을 두 번 굴려 더 높은 값을 채택한다" if player_frenzy_active else "폭발 직전! 다음 공격은 20면체 주사위로 터진다")
 
-	if not is_player_attacking and player_dice_gimmick == "guard_stack":
+	if not is_player_attacking and (player_dice_gimmick == "guard_stack" or player_guard_deepen_active):
 		if used_guard_dice:
 			player_guard_stacks = 0
 			player_guard_pending = false
-			_append_log("수호 태세가 풀렸다 (수호 스택 초기화)")
+			_append_log("수호가 가라앉았다 (수호 스택 초기화)" if player_guard_deepen_active else "수호 태세가 풀렸다 (수호 스택 초기화)")
 		else:
 			var guard_hits: int = RunState.player_defense_bag.count_max_rolls(def_values)
 			if guard_hits > 0:
 				player_guard_stacks += guard_hits
-				_append_log("수호 스택 +%d (%d/%d)" % [guard_hits, player_guard_stacks, GUARD_STACK_THRESHOLD])
+				var guard_stack_label := "수호 심화" if player_guard_deepen_active else "수호"
+				_append_log("%s 스택 +%d (%d/%d)" % [guard_stack_label, guard_hits, player_guard_stacks, GUARD_STACK_THRESHOLD])
 				if player_guard_stacks >= GUARD_STACK_THRESHOLD:
 					player_guard_pending = true
-					_append_log("수호 태세 완성! 다음 방어는 20면체 주사위로 굳건해진다")
+					_append_log("수호 심화가 정점에 달했다! 다음 방어는 1D20을 두 번 굴려 더 높은 값을 채택한다" if player_guard_deepen_active else "수호 태세 완성! 다음 방어는 20면체 주사위로 굳건해진다")
 
 	_update_labels()
 

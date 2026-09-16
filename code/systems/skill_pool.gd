@@ -28,9 +28,11 @@ const SKILLS: Array[Dictionary] = [
 ]
 
 ## 고유 스킬([미니 기획 C]-4) — 캐릭터 기믹과 시너지가 있는 스킬로, "character_id"가
-## 일치하는 캐릭터에게만 후보로 제시된다. 우선 광전사(min_max_only) 전용 1종만 구현
+## 일치하는 캐릭터에게만 후보로 제시된다. 처음엔 광전사(min_max_only) 전용 1종만 구현
 ## (INBOX.md "나머지 4캐릭터 전용 스킬은 이 하나가 실제로 잘 동작/체감되는 걸 확인한
-## 뒤에 같은 패턴으로 이어서 추가" 지시 반영 — 한 번에 5개를 다 만들지 않음).
+## 뒤에 같은 패턴으로 이어서 추가" 지시 반영 — 한 번에 5개를 다 만들지 않음). 부정적인
+## 후속 피드백 없이 남은 항목으로만 큐에 남아있어, 2026-09-16 다음 이터레이션이 같은
+## 패턴 그대로 두 번째(수호자)를 추가했다.
 ##
 ## "frenzy_deepen"(광기 심화): 광전사는 원래 "explosive_stack" 기믹이 없지만(자기
 ## 기믹은 min_max_only), 이 스킬을 획득하면 combat_test.gd가 explosive_stack 캐릭터와
@@ -40,12 +42,27 @@ const SKILLS: Array[Dictionary] = [
 ## 시의 보너스 턴은 명목상 폭발병과 같은 "1D20 굴림"이지만, 광기 심화는 한 단계 더
 ## 나아가 1D20을 두 번 굴려 더 높은 값을 채택한다(combat_test.gd의 player_frenzy_active
 ## 분기 참고).
+##
+## "guard_deepen"(수호 심화): frenzy_deepen과 완전히 대칭 구조(공격 대신 방어) —
+## 수호자는 원래 "guard_stack" 기믹이 없지만(자기 기믹은 fixed_defense_die, 방어
+## 다이스 하나가 항상 고정값), 이 스킬을 획득하면 방패병과 동일한 수호 스택 파이프라인이
+## 열린다. 수호자는 방어 다이스 하나가 안 굴려지는 대신 나머지가 표준 확률이라
+## frenzy_deepen만큼 스택이 잘 쌓이는 직접적 시너지는 없지만, "방어 몰빵" 컨셉에 맞게
+## 방어 다이스 개수 자체가 많아(D4x4) 최댓값을 볼 기회 자체는 늘어난다. 보너스 턴은
+## 1D20 한 번이 아니라 두 번 굴려 더 높은 값을 채택(combat_test.gd의
+## player_guard_deepen_active 분기 참고).
 const UNIQUE_SKILLS: Array[Dictionary] = [
 	{
 		"id": "frenzy_deepen",
 		"name": "광기 심화",
 		"description": "폭발 스택이 3에 도달하면 보너스 공격턴이 1D20을 두 번 굴려 더 높은 값을 채택하는 것으로 강화된다 (광전사 전용).",
 		"character_id": "berserker",
+	},
+	{
+		"id": "guard_deepen",
+		"name": "수호 심화",
+		"description": "수호 스택이 3에 도달하면 보너스 방어턴이 1D20을 두 번 굴려 더 높은 값을 채택하는 것으로 강화된다 (수호자 전용).",
+		"character_id": "guardian",
 	},
 ]
 
