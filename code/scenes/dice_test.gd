@@ -3075,6 +3075,42 @@ func _check_starting_skill_combat_wiring(lines: PackedStringArray) -> bool:
 		RunState.player_attack_bag.dice.size(), RunState.player_defense_bag.dice.size(), "OK" if wall_condition_ok else "FAIL"
 	])
 
+	# (d) "정예"(합계 <= 6) 발동 조건은 견습 모험가 기본 구성(공격3/방어3=6)에서
+	# 참이어야 하고, 다이스를 하나 추가해 합계가 7이 되면 거짓으로 바뀌어야 한다.
+	RunState.chosen_starting_skill_id = "start_lean"
+	RunState.reset_run("novice")
+	var lean_base_total: int = RunState.player_attack_bag.dice.size() + RunState.player_defense_bag.dice.size()
+	var lean_condition_ok: bool = lean_base_total <= 6
+	ok = lean_condition_ok and ok
+	lines.append("  '정예' 발동 조건(견습 기본): 합계=%d (<=6 기대) -> %s" % [
+		lean_base_total, "OK" if lean_condition_ok else "FAIL"
+	])
+	RunState.player_attack_bag.add_die(4)
+	var lean_after_add_total: int = RunState.player_attack_bag.dice.size() + RunState.player_defense_bag.dice.size()
+	var lean_deactivate_ok: bool = lean_after_add_total > 6
+	ok = lean_deactivate_ok and ok
+	lines.append("  '정예' 다이스 추가 후: 합계=%d (>6 기대, 조건 꺼짐) -> %s" % [
+		lean_after_add_total, "OK" if lean_deactivate_ok else "FAIL"
+	])
+
+	# (e) "확장"(합계 >= 8) 발동 조건은 폭발병 기본 구성(공격4/방어3=7)에서는 아직
+	# 거짓이어야 하고, 다이스를 하나 추가해 합계가 8이 되면 참으로 바뀌어야 한다.
+	RunState.chosen_starting_skill_id = "start_expand"
+	RunState.reset_run("explosive")
+	var expand_base_total: int = RunState.player_attack_bag.dice.size() + RunState.player_defense_bag.dice.size()
+	var expand_not_yet_ok: bool = expand_base_total < 8
+	ok = expand_not_yet_ok and ok
+	lines.append("  '확장' 발동 조건(폭발병 기본): 합계=%d (<8 기대, 아직 안 켜짐) -> %s" % [
+		expand_base_total, "OK" if expand_not_yet_ok else "FAIL"
+	])
+	RunState.player_attack_bag.add_die(4)
+	var expand_after_add_total: int = RunState.player_attack_bag.dice.size() + RunState.player_defense_bag.dice.size()
+	var expand_activate_ok: bool = expand_after_add_total >= 8
+	ok = expand_activate_ok and ok
+	lines.append("  '확장' 다이스 추가 후: 합계=%d (>=8 기대, 조건 켜짐) -> %s" % [
+		expand_after_add_total, "OK" if expand_activate_ok else "FAIL"
+	])
+
 	RunState.chosen_starting_skill_id = chosen_backup
 	RunState.reset_run(character_backup)
 	return ok

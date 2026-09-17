@@ -657,6 +657,19 @@ func _do_exchange(is_player_attacking: bool) -> void:
 		if RunState.player_attack_bag.dice.size() > RunState.player_defense_bag.dice.size():
 			atk_values = atk_bag.apply_flat_bonus(atk_values, 1)
 			_append_log("맹공 효과: 공격 다이스 결과값 +1 (공격 다이스가 더 많음)")
+	# "확장"([미니 기획 E]-4, 시작 스킬): 공격+방어 다이스 합계가 8개 이상이면 공격
+	# 다이스 결과값 전체 +1(방어턴 쪽은 아래 "철벽" 옆에 대칭으로 적용). 맹공과 달리
+	# 개수 "차이"가 아니라 "합계"만 보므로 어느 주머니가 더 큰지는 무관하다.
+	if is_player_attacking and RunState.skill_flags.has("start_expand"):
+		if RunState.player_attack_bag.dice.size() + RunState.player_defense_bag.dice.size() >= 8:
+			atk_values = atk_bag.apply_flat_bonus(atk_values, 1)
+			_append_log("확장 효과: 공격 다이스 결과값 +1 (공격+방어 합계 8개 이상)")
+	# "정예"([미니 기획 E]-4, 시작 스킬): 공격+방어 다이스 합계가 6개 이하로 유지되면
+	# 공격 다이스 결과값 전체 +1. 확장과 반대 방향 조건(방어턴은 "철벽" 옆에 대칭 적용).
+	if is_player_attacking and RunState.skill_flags.has("start_lean"):
+		if RunState.player_attack_bag.dice.size() + RunState.player_defense_bag.dice.size() <= 6:
+			atk_values = atk_bag.apply_flat_bonus(atk_values, 1)
+			_append_log("정예 효과: 공격 다이스 결과값 +1 (공격+방어 합계 6개 이하)")
 	# "심호흡+"([미니 기획 D]-4, 공용 강화): base는 이번 전투 첫 방어턴 한 번만
 	# 적용되지만, "+"는 매 방어턴마다 적용된다(상한은 base와 동일하게 다이스별 면
 	# 개수). "+" > base 우선순위 — 두 id가 함께 있어도 "+"만 적용하고 player_deep_
@@ -677,6 +690,18 @@ func _do_exchange(is_player_attacking: bool) -> void:
 		if RunState.player_defense_bag.dice.size() > RunState.player_attack_bag.dice.size():
 			def_values = def_bag.apply_flat_bonus(def_values, 1)
 			_append_log("철벽 효과: 방어 다이스 결과값 +1 (방어 다이스가 더 많음)")
+	# "확장"([미니 기획 E]-4, 시작 스킬, 방어턴): 위 공격턴 "확장"과 완전히 대칭 —
+	# 공격+방어 다이스 합계가 8개 이상이면 방어 다이스 결과값 전체 +1.
+	if not is_player_attacking and RunState.skill_flags.has("start_expand"):
+		if RunState.player_attack_bag.dice.size() + RunState.player_defense_bag.dice.size() >= 8:
+			def_values = def_bag.apply_flat_bonus(def_values, 1)
+			_append_log("확장 효과: 방어 다이스 결과값 +1 (공격+방어 합계 8개 이상)")
+	# "정예"([미니 기획 E]-4, 시작 스킬, 방어턴): 위 공격턴 "정예"와 완전히 대칭 —
+	# 공격+방어 다이스 합계가 6개 이하로 유지되면 방어 다이스 결과값 전체 +1.
+	if not is_player_attacking and RunState.skill_flags.has("start_lean"):
+		if RunState.player_attack_bag.dice.size() + RunState.player_defense_bag.dice.size() <= 6:
+			def_values = def_bag.apply_flat_bonus(def_values, 1)
+			_append_log("정예 효과: 방어 다이스 결과값 +1 (공격+방어 합계 6개 이하)")
 	var atk_total := 0
 	for v in atk_values:
 		atk_total += v

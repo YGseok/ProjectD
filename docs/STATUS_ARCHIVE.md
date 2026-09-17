@@ -8,6 +8,51 @@
 
 ---
 
+- **2026-09-17 (127)**: INBOX.md "남은 이슈"의 2026-09-17 기획자 결정 항목
+  (견습 모험가 전용 고유 스킬 "임기응변" 설계 확정)을 지시된 그대로 구현했다
+  — 큐 17("폭발병/방패병/견습 모험가 전용 고유 스킬 설계+추가")의 마지막
+  조각이자 [미니 기획 C]의 캐릭터별 고유 스킬 5/5종 완성.
+  `code/systems/skill_pool.gd`의 `UNIQUE_SKILLS`에 `{id: "versatile_surge",
+  character_id: "novice", ...}` 정의를 추가했다. `code/scenes/combat_test.gd`에
+  `player_versatile_active`(`_ready()`에서
+  `RunState.skill_flags.has("versatile_surge")`로 초기화, 다른 4개 스킬
+  플래그와 동일한 위치·패턴) 상태 변수를 신설하고, 지시된 대로 공격 스택
+  조건(`player_dice_gimmick == "explosive_stack" or player_frenzy_active`)과
+  방어 스택 조건(`player_dice_gimmick == "guard_stack" or
+  player_guard_deepen_active`) 각각에 `or player_versatile_active`를
+  추가했다 — 이 두 조건 문자열이 `_do_exchange()` 안에 정확히 2곳씩(보너스
+  1D20 임시 주머니 사용 여부 판단 분기 + 스택 적립/임계치 도달/초기화 분기)
+  나타나므로 4곳 모두 동일하게 확장해, 공격/방어 두 파이프라인이 함께
+  열리도록 했다. 지시대로 임계치(`EXPLOSIVE_STACK_THRESHOLD`/
+  `GUARD_STACK_THRESHOLD`, 둘 다 3)와 보너스 턴(1D20 한 번 굴림)은 그대로
+  두고, `_player_explosive_threshold()`/`_player_guard_threshold()`
+  헬퍼에는 `player_versatile_active` 분기를 추가하지 않았다(연쇄
+  폭발/연쇄 방어처럼 임계치를 낮추지 않는다는 "넓지만 얕게" 설계 의도를
+  그대로 반영).
+  `dice_test.gd`의 `_check_skill_effects`에 (2e) "'임기응변' 캐릭터
+  필터"(novice=true, berserker=false, 다른 4개 스킬과 같은 패턴) 검증과,
+  (6) "임기응변 보유 시에도 두 임계치 함수가 각각 기본값(3) 그대로 반환하는지"
+  검증(chain_explosion_active/chain_guard_active를 다시 false로 되돌린 뒤
+  versatile_active만 켜서 확인 — "임계치를 낮추지 않는다"는 설계를 직접
+  검증하는 유일한 자동 테스트)을 추가, `bash scripts/qa_shot.sh dice_test`
+  전체 PASS.
+  화면 검증: `event.gd`에 QA 전용 훅 `_debug_force_skill_event_as_novice()`
+  (다른 3개 캐릭터 전용 훅과 같은 패턴 — character_id를 novice로 강제하고
+  "여분"+"임기응변" 2장을 직접 지정)를 추가해
+  `qa_out/event_skill_offer_novice.png`로 "임기응변" 카드가 다른 카드와
+  겹침 없이 렌더링되는 것을 확인했고, `bash scripts/qa_shot.sh combat_test`로
+  기본 전투(novice, 스킬 미보유 상태)가 새 변수/조건 추가 후에도 크래시 없이
+  정상 로드됨을 `qa_out/combat_test.png`로 재확인했다. explosive_stack/
+  guard_stack 두 파이프라인이 동시에 실제로 열린 상태에서 라이브 턴이
+  진행되는 장면 자체는(광기 심화 등 이전 스킬들과 같은 이유 —
+  `_do_exchange()`가 물리 다이스 정지 대기를 포함한 코루틴이라 QA_CALL로
+  직접 트리거해 한 프레임에 결과를 볼 수 없음) 단위 테스트+일반 회귀로
+  대신했다.
+  `docs/DESIGN.md`의 "캐릭터 스킬 부여 이벤트" 절과 UNIQUE_SKILLS 표에
+  "임기응변" 설명을 추가하고 "5/5종 완성" 문구로 갱신, `docs/STATUS.md`
+  다음 할 일 큐 17번을 완료 처리했다. **이제 5개 캐릭터 전원이 고유 스킬을
+  갖췄다** — INBOX.md의 이 항목을 "처리됨"으로 옮겼다.
+
 - **2026-09-17 (126)**: 큐 13("업적 시스템 — 남은 항목 추가")의 후속, (125)와 같은
   패턴. INBOX.md "남은 이슈"가 비어 있고 다음 할 일 큐도 전부 사람 피드백/설계
   결정 대기 상태라, "이미 있는 결과 분기 하나만 후킹하면 되는" 독립 항목을 다시
