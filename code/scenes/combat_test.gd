@@ -168,11 +168,22 @@ var player_guard_deepen_plus_active := false
 ## 있어 "없던 파이프라인을 열어준다" 패턴을 쓸 수 없다 — 대신 스택 임계치 자체를
 ## 낮춰(_player_explosive_threshold() 참고) 보너스 공격턴을 더 자주 받게 한다.
 var player_chain_explosion_active := false
+## player_chain_explosion_plus_active: "연쇄 폭발+"([미니 기획 D]-4, 폭발병 전용
+## 강화판) 보유 여부. base(chain_explosion)는 임계치만 2로 낮추고 보너스 턴 굴림
+## 품질은 그대로였는데, "+"는 임계치는 2로 유지한 채 보너스 공격턴을 1D20 한
+## 번에서 두 번 굴려 최댓값 채택으로 강화한다(frenzy_deepen이 쓰는 것과 같은
+## _apply_bonus_reroll(), extra_rolls=1) — frenzy_deepen과 달리 광전사가 아닌
+## 폭발병 전용이라 별도 플래그로 분리했다.
+var player_chain_explosion_plus_active := false
 ## player_chain_guard_active: "연쇄 방어"(방패병 전용 고유 스킬) 보유 여부.
 ## chain_explosion과 완전히 대칭 구조(공격 대신 방어) — 방패병은 이미 guard_stack
 ## 파이프라인을 갖고 있어 스택 임계치 자체를 낮춰(_player_guard_threshold() 참고)
 ## 보너스 방어턴을 더 자주 받게 한다.
 var player_chain_guard_active := false
+## player_chain_guard_plus_active: "연쇄 방어+"([미니 기획 D]-4, 방패병 전용
+## 강화판) 보유 여부. player_chain_explosion_plus_active와 완전히 대칭 — 보너스
+## 방어턴 굴림을 1D20 한 번에서 두 번 굴려 최댓값 채택으로 강화한다.
+var player_chain_guard_plus_active := false
 ## player_versatile_active: "임기응변"(견습 모험가 전용 고유 스킬) 보유 여부.
 ## frenzy_deepen/guard_deepen과 같은 "없던 파이프라인을 열어준다" 패턴을 공격+방어
 ## 양쪽에 동시에 적용한다(견습 모험가 본인 기믹은 아예 없음, player_dice_gimmick == "").
@@ -423,7 +434,9 @@ func _ready() -> void:
 	player_guard_deepen_active = RunState.skill_flags.has("guard_deepen")
 	player_guard_deepen_plus_active = RunState.skill_flags.has("guard_deepen_plus")
 	player_chain_explosion_active = RunState.skill_flags.has("chain_explosion")
+	player_chain_explosion_plus_active = RunState.skill_flags.has("chain_explosion_plus")
 	player_chain_guard_active = RunState.skill_flags.has("chain_guard")
+	player_chain_guard_plus_active = RunState.skill_flags.has("chain_guard_plus")
 	player_versatile_active = RunState.skill_flags.has("versatile_surge")
 
 	next_button.pressed.connect(_on_next_button_pressed)
@@ -596,6 +609,26 @@ func _do_exchange(is_player_attacking: bool) -> void:
 			_append_log("수호 심화: %d 대신 %d 채택 (1D20 %d번 중 최댓값)" % [guard_before, def_values[0], guard_total_rolls])
 		else:
 			_append_log("수호 심화: %d 유지 (1D20 %d번 중 최댓값)" % [guard_before, guard_total_rolls])
+	# "연쇄 폭발+"([미니 기획 D]-4, 폭발병 전용 강화판): base(chain_explosion)는
+	# 임계치만 2로 낮췄을 뿐 보너스 턴 굴림 자체는 그대로 1D20 한 번이었는데,
+	# "+"는 frenzy_deepen과 같은 방식으로 한 번 더 굴려("advantage") 더 높은 값을
+	# 채택한다(_apply_bonus_reroll(), extra_rolls=1, 총 2번 굴림).
+	if used_explosive_dice and player_chain_explosion_plus_active:
+		var chain_explosion_before: int = atk_values[0]
+		atk_values = _apply_bonus_reroll(atk_bag, atk_values, 1)
+		if atk_values[0] > chain_explosion_before:
+			_append_log("연쇄 폭발+: %d 대신 %d 채택 (1D20 2번 중 최댓값)" % [chain_explosion_before, atk_values[0]])
+		else:
+			_append_log("연쇄 폭발+: %d 유지 (1D20 2번 중 최댓값)" % chain_explosion_before)
+	# "연쇄 방어+"([미니 기획 D]-4, 방패병 전용 강화판): 연쇄 폭발+와 완전히 대칭
+	# (공격 대신 방어).
+	if used_guard_dice and player_chain_guard_plus_active:
+		var chain_guard_before: int = def_values[0]
+		def_values = _apply_bonus_reroll(def_bag, def_values, 1)
+		if def_values[0] > chain_guard_before:
+			_append_log("연쇄 방어+: %d 대신 %d 채택 (1D20 2번 중 최댓값)" % [chain_guard_before, def_values[0]])
+		else:
+			_append_log("연쇄 방어+: %d 유지 (1D20 2번 중 최댓값)" % chain_guard_before)
 	# "여분"(INBOX.md [미니 기획 C]-3): 폭발 보너스 턴이 아닌 평소 공격턴마다 여분
 	# 다이스를 하나 더 굴려, 이번 공격에서 가장 낮았던 다이스 값보다 높으면 그 자리를
 	# 대체한다(advantage를 가장 약한 다이스 한 곳에만 적용) — "이번 런 내내 유지"이므로

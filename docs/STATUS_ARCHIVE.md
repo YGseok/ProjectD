@@ -8,6 +8,41 @@
 
 ---
 
+- **2026-09-16 (122)**: 큐 16의 [미니 기획 C] 후속 "나머지 4캐릭터 전용 고유
+  스킬 추가"의 두 번째 조각. 광전사 전용 "광기 심화"(frenzy_deepen)에 이어,
+  수호자(guardian) 전용 고유 스킬 "수호 심화"(`guard_deepen`)를 완전히 대칭
+  구조로 추가했다 — 광기 심화가 explosive_stack을, 수호 심화는 guard_stack을
+  대상으로 한다. `code/systems/skill_pool.gd`의 `UNIQUE_SKILLS`에
+  `{id: "guard_deepen", character_id: "guardian", ...}` 정의를 추가하고,
+  `code/scenes/combat_test.gd`에 `player_guard_deepen_active`(RunState.
+  skill_flags.has("guard_deepen"), `_ready()`에서 매 전투 초기화) 상태
+  변수를 신설했다. `_do_exchange()`의 guard_stack 관련 기존 3개 분기를 전부
+  `player_dice_gimmick == "guard_stack"` 단독 조건에서
+  `(player_dice_gimmick == "guard_stack" or player_guard_deepen_active)`로
+  확장했다: (1) 방어턴 시작 시 보너스 1D20 임시 주머니를 쓸지 판단하는 분기,
+  (2) 스택 적립/임계치 도달/초기화 로그 분기(수호 심화일 때는 "수호"
+  대신 "수호 심화" 라벨과 "1D20을 두 번 굴려 더 높은 값을 채택한다" 문구로
+  갈라짐 — explosive_stack의 player_frenzy_active 분기와 동일한 패턴). 추가로
+  (3) frenzy_deepen의 "1D20 두 번 굴려 advantage" 재굴림 블록과 대칭인 신규
+  블록을 만들어, `used_guard_dice and player_guard_deepen_active`일 때 방어
+  다이스를 한 번 더 굴려 더 높은 값을 `def_values[0]`에 채택한다.
+  `dice_test.gd`의 `_check_skill_effects`에 "수호 심화가 guardian에게만
+  제시되고 berserker에는 안 섞이는지" 캐릭터 필터 검증을 추가(기존 frenzy
+  필터 검증과 같은 패턴), `bash scripts/qa_shot.sh dice_test` 전체 PASS.
+  화면 검증: `event.gd`에 QA 전용 훅 `_debug_force_skill_event_as_guardian()`을
+  추가해(RunState.character_id를 강제로 guardian으로 바꾸고 "심호흡"+"수호
+  심화" 2장을 직접 지정해 실제 2장 레이아웃과 동일한 카드 배치로 확인 —
+  무작위 3장 중 2장 추첨으로는 수호 심화가 빠질 수 있어 결정적으로 만듦)
+  `qa_out/event_skill_offer_guardian.png`로 카드 겹침/레이아웃 정상을 확인,
+  기본 전투(novice, 스킬 없음)도 `qa_out/combat_test_guard_deepen_smoke.png`로
+  크래시 없이 정상 진행됨을 재확인했다. guard_stack 파이프라인이 실제로 열린
+  상태에서 라이브 턴이 진행되는 장면 자체는(광기 심화 때와 같은 이유 —
+  `_do_exchange()`가 물리 다이스 정지 대기를 포함한 코루틴이라 QA_CALL로 직접
+  트리거해 한 프레임에 결과를 볼 수 없음) 단위 테스트+일반 회귀로 대신했다.
+  남은 폭발병/방패병 2종은 이미 native 스택 파이프라인이 있어 이 패턴을 그대로
+  못 쓴다 — 다음 할 일 큐 17번(신규)으로 분리, 다른 방향의 스킬 설계가 먼저
+  필요함. `docs/DESIGN.md`도 갱신.
+
 - **2026-09-16 (121)**: INBOX.md "남은 이슈"의 2026-09-16 기획자 결정 항목
   ("특수 이벤트 B급(D8) 사각지대" 해결안 (b) 확정)을 구현. 기존
   `EventItemPool.random_safe_item()`은 grade="C"만, `random_risky_item()`은
