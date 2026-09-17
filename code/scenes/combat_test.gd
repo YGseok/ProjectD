@@ -582,14 +582,27 @@ func _do_exchange(is_player_attacking: bool) -> void:
 	# 다이스를 하나 더 굴려, 이번 공격에서 가장 낮았던 다이스 값보다 높으면 그 자리를
 	# 대체한다(advantage를 가장 약한 다이스 한 곳에만 적용) — "이번 런 내내 유지"이므로
 	# skill_flags에 남아있는 한 매 공격턴 계속 적용된다.
-	if is_player_attacking and not used_explosive_dice and RunState.skill_flags.has("spare_die"):
-		atk_values = _apply_spare_die(atk_bag, atk_values)
-	# "심호흡"(INBOX.md [미니 기획 C]-3): 이번 전투의 첫 방어턴 한 번만, 방어 다이스
-	# 결과값 전부에 +1(다이스별 면 개수가 상한 — DiceBag.apply_flat_bonus() 참고).
-	if not is_player_attacking and RunState.skill_flags.has("deep_breath") and not player_deep_breath_used:
-		def_values = def_bag.apply_flat_bonus(def_values, 1)
-		player_deep_breath_used = true
-		_append_log("심호흡 효과: 방어 다이스 결과값 +1 (이번 전투 최초 1회)")
+	# "여분+"([미니 기획 D]-4, 공용 강화): 여분 다이스를 1개가 아니라 2개 굴려 그 중
+	# 더 높은 값으로 대체한다. "+" > base > 없음 우선순위 — spare_die_plus가 있으면
+	# spare_die 자체는 확인하지 않는다(둘 다 skill_flags에 있어도 상위 효과만 적용).
+	if is_player_attacking and not used_explosive_dice:
+		if RunState.skill_flags.has("spare_die_plus"):
+			atk_values = _apply_spare_die(atk_bag, atk_values, 2)
+		elif RunState.skill_flags.has("spare_die"):
+			atk_values = _apply_spare_die(atk_bag, atk_values, 1)
+	# "심호흡+"([미니 기획 D]-4, 공용 강화): base는 이번 전투 첫 방어턴 한 번만
+	# 적용되지만, "+"는 매 방어턴마다 적용된다(상한은 base와 동일하게 다이스별 면
+	# 개수). "+" > base 우선순위 — 두 id가 함께 있어도 "+"만 적용하고 player_deep_
+	# breath_used는 건드리지 않는다(혹시 나중에 "+"를 잃는 경우를 대비해 base의
+	# 1회성 상태를 훼손하지 않음).
+	if not is_player_attacking:
+		if RunState.skill_flags.has("deep_breath_plus"):
+			def_values = def_bag.apply_flat_bonus(def_values, 1)
+			_append_log("심호흡+ 효과: 방어 다이스 결과값 +1 (매 방어턴)")
+		elif RunState.skill_flags.has("deep_breath") and not player_deep_breath_used:
+			def_values = def_bag.apply_flat_bonus(def_values, 1)
+			player_deep_breath_used = true
+			_append_log("심호흡 효과: 방어 다이스 결과값 +1 (이번 전투 최초 1회)")
 	var atk_total := 0
 	for v in atk_values:
 		atk_total += v
@@ -854,12 +867,14 @@ func _update_hp_bar(fill: ColorRect, full_width: float, hp: int, max_hp: int) ->
 		fill.color = HP_BAR_COLOR_LOW
 
 
-## "여분" 스킬(INBOX.md [미니 기획 C]-3) 전용 헬퍼 — bag의 첫 번째 다이스와 같은 면
-## 개수의 여분 다이스 1개를 새로 굴려, values 중 가장 낮은 값보다 높으면 그 자리를
-## 대체한 새 배열을 반환한다(원본 배열은 건드리지 않음, DiceBag.apply_steady_guard()와
-## 같은 "새 배열 반환" 관례). bag이 비어있으면(이론상 발생하지 않지만 방어적으로) D4를
-## 기본값으로 쓴다.
-func _apply_spare_die(bag: DiceBag, values: Array) -> Array:
+## "여분"/"여분+" 스킬(INBOX.md [미니 기획 C]-3, [미니 기획 D]-4) 전용 헬퍼 — bag의
+## 첫 번째 다이스와 같은 면 개수의 여분 다이스를 count개 굴려 그 중 최댓값을 구하고,
+## values 중 가장 낮은 값보다 높으면 그 자리를 대체한 새 배열을 반환한다(원본 배열은
+## 건드리지 않음, DiceBag.apply_steady_guard()와 같은 "새 배열 반환" 관례). base
+## "여분"은 count=1(굴림 1회, advantage 없음), "여분+"는 count=2(두 번 굴려 최댓값
+## 채택)로 호출한다 — 굴리는 다이스 개수만 다르고 나머지 로직은 완전히 공유. bag이
+## 비어있으면(이론상 발생하지 않지만 방어적으로) D4를 기본값으로 쓴다.
+func _apply_spare_die(bag: DiceBag, values: Array, count: int = 1) -> Array:
 	if values.is_empty():
 		return values
 	var spare_sides := 4
@@ -867,6 +882,10 @@ func _apply_spare_die(bag: DiceBag, values: Array) -> Array:
 		spare_sides = bag.dice[0].size()
 	var spare_bag := DiceBag.new(spare_sides, 1)
 	var spare_value: int = spare_bag.roll_detailed()[0]
+	for i in count - 1:
+		var reroll: int = spare_bag.roll_detailed()[0]
+		if reroll > spare_value:
+			spare_value = reroll
 	var adjusted: Array = values.duplicate()
 	var min_index := 0
 	for i in adjusted.size():

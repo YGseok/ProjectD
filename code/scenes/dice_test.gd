@@ -2570,6 +2570,32 @@ func _check_skill_effects(lines: PackedStringArray) -> bool:
 		untouched_ok, never_decreased_ok, replaced_at_least_once, "OK" if spare_ok else "FAIL"
 	])
 
+	# (3b) "여분+"([미니 기획 D]-4): count=2로 호출해도 같은 규칙(최저값 자리만 변경,
+	# 범위 유지)을 지키고, 다이스 2개 중 최댓값을 쓰므로 count=1보다 대체될 확률이 더
+	# 높아야 한다(엄밀한 분포 검증은 아니고, 60회 표본에서 대체 횟수가 count=1보다
+	# 작지 않은지만 확인 — 물리 의존 없는 순수 확률 비교).
+	var plus_untouched_ok := true
+	var plus_never_out_of_range_ok := true
+	var plus_replace_count := 0
+	var base_replace_count := 0
+	for i in 60:
+		var values: Array = [1, 4, 2]
+		var plus_adjusted: Array = combat._apply_spare_die(spare_bag, values, 2)
+		if plus_adjusted[1] != 4 or plus_adjusted[2] != 2:
+			plus_untouched_ok = false
+		if plus_adjusted[0] < 1 or plus_adjusted[0] > 4:
+			plus_never_out_of_range_ok = false
+		if plus_adjusted[0] > 1:
+			plus_replace_count += 1
+		var base_adjusted: Array = combat._apply_spare_die(spare_bag, values, 1)
+		if base_adjusted[0] > 1:
+			base_replace_count += 1
+	var spare_plus_ok: bool = plus_untouched_ok and plus_never_out_of_range_ok and plus_replace_count >= base_replace_count
+	ok = spare_plus_ok and ok
+	lines.append("  _apply_spare_die(count=2, '여분+'): 최저값 자리만 변경=%s 범위[1,4] 유지=%s 대체 횟수(2개 굴림=%d >= 1개 굴림=%d)=%s -> %s" % [
+		plus_untouched_ok, plus_never_out_of_range_ok, plus_replace_count, base_replace_count, plus_replace_count >= base_replace_count, "OK" if spare_plus_ok else "FAIL"
+	])
+
 	# (4) 연쇄 폭발(chain_explosion)의 실제 효과: _player_explosive_threshold()가
 	# 미보유 시 EXPLOSIVE_STACK_THRESHOLD(3), 보유 시 2를 반환하는지.
 	var threshold_default: int = combat._player_explosive_threshold()

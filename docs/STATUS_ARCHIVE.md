@@ -8,6 +8,64 @@
 
 ---
 
+- **2026-09-16 (120)**: INBOX.md [미니 기획 C] "캐릭터 스킬 부여 이벤트"의 남은
+  3~5번(공용 스킬 2종 실제 효과 배선 + 광전사 전용 고유 스킬 1종 + UI)을
+  구현해 [미니 기획 C] 전체(1~5번)를 완료했다(1~2번은 (119)에서 이미 완료).
+  **3번(공용 스킬 2종 효과)**: `combat_test.gd`의 `_do_exchange()`가
+  `RunState.skill_flags`를 읽어 실제 데미지 계산에 반영한다. "심호흡"
+  (`deep_breath`)은 이번 전투의 첫 방어턴(`is_player_attacking == false`)
+  한 번만, 방어 다이스 결과값 전부에 +1을 더하되 그 다이스의 면 개수를
+  상한으로 클램프한다 — 신규 `DiceBag.apply_flat_bonus(values, bonus)`
+  (기존 `apply_steady_guard()`와 같은 "새 배열을 반환, 원본 불변" 패턴)로
+  구현. 적용 여부는 전투당 1회만이라 `player_deep_breath_used` 플래그를
+  `_ready()`마다 초기화. "여분"(`spare_die`)은 폭발 스택 보너스 턴이 아닌
+  평소 공격턴마다(스킬을 보유한 한 매 전투·매 턴 계속) 여분 다이스(공격
+  주머니 0번째 다이스와 같은 면 개수) 1개를 새로 굴려, 이번 공격에서 가장
+  낮았던 값보다 높으면 그 자리를 대체하는 신규 헬퍼
+  `combat_test.gd._apply_spare_die(bag, values)`로 구현("advantage를 가장
+  약한 다이스 한 곳에만 적용"하는 해석 — "이번 런 내내 유지"를 "스킬 보유
+  중엔 매 공격턴 계속 적용"으로 해석).
+  **4번(고유 스킬 1종)**: `code/systems/skill_pool.gd`에 `UNIQUE_SKILLS`
+  배열을 신설하고 `character_id` 필드로 필터링되게 `available_choices(n,
+  character_id)`를 확장(character_id 생략 시 기존처럼 공용 스킬만 반환 —
+  호출부 호환 유지, `event.gd`의 두 호출부만 `RunState.character_id`를
+  넘기도록 갱신). 광전사 전용 "광기 심화"(`frenzy_deepen`)를 추가 —
+  광전사 본인 기믹(`min_max_only`)은 원래 `explosive_stack` 계열 스택
+  메커니즘이 없지만, 이 스킬을 획득하면 `combat_test.gd`의 폭발 스택
+  파이프라인(스택 집계 + 보너스 턴 전환)이 `player_frenzy_active` 플래그로
+  광전사에게도 열린다 — min_max_only라 다이스가 최댓값을 보일 확률이 표준
+  다이스보다 높아 스택이 잘 쌓이는 시너지가 되도록 의도. 보너스 턴 자체도
+  폭발병의 "1D20 한 번"보다 강화해 **1D20을 두 번 굴려 더 높은 값을
+  채택**한다(원래 있던 1회 굴림 뒤에 조건부로 한 번 더 굴려 비교, 별도
+  물리 다이스를 추가 스폰하지 않고 `roll_detailed()`만 한 번 더 호출).
+  **5번(UI)**: 새 위젯을 만들지 않고 (119)가 이미 그렇게 만들어둔
+  `event.gd`의 `_show_skill_offer()`(`ItemCardStyle.build_card()` 재사용)를
+  그대로 사용 — 광기 심화 카드도 SkillPool이 후보에 섞어주기만 하면 같은
+  카드 UI로 자동으로 표시된다(별도 분기 불필요).
+  **QA 검증**: `code/scenes/dice_test.gd`에 신규 `_check_skill_effects` 추가
+  — (a) `DiceBag.apply_flat_bonus([1,3,4], +1)` on D4x3 == `[2,4,4]`(4는
+  상한 유지), (b) `SkillPool.available_choices(..., "berserker")`는 "광기
+  심화"를 포함하지만 `"novice"`나 character_id 미지정 호출은 포함하지 않음
+  (캐릭터 필터 검증), (c) `combat_test._apply_spare_die()`를 60회 반복 호출해
+  "최저값 자리만 바뀌고 다른 자리는 그대로", "결과가 원래 범위([1,4]) 밖으로
+  나가지 않음", "최소 1회는 실제로 대체가 관측됨"을 확률적으로 검증(
+  `_check_range()`가 쓰는 "여러 번 굴려 범위 확인" 패턴과 동일 접근).
+  `bash scripts/qa_shot.sh dice_test` 전체 PASS(신규 3건 포함). 화면 검증은
+  `_debug_force_skill_event()`로 `qa_out/event_skill_offer_v2.png`를 캡처해
+  갱신된 "심호흡"/"여분" 설명 문구가 카드에 겹침 없이 표시됨을 확인했고,
+  `combat_test`를 정지 감지(`GAME_QA_SETTLE=1`)로 여러 교환 진행시켜(스킬
+  미보유 기본 상태) `qa_out/combat_test_skill_smoke.png`로 새로 추가한
+  분기들이 있어도 전투가 정상적으로 여러 턴 진행되고 크래시가 없음을
+  확인했다(광전사+광기 심화 조합의 실제 전투 화면은 캐릭터 선택 →
+  확률적으로 스킬 이벤트를 만나야 하는 경로라 한 번의 qa_shot으로 결정적
+  재현이 어려워, 로직 자체는 위 단위 테스트로 커버하고 화면은 일반 전투
+  회귀만 확인 — 사람이 실제로 광전사로 플레이하며 스킬을 얻어 체감을
+  확인하는 것이 다음 단계).
+  **INBOX.md 처리**: [미니 기획 C] 항목 전체와, 그 원본인 2026-09-14
+  "캐릭터에 스킬을 부여하는 이벤트를 추가한다", 그리고 [미니 기획 A]/[B]/[C]
+  세 갈래를 만든 2026-09-15 기획자 결정 항목 자체를 모두 "처리됨"으로
+  옮겼다(지시받은 대로 — 세 미니 기획이 전부 끝났으므로).
+
 - **2026-09-16 (119)**: [미니 기획 A]/[미니 기획 B]가 모두 완료돼 유일하게 남은
   미니 기획인 INBOX.md [미니 기획 C] "캐릭터 스킬 부여 이벤트"의 1~2번을
   구현했다(3~5번은 다음 이터레이션 이후로 남김 — 세션 지침 "하위 단계별로
