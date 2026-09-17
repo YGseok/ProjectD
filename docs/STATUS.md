@@ -5,24 +5,31 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-09-17 (134)
-- 작성자: AI 에이전트. INBOX.md "남은 이슈"의 [미니 기획 E](캐릭터별 시작 스킬
-  선택) 2번(STARTING_SKILLS 데이터 정의)만 이번 이터레이션 범위로 진행했다
-  (세션 지침이 "2번 정도만 진행해도 충분하다"고 명시). `code/systems/
-  skill_pool.gd`에 `STARTING_SKILLS`(6종: 맹공/철벽/확장/정예/수집가/강철
-  방비, 기획서 원문의 id/설명/`character_ids` 그대로) + 이를 필터링하는
-  `starting_skills_for_character(character_id)`를 신설했다. 기존
-  SKILLS/UNIQUE_SKILLS와는 완전히 분리된 별도 상수(런 중 이벤트로는 절대
-  안 나옴). `dice_test.gd`에 `_check_starting_skills`를 추가해 5개 캐릭터의
-  슬롯 0/1 순서가 기획서와 정확히 일치하는지 검증, `bash scripts/qa_shot.sh
-  dice_test` 전체 PASS. `scripts/qa_shot.sh character_select`로 화면도
-  크래시 없이 정상 로드됨을 재확인(`qa_out/character_select.png`). RunState/
-  character_select.gd/combat_test.gd 배선(1/3/4번)은 아직 손대지 않음 —
-  다음 이터레이션들이 순서대로 이어갈 차례. 자세한 내용은 아래 "완료 기록
-  (134)" 참고. "완료 기록" 10개 유지를 위해 (124)를 `docs/STATUS_ARCHIVE.md`로
-  옮겼다. INBOX.md [미니 기획 E] 항목은 1~4번이 다 끝나야 "처리됨"으로 옮기는
-  완료 기준이라 이번에도 "남은 이슈"에 그대로 두고 진행 상황만 이 파일에
-  남겼다(1~4번 중 2번만 완료).
+- 일시: 2026-09-17 (135)
+- 작성자: AI 에이전트. INBOX.md "부분 처리됨"의 [미니 기획 E](캐릭터별 시작
+  스킬 선택) 3번(선택 UI, `character_select.gd`)을 진행했다(세션 지침이
+  명시적으로 3번을 다음 순번으로 지정, "사람 설계 결정 필요"로 보류하지
+  말라고 지시함). 상세 패널에 "시작 스킬" 섹션을 추가해 슬롯 0(항상 선택
+  가능)/슬롯 1(`AchievementManager.is_unlocked("clear_"+character_id)`
+  미해금 시 신규 `code/scenes/lock_icon.gd`(`LockIcon`)로 자물쇠 표시 +
+  `disabled=true`)을 버튼으로 보여주고, 선택 상태를 신규 `RunState.
+  chosen_starting_skill_id`에 저장한다(실질적으로 1번 "해금 판정"도 함께
+  끝남 — 새 저장 시스템 없이 기존 업적 API를 그대로 읽는 것뿐이라 별도
+  단계로 분리하지 않았음). 캐릭터를 바꿀 때 이전 선택이 새 캐릭터 기준으로도
+  유효한지(잠기지 않았는지) 재검증하는 로직을 `dice_test.gd`의 신규
+  `_check_starting_skill_selection_ui`로 검증하던 중 실제 버그를 하나 발견해
+  고쳤다 — 슬롯 컨테이너를 `queue_free()`만으로 다시 그리면 같은 프레임 안의
+  재호출(슬롯 버튼 자신의 클릭 핸들러가 다시 이 함수를 부름)에서 옛 버튼이
+  안 지워진 채 인덱스가 섞이는 문제, `remove_child()`로 즉시 떼어낸 뒤
+  `queue_free()`로 지우도록 수정해 해결. `bash scripts/qa_shot.sh dice_test`
+  전체 PASS(고치기 전엔 실제로 FAIL이 잡혔음). `qa_out/
+  character_select_starting_skill_locked.png`/`_unlocked.png`/`_guardian.png`
+  세 장으로 잠김/해금/가장 긴 라벨("강철 방비") 화면을 육안으로도 확인했다.
+  1~3번 완료, 남은 건 4번(적용 배선)뿐(5번은 선택) — 자세한 내용은 아래
+  "완료 기록 (135)" 참고. "완료 기록" 10개 유지를 위해 (125)를
+  `docs/STATUS_ARCHIVE.md`로 옮겼다. INBOX.md [미니 기획 E] 항목은 1~4번이
+  다 끝나야 "처리됨"으로 옮기는 완료 기준이라 이번에도 "부분 처리됨"에
+  그대로 두고 진행 상황만 이 파일과 INBOX.md에 남겼다.
 
 ## 지금 위치
 
@@ -37,13 +44,15 @@
 분기로 폴백한다. **[미니 기획 D](스킬 강화 이벤트) 전체 완료** — 7종
 스킬("+" 강화판) 전부가 `combat_test.gd`의 `_do_exchange()`에서 "+" > base >
 없음 우선순위로 실제 전투 효과를 낸다. **[미니 기획 E](캐릭터별 시작 스킬
-선택)는 2번(STARTING_SKILLS 데이터 정의)만 완료** — `code/systems/
-skill_pool.gd`의 `STARTING_SKILLS`/`starting_skills_for_character()`에
-6종 원형이 정의돼 있지만, 아직 RunState에 저장 필드도, 캐릭터 선택 화면
-UI도, 전투 배선도 없어서 게임 플레이에는 전혀 영향이 없는 상태(순수 데이터만
-존재). 다음 순번은 [미니 기획 E] 1번(해금 판정, 이미 있는
-`AchievementManager.is_unlocked("clear_"+id)` 재사용) + 3번(선택 UI,
-`character_select.gd`) — 다음 할 일 큐 19번 참고.
+선택)는 1/2/3번 완료, 4번(적용 배선)만 남음** — `character_select.gd`
+상세 패널에서 슬롯 0/1 중 하나를 실제로 고를 수 있고(`RunState.
+chosen_starting_skill_id`에 저장, 슬롯 1은 캐릭터별 최종 클리어 업적
+미해금 시 잠김), `code/systems/skill_pool.gd`의 `STARTING_SKILLS`/
+`starting_skills_for_character()`에 6종 원형이 정의돼 있다. **다만
+`RunState.reset_run()`도 `combat_test.gd`도 이 선택값을 아직 읽지 않아
+실제 전투 보너스(게임 플레이)에는 여전히 영향이 없는 상태** — 다음 순번은
+[미니 기획 E] 4번(적용 배선: `reset_run()`이 `SkillPool.grant()` 호출 +
+`combat_test.gd`에 6개 조건 분기 추가) — 다음 할 일 큐 19번 참고.
 
 - **캐릭터 5종** (`code/systems/character_profiles.gd`의
   `CharacterProfiles.PROFILES`): 견습 모험가(기믹 없음, D4x3/D4x3) / 광전사
@@ -690,18 +699,16 @@ UI도, 전투 배선도 없어서 게임 플레이에는 전혀 영향이 없는
     "완료 기록"과 `docs/feedback/INBOX.md` 처리됨 섹션의 "[미니 기획 D]" 참고.
 
 19. **(INBOX.md 신규 2026-09-17, [미니 기획 E]) 캐릭터별 시작 스킬 선택 —
-    2번(시작 스킬 데이터) 완료(2026-09-17 (134)), 1/3/4/5번 남음.** [미니
-    기획 D]가 끝나 착수했다. 지금 캐릭터 스킬은 런 중 무작위 이벤트로만
+    1/2/3번 완료(2026-09-17 (134)/(135)), 4번(적용 배선)만 남음(5번은 선택).**
+    [미니 기획 D]가 끝나 착수했다. 지금 캐릭터 스킬은 런 중 무작위 이벤트로만
     얻는데([미니 기획 C]), 이 항목은 그것과 별개의 새 레이어 — 런 "시작
     시점"에 미리 정해두는 로드아웃 선택이다. 기존 skill_flags/grant()
     파이프라인을 그대로 재사용하되 "언제/어떻게 얻는지"만 다름(무작위
-    이벤트가 아니라 캐릭터 선택 화면에서 확정 선택). INBOX.md "남은 이슈"에
-    6개 하위 단계가 이미 구체적으로 적혀 있음 — 한 이터레이션에 다 하지
-    말고 나눠서 진행할 것(기획자가 명시적으로 "2~3개씩 나눠 진행"이라고
-    지시함):
-    1. **해금 판정** — 새 저장 시스템 없이 이미 있는
-       `AchievementManager.is_unlocked("clear_" + character_id)`를 그대로
-       재사용. **미착수.**
+    이벤트가 아니라 캐릭터 선택 화면에서 확정 선택).
+    1. ~~**해금 판정**~~ → **완료됨** (2026-09-17 (135)). 새 저장 시스템
+       없이 이미 있는 `AchievementManager.is_unlocked("clear_" +
+       character_id)`를 `character_select.gd`가 그대로 재사용(3번과 함께
+       구현돼 별도 완료 기록은 없음 — 아래 3번 참고).
     2. ~~**시작 스킬 데이터**~~ → **완료됨** (2026-09-17 (134), 아래 "완료
        기록" 참고). `skill_pool.gd`에 `STARTING_SKILLS`(6개 원형:
        start_aggro/start_wall/start_expand/start_lean/start_hoard/
@@ -711,28 +718,69 @@ UI도, 전투 배선도 없어서 게임 플레이에는 전혀 영향이 없는
        호출하는 방식으로 통일(새 다이스 연산 없음). 캐릭터당 정확히 2종
        (견습=[확장,정예], 광전사=[맹공,수집가], 수호자=[철벽,강철 방비],
        폭발병=[맹공,확장], 방패병=[철벽,정예]) — `dice_test.gd`의
-       `_check_starting_skills`로 검증 완료. **다만 RunState 저장 필드,
-       캐릭터 선택 화면 UI, 전투 배선은 전부 아직 없어서 게임 플레이에는
-       영향이 전혀 없는 상태(순수 데이터만 존재)** — 3/4번이 이어서 배선해야
-       실제로 작동함.
-    3. **선택 UI** (`character_select.gd`) — 상세 패널에 "시작 스킬" 선택
-       줄 추가, 슬롯 1은 업적 미해금 시 자물쇠 아이콘 + 비활성화. 신규
-       `RunState.chosen_starting_skill_id`에 저장. **미착수** — 2번이
-       만든 `starting_skills_for_character()`를 그대로 쓰면 됨.
+       `_check_starting_skills`로 검증 완료.
+    3. ~~**선택 UI**~~ → **완료됨** (2026-09-17 (135), 아래 "완료 기록"
+       참고). `character_select.gd` 상세 패널에 "시작 스킬" 섹션을 추가해
+       슬롯 0/1을 버튼으로 보여준다. 슬롯 1은 업적(1번) 미해금 시 신규
+       `code/scenes/lock_icon.gd`(`LockIcon`)로 자물쇠 표시 + `disabled=true`로
+       클릭 자체를 막는다. 선택 상태는 신규 `RunState.
+       chosen_starting_skill_id: String`에 저장, 캐릭터를 바꾸면 새 캐릭터
+       기준으로 유효한지(잠기지 않았는지) 재검증해 아니면 슬롯 0으로 리셋.
+       **다만 RunState.reset_run()도 combat_test.gd도 이 필드를 아직 읽지
+       않아 실제 게임 플레이(전투 보너스)에는 여전히 영향이 없는 상태** —
+       4번이 이어서 배선해야 실제로 작동함.
     4. **적용 배선** — `RunState.reset_run()`이 `SkillPool.grant(chosen_
        starting_skill_id)` 호출, `combat_test.gd`의 `_do_exchange()`에
        6개 조건 분기 추가(2~3개씩 나눠서: 맹공/철벽 → 확장/정예 → 수집가/
-       강철 방비 권장 순서, INBOX.md 원문 그대로). **미착수.**
-    5. **UI 강조 재사용(선택)** — 슬롯 1(업적 해금 스킬)에 방금 만든
+       강철 방비 권장 순서, INBOX.md 원문 그대로). **미착수 — 다음
+       이터레이션이 이어갈 차례.**
+    5. **UI 강조 재사용(선택)** — 슬롯 1(업적 해금 스킬)에 이미 있는
        `ItemCardStyle.build_card()`의 `highlight` 파라미터 재사용 가능(필수
-       아님).
+       아님, 3번에서는 대신 금테 스타일을 슬롯 버튼에 직접 그려 넣음 —
+       카드가 아니라 버튼이라 `ItemCardStyle`을 그대로 못 쓰고 같은 색
+       언어만 재사용했음).
     완료 기준: 1~4번이 끝나면 INBOX.md에서 "처리됨"으로 옮길 것(5번은 선택).
-    진행 중에는 이 항목에 몇 번까지 끝났는지 남길 것. 자세한 수치/필드명은
-    `docs/feedback/INBOX.md` "남은 이슈" 원문 참고(요약하지 말고 원문을
-    그대로 따를 것). **다음 이터레이션 추천: 1번(해금 판정, 아주 작음)을
-    3번(선택 UI)과 묶어서 진행하면 한 번에 실제로 눈에 보이는 결과가 나옴.**
+    자세한 수치/필드명은 `docs/feedback/INBOX.md` "부분 처리됨" 원문 참고
+    (요약하지 말고 원문을 그대로 따를 것).
 
 ## 완료 기록
+
+- **2026-09-17 (135)**: INBOX.md "부분 처리됨"의 [미니 기획 E](캐릭터별 시작 스킬
+  선택) 3번(선택 UI)을 진행 — 데이터(2번, (134))는 이미 있었으니 이번엔
+  `character_select.gd`에 실제로 고를 수 있는 UI를 붙였다. 상세 패널에 "시작
+  스킬 (하나만 선택)" 섹션을 신설해 `SkillPool.starting_skills_for_character()`가
+  돌려주는 후보(캐릭터당 2개, 슬롯 0/1)를 버튼 두 개로 보여준다. 슬롯 0은 항상
+  클릭 가능하고, 슬롯 1은 `AchievementManager.is_unlocked("clear_" +
+  character_id)`가 false면 신규 `code/scenes/lock_icon.gd`(`LockIcon`,
+  achievement_icon.gd류 절차적 `_draw()` 패턴 재사용)와 흐린 글씨로 잠금
+  표시하고 `button.disabled = true`로 클릭 자체를 막는다(스타일만 다른 게
+  아니라 pressed 시그널을 아예 연결하지 않음). 선택 상태는 신규
+  `RunState.chosen_starting_skill_id: String`에 저장 — 캐릭터 카드를 고를
+  때마다 `_valid_or_default_starting_skill_id()`가 "이미 골라둔 id가 새
+  캐릭터에서도 잠기지 않은 후보인지" 검증해, 아니면 슬롯 0으로 되돌린다(예:
+  "확장"은 견습 모험가의 슬롯 0이자 폭발병의 슬롯 1이라 같은 id라도 캐릭터에
+  따라 잠금 여부가 다름 — 이 교차 사례를 직접 테스트로 검증했다, 아래 참고).
+  구현 중 실제 버그를 하나 발견해 고쳤다: 슬롯 컨테이너를 다시 그릴 때 기존
+  `_build_cards()`처럼 `queue_free()`만 쓰면 그 프레임 끝까지 컨테이너 자식
+  목록에 옛 버튼이 남아 새 버튼과 인덱스가 섞인다(이 함수는 슬롯 버튼 자신의
+  `pressed` 핸들러에서도 재호출되므로 같은 프레임 안에서 바로 문제가 됨) —
+  `remove_child()`로 즉시 트리에서 떼어낸 뒤 `queue_free()`로 지우도록 고쳐
+  해결(메모리 해제 자체는 여전히 지연시켜 시그널 처리 중 해제 크래시는
+  피함). **QA 검증**: `dice_test.gd`에 신규 `_check_starting_skill_selection_ui`
+  (character_select.tscn을 실제로 인스턴스화해 (a) 기본 선택은 슬롯 0, (b)
+  업적 미해금 시 슬롯 1 `disabled=true`, (c) 해금 후 클릭 가능 + 실제 선택
+  반영, (d) 위 교차 잠금 사례를 각각 검증)를 추가, `bash scripts/qa_shot.sh
+  dice_test` 전체 PASS(위 버그를 고치기 전에는 (c) 항목이 실제로 FAIL로
+  잡혔음 — 회귀 테스트가 실제로 버그를 잡아낸 경우). `qa_out/
+  character_select_starting_skill_locked.png`(슬롯 1 잠김, 자물쇠 아이콘)/
+  `qa_out/character_select_starting_skill_unlocked.png`(clear_novice 해금
+  후 슬롯 1 선택 가능 + 실제 선택된 상태)/`qa_out/
+  character_select_starting_skill_guardian.png`(가장 긴 라벨 "강철 방비"도
+  겹침 없이 표시)로 확인. [미니 기획 E] 남은 것은 4번(적용 배선 —
+  `RunState.reset_run()`이 `chosen_starting_skill_id`를 읽어
+  `SkillPool.grant()`하고 `combat_test.gd`가 6개 조건 분기를 추가하는 것,
+  지시대로 한 이터레이션에 2~3개씩 나눠 진행) — 1~3번이 끝났으니 다음
+  이터레이션이 이어가면 된다. 5번(UI 강조)은 선택 사항.
 
 - **2026-09-17 (134)**: INBOX.md "남은 이슈"의 [미니 기획 E](캐릭터별 시작 스킬
   선택) 2번(STARTING_SKILLS 데이터 정의)을 진행 — 지시대로 이 하나만 이번
@@ -1074,36 +1122,9 @@ UI도, 전투 배선도 없어서 게임 플레이에는 전혀 영향이 없는
   이제 거의 소진된 것으로 보임(승/패 두 결과 분기 모두 업적이 붙었으므로, 다음
   후보는 새로운 상태 추적이 필요할 가능성이 높음).
 
-- **2026-09-17 (125)**: 큐 13("업적 시스템 — 남은 항목 추가")의 후속. INBOX.md
-  "남은 이슈"가 비어 있고, 다음 할 일 큐의 나머지 항목은 전부 사람 플레이
-  피드백/설계 결정이 필요한 상태(큐 17의 견습 모험가 전용 스킬 포함)라, 그
-  중 "새 RunState 카운터 없이 이미 있는 성공/실패 분기 하나만 후킹하면 되는"
-  독립 항목을 찾아 진행했다. 특수 이벤트의 "위험을 감수하기" 판정
-  (`event.gd`의 `_resolve_risky()`)이 성공했을 때 신규 업적
-  "위험을 감수한 자"(`risk_taker`)를 해금하도록 `AchievementManager.
-  unlock("risk_taker")` 한 줄을 성공 분기에 추가하고,
-  `code/systems/achievement_manager.gd`의 `DEFINITIONS`에 정의(icon="dice",
-  이벤트 주사위를 굴려 성공한다는 컨셉과 맞아 기존 카테고리 재사용, 새
-  아이콘 유형은 만들지 않음)를 추가했다 — 이걸로 업적이 20종이 됐다.
-  `dice_test.gd`의 기존 `_check_event_safe_risky_choice`(이미
-  `_debug_force_risky_success()`/`_debug_force_risky_failure()`로 성공/실패
-  양쪽을 결정적으로 재현하고 있던 테스트)에 각각의 직후
-  `AchievementManager.is_unlocked("risk_taker")` 기대값(성공→true,
-  실패→false) 검증을 추가하고, 각 하위 검증 전에 `_debug_reset_for_qa()`로
-  해금 상태를 초기화해 서로 오염되지 않게 했다. `bash scripts/qa_shot.sh
-  dice_test` 전체 PASS(신규 검증 2개 포함). `character_select.gd`의 기존
-  QA 훅 `_debug_show_achievements_scrolled()`로 업적 패널을 열어
-  `qa_out/character_select_achv_risk_taker.png`로 새 항목이 목록 맨 아래에
-  "1/20 달성", 다이스 아이콘, 겹침 없는 카드로 표시됨을 확인했고,
-  `qa_out/event_risk_taker_smoke.png`로 특수 이벤트 화면 자체도 크래시 없이
-  정상 로드됨을 재확인했다. 남은 것: 큐 13이 원래 말한 "새 RunState 카운터가
-  필요한" 나머지 후보들은 여전히 사람이 원 30종 목록을 다시 정리해줘야
-  구체화 가능 — 이번처럼 "이미 있는 판정 지점 하나만 후킹"하는 방식의 독립
-  항목이 또 나오면 다음 이터레이션도 같은 패턴으로 이어갈 수 있음.
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(134)에서 (124)를 그리로 옮겼다.)*
+이번 이터레이션(135)에서 (125)를 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 

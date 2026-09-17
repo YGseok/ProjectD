@@ -8,6 +8,33 @@
 
 ---
 
+- **2026-09-17 (125)**: 큐 13("업적 시스템 — 남은 항목 추가")의 후속. INBOX.md
+  "남은 이슈"가 비어 있고, 다음 할 일 큐의 나머지 항목은 전부 사람 플레이
+  피드백/설계 결정이 필요한 상태(큐 17의 견습 모험가 전용 스킬 포함)라, 그
+  중 "새 RunState 카운터 없이 이미 있는 성공/실패 분기 하나만 후킹하면 되는"
+  독립 항목을 찾아 진행했다. 특수 이벤트의 "위험을 감수하기" 판정
+  (`event.gd`의 `_resolve_risky()`)이 성공했을 때 신규 업적
+  "위험을 감수한 자"(`risk_taker`)를 해금하도록 `AchievementManager.
+  unlock("risk_taker")` 한 줄을 성공 분기에 추가하고,
+  `code/systems/achievement_manager.gd`의 `DEFINITIONS`에 정의(icon="dice",
+  이벤트 주사위를 굴려 성공한다는 컨셉과 맞아 기존 카테고리 재사용, 새
+  아이콘 유형은 만들지 않음)를 추가했다 — 이걸로 업적이 20종이 됐다.
+  `dice_test.gd`의 기존 `_check_event_safe_risky_choice`(이미
+  `_debug_force_risky_success()`/`_debug_force_risky_failure()`로 성공/실패
+  양쪽을 결정적으로 재현하고 있던 테스트)에 각각의 직후
+  `AchievementManager.is_unlocked("risk_taker")` 기대값(성공→true,
+  실패→false) 검증을 추가하고, 각 하위 검증 전에 `_debug_reset_for_qa()`로
+  해금 상태를 초기화해 서로 오염되지 않게 했다. `bash scripts/qa_shot.sh
+  dice_test` 전체 PASS(신규 검증 2개 포함). `character_select.gd`의 기존
+  QA 훅 `_debug_show_achievements_scrolled()`로 업적 패널을 열어
+  `qa_out/character_select_achv_risk_taker.png`로 새 항목이 목록 맨 아래에
+  "1/20 달성", 다이스 아이콘, 겹침 없는 카드로 표시됨을 확인했고,
+  `qa_out/event_risk_taker_smoke.png`로 특수 이벤트 화면 자체도 크래시 없이
+  정상 로드됨을 재확인했다. 남은 것: 큐 13이 원래 말한 "새 RunState 카운터가
+  필요한" 나머지 후보들은 여전히 사람이 원 30종 목록을 다시 정리해줘야
+  구체화 가능 — 이번처럼 "이미 있는 판정 지점 하나만 후킹"하는 방식의 독립
+  항목이 또 나오면 다음 이터레이션도 같은 패턴으로 이어갈 수 있음.
+
 - **2026-09-17 (124)**: 큐 17("폭발병/방패병 전용 고유 스킬 설계+추가")의 2/2
   조각, 즉 큐 17 전체 마무리. 방패병(shieldbearer)은 폭발병과 마찬가지로 이미
   자기 기믹(`guard_stack`)으로 스택 파이프라인을 갖고 있어 광기/수호 심화의

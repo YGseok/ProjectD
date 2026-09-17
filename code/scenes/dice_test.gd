@@ -201,6 +201,10 @@ func _ready() -> void:
 	all_pass = _check_starting_skills(lines) and all_pass
 
 	lines.append("")
+	lines.append("[시작 스킬 선택 UI 검증: character_select.gd 슬롯 0/1 + 잠금 상태]")
+	all_pass = _check_starting_skill_selection_ui(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -2934,4 +2938,80 @@ func _check_starting_skills(lines: PackedStringArray) -> bool:
 	ok = unknown_ok and ok
 	lines.append("  알 수 없는 캐릭터 id는 빈 목록 -> %s" % ("OK" if unknown_ok else "FAIL"))
 
+	return ok
+
+
+## [미니 기획 E]-3 검증(INBOX.md 2026-09-17 기획자 결정): character_select.gd의 시작
+## 스킬 슬롯 UI가 (a) 기본 선택은 항상 슬롯 0, (b) 슬롯 1은 "clear_<character_id>"
+## 업적 미해금 시 버튼 자체가 disabled(클릭 경로 자체가 막힘, 스타일만 다른 게
+## 아님)인지, (c) 해금되면 실제로 슬롯 1을 고를 수 있는지, (d) 캐릭터를 바꿨을 때
+## 이전에 고른 스킬 id가 새 캐릭터에서 잠긴 슬롯을 가리키면 슬롯 0으로 되돌아가는지
+## (start_expand가 견습 모험가의 슬롯 0이자 폭발병의 슬롯 1이라는 교차 사례로 검증)를
+## 확인한다. shop.gd 검증(이터레이션 45)과 같은 패턴으로 실제 character_select.tscn을
+## 인스턴스화해 add_child로 트리에 넣은 뒤 실제 메서드를 호출한다.
+func _check_starting_skill_selection_ui(lines: PackedStringArray) -> bool:
+	var ok := true
+	var character_backup := RunState.character_id
+	var chosen_backup := RunState.chosen_starting_skill_id
+
+	AchievementManager._debug_reset_for_qa()
+
+	var scene := load("res://code/scenes/character_select.tscn")
+	var node = scene.instantiate()
+	add_child(node)
+
+	# (a) 견습 모험가를 고르면 잠긴 업적 없이도 슬롯 0("확장", start_expand)이
+	# 기본 선택되어야 한다.
+	node._on_card_selected("novice")
+	var default_ok: bool = RunState.chosen_starting_skill_id == "start_expand"
+	ok = default_ok and ok
+	lines.append("  견습 모험가 기본 선택: chosen=%s (기대 start_expand) -> %s" % [
+		RunState.chosen_starting_skill_id, "OK" if default_ok else "FAIL"
+	])
+
+	# (b) 슬롯 1("정예", start_lean)은 clear_novice 업적이 없으면 버튼이 disabled여야
+	# 한다(스타일만 잠긴 게 아니라 pressed 시그널 자체가 연결 안 됨 -> 클릭 경로 차단).
+	var slot0_button: Button = node._starting_skill_container.get_child(0)
+	var slot1_button: Button = node._starting_skill_container.get_child(1)
+	var locked_ok: bool = not slot0_button.disabled and slot1_button.disabled
+	ok = locked_ok and ok
+	lines.append("  업적 미해금 상태: 슬롯0 disabled=%s(기대 false) 슬롯1 disabled=%s(기대 true) -> %s" % [
+		slot0_button.disabled, slot1_button.disabled, "OK" if locked_ok else "FAIL"
+	])
+
+	# (c) clear_novice를 해금하고 다시 선택하면 슬롯 1이 클릭 가능해지고, 실제로
+	# 골랐을 때 chosen_starting_skill_id가 바뀐다.
+	AchievementManager.unlock("clear_novice")
+	node._on_card_selected("novice")
+	var slot1_after_unlock: Button = node._starting_skill_container.get_child(1)
+	var unlocked_ok: bool = not slot1_after_unlock.disabled
+	ok = unlocked_ok and ok
+	lines.append("  clear_novice 해금 후: 슬롯1 disabled=%s(기대 false) -> %s" % [
+		slot1_after_unlock.disabled, "OK" if unlocked_ok else "FAIL"
+	])
+	node._on_starting_skill_selected("start_lean")
+	var pick_slot1_ok: bool = RunState.chosen_starting_skill_id == "start_lean"
+	ok = pick_slot1_ok and ok
+	lines.append("  해금된 슬롯1 선택: chosen=%s (기대 start_lean) -> %s" % [
+		RunState.chosen_starting_skill_id, "OK" if pick_slot1_ok else "FAIL"
+	])
+
+	# (d) 교차 사례: start_expand는 견습 모험가의 슬롯 0(항상 해금)이자 폭발병의
+	# 슬롯 1(clear_explosive 필요)이다. chosen을 start_expand로 맞춰둔 뒤 clear_explosive
+	# 없이 폭발병으로 바꾸면, 같은 id라도 폭발병 기준으로는 잠긴 슬롯이므로 슬롯 0
+	# (start_aggro)으로 되돌아가야 한다.
+	node._on_card_selected("novice")
+	node._on_starting_skill_selected("start_expand")
+	node._on_card_selected("explosive")
+	var cross_lock_ok: bool = RunState.chosen_starting_skill_id == "start_aggro"
+	ok = cross_lock_ok and ok
+	lines.append("  교차 잠금(견습 슬롯0=폭발병 슬롯1인 start_expand) 전환: chosen=%s (기대 start_aggro) -> %s" % [
+		RunState.chosen_starting_skill_id, "OK" if cross_lock_ok else "FAIL"
+	])
+
+	remove_child(node)
+	node.free()
+	AchievementManager._debug_reset_for_qa()
+	RunState.character_id = character_backup
+	RunState.chosen_starting_skill_id = chosen_backup
 	return ok

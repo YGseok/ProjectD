@@ -52,6 +52,13 @@ var _detail_skill_icon: SkillIcon
 var _detail_event_die_label: Label
 var _detail_event_die_visual: EventDieVisual
 
+## 시작 스킬 선택([미니 기획 E]-3, INBOX.md 2026-09-17 기획자 결정) — 캐릭터마다
+## SkillPool.starting_skills_for_character()가 돌려주는 후보(항상 최대 2개, 슬롯
+## 0/1)를 _starting_skill_container 안에 버튼으로 채운다. 캐릭터를 바꿀 때마다 후보
+## 목록 자체가 달라지므로(cards_container와 달리) 매번 자식을 지우고 다시 만든다.
+var _starting_skill_container: HBoxContainer
+var _starting_skill_desc_label: Label
+
 ## KeyboardShortcuts로 1~N 숫자 키를 순서대로 배정하는 데 쓴다(INBOX.md 2026-09-14
 ## "키보드로도 조작이 되도록" — 던전 맵/스토리 이벤트/특수 이벤트에 이어 이 화면에도
 ## 같은 유틸을 재사용, docs/STATUS.md 큐 16 "키보드 조작/단축키" 참고). 캐릭터 카드마다
@@ -202,6 +209,22 @@ func _build_detail_panel() -> void:
 	event_die_row.add_child(_detail_event_die_label)
 	info_vbox.add_child(event_die_row)
 
+	# 시작 스킬 선택([미니 기획 E]-3): 제목 + 슬롯 버튼 목록 + 선택된 스킬 설명.
+	# 슬롯 버튼 자체는 후보가 캐릭터마다 다르므로 여기서는 빈 컨테이너만 만들고,
+	# 실제 채우기는 _rebuild_starting_skill_slots()가 캐릭터를 고를 때마다 담당한다.
+	var skill_choice_title := Label.new()
+	skill_choice_title.text = "시작 스킬 (하나만 선택)"
+	skill_choice_title.add_theme_font_size_override("font_size", 16)
+	skill_choice_title.add_theme_color_override("font_color", Color(0.95, 0.85, 0.5))
+	info_vbox.add_child(skill_choice_title)
+
+	_starting_skill_container = HBoxContainer.new()
+	_starting_skill_container.add_theme_constant_override("separation", 10)
+	info_vbox.add_child(_starting_skill_container)
+
+	_starting_skill_desc_label = _make_detail_body_label()
+	info_vbox.add_child(_starting_skill_desc_label)
+
 	var note_label := Label.new()
 	note_label.text = "※ 플레이스홀더 실루엣 — 실제 일러스트는 추후 작업"
 	note_label.autowrap_mode = TextServer.AUTOWRAP_WORD
@@ -234,6 +257,133 @@ func _refresh_detail_panel() -> void:
 	var event_sides: int = int(profile.get("event_die_sides", 6))
 	_detail_event_die_label.text = "이벤트 주사위: D%d (로마 숫자로 표기, 커스터마이징 불가)" % event_sides
 	_detail_event_die_visual.value = 1
+	_rebuild_starting_skill_slots()
+
+
+## [미니 기획 E]-3: 캐릭터를 고를 때마다 그 캐릭터의 시작 스킬 후보(항상 슬롯 0/1,
+## SkillPool.starting_skills_for_character() 등장 순서)로 슬롯 버튼을 다시 그린다.
+## 먼저 RunState.chosen_starting_skill_id가 이 캐릭터에서 여전히 유효한지(후보에
+## 있고, 잠겨있지 않은지) 검증해 아니면 슬롯 0으로 되돌린다 — 예를 들어 "확장"
+## (start_expand)은 견습 모험가의 슬롯 0(항상 해금)이지만 폭발병의 슬롯 1(업적
+## 해금 필요)이기도 해서, 같은 id라도 캐릭터가 바뀌면 잠금 상태가 달라질 수 있다.
+func _rebuild_starting_skill_slots() -> void:
+	# remove_child()로 즉시 트리에서 떼어낸 뒤 queue_free()로 지운다(단순 queue_free()만
+	# 쓰면 그 프레임 끝까지 컨테이너 자식 목록에 남아 새로 추가한 버튼과 인덱스가
+	# 섞인다 — 이 함수는 같은 프레임 안에서 슬롯 버튼 자신의 pressed 핸들러
+	# (_on_starting_skill_selected)에서도 호출되므로, remove_child()로 즉시 떼어내되
+	# 실제 메모리 해제는 여전히 queue_free()로 미뤄 시그널 처리 중 해제로 인한
+	# 크래시를 피한다).
+	for c in _starting_skill_container.get_children():
+		_starting_skill_container.remove_child(c)
+		c.queue_free()
+
+	var candidates := SkillPool.starting_skills_for_character(_selected_id)
+	RunState.chosen_starting_skill_id = _valid_or_default_starting_skill_id(_selected_id, RunState.chosen_starting_skill_id, candidates)
+
+	for i in candidates.size():
+		var skill: Dictionary = candidates[i]
+		var unlocked: bool = i == 0 or AchievementManager.is_unlocked("clear_" + _selected_id)
+		_starting_skill_container.add_child(_make_starting_skill_slot(skill, unlocked))
+
+	_update_starting_skill_description(candidates)
+
+
+## chosen_id가 candidates 안에서 "잠기지 않은" 슬롯을 가리키면 그대로 유지하고,
+## 아니면 슬롯 0(candidates[0], 후보가 있는 한 항상 해금 상태)으로 되돌린다.
+## 후보가 비어있으면(정의 누락 등 이상 상황) 빈 문자열을 반환한다.
+func _valid_or_default_starting_skill_id(character_id: String, chosen_id: String, candidates: Array[Dictionary]) -> String:
+	if candidates.is_empty():
+		return ""
+	for i in candidates.size():
+		if candidates[i]["id"] == chosen_id:
+			if i == 0 or AchievementManager.is_unlocked("clear_" + character_id):
+				return chosen_id
+			break
+	return candidates[0]["id"]
+
+
+## 슬롯 하나(PanelContainer 역할을 겸하는 Button)를 만든다. 잠긴 슬롯은 LockIcon +
+## 흐린 이름표를 보여주고 disabled=true라 pressed 시그널을 아예 연결하지 않는다 —
+## "잠긴 슬롯은 클릭으로 고를 수 없다"는 걸 스타일이 아니라 실제 입력 경로로 보장한다.
+func _make_starting_skill_slot(skill: Dictionary, unlocked: bool) -> Button:
+	var button := Button.new()
+	button.custom_minimum_size = Vector2(150, 56)
+	button.disabled = not unlocked
+	button.mouse_filter = Control.MOUSE_FILTER_STOP
+
+	var content := VBoxContainer.new()
+	content.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	content.set_anchors_preset(Control.PRESET_FULL_RECT)
+	content.alignment = BoxContainer.ALIGNMENT_CENTER
+	button.add_child(content)
+
+	if unlocked:
+		var name_label := Label.new()
+		name_label.text = skill["name"]
+		name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		name_label.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9))
+		content.add_child(name_label)
+	else:
+		var lock_row := HBoxContainer.new()
+		lock_row.alignment = BoxContainer.ALIGNMENT_CENTER
+		lock_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		lock_row.add_theme_constant_override("separation", 4)
+		var lock_icon := LockIcon.new()
+		lock_icon.custom_minimum_size = Vector2(16, 16)
+		lock_row.add_child(lock_icon)
+		var name_label := Label.new()
+		name_label.text = skill["name"]
+		name_label.add_theme_color_override("font_color", Color(0.55, 0.55, 0.55))
+		lock_row.add_child(name_label)
+		content.add_child(lock_row)
+		button.tooltip_text = "이 캐릭터로 최종 클리어(3라운드 전부)하면 다음 회차부터 선택할 수 있습니다."
+
+	button.add_theme_stylebox_override("normal", _starting_skill_slot_style(skill["id"] == RunState.chosen_starting_skill_id, unlocked))
+	button.add_theme_stylebox_override("hover", _starting_skill_slot_style(skill["id"] == RunState.chosen_starting_skill_id, unlocked))
+	button.add_theme_stylebox_override("pressed", _starting_skill_slot_style(skill["id"] == RunState.chosen_starting_skill_id, unlocked))
+	button.add_theme_stylebox_override("disabled", _starting_skill_slot_style(false, unlocked))
+
+	if unlocked:
+		button.pressed.connect(_on_starting_skill_selected.bind(skill["id"]))
+
+	return button
+
+
+## selected(현재 chosen_starting_skill_id와 일치)면 캐릭터 카드 선택과 같은 금테,
+## 잠긴 슬롯이면 어두운 배경, 나머지(선택 안 된 해금 슬롯)는 일반 회색 테두리.
+func _starting_skill_slot_style(selected: bool, unlocked: bool) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.set_corner_radius_all(8)
+	style.content_margin_left = 8
+	style.content_margin_right = 8
+	style.content_margin_top = 6
+	style.content_margin_bottom = 6
+	if not unlocked:
+		style.bg_color = Color(0.1, 0.1, 0.1, 0.9)
+		style.border_color = Color(0.3, 0.3, 0.3)
+		style.set_border_width_all(1)
+	elif selected:
+		style.bg_color = Color(0.22, 0.19, 0.08, 0.95)
+		style.border_color = Color(0.85, 0.68, 0.25)
+		style.set_border_width_all(3)
+	else:
+		style.bg_color = Color(0.14, 0.14, 0.16, 0.9)
+		style.border_color = Color(0.35, 0.35, 0.35)
+		style.set_border_width_all(1)
+	return style
+
+
+func _on_starting_skill_selected(id: String) -> void:
+	RunState.chosen_starting_skill_id = id
+	_rebuild_starting_skill_slots()
+
+
+func _update_starting_skill_description(candidates: Array[Dictionary]) -> void:
+	for skill in candidates:
+		if skill["id"] == RunState.chosen_starting_skill_id:
+			_starting_skill_desc_label.text = "효과: %s" % skill["description"]
+			return
+	_starting_skill_desc_label.text = ""
 
 
 ## 숫자 키(1~9)로 캐릭터 카드 "선택" 버튼(+던전 시작/업적)을 순서대로 누른다
@@ -378,6 +528,24 @@ func _debug_show_achievements_scrolled() -> void:
 	# 아직 갱신 전인 max_value(0에 가까움)로 클램프돼 무시된다 — call_deferred로 한 프레임
 	# 미뤄서 레이아웃이 끝난 뒤에 스크롤하도록 한다.
 	achievement_panel.call_deferred("_debug_scroll_to_bottom")
+
+
+## QA 전용: [미니 기획 E]-3 슬롯 1이 "잠김" 상태(자물쇠 아이콘 + disabled)로 보이는
+## 기본 화면을 검증하기 위해, 이전 QA 실행에서 남은 해금 상태를 초기화하고 견습
+## 모험가를 선택한다(견습 모험가의 슬롯 1 "정예"가 잠긴 채로 보여야 정상).
+func _debug_show_starting_skill_locked() -> void:
+	AchievementManager._debug_reset_for_qa()
+	_on_card_selected("novice")
+
+
+## QA 전용: "clear_novice" 업적을 미리 해금해 슬롯 1("정예")이 해금 상태(자물쇠 없이
+## 클릭 가능)로 보이는지 검증한다. 실제로 슬롯 1을 골라 chosen_starting_skill_id가
+## 바뀌는 것까지 한 번에 확인한다.
+func _debug_show_starting_skill_unlocked() -> void:
+	AchievementManager._debug_reset_for_qa()
+	AchievementManager.unlock("clear_novice")
+	_on_card_selected("novice")
+	_on_starting_skill_selected("start_lean")
 
 
 ## QA 전용 — 실제 숫자 키 입력이 _unhandled_input()을 거쳐 버튼까지 눌리는 전체 경로를

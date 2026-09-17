@@ -69,7 +69,16 @@ extends Node
 ## (combat_test.gd)은 아직 구현하지 않음** — 이번 이터레이션은 "구조 + 배열"까지만
 ## 진행하기로 확정된 범위이고, 다음 이터레이션이 SkillPool.SKILLS의 각 스킬 효과를
 ## combat_test.gd에 실제로 배선해야 한다(DESIGN.md/STATUS.md 참고).
-
+##
+## chosen_starting_skill_id: [미니 기획 E]-3 (INBOX.md 2026-09-17 기획자 결정) —
+## 캐릭터 선택 화면에서 미리 확정하는 "시작 스킬" 로드아웃(SkillPool.STARTING_SKILLS,
+## skill_flags와는 별개 레이어). character_select.gd가 캐릭터 카드를 고를 때마다 그
+## 캐릭터의 슬롯 0 id로 리셋하고(단, 이미 골라둔 값이 새 캐릭터의 후보 목록에도 있고
+## 잠기지 않았다면 유지 — character_select.gd의 검증 로직 참고), 시작 스킬 슬롯을
+## 클릭하면 그 id로 바뀐다. reset_run()은 이 필드를 건드리지 않는다 — "던전 시작"
+## 버튼을 누르는 시점에는 이미 선택이 끝나 있어야 하고, 그 값을 실제로 skill_flags에
+## 부여하는 배선([미니 기획 E]-4)은 아직 다음 이터레이션 몫이라 reset_run()이 이
+## 필드를 읽지도 않는다.
 const TOTAL_ROOMS := 5
 const TOTAL_ROUNDS := 3
 
@@ -84,6 +93,7 @@ var player_defense_bag: DiceBag
 var pip_inventory: Array[int] = []
 var die_inventory: Array[int] = []
 var skill_flags: Array[String] = []
+var chosen_starting_skill_id: String = ""
 
 
 func _ready() -> void:
