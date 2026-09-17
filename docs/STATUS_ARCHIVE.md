@@ -8,6 +8,55 @@
 
 ---
 
+- **2026-09-17 (129)**: INBOX.md "부분 처리됨"의 [미니 기획 D](스킬 강화 이벤트)
+  3번(이벤트 발생 구조)을 지시된 순서대로 구현 — 1~2번((128), 아래 참고)에 이어
+  진행. `code/scenes/event.gd`에 `SKILL_UPGRADE_EVENT_CHANCE`(=0.2, 기획자가
+  예시로 든 수치 그대로 잠정값) 상수와 `_is_skill_upgrade_event` 플래그를
+  추가하고, `_ready()`의 맨 앞에서(기존 `SKILL_EVENT_CHANCE`(0.3) 분기보다
+  먼저) `SkillPool.available_upgrade_choices(2, RunState.character_id)`로 강화
+  후보를 뽑아, 후보가 있고 확률이 성공하면 `_setup_skill_upgrade_event()`로
+  분기하고 그 자리에서 `return`(기존 스킬/아이템 이벤트 분기까지 내려가지
+  않음) — 강화 후보가 하나도 없으면(플레이어가 스킬을 아직 하나도 안 얻었거나
+  이미 다 강화한 경우) 확률과 무관하게 항상 기존 흐름(스킬 이벤트 30% 또는
+  아이템 이벤트)으로 폴백된다(지시된 "강화 가능한 스킬이 하나도 없으면 반드시
+  기존 이벤트로 대체" 그대로). `_setup_skill_upgrade_event(skills)`는 제목/문구만
+  강화 전용으로 바꾸고("이미 익힌 능력을 강화할 기회") 카드 렌더링/픽업은
+  `_setup_skill_event()`가 이미 쓰던 `_show_skill_offer()`/
+  `_on_pick_skill_pressed()`/`_apply_skill_pick()`을 그대로 재사용했다(지시된
+  "기존 스킬 획득 흐름을 최대한 재사용" 반영) — `UPGRADE_SKILLS` 항목도
+  `{id, name, description}` 형태라 별도 카드/픽업 로직이 필요 없었다("+"id
+  자체를 `skill_flags`에 추가하면 그대로 강화 완료). QA 훅
+  `_debug_force_skill_upgrade_event()`(다른 `_debug_force_skill_event_as_*`와
+  같은 패턴, 견습 모험가가 "임기응변"을 보유한 상태를 만들어 "임기응변+"
+  카드를 강제 표시)도 추가.
+  `dice_test.gd`에 `_check_skill_upgrade_event_structure` 신규 검증 추가 —
+  (1) 강화 후보가 있을 때 `_setup_skill_upgrade_event()`가 카드 1장을 정상
+  표시하고 `_apply_skill_pick()`으로 "+"id가 `skill_flags`에 실제로 추가되며
+  이중 실행 가드도 걸리는지(기존 `_check_skill_event_structure`와 동일 패턴),
+  (2) 강화 후보가 하나도 없는 상태로 `event.tscn`을 인스턴스화하면 `_ready()`가
+  확률과 무관하게 항상 `_is_skill_upgrade_event=false`로 폴백하는지. 구현 중
+  (119)에서 이미 한 번 겪었던 것과 똑같은 실수를 반복했다 — 테스트 코드에서
+  `event_node._setup_skill_upgrade_event([candidate])`처럼 untyped 배열 리터럴을
+  `Array[Dictionary]` 매개변수에 그대로 넘겨 "Invalid type" 스크립트 오류로 테스트
+  함수 전체가 조용히 중단되는 것을 실제로 겪었고((119)의 완료 기록이 정확히 같은
+  패턴을 경고하고 있었는데도 다시 발생시킴), `var offer: Array[Dictionary] =
+  [candidate]`로 명시적으로 타입 선언한 지역 변수를 거치도록 고쳐 해결했다 —
+  앞으로 이 함수 호출 패턴을 쓸 때 다시 주의할 것.
+  `bash scripts/qa_shot.sh dice_test` 전체 PASS(신규 검증 포함, 무관한 다른
+  체크들에서 보이는 "combat_test.gd _append_log Nil" SCRIPT ERROR 다수는 이번
+  변경과 무관한 기존 노이즈로 확인 — `_check_skill_effects`가 씬 트리 밖에서
+  `combat_test.gd`를 `new()`만 해서 직접 호출하는 기존 패턴 때문에 발생, 결과에
+  영향 없음). 화면 검증은 `_debug_force_skill_upgrade_event()`로
+  `qa_out/event_skill_upgrade_offer.png`를 캡처해 "임기응변+" 카드가 DeckPanel/
+  단축키 힌트와 겹침 없이 표시됨을 확인, `bash scripts/qa_shot.sh event`/
+  `dungeon_map`으로 무관한 화면들도 회귀 없이 로드됨을 재확인.
+  `docs/DESIGN.md`의 "캐릭터 스킬 부여 이벤트" 절에 새 단락을 추가해 강화
+  이벤트의 존재/확률/폴백 조건과 "아직 전투 효과는 없다"는 한계를 명시.
+  남은 것: 4번(전투 배선, "+" > base > 없음 세 단계 우선순위)/5번(카드 노란
+  테두리 강조)/6번(선택, DeckPanel 보유 스킬 목록) — 아래 큐 18 참고,
+  INBOX.md는 1~5번이 모두 끝나야 "처리됨"으로 옮기라는 완료 기준이 있어 이번엔
+  "부분 처리됨"에 진행 상황만 갱신했다.
+
 - **2026-09-17 (128)**: INBOX.md "남은 이슈"의 [미니 기획 D](스킬 강화 이벤트)
   1~2번을 지시된 순서대로 착수. `code/systems/skill_pool.gd`에
   `UPGRADE_SKILLS: Array[Dictionary]`(7종, 기존 SKILLS 2 + UNIQUE_SKILLS 5

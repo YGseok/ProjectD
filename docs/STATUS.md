@@ -5,30 +5,28 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-09-17 (138)
-- 작성자: AI 에이전트. INBOX.md "부분 처리됨"의 [미니 기획 E](캐릭터별 시작
-  스킬 선택) 4번(적용 배선)의 마지막 2개("수집가"/"강철 방비")를 배선해
-  6개 전부 완료했다(세션 지침이 "맹공/철벽/확장/정예가 끝났으니 이어서
-  수집가/강철 방비를 배선하라"고 구체적으로 지정). `combat_test.gd`의
-  `_do_exchange()`에 "정예" 분기 바로 뒤(공격턴)에 "수집가"(`start_hoard`,
-  눈금 인벤토리 5개 이상이면 공격 다이스 결과값 +1), "정예" 분기 바로
-  뒤(방어턴)에 "강철 방비"(`start_ironclad`, 철제 재질(D12/D20) 다이스를
-  1개 이상 보유하면 방어 다이스 결과값 +1) 조건 분기를 추가했다(기존
-  `DiceBag.apply_flat_bonus()` 재사용, 새 다이스 연산 없음). 구현 중
-  `DiceBag.dice`가 `Die` 노드 배열이 아니라 다이스별 "면 값 배열"
-  (`Array[PackedInt32Array]`, 면 개수는 `.size()`)이라는 걸 처음엔 착각해
-  `die.sides`로 썼다가 파싱 에러를 냈고, `die_faces.size()`로 고쳐 해결했다.
-  `dice_test.gd`의 `_check_starting_skill_combat_wiring`에 두 조건이 임계값을
-  넘나드는 지점(눈금 5개 채우기 전/후, D12 다이스 추가 전/후)에서 정확히
-  켜지고 꺼지는지 검증하는 케이스를 추가, `bash scripts/qa_shot.sh dice_test`
-  전체 PASS. `qa_out/combat_test.png`/`qa_out/character_select.png`로 전투/
-  캐릭터 선택 화면이 크래시/겹침 없이 정상 로드됨도 확인했다. 자세한 내용은
-  아래 "완료 기록 (138)" 참고. "완료 기록" 10개 유지를 위해 (128)을
-  `docs/STATUS_ARCHIVE.md`로 옮겼다. **[미니 기획 E] 1~4번이 전부 끝나
-  `docs/feedback/INBOX.md`에서 "처리됨"으로 옮겼다(5번 UI 강조는 선택
-  사항이라 미착수).** 방패병 "정예" 슬롯이 이론상 발동 불가능한 죽은
-  선택지라는 (137)의 발견은 여전히 미해결 상태로 "알려진 이슈"에 남아있다
-  (사람 결정 필요, 임의로 고치지 않음).
+- 일시: 2026-09-17 (139)
+- 작성자: AI 에이전트. INBOX.md "남은 이슈"가 비어있고 [미니 기획 E]도
+  이미 "처리됨"으로 옮겨져 있어(전 세션(138)이 처리), 세션 지침대로 "코드를
+  다시 읽어보고 실제 버그가 있으면 고쳐라"를 실행했다. (138)이 막 추가한
+  "수집가"/"강철 방비" 배선을 다시 읽다가 **실제 버그를 발견해 고쳤다**:
+  `code/scenes/combat_test.gd`의 `_do_exchange()`에서 "수집가"(`start_hoard`)와
+  "강철 방비"(`start_ironclad`) 조건 분기가 각각 "정예"(`start_lean`)
+  if-블록 안에 잘못 중첩돼 있어서, `skill_flags`에 `start_lean`이 함께 있어야만
+  평가되는 코드였다 — 그런데 "수집가"는 광전사 전용, "강철 방비"는 수호자
+  전용이고 둘 다 "정예"는 선택지에 없어(시작 스킬은 캐릭터당 하나만 선택)
+  이 조합이 게임 안에서 절대 나올 수 없다. 즉 두 스킬 다 **코드 구조상 100%
+  발동 불가능한 죽은 코드**였다(방패병 "정예"처럼 "확률적으로 드묾"이 아니라
+  "완전히 도달 불가능"이라 더 심각). 두 블록을 바깥으로 꺼내 독립 조건문으로
+  고쳤다(로직/헬퍼 호출은 그대로, 중첩 구조만 수정). 기존 `_check_starting_
+  skill_combat_wiring`(f)/(g)가 `_do_exchange()`를 실행하지 않고 조건식만
+  `RunState`에서 직접 확인하는 방식이라 이 중첩 버그를 못 잡았던 것도 확인
+  했고, (h) 항목을 추가해 "start_hoard 보유 시 start_lean은 없다"는 전제를
+  명시적으로 검증해뒀다. `bash scripts/qa_shot.sh dice_test` 전체 PASS,
+  `qa_out/combat_test.png`로 전투 화면 크래시/레이아웃 이상 없음 확인. 자세한
+  내용은 아래 "완료 기록 (139)" 참고. "완료 기록" 10개 유지를 위해 (129)를
+  `docs/STATUS_ARCHIVE.md`로 옮겼다. 방패병 "정예" 슬롯 관련 알려진 이슈는
+  이번 세션과 무관하게 그대로 남아있다(사람 결정 대기).
 
 ## 지금 위치
 
@@ -48,7 +46,9 @@
 chosen_starting_skill_id`에 저장), `RunState.reset_run()`이 새 런을 만들
 때마다 이 값을 `SkillPool.grant()`로 `skill_flags`에 즉시 넣는다 —
 **"맹공"/"철벽"/"확장"/"정예"/"수집가"/"강철 방비" 6종 전부 실제 전투
-보너스로 이어짐**(`combat_test.gd`). **알려진 이슈**: 방패병의 "정예" 슬롯은
+보너스로 이어짐**(`combat_test.gd`, 이번 이터레이션(139)에서 "수집가"/
+"강철 방비"가 "정예" if-블록에 잘못 중첩돼 죽은 코드였던 버그를 고쳐 이제
+실제로 6종 전부 정상 배선됨). **알려진 이슈**: 방패병의 "정예" 슬롯은
 방패병 기본 다이스 합계(7개)가 이미 조건(6개 이하)을 넘어서고 다이스를
 줄이는 수단이 게임에 전혀 없어 이론상 절대 발동하지 않는다 — "알려진
 이슈" 섹션에 사람 결정 대기 중.
@@ -712,6 +712,45 @@ chosen_starting_skill_id`에 저장), `RunState.reset_run()`이 새 런을 만�
 
 ## 완료 기록
 
+- **2026-09-17 (139)**: 세션 지침대로 [미니 기획 E]가 이미 "처리됨"으로 옮겨져
+  있음을 확인한 뒤, "코드를 다시 읽어보고 실제 버그가 있으면 고쳐라"에 따라
+  (138)이 막 추가한 "수집가"/"강철 방비" 배선 코드를 다시 읽다가 실제 버그를
+  발견해 고쳤다. `code/scenes/combat_test.gd`의 `_do_exchange()`에서 "수집가"
+  (`start_hoard`) 조건 분기가 "정예"(`start_lean`) if-블록 **안에 중첩**돼
+  있었고(공격턴), "강철 방비"(`start_ironclad`) 조건 분기도 마찬가지로 "정예"
+  if-블록 안에 중첩돼 있었다(방어턴) — 즉 두 스킬 다 `skill_flags`에
+  `start_lean`이 함께 있어야만 평가라도 되는 코드였다. 그런데
+  `SkillPool.starting_skills_for_character()`상 "수집가"를 고를 수 있는 건
+  광전사([start_aggro, start_hoard])뿐이고 "강철 방비"를 고를 수 있는 건
+  수호자([start_wall, start_ironclad])뿐인데, 광전사/수호자 둘 다
+  `start_lean`은 애초에 선택지에 없다(정예는 견습/방패병 전용) — 즉 시작
+  스킬은 캐릭터당 하나만 선택하므로 "수집가"를 고른 플레이어가 동시에
+  "정예"를 가질 수 있는 경로가 게임 안에 전혀 없어, 두 스킬 다 **이론상
+  영원히 발동하지 않는 죽은 코드**였다(방패병 "정예" 슬롯처럼 "밸런스상
+  드물게 발동"이 아니라 "코드 구조상 100% 발동 불가능"이라는 점에서 더 심각).
+  두 블록을 "정예" if-블록 밖으로 꺼내 독립된 조건문으로 만들어 고쳤다(로직
+  자체는 그대로, 들여쓰기만 수정 — `apply_flat_bonus()` 호출/로그 문구 등은
+  변경 없음). (138)의 완료 기록이 "die.sides 오타로 파싱 에러를 냈다가 고쳤다"는
+  걸 언급했었는데, 그 수정 과정에서 들여쓰기가 잘못 들어간 것으로 추정된다.
+  **왜 (138)의 QA가 못 잡았는지**: 기존 `_check_starting_skill_combat_wiring`
+  (f)/(g) 검증은 `_do_exchange()`를 실제로 실행하지 않고 조건식 자체(눈금
+  개수, 철제 재질 보유 여부)만 `RunState`에서 직접 확인하는 방식이라, "그
+  조건이 정말 `_do_exchange()` 안에서 다른 플래그 없이도 평가되는지"는
+  검증 범위 밖이었다 — 순수 조건 참/거짓만 보고 실제 코드 배선(중첩 구조)은
+  안 본 것.
+  **수정 + 회귀 테스트**: `dice_test.gd`의 `_check_starting_skill_combat_wiring`에
+  (h) 항목을 추가해, berserker+start_hoard/guardian+start_ironclad 조합에서
+  `skill_flags`에 `start_lean`이 없다는 것을 명시적으로 검증해뒀다(이 조합이
+  실제 게임에서 나온다는 전제 자체를 문서화 — `_do_exchange()`는 3D 물리
+  스폰이 필요해 여기서 직접 실행하진 않음, 기존 한계와 동일). `bash scripts/
+  qa_shot.sh dice_test` 전체 PASS. `bash scripts/qa_shot.sh combat_test`로
+  전투 화면이 크래시/레이아웃 붕괴 없이 정상 로드됨을 재확인(순수 들여쓰기
+  수정이라 화면 영향 없음, `qa_out/combat_test.png`). "수집가"/"강철 방비"
+  자체의 실제 발동 장면은 (136)~(138)과 같은 이유로(캐릭터 선택+눈금/철제
+  다이스 확보 필요) 결정적 단일 스크린샷으로 재현하지 않았다.
+  방패병 "정예" 슬롯 관련 알려진 이슈는 이번 세션과 무관하게 그대로 남아있다
+  (사람 결정 대기, 아래 "알려진 이슈" 참고).
+
 - **2026-09-17 (138)**: INBOX.md "부분 처리됨"의 [미니 기획 E](캐릭터별 시작 스킬
   선택) 4번(적용 배선)을 마무리 — 세션 지침이 지정한 순서("맹공/철벽 → 확장/정예
   → 수집가/강철 방비")의 마지막 조각인 "수집가"/"강철 방비"를 배선해 6개 전부
@@ -1033,58 +1072,9 @@ chosen_starting_skill_id`에 저장), `RunState.reset_run()`이 새 런을 만�
   `docs/DESIGN.md`의 "스킬 강화 이벤트([미니 기획 D])" 절을 갱신해 공용 2종의
   실제 배선 내용을 반영했다.
 
-- **2026-09-17 (129)**: INBOX.md "부분 처리됨"의 [미니 기획 D](스킬 강화 이벤트)
-  3번(이벤트 발생 구조)을 지시된 순서대로 구현 — 1~2번((128), 아래 참고)에 이어
-  진행. `code/scenes/event.gd`에 `SKILL_UPGRADE_EVENT_CHANCE`(=0.2, 기획자가
-  예시로 든 수치 그대로 잠정값) 상수와 `_is_skill_upgrade_event` 플래그를
-  추가하고, `_ready()`의 맨 앞에서(기존 `SKILL_EVENT_CHANCE`(0.3) 분기보다
-  먼저) `SkillPool.available_upgrade_choices(2, RunState.character_id)`로 강화
-  후보를 뽑아, 후보가 있고 확률이 성공하면 `_setup_skill_upgrade_event()`로
-  분기하고 그 자리에서 `return`(기존 스킬/아이템 이벤트 분기까지 내려가지
-  않음) — 강화 후보가 하나도 없으면(플레이어가 스킬을 아직 하나도 안 얻었거나
-  이미 다 강화한 경우) 확률과 무관하게 항상 기존 흐름(스킬 이벤트 30% 또는
-  아이템 이벤트)으로 폴백된다(지시된 "강화 가능한 스킬이 하나도 없으면 반드시
-  기존 이벤트로 대체" 그대로). `_setup_skill_upgrade_event(skills)`는 제목/문구만
-  강화 전용으로 바꾸고("이미 익힌 능력을 강화할 기회") 카드 렌더링/픽업은
-  `_setup_skill_event()`가 이미 쓰던 `_show_skill_offer()`/
-  `_on_pick_skill_pressed()`/`_apply_skill_pick()`을 그대로 재사용했다(지시된
-  "기존 스킬 획득 흐름을 최대한 재사용" 반영) — `UPGRADE_SKILLS` 항목도
-  `{id, name, description}` 형태라 별도 카드/픽업 로직이 필요 없었다("+"id
-  자체를 `skill_flags`에 추가하면 그대로 강화 완료). QA 훅
-  `_debug_force_skill_upgrade_event()`(다른 `_debug_force_skill_event_as_*`와
-  같은 패턴, 견습 모험가가 "임기응변"을 보유한 상태를 만들어 "임기응변+"
-  카드를 강제 표시)도 추가.
-  `dice_test.gd`에 `_check_skill_upgrade_event_structure` 신규 검증 추가 —
-  (1) 강화 후보가 있을 때 `_setup_skill_upgrade_event()`가 카드 1장을 정상
-  표시하고 `_apply_skill_pick()`으로 "+"id가 `skill_flags`에 실제로 추가되며
-  이중 실행 가드도 걸리는지(기존 `_check_skill_event_structure`와 동일 패턴),
-  (2) 강화 후보가 하나도 없는 상태로 `event.tscn`을 인스턴스화하면 `_ready()`가
-  확률과 무관하게 항상 `_is_skill_upgrade_event=false`로 폴백하는지. 구현 중
-  (119)에서 이미 한 번 겪었던 것과 똑같은 실수를 반복했다 — 테스트 코드에서
-  `event_node._setup_skill_upgrade_event([candidate])`처럼 untyped 배열 리터럴을
-  `Array[Dictionary]` 매개변수에 그대로 넘겨 "Invalid type" 스크립트 오류로 테스트
-  함수 전체가 조용히 중단되는 것을 실제로 겪었고((119)의 완료 기록이 정확히 같은
-  패턴을 경고하고 있었는데도 다시 발생시킴), `var offer: Array[Dictionary] =
-  [candidate]`로 명시적으로 타입 선언한 지역 변수를 거치도록 고쳐 해결했다 —
-  앞으로 이 함수 호출 패턴을 쓸 때 다시 주의할 것.
-  `bash scripts/qa_shot.sh dice_test` 전체 PASS(신규 검증 포함, 무관한 다른
-  체크들에서 보이는 "combat_test.gd _append_log Nil" SCRIPT ERROR 다수는 이번
-  변경과 무관한 기존 노이즈로 확인 — `_check_skill_effects`가 씬 트리 밖에서
-  `combat_test.gd`를 `new()`만 해서 직접 호출하는 기존 패턴 때문에 발생, 결과에
-  영향 없음). 화면 검증은 `_debug_force_skill_upgrade_event()`로
-  `qa_out/event_skill_upgrade_offer.png`를 캡처해 "임기응변+" 카드가 DeckPanel/
-  단축키 힌트와 겹침 없이 표시됨을 확인, `bash scripts/qa_shot.sh event`/
-  `dungeon_map`으로 무관한 화면들도 회귀 없이 로드됨을 재확인.
-  `docs/DESIGN.md`의 "캐릭터 스킬 부여 이벤트" 절에 새 단락을 추가해 강화
-  이벤트의 존재/확률/폴백 조건과 "아직 전투 효과는 없다"는 한계를 명시.
-  남은 것: 4번(전투 배선, "+" > base > 없음 세 단계 우선순위)/5번(카드 노란
-  테두리 강조)/6번(선택, DeckPanel 보유 스킬 목록) — 아래 큐 18 참고,
-  INBOX.md는 1~5번이 모두 끝나야 "처리됨"으로 옮기라는 완료 기준이 있어 이번엔
-  "부분 처리됨"에 진행 상황만 갱신했다.
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(138)에서 (128)을 그리로 옮겼다.)*
+이번 이터레이션(139)에서 (129)를 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 

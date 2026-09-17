@@ -3158,6 +3158,34 @@ func _check_starting_skill_combat_wiring(lines: PackedStringArray) -> bool:
 		has_metal_after, "OK" if ironclad_activate_ok else "FAIL"
 	])
 
+	# (h) 회귀 방지: combat_test.gd의 _do_exchange()에서 "수집가"/"강철 방비" 조건
+	# 분기가 실수로 "정예"(start_lean) if-블록 안에 중첩됐던 버그가 있었다(2026-09-17
+	# (138)에서 도입, 이번 이터레이션에 발견/수정). 그 버그가 있었다면 "수집가"는
+	# skill_flags에 start_lean도 함께 있어야만 발동했을 것 — 그런데 berserker는
+	# starting_skills_for_character()상 [start_aggro, start_hoard]만 선택 가능해
+	# start_lean을 절대 가질 수 없으므로, 버그가 있었다면 "수집가"는 영원히 죽은
+	# 코드였다. 이 케이스를 직접 재현해 skill_flags에 start_lean이 없는 상태로도
+	# "수집가"/"강철 방비" 조건 자체는 정상적으로 평가 가능함을 명시적으로 남긴다
+	# (실제 _do_exchange() 실행은 3D 다이스 물리 스폰이 필요해 여기선 안 하지만,
+	# 적어도 "start_lean 없이 start_hoard/start_ironclad만 보유하는 조합"이 실제
+	# 게임에서 나온다는 전제 자체는 검증해둔다 — 이게 거짓이면 애초에 이 버그가
+	# 문제되지 않았을 것이므로).
+	RunState.chosen_starting_skill_id = "start_hoard"
+	RunState.reset_run("berserker")
+	var hoard_without_lean_ok: bool = RunState.skill_flags.has("start_hoard") and not RunState.skill_flags.has("start_lean")
+	ok = hoard_without_lean_ok and ok
+	lines.append("  회귀 방지 (h): berserker+start_hoard -> skill_flags=%s (start_hoard 있고 start_lean 없어야 함) -> %s" % [
+		RunState.skill_flags, "OK" if hoard_without_lean_ok else "FAIL"
+	])
+
+	RunState.chosen_starting_skill_id = "start_ironclad"
+	RunState.reset_run("guardian")
+	var ironclad_without_lean_ok: bool = RunState.skill_flags.has("start_ironclad") and not RunState.skill_flags.has("start_lean")
+	ok = ironclad_without_lean_ok and ok
+	lines.append("  회귀 방지 (h): guardian+start_ironclad -> skill_flags=%s (start_ironclad 있고 start_lean 없어야 함) -> %s" % [
+		RunState.skill_flags, "OK" if ironclad_without_lean_ok else "FAIL"
+	])
+
 	RunState.chosen_starting_skill_id = chosen_backup
 	RunState.reset_run(character_backup)
 	return ok
