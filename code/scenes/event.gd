@@ -142,6 +142,7 @@ func _resolve_risky(roll: int) -> void:
 	var success := roll >= _dc
 	_show_roll_result(roll, success)
 	if success:
+		AchievementManager.unlock("risk_taker")
 		_show_item_offer(EventItemPool.random_risky_item())
 	else:
 		_show_fail()

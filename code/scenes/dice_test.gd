@@ -1315,6 +1315,7 @@ func _check_event_safe_risky_choice(lines: PackedStringArray) -> bool:
 	var rooms_backup := RunState.rooms_cleared
 	RunState.rooms_cleared = 0
 
+	AchievementManager._debug_reset_for_qa()
 	var event_scene := load("res://code/scenes/event.tscn")
 	var success_node = event_scene.instantiate()
 	add_child(success_node)
@@ -1322,15 +1323,22 @@ func _check_event_safe_risky_choice(lines: PackedStringArray) -> bool:
 	var success_card_ok: bool = success_node._row_ui.size() == 1
 	ok = success_card_ok and ok
 	lines.append("  위험 감수 강제 성공 -> 아이템 카드 표시(_row_ui.size()==1) -> %s" % ("OK" if success_card_ok else "FAIL"))
+	var risk_taker_unlocked_ok: bool = AchievementManager.is_unlocked("risk_taker")
+	ok = risk_taker_unlocked_ok and ok
+	lines.append("  위험 감수 강제 성공 -> \"risk_taker\" 업적 해금 -> %s" % ("OK" if risk_taker_unlocked_ok else "FAIL"))
 	remove_child(success_node)
 	success_node.free()
 
+	AchievementManager._debug_reset_for_qa()
 	var fail_node = event_scene.instantiate()
 	add_child(fail_node)
 	fail_node._debug_force_risky_failure()
 	var fail_ui_ok: bool = fail_node.fail_label.visible and fail_node.continue_button.visible and fail_node._row_ui.is_empty()
 	ok = fail_ui_ok and ok
 	lines.append("  위험 감수 강제 실패 -> 실패 문구+계속 버튼 표시, 아이템 카드 없음 -> %s" % ("OK" if fail_ui_ok else "FAIL"))
+	var risk_taker_not_unlocked_ok: bool = not AchievementManager.is_unlocked("risk_taker")
+	ok = risk_taker_not_unlocked_ok and ok
+	lines.append("  위험 감수 강제 실패 -> \"risk_taker\" 업적 미해금 -> %s" % ("OK" if risk_taker_not_unlocked_ok else "FAIL"))
 
 	var rooms_before: int = RunState.rooms_cleared
 	var first_applied: bool = fail_node._apply_fail()
@@ -1348,6 +1356,7 @@ func _check_event_safe_risky_choice(lines: PackedStringArray) -> bool:
 	remove_child(fail_node)
 	fail_node.free()
 
+	AchievementManager._debug_reset_for_qa()
 	RunState.rooms_cleared = rooms_backup
 	return ok
 

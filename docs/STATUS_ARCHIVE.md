@@ -8,6 +8,60 @@
 
 ---
 
+- **2026-09-16 (115)**: INBOX.md [미니 기획 B] "특수 이벤트 개편"의 권장 순서
+  (4 -> 1 -> 2+3) 중 마지막 조각 **2+3번(선택지를 "안전/위험" 2개로 통일 +
+  이벤트 다이스로 DC 난이도 체크)**을 처리해 [미니 기획 B] 전체를 완료했다.
+  (113)/(114)가 만들어둔 이벤트 다이스 필드/시각화/flavor 문구 위에, 이번에
+  실제 선택-판정 흐름을 얹었다.
+  `code/scenes/event.gd`를 전면 재구성: 기존 "무작위 2개 중 1개 무료 획득"
+  구조를 버리고, 화면 진입 시 "안전하게 넘어가기"/"위험을 감수하기" 버튼 2개만
+  보여준다. 안전을 고르면 `EventItemPool.random_safe_item()`으로 C급 아이템을
+  확정 지급(지금은 "눈금 주머니 획득" 하나뿐). 위험을 고르면
+  `randi_range(1, RunState.event_die_sides)`로 이벤트 주사위를 굴려 새 static
+  함수 `difficulty_for_room(room_index) = min(5, 3 + room_index / 2)`가 계산한
+  DC와 비교 — 성공하면 `EventItemPool.random_risky_item()`으로 A/S급 중
+  무작위 1개(D12/D10 승급/D20), 실패하면 아이템 없이 "아쉽게도 손에 넣지
+  못했다..." 문구만 보여주고 방 진행만 인정한다(HP 페널티 없음, DESIGN.md
+  확정). 굴림 결과는 `EventDieVisual`(로마 숫자 육각 칩)로 표시해 캐릭터
+  선택 화면에서 이미 쓰던 컴포넌트를 재사용했다 — 이를 위해
+  `event_die_visual.gd`의 `_to_roman()`을 인스턴스 없이 호출 가능하도록
+  `static`으로 바꿨다(기존 호출부/`dice_test.gd`의 인스턴스 호출 방식 둘 다
+  그대로 동작, 순수하게 접근 방식만 넓어짐).
+  `event_item_pool.gd`에 등급 필터 3종(`items_of_grade`/`random_safe_item`/
+  `random_risky_item`)을 추가 — grade가 늘어나도 이 필터만으로 자동 대응된다.
+  **기존 아이템 적용 로직은 건드리지 않았다**: `_apply_pick`/`_apply_pips`/
+  `_apply_upgrade`와 그 `_on_pick_*` 핸들러(이중 실행 가드 `_picked` 포함)를
+  시그니처/동작 그대로 유지하고, 안전/위험 성공 양쪽이 공유하는
+  `_show_item_offer(item)` 헬퍼로 카드+버튼 생성만 1개짜리로 단순화했다 —
+  `dice_test.gd`의 기존 회귀 테스트 3종(`_check_event_double_pick_guard`/
+  `_check_event_pips_guard`/`_check_event_upgrade_guard`)이 event.tscn을
+  인스턴스화해 이 함수들을 직접 호출하므로, 수정 없이 그대로 계속 통과한다.
+  실패 후 "계속" 버튼에는 같은 `_picked` 가드를 공유하는 신규 `_apply_fail()`을
+  추가(더블클릭으로 방이 두 번 소비되지 않게).
+  `event.tscn`에 `PromptLabel`/`SafeButton`/`RiskyButton`/`RollRoot`(굴림
+  결과를 동적으로 붙이는 자리)/`FailLabel`/`ContinueButton`을 추가하고
+  `ItemsRoot`를 카드 1개짜리 중앙 배치로 재배치했다. QA 훅도 전면
+  교체 — `_debug_pick_safe()`/`_debug_force_risky_success()`(항상 최댓값을
+  굴린 것으로 강제)/`_debug_force_risky_failure()`(항상 1을 굴린 것으로
+  강제)로 RNG 없이 성공/실패 양쪽을 결정적으로 재현 가능(DC가 최대 5라도
+  최댓값 굴림은 항상 성공, 최솟값 1은 DC가 항상 3 이상이라 반드시 실패).
+  `dice_test.gd`에 신규 `_check_event_safe_risky_choice`를 추가해 (1)
+  `difficulty_for_room(0/1/2/3/4/10)`이 3/3/4/4/5/5를 내는지, (2)
+  `random_safe_item()`/`random_risky_item()`이 각각 20회 전부 올바른
+  등급만 반환하는지, (3) 강제 성공/실패 경로가 실제로 카드/실패 UI를 각각
+  만드는지, (4) 실패 후 "계속"의 이중 실행 가드까지 검증 — 전체 회귀
+  스위트(`scripts/qa_shot.sh dice_test`) PASS 확인.
+  화면 검증: `qa_out/event_initial_choice.png`(안전/위험 버튼 2개, 겹침
+  없음)/`qa_out/event_risky_success.png`(강제 성공 — 로마 숫자 VI 칩 +
+  결과 문구 + D20 카드 20칸 미리보기까지 겹침 없이 표시)/
+  `qa_out/event_risky_failure.png`(강제 실패 — 로마 숫자 I 칩 + 실패
+  문구 + 계속 버튼)/`qa_out/event_safe_pick.png`(안전 선택 — 눈금 카드).
+  **구현 중 발견한 새 간극**: 등급 배정상 B급("다면체 주사위 획득 (D8)")이
+  안전(C만)/위험 성공(A/S만) 어느 풀에도 안 걸려 이 방에서는 다시 안 나오게
+  됐다 — "알려진 이슈"에 기록, 사람 결정 필요. `docs/DESIGN.md`의 "특수
+  이벤트" 절도 새 2택 흐름으로 갱신. [미니 기획 A](몬스터 성격)/[미니 기획 C]
+  (캐릭터 스킬 이벤트)는 이번에도 손대지 않음.
+
 - **2026-09-16 (114)**: INBOX.md [미니 기획 B] "특수 이벤트 개편"의 권장 순서
   (4 -> 1 -> 2+3) 중 **1번(방 진입 시 짧은 상황 문구)**을 처리. (113)이 완료한
   이벤트 다이스 필드/시각화에 이어지는 조각 — [미니 기획 A](몬스터 성격)/

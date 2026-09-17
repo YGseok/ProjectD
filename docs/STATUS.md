@@ -5,32 +5,21 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-09-17 (124)
-- 작성자: AI 에이전트. INBOX.md "남은 이슈"가 비어 있어 다음 할 일 큐 17번
-  ("폭발병/방패병 전용 고유 스킬 설계+추가")의 남은 절반을 이어갔다.
-  방패병(shieldbearer)도 폭발병과 마찬가지로 이미 `guard_stack` 파이프라인을
-  갖고 있어 광기/수호 심화의 "없던 파이프라인을 열어준다" 패턴을 못 쓰므로,
-  (123)의 "연쇄 폭발"과 완전히 대칭 구조로 방패병 전용 고유 스킬 "연쇄
-  방어"(`chain_guard`, 수호 스택 임계치 3→2)를 추가했다.
-  `code/systems/skill_pool.gd`의 `UNIQUE_SKILLS`에 정의를 추가하고,
-  `code/scenes/combat_test.gd`에 `player_chain_guard_active` 상태 +
-  `_player_guard_threshold()` 헬퍼(`_player_explosive_threshold()`와 대칭 —
-  보유 시 2, 미보유 시 기존 `GUARD_STACK_THRESHOLD`=3 반환)를 신설해 수호
-  스택 로그·임계치 판정 두 곳의 `GUARD_STACK_THRESHOLD` 직접 참조를 이
-  헬퍼로 교체했다. `dice_test.gd`에 "shieldbearer 캐릭터에게만 제시되는지"
-  필터 검증 + `_player_guard_threshold()` 반환값 검증을 추가, `bash
-  scripts/qa_shot.sh dice_test` 전체 PASS. `event.gd`에 QA 훅
-  `_debug_force_skill_event_as_shieldbearer()`를 추가해 "연쇄 방어" 카드가
-  다른 카드와 겹침 없이 렌더링되는 것을
-  `qa_out/event_skill_offer_shieldbearer.png`로, 기본 전투(novice, 스킬
-  없음)가 크래시 없이 정상 진행됨을
-  `qa_out/combat_test_chain_guard_smoke.png`로 확인했다(guard_stack
-  파이프라인이 실제로 열린 상태의 라이브 트리거 검증은 chain_explosion 때와
-  같은 이유로 생략 — 단위 테스트 + 일반 회귀로 대체). **큐 17이 완전히
-  끝났다** — 남은 것은 견습 모험가(기믹 없음) 전용 고유 스킬 하나뿐인데,
-  시너지 삼을 기믹 자체가 없어 같은 패턴을 재사용할 수 없는 완전히 새로운
-  설계가 필요해 사람이 방향을 정해줘야 진행 가능(다음 할 일 큐 17번 참고).
-  `docs/DESIGN.md`도 함께 갱신. "완료 기록"이 11개가 돼 가장 오래된 (114)를
+- 일시: 2026-09-17 (125)
+- 작성자: AI 에이전트. INBOX.md "남은 이슈"가 비어 있고, "다음 할 일 큐"에
+  남은 항목 전부가 사람 플레이 피드백/설계 결정을 필요로 하는 상태(큐 17의
+  견습 모험가 전용 고유 스킬 포함)라, 그 중 유일하게 사람 결정 없이 진행
+  가능했던 큐 13("업적 시스템 — 남은 항목 추가")을 골랐다. 특수 이벤트
+  "위험을 감수하기" 판정 성공 시(`event.gd`의 `_resolve_risky()`) 신규
+  업적 "위험을 감수한 자"(`risk_taker`)를 해금하도록
+  `AchievementManager.unlock("risk_taker")` 한 줄을 추가하고,
+  `achievement_manager.gd`의 `DEFINITIONS`에 정의를 추가했다(업적 19→20종).
+  `dice_test.gd`의 기존 `_check_event_safe_risky_choice`에 성공/실패 각각의
+  해금 여부 검증을 추가, `bash scripts/qa_shot.sh dice_test` 전체 PASS.
+  `qa_out/character_select_achv_risk_taker.png`로 새 항목이 업적 패널 맨
+  아래에 겹침 없이 표시됨을, `qa_out/event_risk_taker_smoke.png`로 특수
+  이벤트 화면이 정상 로드됨을 확인했다. 자세한 내용은 아래 "완료 기록
+  (125)" 참고. "완료 기록"이 11개가 돼 가장 오래된 (115)를
   `docs/STATUS_ARCHIVE.md`로 옮겼다.
 
 ## 지금 위치
@@ -83,7 +72,7 @@
   **이전에** 받아둘 것(2026-09-15에 5개 화면에서 실제 크래시로 발견된 패턴,
   재발 방지).
 - **업적 시스템**: `AchievementManager`(Autoload)가 `user://achievements.json`에
-  영구 저장, `AchievementPanel`로 열람. 19종 등록(`DEFINITIONS` 참고, 유형별
+  영구 저장, `AchievementPanel`로 열람. 20종 등록(`DEFINITIONS` 참고, 유형별
   아이콘 포함). 해금 순간 토스트/팝업은 없음.
 - **몬스터 5종 + 성격/기믹** (`combat_test.gd`의 `MONSTER_PROFILES`): 슬라임
   (기믹 없음) / 고블린(anger_stack) / 해골 전사(fixed_value) / 오크
@@ -432,22 +421,25 @@
 13. **(INBOX.md 신규 2026-09-09, [대형 기획 3] 부분 처리됨) 업적 시스템 — 남은
     항목 추가.** `code/systems/achievement_manager.gd`(`AchievementManager`)와
     `code/scenes/achievement_panel.gd`(`AchievementPanel`) 골격은 2026-09-09 (79)에
-    완성됨. 등록 19종(#25/#1/#6 + (80)의 "부자"/"무결점 승리"/"기사회생"/"오버킬" +
+    완성됨. 등록 20종(#25/#1/#6 + (80)의 "부자"/"무결점 승리"/"기사회생"/"오버킬" +
     (81)의 "눈금 수집가"/"다이스 수집가"/"가득 찬 주머니" + (82)의 "단골 손님"/
-    "재질 수집가" + **(109)에서 완료**: 라운드 2/3(최종) 클리어(`round2_clear`/
-    `game_clear`) + 캐릭터별 첫 클리어 5종(`clear_<character_id>`) — 아래 "완료
-    기록 (109)" 참고). INBOX.md가 원래 제안했던 30종 목록 중 남은 항목들(원문이
+    "재질 수집가" + (109)의 라운드 2/3(최종) 클리어(`round2_clear`/`game_clear`) +
+    캐릭터별 첫 클리어 5종(`clear_<character_id>`) + **(125)에서 추가**: "위험을
+    감수한 자"(`risk_taker`, 특수 이벤트 위험 판정 성공) — 아래 "완료 기록
+    (125)" 참고). INBOX.md가 원래 제안했던 30종 목록 중 남은 항목들(원문이
     보존돼 있지 않아 정확한 목록/개수는 알 수 없음)을 몇 개씩 나눠서
     `DEFINITIONS`에 추가하고 해당 조건 지점에서 `AchievementManager.unlock(id)`를
     호출하는 작업만 하면 됨(저장/UI는 이미 자동으로 따라옴, `_bag_has_d20`/
     `_is_flawless_win` 같은 "판정 전용 순수 함수 + dice_test.gd 단위 검증" 패턴을
     그대로 재사용하면 됨). [대형 기획 1](5종 캐릭터)/[대형 기획 2](라운드/보스
     구조) 조합이 필요했던 "캐릭터별 클리어" 계열까지 (109)로 처리했으므로, 두
-    대형 기획을 조합해야 풀리는 후보는 이제 소진됨 — 남은 후보가 있다면 새로운
-    RunState 카운터나 판정 조건을 먼저 설계해야 함(구체적으로 뭐가 남았는지는
-    원문 미보존이라 사람이 다시 목록을 정리해줘야 알 수 있음). 해금 "순간"에
-    화면에 토스트/팝업 알림을 줄지(지금은 목록을 직접 열어야만 확인 가능)는
-    사람 판단 필요 — 아직 안 만듦.
+    대형 기획을 조합해야 풀리는 후보는 이제 소진됨. (125)로 "이미 있는 성공/실패
+    분기 하나만 후킹하면 되는" 새 후보(`risk_taker`)를 하나 더 찾아 처리했지만,
+    이런 종류의 후보도 이제 눈에 띄는 대로 소진돼가는 중 — 더 남은 후보가
+    있다면 새로운 RunState 카운터나 판정 조건을 먼저 설계해야 함(구체적으로
+    뭐가 남았는지는 원문 미보존이라 사람이 다시 목록을 정리해줘야 확실히 알 수
+    있음). 해금 "순간"에 화면에 토스트/팝업 알림을 줄지(지금은 목록을 직접
+    열어야만 확인 가능)는 사람 판단 필요 — 아직 안 만듦.
 14. ~~(INBOX.md 신규 2026-09-09, [대형 기획 1]) 플레이어블 캐릭터 — 5종 중
     선택~~ → **완료됨(2026-09-09 (84)+(85)+(86)), 5/5종.**
     `code/systems/character_profiles.gd`(`CharacterProfiles.PROFILES`)에
@@ -675,6 +667,33 @@
       줄지(공격/방어 수치 보정? 자원 보상? 다른 축?) 먼저 방향을 정해야 함.
 
 ## 완료 기록
+
+- **2026-09-17 (125)**: 큐 13("업적 시스템 — 남은 항목 추가")의 후속. INBOX.md
+  "남은 이슈"가 비어 있고, 다음 할 일 큐의 나머지 항목은 전부 사람 플레이
+  피드백/설계 결정이 필요한 상태(큐 17의 견습 모험가 전용 스킬 포함)라, 그
+  중 "새 RunState 카운터 없이 이미 있는 성공/실패 분기 하나만 후킹하면 되는"
+  독립 항목을 찾아 진행했다. 특수 이벤트의 "위험을 감수하기" 판정
+  (`event.gd`의 `_resolve_risky()`)이 성공했을 때 신규 업적
+  "위험을 감수한 자"(`risk_taker`)를 해금하도록 `AchievementManager.
+  unlock("risk_taker")` 한 줄을 성공 분기에 추가하고,
+  `code/systems/achievement_manager.gd`의 `DEFINITIONS`에 정의(icon="dice",
+  이벤트 주사위를 굴려 성공한다는 컨셉과 맞아 기존 카테고리 재사용, 새
+  아이콘 유형은 만들지 않음)를 추가했다 — 이걸로 업적이 20종이 됐다.
+  `dice_test.gd`의 기존 `_check_event_safe_risky_choice`(이미
+  `_debug_force_risky_success()`/`_debug_force_risky_failure()`로 성공/실패
+  양쪽을 결정적으로 재현하고 있던 테스트)에 각각의 직후
+  `AchievementManager.is_unlocked("risk_taker")` 기대값(성공→true,
+  실패→false) 검증을 추가하고, 각 하위 검증 전에 `_debug_reset_for_qa()`로
+  해금 상태를 초기화해 서로 오염되지 않게 했다. `bash scripts/qa_shot.sh
+  dice_test` 전체 PASS(신규 검증 2개 포함). `character_select.gd`의 기존
+  QA 훅 `_debug_show_achievements_scrolled()`로 업적 패널을 열어
+  `qa_out/character_select_achv_risk_taker.png`로 새 항목이 목록 맨 아래에
+  "1/20 달성", 다이스 아이콘, 겹침 없는 카드로 표시됨을 확인했고,
+  `qa_out/event_risk_taker_smoke.png`로 특수 이벤트 화면 자체도 크래시 없이
+  정상 로드됨을 재확인했다. 남은 것: 큐 13이 원래 말한 "새 RunState 카운터가
+  필요한" 나머지 후보들은 여전히 사람이 원 30종 목록을 다시 정리해줘야
+  구체화 가능 — 이번처럼 "이미 있는 판정 지점 하나만 후킹"하는 방식의 독립
+  항목이 또 나오면 다음 이터레이션도 같은 패턴으로 이어갈 수 있음.
 
 - **2026-09-17 (124)**: 큐 17("폭발병/방패병 전용 고유 스킬 설계+추가")의 2/2
   조각, 즉 큐 17 전체 마무리. 방패병(shieldbearer)은 폭발병과 마찬가지로 이미
@@ -1021,63 +1040,9 @@
   더 큰 작업 — 다음 이터레이션으로 넘김. 조각(3)(personality 필드 + 표시 +
   DESIGN.md 반영)은 (1)/(2) 이후.
 
-- **2026-09-16 (115)**: INBOX.md [미니 기획 B] "특수 이벤트 개편"의 권장 순서
-  (4 -> 1 -> 2+3) 중 마지막 조각 **2+3번(선택지를 "안전/위험" 2개로 통일 +
-  이벤트 다이스로 DC 난이도 체크)**을 처리해 [미니 기획 B] 전체를 완료했다.
-  (113)/(114)가 만들어둔 이벤트 다이스 필드/시각화/flavor 문구 위에, 이번에
-  실제 선택-판정 흐름을 얹었다.
-  `code/scenes/event.gd`를 전면 재구성: 기존 "무작위 2개 중 1개 무료 획득"
-  구조를 버리고, 화면 진입 시 "안전하게 넘어가기"/"위험을 감수하기" 버튼 2개만
-  보여준다. 안전을 고르면 `EventItemPool.random_safe_item()`으로 C급 아이템을
-  확정 지급(지금은 "눈금 주머니 획득" 하나뿐). 위험을 고르면
-  `randi_range(1, RunState.event_die_sides)`로 이벤트 주사위를 굴려 새 static
-  함수 `difficulty_for_room(room_index) = min(5, 3 + room_index / 2)`가 계산한
-  DC와 비교 — 성공하면 `EventItemPool.random_risky_item()`으로 A/S급 중
-  무작위 1개(D12/D10 승급/D20), 실패하면 아이템 없이 "아쉽게도 손에 넣지
-  못했다..." 문구만 보여주고 방 진행만 인정한다(HP 페널티 없음, DESIGN.md
-  확정). 굴림 결과는 `EventDieVisual`(로마 숫자 육각 칩)로 표시해 캐릭터
-  선택 화면에서 이미 쓰던 컴포넌트를 재사용했다 — 이를 위해
-  `event_die_visual.gd`의 `_to_roman()`을 인스턴스 없이 호출 가능하도록
-  `static`으로 바꿨다(기존 호출부/`dice_test.gd`의 인스턴스 호출 방식 둘 다
-  그대로 동작, 순수하게 접근 방식만 넓어짐).
-  `event_item_pool.gd`에 등급 필터 3종(`items_of_grade`/`random_safe_item`/
-  `random_risky_item`)을 추가 — grade가 늘어나도 이 필터만으로 자동 대응된다.
-  **기존 아이템 적용 로직은 건드리지 않았다**: `_apply_pick`/`_apply_pips`/
-  `_apply_upgrade`와 그 `_on_pick_*` 핸들러(이중 실행 가드 `_picked` 포함)를
-  시그니처/동작 그대로 유지하고, 안전/위험 성공 양쪽이 공유하는
-  `_show_item_offer(item)` 헬퍼로 카드+버튼 생성만 1개짜리로 단순화했다 —
-  `dice_test.gd`의 기존 회귀 테스트 3종(`_check_event_double_pick_guard`/
-  `_check_event_pips_guard`/`_check_event_upgrade_guard`)이 event.tscn을
-  인스턴스화해 이 함수들을 직접 호출하므로, 수정 없이 그대로 계속 통과한다.
-  실패 후 "계속" 버튼에는 같은 `_picked` 가드를 공유하는 신규 `_apply_fail()`을
-  추가(더블클릭으로 방이 두 번 소비되지 않게).
-  `event.tscn`에 `PromptLabel`/`SafeButton`/`RiskyButton`/`RollRoot`(굴림
-  결과를 동적으로 붙이는 자리)/`FailLabel`/`ContinueButton`을 추가하고
-  `ItemsRoot`를 카드 1개짜리 중앙 배치로 재배치했다. QA 훅도 전면
-  교체 — `_debug_pick_safe()`/`_debug_force_risky_success()`(항상 최댓값을
-  굴린 것으로 강제)/`_debug_force_risky_failure()`(항상 1을 굴린 것으로
-  강제)로 RNG 없이 성공/실패 양쪽을 결정적으로 재현 가능(DC가 최대 5라도
-  최댓값 굴림은 항상 성공, 최솟값 1은 DC가 항상 3 이상이라 반드시 실패).
-  `dice_test.gd`에 신규 `_check_event_safe_risky_choice`를 추가해 (1)
-  `difficulty_for_room(0/1/2/3/4/10)`이 3/3/4/4/5/5를 내는지, (2)
-  `random_safe_item()`/`random_risky_item()`이 각각 20회 전부 올바른
-  등급만 반환하는지, (3) 강제 성공/실패 경로가 실제로 카드/실패 UI를 각각
-  만드는지, (4) 실패 후 "계속"의 이중 실행 가드까지 검증 — 전체 회귀
-  스위트(`scripts/qa_shot.sh dice_test`) PASS 확인.
-  화면 검증: `qa_out/event_initial_choice.png`(안전/위험 버튼 2개, 겹침
-  없음)/`qa_out/event_risky_success.png`(강제 성공 — 로마 숫자 VI 칩 +
-  결과 문구 + D20 카드 20칸 미리보기까지 겹침 없이 표시)/
-  `qa_out/event_risky_failure.png`(강제 실패 — 로마 숫자 I 칩 + 실패
-  문구 + 계속 버튼)/`qa_out/event_safe_pick.png`(안전 선택 — 눈금 카드).
-  **구현 중 발견한 새 간극**: 등급 배정상 B급("다면체 주사위 획득 (D8)")이
-  안전(C만)/위험 성공(A/S만) 어느 풀에도 안 걸려 이 방에서는 다시 안 나오게
-  됐다 — "알려진 이슈"에 기록, 사람 결정 필요. `docs/DESIGN.md`의 "특수
-  이벤트" 절도 새 2택 흐름으로 갱신. [미니 기획 A](몬스터 성격)/[미니 기획 C]
-  (캐릭터 스킬 이벤트)는 이번에도 손대지 않음.
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(124)에서 (114)를 그리로 옮겼다.)*
+이번 이터레이션(125)에서 (115)를 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 
