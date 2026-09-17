@@ -2596,6 +2596,38 @@ func _check_skill_effects(lines: PackedStringArray) -> bool:
 		plus_untouched_ok, plus_never_out_of_range_ok, plus_replace_count, base_replace_count, plus_replace_count >= base_replace_count, "OK" if spare_plus_ok else "FAIL"
 	])
 
+	# (3c) "광기 심화"/"수호 심화"(및 "+" 강화판) 공용 헬퍼 _apply_bonus_reroll(): 결과값은
+	# 절대 원래 값보다 낮아지지 않고(최댓값만 채택), values[0] 외 다른 자리는 건드리지
+	# 않는다. extra_rolls=2("+"강화판, 총 3번 굴림)는 extra_rolls=1(base, 총 2번 굴림)보다
+	# 대체(더 높은 값 채택) 확률이 낮지 않아야 한다(_apply_spare_die (3b)와 같은 확률
+	# 비교 패턴, 물리 의존 없는 순수 함수라 단위 테스트 가능).
+	var reroll_bag := DiceBag.new(20, 1)
+	var reroll_untouched_ok := true
+	var reroll_never_decreased_ok := true
+	var base_reroll_replace_count := 0
+	var plus_reroll_replace_count := 0
+	for i in 80:
+		var values: Array = [5, 99]
+		var base_result: Array = combat._apply_bonus_reroll(reroll_bag, values, 1)
+		if base_result[1] != 99:
+			reroll_untouched_ok = false
+		if base_result[0] < 5:
+			reroll_never_decreased_ok = false
+		if base_result[0] > 5:
+			base_reroll_replace_count += 1
+		var plus_result: Array = combat._apply_bonus_reroll(reroll_bag, values, 2)
+		if plus_result[1] != 99:
+			reroll_untouched_ok = false
+		if plus_result[0] < 5:
+			reroll_never_decreased_ok = false
+		if plus_result[0] > 5:
+			plus_reroll_replace_count += 1
+	var bonus_reroll_ok: bool = reroll_untouched_ok and reroll_never_decreased_ok and plus_reroll_replace_count >= base_reroll_replace_count
+	ok = bonus_reroll_ok and ok
+	lines.append("  _apply_bonus_reroll(): values[1] 불변=%s 절대 감소 없음=%s 대체 횟수(3번 굴림=%d >= 2번 굴림=%d)=%s -> %s" % [
+		reroll_untouched_ok, reroll_never_decreased_ok, plus_reroll_replace_count, base_reroll_replace_count, plus_reroll_replace_count >= base_reroll_replace_count, "OK" if bonus_reroll_ok else "FAIL"
+	])
+
 	# (4) 연쇄 폭발(chain_explosion)의 실제 효과: _player_explosive_threshold()가
 	# 미보유 시 EXPLOSIVE_STACK_THRESHOLD(3), 보유 시 2를 반환하는지.
 	var threshold_default: int = combat._player_explosive_threshold()

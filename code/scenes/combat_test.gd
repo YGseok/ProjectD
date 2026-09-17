@@ -149,12 +149,20 @@ var player_deep_breath_used := false
 ## 본인 기믹은 min_max_only) 폭발 스택 파이프라인을 그대로 열어주고, 보너스 턴은
 ## 1D20 한 번이 아니라 두 번 굴려 더 높은 값을 채택한다.
 var player_frenzy_active := false
+## player_frenzy_deepen_plus_active: "광기 심화+"([미니 기획 D]-4, 광전사 전용 강화판)
+## 보유 여부. base(frenzy_deepen)의 "1D20 두 번 굴려 최댓값"을 "세 번 굴려 최댓값"으로
+## 강화한다 — 파이프라인 자체(임계치, 스택 조건)는 그대로, 보너스 턴 굴림 품질만 올림.
+var player_frenzy_deepen_plus_active := false
 ## player_guard_deepen_active: "수호 심화"(수호자 전용 고유 스킬) 보유 여부.
 ## frenzy_deepen과 완전히 대칭 구조(공격 스택 대신 방어 스택) — 수호자 본인 기믹은
 ## fixed_defense_die라 원래 guard_stack 파이프라인이 없지만, 이 스킬을 획득하면
 ## player_dice_gimmick이 "guard_stack"이 아니어도 방패병과 같은 스택 파이프라인이
 ## 열리고, 보너스 방어턴은 1D20 한 번이 아니라 두 번 굴려 더 높은 값을 채택한다.
 var player_guard_deepen_active := false
+## player_guard_deepen_plus_active: "수호 심화+"([미니 기획 D]-4, 수호자 전용 강화판)
+## 보유 여부. player_frenzy_deepen_plus_active와 완전히 대칭 — 보너스 방어턴 굴림
+## 횟수를 두 번에서 세 번으로 늘린다.
+var player_guard_deepen_plus_active := false
 ## player_chain_explosion_active: "연쇄 폭발"(폭발병 전용 고유 스킬) 보유 여부.
 ## frenzy_deepen/guard_deepen과 달리 폭발병은 이미 explosive_stack 파이프라인을 갖고
 ## 있어 "없던 파이프라인을 열어준다" 패턴을 쓸 수 없다 — 대신 스택 임계치 자체를
@@ -411,7 +419,9 @@ func _ready() -> void:
 	player_guard_pending = false
 	player_deep_breath_used = false
 	player_frenzy_active = RunState.skill_flags.has("frenzy_deepen")
+	player_frenzy_deepen_plus_active = RunState.skill_flags.has("frenzy_deepen_plus")
 	player_guard_deepen_active = RunState.skill_flags.has("guard_deepen")
+	player_guard_deepen_plus_active = RunState.skill_flags.has("guard_deepen_plus")
 	player_chain_explosion_active = RunState.skill_flags.has("chain_explosion")
 	player_chain_guard_active = RunState.skill_flags.has("chain_guard")
 	player_versatile_active = RunState.skill_flags.has("versatile_surge")
@@ -561,23 +571,31 @@ func _do_exchange(is_player_attacking: bool) -> void:
 		def_values = def_bag.apply_steady_guard(def_values)
 	# "광기 심화"(INBOX.md [미니 기획 C]-4): 이번 공격턴이 폭발 스택 보너스 턴(1D20)이고
 	# 광기 심화를 보유했다면, 한 번 더 굴려 더 높은 값을 채택한다("두 번 굴려 advantage").
+	# "광기 심화+"([미니 기획 D]-4): 추가 리롤을 1번이 아니라 2번 해서 총 굴림 횟수를
+	# 2번->3번으로 늘린다(임계치/스택 조건은 그대로, 보너스 턴 굴림 품질만 강화).
+	# _apply_bonus_reroll()로 분리해 _apply_spare_die()와 같은 이유(물리 없이 단위
+	# 테스트 가능)로 순수 함수화했다.
 	if used_explosive_dice and player_frenzy_active:
-		var frenzy_reroll: Array = atk_bag.roll_detailed()
-		if frenzy_reroll[0] > atk_values[0]:
-			_append_log("광기 심화: %d 대신 %d 채택 (1D20 두 번 중 최댓값)" % [atk_values[0], frenzy_reroll[0]])
-			atk_values[0] = frenzy_reroll[0]
+		var frenzy_extra_rolls := 2 if player_frenzy_deepen_plus_active else 1
+		var frenzy_total_rolls := frenzy_extra_rolls + 1
+		var frenzy_before: int = atk_values[0]
+		atk_values = _apply_bonus_reroll(atk_bag, atk_values, frenzy_extra_rolls)
+		if atk_values[0] > frenzy_before:
+			_append_log("광기 심화: %d 대신 %d 채택 (1D20 %d번 중 최댓값)" % [frenzy_before, atk_values[0], frenzy_total_rolls])
 		else:
-			_append_log("광기 심화: %d 유지 (1D20 두 번 중 최댓값)" % atk_values[0])
+			_append_log("광기 심화: %d 유지 (1D20 %d번 중 최댓값)" % [frenzy_before, frenzy_total_rolls])
 	# "수호 심화"(수호자 전용 고유 스킬, frenzy_deepen과 완전히 대칭): 이번 방어턴이
 	# 수호 스택 보너스 턴(1D20)이고 수호 심화를 보유했다면, 한 번 더 굴려 더 높은 값을
-	# 채택한다.
+	# 채택한다. "수호 심화+"는 frenzy_deepen_plus와 동일하게 총 굴림 횟수를 3번으로 늘림.
 	if used_guard_dice and player_guard_deepen_active:
-		var guard_reroll: Array = def_bag.roll_detailed()
-		if guard_reroll[0] > def_values[0]:
-			_append_log("수호 심화: %d 대신 %d 채택 (1D20 두 번 중 최댓값)" % [def_values[0], guard_reroll[0]])
-			def_values[0] = guard_reroll[0]
+		var guard_extra_rolls := 2 if player_guard_deepen_plus_active else 1
+		var guard_total_rolls := guard_extra_rolls + 1
+		var guard_before: int = def_values[0]
+		def_values = _apply_bonus_reroll(def_bag, def_values, guard_extra_rolls)
+		if def_values[0] > guard_before:
+			_append_log("수호 심화: %d 대신 %d 채택 (1D20 %d번 중 최댓값)" % [guard_before, def_values[0], guard_total_rolls])
 		else:
-			_append_log("수호 심화: %d 유지 (1D20 두 번 중 최댓값)" % def_values[0])
+			_append_log("수호 심화: %d 유지 (1D20 %d번 중 최댓값)" % [guard_before, guard_total_rolls])
 	# "여분"(INBOX.md [미니 기획 C]-3): 폭발 보너스 턴이 아닌 평소 공격턴마다 여분
 	# 다이스를 하나 더 굴려, 이번 공격에서 가장 낮았던 다이스 값보다 높으면 그 자리를
 	# 대체한다(advantage를 가장 약한 다이스 한 곳에만 적용) — "이번 런 내내 유지"이므로
@@ -895,6 +913,22 @@ func _apply_spare_die(bag: DiceBag, values: Array, count: int = 1) -> Array:
 		_append_log("여분 다이스 결과 %d로 최저 공격 다이스 값 %d 대체" % [spare_value, adjusted[min_index]])
 		adjusted[min_index] = spare_value
 	return adjusted
+
+
+## "광기 심화"/"수호 심화"(및 각각의 "+" 강화판) 공용 헬퍼: bag에서 extra_rolls번
+## 추가로 굴려, values[0]과 그 중 최댓값을 비교해 더 높으면 그 자리를 대체한다("두
+## 번(또는 세 번) 굴려 advantage"). _apply_spare_die()와 같은 이유로 순수 함수로
+## 분리해 물리 시뮬레이션 없이 단위 테스트가 가능하게 한다. 로그 출력은 호출부
+## (_do_exchange) 책임 — 이 함수는 값만 계산한다.
+func _apply_bonus_reroll(bag: DiceBag, values: Array, extra_rolls: int) -> Array:
+	var result: Array = values.duplicate()
+	var best: int = result[0]
+	for _i in range(extra_rolls):
+		var reroll: Array = bag.roll_detailed()
+		if reroll[0] > best:
+			best = reroll[0]
+	result[0] = best
+	return result
 
 
 func _append_log(line: String) -> void:
