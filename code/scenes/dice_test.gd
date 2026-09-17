@@ -197,6 +197,10 @@ func _ready() -> void:
 	all_pass = _check_skill_upgrade_card_highlight(lines) and all_pass
 
 	lines.append("")
+	lines.append("[시작 스킬 후보 검증: skill_pool.gd SkillPool.STARTING_SKILLS / starting_skills_for_character]")
+	all_pass = _check_starting_skills(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -2895,5 +2899,39 @@ func _check_skill_upgrade_card_highlight(lines: PackedStringArray) -> bool:
 		"OK" if highlight_ok else "FAIL"
 	])
 	highlighted_built["card"].queue_free()
+
+	return ok
+
+
+## [미니 기획 E]-2 검증(INBOX.md 2026-09-17 기획자 결정): STARTING_SKILLS 6종이 모두
+## 전투 배선 없이도 검증 가능한 순수 데이터/필터 로직이므로, 기획서가 명시한
+## "캐릭터별 선택 가능한 시작 스킬 목록"(슬롯 0/1 순서 포함)이 starting_skills_for_
+## character()로 정확히 재현되는지 확인한다.
+func _check_starting_skills(lines: PackedStringArray) -> bool:
+	var ok := true
+
+	var expected := {
+		"novice": ["start_expand", "start_lean"],
+		"berserker": ["start_aggro", "start_hoard"],
+		"guardian": ["start_wall", "start_ironclad"],
+		"explosive": ["start_aggro", "start_expand"],
+		"shieldbearer": ["start_wall", "start_lean"],
+	}
+	for character_id in expected.keys():
+		var choices := SkillPool.starting_skills_for_character(character_id)
+		var ids: Array = []
+		for s in choices:
+			ids.append(s["id"])
+		var expected_ids: Array = expected[character_id]
+		var char_ok: bool = ids == expected_ids
+		ok = char_ok and ok
+		lines.append("  %s 시작 스킬 슬롯 순서: %s (기대 %s) -> %s" % [
+			character_id, ids, expected_ids, "OK" if char_ok else "FAIL"
+		])
+
+	var unknown_choices := SkillPool.starting_skills_for_character("unknown_character")
+	var unknown_ok: bool = unknown_choices.is_empty()
+	ok = unknown_ok and ok
+	lines.append("  알 수 없는 캐릭터 id는 빈 목록 -> %s" % ("OK" if unknown_ok else "FAIL"))
 
 	return ok

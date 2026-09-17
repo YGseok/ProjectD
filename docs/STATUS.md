@@ -5,33 +5,24 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-09-17 (133)
-- 작성자: AI 에이전트. INBOX.md "부분 처리됨"의 [미니 기획 D](스킬 강화 이벤트)
-  마지막 남은 조각(4번 나머지 고유 1종 "임기응변+" 전투 배선 + 5번 UI 강조)을
-  마무리해 **[미니 기획 D] 전체 완료**로 옮겼다. `combat_test.gd`에
-  `player_versatile_plus_active` 변수를 추가하고, `_player_explosive_
-  threshold()`/`_player_guard_threshold()` 두 헬퍼가 이 플래그도 함께 확인해
-  두 파이프라인 임계치를 3→2로 낮추도록 했다(다른 4쌍과 달리 "발동 빈도"를
-  강화하는 축, base 임기응변과 같은 방향의 강화). `item_card_style.gd`의
-  `build_card()`에 `highlight: bool = false` 매개변수를 추가해 true면 카드
-  테두리가 두껍고 노란색(`HIGHLIGHT_BORDER`)이 되도록 했고, `event.gd`의
-  `_show_skill_offer()`가 `_is_skill_upgrade_event`를 그 인자로 넘긴다.
-  구현 중 QA 훅 `_debug_force_skill_upgrade_event()`가 `_ready()` 경로를
-  거치지 않고 `_setup_skill_upgrade_event()`를 직접 호출해 `_is_skill_
-  upgrade_event`가 세팅되지 않는 버그를 실제 스크린샷에서 발견해(카드가
-  강조 안 됨) `_setup_skill_upgrade_event()` 자신이 그 플래그를 세팅하도록
-  고쳐 자기 완결적으로 만들었다. `dice_test.gd`에 임계치 검증(7)과 카드
-  강조 검증(신규 `_check_skill_upgrade_card_highlight`)을 추가, `bash
-  scripts/qa_shot.sh dice_test` 전체 PASS. `qa_out/event_skill_upgrade_
-  highlight.png`(노란 두꺼운 테두리 확인)/`qa_out/event_skill_offer_normal_
-  recheck.png`(일반 카드는 기존 얇은 테두리 유지)/`qa_out/combat_test_
-  recheck.png`(기본 전투 정상 진행)로 화면 검증. `docs/DESIGN.md`도 갱신.
-  자세한 내용은 아래 "완료 기록 (133)" 참고. INBOX.md [미니 기획 D] 항목을
-  "처리됨"으로 옮겼고(1~5번 완료, 6번은 선택이라 미착수), "처리됨" 12개 유지를
-  위해 가장 오래된 항목을 `docs/INBOX_ARCHIVE.md`로, "완료 기록" 10개 유지를
-  위해 (123)을 `docs/STATUS_ARCHIVE.md`로 옮겼다. **다음 할 일 큐에 19번으로
-  [미니 기획 E](캐릭터별 시작 스킬 선택)를 추가** — 기획자가 이미 구체적으로
-  설계해둔 항목이라 다음 이터레이션이 바로 착수하면 됨.
+- 일시: 2026-09-17 (134)
+- 작성자: AI 에이전트. INBOX.md "남은 이슈"의 [미니 기획 E](캐릭터별 시작 스킬
+  선택) 2번(STARTING_SKILLS 데이터 정의)만 이번 이터레이션 범위로 진행했다
+  (세션 지침이 "2번 정도만 진행해도 충분하다"고 명시). `code/systems/
+  skill_pool.gd`에 `STARTING_SKILLS`(6종: 맹공/철벽/확장/정예/수집가/강철
+  방비, 기획서 원문의 id/설명/`character_ids` 그대로) + 이를 필터링하는
+  `starting_skills_for_character(character_id)`를 신설했다. 기존
+  SKILLS/UNIQUE_SKILLS와는 완전히 분리된 별도 상수(런 중 이벤트로는 절대
+  안 나옴). `dice_test.gd`에 `_check_starting_skills`를 추가해 5개 캐릭터의
+  슬롯 0/1 순서가 기획서와 정확히 일치하는지 검증, `bash scripts/qa_shot.sh
+  dice_test` 전체 PASS. `scripts/qa_shot.sh character_select`로 화면도
+  크래시 없이 정상 로드됨을 재확인(`qa_out/character_select.png`). RunState/
+  character_select.gd/combat_test.gd 배선(1/3/4번)은 아직 손대지 않음 —
+  다음 이터레이션들이 순서대로 이어갈 차례. 자세한 내용은 아래 "완료 기록
+  (134)" 참고. "완료 기록" 10개 유지를 위해 (124)를 `docs/STATUS_ARCHIVE.md`로
+  옮겼다. INBOX.md [미니 기획 E] 항목은 1~4번이 다 끝나야 "처리됨"으로 옮기는
+  완료 기준이라 이번에도 "남은 이슈"에 그대로 두고 진행 상황만 이 파일에
+  남겼다(1~4번 중 2번만 완료).
 
 ## 지금 위치
 
@@ -39,18 +30,20 @@
 이벤트까지 한 바퀴 플레이 가능. 전투는 항상 노출, 상점은 2번째/4번째 방 고정
 (`SHOP_FIXED_ROOM_INDICES`), 특수 이벤트/스토리 이벤트는 방마다 확률 노출 +
 결정적 순서 섞기. 마지막 방(보스 방)은 전투만 강제(`dungeon_map.gd`의
-`_room_options_for_index()`). 특수 이벤트 방은 이제 세 갈래로 분기한다 —
+`_room_options_for_index()`). 특수 이벤트 방은 세 갈래로 분기한다 —
 20%(`SKILL_UPGRADE_EVENT_CHANCE`) 확률로 스킬 강화(보유한 스킬 중 하나를
 "+"판으로), 그 다음 30%(`SKILL_EVENT_CHANCE`) 확률로 새 스킬 획득, 나머지는
 기존 안전/위험 아이템 이벤트 — 두 확률 모두 해당 후보가 없으면 항상 다음
 분기로 폴백한다. **[미니 기획 D](스킬 강화 이벤트) 전체 완료** — 7종
-스킬("+" 강화판) 전부(공용 2종 심호흡+/여분+, 고유 5종 광기 심화+/수호
-심화+/연쇄 폭발+/연쇄 방어+/임기응변+)가 `combat_test.gd`의 `_do_exchange()`
-에서 "+" > base > 없음 우선순위로 실제 전투 효과를 내고, 강화 카드는
-`ItemCardStyle.build_card(highlight=true)`로 두껍고 노란 테두리로 표시된다.
-DeckPanel 보유 스킬 목록(6번, 선택)만 아직 없음 — 급하지 않은 항목으로 남겨둠.
-다음 순번은 [미니 기획 E](캐릭터별 시작 스킬 선택, 다음 할 일 큐 19번) —
-사람 설계 결정 대기 없이 바로 착수 가능.
+스킬("+" 강화판) 전부가 `combat_test.gd`의 `_do_exchange()`에서 "+" > base >
+없음 우선순위로 실제 전투 효과를 낸다. **[미니 기획 E](캐릭터별 시작 스킬
+선택)는 2번(STARTING_SKILLS 데이터 정의)만 완료** — `code/systems/
+skill_pool.gd`의 `STARTING_SKILLS`/`starting_skills_for_character()`에
+6종 원형이 정의돼 있지만, 아직 RunState에 저장 필드도, 캐릭터 선택 화면
+UI도, 전투 배선도 없어서 게임 플레이에는 전혀 영향이 없는 상태(순수 데이터만
+존재). 다음 순번은 [미니 기획 E] 1번(해금 판정, 이미 있는
+`AchievementManager.is_unlocked("clear_"+id)` 재사용) + 3번(선택 UI,
+`character_select.gd`) — 다음 할 일 큐 19번 참고.
 
 - **캐릭터 5종** (`code/systems/character_profiles.gd`의
   `CharacterProfiles.PROFILES`): 견습 모험가(기믹 없음, D4x3/D4x3) / 광전사
@@ -697,39 +690,73 @@ DeckPanel 보유 스킬 목록(6번, 선택)만 아직 없음 — 급하지 않�
     "완료 기록"과 `docs/feedback/INBOX.md` 처리됨 섹션의 "[미니 기획 D]" 참고.
 
 19. **(INBOX.md 신규 2026-09-17, [미니 기획 E]) 캐릭터별 시작 스킬 선택 —
-    기획자가 이미 구체적으로 설계해둔 항목, 사람 설계 결정 대기 없이 바로
-    착수 가능.** [미니 기획 D]가 끝났으니 다음 순번. 지금 캐릭터 스킬은
-    런 중 무작위 이벤트로만 얻는데([미니 기획 C]), 이 항목은 그것과 별개의
-    새 레이어 — 런 "시작 시점"에 미리 정해두는 로드아웃 선택이다. 기존
-    skill_flags/grant() 파이프라인을 그대로 재사용하되 "언제/어떻게
-    얻는지"만 다름(무작위 이벤트가 아니라 캐릭터 선택 화면에서 확정 선택).
-    INBOX.md "남은 이슈"에 6개 하위 단계가 이미 구체적으로 적혀 있음 —
-    한 이터레이션에 다 하지 말고 나눠서 진행할 것(기획자가 명시적으로
-    "2~3개씩 나눠 진행"이라고 지시함):
+    2번(시작 스킬 데이터) 완료(2026-09-17 (134)), 1/3/4/5번 남음.** [미니
+    기획 D]가 끝나 착수했다. 지금 캐릭터 스킬은 런 중 무작위 이벤트로만
+    얻는데([미니 기획 C]), 이 항목은 그것과 별개의 새 레이어 — 런 "시작
+    시점"에 미리 정해두는 로드아웃 선택이다. 기존 skill_flags/grant()
+    파이프라인을 그대로 재사용하되 "언제/어떻게 얻는지"만 다름(무작위
+    이벤트가 아니라 캐릭터 선택 화면에서 확정 선택). INBOX.md "남은 이슈"에
+    6개 하위 단계가 이미 구체적으로 적혀 있음 — 한 이터레이션에 다 하지
+    말고 나눠서 진행할 것(기획자가 명시적으로 "2~3개씩 나눠 진행"이라고
+    지시함):
     1. **해금 판정** — 새 저장 시스템 없이 이미 있는
        `AchievementManager.is_unlocked("clear_" + character_id)`를 그대로
-       재사용.
-    2. **시작 스킬 데이터** — `skill_pool.gd`에 신규 `STARTING_SKILLS` 상수
-       (6개 원형: start_aggro/start_wall/start_expand/start_lean/
-       start_hoard/start_ironclad, 각각 `character_ids` 필드로 캐릭터
-       공유). 전부 `DiceBag.apply_flat_bonus()` 재사용, 조건이 참일 때만
-       적용. 캐릭터당 정확히 2종(슬롯 0=항상 해금, 슬롯 1=업적 해금 시).
+       재사용. **미착수.**
+    2. ~~**시작 스킬 데이터**~~ → **완료됨** (2026-09-17 (134), 아래 "완료
+       기록" 참고). `skill_pool.gd`에 `STARTING_SKILLS`(6개 원형:
+       start_aggro/start_wall/start_expand/start_lean/start_hoard/
+       start_ironclad, 각각 `character_ids` 필드로 캐릭터 공유) +
+       `starting_skills_for_character(character_id)`(캐릭터별 슬롯 0/1
+       순서로 필터링) 정의. 전부 `DiceBag.apply_flat_bonus()`를 조건부로
+       호출하는 방식으로 통일(새 다이스 연산 없음). 캐릭터당 정확히 2종
+       (견습=[확장,정예], 광전사=[맹공,수집가], 수호자=[철벽,강철 방비],
+       폭발병=[맹공,확장], 방패병=[철벽,정예]) — `dice_test.gd`의
+       `_check_starting_skills`로 검증 완료. **다만 RunState 저장 필드,
+       캐릭터 선택 화면 UI, 전투 배선은 전부 아직 없어서 게임 플레이에는
+       영향이 전혀 없는 상태(순수 데이터만 존재)** — 3/4번이 이어서 배선해야
+       실제로 작동함.
     3. **선택 UI** (`character_select.gd`) — 상세 패널에 "시작 스킬" 선택
        줄 추가, 슬롯 1은 업적 미해금 시 자물쇠 아이콘 + 비활성화. 신규
-       `RunState.chosen_starting_skill_id`에 저장.
+       `RunState.chosen_starting_skill_id`에 저장. **미착수** — 2번이
+       만든 `starting_skills_for_character()`를 그대로 쓰면 됨.
     4. **적용 배선** — `RunState.reset_run()`이 `SkillPool.grant(chosen_
        starting_skill_id)` 호출, `combat_test.gd`의 `_do_exchange()`에
        6개 조건 분기 추가(2~3개씩 나눠서: 맹공/철벽 → 확장/정예 → 수집가/
-       강철 방비 권장 순서, INBOX.md 원문 그대로).
+       강철 방비 권장 순서, INBOX.md 원문 그대로). **미착수.**
     5. **UI 강조 재사용(선택)** — 슬롯 1(업적 해금 스킬)에 방금 만든
        `ItemCardStyle.build_card()`의 `highlight` 파라미터 재사용 가능(필수
        아님).
     완료 기준: 1~4번이 끝나면 INBOX.md에서 "처리됨"으로 옮길 것(5번은 선택).
     진행 중에는 이 항목에 몇 번까지 끝났는지 남길 것. 자세한 수치/필드명은
     `docs/feedback/INBOX.md` "남은 이슈" 원문 참고(요약하지 말고 원문을
-    그대로 따를 것).
+    그대로 따를 것). **다음 이터레이션 추천: 1번(해금 판정, 아주 작음)을
+    3번(선택 UI)과 묶어서 진행하면 한 번에 실제로 눈에 보이는 결과가 나옴.**
 
 ## 완료 기록
+
+- **2026-09-17 (134)**: INBOX.md "남은 이슈"의 [미니 기획 E](캐릭터별 시작 스킬
+  선택) 2번(STARTING_SKILLS 데이터 정의)을 진행 — 지시대로 이 하나만 이번
+  이터레이션 범위로 한정했다(1/3/4/5번은 사람 설계가 이미 나와 있어도 순서대로
+  다음 이터레이션들이 나눠 이어갈 차례). `code/systems/skill_pool.gd`에
+  `STARTING_SKILLS: Array[Dictionary]`(6종: `start_aggro`/`start_wall`/
+  `start_expand`/`start_lean`/`start_hoard`/`start_ironclad`, 각각 기획서
+  원문의 id/이름/설명/`character_ids` 그대로)와, 이를 `character_ids`로
+  필터링해 "그 캐릭터가 고를 수 있는 시작 스킬 목록"(등장 순서=슬롯 순서)을
+  반환하는 `starting_skills_for_character(character_id)`를 추가했다. 기존
+  SKILLS/UNIQUE_SKILLS와 섞이지 않도록 완전히 별도 상수로 분리(기획서 2번
+  "런 중 이벤트로는 절대 안 나옴" 반영). RunState/character_select.gd/
+  combat_test.gd는 아직 손대지 않았다 — 이번 조각은 순수 데이터 정의만.
+  **QA 검증**: `dice_test.gd`에 신규 `_check_starting_skills`를 추가해 기획서가
+  명시한 5개 캐릭터의 슬롯 0/1 순서(견습=[확장,정예], 광전사=[맹공,수집가],
+  수호자=[철벽,강철 방비], 폭발병=[맹공,확장], 방패병=[철벽,정예])가
+  `starting_skills_for_character()`로 정확히 재현되는지와, 알 수 없는
+  캐릭터 id는 빈 배열을 반환하는지 확인했다. `bash scripts/qa_shot.sh
+  dice_test` 전체 PASS(신규 검증 6개 포함). 순수 데이터/로직 추가라 화면
+  레이아웃 영향은 없지만, `scripts/qa_shot.sh character_select`로 캐릭터
+  선택 화면이 이번 변경 후에도 크래시 없이 정상 로드됨을 재확인했다
+  (`qa_out/character_select.png`). 다음 이터레이션은 [미니 기획 E] 3번(선택
+  UI, `character_select.gd`에 시작 스킬 선택 줄 + 슬롯 1 자물쇠 표시)을
+  이어가면 된다 — 아래 "다음 할 일 큐" 19번 참고.
 
 - **2026-09-17 (133)**: INBOX.md "부분 처리됨"의 [미니 기획 D](스킬 강화 이벤트)
   마지막 남은 조각 두 개(4번 나머지 고유 1종 "임기응변+" 전투 배선 + 5번 UI
@@ -1074,36 +1101,9 @@ DeckPanel 보유 스킬 목록(6번, 선택)만 아직 없음 — 급하지 않�
   구체화 가능 — 이번처럼 "이미 있는 판정 지점 하나만 후킹"하는 방식의 독립
   항목이 또 나오면 다음 이터레이션도 같은 패턴으로 이어갈 수 있음.
 
-- **2026-09-17 (124)**: 큐 17("폭발병/방패병 전용 고유 스킬 설계+추가")의 2/2
-  조각, 즉 큐 17 전체 마무리. 방패병(shieldbearer)은 폭발병과 마찬가지로 이미
-  자기 기믹(`guard_stack`)으로 스택 파이프라인을 갖고 있어 광기/수호 심화의
-  "없던 파이프라인을 열어준다" 패턴을 못 쓰므로, (123)의 "연쇄 폭발"과 완전히
-  대칭 구조로 방패병 전용 고유 스킬 "연쇄 방어"(`chain_guard`, 수호 스택
-  임계치 3→2)를 추가했다. `code/systems/skill_pool.gd`의 `UNIQUE_SKILLS`에
-  `{id: "chain_guard", character_id: "shieldbearer", ...}` 정의를 추가하고,
-  `code/scenes/combat_test.gd`에 `player_chain_guard_active`(`_ready()`에서
-  `RunState.skill_flags.has("chain_guard")`로 초기화) 상태 변수 +
-  `_player_guard_threshold()` 헬퍼(`_player_explosive_threshold()`와 완전히
-  대칭 — 보유 시 2, 미보유 시 기존 `GUARD_STACK_THRESHOLD`=3 반환)를 신설해,
-  수호 스택 로그/임계치 판정(`_do_exchange()`)에서 `GUARD_STACK_THRESHOLD`
-  직접 참조를 이 헬퍼 호출로 교체했다. `dice_test.gd`에 "연쇄 방어가 방패병
-  전용 후보로만 제시되는지"(explosive_choices와 대칭 비교) 필터 검증 +
-  `_player_guard_threshold()` 반환값 검증을 추가, `bash scripts/qa_shot.sh
-  dice_test` 전체 PASS(신규 항목 2개 포함 모두 OK). `event.gd`에 QA 훅
-  `_debug_force_skill_event_as_shieldbearer()`를 추가해 "연쇄 방어" 카드가
-  "심호흡" 카드와 겹침 없이 렌더링되는 것을
-  `qa_out/event_skill_offer_shieldbearer.png`로, 기본 전투(novice, 스킬 없음)가
-  크래시 없이 정상 진행됨을 `qa_out/combat_test_chain_guard_smoke.png`로
-  확인했다(guard_stack 파이프라인이 실제로 열린 상태의 라이브 트리거 검증은
-  chain_explosion 때와 같은 이유로 생략 — 단위 테스트 + 일반 회귀로 대체).
-  **큐 17이 완전히 끝났다** — 남은 것은 견습 모험가(기믹 없음) 전용 고유
-  스킬 하나뿐이고, 이건 시너지 삼을 기믹 자체가 없어 같은 패턴을 재사용할 수
-  없는 완전히 새로운 설계가 필요함(다음 할 일 큐 17번 참고). `docs/DESIGN.md`도
-  함께 갱신.
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(133)에서 (123)을 그리로 옮겼다.)*
+이번 이터레이션(134)에서 (124)를 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 

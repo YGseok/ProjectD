@@ -174,6 +174,71 @@ const UPGRADE_SKILLS: Array[Dictionary] = [
 ]
 
 
+## 캐릭터별 "시작 스킬" 후보([미니 기획 E], INBOX.md 2026-09-17 기획자 결정) — 런
+## "시작 시점"에 캐릭터 선택 화면에서 미리 확정 선택하는 로드아웃. SKILLS/UNIQUE_SKILLS
+## (런 중 무작위 이벤트로 얻는 스킬)와는 완전히 다른 레이어라 별도 상수로 분리했다(기획자
+## 결정 2번 "이 스킬들은 런 중 이벤트로는 절대 나오지 않는다"). 전부 이미 있는
+## DiceBag.apply_flat_bonus(values, 1)("심호흡"과 동일한 "결과값 +1, 상한은 면 개수" 헬퍼)를
+## 조건부로 호출하는 방식으로 통일해 새 다이스 연산을 만들지 않는다 — 실제 전투 배선은
+## combat_test.gd가 아직 담당하지 않음(이번 조각은 데이터 정의만, [미니 기획 E]-4가 이어감).
+##
+## "character_ids": 여러 캐릭터가 같은 원형을 공유할 수 있어 Array[String]로 표시한다.
+## starting_skills_for_character()가 이 배열을 필터링해 "그 캐릭터가 고를 수 있는 시작
+## 스킬 목록"을 만드는데, STARTING_SKILLS 안에서의 등장 순서가 곧 슬롯 순서다(슬롯 0=항상
+## 해금, 슬롯 1=AchievementManager.is_unlocked("clear_"+character_id) 해금 시에만 — UI
+## 배선은 [미니 기획 E]-3이 담당). 예: 견습 모험가는 start_expand -> start_lean 순으로
+## 등장해 슬롯 0="확장", 슬롯 1="정예"가 된다.
+const STARTING_SKILLS: Array[Dictionary] = [
+	{
+		"id": "start_aggro",
+		"name": "맹공",
+		"description": "공격 다이스 개수가 방어 다이스 개수보다 많으면, 공격 다이스 결과값 전체가 +1 된다 (상한: 각 다이스 면 개수).",
+		"character_ids": ["berserker", "explosive"],
+	},
+	{
+		"id": "start_wall",
+		"name": "철벽",
+		"description": "방어 다이스 개수가 공격 다이스 개수보다 많으면, 방어 다이스 결과값 전체가 +1 된다 (상한: 각 다이스 면 개수).",
+		"character_ids": ["guardian", "shieldbearer"],
+	},
+	{
+		"id": "start_expand",
+		"name": "확장",
+		"description": "공격+방어 다이스 합계가 8개 이상이면, 공격/방어 다이스 결과값 전체가 +1 된다 (상한: 각 다이스 면 개수).",
+		"character_ids": ["novice", "explosive"],
+	},
+	{
+		"id": "start_lean",
+		"name": "정예",
+		"description": "공격+방어 다이스 합계가 6개 이하로 유지되면, 공격/방어 다이스 결과값 전체가 +1 된다 (상한: 각 다이스 면 개수).",
+		"character_ids": ["novice", "shieldbearer"],
+	},
+	{
+		"id": "start_hoard",
+		"name": "수집가",
+		"description": "보유한 눈금 인벤토리가 5개 이상이면, 공격 다이스 결과값 전체가 +1 된다 (상한: 각 다이스 면 개수).",
+		"character_ids": ["berserker"],
+	},
+	{
+		"id": "start_ironclad",
+		"name": "강철 방비",
+		"description": "철제 재질(D12/D20) 다이스를 1개 이상 보유하면, 방어 다이스 결과값 전체가 +1 된다 (상한: 각 다이스 면 개수).",
+		"character_ids": ["guardian"],
+	},
+]
+
+
+## character_id가 STARTING_SKILLS의 "character_ids"에 포함된 항목만, 배열 등장 순서
+## 그대로 필터링해 반환한다(순서가 곧 슬롯 순서 — 위 주석 참고). 해당 캐릭터의 원형이
+## 하나도 없으면 빈 배열을 반환한다.
+static func starting_skills_for_character(character_id: String) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for skill in STARTING_SKILLS:
+		if skill["character_ids"].has(character_id):
+			result.append(skill)
+	return result
+
+
 ## RunState.skill_flags에 이미 있는 id는 후보에서 제외한다(같은 스킬을 중복 획득할
 ## 수 없으므로 — 두 번째 카드도 항상 새로운 선택지여야 함). 공용 스킬(SKILLS)에 더해
 ## character_id가 주어지고 UNIQUE_SKILLS 중 해당 캐릭터 전용 스킬이 있으면 후보 풀에

@@ -8,6 +8,33 @@
 
 ---
 
+- **2026-09-17 (124)**: 큐 17("폭발병/방패병 전용 고유 스킬 설계+추가")의 2/2
+  조각, 즉 큐 17 전체 마무리. 방패병(shieldbearer)은 폭발병과 마찬가지로 이미
+  자기 기믹(`guard_stack`)으로 스택 파이프라인을 갖고 있어 광기/수호 심화의
+  "없던 파이프라인을 열어준다" 패턴을 못 쓰므로, (123)의 "연쇄 폭발"과 완전히
+  대칭 구조로 방패병 전용 고유 스킬 "연쇄 방어"(`chain_guard`, 수호 스택
+  임계치 3→2)를 추가했다. `code/systems/skill_pool.gd`의 `UNIQUE_SKILLS`에
+  `{id: "chain_guard", character_id: "shieldbearer", ...}` 정의를 추가하고,
+  `code/scenes/combat_test.gd`에 `player_chain_guard_active`(`_ready()`에서
+  `RunState.skill_flags.has("chain_guard")`로 초기화) 상태 변수 +
+  `_player_guard_threshold()` 헬퍼(`_player_explosive_threshold()`와 완전히
+  대칭 — 보유 시 2, 미보유 시 기존 `GUARD_STACK_THRESHOLD`=3 반환)를 신설해,
+  수호 스택 로그/임계치 판정(`_do_exchange()`)에서 `GUARD_STACK_THRESHOLD`
+  직접 참조를 이 헬퍼 호출로 교체했다. `dice_test.gd`에 "연쇄 방어가 방패병
+  전용 후보로만 제시되는지"(explosive_choices와 대칭 비교) 필터 검증 +
+  `_player_guard_threshold()` 반환값 검증을 추가, `bash scripts/qa_shot.sh
+  dice_test` 전체 PASS(신규 항목 2개 포함 모두 OK). `event.gd`에 QA 훅
+  `_debug_force_skill_event_as_shieldbearer()`를 추가해 "연쇄 방어" 카드가
+  "심호흡" 카드와 겹침 없이 렌더링되는 것을
+  `qa_out/event_skill_offer_shieldbearer.png`로, 기본 전투(novice, 스킬 없음)가
+  크래시 없이 정상 진행됨을 `qa_out/combat_test_chain_guard_smoke.png`로
+  확인했다(guard_stack 파이프라인이 실제로 열린 상태의 라이브 트리거 검증은
+  chain_explosion 때와 같은 이유로 생략 — 단위 테스트 + 일반 회귀로 대체).
+  **큐 17이 완전히 끝났다** — 남은 것은 견습 모험가(기믹 없음) 전용 고유
+  스킬 하나뿐이고, 이건 시너지 삼을 기믹 자체가 없어 같은 패턴을 재사용할 수
+  없는 완전히 새로운 설계가 필요함(다음 할 일 큐 17번 참고). `docs/DESIGN.md`도
+  함께 갱신.
+
 - **2026-09-17 (123)**: 큐 17("폭발병/방패병 전용 고유 스킬 설계+추가")의 1/2
   조각. 폭발병(explosive)은 이미 `explosive_stack` 파이프라인을 갖고 있어
   광기/수호 심화의 "없던 파이프라인을 열어준다" 패턴을 쓸 수 없으므로, 큐
