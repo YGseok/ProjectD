@@ -26,37 +26,6 @@
 ## 남은 이슈 (미처리)
 
 (플레이해보고 느낀 점을 이 섹션에 자유롭게 적어주세요.)
-- 2026-09-17 (기획자 결정) 견습 모험가("novice") 전용 고유 스킬 설계 확정 —
-  `code/systems/skill_pool.gd`의 `UNIQUE_SKILLS`가 광전사/수호자/폭발병/방패병
-  4종은 이미 있는데 견습 모험가만 없음(기믹이 아예 없는 캐릭터라 "이미 있는
-  파이프라인을 강화"할 대상 자체가 없었음). 아래 설계대로 5번째 고유 스킬을
-  추가할 것 — 사람 설계 결정을 더 기다리지 말 것.
-
-  **이름: "임기응변" (id: `versatile_surge`, character_id: `novice`)**
-  - 컨셉: 견습 모험가는 기믹이 없는 "만능형" 캐릭터이므로, 한쪽에 몰빵하는 대신
-    공격/방어 양쪽 스택 파이프라인을 동시에 얕게 여는 스킬로 정체성을 준다
-    (frenzy_deepen/guard_deepen이 "기존 없던 파이프라인 하나를 열어준다" 패턴을
-    쓴 것과 동일한 방식을 공격+방어 양쪽에 동시 적용).
-  - 구현: `combat_test.gd`에 `player_versatile_active := false` 신규 변수 추가,
-    `RunState.skill_flags.has("versatile_surge")`로 전투 시작 시 설정(다른 4개
-    스킬 플래그와 동일한 위치·패턴). 공격 스택 조건 `player_dice_gimmick ==
-    "explosive_stack" or player_frenzy_active`에 `or player_versatile_active`를
-    추가하고, 방어 스택 조건 `player_dice_gimmick == "guard_stack" or
-    player_guard_deepen_active`에도 동일하게 `or player_versatile_active`를
-    추가한다 — 즉 공격/방어 두 파이프라인을 동시에 열되, 각각 기존 기본
-    임계치(`EXPLOSIVE_STACK_THRESHOLD`/`GUARD_STACK_THRESHOLD`, 둘 다 3)와 기본
-    보너스(1D20 한 번 굴림)를 그대로 쓴다 — frenzy_deepen/guard_deepen의 "1D20
-    두 번 굴려 채택" 강화나 chain_explosion/chain_guard의 "임계치 2로 낮춤"
-    강화는 넣지 않는다(한 캐릭터가 공격+방어 두 축을 동시에 얻는 것 자체가
-    이미 다른 4종 대비 강력하므로, 축마다의 강화까지 겹치면 과할 수 있다 —
-    "넓지만 얕게"가 견습 모험가의 정체성).
-  - description 예시: "공격/방어 다이스가 각각 최댓값을 보일 때마다 해당 스택이
-    함께 쌓인다. 공격은 3스택에서 보너스 공격턴을, 방어는 3스택에서 보너스
-    방어턴을 각각 1D20으로 얻는다 (견습 모험가 전용)."
-  - 완료 기준: `dice_test.gd`에 다른 4개 고유 스킬과 같은 패턴의 회귀 검증 추가,
-    `scripts/qa_shot.sh`로 견습 모험가가 실제로 공격/방어 양쪽에서 스택이 쌓여
-    보너스 턴을 받는 장면 확인. 완료되면 이 항목을 "처리됨"으로 옮길 것 — 이로써
-    5개 캐릭터 전원의 고유 스킬이 완성된다.
 
 
 ## 부분 처리됨
@@ -157,6 +126,27 @@
   AI는 실제 일러스트를 그릴 수 없음).
 
 ## 처리됨
+
+- [처리됨 - 2026-09-17] (기획자 결정) 견습 모험가("novice") 전용 고유 스킬 설계
+  확정 — "임기응변" (id: `versatile_surge`).
+  → 지시된 설계 그대로 구현했다. `code/systems/skill_pool.gd`의
+  `UNIQUE_SKILLS`에 `character_id: "novice"` 항목을 추가하고, `code/scenes/
+  combat_test.gd`에 `player_versatile_active`(다른 4개 스킬 플래그와 동일한
+  위치·패턴, `RunState.skill_flags.has("versatile_surge")`) 변수를 신설해
+  공격 스택 조건(`explosive_stack" or player_frenzy_active`)과 방어 스택
+  조건(`guard_stack" or player_guard_deepen_active`) 각각에 지시대로
+  `or player_versatile_active`를 추가했다 — 두 조건 문자열이 `_do_exchange()`
+  안에 각각 2곳(보너스 1D20 사용 판단 + 스택 적립/초기화)씩 있어 4곳 모두
+  동일하게 확장, 공격/방어 두 파이프라인이 함께 열리도록 했다. 지시대로
+  임계치(`EXPLOSIVE_STACK_THRESHOLD`/`GUARD_STACK_THRESHOLD`, 둘 다 3)와
+  보너스 턴(1D20 한 번 굴림)은 강화하지 않았다("넓지만 얕게"). `dice_test.gd`에
+  캐릭터 필터 검증(novice=true, berserker=false, 다른 4개 스킬과 같은 패턴) +
+  "임기응변 보유 시에도 임계치 함수 둘 다 기본값(3) 그대로인지" 검증을 추가,
+  `bash scripts/qa_shot.sh dice_test` 전체 PASS. `event.gd`의 QA 훅
+  `_debug_force_skill_event_as_novice()`로 `qa_out/event_skill_offer_novice.png`
+  (카드 겹침 없음)를, `qa_out/combat_test.png`로 기본 전투 정상 진행을 확인했다.
+  `docs/DESIGN.md`도 갱신 — **이제 5개 캐릭터 전원의 고유 스킬이 완성됨**.
+  docs/STATUS.md 완료 기록(127)/다음 할 일 큐 17번 참고.
 
 - [처리됨 - 2026-09-16] (기획자 결정) `docs/STATUS.md` "알려진 이슈"의 "특수 이벤트
   B급(D8) 아이템 사각지대" — 해결안 (b) 확정: 안전 풀을 "C 이하", 위험 성공 풀을
@@ -412,28 +402,6 @@
   방에 입장했다면 언제든 이 크래시를 겪었을 것(이전 이터레이션들은 씬 전환
   버튼을 실제 키 입력으로 검증한 적이 없어 발견되지 않았음). docs/STATUS.md
   완료 기록(105) 참고.
-- [처리됨 - 2026-09-15] 2026-09-14 캐릭터 정보 및 보유 스킬을 상시 볼 수 있도록 한다.
-  → 새 버튼/패널을 따로 만들지 않고, 이미 "전투 제외 화면(던전맵/상점/특수 이벤트/
-  스토리 이벤트)에서는 상시 표시, 전투 중에는 토글 한 번으로 열람"이라는 정확히
-  요청된 동작을 하고 있던 `DeckPanel`(`code/scenes/deck_panel.gd`)을 재사용 —
-  `_add_character_section()`을 신설해 덱 정보 위에 "캐릭터: <이름>" + 설명(기믹
-  포함) 섹션을 추가했다. `CharacterProfiles.get_profile(RunState.character_id)`의
-  `desc` 필드(캐릭터 선택 화면과 동일 텍스트)를 그대로 재사용해 두 화면 설명이
-  어긋나지 않게 함. "보유 스킬"은 지금 `character_profiles.gd`의 기믹 설명 텍스트가
-  유일한 캐릭터별 능력이라 그걸 그대로 보여준다 — 이벤트로 얻는 별도 "고유 스킬"
-  시스템 자체는 여전히 없음(DESIGN.md에 이미 명시됨, "캐릭터 스킬 이벤트 신설"
-  항목과 연결). 새 레이아웃 공간을 확보할 필요가 없어 기존 DeckPanel 사용처
-  5개 화면(dungeon_map/shop/event/story_event/combat_test) 전부에 자동으로
-  반영됨. `_signature()`에 `character_id`를 포함시켜 캐릭터가 바뀌면 패널도 다시
-  그려지게 함. 이 세션 환경의 QA 스크린샷 폭 잘림(1280→1028px) 때문에 패널이 항상
-  화면 오른쪽 끝(x>=980)에서 잘려 보이는 문제가 있어, `dungeon_map.gd`/
-  `combat_test.gd`에 각각 `_debug_move_deck_panel_left()`류 QA 전용 훅을 추가해
-  패널을 왼쪽으로 옮긴 뒤 캡처 — `qa_out/dungeon_map_char_info_left.png`(견습
-  모험가, 정상)/`qa_out/dungeon_map_char_info_berserker.png`(광전사, 5줄 설명
-  텍스트로 가장 긺 — 그래도 패널 안에 겹침 없이 다 들어감)/
-  `qa_out/combat_test_charinfo_left.png`(전투 화면 토글 패널)로 확인. `dice_test.gd`
-  회귀 스위트 전체 PASS(순수 UI 추가라 로직 영향 없음). docs/STATUS.md 완료 기록
-  (101) 참고.
 *(이보다 오래된 "처리됨" 항목은 `docs/INBOX_ARCHIVE.md`에 보관돼 있음 — 이 파일에는
-최근 12개만 유지해 매 이터레이션 읽기 비용을 줄임. 이번 이터레이션(121)에서
-"특수 이벤트 선택지 옆 아이콘으로..." 항목을 그리로 옮겼다.)*
+최근 12개만 유지해 매 이터레이션 읽기 비용을 줄임. 이번 이터레이션(127)에서
+"캐릭터 정보 및 보유 스킬을 상시 볼 수 있도록 한다" 항목을 그리로 옮겼다.)*

@@ -8,6 +8,48 @@
 
 ---
 
+- **2026-09-16 (117)**: INBOX.md [미니 기획 A] "몬스터별 성격 디자인"의 3단계
+  ((1)기믹 재배정 -> (2)신규 기믹 steady_guard -> (3)personality 필드+표시) 중
+  **(2)번(다크 나이트용 신규 기믹 `steady_guard` 구현)**을 처리했다. (116)이
+  기믹이 비워둔 "다크 나이트"(차갑고 노련하며 방어에서 흔들리지 않는 기사)에
+  전용 기믹을 새로 만들어 채웠다.
+  `code/systems/dice_bag.gd`에 `apply_steady_guard(values: Array) -> Array`를
+  신설 — `force_min_max_faces()`/`force_fixed_value()`처럼 다이스의 "면 값"
+  자체를 정적으로 바꾸는 방식이 아니라, `roll_detailed()`가 반환한 굴림
+  "결과값"만 사후 보정하는 방식으로 구현했다(INBOX.md가 "완전 고정이 아니라
+  하한선만 보장"이라고 명시한 차이를 반영). 각 다이스별로 그 다이스 면 개수
+  (`dice[i].size()`)의 절반(올림, `ceil(sides/2.0)` — D4->2/D6->3/D8->4)을
+  계산해, 굴림 결과가 그보다 낮으면 그 값으로 끌어올리고 그 이상이면 그대로
+  둔다. 원본 배열은 건드리지 않고 보정된 새 배열을 반환(면 값 자체는 안 바뀌므로
+  다음 턴 다른 굴림에 영향 없음).
+  `code/scenes/combat_test.gd`: `MONSTER_PROFILES`의 "다크 나이트" 항목에
+  `"dice_gimmick": "steady_guard"` 배정. `_monster_config_for_room()`에
+  `steady_guard` 분기 추가 — 하한값을 `gimmick_value`에 계산해 저장(fixed_value와
+  같은 필드 재사용)하고 이름에 "[철벽]" 태그를 붙인다. `_monster_debug_info_text()`에
+  "기믹: 철벽 방어 (방어 다이스 결과가 N 미만이면 N로 보정)" 문구 추가.
+  `_do_exchange()`에서 `atk_values`/`def_values`를 굴린 직후, "플레이어
+  공격턴이고 몬스터 기믹이 steady_guard일 때"(이 조건에서만 `def_bag`이
+  `monster_defense_bag`)만 `def_values = def_bag.apply_steady_guard(def_values)`로
+  보정 — 데미지 계산(`def_total` 합산)과 화면에 보이는 결과 다이스 칩
+  (`_show_exchange_dice_chips`) 둘 다 보정된 값을 그대로 쓰므로 "물리 다이스
+  결과 ≠ 실제 판정값" 불일치가 이 기믹에서 새로 생기지 않는다.
+  `code/scenes/dice_test.gd`: `apply_steady_guard()` 자체를 검증하는 신규
+  단위 테스트 3건(하한선 미만 값 보정/이상 값 유지/호출 후 원본 면 값 불변)을
+  추가하고, 기존에 "steady_guard 미구현"을 전제로 room4가 기믹 없음을
+  기대하던 `_check_monster_debug_info_text`/`_check_monster_dice_gimmick`의
+  어서션을 새 기믹 기준(dice_gimmick="steady_guard", dice_gimmick_value=4,
+  name="다크 나이트 [철벽] [보스]", 디버그 문구에 "철벽"/하한값 포함)으로
+  갱신 — 관련 주석("아직 미구현", "별도 이터레이션")도 함께 정리.
+  **QA 검증**: `bash scripts/qa_shot.sh dice_test` 전체 PASS(신규 3건 포함).
+  `bash scripts/qa_shot.sh combat_test 200 qa_out/combat_test_steady_guard.png "" 1 "" 4`로
+  다크 나이트(room4, D8)와 실제 전투를 정지 감지 후 캡처 — 몬스터 이름
+  "다크 나이트 [철벽] [보스]", 디버그 문구 "기믹: 철벽 방어 (방어 다이스
+  결과가 4 미만이면 4로 보정)"가 정확히 표시되고, 그 턴의 방어 결과 칩이
+  [4, 5, 8](전부 하한 4 이상)로 나와 로직이 실전에서도 동작함을 확인 —
+  크래시나 레이아웃 겹침 없음.
+  다음 조각(3): 5종 전체에 `personality` 문구 필드+표시 + `docs/DESIGN.md`
+  몬스터 표 신설·반영 — [미니 기획 A]의 마지막 조각, 다음 이터레이션으로 넘김.
+
 - **2026-09-16 (116)**: INBOX.md [미니 기획 A] "몬스터별 성격 디자인"의 3단계
   ((1)기믹 재배정 -> (2)신규 기믹 steady_guard -> (3)personality 필드+표시) 중
   **(1)번(해골 전사<->오크 기믹 재배정)**을 처리했다. [미니 기획 B]가

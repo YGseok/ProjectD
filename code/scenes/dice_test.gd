@@ -2520,6 +2520,21 @@ func _check_skill_effects(lines: PackedStringArray) -> bool:
 	lines.append("  '연쇄 방어' 캐릭터 필터: shieldbearer=%s explosive=%s (기대 true/false) -> %s" % [
 		shieldbearer_has_chain_guard, explosive_has_chain_guard, "OK" if chain_guard_filter_ok else "FAIL"
 	])
+	# (2e) 임기응변(versatile_surge)은 chain_guard와 마찬가지로 견습 모험가(novice)
+	# 전용 후보로만 제시된다(novice_choices는 위 (2)에서 이미 뽑아둔 것을 재사용).
+	var novice_has_versatile := false
+	for s in novice_choices:
+		if s["id"] == "versatile_surge":
+			novice_has_versatile = true
+	var berserker_has_versatile := false
+	for s in berserker_choices:
+		if s["id"] == "versatile_surge":
+			berserker_has_versatile = true
+	var versatile_filter_ok: bool = novice_has_versatile and not berserker_has_versatile
+	ok = versatile_filter_ok and ok
+	lines.append("  '임기응변' 캐릭터 필터: novice=%s berserker=%s (기대 true/false) -> %s" % [
+		novice_has_versatile, berserker_has_versatile, "OK" if versatile_filter_ok else "FAIL"
+	])
 	RunState.skill_flags = flags_backup
 
 	# (3) 여분: _apply_spare_die()는 항상 가장 낮은 값이 있던 자리만 바꾸고(다른 자리는
@@ -2567,6 +2582,21 @@ func _check_skill_effects(lines: PackedStringArray) -> bool:
 	ok = chain_guard_threshold_ok and ok
 	lines.append("  _player_guard_threshold(): 미보유=%d(기대 %d) 보유=%d(기대 2) -> %s" % [
 		guard_threshold_default, combat.GUARD_STACK_THRESHOLD, guard_threshold_with_skill, "OK" if chain_guard_threshold_ok else "FAIL"
+	])
+
+	# (6) 임기응변(versatile_surge)은 chain_explosion/chain_guard와 달리 임계치를 낮추지
+	# 않는다("넓지만 얕게", INBOX.md 2026-09-17 기획자 결정) — player_chain_explosion_active/
+	# player_chain_guard_active를 다시 false로 되돌린 뒤 player_versatile_active만 켜도
+	# 두 임계치 함수 모두 기본값(3) 그대로여야 한다.
+	combat.player_chain_explosion_active = false
+	combat.player_chain_guard_active = false
+	combat.player_versatile_active = true
+	var versatile_explosive_threshold: int = combat._player_explosive_threshold()
+	var versatile_guard_threshold: int = combat._player_guard_threshold()
+	var versatile_threshold_ok: bool = versatile_explosive_threshold == combat.EXPLOSIVE_STACK_THRESHOLD and versatile_guard_threshold == combat.GUARD_STACK_THRESHOLD
+	ok = versatile_threshold_ok and ok
+	lines.append("  임기응변 보유 시 임계치 불변: 공격=%d 방어=%d (기대 둘 다 %d) -> %s" % [
+		versatile_explosive_threshold, versatile_guard_threshold, combat.EXPLOSIVE_STACK_THRESHOLD, "OK" if versatile_threshold_ok else "FAIL"
 	])
 	combat.free()
 

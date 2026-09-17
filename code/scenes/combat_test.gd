@@ -165,6 +165,14 @@ var player_chain_explosion_active := false
 ## 파이프라인을 갖고 있어 스택 임계치 자체를 낮춰(_player_guard_threshold() 참고)
 ## 보너스 방어턴을 더 자주 받게 한다.
 var player_chain_guard_active := false
+## player_versatile_active: "임기응변"(견습 모험가 전용 고유 스킬) 보유 여부.
+## frenzy_deepen/guard_deepen과 같은 "없던 파이프라인을 열어준다" 패턴을 공격+방어
+## 양쪽에 동시에 적용한다(견습 모험가 본인 기믹은 아예 없음, player_dice_gimmick == "").
+## 두 파이프라인 모두 기존 기본 임계치(EXPLOSIVE_STACK_THRESHOLD/GUARD_STACK_THRESHOLD)와
+## 기본 보너스(1D20 한 번 굴림)를 그대로 쓴다 — frenzy_deepen/guard_deepen의 "두 번 굴려
+## 채택" 강화나 chain_explosion/chain_guard의 "임계치 2로 낮춤" 강화는 넣지 않는다(넓지만
+## 얕게가 견습 모험가의 정체성, INBOX.md 2026-09-17 기획자 결정 참고).
+var player_versatile_active := false
 
 var battle_over := false
 var player_won := false
@@ -406,6 +414,7 @@ func _ready() -> void:
 	player_guard_deepen_active = RunState.skill_flags.has("guard_deepen")
 	player_chain_explosion_active = RunState.skill_flags.has("chain_explosion")
 	player_chain_guard_active = RunState.skill_flags.has("chain_guard")
+	player_versatile_active = RunState.skill_flags.has("versatile_surge")
 
 	next_button.pressed.connect(_on_next_button_pressed)
 	deck_toggle_button.pressed.connect(_on_deck_toggle_pressed)
@@ -509,7 +518,7 @@ func _do_exchange(is_player_attacking: bool) -> void:
 	var used_guard_dice := false
 	var atk_bag: DiceBag
 	if is_player_attacking:
-		if (player_dice_gimmick == "explosive_stack" or player_frenzy_active) and player_explosive_pending:
+		if (player_dice_gimmick == "explosive_stack" or player_frenzy_active or player_versatile_active) and player_explosive_pending:
 			atk_bag = DiceBag.new(EXPLOSIVE_DICE_SIDES, 1)
 			used_explosive_dice = true
 		else:
@@ -525,7 +534,7 @@ func _do_exchange(is_player_attacking: bool) -> void:
 	var def_bag: DiceBag
 	if is_player_attacking:
 		def_bag = monster_defense_bag
-	elif (player_dice_gimmick == "guard_stack" or player_guard_deepen_active) and player_guard_pending:
+	elif (player_dice_gimmick == "guard_stack" or player_guard_deepen_active or player_versatile_active) and player_guard_pending:
 		def_bag = DiceBag.new(GUARD_DICE_SIDES, 1)
 		used_guard_dice = true
 	else:
@@ -616,7 +625,7 @@ func _do_exchange(is_player_attacking: bool) -> void:
 					monster_anger_pending = true
 					_append_log("몬스터가 분노했다! 다음 공격은 20면체 주사위로 굴린다")
 
-	if is_player_attacking and (player_dice_gimmick == "explosive_stack" or player_frenzy_active):
+	if is_player_attacking and (player_dice_gimmick == "explosive_stack" or player_frenzy_active or player_versatile_active):
 		if used_explosive_dice:
 			player_explosive_stacks = 0
 			player_explosive_pending = false
@@ -632,7 +641,7 @@ func _do_exchange(is_player_attacking: bool) -> void:
 					player_explosive_pending = true
 					_append_log("광기가 정점에 달했다! 다음 공격은 1D20을 두 번 굴려 더 높은 값을 채택한다" if player_frenzy_active else "폭발 직전! 다음 공격은 20면체 주사위로 터진다")
 
-	if not is_player_attacking and (player_dice_gimmick == "guard_stack" or player_guard_deepen_active):
+	if not is_player_attacking and (player_dice_gimmick == "guard_stack" or player_guard_deepen_active or player_versatile_active):
 		if used_guard_dice:
 			player_guard_stacks = 0
 			player_guard_pending = false

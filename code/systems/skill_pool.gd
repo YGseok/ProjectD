@@ -68,6 +68,18 @@ const SKILLS: Array[Dictionary] = [
 ## 보너스 턴 자체는 강화하지 않고(1D20 한 번 그대로) 임계치만 낮춘다 — 광기/수호
 ## 심화 두 스킬이 이미 "두 번 굴려 채택" 강화를 쓰고 있어 같은 축을 또 건드리면
 ## 과할 수 있기 때문(STATUS.md 큐 17 참고).
+##
+## "versatile_surge"(임기응변): 견습 모험가(novice) 전용, 나머지 4캐릭터의 마지막
+## 빈자리(INBOX.md 2026-09-17 기획자 결정). 견습 모험가는 기믹이 아예 없는 "만능형"
+## 캐릭터라 한쪽에 몰빵하는 대신, frenzy_deepen/guard_deepen의 "없던 파이프라인을
+## 열어준다" 패턴을 공격+방어 양쪽에 동시에 적용한다 — explosive_stack과 guard_stack
+## 파이프라인이 함께 열리고, 둘 다 기존 기본 임계치(EXPLOSIVE_STACK_THRESHOLD/
+## GUARD_STACK_THRESHOLD, 둘 다 3)와 기본 보너스(1D20 한 번 굴림)를 그대로 쓴다 —
+## frenzy_deepen/guard_deepen의 "두 번 굴려 채택" 강화나 chain_explosion/chain_guard의
+## "임계치 2로 낮춤" 강화는 넣지 않는다(한 캐릭터가 공격+방어 두 축을 동시에 얻는
+## 것 자체가 이미 다른 4종 대비 강력하므로, 축마다의 강화까지 겹치면 과할 수 있음 —
+## "넓지만 얕게"가 견습 모험가의 정체성, combat_test.gd의 player_versatile_active
+## 분기 참고).
 const UNIQUE_SKILLS: Array[Dictionary] = [
 	{
 		"id": "frenzy_deepen",
@@ -92,6 +104,12 @@ const UNIQUE_SKILLS: Array[Dictionary] = [
 		"name": "연쇄 방어",
 		"description": "수호 스택 임계치가 3에서 2로 낮아져 보너스 방어턴을 더 자주 받는다 (방패병 전용).",
 		"character_id": "shieldbearer",
+	},
+	{
+		"id": "versatile_surge",
+		"name": "임기응변",
+		"description": "공격/방어 다이스가 각각 최댓값을 보일 때마다 해당 스택이 함께 쌓인다. 공격은 3스택에서 보너스 공격턴을, 방어는 3스택에서 보너스 방어턴을 각각 1D20으로 얻는다 (견습 모험가 전용).",
+		"character_id": "novice",
 	},
 ]
 

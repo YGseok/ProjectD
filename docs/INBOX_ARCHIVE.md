@@ -7,6 +7,29 @@
 
 ---
 
+- [처리됨 - 2026-09-15] 2026-09-14 캐릭터 정보 및 보유 스킬을 상시 볼 수 있도록 한다.
+  → 새 버튼/패널을 따로 만들지 않고, 이미 "전투 제외 화면(던전맵/상점/특수 이벤트/
+  스토리 이벤트)에서는 상시 표시, 전투 중에는 토글 한 번으로 열람"이라는 정확히
+  요청된 동작을 하고 있던 `DeckPanel`(`code/scenes/deck_panel.gd`)을 재사용 —
+  `_add_character_section()`을 신설해 덱 정보 위에 "캐릭터: <이름>" + 설명(기믹
+  포함) 섹션을 추가했다. `CharacterProfiles.get_profile(RunState.character_id)`의
+  `desc` 필드(캐릭터 선택 화면과 동일 텍스트)를 그대로 재사용해 두 화면 설명이
+  어긋나지 않게 함. "보유 스킬"은 지금 `character_profiles.gd`의 기믹 설명 텍스트가
+  유일한 캐릭터별 능력이라 그걸 그대로 보여준다 — 이벤트로 얻는 별도 "고유 스킬"
+  시스템 자체는 여전히 없음(DESIGN.md에 이미 명시됨, "캐릭터 스킬 이벤트 신설"
+  항목과 연결). 새 레이아웃 공간을 확보할 필요가 없어 기존 DeckPanel 사용처
+  5개 화면(dungeon_map/shop/event/story_event/combat_test) 전부에 자동으로
+  반영됨. `_signature()`에 `character_id`를 포함시켜 캐릭터가 바뀌면 패널도 다시
+  그려지게 함. 이 세션 환경의 QA 스크린샷 폭 잘림(1280→1028px) 때문에 패널이 항상
+  화면 오른쪽 끝(x>=980)에서 잘려 보이는 문제가 있어, `dungeon_map.gd`/
+  `combat_test.gd`에 각각 `_debug_move_deck_panel_left()`류 QA 전용 훅을 추가해
+  패널을 왼쪽으로 옮긴 뒤 캡처 — `qa_out/dungeon_map_char_info_left.png`(견습
+  모험가, 정상)/`qa_out/dungeon_map_char_info_berserker.png`(광전사, 5줄 설명
+  텍스트로 가장 긺 — 그래도 패널 안에 겹침 없이 다 들어감)/
+  `qa_out/combat_test_charinfo_left.png`(전투 화면 토글 패널)로 확인. `dice_test.gd`
+  회귀 스위트 전체 PASS(순수 UI 추가라 로직 영향 없음). docs/STATUS.md 완료 기록
+  (101) 참고.
+
 - [처리됨 - 2026-09-15] 2026-09-14 현재 게임에 적용된 캐릭터를 확인해볼 수 있도록,
   캐릭터 관련 내용을 디자인md에 기술한다. 시작 스킬, 시작 주사위, 고유 스킬(이벤트에
   따라 추가), 필요에 따라 각종 정보들이 있을 것 같다. (기획자인 나에게 전달하는 용도)

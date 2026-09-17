@@ -5,23 +5,27 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-09-17 (126)
-- 작성자: AI 에이전트. INBOX.md "남은 이슈"가 비어 있고, "다음 할 일 큐"에
-  남은 항목 전부가 사람 플레이 피드백/설계 결정을 필요로 하는 상태(큐 17의
-  견습 모험가 전용 고유 스킬 포함)라, (125)와 같은 이유로 큐 13("업적
-  시스템 — 남은 항목 추가")을 다시 골랐다. `combat_test.gd`의 승리 분기에는
-  이미 5종 업적이 걸려 있는데 패배 분기(`elif player_hp <= 0`)에는 하나도
-  없던 비대칭을 발견해, 신규 업적 "패배도 경험이다"(`first_defeat`, 던전에서
-  처음 패배)를 추가했다. 패배 분기의 `unlock()` 호출을 물리 코루틴과 분리된
-  별도 함수 `_unlock_defeat_achievement()`로 빼서(`combat_test.gd`)
-  `dice_test.gd`가 씬 트리 없이 직접 호출해 검증할 수 있게 했다(업적
-  20→21종). `dice_test.gd`에 신규 `_check_defeat_achievement` 추가, `bash
-  scripts/qa_shot.sh dice_test` 전체 PASS. `qa_out/
-  character_select_achv_first_defeat.png`로 새 항목이 업적 패널 맨 아래에
-  겹침 없이 표시됨을, `qa_out/combat_test_first_defeat_smoke.png`로 전투
-  화면이 정상 로드됨을 확인했다. 자세한 내용은 아래 "완료 기록 (126)" 참고.
-  "완료 기록"이 11개가 돼 가장 오래된 (116)을 `docs/STATUS_ARCHIVE.md`로
-  옮겼다.
+- 일시: 2026-09-17 (127)
+- 작성자: AI 에이전트. INBOX.md "남은 이슈"의 2026-09-17 기획자 결정 항목을
+  최우선으로 반영 — 견습 모험가 전용 고유 스킬 "임기응변"(`versatile_surge`)을
+  지시된 설계 그대로 구현했다. `skill_pool.gd`의 `UNIQUE_SKILLS`에
+  `character_id: "novice"` 항목을 추가하고, `combat_test.gd`에
+  `player_versatile_active`(RunState.skill_flags.has("versatile_surge"))
+  변수를 신설해 공격 스택 조건(`explosive_stack" or player_frenzy_active`)과
+  방어 스택 조건(`guard_stack" or player_guard_deepen_active`) 각 2곳(스택
+  적립 분기 + 보너스 턴 사용 분기)에 `or player_versatile_active`를 추가했다
+  — 지시대로 임계치/보너스 턴 자체는 강화하지 않고 두 파이프라인만 동시에
+  연다. `dice_test.gd`에 "임기응변" 캐릭터 필터 검증(novice=true,
+  berserker=false, 다른 4개 스킬과 같은 패턴) + "임기응변 보유 시에도 두
+  임계치 함수가 기본값 3 그대로인지" 검증을 추가, `bash scripts/qa_shot.sh
+  dice_test` 전체 PASS. `event.gd`에 QA 훅 `_debug_force_skill_event_as_
+  novice()`를 추가해 `qa_out/event_skill_offer_novice.png`로 "임기응변" 카드가
+  겹침 없이 표시됨을, `qa_out/combat_test.png`로 기본 전투(novice, 스킬 없음)가
+  새 분기 추가 후에도 정상 진행됨을 확인했다(스택 파이프라인이 실제로 열린
+  상태의 라이브 턴 진행 자체는 다른 4개 고유 스킬 때와 같은 이유로 단위
+  테스트+일반 회귀로 대체). `docs/DESIGN.md`도 함께 갱신 — 이제 5개 캐릭터
+  전원의 고유 스킬이 완성됐다(다음 할 일 큐 17번 완전히 종료). 자세한 내용은
+  아래 "완료 기록 (127)" 참고.
 
 ## 지금 위치
 
@@ -42,14 +46,15 @@
 - **캐릭터 스킬 이벤트** (`code/scenes/event.gd`): 특수 이벤트 방이 30%
   확률(`SKILL_EVENT_CHANCE`)로 아이템 대신 스킬 카드 2장을 보여준다. 공용
   스킬 2종(심호흡=첫 방어턴 방어값 +1(면 개수 상한)/여분=매 공격턴 최저값을
-  advantage 방식으로 대체) + 캐릭터 전용 고유 스킬 4종(`SkillPool.
-  UNIQUE_SKILLS`, `character_id`로 필터): 광기 심화(광전사, explosive_stack
-  파이프라인을 새로 열고 보너스턴이 1D20 두 번 굴려 채택) / 수호 심화
-  (수호자, guard_stack 파이프라인을 새로 열고 동일 강화) / 연쇄 폭발
-  (폭발병, 이미 갖고 있던 explosive_stack의 임계치를 3→2로 낮춤) / **연쇄
-  방어(방패병, 신규 — 연쇄 폭발과 대칭으로 guard_stack 임계치를 3→2로
-  낮춤)**. 견습 모험가(시너지 기믹이 없어 새 설계 필요, 미착수)만 남음 —
-  다음 할 일 큐 17번 참고. 획득한 스킬 id는 `RunState.skill_flags`에 쌓이고
+  advantage 방식으로 대체) + 캐릭터 전용 고유 스킬 **5종**(`SkillPool.
+  UNIQUE_SKILLS`, `character_id`로 필터, 2026-09-17 (127)로 5/5종 완성):
+  광기 심화(광전사, explosive_stack 파이프라인을 새로 열고 보너스턴이 1D20
+  두 번 굴려 채택) / 수호 심화(수호자, guard_stack 파이프라인을 새로 열고
+  동일 강화) / 연쇄 폭발(폭발병, 이미 갖고 있던 explosive_stack의 임계치를
+  3→2로 낮춤) / 연쇄 방어(방패병, 연쇄 폭발과 대칭으로 guard_stack 임계치를
+  3→2로 낮춤) / **임기응변(견습 모험가, 신규 — 시너지 삼을 기믹이 없는 대신
+  frenzy_deepen/guard_deepen 패턴을 공격+방어 양쪽에 동시 적용, 임계치/보너스
+  턴 강화는 없음)**. 획득한 스킬 id는 `RunState.skill_flags`에 쌓이고
   `combat_test.gd`의 `_do_exchange()`가 실제 효과를 적용한다.
 - **특수 이벤트(아이템 쪽)**: "안전하게 넘어가기"(C/B급 가중치 무작위 확정
   획득)/"위험을 감수하기"(이벤트 주사위 1회 vs `DC=min(5,3+room_index/2)`,
@@ -652,24 +657,66 @@
       바뀔 때마다 이 섹션도 같이 갱신할 것** — 자동 동기화가 아니라 수동으로
       옮겨 적은 스냅샷이므로 코드와 어긋나지 않게 유지 필요.
 
-17. **(2026-09-16 신규, 큐 16의 [미니 기획 C] 후속에서 분리) 폭발병/방패병 전용
-    고유 스킬 설계+추가 — 완료(2/2).** 광전사/수호자는 각각 "광기
-    심화"/"수호 심화"로 고유 스킬을 받았는데, 둘 다 "본인 기믹에는 없던 스택
-    파이프라인(explosive_stack/guard_stack)을 열어준다"는 같은 패턴이었다 —
+17. ~~(2026-09-16 신규, 큐 16의 [미니 기획 C] 후속에서 분리) 폭발병/방패병/견습
+    모험가 전용 고유 스킬 설계+추가~~ → **완료(3/3).** 광전사/수호자는 각각
+    "광기 심화"/"수호 심화"로 고유 스킬을 받았는데, 둘 다 "본인 기믹에는 없던
+    스택 파이프라인(explosive_stack/guard_stack)을 열어준다"는 같은 패턴이었다 —
     폭발병/방패병은 이미 그 파이프라인을 갖고 있어서 같은 패턴을 그대로
-    못 쓴다. **폭발병 쪽은 2026-09-17 (123)에 "연쇄 폭발"(`chain_explosion`,
+    못 쓴다. 폭발병 쪽은 2026-09-17 (123)에 "연쇄 폭발"(`chain_explosion`,
     스택 임계치 3→2)로, 방패병 쪽은 2026-09-17 (124)에 "연쇄
     방어"(`chain_guard`, guard_stack 임계치 3→2)로 완전히 대칭 구조로
-    완료됐다**(아래 "완료 기록 (123)/(124)" 참고). 남은 것:
-    - **견습 모험가(기믹 없음) 전용 고유 스킬 (미착수, 사람 판단 필요)** —
-      5종 캐릭터 중 유일하게 시너지 삼을 기믹 자체가 없어, 위 4종처럼 "기존
-      스택 파이프라인을 열거나 강화하는" 패턴을 그대로 못 쓴다. 완전히 새로운
-      방향의 스킬 설계가 필요한데(예: 다른 스탯 보너스, 골드/눈금 보상 등)
-      구체적인 방향은 AI가 임의로 정하기보다 사람이 컨셉을 정해주는 게
-      안전함 — 다음 세션이 진행하려면 이 캐릭터에게 어떤 종류의 고유 스킬을
-      줄지(공격/방어 수치 보정? 자원 보상? 다른 축?) 먼저 방향을 정해야 함.
+    완료됐다. 마지막으로 남았던 견습 모험가(기믹 없음)는 2026-09-17
+    기획자 결정으로 방향이 확정돼, 같은 날 (127)에서 "임기응변"
+    (`versatile_surge`, frenzy_deepen/guard_deepen 패턴을 공격+방어 양쪽에
+    동시 적용)으로 구현 완료했다(아래 "완료 기록 (127)" 참고) — **이제 5개
+    캐릭터 전원의 고유 스킬이 갖춰져 이 큐 항목은 완전히 종료.**
 
 ## 완료 기록
+
+- **2026-09-17 (127)**: INBOX.md "남은 이슈"의 2026-09-17 기획자 결정 항목
+  (견습 모험가 전용 고유 스킬 "임기응변" 설계 확정)을 지시된 그대로 구현했다
+  — 큐 17("폭발병/방패병/견습 모험가 전용 고유 스킬 설계+추가")의 마지막
+  조각이자 [미니 기획 C]의 캐릭터별 고유 스킬 5/5종 완성.
+  `code/systems/skill_pool.gd`의 `UNIQUE_SKILLS`에 `{id: "versatile_surge",
+  character_id: "novice", ...}` 정의를 추가했다. `code/scenes/combat_test.gd`에
+  `player_versatile_active`(`_ready()`에서
+  `RunState.skill_flags.has("versatile_surge")`로 초기화, 다른 4개 스킬
+  플래그와 동일한 위치·패턴) 상태 변수를 신설하고, 지시된 대로 공격 스택
+  조건(`player_dice_gimmick == "explosive_stack" or player_frenzy_active`)과
+  방어 스택 조건(`player_dice_gimmick == "guard_stack" or
+  player_guard_deepen_active`) 각각에 `or player_versatile_active`를
+  추가했다 — 이 두 조건 문자열이 `_do_exchange()` 안에 정확히 2곳씩(보너스
+  1D20 임시 주머니 사용 여부 판단 분기 + 스택 적립/임계치 도달/초기화 분기)
+  나타나므로 4곳 모두 동일하게 확장해, 공격/방어 두 파이프라인이 함께
+  열리도록 했다. 지시대로 임계치(`EXPLOSIVE_STACK_THRESHOLD`/
+  `GUARD_STACK_THRESHOLD`, 둘 다 3)와 보너스 턴(1D20 한 번 굴림)은 그대로
+  두고, `_player_explosive_threshold()`/`_player_guard_threshold()`
+  헬퍼에는 `player_versatile_active` 분기를 추가하지 않았다(연쇄
+  폭발/연쇄 방어처럼 임계치를 낮추지 않는다는 "넓지만 얕게" 설계 의도를
+  그대로 반영).
+  `dice_test.gd`의 `_check_skill_effects`에 (2e) "'임기응변' 캐릭터
+  필터"(novice=true, berserker=false, 다른 4개 스킬과 같은 패턴) 검증과,
+  (6) "임기응변 보유 시에도 두 임계치 함수가 각각 기본값(3) 그대로 반환하는지"
+  검증(chain_explosion_active/chain_guard_active를 다시 false로 되돌린 뒤
+  versatile_active만 켜서 확인 — "임계치를 낮추지 않는다"는 설계를 직접
+  검증하는 유일한 자동 테스트)을 추가, `bash scripts/qa_shot.sh dice_test`
+  전체 PASS.
+  화면 검증: `event.gd`에 QA 전용 훅 `_debug_force_skill_event_as_novice()`
+  (다른 3개 캐릭터 전용 훅과 같은 패턴 — character_id를 novice로 강제하고
+  "여분"+"임기응변" 2장을 직접 지정)를 추가해
+  `qa_out/event_skill_offer_novice.png`로 "임기응변" 카드가 다른 카드와
+  겹침 없이 렌더링되는 것을 확인했고, `bash scripts/qa_shot.sh combat_test`로
+  기본 전투(novice, 스킬 미보유 상태)가 새 변수/조건 추가 후에도 크래시 없이
+  정상 로드됨을 `qa_out/combat_test.png`로 재확인했다. explosive_stack/
+  guard_stack 두 파이프라인이 동시에 실제로 열린 상태에서 라이브 턴이
+  진행되는 장면 자체는(광기 심화 등 이전 스킬들과 같은 이유 —
+  `_do_exchange()`가 물리 다이스 정지 대기를 포함한 코루틴이라 QA_CALL로
+  직접 트리거해 한 프레임에 결과를 볼 수 없음) 단위 테스트+일반 회귀로
+  대신했다.
+  `docs/DESIGN.md`의 "캐릭터 스킬 부여 이벤트" 절과 UNIQUE_SKILLS 표에
+  "임기응변" 설명을 추가하고 "5/5종 완성" 문구로 갱신, `docs/STATUS.md`
+  다음 할 일 큐 17번을 완료 처리했다. **이제 5개 캐릭터 전원이 고유 스킬을
+  갖췄다** — INBOX.md의 이 항목을 "처리됨"으로 옮겼다.
 
 - **2026-09-17 (126)**: 큐 13("업적 시스템 — 남은 항목 추가")의 후속, (125)와 같은
   패턴. INBOX.md "남은 이슈"가 비어 있고 다음 할 일 큐도 전부 사람 피드백/설계
@@ -995,51 +1042,9 @@
   "처리됨"으로 이동. 남은 미니 기획은 [미니 기획 C](캐릭터 스킬 부여
   이벤트)뿐 — 다음 이터레이션 후보로 남김(아래 "다음 할 일 큐" 0-B번).
 
-- **2026-09-16 (117)**: INBOX.md [미니 기획 A] "몬스터별 성격 디자인"의 3단계
-  ((1)기믹 재배정 -> (2)신규 기믹 steady_guard -> (3)personality 필드+표시) 중
-  **(2)번(다크 나이트용 신규 기믹 `steady_guard` 구현)**을 처리했다. (116)이
-  기믹이 비워둔 "다크 나이트"(차갑고 노련하며 방어에서 흔들리지 않는 기사)에
-  전용 기믹을 새로 만들어 채웠다.
-  `code/systems/dice_bag.gd`에 `apply_steady_guard(values: Array) -> Array`를
-  신설 — `force_min_max_faces()`/`force_fixed_value()`처럼 다이스의 "면 값"
-  자체를 정적으로 바꾸는 방식이 아니라, `roll_detailed()`가 반환한 굴림
-  "결과값"만 사후 보정하는 방식으로 구현했다(INBOX.md가 "완전 고정이 아니라
-  하한선만 보장"이라고 명시한 차이를 반영). 각 다이스별로 그 다이스 면 개수
-  (`dice[i].size()`)의 절반(올림, `ceil(sides/2.0)` — D4->2/D6->3/D8->4)을
-  계산해, 굴림 결과가 그보다 낮으면 그 값으로 끌어올리고 그 이상이면 그대로
-  둔다. 원본 배열은 건드리지 않고 보정된 새 배열을 반환(면 값 자체는 안 바뀌므로
-  다음 턴 다른 굴림에 영향 없음).
-  `code/scenes/combat_test.gd`: `MONSTER_PROFILES`의 "다크 나이트" 항목에
-  `"dice_gimmick": "steady_guard"` 배정. `_monster_config_for_room()`에
-  `steady_guard` 분기 추가 — 하한값을 `gimmick_value`에 계산해 저장(fixed_value와
-  같은 필드 재사용)하고 이름에 "[철벽]" 태그를 붙인다. `_monster_debug_info_text()`에
-  "기믹: 철벽 방어 (방어 다이스 결과가 N 미만이면 N로 보정)" 문구 추가.
-  `_do_exchange()`에서 `atk_values`/`def_values`를 굴린 직후, "플레이어
-  공격턴이고 몬스터 기믹이 steady_guard일 때"(이 조건에서만 `def_bag`이
-  `monster_defense_bag`)만 `def_values = def_bag.apply_steady_guard(def_values)`로
-  보정 — 데미지 계산(`def_total` 합산)과 화면에 보이는 결과 다이스 칩
-  (`_show_exchange_dice_chips`) 둘 다 보정된 값을 그대로 쓰므로 "물리 다이스
-  결과 ≠ 실제 판정값" 불일치가 이 기믹에서 새로 생기지 않는다.
-  `code/scenes/dice_test.gd`: `apply_steady_guard()` 자체를 검증하는 신규
-  단위 테스트 3건(하한선 미만 값 보정/이상 값 유지/호출 후 원본 면 값 불변)을
-  추가하고, 기존에 "steady_guard 미구현"을 전제로 room4가 기믹 없음을
-  기대하던 `_check_monster_debug_info_text`/`_check_monster_dice_gimmick`의
-  어서션을 새 기믹 기준(dice_gimmick="steady_guard", dice_gimmick_value=4,
-  name="다크 나이트 [철벽] [보스]", 디버그 문구에 "철벽"/하한값 포함)으로
-  갱신 — 관련 주석("아직 미구현", "별도 이터레이션")도 함께 정리.
-  **QA 검증**: `bash scripts/qa_shot.sh dice_test` 전체 PASS(신규 3건 포함).
-  `bash scripts/qa_shot.sh combat_test 200 qa_out/combat_test_steady_guard.png "" 1 "" 4`로
-  다크 나이트(room4, D8)와 실제 전투를 정지 감지 후 캡처 — 몬스터 이름
-  "다크 나이트 [철벽] [보스]", 디버그 문구 "기믹: 철벽 방어 (방어 다이스
-  결과가 4 미만이면 4로 보정)"가 정확히 표시되고, 그 턴의 방어 결과 칩이
-  [4, 5, 8](전부 하한 4 이상)로 나와 로직이 실전에서도 동작함을 확인 —
-  크래시나 레이아웃 겹침 없음.
-  다음 조각(3): 5종 전체에 `personality` 문구 필드+표시 + `docs/DESIGN.md`
-  몬스터 표 신설·반영 — [미니 기획 A]의 마지막 조각, 다음 이터레이션으로 넘김.
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(126)에서 (116)을 그리로 옮겼다.)*
+이번 이터레이션(127)에서 (117)을 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 

@@ -519,6 +519,14 @@ func _debug_force_skill_event_as_shieldbearer() -> void:
 	_setup_skill_event([SkillPool.SKILLS[0], SkillPool.UNIQUE_SKILLS[3]])
 
 
+## QA 전용: "임기응변"(견습 모험가 전용 고유 스킬) 카드가 실제로 후보에 섞여
+## 표시되는지 확인 — 위 3개 훅과 같은 패턴.
+func _debug_force_skill_event_as_novice() -> void:
+	RunState.character_id = "novice"
+	RunState.skill_flags = []
+	_setup_skill_event([SkillPool.SKILLS[1], SkillPool.UNIQUE_SKILLS[4]])
+
+
 ## QA 전용: 스킬을 실제로 습득하면 RunState.skill_flags에 반영되는지, 이미 보유한
 ## 스킬은 두 번째 후보 목록에서 제외되는지를 콘솔로 검증한다(apply 로직 확인, 화면
 ## 표시와는 별개).
