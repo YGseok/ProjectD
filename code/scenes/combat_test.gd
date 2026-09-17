@@ -670,6 +670,14 @@ func _do_exchange(is_player_attacking: bool) -> void:
 		if RunState.player_attack_bag.dice.size() + RunState.player_defense_bag.dice.size() <= 6:
 			atk_values = atk_bag.apply_flat_bonus(atk_values, 1)
 			_append_log("정예 효과: 공격 다이스 결과값 +1 (공격+방어 합계 6개 이하)")
+		# "수집가"([미니 기획 E]-4, 시작 스킬): 보유한 눈금 인벤토리가 5개 이상이면
+		# 공격 다이스 결과값 전체 +1. 전투 중에는 눈금이 늘지 않으므로(눈금은 이벤트/
+		# 상점에서만 증가) 매 공격턴 확인해도 결과는 전투 시작 시점과 동일하지만, 다른
+		# 시작 스킬들과 같은 패턴(매 턴 재확인)을 유지해 일관성을 지킨다.
+		if is_player_attacking and RunState.skill_flags.has("start_hoard"):
+			if RunState.pip_inventory.size() >= 5:
+				atk_values = atk_bag.apply_flat_bonus(atk_values, 1)
+				_append_log("수집가 효과: 공격 다이스 결과값 +1 (눈금 인벤토리 5개 이상)")
 	# "심호흡+"([미니 기획 D]-4, 공용 강화): base는 이번 전투 첫 방어턴 한 번만
 	# 적용되지만, "+"는 매 방어턴마다 적용된다(상한은 base와 동일하게 다이스별 면
 	# 개수). "+" > base 우선순위 — 두 id가 함께 있어도 "+"만 적용하고 player_deep_
@@ -702,6 +710,24 @@ func _do_exchange(is_player_attacking: bool) -> void:
 		if RunState.player_attack_bag.dice.size() + RunState.player_defense_bag.dice.size() <= 6:
 			def_values = def_bag.apply_flat_bonus(def_values, 1)
 			_append_log("정예 효과: 방어 다이스 결과값 +1 (공격+방어 합계 6개 이하)")
+		# "강철 방비"([미니 기획 E]-4, 시작 스킬): 보유 다이스 중 철제 재질(D12/D20,
+		# _material_for_sides() 참고)이 1개 이상이면 방어 다이스 결과값 전체 +1.
+		# "보유"는 공격/방어 두 주머니를 모두 확인(어느 쪽에 있든 인정 — 지시문이 "보유
+		# 다이스 중"이라고만 했지 주머니를 한정하지 않았음).
+		if not is_player_attacking and RunState.skill_flags.has("start_ironclad"):
+			var has_metal_die := false
+			for die_faces in RunState.player_attack_bag.dice:
+				if _material_for_sides(die_faces.size()) == MATERIAL_METAL:
+					has_metal_die = true
+					break
+			if not has_metal_die:
+				for die_faces in RunState.player_defense_bag.dice:
+					if _material_for_sides(die_faces.size()) == MATERIAL_METAL:
+						has_metal_die = true
+						break
+			if has_metal_die:
+				def_values = def_bag.apply_flat_bonus(def_values, 1)
+				_append_log("강철 방비 효과: 방어 다이스 결과값 +1 (철제 재질 다이스 보유)")
 	var atk_total := 0
 	for v in atk_values:
 		atk_total += v

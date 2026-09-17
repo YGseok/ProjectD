@@ -3111,6 +3111,53 @@ func _check_starting_skill_combat_wiring(lines: PackedStringArray) -> bool:
 		expand_after_add_total, "OK" if expand_activate_ok else "FAIL"
 	])
 
+	# (f) "수집가"(눈금 인벤토리 >= 5) 발동 조건은 새 런 직후(pip_inventory가 비어있음)엔
+	# 거짓이어야 하고, 눈금을 5개 채우면 참으로 바뀌어야 한다.
+	RunState.chosen_starting_skill_id = "start_hoard"
+	RunState.reset_run("berserker")
+	var hoard_not_yet_ok: bool = RunState.pip_inventory.size() < 5
+	ok = hoard_not_yet_ok and ok
+	lines.append("  '수집가' 발동 조건(새 런 직후): 눈금=%d (<5 기대, 아직 안 켜짐) -> %s" % [
+		RunState.pip_inventory.size(), "OK" if hoard_not_yet_ok else "FAIL"
+	])
+	for i in range(5):
+		RunState.pip_inventory.append(1)
+	var hoard_activate_ok: bool = RunState.pip_inventory.size() >= 5
+	ok = hoard_activate_ok and ok
+	lines.append("  '수집가' 눈금 5개 채운 후: 눈금=%d (>=5 기대, 조건 켜짐) -> %s" % [
+		RunState.pip_inventory.size(), "OK" if hoard_activate_ok else "FAIL"
+	])
+
+	# (g) "강철 방비"(철제 재질 다이스 1개 이상 보유) 발동 조건은 수호자 기본 구성
+	# (전부 D4, 철제 아님)에서는 거짓이어야 하고, D12 다이스를 추가하면 참으로 바뀌어야
+	# 한다. combat_test.gd의 _material_for_sides()를 그대로 불러 판정 기준을 재사용한다.
+	RunState.chosen_starting_skill_id = "start_ironclad"
+	RunState.reset_run("guardian")
+	var combat_script := load("res://code/scenes/combat_test.gd")
+	var ironclad_metal_material = load("res://resources/materials/metal.tres")
+	var has_metal_before := false
+	for die_faces in RunState.player_attack_bag.dice:
+		if combat_script._material_for_sides(die_faces.size()) == ironclad_metal_material:
+			has_metal_before = true
+	for die_faces in RunState.player_defense_bag.dice:
+		if combat_script._material_for_sides(die_faces.size()) == ironclad_metal_material:
+			has_metal_before = true
+	var ironclad_not_yet_ok: bool = not has_metal_before
+	ok = ironclad_not_yet_ok and ok
+	lines.append("  '강철 방비' 발동 조건(수호자 기본, 전부 D4): 철제 보유=%s (false 기대, 아직 안 켜짐) -> %s" % [
+		has_metal_before, "OK" if ironclad_not_yet_ok else "FAIL"
+	])
+	RunState.player_defense_bag.add_die(12)
+	var has_metal_after := false
+	for die_faces in RunState.player_defense_bag.dice:
+		if combat_script._material_for_sides(die_faces.size()) == ironclad_metal_material:
+			has_metal_after = true
+	var ironclad_activate_ok: bool = has_metal_after
+	ok = ironclad_activate_ok and ok
+	lines.append("  '강철 방비' D12 추가 후: 철제 보유=%s (true 기대, 조건 켜짐) -> %s" % [
+		has_metal_after, "OK" if ironclad_activate_ok else "FAIL"
+	])
+
 	RunState.chosen_starting_skill_id = chosen_backup
 	RunState.reset_run(character_backup)
 	return ok

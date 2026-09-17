@@ -8,6 +8,42 @@
 
 ---
 
+- **2026-09-17 (128)**: INBOX.md "남은 이슈"의 [미니 기획 D](스킬 강화 이벤트)
+  1~2번을 지시된 순서대로 착수. `code/systems/skill_pool.gd`에
+  `UPGRADE_SKILLS: Array[Dictionary]`(7종, 기존 SKILLS 2 + UNIQUE_SKILLS 5
+  각각의 "+" 버전 — 심호흡+/여분+/광기 심화+/수호 심화+/연쇄 폭발+/연쇄
+  방어+/임기응변+)를 추가(1번). 각 항목은 `{id, name, description, upgrades:
+  <base id>, character_id(고유 스킬 계열만)}` 형태로 지시된 필드 패턴을 그대로
+  따랐고, 효과 설명은 INBOX.md 기획자 결정 원문의 수치(광기/수호 심화+는
+  보너스 굴림 2→3회, 연쇄 폭발/방어+는 임계치 2 유지하며 굴림 1→2회로 강화,
+  심호흡+는 첫 방어턴 한정→매 방어턴, 여분+는 여분 다이스 1→2개, 임기응변+는
+  임계치 3→2)를 그대로 description에 옮겼다 — description은 아직 텍스트일
+  뿐 실제 전투 배선(4번)은 하지 않았다(지시대로 이번 이터레이션은 1~2번만).
+  이어서 `SkillPool.available_upgrade_choices(n, character_id)`(2번)를
+  추가 — `RunState.skill_flags`에 base id는 있는데 "+"id는 없는 항목만 후보로
+  삼고(둘 다 없거나 둘 다 있으면 제외), character_id가 있는 항목(고유 스킬
+  계열)은 인자로 받은 character_id와 일치할 때만 포함(공용 스킬 강화는
+  캐릭터 무관하게 항상 후보) — `available_choices()`와 대칭 구조로 구현했다.
+  `SkillPool.grant_upgrade(base_id)` 헬퍼도 함께 추가(지시된 2번 항목) —
+  base_id로 UPGRADE_SKILLS에서 대응하는 "+"id를 찾아 기존 `grant()`로
+  `skill_flags`에 추가(중복 방지는 grant()가 그대로 처리), 대응하는 강화판이
+  없는 id를 넘기면 아무 일도 하지 않는다.
+  `code/scenes/dice_test.gd`에 `_check_upgrade_skill_pool` 신규 검증을
+  추가 — (1) UPGRADE_SKILLS 개수(7)와 "upgrades" 필드가 실제 base id를
+  가리키는지, 이름이 전부 "+"로 끝나는지, (2) "심호흡+" 후보가 base 미보유
+  시 안 나오고 base 보유 시 나오고 "+"까지 보유하면 다시 안 나오는 3단계
+  흐름, (3) "광기 심화+"가 frenzy_deepen을 보유한 berserker에게만 제시되고
+  guardian에게는 안 나오는 character_id 필터, (4) grant_upgrade()가 올바른
+  "+"id를 추가하고 재호출 시 중복 없이, 존재하지 않는 id에는 아무 일도 안
+  하는지를 검증. `bash scripts/qa_shot.sh dice_test` 전체 PASS.
+  `bash scripts/qa_shot.sh dungeon_map`으로 관련 없는 화면(던전 맵)이 이번
+  변경 후에도 크래시 없이 로드됨을 확인 — 이번 변경은 데이터/로직 전용이라
+  화면에 아직 아무것도 노출되지 않는다(이벤트 발생 구조(3번)/전투 배선(4번)/
+  UI 강조(5번)가 있어야 실제로 화면에 나타남 — 다음 이터레이션들이 이어서
+  진행할 차례). `docs/feedback/INBOX.md`의 [미니 기획 D] 항목은 아직 "남은
+  이슈"에 그대로 둔다 — 1~5번이 모두 끝나야 처리됨으로 옮기라는 지시(완료
+  기준 문구) 그대로, 진행 상황만 이 항목으로 기록.
+
 - **2026-09-17 (127)**: INBOX.md "남은 이슈"의 2026-09-17 기획자 결정 항목
   (견습 모험가 전용 고유 스킬 "임기응변" 설계 확정)을 지시된 그대로 구현했다
   — 큐 17("폭발병/방패병/견습 모험가 전용 고유 스킬 설계+추가")의 마지막
