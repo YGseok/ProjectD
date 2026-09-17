@@ -5,22 +5,23 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-09-17 (125)
+- 일시: 2026-09-17 (126)
 - 작성자: AI 에이전트. INBOX.md "남은 이슈"가 비어 있고, "다음 할 일 큐"에
   남은 항목 전부가 사람 플레이 피드백/설계 결정을 필요로 하는 상태(큐 17의
-  견습 모험가 전용 고유 스킬 포함)라, 그 중 유일하게 사람 결정 없이 진행
-  가능했던 큐 13("업적 시스템 — 남은 항목 추가")을 골랐다. 특수 이벤트
-  "위험을 감수하기" 판정 성공 시(`event.gd`의 `_resolve_risky()`) 신규
-  업적 "위험을 감수한 자"(`risk_taker`)를 해금하도록
-  `AchievementManager.unlock("risk_taker")` 한 줄을 추가하고,
-  `achievement_manager.gd`의 `DEFINITIONS`에 정의를 추가했다(업적 19→20종).
-  `dice_test.gd`의 기존 `_check_event_safe_risky_choice`에 성공/실패 각각의
-  해금 여부 검증을 추가, `bash scripts/qa_shot.sh dice_test` 전체 PASS.
-  `qa_out/character_select_achv_risk_taker.png`로 새 항목이 업적 패널 맨
-  아래에 겹침 없이 표시됨을, `qa_out/event_risk_taker_smoke.png`로 특수
-  이벤트 화면이 정상 로드됨을 확인했다. 자세한 내용은 아래 "완료 기록
-  (125)" 참고. "완료 기록"이 11개가 돼 가장 오래된 (115)를
-  `docs/STATUS_ARCHIVE.md`로 옮겼다.
+  견습 모험가 전용 고유 스킬 포함)라, (125)와 같은 이유로 큐 13("업적
+  시스템 — 남은 항목 추가")을 다시 골랐다. `combat_test.gd`의 승리 분기에는
+  이미 5종 업적이 걸려 있는데 패배 분기(`elif player_hp <= 0`)에는 하나도
+  없던 비대칭을 발견해, 신규 업적 "패배도 경험이다"(`first_defeat`, 던전에서
+  처음 패배)를 추가했다. 패배 분기의 `unlock()` 호출을 물리 코루틴과 분리된
+  별도 함수 `_unlock_defeat_achievement()`로 빼서(`combat_test.gd`)
+  `dice_test.gd`가 씬 트리 없이 직접 호출해 검증할 수 있게 했다(업적
+  20→21종). `dice_test.gd`에 신규 `_check_defeat_achievement` 추가, `bash
+  scripts/qa_shot.sh dice_test` 전체 PASS. `qa_out/
+  character_select_achv_first_defeat.png`로 새 항목이 업적 패널 맨 아래에
+  겹침 없이 표시됨을, `qa_out/combat_test_first_defeat_smoke.png`로 전투
+  화면이 정상 로드됨을 확인했다. 자세한 내용은 아래 "완료 기록 (126)" 참고.
+  "완료 기록"이 11개가 돼 가장 오래된 (116)을 `docs/STATUS_ARCHIVE.md`로
+  옮겼다.
 
 ## 지금 위치
 
@@ -72,7 +73,7 @@
   **이전에** 받아둘 것(2026-09-15에 5개 화면에서 실제 크래시로 발견된 패턴,
   재발 방지).
 - **업적 시스템**: `AchievementManager`(Autoload)가 `user://achievements.json`에
-  영구 저장, `AchievementPanel`로 열람. 20종 등록(`DEFINITIONS` 참고, 유형별
+  영구 저장, `AchievementPanel`로 열람. 21종 등록(`DEFINITIONS` 참고, 유형별
   아이콘 포함). 해금 순간 토스트/팝업은 없음.
 - **몬스터 5종 + 성격/기믹** (`combat_test.gd`의 `MONSTER_PROFILES`): 슬라임
   (기믹 없음) / 고블린(anger_stack) / 해골 전사(fixed_value) / 오크
@@ -421,23 +422,25 @@
 13. **(INBOX.md 신규 2026-09-09, [대형 기획 3] 부분 처리됨) 업적 시스템 — 남은
     항목 추가.** `code/systems/achievement_manager.gd`(`AchievementManager`)와
     `code/scenes/achievement_panel.gd`(`AchievementPanel`) 골격은 2026-09-09 (79)에
-    완성됨. 등록 20종(#25/#1/#6 + (80)의 "부자"/"무결점 승리"/"기사회생"/"오버킬" +
+    완성됨. 등록 21종(#25/#1/#6 + (80)의 "부자"/"무결점 승리"/"기사회생"/"오버킬" +
     (81)의 "눈금 수집가"/"다이스 수집가"/"가득 찬 주머니" + (82)의 "단골 손님"/
     "재질 수집가" + (109)의 라운드 2/3(최종) 클리어(`round2_clear`/`game_clear`) +
-    캐릭터별 첫 클리어 5종(`clear_<character_id>`) + **(125)에서 추가**: "위험을
-    감수한 자"(`risk_taker`, 특수 이벤트 위험 판정 성공) — 아래 "완료 기록
-    (125)" 참고). INBOX.md가 원래 제안했던 30종 목록 중 남은 항목들(원문이
+    캐릭터별 첫 클리어 5종(`clear_<character_id>`) + (125)의 "위험을 감수한
+    자"(`risk_taker`, 특수 이벤트 위험 판정 성공) + **(126)에서 추가**: "패배도
+    경험이다"(`first_defeat`, 던전에서 처음 패배) — 아래 "완료 기록 (126)"
+    참고). INBOX.md가 원래 제안했던 30종 목록 중 남은 항목들(원문이
     보존돼 있지 않아 정확한 목록/개수는 알 수 없음)을 몇 개씩 나눠서
     `DEFINITIONS`에 추가하고 해당 조건 지점에서 `AchievementManager.unlock(id)`를
     호출하는 작업만 하면 됨(저장/UI는 이미 자동으로 따라옴, `_bag_has_d20`/
     `_is_flawless_win` 같은 "판정 전용 순수 함수 + dice_test.gd 단위 검증" 패턴을
     그대로 재사용하면 됨). [대형 기획 1](5종 캐릭터)/[대형 기획 2](라운드/보스
     구조) 조합이 필요했던 "캐릭터별 클리어" 계열까지 (109)로 처리했으므로, 두
-    대형 기획을 조합해야 풀리는 후보는 이제 소진됨. (125)로 "이미 있는 성공/실패
-    분기 하나만 후킹하면 되는" 새 후보(`risk_taker`)를 하나 더 찾아 처리했지만,
-    이런 종류의 후보도 이제 눈에 띄는 대로 소진돼가는 중 — 더 남은 후보가
-    있다면 새로운 RunState 카운터나 판정 조건을 먼저 설계해야 함(구체적으로
-    뭐가 남았는지는 원문 미보존이라 사람이 다시 목록을 정리해줘야 확실히 알 수
+    대형 기획을 조합해야 풀리는 후보는 이제 소진됨. (125)/(126)으로 "이미 있는
+    성공/실패 분기 하나만 후킹하면 되는" 새 후보(`risk_taker`/`first_defeat`)를
+    두 개 더 찾아 처리했지만(전투 승/패 두 결과 분기 모두 이제 업적이 붙어있음),
+    이런 종류의 후보는 이제 거의 소진된 것으로 보임 — 더 남은 후보가 있다면
+    새로운 RunState 카운터나 판정 조건을 먼저 설계해야 함(구체적으로 뭐가
+    남았는지는 원문 미보존이라 사람이 다시 목록을 정리해줘야 확실히 알 수
     있음). 해금 "순간"에 화면에 토스트/팝업 알림을 줄지(지금은 목록을 직접
     열어야만 확인 가능)는 사람 판단 필요 — 아직 안 만듦.
 14. ~~(INBOX.md 신규 2026-09-09, [대형 기획 1]) 플레이어블 캐릭터 — 5종 중
@@ -667,6 +670,36 @@
       줄지(공격/방어 수치 보정? 자원 보상? 다른 축?) 먼저 방향을 정해야 함.
 
 ## 완료 기록
+
+- **2026-09-17 (126)**: 큐 13("업적 시스템 — 남은 항목 추가")의 후속, (125)와 같은
+  패턴. INBOX.md "남은 이슈"가 비어 있고 다음 할 일 큐도 전부 사람 피드백/설계
+  결정 대기 상태라, "이미 있는 결과 분기 하나만 후킹하면 되는" 독립 항목을 다시
+  찾아 진행했다. `combat_test.gd`의 승리 분기(`elif monster_hp <= 0`)에는 이미
+  5종 업적(win_with_d20/flawless_win/comeback_win/overkill_win/gold_100)이 걸려
+  있는데, 그 바로 아래 패배 분기(`elif player_hp <= 0`)에는 `unlock()` 호출이
+  하나도 없어 승/패 사이에 비대칭이 있는 것을 발견했다 — 신규 업적 "패배도
+  경험이다"(`first_defeat`, 던전에서 처음 패배)를 추가해 대칭을 맞췄다.
+  `code/systems/achievement_manager.gd`의 `DEFINITIONS`에 정의(icon="combat",
+  이미 flawless/comeback/overkill이 쓰는 카테고리 재사용)를 추가하고, 업적이
+  21종이 됐다. 패배 분기 자체는 물리 다이스 정지 대기가 포함된 코루틴
+  안에 있어 dice_test.gd가 직접 호출해 검증할 수 없으므로, `_unlock_round_clear_
+  achievements()`와 같은 이유로 `unlock()` 호출 한 줄만 별도 함수
+  `_unlock_defeat_achievement()`로 분리했다(`combat_test.gd`) — 패배 분기는 이
+  함수를 호출하도록 바꿨을 뿐 조건/타이밍은 그대로다.
+  `dice_test.gd`에 신규 `_check_defeat_achievement`(combat_test.gd 스크립트를
+  `new()`만 해서 `_unlock_defeat_achievement()`를 직접 호출 — 씬 트리에 안 넣어
+  `_ready()`가 실행되지 않으므로 물리/코루틴 부작용 없이 순수 함수 호출만 검증,
+  `_check_round_clear_achievements`와 동일 패턴)를 추가, `bash scripts/qa_shot.sh
+  dice_test` 전체 PASS(신규 검증 1개 포함). `character_select.gd`의 기존 QA 훅
+  `_debug_show_achievements_scrolled()`로 업적 패널을 열어
+  `qa_out/character_select_achv_first_defeat.png`로 새 항목이 목록 맨 아래에
+  "1/21 달성", 검 아이콘, 겹침 없는 카드로 표시됨을 확인했고,
+  `qa_out/combat_test_first_defeat_smoke.png`로 전투 화면 자체도 크래시 없이
+  정상 로드됨을 재확인했다. 남은 것: (125)와 동일하게, 큐 13이 원래 말한 "새
+  RunState 카운터가 필요한" 나머지 후보들은 여전히 사람이 원 30종 목록을 다시
+  정리해줘야 구체화 가능 — 이런 "이미 있는 분기 하나만 후킹" 방식의 독립 항목이
+  이제 거의 소진된 것으로 보임(승/패 두 결과 분기 모두 업적이 붙었으므로, 다음
+  후보는 새로운 상태 추적이 필요할 가능성이 높음).
 
 - **2026-09-17 (125)**: 큐 13("업적 시스템 — 남은 항목 추가")의 후속. INBOX.md
   "남은 이슈"가 비어 있고, 다음 할 일 큐의 나머지 항목은 전부 사람 플레이
@@ -1004,45 +1037,9 @@
   다음 조각(3): 5종 전체에 `personality` 문구 필드+표시 + `docs/DESIGN.md`
   몬스터 표 신설·반영 — [미니 기획 A]의 마지막 조각, 다음 이터레이션으로 넘김.
 
-- **2026-09-16 (116)**: INBOX.md [미니 기획 A] "몬스터별 성격 디자인"의 3단계
-  ((1)기믹 재배정 -> (2)신규 기믹 steady_guard -> (3)personality 필드+표시) 중
-  **(1)번(해골 전사<->오크 기믹 재배정)**을 처리했다. [미니 기획 B]가
-  (115)로 전부 끝난 뒤 착수하는 첫 [미니 기획 A] 조각.
-  `code/scenes/combat_test.gd`의 `MONSTER_PROFILES`에서 `dice_gimmick` 코드만
-  스왑: "해골 전사"(감정 없이 명령대로만 움직이는 병사 — 늘 같은 힘)가
-  `fixed_value`를 "오크"에서 옮겨받고, "오크"(힘만 믿고 저돌적으로 날뛰는
-  성격, 전부 아니면 전무)가 `min_max_only`를 "다크 나이트"에서 옮겨받았다.
-  "다크 나이트"(차갑고 노련하며 방어에서 흔들리지 않는 기사)는 이 조각에서
-  기믹이 비게 됐다 — 신규 기믹 `steady_guard`는 INBOX.md 지시대로 구현량이
-  더 큰 별도 조각((2)번)으로 남겨뒀다. "슬라임"/"고블린"은 INBOX.md 지시대로
-  그대로 유지. 로직(`_apply_monster_gimmick` 류의 min_max_only/fixed_value
-  분기, `force_min_max_faces()`/`force_fixed_value()` 자체)은 전혀 건드리지
-  않고 어느 몬스터에 배정되는지만 바꿨다.
-  `code/scenes/dice_test.gd`의 `_check_monster_debug_info_text`/
-  `_check_monster_dice_gimmick`에서 이 배정을 가정하던 검증들을 새 배정에
-  맞게 고쳤다(room2=해골 전사=fixed_value, room3=오크=min_max_only,
-  room4=다크 나이트=기믹 없음+보스만). `code/systems/character_profiles.gd`/
-  `code/systems/dice_bag.gd`의 관련 주석(각각 min_max_only/fixed_value를
-  "몬스터 아무개와 같은 기믹"이라고 설명하던 부분)도 새 배정을 가리키도록
-  갱신 — 실제 로직에는 영향 없는 문서용 수정.
-  **QA 검증**: `bash scripts/qa_shot.sh dice_test`로 회귀 스위트 전체 PASS —
-  특히 room2 config(dice_gimmick=fixed_value, name="해골 전사 [고정값 4]"),
-  room3 config(dice_gimmick=min_max_only, name="오크 [극단]"), room4
-  config(dice_gimmick="", name="다크 나이트 [보스]") 3개 어서션이 새 배정대로
-  정확히 통과함을 확인. 실제 전투 화면도 `GAME_QA_ROOM_OVERRIDE`로 직접
-  확인 — `qa_out/combat_test_room2_skeleton_fixed.png`(room2, "해골 전사
-  [고정값 4]" 표시 + 고정값 다이스 결과가 실제로 항상 4)/
-  `qa_out/combat_test_room3_orc_minmax.png`(room3, "오크 [극단]" 표시 +
-  min/max 다이스 결과가 실제로 1과 최댓값만 나옴) 둘 다 크래시·레이아웃
-  깨짐 없이 정상 렌더링됨을 확인.
-  다음 조각(2): 다크 나이트용 `steady_guard`(방어 다이스 값이 면 개수 절반
-  미만이면 절반으로 보정)를 `combat_test.gd`의 기믹 적용 로직에 새로 추가하는
-  더 큰 작업 — 다음 이터레이션으로 넘김. 조각(3)(personality 필드 + 표시 +
-  DESIGN.md 반영)은 (1)/(2) 이후.
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(125)에서 (115)를 그리로 옮겼다.)*
+이번 이터레이션(126)에서 (116)을 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 

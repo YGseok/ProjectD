@@ -683,6 +683,7 @@ func _do_exchange(is_player_attacking: bool) -> void:
 		turn_label.text = "패배... (플레이어 사망)"
 		player_portrait.set_expression("angry" if randi() % 2 == 0 else "sad")
 		monster_portrait.set_expression("happy")
+		_unlock_defeat_achievement()
 
 	# INBOX.md 피드백(2026-09-03) "커스터마이징은 전투 중에는 불가능해야 한다" — 전투가
 	# 끝난 뒤에만 상단 토글 버튼을 보여준다 (battle_over가 막 true가 된 시점에 맞춰 동기화).
@@ -957,6 +958,14 @@ func _unlock_round_clear_achievements(cleared_round: int) -> void:
 	elif cleared_round == RunState.TOTAL_ROUNDS:
 		AchievementManager.unlock("game_clear")
 		AchievementManager.unlock(_character_clear_achievement_id(RunState.character_id))
+
+
+## 패배(HP 0) 시점에 "패배도 경험이다" 업적을 해금한다. _unlock_round_clear_achievements()와
+## 같은 이유로 별도 함수로 분리 — 물리 다이스 정지 대기가 포함된 코루틴 안에서 직접
+## 호출되는 unlock()은 dice_test.gd가 코루틴 없이 곧바로 호출해 검증할 수 없으므로,
+## 조건 판단이 끝난 직후의 부수효과만 함수로 떼어내 테스트 가능하게 만든다.
+func _unlock_defeat_achievement() -> void:
+	AchievementManager.unlock("first_defeat")
 
 
 ## character_id(예: "berserker") -> achievement_manager.gd DEFINITIONS의 "clear_<id>" 키.

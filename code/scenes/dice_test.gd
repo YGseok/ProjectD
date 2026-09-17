@@ -165,6 +165,10 @@ func _ready() -> void:
 	all_pass = _check_event_safe_risky_choice(lines) and all_pass
 
 	lines.append("")
+	lines.append("[패배 업적 검증: combat_test.gd _unlock_defeat_achievement / achievement_manager.gd \"first_defeat\"]")
+	all_pass = _check_defeat_achievement(lines) and all_pass
+
+	lines.append("")
 	lines.append("[라운드 진행 검증: run_state.gd RunState.round_index / advance_round / is_last_round]")
 	all_pass = _check_round_progress(lines) and all_pass
 
@@ -1358,6 +1362,31 @@ func _check_event_safe_risky_choice(lines: PackedStringArray) -> bool:
 
 	AchievementManager._debug_reset_for_qa()
 	RunState.rooms_cleared = rooms_backup
+	return ok
+
+
+## STATUS.md 큐 13 후속: combat_test.gd의 패배 분기(player_hp <= 0)가 지금까지 unlock()
+## 호출이 하나도 없던 유일한 결과 분기였다 — 승리 쪽(win_with_d20/flawless/comeback/
+## overkill/gold_100)과 대칭을 맞춰 "first_defeat"를 추가했다. _check_round_clear_
+## achievements()와 같은 패턴으로, 물리 코루틴 없이 _unlock_defeat_achievement()를 직접
+## 호출해 검증한다.
+func _check_defeat_achievement(lines: PackedStringArray) -> bool:
+	var ok := true
+
+	AchievementManager._debug_reset_for_qa()
+	var combat_script := load("res://code/scenes/combat_test.gd")
+	var combat = combat_script.new()
+	var unlocked_before := AchievementManager.is_unlocked("first_defeat")
+	combat._unlock_defeat_achievement()
+	var unlocked_after := AchievementManager.is_unlocked("first_defeat")
+	var check_ok := (not unlocked_before) and unlocked_after
+	ok = check_ok and ok
+	lines.append("  _unlock_defeat_achievement() 호출 전/후: first_defeat=%s/%s(기대 false/true) -> %s" % [
+		unlocked_before, unlocked_after, "OK" if check_ok else "FAIL"
+	])
+	combat.free()
+
+	AchievementManager._debug_reset_for_qa()
 	return ok
 
 

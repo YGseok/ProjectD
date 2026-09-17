@@ -146,6 +146,16 @@ const DEFINITIONS := {
 		"desc": "특수 이벤트에서 \"위험을 감수하기\"를 선택해 판정에 성공했다.",
 		"icon": "dice",
 	},
+	# combat_test.gd의 패배 분기(player_hp <= 0)는 지금까지 유일하게 unlock() 호출이 하나도
+	# 없던 결과 분기였다 — 승리 쪽엔 이미 5종(win_with_d20/flawless/comeback/overkill/
+	# gold_100)이 달려 있는데 패배 쪽엔 아무 업적도 없어 대칭이 맞지 않았다. 새 RunState
+	# 카운터 없이 이미 있는 분기 하나만 후킹하면 되는 독립 항목이라 risk_taker와 같은
+	# 패턴으로 추가.
+	"first_defeat": {
+		"title": "패배도 경험이다",
+		"desc": "던전에서 처음으로 패배(전멸)했다.",
+		"icon": "combat",
+	},
 }
 
 ## id -> 해금 시각(unix time, int). Dictionary 순서가 삽입 순서를 유지하므로 저장/로드

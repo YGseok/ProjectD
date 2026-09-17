@@ -8,6 +8,42 @@
 
 ---
 
+- **2026-09-16 (116)**: INBOX.md [미니 기획 A] "몬스터별 성격 디자인"의 3단계
+  ((1)기믹 재배정 -> (2)신규 기믹 steady_guard -> (3)personality 필드+표시) 중
+  **(1)번(해골 전사<->오크 기믹 재배정)**을 처리했다. [미니 기획 B]가
+  (115)로 전부 끝난 뒤 착수하는 첫 [미니 기획 A] 조각.
+  `code/scenes/combat_test.gd`의 `MONSTER_PROFILES`에서 `dice_gimmick` 코드만
+  스왑: "해골 전사"(감정 없이 명령대로만 움직이는 병사 — 늘 같은 힘)가
+  `fixed_value`를 "오크"에서 옮겨받고, "오크"(힘만 믿고 저돌적으로 날뛰는
+  성격, 전부 아니면 전무)가 `min_max_only`를 "다크 나이트"에서 옮겨받았다.
+  "다크 나이트"(차갑고 노련하며 방어에서 흔들리지 않는 기사)는 이 조각에서
+  기믹이 비게 됐다 — 신규 기믹 `steady_guard`는 INBOX.md 지시대로 구현량이
+  더 큰 별도 조각((2)번)으로 남겨뒀다. "슬라임"/"고블린"은 INBOX.md 지시대로
+  그대로 유지. 로직(`_apply_monster_gimmick` 류의 min_max_only/fixed_value
+  분기, `force_min_max_faces()`/`force_fixed_value()` 자체)은 전혀 건드리지
+  않고 어느 몬스터에 배정되는지만 바꿨다.
+  `code/scenes/dice_test.gd`의 `_check_monster_debug_info_text`/
+  `_check_monster_dice_gimmick`에서 이 배정을 가정하던 검증들을 새 배정에
+  맞게 고쳤다(room2=해골 전사=fixed_value, room3=오크=min_max_only,
+  room4=다크 나이트=기믹 없음+보스만). `code/systems/character_profiles.gd`/
+  `code/systems/dice_bag.gd`의 관련 주석(각각 min_max_only/fixed_value를
+  "몬스터 아무개와 같은 기믹"이라고 설명하던 부분)도 새 배정을 가리키도록
+  갱신 — 실제 로직에는 영향 없는 문서용 수정.
+  **QA 검증**: `bash scripts/qa_shot.sh dice_test`로 회귀 스위트 전체 PASS —
+  특히 room2 config(dice_gimmick=fixed_value, name="해골 전사 [고정값 4]"),
+  room3 config(dice_gimmick=min_max_only, name="오크 [극단]"), room4
+  config(dice_gimmick="", name="다크 나이트 [보스]") 3개 어서션이 새 배정대로
+  정확히 통과함을 확인. 실제 전투 화면도 `GAME_QA_ROOM_OVERRIDE`로 직접
+  확인 — `qa_out/combat_test_room2_skeleton_fixed.png`(room2, "해골 전사
+  [고정값 4]" 표시 + 고정값 다이스 결과가 실제로 항상 4)/
+  `qa_out/combat_test_room3_orc_minmax.png`(room3, "오크 [극단]" 표시 +
+  min/max 다이스 결과가 실제로 1과 최댓값만 나옴) 둘 다 크래시·레이아웃
+  깨짐 없이 정상 렌더링됨을 확인.
+  다음 조각(2): 다크 나이트용 `steady_guard`(방어 다이스 값이 면 개수 절반
+  미만이면 절반으로 보정)를 `combat_test.gd`의 기믹 적용 로직에 새로 추가하는
+  더 큰 작업 — 다음 이터레이션으로 넘김. 조각(3)(personality 필드 + 표시 +
+  DESIGN.md 반영)은 (1)/(2) 이후.
+
 - **2026-09-16 (115)**: INBOX.md [미니 기획 B] "특수 이벤트 개편"의 권장 순서
   (4 -> 1 -> 2+3) 중 마지막 조각 **2+3번(선택지를 "안전/위험" 2개로 통일 +
   이벤트 다이스로 DC 난이도 체크)**을 처리해 [미니 기획 B] 전체를 완료했다.
