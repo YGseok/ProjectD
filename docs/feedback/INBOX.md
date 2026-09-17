@@ -26,6 +26,37 @@
 ## 남은 이슈 (미처리)
 
 (플레이해보고 느낀 점을 이 섹션에 자유롭게 적어주세요.)
+- 2026-09-17 (기획자 결정) 견습 모험가("novice") 전용 고유 스킬 설계 확정 —
+  `code/systems/skill_pool.gd`의 `UNIQUE_SKILLS`가 광전사/수호자/폭발병/방패병
+  4종은 이미 있는데 견습 모험가만 없음(기믹이 아예 없는 캐릭터라 "이미 있는
+  파이프라인을 강화"할 대상 자체가 없었음). 아래 설계대로 5번째 고유 스킬을
+  추가할 것 — 사람 설계 결정을 더 기다리지 말 것.
+
+  **이름: "임기응변" (id: `versatile_surge`, character_id: `novice`)**
+  - 컨셉: 견습 모험가는 기믹이 없는 "만능형" 캐릭터이므로, 한쪽에 몰빵하는 대신
+    공격/방어 양쪽 스택 파이프라인을 동시에 얕게 여는 스킬로 정체성을 준다
+    (frenzy_deepen/guard_deepen이 "기존 없던 파이프라인 하나를 열어준다" 패턴을
+    쓴 것과 동일한 방식을 공격+방어 양쪽에 동시 적용).
+  - 구현: `combat_test.gd`에 `player_versatile_active := false` 신규 변수 추가,
+    `RunState.skill_flags.has("versatile_surge")`로 전투 시작 시 설정(다른 4개
+    스킬 플래그와 동일한 위치·패턴). 공격 스택 조건 `player_dice_gimmick ==
+    "explosive_stack" or player_frenzy_active`에 `or player_versatile_active`를
+    추가하고, 방어 스택 조건 `player_dice_gimmick == "guard_stack" or
+    player_guard_deepen_active`에도 동일하게 `or player_versatile_active`를
+    추가한다 — 즉 공격/방어 두 파이프라인을 동시에 열되, 각각 기존 기본
+    임계치(`EXPLOSIVE_STACK_THRESHOLD`/`GUARD_STACK_THRESHOLD`, 둘 다 3)와 기본
+    보너스(1D20 한 번 굴림)를 그대로 쓴다 — frenzy_deepen/guard_deepen의 "1D20
+    두 번 굴려 채택" 강화나 chain_explosion/chain_guard의 "임계치 2로 낮춤"
+    강화는 넣지 않는다(한 캐릭터가 공격+방어 두 축을 동시에 얻는 것 자체가
+    이미 다른 4종 대비 강력하므로, 축마다의 강화까지 겹치면 과할 수 있다 —
+    "넓지만 얕게"가 견습 모험가의 정체성).
+  - description 예시: "공격/방어 다이스가 각각 최댓값을 보일 때마다 해당 스택이
+    함께 쌓인다. 공격은 3스택에서 보너스 공격턴을, 방어는 3스택에서 보너스
+    방어턴을 각각 1D20으로 얻는다 (견습 모험가 전용)."
+  - 완료 기준: `dice_test.gd`에 다른 4개 고유 스킬과 같은 패턴의 회귀 검증 추가,
+    `scripts/qa_shot.sh`로 견습 모험가가 실제로 공격/방어 양쪽에서 스택이 쌓여
+    보너스 턴을 받는 장면 확인. 완료되면 이 항목을 "처리됨"으로 옮길 것 — 이로써
+    5개 캐릭터 전원의 고유 스킬이 완성된다.
 
 
 ## 부분 처리됨
