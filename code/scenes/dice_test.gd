@@ -185,6 +185,10 @@ func _ready() -> void:
 	all_pass = _check_skill_effects(lines) and all_pass
 
 	lines.append("")
+	lines.append("[스킬 강화판 검증: skill_pool.gd UPGRADE_SKILLS / available_upgrade_choices / grant_upgrade]")
+	all_pass = _check_upgrade_skill_pool(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -2600,4 +2604,103 @@ func _check_skill_effects(lines: PackedStringArray) -> bool:
 	])
 	combat.free()
 
+	return ok
+
+
+## [미니 기획 D]-1/2 검증: UPGRADE_SKILLS 데이터 형태(7종, "upgrades" 필드가 실제
+## SKILLS/UNIQUE_SKILLS id를 가리키는지)와 available_upgrade_choices()/grant_upgrade()의
+## 필터링 동작(base 미보유 시 후보 제외, "+" 이미 보유 시 후보 제외, character_id 필터,
+## grant_upgrade가 올바른 "+"id를 추가하는지)을 검증한다.
+func _check_upgrade_skill_pool(lines: PackedStringArray) -> bool:
+	var ok := true
+
+	# (1) UPGRADE_SKILLS는 7종(SKILLS 2 + UNIQUE_SKILLS 5)이고, 각 "upgrades" 필드가
+	# 실제 존재하는 base id를 가리키며, 이름은 전부 "<base 이름>+" 형태다.
+	var base_ids: Array = []
+	for s in SkillPool.SKILLS:
+		base_ids.append(s["id"])
+	for s in SkillPool.UNIQUE_SKILLS:
+		base_ids.append(s["id"])
+	var count_ok: bool = SkillPool.UPGRADE_SKILLS.size() == 7
+	var all_upgrades_valid := true
+	var all_names_plus := true
+	for s in SkillPool.UPGRADE_SKILLS:
+		if not base_ids.has(s["upgrades"]):
+			all_upgrades_valid = false
+		if not String(s["name"]).ends_with("+"):
+			all_names_plus = false
+	var data_ok: bool = count_ok and all_upgrades_valid and all_names_plus
+	ok = data_ok and ok
+	lines.append("  UPGRADE_SKILLS 데이터: 개수=%d(기대 7) upgrades 필드 전부 유효=%s 이름 전부 '+'로 끝남=%s -> %s" % [
+		SkillPool.UPGRADE_SKILLS.size(), all_upgrades_valid, all_names_plus, "OK" if data_ok else "FAIL"
+	])
+
+	# (2) available_upgrade_choices(): base를 보유하지 않으면 후보에 안 나오고, base를
+	# 보유하면 나오고, "+"까지 보유하면 다시 안 나온다(deep_breath 계열로 검증, 공용
+	# 스킬이라 character_id 무관).
+	var flags_backup: Array[String] = RunState.skill_flags.duplicate()
+
+	RunState.skill_flags = []
+	var no_base_choices := SkillPool.available_upgrade_choices(10)
+	var no_base_has_breath_plus := false
+	for s in no_base_choices:
+		if s["id"] == "deep_breath_plus":
+			no_base_has_breath_plus = true
+
+	RunState.skill_flags = ["deep_breath"]
+	var with_base_choices := SkillPool.available_upgrade_choices(10)
+	var with_base_has_breath_plus := false
+	for s in with_base_choices:
+		if s["id"] == "deep_breath_plus":
+			with_base_has_breath_plus = true
+
+	RunState.skill_flags = ["deep_breath", "deep_breath_plus"]
+	var with_plus_choices := SkillPool.available_upgrade_choices(10)
+	var with_plus_still_has_breath_plus := false
+	for s in with_plus_choices:
+		if s["id"] == "deep_breath_plus":
+			with_plus_still_has_breath_plus = true
+
+	var breath_upgrade_flow_ok: bool = (not no_base_has_breath_plus) and with_base_has_breath_plus and (not with_plus_still_has_breath_plus)
+	ok = breath_upgrade_flow_ok and ok
+	lines.append("  '심호흡+' 후보 흐름: base 미보유=%s base 보유=%s +까지 보유=%s (기대 false/true/false) -> %s" % [
+		no_base_has_breath_plus, with_base_has_breath_plus, with_plus_still_has_breath_plus, "OK" if breath_upgrade_flow_ok else "FAIL"
+	])
+
+	# (3) character_id 필터: '광기 심화+'는 frenzy_deepen을 보유한 berserker에게만
+	# 제시되고, 같은 조건이라도 다른 character_id로 물으면 제시되지 않는다.
+	RunState.skill_flags = ["frenzy_deepen"]
+	var berserker_upgrade_choices := SkillPool.available_upgrade_choices(10, "berserker")
+	var berserker_has_frenzy_plus := false
+	for s in berserker_upgrade_choices:
+		if s["id"] == "frenzy_deepen_plus":
+			berserker_has_frenzy_plus = true
+	var guardian_upgrade_choices := SkillPool.available_upgrade_choices(10, "guardian")
+	var guardian_has_frenzy_plus := false
+	for s in guardian_upgrade_choices:
+		if s["id"] == "frenzy_deepen_plus":
+			guardian_has_frenzy_plus = true
+	var frenzy_plus_filter_ok: bool = berserker_has_frenzy_plus and not guardian_has_frenzy_plus
+	ok = frenzy_plus_filter_ok and ok
+	lines.append("  '광기 심화+' 캐릭터 필터: berserker=%s guardian=%s (기대 true/false) -> %s" % [
+		berserker_has_frenzy_plus, guardian_has_frenzy_plus, "OK" if frenzy_plus_filter_ok else "FAIL"
+	])
+
+	# (4) grant_upgrade(base_id): base_id에 대응하는 "+"id를 skill_flags에 추가하고,
+	# 대응하는 강화판이 없는 id(예: 존재하지 않는 스킬)를 넘기면 아무 것도 추가하지 않는다.
+	RunState.skill_flags = ["chain_explosion"]
+	SkillPool.grant_upgrade("chain_explosion")
+	var grant_added_plus: bool = RunState.skill_flags.has("chain_explosion_plus")
+	var flags_len_after_valid_grant: int = RunState.skill_flags.size()
+	SkillPool.grant_upgrade("chain_explosion")
+	var grant_no_dup: bool = RunState.skill_flags.size() == flags_len_after_valid_grant
+	SkillPool.grant_upgrade("no_such_skill")
+	var grant_noop_on_unknown: bool = RunState.skill_flags.size() == flags_len_after_valid_grant
+	var grant_ok: bool = grant_added_plus and grant_no_dup and grant_noop_on_unknown
+	ok = grant_ok and ok
+	lines.append("  grant_upgrade(): '+' 추가=%s 중복 방지=%s 미지정 id 무시=%s -> %s" % [
+		grant_added_plus, grant_no_dup, grant_noop_on_unknown, "OK" if grant_ok else "FAIL"
+	])
+
+	RunState.skill_flags = flags_backup
 	return ok

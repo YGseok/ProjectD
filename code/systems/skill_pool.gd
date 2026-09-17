@@ -114,6 +114,66 @@ const UNIQUE_SKILLS: Array[Dictionary] = [
 ]
 
 
+## 스킬 강화판([미니 기획 D], 2026-09-17) — 기존 7종 스킬(SKILLS 2종 + UNIQUE_SKILLS
+## 5종) 각각의 "+" 버전. 새 메커니즘을 만들지 않고 "기존 메커니즘을 한 단계 더 강하게"만
+## 한다(기획자 결정 원문). "upgrades" 필드가 base 스킬 id를 가리킨다 — 이 필드로
+## available_upgrade_choices()가 "base를 보유했는데 +는 아직 없는" 후보를 찾는다.
+## character_id 필드는 UNIQUE_SKILLS 계열 강화에만 있고(공용 스킬 강화는 캐릭터 무관),
+## item dict 형식은 SKILLS/UNIQUE_SKILLS와 동일해 ItemCardStyle 카드 UI를 그대로 재사용한다.
+##
+## 실제 전투 효과 배선([미니 기획 D]-4)은 아직 없음 — 이번 이터레이션은 데이터 정의(1번)와
+## 후보 뽑기(2번)까지만, combat_test.gd 배선은 다음 이터레이션들이 나눠서 이어간다.
+const UPGRADE_SKILLS: Array[Dictionary] = [
+	{
+		"id": "deep_breath_plus",
+		"name": "심호흡+",
+		"description": "방어 다이스 +1 보정이 첫 방어턴뿐 아니라 매 방어턴마다 적용된다 (상한: 각 다이스 면 개수).",
+		"upgrades": "deep_breath",
+	},
+	{
+		"id": "spare_die_plus",
+		"name": "여분+",
+		"description": "여분 다이스를 1개가 아니라 2개 굴려, 그 중 더 높은 값으로 가장 낮은 공격 다이스를 대체한다.",
+		"upgrades": "spare_die",
+	},
+	{
+		"id": "frenzy_deepen_plus",
+		"name": "광기 심화+",
+		"description": "폭발 스택이 3에 도달하면 보너스 공격턴이 1D20을 세 번 굴려 더 높은 값을 채택하는 것으로 강화된다 (광전사 전용).",
+		"upgrades": "frenzy_deepen",
+		"character_id": "berserker",
+	},
+	{
+		"id": "guard_deepen_plus",
+		"name": "수호 심화+",
+		"description": "수호 스택이 3에 도달하면 보너스 방어턴이 1D20을 세 번 굴려 더 높은 값을 채택하는 것으로 강화된다 (수호자 전용).",
+		"upgrades": "guard_deepen",
+		"character_id": "guardian",
+	},
+	{
+		"id": "chain_explosion_plus",
+		"name": "연쇄 폭발+",
+		"description": "폭발 스택 임계치는 2 그대로, 보너스 공격턴이 1D20을 두 번 굴려 더 높은 값을 채택하는 것으로 강화된다 (폭발병 전용).",
+		"upgrades": "chain_explosion",
+		"character_id": "explosive",
+	},
+	{
+		"id": "chain_guard_plus",
+		"name": "연쇄 방어+",
+		"description": "수호 스택 임계치는 2 그대로, 보너스 방어턴이 1D20을 두 번 굴려 더 높은 값을 채택하는 것으로 강화된다 (방패병 전용).",
+		"upgrades": "chain_guard",
+		"character_id": "shieldbearer",
+	},
+	{
+		"id": "versatile_surge_plus",
+		"name": "임기응변+",
+		"description": "공격/방어 스택 임계치가 3에서 2로 낮아져 보너스 턴을 더 자주 받는다 (견습 모험가 전용).",
+		"upgrades": "versatile_surge",
+		"character_id": "novice",
+	},
+]
+
+
 ## RunState.skill_flags에 이미 있는 id는 후보에서 제외한다(같은 스킬을 중복 획득할
 ## 수 없으므로 — 두 번째 카드도 항상 새로운 선택지여야 함). 공용 스킬(SKILLS)에 더해
 ## character_id가 주어지고 UNIQUE_SKILLS 중 해당 캐릭터 전용 스킬이 있으면 후보 풀에
@@ -139,3 +199,35 @@ static func available_choices(n: int, character_id: String = "") -> Array[Dictio
 static func grant(skill_id: String) -> void:
 	if not RunState.skill_flags.has(skill_id):
 		RunState.skill_flags.append(skill_id)
+
+
+## 강화 후보 뽑기([미니 기획 D]-2). UPGRADE_SKILLS 중 base 스킬("upgrades" 필드)을
+## RunState.skill_flags가 이미 갖고 있고, "+"id 자신은 아직 없는 것만 후보로 삼는다
+## (base가 없으면 애초에 강화할 대상이 없고, +를 이미 가졌으면 중복 강화가 되므로 둘 다
+## 제외). character_id가 있는 항목(UNIQUE_SKILLS 계열 강화)은 인자로 받은 character_id와
+## 일치할 때만 후보에 포함 — 공용 스킬 강화(character_id 없음)는 캐릭터 무관하게 항상 후보.
+## available_choices()와 같은 패턴으로 남은 후보 중 최대 n개를 무작위 반환, 후보가 없으면
+## 빈 배열(event.gd는 이 경우 기존 아이템/스킬 이벤트로 대체해야 함).
+static func available_upgrade_choices(n: int, character_id: String = "") -> Array[Dictionary]:
+	var pool: Array[Dictionary] = []
+	for skill in UPGRADE_SKILLS:
+		if not RunState.skill_flags.has(skill["upgrades"]):
+			continue
+		if RunState.skill_flags.has(skill["id"]):
+			continue
+		var required_character: String = skill.get("character_id", "")
+		if required_character != "" and required_character != character_id:
+			continue
+		pool.append(skill)
+	pool.shuffle()
+	return pool.slice(0, min(n, pool.size()))
+
+
+## base_id(강화 전 스킬 id)를 받아 UPGRADE_SKILLS에서 대응하는 "+"id를 찾아 grant()로
+## skill_flags에 추가한다(중복 방지는 grant()가 그대로 처리). 대응하는 강화판이 없으면
+## 아무 일도 하지 않는다.
+static func grant_upgrade(base_id: String) -> void:
+	for skill in UPGRADE_SKILLS:
+		if skill["upgrades"] == base_id:
+			grant(skill["id"])
+			return
