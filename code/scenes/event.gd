@@ -127,7 +127,12 @@ func _setup_skill_event(skills: Array[Dictionary]) -> void:
 ## 보여주고, 카드/픽업 로직 자체는 _show_skill_offer()/_on_pick_skill_pressed()를
 ## 그대로 재사용한다 — UPGRADE_SKILLS 항목도 {id, name, description} 형태라 별도 처리가
 ## 필요 없다.
+## _is_skill_upgrade_event를 여기서도 true로 세팅한다([미니 기획 D]-5, 카드 강조용) —
+## _ready()가 이미 호출 전에 세팅해두지만, QA 훅(_debug_force_skill_upgrade_event() 등)이
+## _ready() 경로를 거치지 않고 이 함수를 직접 부르는 경우에도 _show_skill_offer()가 읽는
+## 플래그가 항상 정확하도록 자기 완결적으로 만든다.
 func _setup_skill_upgrade_event(skills: Array[Dictionary]) -> void:
+	_is_skill_upgrade_event = true
 	title_label.text = "특수 이벤트 — 이미 익힌 능력을 강화할 기회"
 	prompt_label.text = "낯익은 기운이 한층 짙어진다. 후보 중 하나를 골라 더 강하게 벼릴 수 있을 것 같다."
 	safe_button.hide()
@@ -303,6 +308,10 @@ func _show_item_offer(item: Dictionary) -> void:
 ## 스킬 후보(1~2개, SkillPool.available_choices()가 부족하게 돌려준 경우 1개일 수도
 ## 있음)를 나란히 카드로 보여준다. _show_item_offer()와 달리 카드가 여러 장이라
 ## 폭 계산이 필요하다 — items_root 기준 좌우 대칭으로 배치.
+## [미니 기획 D]-5(INBOX.md 2026-09-17): _is_skill_upgrade_event가 true(스킬 강화
+## 이벤트)면 build_card()의 highlight=true를 넘겨 카드 테두리가 두껍고 노란색으로
+## 강조된다 — 새 스킬 획득 이벤트(_setup_skill_event)는 같은 함수를 쓰되 그때는
+## _is_skill_upgrade_event가 false라 기존 등급색 테두리 그대로 나온다.
 func _show_skill_offer(skills: Array[Dictionary]) -> void:
 	_clear_row_ui()
 
@@ -312,7 +321,7 @@ func _show_skill_offer(skills: Array[Dictionary]) -> void:
 	var start_x := -(skills.size() * card_width + (skills.size() - 1) * gap) / 2.0
 	for i in skills.size():
 		var skill: Dictionary = skills[i]
-		var built := ItemCardStyle.build_card(skill)
+		var built := ItemCardStyle.build_card(skill, "", false, _is_skill_upgrade_event)
 		var card: PanelContainer = built["card"]
 		card.position = Vector2(start_x + i * (card_width + gap), 0.0)
 		card.size = Vector2(card_width, 300.0)

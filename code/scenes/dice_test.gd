@@ -193,6 +193,10 @@ func _ready() -> void:
 	all_pass = _check_skill_upgrade_event_structure(lines) and all_pass
 
 	lines.append("")
+	lines.append("[스킬 강화 카드 강조 검증: item_card_style.gd build_card() highlight 파라미터]")
+	all_pass = _check_skill_upgrade_card_highlight(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -2664,6 +2668,18 @@ func _check_skill_effects(lines: PackedStringArray) -> bool:
 	lines.append("  임기응변 보유 시 임계치 불변: 공격=%d 방어=%d (기대 둘 다 %d) -> %s" % [
 		versatile_explosive_threshold, versatile_guard_threshold, combat.EXPLOSIVE_STACK_THRESHOLD, "OK" if versatile_threshold_ok else "FAIL"
 	])
+
+	# (7) "임기응변+"([미니 기획 D]-4, 견습 모험가 전용 강화판): base(versatile_surge)와
+	# 달리 chain_explosion/chain_guard와 같은 방식으로 두 임계치를 모두 2로 낮춘다.
+	combat.player_versatile_active = true
+	combat.player_versatile_plus_active = true
+	var versatile_plus_explosive_threshold: int = combat._player_explosive_threshold()
+	var versatile_plus_guard_threshold: int = combat._player_guard_threshold()
+	var versatile_plus_threshold_ok: bool = versatile_plus_explosive_threshold == 2 and versatile_plus_guard_threshold == 2
+	ok = versatile_plus_threshold_ok and ok
+	lines.append("  임기응변+ 보유 시 임계치: 공격=%d 방어=%d (기대 둘 다 2) -> %s" % [
+		versatile_plus_explosive_threshold, versatile_plus_guard_threshold, "OK" if versatile_plus_threshold_ok else "FAIL"
+	])
 	combat.free()
 
 	return ok
@@ -2842,4 +2858,42 @@ func _check_skill_upgrade_event_structure(lines: PackedStringArray) -> bool:
 	RunState.skill_flags = flags_backup
 	RunState.character_id = character_backup
 	RunState.rooms_cleared = rooms_backup
+	return ok
+
+
+## [미니 기획 D]-5 검증: item_card_style.gd build_card()의 highlight 파라미터가 실제로
+## 테두리 색/두께를 바꾸는지 확인한다. highlight=false는 기존처럼 등급색(gcolor)+2px,
+## highlight=true는 HIGHLIGHT_BORDER(노란색)+HIGHLIGHT_BORDER_WIDTH(4px)여야 한다.
+func _check_skill_upgrade_card_highlight(lines: PackedStringArray) -> bool:
+	var ok := true
+	var sample_skill: Dictionary = SkillPool.SKILLS[0]
+
+	var normal_built := ItemCardStyle.build_card(sample_skill)
+	add_child(normal_built["card"])
+	var normal_style: StyleBoxFlat = normal_built["card"].get_theme_stylebox("panel")
+	var normal_ok: bool = (
+		normal_style.border_color == ItemCardStyle.grade_color(sample_skill.get("grade", ItemCardStyle.DEFAULT_GRADE))
+		and normal_style.border_width_left == 2
+	)
+	ok = normal_ok and ok
+	lines.append("  highlight=false: border_color=등급색=%s border_width=%d(기대 2) -> %s" % [
+		normal_style.border_color == ItemCardStyle.grade_color(sample_skill.get("grade", ItemCardStyle.DEFAULT_GRADE)),
+		normal_style.border_width_left, "OK" if normal_ok else "FAIL"
+	])
+	normal_built["card"].queue_free()
+
+	var highlighted_built := ItemCardStyle.build_card(sample_skill, "", false, true)
+	add_child(highlighted_built["card"])
+	var highlighted_style: StyleBoxFlat = highlighted_built["card"].get_theme_stylebox("panel")
+	var highlight_ok: bool = (
+		highlighted_style.border_color == ItemCardStyle.HIGHLIGHT_BORDER
+		and highlighted_style.border_width_left == ItemCardStyle.HIGHLIGHT_BORDER_WIDTH
+	)
+	ok = highlight_ok and ok
+	lines.append("  highlight=true: border_color=%s(기대 HIGHLIGHT_BORDER) border_width=%d(기대 %d) -> %s" % [
+		highlighted_style.border_color, highlighted_style.border_width_left, ItemCardStyle.HIGHLIGHT_BORDER_WIDTH,
+		"OK" if highlight_ok else "FAIL"
+	])
+	highlighted_built["card"].queue_free()
+
 	return ok

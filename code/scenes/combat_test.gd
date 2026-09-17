@@ -192,6 +192,13 @@ var player_chain_guard_plus_active := false
 ## 채택" 강화나 chain_explosion/chain_guard의 "임계치 2로 낮춤" 강화는 넣지 않는다(넓지만
 ## 얕게가 견습 모험가의 정체성, INBOX.md 2026-09-17 기획자 결정 참고).
 var player_versatile_active := false
+## player_versatile_plus_active: "임기응변+"([미니 기획 D]-4, 견습 모험가 전용
+## 강화판) 보유 여부. 다른 4개 "+"(광기/수호 심화+, 연쇄 폭발/방어+)는 전부 보너스
+## 턴 굴림 품질을 올리는데, 임기응변+는 base와 같은 축("발동 빈도")을 마저 강화한다
+## — chain_explosion/chain_guard와 같은 방식으로 공격+방어 두 파이프라인의 임계치를
+## 동시에 3에서 2로 낮춘다(_player_explosive_threshold()/_player_guard_threshold()
+## 참고, INBOX.md 2026-09-17 [미니 기획 D] 원문 설계 그대로).
+var player_versatile_plus_active := false
 
 var battle_over := false
 var player_won := false
@@ -438,6 +445,7 @@ func _ready() -> void:
 	player_chain_guard_active = RunState.skill_flags.has("chain_guard")
 	player_chain_guard_plus_active = RunState.skill_flags.has("chain_guard_plus")
 	player_versatile_active = RunState.skill_flags.has("versatile_surge")
+	player_versatile_plus_active = RunState.skill_flags.has("versatile_surge_plus")
 
 	next_button.pressed.connect(_on_next_button_pressed)
 	deck_toggle_button.pressed.connect(_on_deck_toggle_pressed)
@@ -509,17 +517,18 @@ func _on_customize_toggle_pressed() -> void:
 	customize_panel.open()
 
 
-## "연쇄 폭발"(폭발병 전용 고유 스킬) 보유 시 폭발 스택 임계치를 3에서 2로 낮춘다.
-## 미보유(또는 광기 심화로 열린 광전사 쪽)는 기존 EXPLOSIVE_STACK_THRESHOLD 그대로.
+## "연쇄 폭발"(폭발병 전용 고유 스킬) 또는 "임기응변+"(견습 모험가 전용 강화판) 보유
+## 시 폭발 스택 임계치를 3에서 2로 낮춘다. 미보유(또는 광기 심화로 열린 광전사 쪽)는
+## 기존 EXPLOSIVE_STACK_THRESHOLD 그대로.
 func _player_explosive_threshold() -> int:
-	return 2 if player_chain_explosion_active else EXPLOSIVE_STACK_THRESHOLD
+	return 2 if (player_chain_explosion_active or player_versatile_plus_active) else EXPLOSIVE_STACK_THRESHOLD
 
 
-## "연쇄 방어"(방패병 전용 고유 스킬) 보유 시 수호 스택 임계치를 3에서 2로 낮춘다.
-## _player_explosive_threshold()와 완전히 대칭 구조. 미보유(또는 수호 심화로 열린
-## 수호자 쪽)는 기존 GUARD_STACK_THRESHOLD 그대로.
+## "연쇄 방어"(방패병 전용 고유 스킬) 또는 "임기응변+"(견습 모험가 전용 강화판) 보유
+## 시 수호 스택 임계치를 3에서 2로 낮춘다. _player_explosive_threshold()와 완전히
+## 대칭 구조. 미보유(또는 수호 심화로 열린 수호자 쪽)는 기존 GUARD_STACK_THRESHOLD 그대로.
 func _player_guard_threshold() -> int:
-	return 2 if player_chain_guard_active else GUARD_STACK_THRESHOLD
+	return 2 if (player_chain_guard_active or player_versatile_plus_active) else GUARD_STACK_THRESHOLD
 
 
 func _run_battle() -> void:

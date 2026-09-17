@@ -5,26 +5,33 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-09-17 (132)
+- 일시: 2026-09-17 (133)
 - 작성자: AI 에이전트. INBOX.md "부분 처리됨"의 [미니 기획 D](스킬 강화 이벤트)
-  4번(전투 배선)을 이어서 진행했다((131)이 광전사/수호자 페어를 끝냈으니
-  지시된 순서대로 폭발병/방패병 페어를 골랐다). "연쇄
-  폭발+"(`chain_explosion_plus`)/"연쇄 방어+"(`chain_guard_plus`)를
-  `combat_test.gd`의 `_do_exchange()`에 배선 — base(스택 임계치만 3→2로
-  낮춤, 보너스 턴 굴림 강화 없음)와 달리 "+"는 임계치는 2로 유지한 채
-  보너스 턴을 광기/수호 심화 base와 같은 방식(1D20 한 번 더 굴려 최댓값
-  채택, 총 2번 굴림)으로 강화했다. 신규 로직은 없이 (131)이 만든
-  `_apply_bonus_reroll(bag, values, extra_rolls)` 순수 함수를 `extra_rolls=1`
-  로 재사용하기만 해서, 이미 있던 (3c) 단위 테스트가 그대로 커버한다(신규
-  테스트 추가 없음). `bash scripts/qa_shot.sh dice_test` 전체 PASS. 우선순위
-  분기 자체는 이전 "+" 스킬들과 같은 이유로(물리 다이스 의존) 유닛 테스트
-  직접 검증이 어려워, `qa_out/combat_test.png`로 기본 전투(스킬 미보유)가 새
-  분기 추가 후에도 정상 진행/크래시 없음만 재확인했다. `docs/DESIGN.md`의
-  "스킬 강화 이벤트" 절에 이번에 배선한 2종의 실제 효과를 반영. 자세한 내용은
-  아래 "완료 기록 (132)" 참고. INBOX.md [미니 기획 D] 항목은 1~5번이 모두
-  끝나야 "처리됨"으로 옮기라는 완료 기준이 있어 이번에도 "부분 처리됨"에
-  진행 상황만 갱신했다(아래 "다음 할 일 큐" 18번, 남은 것은 4번 나머지 고유
-  1종(임기응변+)/5번 UI 강조/6번 선택).
+  마지막 남은 조각(4번 나머지 고유 1종 "임기응변+" 전투 배선 + 5번 UI 강조)을
+  마무리해 **[미니 기획 D] 전체 완료**로 옮겼다. `combat_test.gd`에
+  `player_versatile_plus_active` 변수를 추가하고, `_player_explosive_
+  threshold()`/`_player_guard_threshold()` 두 헬퍼가 이 플래그도 함께 확인해
+  두 파이프라인 임계치를 3→2로 낮추도록 했다(다른 4쌍과 달리 "발동 빈도"를
+  강화하는 축, base 임기응변과 같은 방향의 강화). `item_card_style.gd`의
+  `build_card()`에 `highlight: bool = false` 매개변수를 추가해 true면 카드
+  테두리가 두껍고 노란색(`HIGHLIGHT_BORDER`)이 되도록 했고, `event.gd`의
+  `_show_skill_offer()`가 `_is_skill_upgrade_event`를 그 인자로 넘긴다.
+  구현 중 QA 훅 `_debug_force_skill_upgrade_event()`가 `_ready()` 경로를
+  거치지 않고 `_setup_skill_upgrade_event()`를 직접 호출해 `_is_skill_
+  upgrade_event`가 세팅되지 않는 버그를 실제 스크린샷에서 발견해(카드가
+  강조 안 됨) `_setup_skill_upgrade_event()` 자신이 그 플래그를 세팅하도록
+  고쳐 자기 완결적으로 만들었다. `dice_test.gd`에 임계치 검증(7)과 카드
+  강조 검증(신규 `_check_skill_upgrade_card_highlight`)을 추가, `bash
+  scripts/qa_shot.sh dice_test` 전체 PASS. `qa_out/event_skill_upgrade_
+  highlight.png`(노란 두꺼운 테두리 확인)/`qa_out/event_skill_offer_normal_
+  recheck.png`(일반 카드는 기존 얇은 테두리 유지)/`qa_out/combat_test_
+  recheck.png`(기본 전투 정상 진행)로 화면 검증. `docs/DESIGN.md`도 갱신.
+  자세한 내용은 아래 "완료 기록 (133)" 참고. INBOX.md [미니 기획 D] 항목을
+  "처리됨"으로 옮겼고(1~5번 완료, 6번은 선택이라 미착수), "처리됨" 12개 유지를
+  위해 가장 오래된 항목을 `docs/INBOX_ARCHIVE.md`로, "완료 기록" 10개 유지를
+  위해 (123)을 `docs/STATUS_ARCHIVE.md`로 옮겼다. **다음 할 일 큐에 19번으로
+  [미니 기획 E](캐릭터별 시작 스킬 선택)를 추가** — 기획자가 이미 구체적으로
+  설계해둔 항목이라 다음 이터레이션이 바로 착수하면 됨.
 
 ## 지금 위치
 
@@ -36,13 +43,14 @@
 20%(`SKILL_UPGRADE_EVENT_CHANCE`) 확률로 스킬 강화(보유한 스킬 중 하나를
 "+"판으로), 그 다음 30%(`SKILL_EVENT_CHANCE`) 확률로 새 스킬 획득, 나머지는
 기존 안전/위험 아이템 이벤트 — 두 확률 모두 해당 후보가 없으면 항상 다음
-분기로 폴백한다. **스킬 강화("+" 스킬)의 전투 효과는 공용 2종(심호흡+/여분+)
-+ 고유 4종(광기 심화+/수호 심화+, 2026-09-17 (131) / 연쇄 폭발+/연쇄 방어+,
-2026-09-17 (132))까지 실제로 적용된다** — `combat_test.gd`의 `_do_exchange()`
-가 이 여섯만 "+" > base > 없음 우선순위로 읽는다. 나머지 고유 1종(임기응변+)
-은 골라도 아직 base 효과만 유지되고 "+" 자체의 강화는 없음(전투 배선 나머지는
-[미니 기획 D]-4 잔여분, 다음 이터레이션 예정, 큐 18 참고). UI 강조(카드 노란
-테두리, -5번)와 DeckPanel 보유 스킬 목록(-6번, 선택)도 아직 없음.
+분기로 폴백한다. **[미니 기획 D](스킬 강화 이벤트) 전체 완료** — 7종
+스킬("+" 강화판) 전부(공용 2종 심호흡+/여분+, 고유 5종 광기 심화+/수호
+심화+/연쇄 폭발+/연쇄 방어+/임기응변+)가 `combat_test.gd`의 `_do_exchange()`
+에서 "+" > base > 없음 우선순위로 실제 전투 효과를 내고, 강화 카드는
+`ItemCardStyle.build_card(highlight=true)`로 두껍고 노란 테두리로 표시된다.
+DeckPanel 보유 스킬 목록(6번, 선택)만 아직 없음 — 급하지 않은 항목으로 남겨둠.
+다음 순번은 [미니 기획 E](캐릭터별 시작 스킬 선택, 다음 할 일 큐 19번) —
+사람 설계 결정 대기 없이 바로 착수 가능.
 
 - **캐릭터 5종** (`code/systems/character_profiles.gd`의
   `CharacterProfiles.PROFILES`): 견습 모험가(기믹 없음, D4x3/D4x3) / 광전사
@@ -680,41 +688,99 @@
     동시 적용)으로 구현 완료했다(아래 "완료 기록 (127)" 참고) — **이제 5개
     캐릭터 전원의 고유 스킬이 갖춰져 이 큐 항목은 완전히 종료.**
 
-18. **(2026-09-17 신규, INBOX.md [미니 기획 D]) 스킬 강화 이벤트 — 1~3번 완료,
-    4번 일부(공용 2종+고유 4종) 완료, 나머지 남음.** 기획자가 7종 스킬 각각의 구체적
-    강화 효과/로직/UI까지 이미 확정해둔 항목 — INBOX.md "남은 이슈" 원문 그대로
-    순서대로 진행하면 됨.
-    - **1번(강화판 데이터 정의)** → **완료** (2026-09-17 (128), 위 "완료 기록"
-      참고). `skill_pool.gd`에 `UPGRADE_SKILLS`(7종) 상수 추가.
-    - **2번(강화 후보 뽑기)** → **완료** (2026-09-17 (128), 위 "완료 기록"
-      참고). `SkillPool.available_upgrade_choices(n, character_id)` +
-      `SkillPool.grant_upgrade(base_id)`.
-    - **3번(이벤트 발생 구조)** → **완료** (2026-09-17 (129), 위 "완료 기록"
-      참고). `event.gd`에 `SKILL_UPGRADE_EVENT_CHANCE`(=0.2)로 기존
-      `SKILL_EVENT_CHANCE`(0.3) 분기보다 먼저 "스킬 강화" 이벤트를 판정하고,
-      강화 후보가 하나도 없으면 확률과 무관하게 항상 기존 스킬/아이템 이벤트로
-      폴백. 카드 UI는 `_setup_skill_event()`가 쓰던 `_show_skill_offer()`/
-      `_apply_skill_pick()`을 그대로 재사용(새 위젯 없음).
-    - **4번(전투 배선)** → **공용 2종(2026-09-17 (130)) + 고유 4종/광전사·수호자
-      페어(2026-09-17 (131))+폭발병·방패병 페어(2026-09-17 (132)) 완료, 위
-      "완료 기록" 참고. 고유 1종(임기응변+) 남음.** `combat_test.gd`의
-      `_do_exchange()`에 "심호흡+"(매 방어턴 적용)/"여분+"(여분 다이스 2개
-      굴려 최댓값 채택)/"광기 심화+"/"수호 심화+"(보너스 턴 굴림 2→3회,
-      `_apply_bonus_reroll()` 공용 헬퍼)/"연쇄 폭발+"/"연쇄 방어+"(임계치
-      2 유지, 보너스 턴 굴림 1→2회, 같은 헬퍼를 extra_rolls=1로 재사용)를
-      "+" > base > 없음 우선순위로 배선. 다음: 임기응변+(임계치 3→2, 견습
-      모험가 전용)만 남음 — 지시된 "캐릭터 페어 단위" 진행이 끝나고 마지막
-      1종만 남은 상태.
-    - **5번(UI 강조)** → 미착수. `item_card_style.gd`의 `build_card()`에
-      `highlight: bool = false` 매개변수 — true면 두껍고 노란 테두리, 강화
-      스킬 제안 카드는 항상 `highlight=true`. (지금은 [미니 기획 D]-3이 만든
-      강화 카드도 다른 스킬 카드와 같은 등급색 테두리로만 보여서, 강화판임을
-      시각적으로 구분할 방법이 아직 없음 — 다음 이터레이션 후보.)
-    - **6번(선택, 여유 있으면)** → 미착수. `DeckPanel`에 "보유 스킬" 목록 표시.
-    1~5번이 모두 끝나야 INBOX.md에서 "처리됨"으로 옮길 것(완료 기준, INBOX.md
-    원문 그대로).
+18. ~~(2026-09-17, INBOX.md [미니 기획 D]) 스킬 강화 이벤트~~ → **전체 완료
+    (1~5번, 2026-09-17 (128)~(133)).** 7종 스킬("+" 강화판) 데이터/후보 뽑기
+    (128), 이벤트 발생 구조(129), 전투 배선 7종 전부(공용 2종(130), 광전사·
+    수호자 페어(131), 폭발병·방패병 페어(132), 임기응변(133)), UI 강조(카드
+    노란 두꺼운 테두리, 133)까지 전부 끝났다. 6번(DeckPanel 보유 스킬 목록)은
+    원문이 "선택, 급하지 않음"이라 명시한 항목이라 미착수 — 자세한 내용은 위
+    "완료 기록"과 `docs/feedback/INBOX.md` 처리됨 섹션의 "[미니 기획 D]" 참고.
+
+19. **(INBOX.md 신규 2026-09-17, [미니 기획 E]) 캐릭터별 시작 스킬 선택 —
+    기획자가 이미 구체적으로 설계해둔 항목, 사람 설계 결정 대기 없이 바로
+    착수 가능.** [미니 기획 D]가 끝났으니 다음 순번. 지금 캐릭터 스킬은
+    런 중 무작위 이벤트로만 얻는데([미니 기획 C]), 이 항목은 그것과 별개의
+    새 레이어 — 런 "시작 시점"에 미리 정해두는 로드아웃 선택이다. 기존
+    skill_flags/grant() 파이프라인을 그대로 재사용하되 "언제/어떻게
+    얻는지"만 다름(무작위 이벤트가 아니라 캐릭터 선택 화면에서 확정 선택).
+    INBOX.md "남은 이슈"에 6개 하위 단계가 이미 구체적으로 적혀 있음 —
+    한 이터레이션에 다 하지 말고 나눠서 진행할 것(기획자가 명시적으로
+    "2~3개씩 나눠 진행"이라고 지시함):
+    1. **해금 판정** — 새 저장 시스템 없이 이미 있는
+       `AchievementManager.is_unlocked("clear_" + character_id)`를 그대로
+       재사용.
+    2. **시작 스킬 데이터** — `skill_pool.gd`에 신규 `STARTING_SKILLS` 상수
+       (6개 원형: start_aggro/start_wall/start_expand/start_lean/
+       start_hoard/start_ironclad, 각각 `character_ids` 필드로 캐릭터
+       공유). 전부 `DiceBag.apply_flat_bonus()` 재사용, 조건이 참일 때만
+       적용. 캐릭터당 정확히 2종(슬롯 0=항상 해금, 슬롯 1=업적 해금 시).
+    3. **선택 UI** (`character_select.gd`) — 상세 패널에 "시작 스킬" 선택
+       줄 추가, 슬롯 1은 업적 미해금 시 자물쇠 아이콘 + 비활성화. 신규
+       `RunState.chosen_starting_skill_id`에 저장.
+    4. **적용 배선** — `RunState.reset_run()`이 `SkillPool.grant(chosen_
+       starting_skill_id)` 호출, `combat_test.gd`의 `_do_exchange()`에
+       6개 조건 분기 추가(2~3개씩 나눠서: 맹공/철벽 → 확장/정예 → 수집가/
+       강철 방비 권장 순서, INBOX.md 원문 그대로).
+    5. **UI 강조 재사용(선택)** — 슬롯 1(업적 해금 스킬)에 방금 만든
+       `ItemCardStyle.build_card()`의 `highlight` 파라미터 재사용 가능(필수
+       아님).
+    완료 기준: 1~4번이 끝나면 INBOX.md에서 "처리됨"으로 옮길 것(5번은 선택).
+    진행 중에는 이 항목에 몇 번까지 끝났는지 남길 것. 자세한 수치/필드명은
+    `docs/feedback/INBOX.md` "남은 이슈" 원문 참고(요약하지 말고 원문을
+    그대로 따를 것).
 
 ## 완료 기록
+
+- **2026-09-17 (133)**: INBOX.md "부분 처리됨"의 [미니 기획 D](스킬 강화 이벤트)
+  마지막 남은 조각 두 개(4번 나머지 고유 1종 "임기응변+" 전투 배선 + 5번 UI
+  강조)를 마무리해 **[미니 기획 D] 전체 완료** — INBOX.md에서 "부분 처리됨"에서
+  "처리됨"으로 옮겼다.
+  **4번(전투 배선)**: `code/scenes/combat_test.gd`에
+  `player_versatile_plus_active`(`_ready()`에서 `RunState.skill_flags.
+  has("versatile_surge_plus")`로 초기화, 다른 "+" 플래그들과 같은 패턴) 변수를
+  신설했다. 다른 4쌍의 "+"는 전부 "보너스 턴 굴림 품질"(2번→3번 굴림 등)을
+  올리는데, base(임기응변)가 이미 "넓지만 얕게"(임계치·보너스 강화 없음)였던
+  만큼 "+"는 base와 같은 축인 "발동 빈도"를 마저 강화한다는 게 INBOX.md 원
+  설계 — `chain_explosion`/`chain_guard`와 완전히 같은 방식으로
+  `_player_explosive_threshold()`/`_player_guard_threshold()` 두 헬퍼가
+  `player_versatile_plus_active`도 함께 확인하도록 `or` 조건을 추가해 두
+  파이프라인 임계치를 동시에 3→2로 낮췄다(기존 두 헬퍼가 이미 `or`로 여러
+  플래그를 받는 구조라 조건 추가만으로 끝남 — 새 함수 불필요).
+  **5번(UI 강조)**: `code/scenes/item_card_style.gd`의 `build_card()`에
+  `highlight: bool = false` 매개변수를 추가 — true면 카드 테두리를 등급색+2px
+  대신 `HIGHLIGHT_BORDER`(노란색)+`HIGHLIGHT_BORDER_WIDTH`(4px)로 그린다.
+  `code/scenes/event.gd`의 `_show_skill_offer()`가 `build_card(skill, "",
+  false, _is_skill_upgrade_event)`로 이 플래그를 넘기도록 고쳤는데, 구현 중
+  버그를 하나 발견했다 — QA 훅 `_debug_force_skill_upgrade_event()`가
+  `_setup_skill_upgrade_event()`를 `_ready()` 경로를 거치지 않고 직접 호출해
+  `_is_skill_upgrade_event`가 여전히 false로 남는 바람에, 실제로는 강화
+  이벤트인데도 카드가 강조되지 않는 것을 QA 스크린샷에서 실제로 목격했다
+  (`qa_out/event_skill_upgrade_highlight.png` 1차 캡처, 초록 테두리로 나옴).
+  원인은 `_is_skill_upgrade_event = true` 세팅이 `_ready()`에만 있고
+  `_setup_skill_upgrade_event()` 자신은 이 플래그를 건드리지 않는 구조라
+  호출 경로에 의존적이었던 것 — `_setup_skill_upgrade_event()` 맨 앞에
+  `_is_skill_upgrade_event = true`를 추가해 자기 완결적으로 만들어 고쳤다
+  (정상 게임 플레이 경로(`_ready()`가 먼저 세팅)는 원래도 문제없었음 — QA
+  훅처럼 `_ready()`를 우회하는 호출자에서만 드러나던 잠재 버그였다).
+  **QA 검증**: `dice_test.gd`에 (7) "임기응변+ 보유 시 두 임계치 함수 모두 2를
+  반환하는지" 검증(기존 (6) "임기응변 base는 임계치 불변" 검증 바로 다음)과,
+  신규 `_check_skill_upgrade_card_highlight`(highlight=false는 등급색+2px,
+  highlight=true는 HIGHLIGHT_BORDER+HIGHLIGHT_BORDER_WIDTH인지 StyleBoxFlat을
+  직접 읽어 확인)를 추가, `bash scripts/qa_shot.sh dice_test` 전체 PASS(신규
+  검증 3개 포함). 버그 수정 후 재캡처한 `qa_out/event_skill_upgrade_highlight.png`
+  로 "임기응변+" 카드가 두껍고 노란 테두리로 표시됨을, `qa_out/
+  event_skill_offer_normal_recheck.png`로 일반 스킬 획득 카드는 기존 얇은
+  등급색 테두리 그대로 유지됨을, `qa_out/combat_test_recheck.png`로 기본
+  전투(스킬 미보유)가 새 분기 추가 후에도 정상 진행/크래시 없음을 확인했다.
+  `docs/DESIGN.md`의 "스킬 강화 이벤트([미니 기획 D])" 절을 갱신해 7종 전부
+  배선 완료 + UI 강조 완료로 반영. INBOX.md는 [미니 기획 D] 전체를 "처리됨"
+  으로 옮기고(완료 기준 1~5번 전부 충족, 6번은 선택이라 미착수), "처리됨"이
+  13개가 돼 가장 오래된 항목("키보드 단축키 크래시 버그", 2026-09-15)을
+  `docs/INBOX_ARCHIVE.md`로 옮겨 12개를 유지했다. `docs/STATUS.md`(이 파일)
+  "완료 기록"도 11개가 돼 가장 오래된 (123)을 `docs/STATUS_ARCHIVE.md`로
+  옮겼다. **[미니 기획 D] 전체 완료로, 다음 이터레이션부터는 INBOX.md "남은
+  이슈"의 [미니 기획 E](캐릭터별 시작 스킬 선택, 기획자가 이미 구체적으로
+  설계해둔 항목)로 넘어갈 차례** — 아래 "다음 할 일 큐" 19번 참고.
 
 - **2026-09-17 (132)**: INBOX.md "부분 처리됨"의 [미니 기획 D](스킬 강화 이벤트)
   4번(전투 배선)을 계속 진행 — (131)이 광전사/수호자 페어를 끝냈으니 이어서
@@ -1035,39 +1101,9 @@
   없는 완전히 새로운 설계가 필요함(다음 할 일 큐 17번 참고). `docs/DESIGN.md`도
   함께 갱신.
 
-- **2026-09-17 (123)**: 큐 17("폭발병/방패병 전용 고유 스킬 설계+추가")의 1/2
-  조각. 폭발병(explosive)은 이미 `explosive_stack` 파이프라인을 갖고 있어
-  광기/수호 심화의 "없던 파이프라인을 열어준다" 패턴을 쓸 수 없으므로, 큐
-  17이 예시로 든 "스택 임계치를 3→2로 낮추는 스킬" 방향을 채택해 폭발병
-  전용 고유 스킬 "연쇄 폭발"(`chain_explosion`)을 추가했다.
-  `code/systems/skill_pool.gd`의 `UNIQUE_SKILLS`에 `{id: "chain_explosion",
-  character_id: "explosive", ...}` 정의를 추가하고, `code/scenes/
-  combat_test.gd`에 `player_chain_explosion_active`(`_ready()`에서
-  `RunState.skill_flags.has("chain_explosion")`로 초기화) 상태 변수와
-  `_player_explosive_threshold()` 헬퍼(보유 시 2, 미보유 시 기존
-  `EXPLOSIVE_STACK_THRESHOLD`=3)를 신설해, `_do_exchange()`에서
-  `EXPLOSIVE_STACK_THRESHOLD`를 직접 참조하던 스택 로그·임계치 도달 판정
-  2곳을 이 헬퍼 호출로 교체했다(광기 심화/기본 폭발병 모두 이 헬퍼를
-  거치지만 chain_explosion은 explosive 캐릭터만 가질 수 있어 서로 겹치지
-  않음).
-  `dice_test.gd`의 `_check_skill_effects`에 (2c) "'연쇄 폭발' 캐릭터
-  필터"(explosive=true, berserker=false) 검증과 (4)
-  `_player_explosive_threshold()` 반환값(미보유=3, 보유=2) 검증을 추가,
-  `bash scripts/qa_shot.sh dice_test` 전체 PASS. `code/scenes/event.gd`에
-  QA 훅 `_debug_force_skill_event_as_explosive()`(guard_deepen 때와 같은
-  패턴 — character_id를 explosive로 강제하고 "여분"+"연쇄 폭발" 2장을
-  직접 골라 넘김)를 추가해 실제로 "연쇄 폭발" 카드가 다른 카드와 겹침 없이
-  렌더링되는 것을 `qa_out/event_skill_offer_explosive.png`로, 기본 전투
-  (novice, 스킬 없음)가 크래시 없이 정상 진행됨을
-  `qa_out/combat_test_chain_explosion_smoke.png`로 확인했다(explosive_stack
-  파이프라인이 실제로 열린 상태의 라이브 턴 진행 자체는 guard_deepen 때와
-  같은 이유로 QA_CALL 직접 실행이 어려워 단위 테스트 + 일반 회귀로 대체).
-  `docs/DESIGN.md`도 함께 갱신. 남은 것은 방패병 전용 고유 스킬(같은 패턴,
-  대칭 구조로 guard_stack 임계치 3→2) 하나뿐 — 다음 할 일 큐 17번 참고.
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(132)에서 (122)를 그리로 옮겼다.)*
+이번 이터레이션(133)에서 (123)을 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 

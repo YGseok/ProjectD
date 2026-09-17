@@ -8,6 +8,36 @@
 
 ---
 
+- **2026-09-17 (123)**: 큐 17("폭발병/방패병 전용 고유 스킬 설계+추가")의 1/2
+  조각. 폭발병(explosive)은 이미 `explosive_stack` 파이프라인을 갖고 있어
+  광기/수호 심화의 "없던 파이프라인을 열어준다" 패턴을 쓸 수 없으므로, 큐
+  17이 예시로 든 "스택 임계치를 3→2로 낮추는 스킬" 방향을 채택해 폭발병
+  전용 고유 스킬 "연쇄 폭발"(`chain_explosion`)을 추가했다.
+  `code/systems/skill_pool.gd`의 `UNIQUE_SKILLS`에 `{id: "chain_explosion",
+  character_id: "explosive", ...}` 정의를 추가하고, `code/scenes/
+  combat_test.gd`에 `player_chain_explosion_active`(`_ready()`에서
+  `RunState.skill_flags.has("chain_explosion")`로 초기화) 상태 변수와
+  `_player_explosive_threshold()` 헬퍼(보유 시 2, 미보유 시 기존
+  `EXPLOSIVE_STACK_THRESHOLD`=3)를 신설해, `_do_exchange()`에서
+  `EXPLOSIVE_STACK_THRESHOLD`를 직접 참조하던 스택 로그·임계치 도달 판정
+  2곳을 이 헬퍼 호출로 교체했다(광기 심화/기본 폭발병 모두 이 헬퍼를
+  거치지만 chain_explosion은 explosive 캐릭터만 가질 수 있어 서로 겹치지
+  않음).
+  `dice_test.gd`의 `_check_skill_effects`에 (2c) "'연쇄 폭발' 캐릭터
+  필터"(explosive=true, berserker=false) 검증과 (4)
+  `_player_explosive_threshold()` 반환값(미보유=3, 보유=2) 검증을 추가,
+  `bash scripts/qa_shot.sh dice_test` 전체 PASS. `code/scenes/event.gd`에
+  QA 훅 `_debug_force_skill_event_as_explosive()`(guard_deepen 때와 같은
+  패턴 — character_id를 explosive로 강제하고 "여분"+"연쇄 폭발" 2장을
+  직접 골라 넘김)를 추가해 실제로 "연쇄 폭발" 카드가 다른 카드와 겹침 없이
+  렌더링되는 것을 `qa_out/event_skill_offer_explosive.png`로, 기본 전투
+  (novice, 스킬 없음)가 크래시 없이 정상 진행됨을
+  `qa_out/combat_test_chain_explosion_smoke.png`로 확인했다(explosive_stack
+  파이프라인이 실제로 열린 상태의 라이브 턴 진행 자체는 guard_deepen 때와
+  같은 이유로 QA_CALL 직접 실행이 어려워 단위 테스트 + 일반 회귀로 대체).
+  `docs/DESIGN.md`도 함께 갱신. 남은 것은 방패병 전용 고유 스킬(같은 패턴,
+  대칭 구조로 guard_stack 임계치 3→2) 하나뿐 — 다음 할 일 큐 17번 참고.
+
 - **2026-09-16 (122)**: 큐 16의 [미니 기획 C] 후속 "나머지 4캐릭터 전용 고유
   스킬 추가"의 두 번째 조각. 광전사 전용 "광기 심화"(frenzy_deepen)에 이어,
   수호자(guardian) 전용 고유 스킬 "수호 심화"(`guard_deepen`)를 완전히 대칭

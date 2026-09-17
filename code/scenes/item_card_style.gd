@@ -40,6 +40,13 @@ const CARD_BG_UNAFFORDABLE := Color(0.09, 0.09, 0.1, 0.97)
 const CARD_BORDER_UNAFFORDABLE := Color(0.35, 0.32, 0.3)
 const STATUS_BADGE_COLOR := Color(0.85, 0.4, 0.4)
 
+## "강화" 카드 강조([미니 기획 D]-5, INBOX.md 2026-09-17 "좋아보여야 하니까 아이콘
+## 테두리를 노란 색으로 두껍게 강조하면 좋을 듯" 반영). 지금 스킬 카드에는 별도
+## 아이콘이 없어 카드 자체의 테두리로 구현 — 이 카드가 사실상 스킬을 나타내는 유일한
+## 시각 요소이므로. 등급 배지 색(GRADE_COLORS)은 그대로 두고 테두리 색/두께만 바꾼다.
+const HIGHLIGHT_BORDER := Color(1.0, 0.85, 0.15)
+const HIGHLIGHT_BORDER_WIDTH := 4
+
 # 보상 등급(S/A/B/C, INBOX.md 2026-09-14) 색상 — "녹색<파란색<보라색<노란색"으로 가치
 # 상승을 표현하라는 지시를 그대로 반영. 등급별 실제 아이템 배정은 dice_item_pool.gd/
 # event_item_pool.gd의 "grade" 필드 주석 참고(잠정값, 사람 피드백 필요).
@@ -65,18 +72,23 @@ static func grade_color(grade: String) -> Color:
 ## 배지를 붙인다(구매 가능 여부는 화면마다 골드 비교로 판정해 넘겨준다 — 이 헬퍼는 표시만
 ## 담당). 배지를 별도 줄로 추가하지 않는 이유는 카드 자연 높이가 늘어나 2행 그리드에서
 ## 아래 행 카드와 겹치기 때문 — 아래 구현 참고.
-## 반환값의 "card"를 add_child()로 씬에 붙이고 position/size를 지정한 뒤,
-## "button_row"에 버튼을 add_child()로 추가하면 카드 안에 세로로 쌓인다(VBoxContainer라
-## 폭은 카드에 맞춰 자동으로 늘어남, 버튼 높이는 각자 custom_minimum_size로 지정할 것).
-static func build_card(item: Dictionary, extra_label_text: String = "", unaffordable: bool = false) -> Dictionary:
+## highlight: true면 등급 색 대신 두껍고 노란 테두리(HIGHLIGHT_BORDER)로 그린다([미니
+## 기획 D]-5, "스킬 강화" 카드를 시각적으로 돋보이게 하려는 용도). unaffordable과
+## 동시에 true인 경우는 지금 호출부에 없지만(스킬 카드는 골드를 안 씀), 만약 겹치면
+## highlight가 우선한다(강조가 목적이므로 무채색으로 죽이지 않음).
+static func build_card(item: Dictionary, extra_label_text: String = "", unaffordable: bool = false, highlight: bool = false) -> Dictionary:
 	var grade: String = item.get("grade", DEFAULT_GRADE)
 	var gcolor := grade_color(grade)
 
 	var card := PanelContainer.new()
 	var style := StyleBoxFlat.new()
 	style.bg_color = CARD_BG_UNAFFORDABLE if unaffordable else CARD_BG
-	style.border_color = CARD_BORDER_UNAFFORDABLE if unaffordable else gcolor
-	style.set_border_width_all(2)
+	if highlight:
+		style.border_color = HIGHLIGHT_BORDER
+		style.set_border_width_all(HIGHLIGHT_BORDER_WIDTH)
+	else:
+		style.border_color = CARD_BORDER_UNAFFORDABLE if unaffordable else gcolor
+		style.set_border_width_all(2)
 	style.set_corner_radius_all(10)
 	style.content_margin_left = 16
 	style.content_margin_right = 16
