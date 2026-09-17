@@ -650,6 +650,13 @@ func _do_exchange(is_player_attacking: bool) -> void:
 			atk_values = _apply_spare_die(atk_bag, atk_values, 2)
 		elif RunState.skill_flags.has("spare_die"):
 			atk_values = _apply_spare_die(atk_bag, atk_values, 1)
+	# "맹공"([미니 기획 E]-4, 시작 스킬): 공격 다이스 개수가 방어 다이스 개수보다 많으면
+	# 공격 다이스 결과값 전체 +1. 주머니 구성(개수)만 보는 정적 조건이라 전투 중 바뀌지
+	# 않음 — 매 공격턴(폭발 보너스 턴 포함)마다 다시 확인해 적용한다.
+	if is_player_attacking and RunState.skill_flags.has("start_aggro"):
+		if RunState.player_attack_bag.dice.size() > RunState.player_defense_bag.dice.size():
+			atk_values = atk_bag.apply_flat_bonus(atk_values, 1)
+			_append_log("맹공 효과: 공격 다이스 결과값 +1 (공격 다이스가 더 많음)")
 	# "심호흡+"([미니 기획 D]-4, 공용 강화): base는 이번 전투 첫 방어턴 한 번만
 	# 적용되지만, "+"는 매 방어턴마다 적용된다(상한은 base와 동일하게 다이스별 면
 	# 개수). "+" > base 우선순위 — 두 id가 함께 있어도 "+"만 적용하고 player_deep_
@@ -663,6 +670,13 @@ func _do_exchange(is_player_attacking: bool) -> void:
 			def_values = def_bag.apply_flat_bonus(def_values, 1)
 			player_deep_breath_used = true
 			_append_log("심호흡 효과: 방어 다이스 결과값 +1 (이번 전투 최초 1회)")
+	# "철벽"([미니 기획 E]-4, 시작 스킬): 방어 다이스 개수가 공격 다이스 개수보다 많으면
+	# 방어 다이스 결과값 전체 +1. 맹공과 완전히 대칭 구조(공격 대신 방어) — 주머니
+	# 구성(개수)만 보는 정적 조건이라 매 방어턴(수호 보너스 턴 포함)마다 다시 확인한다.
+	if not is_player_attacking and RunState.skill_flags.has("start_wall"):
+		if RunState.player_defense_bag.dice.size() > RunState.player_attack_bag.dice.size():
+			def_values = def_bag.apply_flat_bonus(def_values, 1)
+			_append_log("철벽 효과: 방어 다이스 결과값 +1 (방어 다이스가 더 많음)")
 	var atk_total := 0
 	for v in atk_values:
 		atk_total += v

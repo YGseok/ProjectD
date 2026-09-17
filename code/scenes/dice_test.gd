@@ -205,6 +205,10 @@ func _ready() -> void:
 	all_pass = _check_starting_skill_selection_ui(lines) and all_pass
 
 	lines.append("")
+	lines.append("[시작 스킬 적용 배선 검증: run_state.gd reset_run() -> SkillPool.grant() / combat_test.gd 조건부 apply_flat_bonus]")
+	all_pass = _check_starting_skill_combat_wiring(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -3014,4 +3018,63 @@ func _check_starting_skill_selection_ui(lines: PackedStringArray) -> bool:
 	AchievementManager._debug_reset_for_qa()
 	RunState.character_id = character_backup
 	RunState.chosen_starting_skill_id = chosen_backup
+	return ok
+
+
+## [미니 기획 E]-4 검증(INBOX.md 2026-09-17 기획자 결정, 적용 배선): 지금까지의 1~3번
+## 검증은 데이터/UI뿐이라 선택해도 실제 skill_flags에는 전혀 반영되지 않았다. 이 함수는
+## RunState.reset_run()이 chosen_starting_skill_id를 실제로 SkillPool.grant()에 넘기는지
+## (character_select.gd가 "던전 시작" 직전에 하는 것과 같은 순서 — chosen을 먼저 정하고
+## reset_run()을 호출) 확인한다. combat_test.gd의 "맹공"/"철벽" 조건부 apply_flat_bonus는
+## deep_breath와 마찬가지로 _do_exchange() 안에 인라인돼 있어(별도 순수 함수로 분리돼
+## 있지 않음) 물리 시뮬레이션 없이 단위 테스트할 수 없다 — 대신 아래에서 두 캐릭터의
+## 기본 다이스 구성(광전사=공격4/방어2, 수호자=공격2/방어4)이 각 스킬의 발동 조건과
+## 실제로 맞아떨어지는지(설계 의도대로 "그 캐릭터 기본 상태에서 발동 가능"인지)를
+## 확인하고, 실전투 크래시 여부는 qa_shot.sh 스크린샷으로 별도 확인한다.
+func _check_starting_skill_combat_wiring(lines: PackedStringArray) -> bool:
+	var ok := true
+	var character_backup := RunState.character_id
+	var chosen_backup := RunState.chosen_starting_skill_id
+
+	# (a) chosen_starting_skill_id가 설정된 채 reset_run()을 부르면, 새 런의 skill_flags에
+	# 그 id가 즉시 들어가야 한다(전투 시작 전부터 적용 — character_select.gd와 동일 순서).
+	RunState.chosen_starting_skill_id = "start_aggro"
+	RunState.reset_run("berserker")
+	var granted_ok: bool = RunState.skill_flags.has("start_aggro")
+	ok = granted_ok and ok
+	lines.append("  reset_run() 중 chosen_starting_skill_id 부여: berserker+start_aggro -> skill_flags=%s (start_aggro 포함 기대) -> %s" % [
+		RunState.skill_flags, "OK" if granted_ok else "FAIL"
+	])
+
+	# (b) chosen_starting_skill_id가 비어있으면(예: 시작 화면을 거치지 않은 호출부) 아무
+	# 것도 부여하지 않고 크래시도 없어야 한다.
+	RunState.chosen_starting_skill_id = ""
+	RunState.reset_run("novice")
+	var empty_ok: bool = RunState.skill_flags.is_empty()
+	ok = empty_ok and ok
+	lines.append("  chosen_starting_skill_id 비어있을 때: skill_flags=%s (빈 배열 기대) -> %s" % [
+		RunState.skill_flags, "OK" if empty_ok else "FAIL"
+	])
+
+	# (c) "맹공"(공격 개수 > 방어 개수) 발동 조건은 광전사 기본 구성(공격4/방어2)에서
+	# 참이어야 하고, "철벽"(방어 개수 > 공격 개수)은 수호자 기본 구성(공격2/방어4)에서
+	# 참이어야 한다 — combat_test.gd의 인라인 조건과 동일한 비교식으로 재확인한다.
+	RunState.chosen_starting_skill_id = "start_aggro"
+	RunState.reset_run("berserker")
+	var aggro_condition_ok: bool = RunState.player_attack_bag.dice.size() > RunState.player_defense_bag.dice.size()
+	ok = aggro_condition_ok and ok
+	lines.append("  '맹공' 발동 조건(광전사 기본): 공격=%d 방어=%d (공격>방어 기대) -> %s" % [
+		RunState.player_attack_bag.dice.size(), RunState.player_defense_bag.dice.size(), "OK" if aggro_condition_ok else "FAIL"
+	])
+
+	RunState.chosen_starting_skill_id = "start_wall"
+	RunState.reset_run("guardian")
+	var wall_condition_ok: bool = RunState.player_defense_bag.dice.size() > RunState.player_attack_bag.dice.size()
+	ok = wall_condition_ok and ok
+	lines.append("  '철벽' 발동 조건(수호자 기본): 공격=%d 방어=%d (방어>공격 기대) -> %s" % [
+		RunState.player_attack_bag.dice.size(), RunState.player_defense_bag.dice.size(), "OK" if wall_condition_ok else "FAIL"
+	])
+
+	RunState.chosen_starting_skill_id = chosen_backup
+	RunState.reset_run(character_backup)
 	return ok

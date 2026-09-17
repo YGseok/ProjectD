@@ -75,10 +75,10 @@ extends Node
 ## skill_flags와는 별개 레이어). character_select.gd가 캐릭터 카드를 고를 때마다 그
 ## 캐릭터의 슬롯 0 id로 리셋하고(단, 이미 골라둔 값이 새 캐릭터의 후보 목록에도 있고
 ## 잠기지 않았다면 유지 — character_select.gd의 검증 로직 참고), 시작 스킬 슬롯을
-## 클릭하면 그 id로 바뀐다. reset_run()은 이 필드를 건드리지 않는다 — "던전 시작"
-## 버튼을 누르는 시점에는 이미 선택이 끝나 있어야 하고, 그 값을 실제로 skill_flags에
-## 부여하는 배선([미니 기획 E]-4)은 아직 다음 이터레이션 몫이라 reset_run()이 이
-## 필드를 읽지도 않는다.
+## 클릭하면 그 id로 바뀐다. reset_run()은 이 필드 자체는 건드리지 않지만([미니 기획
+## E]-4, 2026-09-17 배선 완료) skill_flags를 새로 비운 직후 이 값이 비어있지 않으면
+## SkillPool.grant()로 즉시 부여한다 — "던전 시작" 버튼을 누르는 시점에는 이미 선택이
+## 끝나 있으므로, 새 런의 첫 전투부터 시작 스킬 보너스가 적용된다.
 const TOTAL_ROOMS := 5
 const TOTAL_ROUNDS := 3
 
@@ -117,6 +117,8 @@ func reset_run(new_character_id: String = "") -> void:
 	pip_inventory = []
 	die_inventory = []
 	skill_flags = []
+	if chosen_starting_skill_id != "":
+		SkillPool.grant(chosen_starting_skill_id)
 	_apply_character_gimmick()
 
 

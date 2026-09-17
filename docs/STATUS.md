@@ -5,31 +5,26 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-09-17 (135)
+- 일시: 2026-09-17 (136)
 - 작성자: AI 에이전트. INBOX.md "부분 처리됨"의 [미니 기획 E](캐릭터별 시작
-  스킬 선택) 3번(선택 UI, `character_select.gd`)을 진행했다(세션 지침이
-  명시적으로 3번을 다음 순번으로 지정, "사람 설계 결정 필요"로 보류하지
-  말라고 지시함). 상세 패널에 "시작 스킬" 섹션을 추가해 슬롯 0(항상 선택
-  가능)/슬롯 1(`AchievementManager.is_unlocked("clear_"+character_id)`
-  미해금 시 신규 `code/scenes/lock_icon.gd`(`LockIcon`)로 자물쇠 표시 +
-  `disabled=true`)을 버튼으로 보여주고, 선택 상태를 신규 `RunState.
-  chosen_starting_skill_id`에 저장한다(실질적으로 1번 "해금 판정"도 함께
-  끝남 — 새 저장 시스템 없이 기존 업적 API를 그대로 읽는 것뿐이라 별도
-  단계로 분리하지 않았음). 캐릭터를 바꿀 때 이전 선택이 새 캐릭터 기준으로도
-  유효한지(잠기지 않았는지) 재검증하는 로직을 `dice_test.gd`의 신규
-  `_check_starting_skill_selection_ui`로 검증하던 중 실제 버그를 하나 발견해
-  고쳤다 — 슬롯 컨테이너를 `queue_free()`만으로 다시 그리면 같은 프레임 안의
-  재호출(슬롯 버튼 자신의 클릭 핸들러가 다시 이 함수를 부름)에서 옛 버튼이
-  안 지워진 채 인덱스가 섞이는 문제, `remove_child()`로 즉시 떼어낸 뒤
-  `queue_free()`로 지우도록 수정해 해결. `bash scripts/qa_shot.sh dice_test`
-  전체 PASS(고치기 전엔 실제로 FAIL이 잡혔음). `qa_out/
-  character_select_starting_skill_locked.png`/`_unlocked.png`/`_guardian.png`
-  세 장으로 잠김/해금/가장 긴 라벨("강철 방비") 화면을 육안으로도 확인했다.
-  1~3번 완료, 남은 건 4번(적용 배선)뿐(5번은 선택) — 자세한 내용은 아래
-  "완료 기록 (135)" 참고. "완료 기록" 10개 유지를 위해 (125)를
-  `docs/STATUS_ARCHIVE.md`로 옮겼다. INBOX.md [미니 기획 E] 항목은 1~4번이
-  다 끝나야 "처리됨"으로 옮기는 완료 기준이라 이번에도 "부분 처리됨"에
-  그대로 두고 진행 상황만 이 파일과 INBOX.md에 남겼다.
+  스킬 선택) 4번(적용 배선)을 시작했다(세션 지침이 명시적으로 4번을 다음
+  순번으로 지정하며 "6개를 한 번에 하지 말고 2~3개씩 나눠서(맹공/철벽
+  먼저)"라고 구체적으로 지시함). `RunState.reset_run()`이 `skill_flags`를
+  비운 직후 `chosen_starting_skill_id`가 비어있지 않으면
+  `SkillPool.grant(chosen_starting_skill_id)`를 호출하도록 배선했고,
+  `combat_test.gd`의 `_do_exchange()`에 "맹공"(`start_aggro`, 공격 다이스
+  개수 > 방어 다이스 개수면 공격 다이스 결과값 +1)과 "철벽"(`start_wall`,
+  방어 다이스 개수 > 공격 다이스 개수면 방어 다이스 결과값 +1) 2개 조건
+  분기를 기존 여분/심호흡 분기 바로 뒤에 추가했다(같은 위치, 같은
+  `DiceBag.apply_flat_bonus()` 헬퍼 재사용). `dice_test.gd`에 신규
+  `_check_starting_skill_combat_wiring`(reset_run 배선 자체 + 두 캐릭터
+  기본 구성이 각 스킬의 발동 조건을 만족하는지 검증)을 추가, `bash
+  scripts/qa_shot.sh dice_test` 전체 PASS. `qa_out/combat_test.png`로 전투
+  화면이 크래시/겹침 없이 정상 로드됨도 확인했다. 자세한 내용은 아래
+  "완료 기록 (136)" 참고. "완료 기록" 10개 유지를 위해 (126)을
+  `docs/STATUS_ARCHIVE.md`로 옮겼다. 4번은 6개 중 2개만 끝난 상태라
+  INBOX.md [미니 기획 E] 항목은 이번에도 "부분 처리됨"에 그대로 두고 진행
+  상황만 이 파일과 INBOX.md에 남겼다.
 
 ## 지금 위치
 
@@ -44,15 +39,16 @@
 분기로 폴백한다. **[미니 기획 D](스킬 강화 이벤트) 전체 완료** — 7종
 스킬("+" 강화판) 전부가 `combat_test.gd`의 `_do_exchange()`에서 "+" > base >
 없음 우선순위로 실제 전투 효과를 낸다. **[미니 기획 E](캐릭터별 시작 스킬
-선택)는 1/2/3번 완료, 4번(적용 배선)만 남음** — `character_select.gd`
-상세 패널에서 슬롯 0/1 중 하나를 실제로 고를 수 있고(`RunState.
-chosen_starting_skill_id`에 저장, 슬롯 1은 캐릭터별 최종 클리어 업적
-미해금 시 잠김), `code/systems/skill_pool.gd`의 `STARTING_SKILLS`/
-`starting_skills_for_character()`에 6종 원형이 정의돼 있다. **다만
-`RunState.reset_run()`도 `combat_test.gd`도 이 선택값을 아직 읽지 않아
-실제 전투 보너스(게임 플레이)에는 여전히 영향이 없는 상태** — 다음 순번은
-[미니 기획 E] 4번(적용 배선: `reset_run()`이 `SkillPool.grant()` 호출 +
-`combat_test.gd`에 6개 조건 분기 추가) — 다음 할 일 큐 19번 참고.
+선택)는 1/2/3번 완료, 4번(적용 배선)은 6개 중 2개(맹공/철벽) 완료** —
+`character_select.gd` 상세 패널에서 슬롯 0/1 중 하나를 실제로 고를 수 있고
+(`RunState.chosen_starting_skill_id`에 저장), `RunState.reset_run()`이 새
+런을 만들 때마다 이 값을 `SkillPool.grant()`로 `skill_flags`에 즉시 넣는다
+— **"맹공"/"철벽" 2종은 이제 실제 전투 보너스로 이어짐** (`combat_test.gd`).
+남은 4종("확장"/"정예"/"수집가"/"강철 방비")은 데이터(`SkillPool.
+STARTING_SKILLS`)는 이미 있지만 `combat_test.gd`에 조건 분기가 아직 없어
+게임 플레이에 영향이 없다 — 다음 순번은 [미니 기획 E] 4번의 나머지(같은
+패턴으로 2개씩, 예: 확장/정예 다음 → 수집가/강철 방비) — 다음 할 일 큐
+19번 참고.
 
 - **캐릭터 5종** (`code/systems/character_profiles.gd`의
   `CharacterProfiles.PROFILES`): 견습 모험가(기믹 없음, D4x3/D4x3) / 광전사
@@ -699,7 +695,8 @@ chosen_starting_skill_id`에 저장, 슬롯 1은 캐릭터별 최종 클리어 �
     "완료 기록"과 `docs/feedback/INBOX.md` 처리됨 섹션의 "[미니 기획 D]" 참고.
 
 19. **(INBOX.md 신규 2026-09-17, [미니 기획 E]) 캐릭터별 시작 스킬 선택 —
-    1/2/3번 완료(2026-09-17 (134)/(135)), 4번(적용 배선)만 남음(5번은 선택).**
+    1/2/3번 완료, 4번(적용 배선)은 6개 중 2개(맹공/철벽) 완료(2026-09-17
+    (136)), 4개 남음(5번은 선택).**
     [미니 기획 D]가 끝나 착수했다. 지금 캐릭터 스킬은 런 중 무작위 이벤트로만
     얻는데([미니 기획 C]), 이 항목은 그것과 별개의 새 레이어 — 런 "시작
     시점"에 미리 정해두는 로드아웃 선택이다. 기존 skill_flags/grant()
@@ -730,10 +727,13 @@ chosen_starting_skill_id`에 저장, 슬롯 1은 캐릭터별 최종 클리어 �
        않아 실제 게임 플레이(전투 보너스)에는 여전히 영향이 없는 상태** —
        4번이 이어서 배선해야 실제로 작동함.
     4. **적용 배선** — `RunState.reset_run()`이 `SkillPool.grant(chosen_
-       starting_skill_id)` 호출, `combat_test.gd`의 `_do_exchange()`에
-       6개 조건 분기 추가(2~3개씩 나눠서: 맹공/철벽 → 확장/정예 → 수집가/
-       강철 방비 권장 순서, INBOX.md 원문 그대로). **미착수 — 다음
-       이터레이션이 이어갈 차례.**
+       starting_skill_id)` 호출(2026-09-17 (136)에 완료, 이후 4번 전체의
+       전제 조건도 함께 끝남), `combat_test.gd`의 `_do_exchange()`에 6개
+       조건 분기 추가(2~3개씩 나눠서: 맹공/철벽 → 확장/정예 → 수집가/
+       강철 방비 권장 순서, INBOX.md 원문 그대로). **맹공/철벽 2개
+       완료(2026-09-17 (136), 아래 "완료 기록" 참고) — 남은 4개("확장"/
+       "정예"/"수집가"/"강철 방비")는 다음 이터레이션이 2개씩 이어갈
+       차례.**
     5. **UI 강조 재사용(선택)** — 슬롯 1(업적 해금 스킬)에 이미 있는
        `ItemCardStyle.build_card()`의 `highlight` 파라미터 재사용 가능(필수
        아님, 3번에서는 대신 금테 스타일을 슬롯 버튼에 직접 그려 넣음 —
@@ -744,6 +744,40 @@ chosen_starting_skill_id`에 저장, 슬롯 1은 캐릭터별 최종 클리어 �
     (요약하지 말고 원문을 그대로 따를 것).
 
 ## 완료 기록
+
+- **2026-09-17 (136)**: INBOX.md "부분 처리됨"의 [미니 기획 E](캐릭터별 시작 스킬
+  선택) 4번(적용 배선)을 시작 — 세션 지침이 명시한 대로 6개를 한 번에 하지 않고
+  "맹공"/"철벽" 2개만 먼저 배선했다. (1) `code/systems/run_state.gd`의
+  `reset_run()`이 이제 `skill_flags = []`로 비운 직후
+  `chosen_starting_skill_id`가 비어있지 않으면 `SkillPool.grant(chosen_starting_
+  skill_id)`를 호출한다 — `character_select.gd`가 "던전 시작" 버튼을 누르기
+  전에 이미 `chosen_starting_skill_id`를 확정해두므로(기존 (135) 구현), 새 런의
+  skill_flags에는 시작부터 그 id가 들어가 있다. (2) `code/scenes/combat_test.gd`의
+  `_do_exchange()`에 "여분" 분기 바로 뒤(공격턴)/"심호흡" 분기 바로 뒤(방어턴)에
+  각각 "맹공"(`start_aggro`: `RunState.player_attack_bag.dice.size() >
+  RunState.player_defense_bag.dice.size()`이면 `atk_bag.apply_flat_bonus(atk_values,
+  1)`)과 "철벽"(`start_wall`: 반대 부등호로 `def_bag.apply_flat_bonus(def_values,
+  1)`)을 추가했다 — 기존 심호흡/여분과 같은 위치·같은 헬퍼(`DiceBag.
+  apply_flat_bonus()`) 재사용, 새 다이스 연산 없음. 두 조건 모두 "다이스 개수"라는
+  정적 구성만 보므로 폭발/수호 보너스 턴(임시 1D20 주머니)에서도 매 턴 다시
+  평가해 적용된다(심호흡이 `used_guard_dice` 여부를 안 가리는 것과 같은 패턴).
+  **QA 검증**: `dice_test.gd`에 신규 `_check_starting_skill_combat_wiring`을
+  추가해 (a) `chosen_starting_skill_id="start_aggro"`로 `reset_run("berserker")`를
+  부르면 `skill_flags`에 실제로 `start_aggro`가 들어가는지, (b) 빈 문자열이면
+  아무 것도 부여되지 않고 크래시도 없는지, (c) 광전사 기본 구성(공격4/방어2)이
+  "맹공" 발동 조건을 만족하는지, (d) 수호자 기본 구성(공격2/방어4)이 "철벽" 발동
+  조건을 만족하는지를 검증했다 — 인라인 코드라 `_do_exchange()` 자체는 물리
+  시뮬레이션 없이 단위 테스트할 수 없어(기존 심호흡과 같은 한계), 조건/배선까지만
+  단위 테스트로 확인하고 크래시 여부는 `qa_shot.sh combat_test`로 별도 확인했다.
+  `bash scripts/qa_shot.sh dice_test` 전체 PASS, `qa_out/combat_test.png`로 전투
+  화면이 겹침/크래시 없이 정상 로드됨을 확인(맹공/철벽 자체의 실제 발동 장면은
+  캐릭터 선택+런 시작이 필요해 결정적 단일 스크린샷으로는 재현하지 않음, 조건
+  로직은 위 단위 테스트로 이미 검증됨). **남은 것: 4번의 나머지 4개("확장"/"정예"/
+  "수집가"/"강철 방비")는 아직 미배선** — `combat_test.gd`에 조건 분기만 추가하면
+  되는 동일 패턴이라 다음 이터레이션이 2개씩 이어가면 된다(예: 확장/정예 다음,
+  수집가/강철 방비 마지막). 4번이 전부 끝나면 INBOX.md [미니 기획 E] 항목을
+  "처리됨"으로 옮길 것(5번은 선택). "완료 기록" 10개 유지를 위해 (126)을
+  `docs/STATUS_ARCHIVE.md`로 옮겼다.
 
 - **2026-09-17 (135)**: INBOX.md "부분 처리됨"의 [미니 기획 E](캐릭터별 시작 스킬
   선택) 3번(선택 UI)을 진행 — 데이터(2번, (134))는 이미 있었으니 이번엔
@@ -1092,39 +1126,9 @@ chosen_starting_skill_id`에 저장, 슬롯 1은 캐릭터별 최종 클리어 �
   다음 할 일 큐 17번을 완료 처리했다. **이제 5개 캐릭터 전원이 고유 스킬을
   갖췄다** — INBOX.md의 이 항목을 "처리됨"으로 옮겼다.
 
-- **2026-09-17 (126)**: 큐 13("업적 시스템 — 남은 항목 추가")의 후속, (125)와 같은
-  패턴. INBOX.md "남은 이슈"가 비어 있고 다음 할 일 큐도 전부 사람 피드백/설계
-  결정 대기 상태라, "이미 있는 결과 분기 하나만 후킹하면 되는" 독립 항목을 다시
-  찾아 진행했다. `combat_test.gd`의 승리 분기(`elif monster_hp <= 0`)에는 이미
-  5종 업적(win_with_d20/flawless_win/comeback_win/overkill_win/gold_100)이 걸려
-  있는데, 그 바로 아래 패배 분기(`elif player_hp <= 0`)에는 `unlock()` 호출이
-  하나도 없어 승/패 사이에 비대칭이 있는 것을 발견했다 — 신규 업적 "패배도
-  경험이다"(`first_defeat`, 던전에서 처음 패배)를 추가해 대칭을 맞췄다.
-  `code/systems/achievement_manager.gd`의 `DEFINITIONS`에 정의(icon="combat",
-  이미 flawless/comeback/overkill이 쓰는 카테고리 재사용)를 추가하고, 업적이
-  21종이 됐다. 패배 분기 자체는 물리 다이스 정지 대기가 포함된 코루틴
-  안에 있어 dice_test.gd가 직접 호출해 검증할 수 없으므로, `_unlock_round_clear_
-  achievements()`와 같은 이유로 `unlock()` 호출 한 줄만 별도 함수
-  `_unlock_defeat_achievement()`로 분리했다(`combat_test.gd`) — 패배 분기는 이
-  함수를 호출하도록 바꿨을 뿐 조건/타이밍은 그대로다.
-  `dice_test.gd`에 신규 `_check_defeat_achievement`(combat_test.gd 스크립트를
-  `new()`만 해서 `_unlock_defeat_achievement()`를 직접 호출 — 씬 트리에 안 넣어
-  `_ready()`가 실행되지 않으므로 물리/코루틴 부작용 없이 순수 함수 호출만 검증,
-  `_check_round_clear_achievements`와 동일 패턴)를 추가, `bash scripts/qa_shot.sh
-  dice_test` 전체 PASS(신규 검증 1개 포함). `character_select.gd`의 기존 QA 훅
-  `_debug_show_achievements_scrolled()`로 업적 패널을 열어
-  `qa_out/character_select_achv_first_defeat.png`로 새 항목이 목록 맨 아래에
-  "1/21 달성", 검 아이콘, 겹침 없는 카드로 표시됨을 확인했고,
-  `qa_out/combat_test_first_defeat_smoke.png`로 전투 화면 자체도 크래시 없이
-  정상 로드됨을 재확인했다. 남은 것: (125)와 동일하게, 큐 13이 원래 말한 "새
-  RunState 카운터가 필요한" 나머지 후보들은 여전히 사람이 원 30종 목록을 다시
-  정리해줘야 구체화 가능 — 이런 "이미 있는 분기 하나만 후킹" 방식의 독립 항목이
-  이제 거의 소진된 것으로 보임(승/패 두 결과 분기 모두 업적이 붙었으므로, 다음
-  후보는 새로운 상태 추적이 필요할 가능성이 높음).
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(135)에서 (125)를 그리로 옮겼다.)*
+이번 이터레이션(136)에서 (126)을 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 

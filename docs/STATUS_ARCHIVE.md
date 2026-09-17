@@ -8,6 +8,36 @@
 
 ---
 
+- **2026-09-17 (126)**: 큐 13("업적 시스템 — 남은 항목 추가")의 후속, (125)와 같은
+  패턴. INBOX.md "남은 이슈"가 비어 있고 다음 할 일 큐도 전부 사람 피드백/설계
+  결정 대기 상태라, "이미 있는 결과 분기 하나만 후킹하면 되는" 독립 항목을 다시
+  찾아 진행했다. `combat_test.gd`의 승리 분기(`elif monster_hp <= 0`)에는 이미
+  5종 업적(win_with_d20/flawless_win/comeback_win/overkill_win/gold_100)이 걸려
+  있는데, 그 바로 아래 패배 분기(`elif player_hp <= 0`)에는 `unlock()` 호출이
+  하나도 없어 승/패 사이에 비대칭이 있는 것을 발견했다 — 신규 업적 "패배도
+  경험이다"(`first_defeat`, 던전에서 처음 패배)를 추가해 대칭을 맞췄다.
+  `code/systems/achievement_manager.gd`의 `DEFINITIONS`에 정의(icon="combat",
+  이미 flawless/comeback/overkill이 쓰는 카테고리 재사용)를 추가하고, 업적이
+  21종이 됐다. 패배 분기 자체는 물리 다이스 정지 대기가 포함된 코루틴
+  안에 있어 dice_test.gd가 직접 호출해 검증할 수 없으므로, `_unlock_round_clear_
+  achievements()`와 같은 이유로 `unlock()` 호출 한 줄만 별도 함수
+  `_unlock_defeat_achievement()`로 분리했다(`combat_test.gd`) — 패배 분기는 이
+  함수를 호출하도록 바꿨을 뿐 조건/타이밍은 그대로다.
+  `dice_test.gd`에 신규 `_check_defeat_achievement`(combat_test.gd 스크립트를
+  `new()`만 해서 `_unlock_defeat_achievement()`를 직접 호출 — 씬 트리에 안 넣어
+  `_ready()`가 실행되지 않으므로 물리/코루틴 부작용 없이 순수 함수 호출만 검증,
+  `_check_round_clear_achievements`와 동일 패턴)를 추가, `bash scripts/qa_shot.sh
+  dice_test` 전체 PASS(신규 검증 1개 포함). `character_select.gd`의 기존 QA 훅
+  `_debug_show_achievements_scrolled()`로 업적 패널을 열어
+  `qa_out/character_select_achv_first_defeat.png`로 새 항목이 목록 맨 아래에
+  "1/21 달성", 검 아이콘, 겹침 없는 카드로 표시됨을 확인했고,
+  `qa_out/combat_test_first_defeat_smoke.png`로 전투 화면 자체도 크래시 없이
+  정상 로드됨을 재확인했다. 남은 것: (125)와 동일하게, 큐 13이 원래 말한 "새
+  RunState 카운터가 필요한" 나머지 후보들은 여전히 사람이 원 30종 목록을 다시
+  정리해줘야 구체화 가능 — 이런 "이미 있는 분기 하나만 후킹" 방식의 독립 항목이
+  이제 거의 소진된 것으로 보임(승/패 두 결과 분기 모두 업적이 붙었으므로, 다음
+  후보는 새로운 상태 추적이 필요할 가능성이 높음).
+
 - **2026-09-17 (125)**: 큐 13("업적 시스템 — 남은 항목 추가")의 후속. INBOX.md
   "남은 이슈"가 비어 있고, 다음 할 일 큐의 나머지 항목은 전부 사람 플레이
   피드백/설계 결정이 필요한 상태(큐 17의 견습 모험가 전용 스킬 포함)라, 그

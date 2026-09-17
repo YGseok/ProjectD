@@ -103,32 +103,39 @@
   완료 기준: 1~4번이 끝나면 이 항목을 "처리됨"으로 옮길 것(5번은 선택). 진행
   중에는 STATUS.md에 몇 번까지 끝났는지 남길 것.
 
-  → **진행 상황(2026-09-17 (135)): 1/2/3번 완료, 4번(적용 배선)만 남음(5번은
-  선택).** (134)에서 `code/systems/skill_pool.gd`에 위 6개 원형 그대로
-  `STARTING_SKILLS` 상수와 `starting_skills_for_character(character_id)`
-  필터 헬퍼를 추가했다(2번) — 캐릭터별 슬롯 순서(견습=[확장,정예],
-  광전사=[맹공,수집가], 수호자=[철벽,강철 방비], 폭발병=[맹공,확장],
-  방패병=[철벽,정예])가 위 원문과 정확히 일치함을 `dice_test.gd`의
-  `_check_starting_skills`로 검증. **(135)에서 1번(해금 판정)과 3번(선택
-  UI)을 함께 진행** — `character_select.gd` 상세 패널에 "시작 스킬" 섹션을
-  추가해 슬롯 0/1을 버튼으로 보여준다. 슬롯 0은 항상 클릭 가능, 슬롯 1은
-  지시대로 `AchievementManager.is_unlocked("clear_" + character_id)`가
-  false면 신규 `code/scenes/lock_icon.gd`(`LockIcon`, achievement_icon.gd류
-  절차적 `_draw()` 패턴 재사용)로 자물쇠 아이콘을 붙이고 `disabled=true`로
-  클릭 자체를 막는다(true면 슬롯 0과 동일하게 선택 가능). 선택 상태는 지시대로
-  신규 `RunState.chosen_starting_skill_id: String`에 저장하고, 캐릭터를
-  바꾸면 그 캐릭터 기준으로 여전히 유효한(잠기지 않은) 선택인지 재검증해
-  아니면 슬롯 0으로 되돌린다. 아무것도 안 누르면 슬롯 0이 기본 선택된 것으로
-  취급(지시 그대로). `dice_test.gd`의 신규 `_check_starting_skill_selection_ui`
-  (character_select.tscn을 실제로 인스턴스화해 기본 선택/잠금 disabled/해금
-  후 선택/캐릭터 전환 시 재검증까지 검증)로 확인, `bash scripts/qa_shot.sh
-  dice_test` 전체 PASS. 화면은 `qa_out/character_select_starting_skill_
-  locked.png`(슬롯 1 잠김)/`_unlocked.png`(해금 후 선택)로 확인. **4번(적용
-  배선 — `RunState.reset_run()`이 `SkillPool.grant(chosen_starting_skill_id)`
-  호출 + `combat_test.gd`에 6개 조건 분기 추가)은 아직 미착수라, 지금은 슬롯을
-  골라도 `RunState.chosen_starting_skill_id`에 저장만 될 뿐 실제 전투 보너스
-  (게임 플레이)에는 영향이 전혀 없다.** docs/STATUS.md 완료 기록(135)/다음
-  할 일 큐 19번 참고.
+  → **진행 상황(2026-09-17 (136)): 1/2/3번 완료, 4번(적용 배선)은 6개 중
+  2개(맹공/철벽) 완료, 4개 남음(5번은 선택).** (134)에서
+  `code/systems/skill_pool.gd`에 위 6개 원형 그대로 `STARTING_SKILLS` 상수와
+  `starting_skills_for_character(character_id)` 필터 헬퍼를 추가했다(2번) —
+  캐릭터별 슬롯 순서(견습=[확장,정예], 광전사=[맹공,수집가], 수호자=[철벽,
+  강철 방비], 폭발병=[맹공,확장], 방패병=[철벽,정예])가 위 원문과 정확히
+  일치함을 `dice_test.gd`의 `_check_starting_skills`로 검증. (135)에서
+  1번(해금 판정)과 3번(선택 UI)을 함께 진행 — `character_select.gd` 상세
+  패널에 "시작 스킬" 섹션을 추가해 슬롯 0/1을 버튼으로 보여준다. 슬롯 0은
+  항상 클릭 가능, 슬롯 1은 지시대로 `AchievementManager.is_unlocked("clear_"
+  + character_id)`가 false면 신규 `code/scenes/lock_icon.gd`(`LockIcon`,
+  achievement_icon.gd류 절차적 `_draw()` 패턴 재사용)로 자물쇠 아이콘을
+  붙이고 `disabled=true`로 클릭 자체를 막는다(true면 슬롯 0과 동일하게 선택
+  가능). 선택 상태는 지시대로 신규 `RunState.chosen_starting_skill_id:
+  String`에 저장하고, 캐릭터를 바꾸면 그 캐릭터 기준으로 여전히 유효한
+  (잠기지 않은) 선택인지 재검증해 아니면 슬롯 0으로 되돌린다. **(136)에서
+  4번(적용 배선)을 시작 — 지시대로 6개를 한 번에 하지 않고 맹공/철벽부터
+  진행.** `RunState.reset_run()`이 `skill_flags`를 비운 직후
+  `chosen_starting_skill_id`가 비어있지 않으면 `SkillPool.grant(chosen_
+  starting_skill_id)`를 호출하도록 배선(이제 슬롯 선택이 "던전 시작"과
+  동시에 실제 skill_flags에 들어감). `combat_test.gd`의 `_do_exchange()`에
+  기존 "여분"(공격턴)/"심호흡"(방어턴) 분기 바로 뒤에 "맹공"(`start_aggro`:
+  공격 다이스 개수 > 방어 다이스 개수면 공격 다이스 결과값 +1)과
+  "철벽"(`start_wall`: 방어 다이스 개수 > 공격 다이스 개수면 방어 다이스
+  결과값 +1) 조건 분기를 추가 — 둘 다 기존 `DiceBag.apply_flat_bonus()`
+  재사용, 새 다이스 연산 없음. `dice_test.gd`의 신규 `_check_starting_skill_
+  combat_wiring`(reset_run 배선 자체 + 광전사/수호자 기본 구성이 각 조건을
+  실제로 만족하는지 검증)으로 확인, `bash scripts/qa_shot.sh dice_test`
+  전체 PASS. `qa_out/combat_test.png`로 전투 화면 크래시/겹침 없음도 확인.
+  **남은 4개("확장"/"정예"/"수집가"/"강철 방비")는 아직 미배선이라, 그
+  4종을 시작 스킬로 고르면 여전히 `chosen_starting_skill_id`/`skill_flags`
+  에는 들어가지만 실제 전투 보너스는 없다.** docs/STATUS.md 완료 기록
+  (136)/다음 할 일 큐 19번 참고.
 
 - [부분 처리됨 - 2026-09-15] 2026-09-14 대신 해당 품목이 골드 부족인지, 이미 판매된
   품목인지는 해당 품목 상단에 보여주도록 한다.
