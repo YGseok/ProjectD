@@ -59,6 +59,15 @@ const SKILLS: Array[Dictionary] = [
 ## 공격턴(1D20)을 더 자주 받게 한다(combat_test.gd의 player_chain_explosion_active /
 ## _player_explosive_threshold() 참고). 큐 17이 예시로 든 "스택 임계치를 3→2로
 ## 낮추는 스킬" 방향을 그대로 채택.
+##
+## "chain_guard"(연쇄 방어): 방패병(shieldbearer) 전용, chain_explosion과 완전히 대칭
+## 구조(공격 대신 방어). 방패병은 이미 자기 기믹으로 guard_stack 파이프라인을 갖고
+## 있어 같은 이유로 "없던 파이프라인을 열어준다" 패턴을 못 쓴다 — 수호 스택 임계치를
+## 3에서 2로 낮춰 보너스 방어턴(1D20)을 더 자주 받게 한다(combat_test.gd의
+## player_chain_guard_active / _player_guard_threshold() 참고). chain_explosion처럼
+## 보너스 턴 자체는 강화하지 않고(1D20 한 번 그대로) 임계치만 낮춘다 — 광기/수호
+## 심화 두 스킬이 이미 "두 번 굴려 채택" 강화를 쓰고 있어 같은 축을 또 건드리면
+## 과할 수 있기 때문(STATUS.md 큐 17 참고).
 const UNIQUE_SKILLS: Array[Dictionary] = [
 	{
 		"id": "frenzy_deepen",
@@ -77,6 +86,12 @@ const UNIQUE_SKILLS: Array[Dictionary] = [
 		"name": "연쇄 폭발",
 		"description": "폭발 스택 임계치가 3에서 2로 낮아져 보너스 공격턴을 더 자주 받는다 (폭발병 전용).",
 		"character_id": "explosive",
+	},
+	{
+		"id": "chain_guard",
+		"name": "연쇄 방어",
+		"description": "수호 스택 임계치가 3에서 2로 낮아져 보너스 방어턴을 더 자주 받는다 (방패병 전용).",
+		"character_id": "shieldbearer",
 	},
 ]
 

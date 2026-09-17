@@ -2466,6 +2466,22 @@ func _check_skill_effects(lines: PackedStringArray) -> bool:
 	lines.append("  '연쇄 폭발' 캐릭터 필터: explosive=%s berserker=%s (기대 true/false) -> %s" % [
 		explosive_has_chain, berserker_has_chain, "OK" if chain_explosion_filter_ok else "FAIL"
 	])
+	# (2d) 연쇄 방어(chain_guard)는 chain_explosion과 대칭으로 방패병(shieldbearer)
+	# 전용 후보로만 제시된다.
+	var shieldbearer_choices := SkillPool.available_choices(SkillPool.SKILLS.size() + SkillPool.UNIQUE_SKILLS.size(), "shieldbearer")
+	var shieldbearer_has_chain_guard := false
+	for s in shieldbearer_choices:
+		if s["id"] == "chain_guard":
+			shieldbearer_has_chain_guard = true
+	var explosive_has_chain_guard := false
+	for s in explosive_choices:
+		if s["id"] == "chain_guard":
+			explosive_has_chain_guard = true
+	var chain_guard_filter_ok: bool = shieldbearer_has_chain_guard and not explosive_has_chain_guard
+	ok = chain_guard_filter_ok and ok
+	lines.append("  '연쇄 방어' 캐릭터 필터: shieldbearer=%s explosive=%s (기대 true/false) -> %s" % [
+		shieldbearer_has_chain_guard, explosive_has_chain_guard, "OK" if chain_guard_filter_ok else "FAIL"
+	])
 	RunState.skill_flags = flags_backup
 
 	# (3) 여분: _apply_spare_die()는 항상 가장 낮은 값이 있던 자리만 바꾸고(다른 자리는
@@ -2502,6 +2518,17 @@ func _check_skill_effects(lines: PackedStringArray) -> bool:
 	ok = chain_threshold_ok and ok
 	lines.append("  _player_explosive_threshold(): 미보유=%d(기대 %d) 보유=%d(기대 2) -> %s" % [
 		threshold_default, combat.EXPLOSIVE_STACK_THRESHOLD, threshold_with_skill, "OK" if chain_threshold_ok else "FAIL"
+	])
+
+	# (5) 연쇄 방어(chain_guard)의 실제 효과: _player_guard_threshold()가 미보유 시
+	# GUARD_STACK_THRESHOLD(3), 보유 시 2를 반환하는지. (4)와 완전히 대칭 검증.
+	var guard_threshold_default: int = combat._player_guard_threshold()
+	combat.player_chain_guard_active = true
+	var guard_threshold_with_skill: int = combat._player_guard_threshold()
+	var chain_guard_threshold_ok: bool = guard_threshold_default == combat.GUARD_STACK_THRESHOLD and guard_threshold_with_skill == 2
+	ok = chain_guard_threshold_ok and ok
+	lines.append("  _player_guard_threshold(): 미보유=%d(기대 %d) 보유=%d(기대 2) -> %s" % [
+		guard_threshold_default, combat.GUARD_STACK_THRESHOLD, guard_threshold_with_skill, "OK" if chain_guard_threshold_ok else "FAIL"
 	])
 	combat.free()
 

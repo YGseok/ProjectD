@@ -160,6 +160,11 @@ var player_guard_deepen_active := false
 ## 있어 "없던 파이프라인을 열어준다" 패턴을 쓸 수 없다 — 대신 스택 임계치 자체를
 ## 낮춰(_player_explosive_threshold() 참고) 보너스 공격턴을 더 자주 받게 한다.
 var player_chain_explosion_active := false
+## player_chain_guard_active: "연쇄 방어"(방패병 전용 고유 스킬) 보유 여부.
+## chain_explosion과 완전히 대칭 구조(공격 대신 방어) — 방패병은 이미 guard_stack
+## 파이프라인을 갖고 있어 스택 임계치 자체를 낮춰(_player_guard_threshold() 참고)
+## 보너스 방어턴을 더 자주 받게 한다.
+var player_chain_guard_active := false
 
 var battle_over := false
 var player_won := false
@@ -400,6 +405,7 @@ func _ready() -> void:
 	player_frenzy_active = RunState.skill_flags.has("frenzy_deepen")
 	player_guard_deepen_active = RunState.skill_flags.has("guard_deepen")
 	player_chain_explosion_active = RunState.skill_flags.has("chain_explosion")
+	player_chain_guard_active = RunState.skill_flags.has("chain_guard")
 
 	next_button.pressed.connect(_on_next_button_pressed)
 	deck_toggle_button.pressed.connect(_on_deck_toggle_pressed)
@@ -475,6 +481,13 @@ func _on_customize_toggle_pressed() -> void:
 ## 미보유(또는 광기 심화로 열린 광전사 쪽)는 기존 EXPLOSIVE_STACK_THRESHOLD 그대로.
 func _player_explosive_threshold() -> int:
 	return 2 if player_chain_explosion_active else EXPLOSIVE_STACK_THRESHOLD
+
+
+## "연쇄 방어"(방패병 전용 고유 스킬) 보유 시 수호 스택 임계치를 3에서 2로 낮춘다.
+## _player_explosive_threshold()와 완전히 대칭 구조. 미보유(또는 수호 심화로 열린
+## 수호자 쪽)는 기존 GUARD_STACK_THRESHOLD 그대로.
+func _player_guard_threshold() -> int:
+	return 2 if player_chain_guard_active else GUARD_STACK_THRESHOLD
 
 
 func _run_battle() -> void:
@@ -629,8 +642,9 @@ func _do_exchange(is_player_attacking: bool) -> void:
 			if guard_hits > 0:
 				player_guard_stacks += guard_hits
 				var guard_stack_label := "수호 심화" if player_guard_deepen_active else "수호"
-				_append_log("%s 스택 +%d (%d/%d)" % [guard_stack_label, guard_hits, player_guard_stacks, GUARD_STACK_THRESHOLD])
-				if player_guard_stacks >= GUARD_STACK_THRESHOLD:
+				var guard_threshold := _player_guard_threshold()
+				_append_log("%s 스택 +%d (%d/%d)" % [guard_stack_label, guard_hits, player_guard_stacks, guard_threshold])
+				if player_guard_stacks >= guard_threshold:
 					player_guard_pending = true
 					_append_log("수호 심화가 정점에 달했다! 다음 방어는 1D20을 두 번 굴려 더 높은 값을 채택한다" if player_guard_deepen_active else "수호 태세 완성! 다음 방어는 20면체 주사위로 굳건해진다")
 

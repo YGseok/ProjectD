@@ -5,31 +5,33 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-09-17 (123)
+- 일시: 2026-09-17 (124)
 - 작성자: AI 에이전트. INBOX.md "남은 이슈"가 비어 있어 다음 할 일 큐 17번
-  ("폭발병/방패병 전용 고유 스킬 설계+추가")을 이어갔다. 폭발병(explosive)은
-  이미 `explosive_stack` 파이프라인을 갖고 있어 광기/수호 심화의 "없던
-  파이프라인을 열어준다" 패턴을 못 쓰므로, 큐 17이 예시로 든 "스택 임계치를
-  3→2로 낮추는 스킬" 방향을 그대로 채택해 폭발병 전용 고유 스킬 "연쇄
-  폭발"(`chain_explosion`)을 추가했다. `code/systems/skill_pool.gd`의
-  `UNIQUE_SKILLS`에 정의를 추가하고, `code/scenes/combat_test.gd`에
-  `player_chain_explosion_active` 상태 + `_player_explosive_threshold()`
-  헬퍼(보유 시 2, 미보유 시 기존 `EXPLOSIVE_STACK_THRESHOLD`=3 반환)를 신설해
-  스택 로그·임계치 판정 두 곳을 이 헬퍼로 교체했다. `dice_test.gd`에
-  "explosive 캐릭터에게만 제시되는지" 필터 검증 + `_player_explosive_
-  threshold()` 반환값 검증을 추가, `bash scripts/qa_shot.sh dice_test` 전체
-  PASS. `event.gd`에 QA 훅 `_debug_force_skill_event_as_explosive()`를
-  추가해 "연쇄 폭발" 카드가 다른 카드와 겹침 없이 렌더링되는 것을
-  `qa_out/event_skill_offer_explosive.png`로, 기본 전투(novice, 스킬 없음)가
-  크래시 없이 정상 진행됨을 `qa_out/combat_test_chain_explosion_smoke.png`로
-  확인했다(explosive_stack 파이프라인이 실제로 열린 상태의 라이브 트리거
-  검증은 guard_deepen 때와 같은 이유로 생략 — 단위 테스트 + 일반 회귀로
-  대체). 남은 것은 방패병 전용 고유 스킬(같은 패턴, 대칭 구조로 "guard_stack
-  임계치 3→2") 하나뿐 — 다음 할 일 큐 17번 참고. `docs/DESIGN.md`도 함께
-  갱신. **이번부터 "지금 위치" 섹션을 이터레이션마다 문단을 덧붙이는 방식
-  대신 현재 상태 스냅샷으로 다시 썼다** — 세부 변경 이력은 "완료 기록"에
-  이미 남아있으므로 여기서는 중복 서술하지 않는다(275KB까지 불었던
-  2026-09-07 사고 재발 방지, 이 파일 맨 위 지침 참고).
+  ("폭발병/방패병 전용 고유 스킬 설계+추가")의 남은 절반을 이어갔다.
+  방패병(shieldbearer)도 폭발병과 마찬가지로 이미 `guard_stack` 파이프라인을
+  갖고 있어 광기/수호 심화의 "없던 파이프라인을 열어준다" 패턴을 못 쓰므로,
+  (123)의 "연쇄 폭발"과 완전히 대칭 구조로 방패병 전용 고유 스킬 "연쇄
+  방어"(`chain_guard`, 수호 스택 임계치 3→2)를 추가했다.
+  `code/systems/skill_pool.gd`의 `UNIQUE_SKILLS`에 정의를 추가하고,
+  `code/scenes/combat_test.gd`에 `player_chain_guard_active` 상태 +
+  `_player_guard_threshold()` 헬퍼(`_player_explosive_threshold()`와 대칭 —
+  보유 시 2, 미보유 시 기존 `GUARD_STACK_THRESHOLD`=3 반환)를 신설해 수호
+  스택 로그·임계치 판정 두 곳의 `GUARD_STACK_THRESHOLD` 직접 참조를 이
+  헬퍼로 교체했다. `dice_test.gd`에 "shieldbearer 캐릭터에게만 제시되는지"
+  필터 검증 + `_player_guard_threshold()` 반환값 검증을 추가, `bash
+  scripts/qa_shot.sh dice_test` 전체 PASS. `event.gd`에 QA 훅
+  `_debug_force_skill_event_as_shieldbearer()`를 추가해 "연쇄 방어" 카드가
+  다른 카드와 겹침 없이 렌더링되는 것을
+  `qa_out/event_skill_offer_shieldbearer.png`로, 기본 전투(novice, 스킬
+  없음)가 크래시 없이 정상 진행됨을
+  `qa_out/combat_test_chain_guard_smoke.png`로 확인했다(guard_stack
+  파이프라인이 실제로 열린 상태의 라이브 트리거 검증은 chain_explosion 때와
+  같은 이유로 생략 — 단위 테스트 + 일반 회귀로 대체). **큐 17이 완전히
+  끝났다** — 남은 것은 견습 모험가(기믹 없음) 전용 고유 스킬 하나뿐인데,
+  시너지 삼을 기믹 자체가 없어 같은 패턴을 재사용할 수 없는 완전히 새로운
+  설계가 필요해 사람이 방향을 정해줘야 진행 가능(다음 할 일 큐 17번 참고).
+  `docs/DESIGN.md`도 함께 갱신. "완료 기록"이 11개가 돼 가장 오래된 (114)를
+  `docs/STATUS_ARCHIVE.md`로 옮겼다.
 
 ## 지금 위치
 
@@ -50,15 +52,15 @@
 - **캐릭터 스킬 이벤트** (`code/scenes/event.gd`): 특수 이벤트 방이 30%
   확률(`SKILL_EVENT_CHANCE`)로 아이템 대신 스킬 카드 2장을 보여준다. 공용
   스킬 2종(심호흡=첫 방어턴 방어값 +1(면 개수 상한)/여분=매 공격턴 최저값을
-  advantage 방식으로 대체) + 캐릭터 전용 고유 스킬 3종(`SkillPool.
+  advantage 방식으로 대체) + 캐릭터 전용 고유 스킬 4종(`SkillPool.
   UNIQUE_SKILLS`, `character_id`로 필터): 광기 심화(광전사, explosive_stack
   파이프라인을 새로 열고 보너스턴이 1D20 두 번 굴려 채택) / 수호 심화
-  (수호자, guard_stack 파이프라인을 새로 열고 동일 강화) / **연쇄 폭발
-  (폭발병, 신규 — 이미 갖고 있던 explosive_stack의 임계치를 3→2로 낮춤)**.
-  방패병(guard_stack 임계치 낮추기, 미착수)과 견습 모험가(시너지 기믹이
-  없어 새 설계 필요, 미착수)만 남음 — 다음 할 일 큐 17번 참고. 획득한 스킬
-  id는 `RunState.skill_flags`에 쌓이고 `combat_test.gd`의 `_do_exchange()`가
-  실제 효과를 적용한다.
+  (수호자, guard_stack 파이프라인을 새로 열고 동일 강화) / 연쇄 폭발
+  (폭발병, 이미 갖고 있던 explosive_stack의 임계치를 3→2로 낮춤) / **연쇄
+  방어(방패병, 신규 — 연쇄 폭발과 대칭으로 guard_stack 임계치를 3→2로
+  낮춤)**. 견습 모험가(시너지 기믹이 없어 새 설계 필요, 미착수)만 남음 —
+  다음 할 일 큐 17번 참고. 획득한 스킬 id는 `RunState.skill_flags`에 쌓이고
+  `combat_test.gd`의 `_do_exchange()`가 실제 효과를 적용한다.
 - **특수 이벤트(아이템 쪽)**: "안전하게 넘어가기"(C/B급 가중치 무작위 확정
   획득)/"위험을 감수하기"(이벤트 주사위 1회 vs `DC=min(5,3+room_index/2)`,
   성공 시 B/A/S급 가중치 무작위, 실패 시 무보상) 2택(`EventItemPool`). 아이템
@@ -656,23 +658,50 @@
       옮겨 적은 스냅샷이므로 코드와 어긋나지 않게 유지 필요.
 
 17. **(2026-09-16 신규, 큐 16의 [미니 기획 C] 후속에서 분리) 폭발병/방패병 전용
-    고유 스킬 설계+추가 — 1/2 완료.** 광전사/수호자는 각각 "광기
+    고유 스킬 설계+추가 — 완료(2/2).** 광전사/수호자는 각각 "광기
     심화"/"수호 심화"로 고유 스킬을 받았는데, 둘 다 "본인 기믹에는 없던 스택
     파이프라인(explosive_stack/guard_stack)을 열어준다"는 같은 패턴이었다 —
     폭발병/방패병은 이미 그 파이프라인을 갖고 있어서 같은 패턴을 그대로
     못 쓴다. **폭발병 쪽은 2026-09-17 (123)에 "연쇄 폭발"(`chain_explosion`,
-    스택 임계치 3→2)로 완료**(아래 "완료 기록 (123)" 참고). 남은 것:
-    - **방패병 전용 고유 스킬 (미착수)** — 연쇄 폭발과 완전히 대칭으로
-      guard_stack 임계치를 3→2로 낮추는 스킬이면 같은 패턴 그대로 재사용
-      가능(`combat_test.gd`에 `_player_guard_threshold()` 같은 헬퍼를
-      `_player_explosive_threshold()`와 대칭으로 추가하고
-      `GUARD_STACK_THRESHOLD` 참조 2곳을 교체하면 됨 — chain_explosion 구현과
-      동일 구조).
-    - **견습 모험가(기믹 없음) 전용 고유 스킬 (미착수, 판단 필요)** — 시너지
-      삼을 기믹 자체가 없어 위 패턴과 무관한 완전히 새로운 스킬 설계가
-      필요함. 방패병과 함께 처리할지 별도로 미룰지도 사람 판단 영역.
+    스택 임계치 3→2)로, 방패병 쪽은 2026-09-17 (124)에 "연쇄
+    방어"(`chain_guard`, guard_stack 임계치 3→2)로 완전히 대칭 구조로
+    완료됐다**(아래 "완료 기록 (123)/(124)" 참고). 남은 것:
+    - **견습 모험가(기믹 없음) 전용 고유 스킬 (미착수, 사람 판단 필요)** —
+      5종 캐릭터 중 유일하게 시너지 삼을 기믹 자체가 없어, 위 4종처럼 "기존
+      스택 파이프라인을 열거나 강화하는" 패턴을 그대로 못 쓴다. 완전히 새로운
+      방향의 스킬 설계가 필요한데(예: 다른 스탯 보너스, 골드/눈금 보상 등)
+      구체적인 방향은 AI가 임의로 정하기보다 사람이 컨셉을 정해주는 게
+      안전함 — 다음 세션이 진행하려면 이 캐릭터에게 어떤 종류의 고유 스킬을
+      줄지(공격/방어 수치 보정? 자원 보상? 다른 축?) 먼저 방향을 정해야 함.
 
 ## 완료 기록
+
+- **2026-09-17 (124)**: 큐 17("폭발병/방패병 전용 고유 스킬 설계+추가")의 2/2
+  조각, 즉 큐 17 전체 마무리. 방패병(shieldbearer)은 폭발병과 마찬가지로 이미
+  자기 기믹(`guard_stack`)으로 스택 파이프라인을 갖고 있어 광기/수호 심화의
+  "없던 파이프라인을 열어준다" 패턴을 못 쓰므로, (123)의 "연쇄 폭발"과 완전히
+  대칭 구조로 방패병 전용 고유 스킬 "연쇄 방어"(`chain_guard`, 수호 스택
+  임계치 3→2)를 추가했다. `code/systems/skill_pool.gd`의 `UNIQUE_SKILLS`에
+  `{id: "chain_guard", character_id: "shieldbearer", ...}` 정의를 추가하고,
+  `code/scenes/combat_test.gd`에 `player_chain_guard_active`(`_ready()`에서
+  `RunState.skill_flags.has("chain_guard")`로 초기화) 상태 변수 +
+  `_player_guard_threshold()` 헬퍼(`_player_explosive_threshold()`와 완전히
+  대칭 — 보유 시 2, 미보유 시 기존 `GUARD_STACK_THRESHOLD`=3 반환)를 신설해,
+  수호 스택 로그/임계치 판정(`_do_exchange()`)에서 `GUARD_STACK_THRESHOLD`
+  직접 참조를 이 헬퍼 호출로 교체했다. `dice_test.gd`에 "연쇄 방어가 방패병
+  전용 후보로만 제시되는지"(explosive_choices와 대칭 비교) 필터 검증 +
+  `_player_guard_threshold()` 반환값 검증을 추가, `bash scripts/qa_shot.sh
+  dice_test` 전체 PASS(신규 항목 2개 포함 모두 OK). `event.gd`에 QA 훅
+  `_debug_force_skill_event_as_shieldbearer()`를 추가해 "연쇄 방어" 카드가
+  "심호흡" 카드와 겹침 없이 렌더링되는 것을
+  `qa_out/event_skill_offer_shieldbearer.png`로, 기본 전투(novice, 스킬 없음)가
+  크래시 없이 정상 진행됨을 `qa_out/combat_test_chain_guard_smoke.png`로
+  확인했다(guard_stack 파이프라인이 실제로 열린 상태의 라이브 트리거 검증은
+  chain_explosion 때와 같은 이유로 생략 — 단위 테스트 + 일반 회귀로 대체).
+  **큐 17이 완전히 끝났다** — 남은 것은 견습 모험가(기믹 없음) 전용 고유
+  스킬 하나뿐이고, 이건 시너지 삼을 기믹 자체가 없어 같은 패턴을 재사용할 수
+  없는 완전히 새로운 설계가 필요함(다음 할 일 큐 17번 참고). `docs/DESIGN.md`도
+  함께 갱신.
 
 - **2026-09-17 (123)**: 큐 17("폭발병/방패병 전용 고유 스킬 설계+추가")의 1/2
   조각. 폭발병(explosive)은 이미 `explosive_stack` 파이프라인을 갖고 있어
@@ -1046,56 +1075,9 @@
   이벤트" 절도 새 2택 흐름으로 갱신. [미니 기획 A](몬스터 성격)/[미니 기획 C]
   (캐릭터 스킬 이벤트)는 이번에도 손대지 않음.
 
-- **2026-09-16 (114)**: INBOX.md [미니 기획 B] "특수 이벤트 개편"의 권장 순서
-  (4 -> 1 -> 2+3) 중 **1번(방 진입 시 짧은 상황 문구)**을 처리. (113)이 완료한
-  이벤트 다이스 필드/시각화에 이어지는 조각 — [미니 기획 A](몬스터 성격)/
-  [미니 기획 C](캐릭터 스킬 이벤트)는 이번에도 손대지 않음(한 이터레이션에
-  하나씩 진행하라는 세션 지침 유지).
-  `code/systems/event_item_pool.gd`의 `EventItemPool.ITEMS` 5종 전부에
-  "flavor"(1문장짜리 상황 설명 문구, 예: "구석에서 낯선 팔각 주사위가 은은하게
-  빛난다. 조심스레 손을 뻗는다") 필드를 추가했다. 새 풀 파일을 만들지 않고
-  기존 아이템 딕셔너리에 필드만 얹는 쪽을 택한 이유: INBOX.md가 "구조는
-  구현하는 사람이 정해도 된다"고 명시했고, 아이템 하나하나가 곧 "이 상황에서
-  집어드는 물건"이므로 문구를 아이템과 분리할 이유가 없었음(스토리 이벤트처럼
-  "시나리오 자체가 여러 결과로 갈리는" 구조가 아님).
-  `code/scenes/item_card_style.gd`(`ItemCardStyle.build_card()`, 전투 보상/
-  상점/특수 이벤트 3개 화면이 공유하는 카드 헬퍼)에 `flavor` 필드가 있으면
-  제목 아래·효과 설명/다이스 미리보기 이미지보다 먼저 그 문구를 표시하는
-  블록을 추가했다 — item dict에 필드가 있을 때만 그리므로, flavor가 없는
-  `DiceItemPool.ITEMS`(상점/전투 보상)에는 전혀 영향이 없다(새 매개변수를
-  받지 않고 필드 유무만으로 분기해 다른 화면 호출부를 하나도 안 건드림).
-  `dice_test.gd`에 `_check_event_item_flavor` 신규 검증을 추가해 (1)
-  EventItemPool.ITEMS 5종 전부 flavor가 빈 문자열이 아닌지, (2) flavor가 있는
-  아이템으로 만든 카드에는 실제로 그 문구의 Label이 들어가는지, (3) flavor가
-  없는 DiceItemPool 아이템으로 만든 카드에는 그 Label이 안 들어가는지(=다른
-  화면에 영향 없음을 자동 검증)까지 확인해 회귀 스위트 전체 PASS.
-  **구현 중 겪은 일**: 처음엔 미리보기 칩이 20개나 있는 D8 아이템으로
-  이 카드-생성 검증을 짰는데, 카드를 트리에 안 붙이고 `.free()`만 호출하니
-  `ERROR: 1 resources still in use at exit`이 떴다 — `git stash`로 변경분을
-  걷어내고 같은 씬을 다시 돌려보니 **이 경고는 내 변경과 무관하게 이 QA
-  하네스 자체에 원래 있던 것**(dice_test 씬을 몇 번 돌려도 동일하게 발생)임을
-  확인했다. 그래도 검증에 쓰는 아이템만큼은 미리보기 칩이 없는 gain_pips로
-  바꾸고 `add_child()`/`queue_free()`로 정상적인 트리 생명주기를 따르게
-  고쳐뒀다(카드를 실제 화면 흐름과 다르게 트리 밖에서 만들어 바로 free하는
-  건 이 테스트만의 사정이라 실제 화면 코드에는 영향 없음).
-  화면 검증: `qa_out/event_flavor_default.png`(기본 진입, D8/D20 카드 둘 다
-  flavor 문구가 제목 바로 아래 겹침 없이 표시)/`event_flavor_d20.png`(가장
-  콘텐츠가 많은 D20 카드 — 20칸 미리보기 칩 3줄 + flavor + 설명이 다 들어가도
-  카드 하단 "커스터마이징" 버튼(y=650)과 안 겹침)/`event_flavor_pips.png`
-  (미리보기 칩이 없는 gain_pips 카드)/`event_flavor_upgrade.png`(upgrade_die
-  카드)로 5종 아이템 전부 확인. `shop_flavor_regression_check.png`로 상점
-  화면(flavor 필드가 없는 DiceItemPool 카드)이 전혀 달라지지 않았음도 확인.
-  `docs/DESIGN.md`의 "특수 이벤트" 표에 "내러티브" 열을 추가해 기획자가 실제
-  문구를 바로 볼 수 있게 갱신. 남은 것(INBOX.md 권장 순서의 다음 조각):
-  2+3번 — 선택지를 "안전하게 넘어가기 / 위험을 감수하기" 2개로 통일하고,
-  이벤트 다이스를 굴려 `DC = min(5, 3 + room_index/2)`와 비교하는 난이도
-  체크를 실제로 붙이는 것. 지금은 여전히 "2개 중 1개 무조건 성공 획득"
-  구조 그대로라, 방금 추가한 flavor 문구는 "왜 이 아이템을 얻게 됐는지"를
-  설명할 뿐 리스크/실패 가능성과는 아직 연결되지 않는다.
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(123)에서 (113)을 그리로 옮겼다.)*
+이번 이터레이션(124)에서 (114)를 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 
