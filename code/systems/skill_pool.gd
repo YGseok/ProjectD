@@ -51,6 +51,14 @@ const SKILLS: Array[Dictionary] = [
 ## 방어 다이스 개수 자체가 많아(D4x4) 최댓값을 볼 기회 자체는 늘어난다. 보너스 턴은
 ## 1D20 한 번이 아니라 두 번 굴려 더 높은 값을 채택(combat_test.gd의
 ## player_guard_deepen_active 분기 참고).
+##
+## "chain_explosion"(연쇄 폭발): 폭발병(explosive) 전용. frenzy_deepen/guard_deepen과
+## 달리 폭발병은 이미 자기 기믹으로 explosive_stack 파이프라인을 갖고 있어("없던
+## 파이프라인을 열어준다"는 패턴을 그대로 못 씀, STATUS.md 큐 17 참고) — 대신 그
+## 파이프라인 자체를 강화하는 방향으로, 폭발 스택 임계치를 3에서 2로 낮춰 보너스
+## 공격턴(1D20)을 더 자주 받게 한다(combat_test.gd의 player_chain_explosion_active /
+## _player_explosive_threshold() 참고). 큐 17이 예시로 든 "스택 임계치를 3→2로
+## 낮추는 스킬" 방향을 그대로 채택.
 const UNIQUE_SKILLS: Array[Dictionary] = [
 	{
 		"id": "frenzy_deepen",
@@ -63,6 +71,12 @@ const UNIQUE_SKILLS: Array[Dictionary] = [
 		"name": "수호 심화",
 		"description": "수호 스택이 3에 도달하면 보너스 방어턴이 1D20을 두 번 굴려 더 높은 값을 채택하는 것으로 강화된다 (수호자 전용).",
 		"character_id": "guardian",
+	},
+	{
+		"id": "chain_explosion",
+		"name": "연쇄 폭발",
+		"description": "폭발 스택 임계치가 3에서 2로 낮아져 보너스 공격턴을 더 자주 받는다 (폭발병 전용).",
+		"character_id": "explosive",
 	},
 ]
 

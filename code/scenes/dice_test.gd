@@ -2450,6 +2450,22 @@ func _check_skill_effects(lines: PackedStringArray) -> bool:
 	lines.append("  '수호 심화' 캐릭터 필터: guardian=%s berserker=%s (기대 true/false) -> %s" % [
 		guardian_has_guard_deepen, berserker_has_guard_deepen, "OK" if guard_deepen_filter_ok else "FAIL"
 	])
+
+	# (2c) 연쇄 폭발(chain_explosion)은 폭발병(explosive) 전용 후보로만 제시된다.
+	var explosive_choices := SkillPool.available_choices(SkillPool.SKILLS.size() + SkillPool.UNIQUE_SKILLS.size(), "explosive")
+	var explosive_has_chain := false
+	for s in explosive_choices:
+		if s["id"] == "chain_explosion":
+			explosive_has_chain = true
+	var berserker_has_chain := false
+	for s in berserker_choices:
+		if s["id"] == "chain_explosion":
+			berserker_has_chain = true
+	var chain_explosion_filter_ok: bool = explosive_has_chain and not berserker_has_chain
+	ok = chain_explosion_filter_ok and ok
+	lines.append("  '연쇄 폭발' 캐릭터 필터: explosive=%s berserker=%s (기대 true/false) -> %s" % [
+		explosive_has_chain, berserker_has_chain, "OK" if chain_explosion_filter_ok else "FAIL"
+	])
 	RunState.skill_flags = flags_backup
 
 	# (3) 여분: _apply_spare_die()는 항상 가장 낮은 값이 있던 자리만 바꾸고(다른 자리는
@@ -2475,6 +2491,17 @@ func _check_skill_effects(lines: PackedStringArray) -> bool:
 	ok = spare_ok and ok
 	lines.append("  _apply_spare_die(): 최저값 자리만 변경=%s 범위[1,4] 유지=%s 최소 1회 대체 관측=%s -> %s" % [
 		untouched_ok, never_decreased_ok, replaced_at_least_once, "OK" if spare_ok else "FAIL"
+	])
+
+	# (4) 연쇄 폭발(chain_explosion)의 실제 효과: _player_explosive_threshold()가
+	# 미보유 시 EXPLOSIVE_STACK_THRESHOLD(3), 보유 시 2를 반환하는지.
+	var threshold_default: int = combat._player_explosive_threshold()
+	combat.player_chain_explosion_active = true
+	var threshold_with_skill: int = combat._player_explosive_threshold()
+	var chain_threshold_ok: bool = threshold_default == combat.EXPLOSIVE_STACK_THRESHOLD and threshold_with_skill == 2
+	ok = chain_threshold_ok and ok
+	lines.append("  _player_explosive_threshold(): 미보유=%d(기대 %d) 보유=%d(기대 2) -> %s" % [
+		threshold_default, combat.EXPLOSIVE_STACK_THRESHOLD, threshold_with_skill, "OK" if chain_threshold_ok else "FAIL"
 	])
 	combat.free()
 

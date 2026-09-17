@@ -155,6 +155,11 @@ var player_frenzy_active := false
 ## player_dice_gimmick이 "guard_stack"이 아니어도 방패병과 같은 스택 파이프라인이
 ## 열리고, 보너스 방어턴은 1D20 한 번이 아니라 두 번 굴려 더 높은 값을 채택한다.
 var player_guard_deepen_active := false
+## player_chain_explosion_active: "연쇄 폭발"(폭발병 전용 고유 스킬) 보유 여부.
+## frenzy_deepen/guard_deepen과 달리 폭발병은 이미 explosive_stack 파이프라인을 갖고
+## 있어 "없던 파이프라인을 열어준다" 패턴을 쓸 수 없다 — 대신 스택 임계치 자체를
+## 낮춰(_player_explosive_threshold() 참고) 보너스 공격턴을 더 자주 받게 한다.
+var player_chain_explosion_active := false
 
 var battle_over := false
 var player_won := false
@@ -394,6 +399,7 @@ func _ready() -> void:
 	player_deep_breath_used = false
 	player_frenzy_active = RunState.skill_flags.has("frenzy_deepen")
 	player_guard_deepen_active = RunState.skill_flags.has("guard_deepen")
+	player_chain_explosion_active = RunState.skill_flags.has("chain_explosion")
 
 	next_button.pressed.connect(_on_next_button_pressed)
 	deck_toggle_button.pressed.connect(_on_deck_toggle_pressed)
@@ -463,6 +469,12 @@ func _on_customize_toggle_pressed() -> void:
 	if not battle_over:
 		return
 	customize_panel.open()
+
+
+## "연쇄 폭발"(폭발병 전용 고유 스킬) 보유 시 폭발 스택 임계치를 3에서 2로 낮춘다.
+## 미보유(또는 광기 심화로 열린 광전사 쪽)는 기존 EXPLOSIVE_STACK_THRESHOLD 그대로.
+func _player_explosive_threshold() -> int:
+	return 2 if player_chain_explosion_active else EXPLOSIVE_STACK_THRESHOLD
 
 
 func _run_battle() -> void:
@@ -601,8 +613,9 @@ func _do_exchange(is_player_attacking: bool) -> void:
 			if max_hits > 0:
 				player_explosive_stacks += max_hits
 				var stack_label := "광기" if player_frenzy_active else "폭발"
-				_append_log("%s 스택 +%d (%d/%d)" % [stack_label, max_hits, player_explosive_stacks, EXPLOSIVE_STACK_THRESHOLD])
-				if player_explosive_stacks >= EXPLOSIVE_STACK_THRESHOLD:
+				var explosive_threshold := _player_explosive_threshold()
+				_append_log("%s 스택 +%d (%d/%d)" % [stack_label, max_hits, player_explosive_stacks, explosive_threshold])
+				if player_explosive_stacks >= explosive_threshold:
 					player_explosive_pending = true
 					_append_log("광기가 정점에 달했다! 다음 공격은 1D20을 두 번 굴려 더 높은 값을 채택한다" if player_frenzy_active else "폭발 직전! 다음 공격은 20면체 주사위로 터진다")
 
