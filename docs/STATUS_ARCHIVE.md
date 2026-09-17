@@ -8,6 +8,64 @@
 
 ---
 
+- **2026-09-16 (119)**: [미니 기획 A]/[미니 기획 B]가 모두 완료돼 유일하게 남은
+  미니 기획인 INBOX.md [미니 기획 C] "캐릭터 스킬 부여 이벤트"의 1~2번을
+  구현했다(3~5번은 다음 이터레이션 이후로 남김 — 세션 지침 "하위 단계별로
+  나눠 진행" 반영).
+  **1번(방 종류 추가 없이, 기존 "특수 이벤트" 방이 가끔 스킬 이벤트로도 나오게)**:
+  `code/scenes/event.gd`의 `_ready()`가 이제 `SkillPool.available_choices(2)`로
+  받은 후보가 있고 `randf() < SKILL_EVENT_CHANCE`(0.3, 잠정값)일 때
+  `_setup_skill_event()`로 분기한다 — 기존 안전/위험 흐름은 새로 분리한
+  `_setup_item_event()`로 그대로 옮겼을 뿐 동작 변경 없음. 스킬 이벤트가 되면
+  안전/위험 버튼 대신 스킬 후보 카드(1~2장, `ItemCardStyle.build_card()`를 그대로
+  재사용 — [미니 기획 C]-5가 요청한 "기존 카드 UI 재사용" 반영, item dict에
+  없는 "kind"/"grade" 필드는 build_card()가 기본값으로 자연스럽게 처리)를
+  보여주고, 고르면 `SkillPool.grant()`로 획득 후 방을 소비한다. 방 아이콘은
+  여전히 물음표(mystery) 하나뿐이라 어느 쪽이 나올지 미리 알 수 없음(스포일링
+  방지 요구사항 그대로 유지).
+  **2번(RunState.skill_flags 배열)**: `code/systems/run_state.gd`에
+  `skill_flags: Array[String] = []`를 추가하고 `reset_run()`마다 초기화(다른
+  런 전용 인벤토리들과 같은 "패배 시 리셋" 관례). 신규
+  `code/systems/skill_pool.gd`(`SkillPool`)가 스킬 후보 정의(`SKILLS` — 공용
+  스킬 2종 "심호흡"/"여분", [미니 기획 C]-3이 이미 확정한 이름/수치 그대로
+  옮겨 적음)와 `available_choices(n)`(이미 보유한 스킬은 후보에서 자동 제외)/
+  `grant(skill_id)`(중복 방지)를 담당. **다만 이번 이터레이션 범위는 "구조 +
+  배열"까지로 명시적으로 한정됐고, `combat_test.gd`가 이 배열을 읽어 실제
+  전투 보너스를 적용하는 로직은 아직 연결하지 않았다** — 지금은 스킬을
+  "습득"할 수는 있지만 효과가 없는 상태([미니 기획 C]-3의 나머지 절반 +
+  -4/-5는 다음 이터레이션들이 이어감). `docs/DESIGN.md`의 "플레이어블 캐릭터"
+  절도 이 구조/한계를 명시하도록 갱신.
+  **QA 검증**: `code/scenes/dice_test.gd`에 신규 `_check_skill_event_structure`
+  추가 — SkillPool.SKILLS 개수, available_choices()의 보유 스킬 제외 로직,
+  grant()의 중복 방지, 실제 event.tscn을 인스턴스화해 `_setup_skill_event()`가
+  카드를 정확한 개수만큼 그리는지, `_apply_skill_pick()`이 스킬 부여+방 진행+
+  이중 실행 가드(기존 `_apply_pick`/`_apply_pips`/`_apply_upgrade`와 동일한
+  `_picked` 플래그 공유)까지 정상 동작하는지 검증. 이 작업 중 두 가지 회귀를
+  발견해 함께 고쳤다: (a) `event_node._setup_skill_event([candidate])`처럼
+  untyped 배열 리터럴을 `Array[Dictionary]` 매개변수에 넘기면 "Invalid type"
+  스크립트 오류가 나는 것을 발견해 테스트 쪽에서 명시적으로 타입 선언한 지역
+  변수를 거치도록 수정. (b) 더 중요한 발견 — `_ready()`의 30% 확률 분기 때문에
+  `event.tscn`을 인스턴스화하는 기존 회귀 테스트
+  (`_check_event_safe_risky_choice`의 "위험 감수 강제 실패" 검증)가 가끔(그
+  인스턴스가 우연히 스킬 이벤트로 열렸을 때) `_row_ui`에 스킬 카드가 남아있는
+  상태로 시작해 "아이템 카드 없음"을 기대하는 어서션이 깨지는 것을 실제로
+  재현했다(`_show_fail()`이 `_row_ui`를 정리하지 않는 기존 동작과, 이번에
+  새로 생긴 "인스턴스가 스킬/아이템 어느 쪽으로 열릴지 모른다"는 상황이
+  겹쳐서 생긴 새 버그). `_show_item_offer`/`_show_skill_offer`가 공유하는
+  `_clear_row_ui()` 헬퍼를 신설하고, `_debug_force_risky_success/failure()`
+  QA 훅이 이 헬퍼로 먼저 정리한 뒤 결정적 경로를 재현하도록 고쳐 두 분기
+  어느 쪽으로 열렸든 안정적으로 검증되게 했다. `bash scripts/qa_shot.sh
+  dice_test` 전체 PASS(신규 3건 + 기존 전체 회귀 없음). 화면 검증은
+  `_debug_force_skill_event()`(신규 QA 훅)로 `qa_out/event_skill_offer.png`
+  캡처 — "심호흡"/"여분" 카드 2장이 겹침 없이 나란히 표시되고 DeckPanel과도
+  안 겹침, 단축키 [1]/[2]/[3]도 정확히 배정됨을 확인. `_debug_verify_skill_
+  pickup()`으로 콘솔에서 `grant()` 후 `RunState.skill_flags`에 반영되고
+  두 번째 후보 목록에서 방금 얻은 스킬이 제외되는 것도 확인
+  (`qa_out/event_skill_pickup_check.png`). 기존 아이템 이벤트 경로도
+  `qa_out/event_default_check.png`로 회귀 없음을 재확인. 남은 것: [미니 기획
+  C]-3(공용 스킬 2종 실제 효과)/-4(고유 스킬 1종)/-5(UI는 이미 카드 재사용으로
+  충족) — 다음 이터레이션이 이어서 처리.
+
 - **2026-09-16 (118)**: INBOX.md [미니 기획 A] "몬스터별 성격 디자인"의 3단계
   ((1)기믹 재배정 -> (2)신규 기믹 steady_guard -> (3)personality 필드+표시) 중
   마지막 **(3)번(personality 필드+표시)**을 처리해 [미니 기획 A] 전체를

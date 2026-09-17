@@ -21,6 +21,16 @@ extends Node2D
 ## 여전히 물음표 하나뿐이라(reward_icon.gd의 "mystery") 어느 쪽이 나올지 미리 알 수
 ## 없다 — 스포일링 방지 요구사항과 그대로 호환된다. systems/skill_pool.gd(SkillPool)가
 ## 후보 정의를 담당.
+##
+## [미니 기획 D]-3(INBOX.md, 2026-09-17): 위 두 분기보다 먼저, 이 방이 "스킬 강화"
+## 이벤트가 될지를 별도 확률(SKILL_UPGRADE_EVENT_CHANCE)로 한 번 더 굴린다.
+## SkillPool.available_upgrade_choices()가 빈 배열이면(강화할 base 스킬이 아예 없거나
+## 전부 이미 강화됨) 확률과 무관하게 항상 기존 흐름(스킬 이벤트 또는 아이템 이벤트)으로
+## 대체된다 — "강화 가능한 스킬이 하나도 없으면 반드시 기존 이벤트로 대체" 지시 반영.
+## 카드 UI는 기존 _setup_skill_event()가 쓰던 _show_skill_offer()/_on_pick_skill_pressed()/
+## _apply_skill_pick()을 그대로 재사용한다 — UPGRADE_SKILLS 항목도 SKILLS/UNIQUE_SKILLS와
+## 같은 {id, name, description} 형태라 별도 처리가 필요 없다(강화판 자신의 "+"id를
+## skill_flags에 추가하면 그대로 강화 완료).
 
 @onready var items_root: Node2D = $ItemsRoot
 @onready var roll_root: Node2D = $RollRoot
@@ -40,6 +50,18 @@ extends Node2D
 ## 무관하게 항상 아이템 이벤트로 대체된다. 수치 자체는 감으로 잡은 잠정값 — 실제
 ## 등장 빈도가 적당한지는 사람 플레이 피드백 필요.
 const SKILL_EVENT_CHANCE := 0.3
+
+## 이 방이 이번에 "스킬 강화" 이벤트(이미 보유한 스킬 중 하나를 "+"판으로 강화)로
+## 나올 확률([미니 기획 D]-3). SKILL_EVENT_CHANCE와 완전히 별개의 독립된 굴림 —
+## 두 확률이 동시에 이 방에 적용되는 게 아니라, 강화 이벤트 판정이 먼저이고 실패하면
+## (또는 강화 후보가 없으면) 그 다음에 기존 스킬/아이템 이벤트 분기로 넘어간다.
+## 수치는 기획자가 지시한 "예시로 든 20%" 그대로 — 잠정값, 실제 등장 빈도가 적당한지는
+## 사람 플레이 피드백 필요.
+const SKILL_UPGRADE_EVENT_CHANCE := 0.2
+
+## 이번 인스턴스가 스킬 강화 이벤트인지 — _ready()에서 한 번만 정해지고 이후 바뀌지
+## 않는다. true면 _is_skill_event 여부와 무관하게 강화 카드가 표시된다.
+var _is_skill_upgrade_event := false
 
 ## 이번 인스턴스가 스킬 이벤트인지(true) 아이템 이벤트인지(false) — _ready()에서
 ## 한 번만 정해지고 이후 바뀌지 않는다.
@@ -65,6 +87,12 @@ func _ready() -> void:
 	continue_button.hide()
 	continue_button.pressed.connect(_on_continue_after_fail_pressed)
 
+	var upgrade_candidates := SkillPool.available_upgrade_choices(2, RunState.character_id)
+	_is_skill_upgrade_event = not upgrade_candidates.is_empty() and randf() < SKILL_UPGRADE_EVENT_CHANCE
+	if _is_skill_upgrade_event:
+		_setup_skill_upgrade_event(upgrade_candidates)
+		return
+
 	var skill_candidates := SkillPool.available_choices(2, RunState.character_id)
 	_is_skill_event = not skill_candidates.is_empty() and randf() < SKILL_EVENT_CHANCE
 	if _is_skill_event:
@@ -89,6 +117,19 @@ func _setup_item_event() -> void:
 func _setup_skill_event(skills: Array[Dictionary]) -> void:
 	title_label.text = "특수 이벤트 — 새로운 능력을 배울 기회"
 	prompt_label.text = "낯선 기운이 스며든다. 후보 중 하나를 익힐 수 있을 것 같다."
+	safe_button.hide()
+	risky_button.hide()
+	_show_skill_offer(skills)
+
+
+## [미니 기획 D]-3: 물음표 이벤트가 가끔 이미 보유한 스킬을 "+"판으로 강화할 기회를
+## 제시한다. _setup_skill_event()와 마찬가지로 안전/위험 선택지 없이 바로 카드를
+## 보여주고, 카드/픽업 로직 자체는 _show_skill_offer()/_on_pick_skill_pressed()를
+## 그대로 재사용한다 — UPGRADE_SKILLS 항목도 {id, name, description} 형태라 별도 처리가
+## 필요 없다.
+func _setup_skill_upgrade_event(skills: Array[Dictionary]) -> void:
+	title_label.text = "특수 이벤트 — 이미 익힌 능력을 강화할 기회"
+	prompt_label.text = "낯익은 기운이 한층 짙어진다. 후보 중 하나를 골라 더 강하게 벼릴 수 있을 것 같다."
 	safe_button.hide()
 	risky_button.hide()
 	_show_skill_offer(skills)
@@ -525,6 +566,17 @@ func _debug_force_skill_event_as_novice() -> void:
 	RunState.character_id = "novice"
 	RunState.skill_flags = []
 	_setup_skill_event([SkillPool.SKILLS[1], SkillPool.UNIQUE_SKILLS[4]])
+
+
+## QA 전용([미니 기획 D]-3): "스킬 강화" 이벤트 카드(예: "임기응변+")가 겹침 없이
+## 표시되는지 확인. 무작위 확률(SKILL_UPGRADE_EVENT_CHANCE)과 무관하게 강제로
+## _setup_skill_upgrade_event()를 호출한다 — _debug_force_skill_event()와 같은 목적,
+## 견습 모험가가 이미 "임기응변"을 보유한 상태를 만들어 "임기응변+"가 후보에 뜨는지
+## 확인(_debug_force_skill_event_as_novice()와 같이 캐릭터를 강제 지정).
+func _debug_force_skill_upgrade_event() -> void:
+	RunState.character_id = "novice"
+	RunState.skill_flags = ["versatile_surge"]
+	_setup_skill_upgrade_event([SkillPool.UPGRADE_SKILLS[6]])
 
 
 ## QA 전용: 스킬을 실제로 습득하면 RunState.skill_flags에 반영되는지, 이미 보유한

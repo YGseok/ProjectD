@@ -189,6 +189,10 @@ func _ready() -> void:
 	all_pass = _check_upgrade_skill_pool(lines) and all_pass
 
 	lines.append("")
+	lines.append("[스킬 강화 이벤트 구조 검증: event.gd _setup_skill_upgrade_event / SKILL_UPGRADE_EVENT_CHANCE 폴백]")
+	all_pass = _check_skill_upgrade_event_structure(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -2703,4 +2707,81 @@ func _check_upgrade_skill_pool(lines: PackedStringArray) -> bool:
 	])
 
 	RunState.skill_flags = flags_backup
+	return ok
+
+
+## [미니 기획 D]-3 검증: 실제 event.tscn을 인스턴스화해 (1) 강화 후보가 있을 때
+## _setup_skill_upgrade_event()가 카드를 정상 표시하고 _apply_skill_pick()으로 "+"id가
+## skill_flags에 실제로 추가되는지(이중 실행 가드 포함, _check_skill_event_structure와
+## 같은 패턴), (2) 강화 후보가 하나도 없으면 _ready()가 항상 폴백해 _is_skill_upgrade_event가
+## false로 남는지(기획자 지시 "강화 가능한 스킬이 하나도 없으면 반드시 기존 이벤트로
+## 대체" 검증)를 확인한다.
+func _check_skill_upgrade_event_structure(lines: PackedStringArray) -> bool:
+	var ok := true
+	var flags_backup: Array[String] = RunState.skill_flags.duplicate()
+	var character_backup: String = RunState.character_id
+	var rooms_backup := RunState.rooms_cleared
+
+	# (1) 강화 후보가 있는 상태: "임기응변"을 보유한 견습 모험가에게 "임기응변+" 카드를
+	# 강제로 띄우고, 실제로 픽업까지 진행되는지 확인한다.
+	RunState.character_id = "novice"
+	RunState.skill_flags = ["versatile_surge"]
+	var event_scene := load("res://code/scenes/event.tscn")
+	var event_node = event_scene.instantiate()
+	add_child(event_node)
+
+	var candidate: Dictionary = SkillPool.UPGRADE_SKILLS[6]
+	var candidate_id_ok: bool = candidate["id"] == "versatile_surge_plus"
+	ok = candidate_id_ok and ok
+	lines.append("  UPGRADE_SKILLS[6]=%s(기대 versatile_surge_plus) -> %s" % [
+		candidate.get("id", ""), "OK" if candidate_id_ok else "FAIL"
+	])
+
+	var offer: Array[Dictionary] = [candidate]
+	event_node._setup_skill_upgrade_event(offer)
+	var offer_ok: bool = event_node._row_ui.size() == 1
+	ok = offer_ok and ok
+	lines.append("  _setup_skill_upgrade_event() 카드 1장 표시: row_ui=%d(기대 1) -> %s" % [
+		event_node._row_ui.size(), "OK" if offer_ok else "FAIL"
+	])
+
+	var rooms_before: int = RunState.rooms_cleared
+	var applied: bool = event_node._apply_skill_pick(candidate)
+	var pick_ok: bool = (
+		applied
+		and RunState.skill_flags.has("versatile_surge_plus")
+		and RunState.rooms_cleared == rooms_before + 1
+	)
+	ok = pick_ok and ok
+	lines.append("  _apply_skill_pick('임기응변+') 후 skill_flags=%s rooms=%d(기대 %d) -> %s" % [
+		RunState.skill_flags, RunState.rooms_cleared, rooms_before + 1, "OK" if pick_ok else "FAIL"
+	])
+
+	var reapplied: bool = event_node._apply_skill_pick(candidate)
+	var guard_ok: bool = not reapplied and RunState.rooms_cleared == rooms_before + 1
+	ok = guard_ok and ok
+	lines.append("  _apply_skill_pick() 2차(이미 픽함): applied=%s rooms=%d(변화 없음 기대) -> %s" % [
+		reapplied, RunState.rooms_cleared, "OK" if guard_ok else "FAIL"
+	])
+
+	remove_child(event_node)
+	event_node.free()
+
+	# (2) 강화 후보가 하나도 없는 상태(스킬을 아직 하나도 안 얻음): _ready()가 확률과
+	# 무관하게 항상 폴백해 _is_skill_upgrade_event가 false로 남아야 한다.
+	RunState.character_id = "novice"
+	RunState.skill_flags = []
+	var fallback_node = event_scene.instantiate()
+	add_child(fallback_node)
+	var fallback_ok: bool = fallback_node._is_skill_upgrade_event == false
+	ok = fallback_ok and ok
+	lines.append("  강화 후보 없음 -> _is_skill_upgrade_event=%s(기대 false) -> %s" % [
+		fallback_node._is_skill_upgrade_event, "OK" if fallback_ok else "FAIL"
+	])
+	remove_child(fallback_node)
+	fallback_node.free()
+
+	RunState.skill_flags = flags_backup
+	RunState.character_id = character_backup
+	RunState.rooms_cleared = rooms_backup
 	return ok

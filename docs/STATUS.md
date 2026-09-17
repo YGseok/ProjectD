@@ -5,23 +5,30 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-09-17 (128)
-- 작성자: AI 에이전트. INBOX.md "남은 이슈"의 [미니 기획 D](스킬 강화 이벤트)를
-  지시된 순서대로 착수해 1번(강화판 데이터 정의)과 2번(강화 후보 뽑기 함수)을
-  구현했다. `code/systems/skill_pool.gd`에 `UPGRADE_SKILLS: Array[Dictionary]`
-  (7종, 기존 SKILLS 2 + UNIQUE_SKILLS 5 각각의 "+" 버전)를 지시된 필드 패턴
-  (`{id, name, description, upgrades: <base id>, character_id}`)대로 추가하고,
-  `SkillPool.available_upgrade_choices(n, character_id)`(base는 보유, "+"는
-  미보유인 후보만 필터)와 `SkillPool.grant_upgrade(base_id)`(대응하는 "+"id를
-  찾아 기존 `grant()`로 부여) 두 함수를 새로 만들었다. 아직 이벤트 발생
-  구조(3번)/전투 배선(4번)/UI 강조(5번)는 손대지 않아 화면에는 아무 변화가
-  없다 — 순수 데이터/로직 준비 단계. `dice_test.gd`에 `_check_upgrade_skill_
-  pool` 검증(데이터 형태, 후보 필터 3단계 흐름, character_id 필터,
-  grant_upgrade 동작)을 추가, `bash scripts/qa_shot.sh dice_test` 전체 PASS.
-  `bash scripts/qa_shot.sh dungeon_map`으로 무관한 화면도 크래시 없이 로드됨을
-  확인. 자세한 내용은 아래 "완료 기록 (128)" 참고. INBOX.md [미니 기획 D]
-  항목은 1~5번이 모두 끝나야 "처리됨"으로 옮기라는 완료 기준이 있어, 이번엔
-  "남은 이슈"에 진행 상황만 반영하고 그대로 두었다(아래 "다음 할 일 큐" 18번).
+- 일시: 2026-09-17 (129)
+- 작성자: AI 에이전트. INBOX.md "부분 처리됨"의 [미니 기획 D](스킬 강화 이벤트)를
+  이어서 3번(이벤트 발생 구조)까지 구현했다(1~2번은 직전 이터레이션(128)에서
+  완료). `code/scenes/event.gd`에 `SKILL_UPGRADE_EVENT_CHANCE`(=0.2, 잠정값)
+  상수를 추가하고, `_ready()`의 맨 앞에서(기존 스킬 이벤트 30% 분기보다 먼저)
+  `SkillPool.available_upgrade_choices()`로 강화 후보를 뽑아 후보가 있고
+  확률이 성공하면 "스킬 강화" 이벤트로 분기하도록 했다 — 강화 후보가 하나도
+  없으면(스킬을 아직 하나도 안 얻었거나 이미 다 강화한 경우) 확률과 무관하게
+  항상 기존 스킬/아이템 이벤트로 폴백한다(지시된 대로). 카드 UI는 새로 만들지
+  않고 기존 `_setup_skill_event()`가 쓰던 `_show_skill_offer()`/
+  `_apply_skill_pick()`을 그대로 재사용했다. `dice_test.gd`에
+  `_check_skill_upgrade_event_structure` 신규 검증(강화 후보 있을 때 카드
+  표시+픽업+이중 실행 가드, 강화 후보 없을 때 항상 폴백)을 추가,
+  `bash scripts/qa_shot.sh dice_test` 전체 PASS. 구현 중 (119)와 똑같은
+  "untyped 배열을 Array[Dictionary] 매개변수에 넘겨 스크립트 오류로 테스트가
+  조용히 중단되는" 실수를 다시 겪어 고쳤다(재발 — 아래 "완료 기록 (129)"
+  참고). 화면은 신규 QA 훅 `_debug_force_skill_upgrade_event()`로
+  `qa_out/event_skill_upgrade_offer.png`를 캡처해 카드가 겹침 없이 표시됨을
+  확인, `event`/`dungeon_map` 기본 로드도 재확인했다. `docs/DESIGN.md`의
+  "캐릭터 스킬 부여 이벤트" 절에 강화 이벤트 단락을 추가. 자세한 내용은 아래
+  "완료 기록 (129)" 참고. INBOX.md [미니 기획 D] 항목은 1~5번이 모두 끝나야
+  "처리됨"으로 옮기라는 완료 기준이 있어 이번엔 "부분 처리됨"에 진행 상황만
+  갱신했다(아래 "다음 할 일 큐" 18번, 남은 것은 4번 전투 배선/5번 UI 강조/
+  6번 선택).
 
 ## 지금 위치
 
@@ -29,9 +36,14 @@
 이벤트까지 한 바퀴 플레이 가능. 전투는 항상 노출, 상점은 2번째/4번째 방 고정
 (`SHOP_FIXED_ROOM_INDICES`), 특수 이벤트/스토리 이벤트는 방마다 확률 노출 +
 결정적 순서 섞기. 마지막 방(보스 방)은 전투만 강제(`dungeon_map.gd`의
-`_room_options_for_index()`). 스킬 강화([미니 기획 D])는 데이터/후보 뽑기
-함수만 준비됐고(`SkillPool.UPGRADE_SKILLS`/`available_upgrade_choices()`/
-`grant_upgrade()`) 아직 실제 이벤트/전투/UI에는 연결되지 않았다 — 큐 18 참고.
+`_room_options_for_index()`). 특수 이벤트 방은 이제 세 갈래로 분기한다 —
+20%(`SKILL_UPGRADE_EVENT_CHANCE`) 확률로 스킬 강화(보유한 스킬 중 하나를
+"+"판으로), 그 다음 30%(`SKILL_EVENT_CHANCE`) 확률로 새 스킬 획득, 나머지는
+기존 안전/위험 아이템 이벤트 — 두 확률 모두 해당 후보가 없으면 항상 다음
+분기로 폴백한다. **다만 스킬 강화("+" 스킬)를 실제로 골라도 아직 전투 효과가
+없다** — `combat_test.gd`가 "+" id를 읽지 않기 때문(전투 배선은 [미니 기획
+D]-4, 다음 이터레이션 예정, 큐 18 참고). UI 강조(카드 노란 테두리, -5번)와
+DeckPanel 보유 스킬 목록(-6번, 선택)도 아직 없음.
 
 - **캐릭터 5종** (`code/systems/character_profiles.gd`의
   `CharacterProfiles.PROFILES`): 견습 모험가(기믹 없음, D4x3/D4x3) / 광전사
@@ -669,29 +681,118 @@
     동시 적용)으로 구현 완료했다(아래 "완료 기록 (127)" 참고) — **이제 5개
     캐릭터 전원의 고유 스킬이 갖춰져 이 큐 항목은 완전히 종료.**
 
-18. **(2026-09-17 신규, INBOX.md [미니 기획 D]) 스킬 강화 이벤트 — 1~2번 완료,
-    3~6번 남음.** 기획자가 7종 스킬 각각의 구체적 강화 효과/로직/UI까지 이미
+18. **(2026-09-17 신규, INBOX.md [미니 기획 D]) 스킬 강화 이벤트 — 1~3번 완료,
+    4~6번 남음.** 기획자가 7종 스킬 각각의 구체적 강화 효과/로직/UI까지 이미
     확정해둔 항목 — INBOX.md "남은 이슈" 원문 그대로 순서대로 진행하면 됨.
     - **1번(강화판 데이터 정의)** → **완료** (2026-09-17 (128), 위 "완료 기록"
       참고). `skill_pool.gd`에 `UPGRADE_SKILLS`(7종) 상수 추가.
     - **2번(강화 후보 뽑기)** → **완료** (2026-09-17 (128), 위 "완료 기록"
       참고). `SkillPool.available_upgrade_choices(n, character_id)` +
       `SkillPool.grant_upgrade(base_id)`.
-    - **3번(이벤트 발생 구조)** → 미착수. `code/scenes/event.gd`에 신규 확률
-      상수(예: 20%, 지시대로 잠정값)로 "스킬 강화" 이벤트 분기를 추가하고,
-      강화 후보가 하나도 없으면 기존 아이템/스킬 이벤트로 대체하는 폴백을
-      넣어야 함(이미 있는 "스킬 후보 없으면 아이템으로 대체" 패턴 재사용).
+    - **3번(이벤트 발생 구조)** → **완료** (2026-09-17 (129), 위 "완료 기록"
+      참고). `event.gd`에 `SKILL_UPGRADE_EVENT_CHANCE`(=0.2)로 기존
+      `SKILL_EVENT_CHANCE`(0.3) 분기보다 먼저 "스킬 강화" 이벤트를 판정하고,
+      강화 후보가 하나도 없으면 확률과 무관하게 항상 기존 스킬/아이템 이벤트로
+      폴백. 카드 UI는 `_setup_skill_event()`가 쓰던 `_show_skill_offer()`/
+      `_apply_skill_pick()`을 그대로 재사용(새 위젯 없음).
     - **4번(전투 배선)** → 미착수. `combat_test.gd`에 "+" 7종의 실제 효과를
       적용 — 지시대로 한 번에 다 하지 말고 나눠서(공용 2개 먼저, 고유 5개는
       캐릭터 페어 또는 하나씩). "+" > base > 없음 세 단계 우선순위로 분기.
     - **5번(UI 강조)** → 미착수. `item_card_style.gd`의 `build_card()`에
       `highlight: bool = false` 매개변수 — true면 두껍고 노란 테두리, 강화
-      스킬 제안 카드는 항상 `highlight=true`.
+      스킬 제안 카드는 항상 `highlight=true`. (지금은 [미니 기획 D]-3이 만든
+      강화 카드도 다른 스킬 카드와 같은 등급색 테두리로만 보여서, 강화판임을
+      시각적으로 구분할 방법이 아직 없음 — 다음 이터레이션 후보.)
     - **6번(선택, 여유 있으면)** → 미착수. `DeckPanel`에 "보유 스킬" 목록 표시.
     1~5번이 모두 끝나야 INBOX.md에서 "처리됨"으로 옮길 것(완료 기준, INBOX.md
     원문 그대로).
 
 ## 완료 기록
+
+- **2026-09-17 (129)**: INBOX.md "부분 처리됨"의 [미니 기획 D](스킬 강화 이벤트)
+  3번(이벤트 발생 구조)을 지시된 순서대로 구현 — 1~2번((128), 아래 참고)에 이어
+  진행. `code/scenes/event.gd`에 `SKILL_UPGRADE_EVENT_CHANCE`(=0.2, 기획자가
+  예시로 든 수치 그대로 잠정값) 상수와 `_is_skill_upgrade_event` 플래그를
+  추가하고, `_ready()`의 맨 앞에서(기존 `SKILL_EVENT_CHANCE`(0.3) 분기보다
+  먼저) `SkillPool.available_upgrade_choices(2, RunState.character_id)`로 강화
+  후보를 뽑아, 후보가 있고 확률이 성공하면 `_setup_skill_upgrade_event()`로
+  분기하고 그 자리에서 `return`(기존 스킬/아이템 이벤트 분기까지 내려가지
+  않음) — 강화 후보가 하나도 없으면(플레이어가 스킬을 아직 하나도 안 얻었거나
+  이미 다 강화한 경우) 확률과 무관하게 항상 기존 흐름(스킬 이벤트 30% 또는
+  아이템 이벤트)으로 폴백된다(지시된 "강화 가능한 스킬이 하나도 없으면 반드시
+  기존 이벤트로 대체" 그대로). `_setup_skill_upgrade_event(skills)`는 제목/문구만
+  강화 전용으로 바꾸고("이미 익힌 능력을 강화할 기회") 카드 렌더링/픽업은
+  `_setup_skill_event()`가 이미 쓰던 `_show_skill_offer()`/
+  `_on_pick_skill_pressed()`/`_apply_skill_pick()`을 그대로 재사용했다(지시된
+  "기존 스킬 획득 흐름을 최대한 재사용" 반영) — `UPGRADE_SKILLS` 항목도
+  `{id, name, description}` 형태라 별도 카드/픽업 로직이 필요 없었다("+"id
+  자체를 `skill_flags`에 추가하면 그대로 강화 완료). QA 훅
+  `_debug_force_skill_upgrade_event()`(다른 `_debug_force_skill_event_as_*`와
+  같은 패턴, 견습 모험가가 "임기응변"을 보유한 상태를 만들어 "임기응변+"
+  카드를 강제 표시)도 추가.
+  `dice_test.gd`에 `_check_skill_upgrade_event_structure` 신규 검증 추가 —
+  (1) 강화 후보가 있을 때 `_setup_skill_upgrade_event()`가 카드 1장을 정상
+  표시하고 `_apply_skill_pick()`으로 "+"id가 `skill_flags`에 실제로 추가되며
+  이중 실행 가드도 걸리는지(기존 `_check_skill_event_structure`와 동일 패턴),
+  (2) 강화 후보가 하나도 없는 상태로 `event.tscn`을 인스턴스화하면 `_ready()`가
+  확률과 무관하게 항상 `_is_skill_upgrade_event=false`로 폴백하는지. 구현 중
+  (119)에서 이미 한 번 겪었던 것과 똑같은 실수를 반복했다 — 테스트 코드에서
+  `event_node._setup_skill_upgrade_event([candidate])`처럼 untyped 배열 리터럴을
+  `Array[Dictionary]` 매개변수에 그대로 넘겨 "Invalid type" 스크립트 오류로 테스트
+  함수 전체가 조용히 중단되는 것을 실제로 겪었고((119)의 완료 기록이 정확히 같은
+  패턴을 경고하고 있었는데도 다시 발생시킴), `var offer: Array[Dictionary] =
+  [candidate]`로 명시적으로 타입 선언한 지역 변수를 거치도록 고쳐 해결했다 —
+  앞으로 이 함수 호출 패턴을 쓸 때 다시 주의할 것.
+  `bash scripts/qa_shot.sh dice_test` 전체 PASS(신규 검증 포함, 무관한 다른
+  체크들에서 보이는 "combat_test.gd _append_log Nil" SCRIPT ERROR 다수는 이번
+  변경과 무관한 기존 노이즈로 확인 — `_check_skill_effects`가 씬 트리 밖에서
+  `combat_test.gd`를 `new()`만 해서 직접 호출하는 기존 패턴 때문에 발생, 결과에
+  영향 없음). 화면 검증은 `_debug_force_skill_upgrade_event()`로
+  `qa_out/event_skill_upgrade_offer.png`를 캡처해 "임기응변+" 카드가 DeckPanel/
+  단축키 힌트와 겹침 없이 표시됨을 확인, `bash scripts/qa_shot.sh event`/
+  `dungeon_map`으로 무관한 화면들도 회귀 없이 로드됨을 재확인.
+  `docs/DESIGN.md`의 "캐릭터 스킬 부여 이벤트" 절에 새 단락을 추가해 강화
+  이벤트의 존재/확률/폴백 조건과 "아직 전투 효과는 없다"는 한계를 명시.
+  남은 것: 4번(전투 배선, "+" > base > 없음 세 단계 우선순위)/5번(카드 노란
+  테두리 강조)/6번(선택, DeckPanel 보유 스킬 목록) — 아래 큐 18 참고,
+  INBOX.md는 1~5번이 모두 끝나야 "처리됨"으로 옮기라는 완료 기준이 있어 이번엔
+  "부분 처리됨"에 진행 상황만 갱신했다.
+
+- **2026-09-17 (128)**: INBOX.md "남은 이슈"의 [미니 기획 D](스킬 강화 이벤트)
+  1~2번을 지시된 순서대로 착수. `code/systems/skill_pool.gd`에
+  `UPGRADE_SKILLS: Array[Dictionary]`(7종, 기존 SKILLS 2 + UNIQUE_SKILLS 5
+  각각의 "+" 버전 — 심호흡+/여분+/광기 심화+/수호 심화+/연쇄 폭발+/연쇄
+  방어+/임기응변+)를 추가(1번). 각 항목은 `{id, name, description, upgrades:
+  <base id>, character_id(고유 스킬 계열만)}` 형태로 지시된 필드 패턴을 그대로
+  따랐고, 효과 설명은 INBOX.md 기획자 결정 원문의 수치(광기/수호 심화+는
+  보너스 굴림 2→3회, 연쇄 폭발/방어+는 임계치 2 유지하며 굴림 1→2회로 강화,
+  심호흡+는 첫 방어턴 한정→매 방어턴, 여분+는 여분 다이스 1→2개, 임기응변+는
+  임계치 3→2)를 그대로 description에 옮겼다 — description은 아직 텍스트일
+  뿐 실제 전투 배선(4번)은 하지 않았다(지시대로 이번 이터레이션은 1~2번만).
+  이어서 `SkillPool.available_upgrade_choices(n, character_id)`(2번)를
+  추가 — `RunState.skill_flags`에 base id는 있는데 "+"id는 없는 항목만 후보로
+  삼고(둘 다 없거나 둘 다 있으면 제외), character_id가 있는 항목(고유 스킬
+  계열)은 인자로 받은 character_id와 일치할 때만 포함(공용 스킬 강화는
+  캐릭터 무관하게 항상 후보) — `available_choices()`와 대칭 구조로 구현했다.
+  `SkillPool.grant_upgrade(base_id)` 헬퍼도 함께 추가(지시된 2번 항목) —
+  base_id로 UPGRADE_SKILLS에서 대응하는 "+"id를 찾아 기존 `grant()`로
+  `skill_flags`에 추가(중복 방지는 grant()가 그대로 처리), 대응하는 강화판이
+  없는 id를 넘기면 아무 일도 하지 않는다.
+  `code/scenes/dice_test.gd`에 `_check_upgrade_skill_pool` 신규 검증을
+  추가 — (1) UPGRADE_SKILLS 개수(7)와 "upgrades" 필드가 실제 base id를
+  가리키는지, 이름이 전부 "+"로 끝나는지, (2) "심호흡+" 후보가 base 미보유
+  시 안 나오고 base 보유 시 나오고 "+"까지 보유하면 다시 안 나오는 3단계
+  흐름, (3) "광기 심화+"가 frenzy_deepen을 보유한 berserker에게만 제시되고
+  guardian에게는 안 나오는 character_id 필터, (4) grant_upgrade()가 올바른
+  "+"id를 추가하고 재호출 시 중복 없이, 존재하지 않는 id에는 아무 일도 안
+  하는지를 검증. `bash scripts/qa_shot.sh dice_test` 전체 PASS.
+  `bash scripts/qa_shot.sh dungeon_map`으로 관련 없는 화면(던전 맵)이 이번
+  변경 후에도 크래시 없이 로드됨을 확인 — 이번 변경은 데이터/로직 전용이라
+  화면에 아직 아무것도 노출되지 않는다(이벤트 발생 구조(3번)/전투 배선(4번)/
+  UI 강조(5번)가 있어야 실제로 화면에 나타남 — 다음 이터레이션들이 이어서
+  진행할 차례). `docs/feedback/INBOX.md`의 [미니 기획 D] 항목은 아직 "남은
+  이슈"에 그대로 둔다 — 1~5번이 모두 끝나야 처리됨으로 옮기라는 지시(완료
+  기준 문구) 그대로, 진행 상황만 이 항목으로 기록.
 
 - **2026-09-17 (127)**: INBOX.md "남은 이슈"의 2026-09-17 기획자 결정 항목
   (견습 모험가 전용 고유 스킬 "임기응변" 설계 확정)을 지시된 그대로 구현했다
@@ -973,103 +1074,9 @@
   "캐릭터에 스킬을 부여하는 이벤트를 추가한다", 그리고 [미니 기획 A]/[B]/[C]
   세 갈래를 만든 2026-09-15 기획자 결정 항목 자체를 모두 "처리됨"으로
   옮겼다(지시받은 대로 — 세 미니 기획이 전부 끝났으므로).
-- **2026-09-16 (119)**: [미니 기획 A]/[미니 기획 B]가 모두 완료돼 유일하게 남은
-  미니 기획인 INBOX.md [미니 기획 C] "캐릭터 스킬 부여 이벤트"의 1~2번을
-  구현했다(3~5번은 다음 이터레이션 이후로 남김 — 세션 지침 "하위 단계별로
-  나눠 진행" 반영).
-  **1번(방 종류 추가 없이, 기존 "특수 이벤트" 방이 가끔 스킬 이벤트로도 나오게)**:
-  `code/scenes/event.gd`의 `_ready()`가 이제 `SkillPool.available_choices(2)`로
-  받은 후보가 있고 `randf() < SKILL_EVENT_CHANCE`(0.3, 잠정값)일 때
-  `_setup_skill_event()`로 분기한다 — 기존 안전/위험 흐름은 새로 분리한
-  `_setup_item_event()`로 그대로 옮겼을 뿐 동작 변경 없음. 스킬 이벤트가 되면
-  안전/위험 버튼 대신 스킬 후보 카드(1~2장, `ItemCardStyle.build_card()`를 그대로
-  재사용 — [미니 기획 C]-5가 요청한 "기존 카드 UI 재사용" 반영, item dict에
-  없는 "kind"/"grade" 필드는 build_card()가 기본값으로 자연스럽게 처리)를
-  보여주고, 고르면 `SkillPool.grant()`로 획득 후 방을 소비한다. 방 아이콘은
-  여전히 물음표(mystery) 하나뿐이라 어느 쪽이 나올지 미리 알 수 없음(스포일링
-  방지 요구사항 그대로 유지).
-  **2번(RunState.skill_flags 배열)**: `code/systems/run_state.gd`에
-  `skill_flags: Array[String] = []`를 추가하고 `reset_run()`마다 초기화(다른
-  런 전용 인벤토리들과 같은 "패배 시 리셋" 관례). 신규
-  `code/systems/skill_pool.gd`(`SkillPool`)가 스킬 후보 정의(`SKILLS` — 공용
-  스킬 2종 "심호흡"/"여분", [미니 기획 C]-3이 이미 확정한 이름/수치 그대로
-  옮겨 적음)와 `available_choices(n)`(이미 보유한 스킬은 후보에서 자동 제외)/
-  `grant(skill_id)`(중복 방지)를 담당. **다만 이번 이터레이션 범위는 "구조 +
-  배열"까지로 명시적으로 한정됐고, `combat_test.gd`가 이 배열을 읽어 실제
-  전투 보너스를 적용하는 로직은 아직 연결하지 않았다** — 지금은 스킬을
-  "습득"할 수는 있지만 효과가 없는 상태([미니 기획 C]-3의 나머지 절반 +
-  -4/-5는 다음 이터레이션들이 이어감). `docs/DESIGN.md`의 "플레이어블 캐릭터"
-  절도 이 구조/한계를 명시하도록 갱신.
-  **QA 검증**: `code/scenes/dice_test.gd`에 신규 `_check_skill_event_structure`
-  추가 — SkillPool.SKILLS 개수, available_choices()의 보유 스킬 제외 로직,
-  grant()의 중복 방지, 실제 event.tscn을 인스턴스화해 `_setup_skill_event()`가
-  카드를 정확한 개수만큼 그리는지, `_apply_skill_pick()`이 스킬 부여+방 진행+
-  이중 실행 가드(기존 `_apply_pick`/`_apply_pips`/`_apply_upgrade`와 동일한
-  `_picked` 플래그 공유)까지 정상 동작하는지 검증. 이 작업 중 두 가지 회귀를
-  발견해 함께 고쳤다: (a) `event_node._setup_skill_event([candidate])`처럼
-  untyped 배열 리터럴을 `Array[Dictionary]` 매개변수에 넘기면 "Invalid type"
-  스크립트 오류가 나는 것을 발견해 테스트 쪽에서 명시적으로 타입 선언한 지역
-  변수를 거치도록 수정. (b) 더 중요한 발견 — `_ready()`의 30% 확률 분기 때문에
-  `event.tscn`을 인스턴스화하는 기존 회귀 테스트
-  (`_check_event_safe_risky_choice`의 "위험 감수 강제 실패" 검증)가 가끔(그
-  인스턴스가 우연히 스킬 이벤트로 열렸을 때) `_row_ui`에 스킬 카드가 남아있는
-  상태로 시작해 "아이템 카드 없음"을 기대하는 어서션이 깨지는 것을 실제로
-  재현했다(`_show_fail()`이 `_row_ui`를 정리하지 않는 기존 동작과, 이번에
-  새로 생긴 "인스턴스가 스킬/아이템 어느 쪽으로 열릴지 모른다"는 상황이
-  겹쳐서 생긴 새 버그). `_show_item_offer`/`_show_skill_offer`가 공유하는
-  `_clear_row_ui()` 헬퍼를 신설하고, `_debug_force_risky_success/failure()`
-  QA 훅이 이 헬퍼로 먼저 정리한 뒤 결정적 경로를 재현하도록 고쳐 두 분기
-  어느 쪽으로 열렸든 안정적으로 검증되게 했다. `bash scripts/qa_shot.sh
-  dice_test` 전체 PASS(신규 3건 + 기존 전체 회귀 없음). 화면 검증은
-  `_debug_force_skill_event()`(신규 QA 훅)로 `qa_out/event_skill_offer.png`
-  캡처 — "심호흡"/"여분" 카드 2장이 겹침 없이 나란히 표시되고 DeckPanel과도
-  안 겹침, 단축키 [1]/[2]/[3]도 정확히 배정됨을 확인. `_debug_verify_skill_
-  pickup()`으로 콘솔에서 `grant()` 후 `RunState.skill_flags`에 반영되고
-  두 번째 후보 목록에서 방금 얻은 스킬이 제외되는 것도 확인
-  (`qa_out/event_skill_pickup_check.png`). 기존 아이템 이벤트 경로도
-  `qa_out/event_default_check.png`로 회귀 없음을 재확인. 남은 것: [미니 기획
-  C]-3(공용 스킬 2종 실제 효과)/-4(고유 스킬 1종)/-5(UI는 이미 카드 재사용으로
-  충족) — 다음 이터레이션이 이어서 처리.
-
-- **2026-09-17 (128)**: INBOX.md "남은 이슈"의 [미니 기획 D](스킬 강화 이벤트)
-  1~2번을 지시된 순서대로 착수. `code/systems/skill_pool.gd`에
-  `UPGRADE_SKILLS: Array[Dictionary]`(7종, 기존 SKILLS 2 + UNIQUE_SKILLS 5
-  각각의 "+" 버전 — 심호흡+/여분+/광기 심화+/수호 심화+/연쇄 폭발+/연쇄
-  방어+/임기응변+)를 추가(1번). 각 항목은 `{id, name, description, upgrades:
-  <base id>, character_id(고유 스킬 계열만)}` 형태로 지시된 필드 패턴을 그대로
-  따랐고, 효과 설명은 INBOX.md 기획자 결정 원문의 수치(광기/수호 심화+는
-  보너스 굴림 2→3회, 연쇄 폭발/방어+는 임계치 2 유지하며 굴림 1→2회로 강화,
-  심호흡+는 첫 방어턴 한정→매 방어턴, 여분+는 여분 다이스 1→2개, 임기응변+는
-  임계치 3→2)를 그대로 description에 옮겼다 — description은 아직 텍스트일
-  뿐 실제 전투 배선(4번)은 하지 않았다(지시대로 이번 이터레이션은 1~2번만).
-  이어서 `SkillPool.available_upgrade_choices(n, character_id)`(2번)를
-  추가 — `RunState.skill_flags`에 base id는 있는데 "+"id는 없는 항목만 후보로
-  삼고(둘 다 없거나 둘 다 있으면 제외), character_id가 있는 항목(고유 스킬
-  계열)은 인자로 받은 character_id와 일치할 때만 포함(공용 스킬 강화는
-  캐릭터 무관하게 항상 후보) — `available_choices()`와 대칭 구조로 구현했다.
-  `SkillPool.grant_upgrade(base_id)` 헬퍼도 함께 추가(지시된 2번 항목) —
-  base_id로 UPGRADE_SKILLS에서 대응하는 "+"id를 찾아 기존 `grant()`로
-  `skill_flags`에 추가(중복 방지는 grant()가 그대로 처리), 대응하는 강화판이
-  없는 id를 넘기면 아무 일도 하지 않는다.
-  `code/scenes/dice_test.gd`에 `_check_upgrade_skill_pool` 신규 검증을
-  추가 — (1) UPGRADE_SKILLS 개수(7)와 "upgrades" 필드가 실제 base id를
-  가리키는지, 이름이 전부 "+"로 끝나는지, (2) "심호흡+" 후보가 base 미보유
-  시 안 나오고 base 보유 시 나오고 "+"까지 보유하면 다시 안 나오는 3단계
-  흐름, (3) "광기 심화+"가 frenzy_deepen을 보유한 berserker에게만 제시되고
-  guardian에게는 안 나오는 character_id 필터, (4) grant_upgrade()가 올바른
-  "+"id를 추가하고 재호출 시 중복 없이, 존재하지 않는 id에는 아무 일도 안
-  하는지를 검증. `bash scripts/qa_shot.sh dice_test` 전체 PASS.
-  `bash scripts/qa_shot.sh dungeon_map`으로 관련 없는 화면(던전 맵)이 이번
-  변경 후에도 크래시 없이 로드됨을 확인 — 이번 변경은 데이터/로직 전용이라
-  화면에 아직 아무것도 노출되지 않는다(이벤트 발생 구조(3번)/전투 배선(4번)/
-  UI 강조(5번)가 있어야 실제로 화면에 나타남 — 다음 이터레이션들이 이어서
-  진행할 차례). `docs/feedback/INBOX.md`의 [미니 기획 D] 항목은 아직 "남은
-  이슈"에 그대로 둔다 — 1~5번이 모두 끝나야 처리됨으로 옮기라는 지시(완료
-  기준 문구) 그대로, 진행 상황만 이 항목으로 기록.
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(128)에서 (118)을 그리로 옮겼다.)*
+이번 이터레이션(129)에서 (119)를 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 
