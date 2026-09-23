@@ -36,8 +36,31 @@
   적당히 비어있는 포지션에 재미요소 맞춰서 해봐.
 
   → **A(방패병 리스킨)/B(매혹사)/C(곡예사) 완료(2026-09-24 (140)/(141)/(142)),
-  D는 1~3번 완료(2026-09-24 (143)/(144)), 4~7번 남음.**
-  D-3(이번 이터레이션, (144)): `skill_pool.gd`의 `STARTING_SKILLS`에서
+  D는 1~4번 완료(2026-09-24 (143)/(144)/(145)), 5~7번 남음.**
+  D-4(이번 이터레이션, (145)): `skill_pool.gd`의 `UNIQUE_SKILLS`에 매혹사
+  "매혹 심화"(`charm_amplify`)/곡예사 "곡예 앙코르"(`juggle_encore`)를,
+  `UPGRADE_SKILLS`에 각각의 "+" 강화판을 INBOX.md 원문 예시 그대로 추가했다
+  (사람 결정 대기 없이 진행). 매혹 심화: `dice_bag.gd`의
+  `apply_charm_flip(values)`에 `count: int = 1` 매개변수를 추가(기존 호출부
+  호환 유지) — charm_flip이 매 턴 뒤집는 다이스 개수를 1개(기본)→2개(매혹
+  심화)→3개(매혹 심화+)로 늘린다. 곡예 앙코르: `run_state.gd`의
+  `advance_round()`(라운드 전환 시점)에 `skill_flags.has("juggle_encore")`
+  조건으로 `DiceBag.swap_random_dice()`를 한 번 더 호출(런 시작 1회뿐이던
+  juggle_swap을 라운드가 바뀔 때마다 재발동) — "+"는 같은 전환에서 2회
+  호출. 둘 다 새 메커니즘 없이 기존 헬퍼(`apply_charm_flip`/
+  `swap_random_dice`)만 재사용했다. `combat_test.gd`의 기존 `charm_flip`
+  분기에 "+ > base > 미보유" 우선순위로 count를 계산하는 3줄만 추가해
+  실전 배선을 마쳤다(spare_die/spare_die_plus와 같은 우선순위 패턴).
+  `UPGRADE_SKILLS` 배열 맨 끝(인덱스 7/8)에 추가해 기존 `dice_test.gd`의
+  `UPGRADE_SKILLS[6]` 하드코딩 검증이 안 깨지게 했다. `dice_test.gd`에
+  캐릭터 필터(매혹사/곡예사 전용 확인)·`apply_charm_flip(count=1/2/3)`
+  실제 효과·`advance_round()` 재발동 검증을 추가하고 `UPGRADE_SKILLS` 개수
+  하드코딩을 7→9로 갱신, `bash scripts/qa_shot.sh dice_test` 전체 PASS.
+  화면 레이아웃 변경은 없어 `scripts/qa_shot.sh character_select`로 기존
+  7종 목록이 정상 로드됨만 재확인. D-5(character_select QA)/D-6(DESIGN.md
+  표 갱신)/D-7(초상 확인)은 "한 이터레이션에 다 하지 말 것" 지시대로 다음
+  이터레이션으로 남긴다.
+  D-3(2026-09-24, (144)): `skill_pool.gd`의 `STARTING_SKILLS`에서
   기존 원형 6종 중 4개의 `character_ids`에 매혹사/곡예사를 추가했다(새 원형은
   만들지 않음, 지시대로). 매혹사(공격/방어 D4x3/D4x3, 균형형, 기믹이 공수
   양쪽에 작용)는 원문 예시 그대로 "확장"(`start_expand`, 합계 8+)/"정예"

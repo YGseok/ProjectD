@@ -8,6 +8,43 @@
 
 ---
 
+- **2026-09-17 (135)**: INBOX.md "부분 처리됨"의 [미니 기획 E](캐릭터별 시작 스킬
+  선택) 3번(선택 UI)을 진행 — 데이터(2번, (134))는 이미 있었으니 이번엔
+  `character_select.gd`에 실제로 고를 수 있는 UI를 붙였다. 상세 패널에 "시작
+  스킬 (하나만 선택)" 섹션을 신설해 `SkillPool.starting_skills_for_character()`가
+  돌려주는 후보(캐릭터당 2개, 슬롯 0/1)를 버튼 두 개로 보여준다. 슬롯 0은 항상
+  클릭 가능하고, 슬롯 1은 `AchievementManager.is_unlocked("clear_" +
+  character_id)`가 false면 신규 `code/scenes/lock_icon.gd`(`LockIcon`,
+  achievement_icon.gd류 절차적 `_draw()` 패턴 재사용)와 흐린 글씨로 잠금
+  표시하고 `button.disabled = true`로 클릭 자체를 막는다(스타일만 다른 게
+  아니라 pressed 시그널을 아예 연결하지 않음). 선택 상태는 신규
+  `RunState.chosen_starting_skill_id: String`에 저장 — 캐릭터 카드를 고를
+  때마다 `_valid_or_default_starting_skill_id()`가 "이미 골라둔 id가 새
+  캐릭터에서도 잠기지 않은 후보인지" 검증해, 아니면 슬롯 0으로 되돌린다(예:
+  "확장"은 견습 모험가의 슬롯 0이자 폭발병의 슬롯 1이라 같은 id라도 캐릭터에
+  따라 잠금 여부가 다름 — 이 교차 사례를 직접 테스트로 검증했다, 아래 참고).
+  구현 중 실제 버그를 하나 발견해 고쳤다: 슬롯 컨테이너를 다시 그릴 때 기존
+  `_build_cards()`처럼 `queue_free()`만 쓰면 그 프레임 끝까지 컨테이너 자식
+  목록에 옛 버튼이 남아 새 버튼과 인덱스가 섞인다(이 함수는 슬롯 버튼 자신의
+  `pressed` 핸들러에서도 재호출되므로 같은 프레임 안에서 바로 문제가 됨) —
+  `remove_child()`로 즉시 트리에서 떼어낸 뒤 `queue_free()`로 지우도록 고쳐
+  해결(메모리 해제 자체는 여전히 지연시켜 시그널 처리 중 해제 크래시는
+  피함). **QA 검증**: `dice_test.gd`에 신규 `_check_starting_skill_selection_ui`
+  (character_select.tscn을 실제로 인스턴스화해 (a) 기본 선택은 슬롯 0, (b)
+  업적 미해금 시 슬롯 1 `disabled=true`, (c) 해금 후 클릭 가능 + 실제 선택
+  반영, (d) 위 교차 잠금 사례를 각각 검증)를 추가, `bash scripts/qa_shot.sh
+  dice_test` 전체 PASS(위 버그를 고치기 전에는 (c) 항목이 실제로 FAIL로
+  잡혔음 — 회귀 테스트가 실제로 버그를 잡아낸 경우). `qa_out/
+  character_select_starting_skill_locked.png`(슬롯 1 잠김, 자물쇠 아이콘)/
+  `qa_out/character_select_starting_skill_unlocked.png`(clear_novice 해금
+  후 슬롯 1 선택 가능 + 실제 선택된 상태)/`qa_out/
+  character_select_starting_skill_guardian.png`(가장 긴 라벨 "강철 방비"도
+  겹침 없이 표시)로 확인. [미니 기획 E] 남은 것은 4번(적용 배선 —
+  `RunState.reset_run()`이 `chosen_starting_skill_id`를 읽어
+  `SkillPool.grant()`하고 `combat_test.gd`가 6개 조건 분기를 추가하는 것,
+  지시대로 한 이터레이션에 2~3개씩 나눠 진행) — 1~3번이 끝났으니 다음
+  이터레이션이 이어가면 된다. 5번(UI 강조)은 선택 사항.
+
 - **2026-09-17 (134)**: INBOX.md "남은 이슈"의 [미니 기획 E](캐릭터별 시작 스킬
   선택) 2번(STARTING_SKILLS 데이터 정의)을 진행 — 지시대로 이 하나만 이번
   이터레이션 범위로 한정했다(1/3/4/5번은 사람 설계가 이미 나와 있어도 순서대로

@@ -5,24 +5,26 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-09-24 (144)
+- 일시: 2026-09-24 (145)
 - 작성자: AI 에이전트. 세션 지침이 INBOX.md "부분 처리됨"의 [대형 기획 4]
-  (캐릭터 로스터 개편) D(공통 후속)의 **3번**(`skill_pool.gd`의
-  `STARTING_SKILLS` 6원형에서 매혹사/곡예사에게 각 2종씩 `character_ids`
-  배정)을 진행하라고 구체적으로 지시했으므로 **D-3만** 수행했다.
-  기존 6원형 중 매혹사에겐 "확장"/"정예", 곡예사에겐 "맹공"/"수집가"를
-  각각 배정(둘 다 시작 다이스 구성상 슬롯 0 스킬이 런 시작부터 바로
-  발동하는 우연한 시너지 확인). `combat_test.gd`는 스킬 flag만 검사하는
-  구조라 코드 수정 없이 자동으로 작동함을 확인했다. `dice_test.gd`의
-  `_check_starting_skills` 기대값에 두 캐릭터를 추가해 검증,
-  `bash scripts/qa_shot.sh dice_test` 전체 PASS. `qa_out/character_select_
-  juggler_skills.png`로 곡예사 상세 패널의 새 슬롯 2개(선택됨/잠김)가
-  겹침 없이 정상 표시됨을 확인. 자세한 내용은 아래 "완료 기록 (144)" 참고.
-  "완료 기록" 10개 유지를 위해 (134)를 `docs/STATUS_ARCHIVE.md`로 옮겼다.
-  D의 나머지 4~7번(UNIQUE_SKILLS 고유 스킬 신설, character_select 7종 최종
-  QA, DESIGN.md 캐릭터 표 갱신, 초상 확인)은 원문이 "한 이터레이션에 다
-  하지 말 것"이라 명시해 일부러 손대지 않았다 — INBOX.md "부분 처리됨"에
-  그대로 남겨뒀다, 다음 세션이 D-4부터 이어갈 차례.
+  (캐릭터 로스터 개편) D(공통 후속)의 **4번**(`skill_pool.gd`의
+  `UNIQUE_SKILLS`/`UPGRADE_SKILLS`에 매혹사/곡예사 전용 고유 스킬 1종씩 +
+  "+" 강화판 추가, 자기 기믹과 시너지)을 진행하라고 구체적으로 지시했으므로
+  **D-4만** 수행했다. 매혹사는 "매혹 심화"(`charm_amplify`, charm_flip
+  대상 다이스 1개→2개, "+"는 3개)를, 곡예사는 "곡예 앙코르"
+  (`juggle_encore`, juggle_swap을 라운드 전환마다 재발동, "+"는 전환당
+  2회)를 INBOX.md 원문 예시 그대로 구현했다. `dice_bag.gd`의
+  `apply_charm_flip()`에 `count` 매개변수 추가(하위 호환 유지), `run_state.gd`의
+  `advance_round()`에 `juggle_encore` 조건부 재발동 3줄 추가 — 둘 다 새
+  메커니즘 없이 기존 헬퍼 재사용. `dice_test.gd`에 캐릭터 필터/효과/전투
+  배선 검증을 추가하고 `UPGRADE_SKILLS` 개수 하드코딩을 7→9로 갱신,
+  `bash scripts/qa_shot.sh dice_test` 전체 PASS. 자세한 내용은 아래 "완료
+  기록 (145)" 참고. "완료 기록" 10개 유지를 위해 (135)를
+  `docs/STATUS_ARCHIVE.md`로 옮겼다.
+  D의 나머지 5~7번(character_select 7종 최종 육안 QA, DESIGN.md 캐릭터 표
+  갱신, 초상 확인)은 원문이 "한 이터레이션에 다 하지 말 것"이라 명시해
+  일부러 손대지 않았다 — INBOX.md "부분 처리됨"에 그대로 남겨뒀다, 다음
+  세션이 D-5부터 이어갈 차례.
 
 ## 지금 위치
 
@@ -42,14 +44,15 @@ id: `juggler`)**) → 던전 맵(런 5방 × 3라운드) → 전투/상점/특�
 그대로 유지(이번 이터레이션은 손대지 않음, 상세는 STATUS_ARCHIVE.md와 아래
 "알려진 이슈" 참고). **진행 중: [대형 기획 4] 캐릭터 로스터 개편** —
 A(방패병→"주술사" 리스킨)/B(매혹사)/C(곡예사) 완료, D(공통 후속)는
-1~3번 완료(업적 `clear_enchantress`/`clear_juggler` 추가 + unlock 경로
-검증, `STARTING_SKILLS` 매혹사=[확장,정예]/곡예사=[맹공,수집가] 배정),
-**4~7번(UNIQUE_SKILLS 고유 스킬 신설, character_select 7종 최종 QA,
-DESIGN.md 캐릭터 표 7종 갱신, 초상 확인)만 남음** — INBOX.md "부분 처리됨"
-참고. 매혹사/곡예사 둘 다 `skill_pool.gd`의 `UNIQUE_SKILLS`(런 중 무작위
-이벤트로 얻는 고유 스킬)에는 아직 항목이 없어(D-4에서 처리 예정) 두
-캐릭터로 "캐릭터 스킬 부여 이벤트"를 만나도 공용 스킬(심호흡/여분)만
-뜬다 — 크래시는 아니고 의도된 중간 상태(시작 스킬 쪽은 D-3로 채워짐).
+1~4번 완료(업적 `clear_enchantress`/`clear_juggler` 추가 + unlock 경로
+검증, `STARTING_SKILLS` 매혹사=[확장,정예]/곡예사=[맹공,수집가] 배정,
+`UNIQUE_SKILLS`에 매혹사 "매혹 심화"(`charm_amplify`, charm_flip 대상
+1개→2개)/곡예사 "곡예 앙코르"(`juggle_encore`, juggle_swap 라운드 전환마다
+재발동) + 각각 "+" 강화판 추가),
+**5~7번(character_select 7종 최종 육안 QA, DESIGN.md 캐릭터 표 7종 갱신,
+초상 확인)만 남음** — INBOX.md "부분 처리됨" 참고. 매혹사/곡예사는 이제
+"캐릭터 스킬 부여 이벤트"를 만나면 공용 스킬(심호흡/여분)에 더해 각자의
+고유 스킬도 후보로 뜬다(전투 실배선까지 완료, 아래 "완료 기록 (145)" 참고).
 **알려진 이슈**: 방패병(현 "주술사")의 "정예" 슬롯은 기본 다이스
 합계(7개)가 이미 조건(6개 이하)을 넘어서고 다이스를 줄이는 수단이 게임에
 전혀 없어 이론상 절대 발동하지 않는다 — "알려진 이슈" 섹션에 사람 결정
@@ -72,16 +75,23 @@ DESIGN.md 캐릭터 표 7종 갱신, 초상 확인)만 남음** — INBOX.md "�
 - **캐릭터 스킬 이벤트** (`code/scenes/event.gd`): 특수 이벤트 방이 30%
   확률(`SKILL_EVENT_CHANCE`)로 아이템 대신 스킬 카드 2장을 보여준다. 공용
   스킬 2종(심호흡=첫 방어턴 방어값 +1(면 개수 상한)/여분=매 공격턴 최저값을
-  advantage 방식으로 대체) + 캐릭터 전용 고유 스킬 **5종**(`SkillPool.
-  UNIQUE_SKILLS`, `character_id`로 필터, 2026-09-17 (127)로 5/5종 완성):
+  advantage 방식으로 대체) + 캐릭터 전용 고유 스킬 **7종**(`SkillPool.
+  UNIQUE_SKILLS`, `character_id`로 필터, 2026-09-17 (127)로 5종, 2026-09-24
+  (145)로 매혹사/곡예사 2종 추가돼 7/7종 완성):
   광기 심화(광전사, explosive_stack 파이프라인을 새로 열고 보너스턴이 1D20
   두 번 굴려 채택) / 수호 심화(수호자, guard_stack 파이프라인을 새로 열고
   동일 강화) / 연쇄 폭발(폭발병, 이미 갖고 있던 explosive_stack의 임계치를
   3→2로 낮춤) / 연쇄 방어(방패병, 연쇄 폭발과 대칭으로 guard_stack 임계치를
-  3→2로 낮춤) / **임기응변(견습 모험가, 신규 — 시너지 삼을 기믹이 없는 대신
+  3→2로 낮춤) / 임기응변(견습 모험가, 시너지 삼을 기믹이 없는 대신
   frenzy_deepen/guard_deepen 패턴을 공격+방어 양쪽에 동시 적용, 임계치/보너스
-  턴 강화는 없음)**. 획득한 스킬 id는 `RunState.skill_flags`에 쌓이고
-  `combat_test.gd`의 `_do_exchange()`가 실제 효과를 적용한다.
+  턴 강화는 없음) / **매혹 심화(매혹사, 신규 — 자기 기믹 charm_flip이 매
+  턴 뒤집는 다이스 개수를 1개→2개로 늘림, `DiceBag.apply_charm_flip()`의
+  count 매개변수 재사용)** / **곡예 앙코르(곡예사, 신규 — 자기 기믹
+  juggle_swap을 라운드 전환마다 재발동, `RunState.advance_round()`에서
+  `DiceBag.swap_random_dice()` 재호출)**. 7종 전부 "+" 강화판도 있다
+  (`UPGRADE_SKILLS`, 총 9종 — 공용 2 + 고유 7). 획득한 스킬 id는
+  `RunState.skill_flags`에 쌓이고 `combat_test.gd`의 `_do_exchange()`/
+  `run_state.gd`의 `advance_round()`가 실제 효과를 적용한다.
 - **특수 이벤트(아이템 쪽)**: "안전하게 넘어가기"(C/B급 가중치 무작위 확정
   획득)/"위험을 감수하기"(이벤트 주사위 1회 vs `DC=min(5,3+room_index/2)`,
   성공 시 B/A/S급 가중치 무작위, 실패 시 무보상) 2택(`EventItemPool`). 아이템
@@ -126,17 +136,13 @@ DESIGN.md 캐릭터 표 7종 갱신, 초상 확인)만 남음** — INBOX.md "�
 진행하는 것을 권장한다. 한 이터레이션에 한두 개만 진행할 것.
 
 -1. **(INBOX.md 2026-09-24, [대형 기획 4] 캐릭터 로스터 개편 — A/B/C 완료,
-   D-1~3 완료, D-4~7 남음, 최우선)** A(방패병→"주술사" 리스킨)는 (140),
+   D-1~4 완료, D-5~7 남음, 최우선)** A(방패병→"주술사" 리스킨)는 (140),
    B(신규 "매혹사", id: `enchantress`, 기믹 `charm_flip`)는 (141), C(신규
    "곡예사", id: `juggler`, 기믹 `juggle_swap`)는 (142), D-1~2(업적
    `clear_enchantress`/`clear_juggler` 추가 + unlock 경로 검증)는 (143),
    D-3(`STARTING_SKILLS` 배정: 매혹사=[확장,정예], 곡예사=[맹공,수집가])는
-   (144)에서 완료. 남은 것:
-   - **D-4.** `skill_pool.gd`의 `UNIQUE_SKILLS`/`UPGRADE_SKILLS`에 매혹사/
-     곡예사 전용 고유 스킬 1종씩("+" 강화판 포함) 추가 — 자기 기믹과 시너지
-     방향으로(INBOX.md 원문 예시: 매혹사는 charm_flip 대상 다이스를
-     1개→2개로 늘리는 스킬, 곡예사는 juggle_swap을 라운드 전환 시 재발동하는
-     스킬 등).
+   (144), D-4(`UNIQUE_SKILLS`/`UPGRADE_SKILLS`에 매혹사 "매혹 심화"/곡예사
+   "곡예 앙코르" + 각 "+" 강화판)는 (145)에서 완료. 남은 것:
    - **D-5.** `character_select.gd`/`.tscn` 7종 레이아웃 QA — 이미 (141)/
      (142)/(144)에서 스크린샷으로 깨짐 없음 확인됨, 남은 건 사람 눈으로 최종
      재확인 정도.
@@ -743,6 +749,52 @@ DESIGN.md 캐릭터 표 7종 갱신, 초상 확인)만 남음** — INBOX.md "�
 
 ## 완료 기록
 
+- **2026-09-24 (145)**: 세션 지침대로 INBOX.md "부분 처리됨"의 [대형 기획 4]
+  (캐릭터 로스터 개편) **D(공통 후속) 4번**(`skill_pool.gd`의
+  `UNIQUE_SKILLS`/`UPGRADE_SKILLS`에 매혹사/곡예사 전용 고유 스킬 1종씩 +
+  "+" 강화판 추가)을 진행했다 — A/B/C/D-1~3은 (140)~(144)에서 이미 완료.
+  INBOX.md 원문이 예시로 든 방향을 그대로 채택했다(사람 결정 대기 없이 진행,
+  세션 지침대로).
+  **매혹사 "매혹 심화"(`charm_amplify`)**: 원문 예시 "charm_flip 대상 다이스를
+  1개→2개로 늘리는 스킬" 그대로. 새 메커니즘을 만들지 않고
+  `code/systems/dice_bag.gd`의 `apply_charm_flip(values)`에 `count: int = 1`
+  매개변수를 추가(기본값 1이라 기존 호출부는 그대로 동작, 하위 호환 깨짐
+  없음) — 이미 뒤집은 자리를 다시 고르지 않도록 매 반복마다 "아직 안 뒤집은
+  것 중" 최솟값을 새로 찾는 방식으로 count개까지 확장했다. "+"판
+  `charm_amplify_plus`는 2개→3개로 한 단계 더(다른 "+" 스킬들의 "숫자 한
+  단계 증가" 패턴과 동일, 예: 여분 1→2/광기 심화 2번→3번 굴림). 실제 배선은
+  `code/scenes/combat_test.gd`의 기존 `charm_flip` 분기에 "`+` > base > 미보유"
+  우선순위로 count를 계산하는 3줄만 추가(spare_die/spare_die_plus와 완전히
+  같은 우선순위 패턴).
+  **곡예사 "곡예 앙코르"(`juggle_encore`)**: 원문 예시 "juggle_swap을 라운드
+  전환 시 재발동하는 스킬" 그대로. 자기 기믹 `juggle_swap`이 "런 시작 1회뿐"
+  이라 한 런 안에서는 고정이었던 것을, `code/systems/run_state.gd`의
+  `advance_round()`(라운드가 바뀔 때만 호출되는 기존 함수, `round_index`
+  증가/`rooms_cleared` 리셋 바로 뒤)에 `skill_flags.has("juggle_encore")`
+  조건으로 `DiceBag.swap_random_dice(player_attack_bag, player_defense_bag)`
+  를 한 번 더 호출하는 3줄을 추가 — 새 다이스 연산 없이 기존 static 헬퍼
+  재사용. "+"판 `juggle_encore_plus`는 같은 전환에서 서로 다른 무작위 쌍으로
+  한 번 더 맞바꿔 총 2회가 되게 함(같은 함수를 두 번 호출, 매혹사 쪽과
+  마찬가지로 "횟수를 한 단계 늘림" 패턴).
+  **UPGRADE_SKILLS 배열에 두 "+"를 맨 끝(인덱스 7/8)에 추가**해 기존
+  `dice_test.gd`의 `UPGRADE_SKILLS[6] == "versatile_surge_plus"` 하드코딩
+  검증이 깨지지 않게 했다(인덱스 밀림 없음).
+  **QA 검증**: `code/scenes/dice_test.gd`의 `_check_skill_effects`에 (2f)
+  '매혹 심화'/(2g) '곡예 앙코르' 캐릭터 필터 검증(각각 매혹사/곡예사에게만
+  후보로 뜨는지), (8) `apply_charm_flip([1,2,3,4], count=1/2/3)`이 정확히
+  1/2/3개를 최댓값(4)으로 바꾸는지(D4x4 기준 [4,2,3,4]/[4,4,3,4]/[4,4,4,4]),
+  (9) `RunState.advance_round()`가 `juggle_encore`/`juggle_encore_plus`
+  보유 시 라운드 전환마다 실제로 추가 호출되는지(다이스 "개수"는 불변이어야
+  함을 함께 검증, swap 자체의 정확성은 이미 (142)의 `swap_random_dice()`
+  단위 테스트가 다룸)를 추가했다. `_check_upgrade_skill_pool`의 하드코딩
+  개수도 7→9로 갱신. `bash scripts/qa_shot.sh dice_test` 전체 PASS(신규
+  검증 전부 포함). 화면 레이아웃 변경은 없어(스킬 데이터 추가 + 순수 로직
+  배선뿐) `scripts/qa_shot.sh character_select`로 기존 7종 목록이 여전히
+  정상 로드됨을 재확인.
+  **남은 것**: D-5(character_select 7종 레이아웃 최종 육안 확인)/D-6
+  (DESIGN.md 캐릭터 표 7종 갱신)/D-7(초상 확인) — 다음 이터레이션이 이어갈
+  차례. "완료 기록" 10개 유지를 위해 (135)를 `docs/STATUS_ARCHIVE.md`로 옮겼다.
+
 - **2026-09-24 (144)**: 세션 지침대로 INBOX.md "부분 처리됨"의 [대형 기획 4]
   (캐릭터 로스터 개편) **D(공통 후속) 3번**(`STARTING_SKILLS` 6원형에서
   매혹사/곡예사에게 각 2종씩 `character_ids` 배정)을 진행했다 — A/B/C는
@@ -1060,43 +1112,6 @@ DESIGN.md 캐릭터 표 7종 갱신, 초상 확인)만 남음** — INBOX.md "�
   수집가/강철 방비 마지막). 4번이 전부 끝나면 INBOX.md [미니 기획 E] 항목을
   "처리됨"으로 옮길 것(5번은 선택). "완료 기록" 10개 유지를 위해 (126)을
   `docs/STATUS_ARCHIVE.md`로 옮겼다.
-
-- **2026-09-17 (135)**: INBOX.md "부분 처리됨"의 [미니 기획 E](캐릭터별 시작 스킬
-  선택) 3번(선택 UI)을 진행 — 데이터(2번, (134))는 이미 있었으니 이번엔
-  `character_select.gd`에 실제로 고를 수 있는 UI를 붙였다. 상세 패널에 "시작
-  스킬 (하나만 선택)" 섹션을 신설해 `SkillPool.starting_skills_for_character()`가
-  돌려주는 후보(캐릭터당 2개, 슬롯 0/1)를 버튼 두 개로 보여준다. 슬롯 0은 항상
-  클릭 가능하고, 슬롯 1은 `AchievementManager.is_unlocked("clear_" +
-  character_id)`가 false면 신규 `code/scenes/lock_icon.gd`(`LockIcon`,
-  achievement_icon.gd류 절차적 `_draw()` 패턴 재사용)와 흐린 글씨로 잠금
-  표시하고 `button.disabled = true`로 클릭 자체를 막는다(스타일만 다른 게
-  아니라 pressed 시그널을 아예 연결하지 않음). 선택 상태는 신규
-  `RunState.chosen_starting_skill_id: String`에 저장 — 캐릭터 카드를 고를
-  때마다 `_valid_or_default_starting_skill_id()`가 "이미 골라둔 id가 새
-  캐릭터에서도 잠기지 않은 후보인지" 검증해, 아니면 슬롯 0으로 되돌린다(예:
-  "확장"은 견습 모험가의 슬롯 0이자 폭발병의 슬롯 1이라 같은 id라도 캐릭터에
-  따라 잠금 여부가 다름 — 이 교차 사례를 직접 테스트로 검증했다, 아래 참고).
-  구현 중 실제 버그를 하나 발견해 고쳤다: 슬롯 컨테이너를 다시 그릴 때 기존
-  `_build_cards()`처럼 `queue_free()`만 쓰면 그 프레임 끝까지 컨테이너 자식
-  목록에 옛 버튼이 남아 새 버튼과 인덱스가 섞인다(이 함수는 슬롯 버튼 자신의
-  `pressed` 핸들러에서도 재호출되므로 같은 프레임 안에서 바로 문제가 됨) —
-  `remove_child()`로 즉시 트리에서 떼어낸 뒤 `queue_free()`로 지우도록 고쳐
-  해결(메모리 해제 자체는 여전히 지연시켜 시그널 처리 중 해제 크래시는
-  피함). **QA 검증**: `dice_test.gd`에 신규 `_check_starting_skill_selection_ui`
-  (character_select.tscn을 실제로 인스턴스화해 (a) 기본 선택은 슬롯 0, (b)
-  업적 미해금 시 슬롯 1 `disabled=true`, (c) 해금 후 클릭 가능 + 실제 선택
-  반영, (d) 위 교차 잠금 사례를 각각 검증)를 추가, `bash scripts/qa_shot.sh
-  dice_test` 전체 PASS(위 버그를 고치기 전에는 (c) 항목이 실제로 FAIL로
-  잡혔음 — 회귀 테스트가 실제로 버그를 잡아낸 경우). `qa_out/
-  character_select_starting_skill_locked.png`(슬롯 1 잠김, 자물쇠 아이콘)/
-  `qa_out/character_select_starting_skill_unlocked.png`(clear_novice 해금
-  후 슬롯 1 선택 가능 + 실제 선택된 상태)/`qa_out/
-  character_select_starting_skill_guardian.png`(가장 긴 라벨 "강철 방비"도
-  겹침 없이 표시)로 확인. [미니 기획 E] 남은 것은 4번(적용 배선 —
-  `RunState.reset_run()`이 `chosen_starting_skill_id`를 읽어
-  `SkillPool.grant()`하고 `combat_test.gd`가 6개 조건 분기를 추가하는 것,
-  지시대로 한 이터레이션에 2~3개씩 나눠 진행) — 1~3번이 끝났으니 다음
-  이터레이션이 이어가면 된다. 5번(UI 강조)은 선택 사항.
 
 - **2026-09-24 (143)**: INBOX.md "부분 처리됨"의 [대형 기획 4](캐릭터 로스터
   개편) **D(공통 후속) 1~2번**을 세션 지침대로 진행했다 — A(주술사 리스킨)/

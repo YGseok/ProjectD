@@ -80,6 +80,19 @@ const SKILLS: Array[Dictionary] = [
 ## 것 자체가 이미 다른 4종 대비 강력하므로, 축마다의 강화까지 겹치면 과할 수 있음 —
 ## "넓지만 얕게"가 견습 모험가의 정체성, combat_test.gd의 player_versatile_active
 ## 분기 참고).
+##
+## "charm_amplify"(매혹 심화): 매혹사(enchantress) 전용, INBOX.md 2026-09-24
+## [대형 기획 4]-D4가 예시로 든 그대로 — 자기 기믹 charm_flip이 매 턴 "가장 낮은
+## 다이스 1개"만 최댓값으로 뒤집던 것을 "1개가 아니라 2개"로 늘린다. 새 메커니즘을
+## 만들지 않고 DiceBag.apply_charm_flip()에 이미 있던 count 매개변수(기본값 1)를
+## 그대로 재사용한다(combat_test.gd의 charm_flip 분기 참고).
+##
+## "juggle_encore"(곡예 앙코르): 곡예사(juggler) 전용. 자기 기믹 juggle_swap은
+## "런 시작 시 1회"뿐이라 한 런 안에서는 고정이었는데(character_profiles.gd 주석
+## 참고), 이 스킬은 INBOX.md 예시("juggle_swap을 라운드가 바뀔 때마다 재발동")
+## 그대로 라운드 전환(RunState.advance_round(), 3라운드 중 1->2/2->3 전환 시점)마다
+## DiceBag.swap_random_dice()를 한 번 더 호출해 공격/방어 다이스 무작위 1개씩을 다시
+## 맞바꾼다 — 새 다이스 연산 없이 기존 헬퍼 재사용(run_state.gd의 advance_round() 참고).
 const UNIQUE_SKILLS: Array[Dictionary] = [
 	{
 		"id": "frenzy_deepen",
@@ -111,18 +124,28 @@ const UNIQUE_SKILLS: Array[Dictionary] = [
 		"description": "공격/방어 다이스가 각각 최댓값을 보일 때마다 해당 스택이 함께 쌓인다. 공격은 3스택에서 보너스 공격턴을, 방어는 3스택에서 보너스 방어턴을 각각 1D20으로 얻는다 (견습 모험가 전용).",
 		"character_id": "novice",
 	},
+	{
+		"id": "charm_amplify",
+		"name": "매혹 심화",
+		"description": "charm_flip 효과가 그 턴 가장 낮은 다이스 1개가 아니라 2개에 적용된다 (매혹사 전용).",
+		"character_id": "enchantress",
+	},
+	{
+		"id": "juggle_encore",
+		"name": "곡예 앙코르",
+		"description": "라운드가 바뀔 때마다 공격 다이스 무작위 1개와 방어 다이스 무작위 1개를 다시 맞바꾼다 (곡예사 전용).",
+		"character_id": "juggler",
+	},
 ]
 
 
-## 스킬 강화판([미니 기획 D], 2026-09-17) — 기존 7종 스킬(SKILLS 2종 + UNIQUE_SKILLS
-## 5종) 각각의 "+" 버전. 새 메커니즘을 만들지 않고 "기존 메커니즘을 한 단계 더 강하게"만
-## 한다(기획자 결정 원문). "upgrades" 필드가 base 스킬 id를 가리킨다 — 이 필드로
-## available_upgrade_choices()가 "base를 보유했는데 +는 아직 없는" 후보를 찾는다.
-## character_id 필드는 UNIQUE_SKILLS 계열 강화에만 있고(공용 스킬 강화는 캐릭터 무관),
-## item dict 형식은 SKILLS/UNIQUE_SKILLS와 동일해 ItemCardStyle 카드 UI를 그대로 재사용한다.
-##
-## 실제 전투 효과 배선([미니 기획 D]-4)은 아직 없음 — 이번 이터레이션은 데이터 정의(1번)와
-## 후보 뽑기(2번)까지만, combat_test.gd 배선은 다음 이터레이션들이 나눠서 이어간다.
+## 스킬 강화판([미니 기획 D], 2026-09-17; 2026-09-24 [대형 기획 4]-D4로 매혹사/곡예사
+## 2종 추가돼 총 9종) — 기존 스킬(SKILLS 2종 + UNIQUE_SKILLS 7종) 각각의 "+" 버전. 새
+## 메커니즘을 만들지 않고 "기존 메커니즘을 한 단계 더 강하게"만 한다(기획자 결정 원문).
+## "upgrades" 필드가 base 스킬 id를 가리킨다 — 이 필드로 available_upgrade_choices()가
+## "base를 보유했는데 +는 아직 없는" 후보를 찾는다. character_id 필드는 UNIQUE_SKILLS
+## 계열 강화에만 있고(공용 스킬 강화는 캐릭터 무관), item dict 형식은 SKILLS/UNIQUE_SKILLS와
+## 동일해 ItemCardStyle 카드 UI를 그대로 재사용한다.
 const UPGRADE_SKILLS: Array[Dictionary] = [
 	{
 		"id": "deep_breath_plus",
@@ -170,6 +193,20 @@ const UPGRADE_SKILLS: Array[Dictionary] = [
 		"description": "공격/방어 스택 임계치가 3에서 2로 낮아져 보너스 턴을 더 자주 받는다 (견습 모험가 전용).",
 		"upgrades": "versatile_surge",
 		"character_id": "novice",
+	},
+	{
+		"id": "charm_amplify_plus",
+		"name": "매혹 심화+",
+		"description": "charm_flip 효과가 그 턴 가장 낮은 다이스 2개가 아니라 3개에 적용된다 (매혹사 전용).",
+		"upgrades": "charm_amplify",
+		"character_id": "enchantress",
+	},
+	{
+		"id": "juggle_encore_plus",
+		"name": "곡예 앙코르+",
+		"description": "라운드 전환 시 다이스 교환이 1번이 아니라 2번(서로 다른 무작위 다이스 쌍) 일어난다 (곡예사 전용).",
+		"upgrades": "juggle_encore",
+		"character_id": "juggler",
 	},
 ]
 

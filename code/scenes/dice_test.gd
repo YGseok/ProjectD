@@ -2659,6 +2659,37 @@ func _check_skill_effects(lines: PackedStringArray) -> bool:
 	lines.append("  '임기응변' 캐릭터 필터: novice=%s berserker=%s (기대 true/false) -> %s" % [
 		novice_has_versatile, berserker_has_versatile, "OK" if versatile_filter_ok else "FAIL"
 	])
+	# (2f) 매혹 심화(charm_amplify)는 매혹사(enchantress) 전용 후보로만 제시된다
+	# ([대형 기획 4]-D4, 2026-09-24).
+	var enchantress_choices := SkillPool.available_choices(SkillPool.SKILLS.size() + SkillPool.UNIQUE_SKILLS.size(), "enchantress")
+	var enchantress_has_charm_amplify := false
+	for s in enchantress_choices:
+		if s["id"] == "charm_amplify":
+			enchantress_has_charm_amplify = true
+	var berserker_has_charm_amplify := false
+	for s in berserker_choices:
+		if s["id"] == "charm_amplify":
+			berserker_has_charm_amplify = true
+	var charm_amplify_filter_ok: bool = enchantress_has_charm_amplify and not berserker_has_charm_amplify
+	ok = charm_amplify_filter_ok and ok
+	lines.append("  '매혹 심화' 캐릭터 필터: enchantress=%s berserker=%s (기대 true/false) -> %s" % [
+		enchantress_has_charm_amplify, berserker_has_charm_amplify, "OK" if charm_amplify_filter_ok else "FAIL"
+	])
+	# (2g) 곡예 앙코르(juggle_encore)는 곡예사(juggler) 전용 후보로만 제시된다.
+	var juggler_choices := SkillPool.available_choices(SkillPool.SKILLS.size() + SkillPool.UNIQUE_SKILLS.size(), "juggler")
+	var juggler_has_encore := false
+	for s in juggler_choices:
+		if s["id"] == "juggle_encore":
+			juggler_has_encore = true
+	var enchantress_has_encore := false
+	for s in enchantress_choices:
+		if s["id"] == "juggle_encore":
+			enchantress_has_encore = true
+	var juggle_encore_filter_ok: bool = juggler_has_encore and not enchantress_has_encore
+	ok = juggle_encore_filter_ok and ok
+	lines.append("  '곡예 앙코르' 캐릭터 필터: juggler=%s enchantress=%s (기대 true/false) -> %s" % [
+		juggler_has_encore, enchantress_has_encore, "OK" if juggle_encore_filter_ok else "FAIL"
+	])
 	RunState.skill_flags = flags_backup
 
 	# (3) 여분: _apply_spare_die()는 항상 가장 낮은 값이 있던 자리만 바꾸고(다른 자리는
@@ -2794,24 +2825,78 @@ func _check_skill_effects(lines: PackedStringArray) -> bool:
 	])
 	combat.free()
 
+	# (8) "매혹 심화"/"매혹 심화+"의 실제 효과: DiceBag.apply_charm_flip(values, count)가
+	# count에 맞춰 가장 낮은 값부터 순서대로(이미 뒤집은 자리는 건너뛰고) count개를 그
+	# 다이스의 최댓값(면 개수)으로 바꾼다. D4x4 주머니, values=[1,2,3,4] 기준으로
+	# count=1은 1개만(기존 동작 그대로), count=2는 2개, count=3은 3개가 바뀌어야 한다.
+	var charm_bag := DiceBag.new(4, 4)
+	var charm_values: Array = [1, 2, 3, 4]
+	var charm_count1: Array = charm_bag.apply_charm_flip(charm_values, 1)
+	var charm_count2: Array = charm_bag.apply_charm_flip(charm_values, 2)
+	var charm_count3: Array = charm_bag.apply_charm_flip(charm_values, 3)
+	var charm_count1_ok: bool = charm_count1 == [4, 2, 3, 4]
+	var charm_count2_ok: bool = charm_count2 == [4, 4, 3, 4]
+	var charm_count3_ok: bool = charm_count3 == [4, 4, 4, 4]
+	var charm_amplify_effect_ok: bool = charm_count1_ok and charm_count2_ok and charm_count3_ok
+	ok = charm_amplify_effect_ok and ok
+	lines.append("  apply_charm_flip([1,2,3,4], count=1/2/3) on D4x4 = %s/%s/%s (기대 [4,2,3,4]/[4,4,3,4]/[4,4,4,4]) -> %s" % [
+		charm_count1, charm_count2, charm_count3, "OK" if charm_amplify_effect_ok else "FAIL"
+	])
+
+	# (9) "곡예 앙코르"/"곡예 앙코르+"의 실제 효과: RunState.advance_round()가 라운드를
+	# 넘길 때(round_index 증가, is_last_round()가 아닐 때만) skill_flags에 따라
+	# swap_random_dice()를 추가로 호출하는지 — 다이스 객체 자체가 공격/방어 주머니
+	# 사이에서 실제로 옮겨갔는지는 판별하기 어려우므로(무작위라 같은 자리를 골라 겉보기
+	# 변화가 없을 수도 있음), 대신 "호출 여부"를 개수 불변(다이스 개수는 유지) +
+	# 크래시 없음으로 검증한다(swap_random_dice() 자체의 정확성은 juggle_swap 기믹
+	# 검증에서 이미 다뤄짐).
+	var encore_character_backup: String = RunState.character_id
+	RunState.reset_run("juggler")
+	var encore_atk_count_before: int = RunState.player_attack_bag.count
+	var encore_def_count_before: int = RunState.player_defense_bag.count
+	RunState.skill_flags = ["juggle_encore"]
+	RunState.advance_round()
+	var encore_round_advanced_ok: bool = RunState.round_index == 2
+	var encore_counts_preserved_ok: bool = (
+		RunState.player_attack_bag.count == encore_atk_count_before
+		and RunState.player_defense_bag.count == encore_def_count_before
+	)
+	RunState.skill_flags = ["juggle_encore", "juggle_encore_plus"]
+	RunState.advance_round()
+	var encore_plus_round_advanced_ok: bool = RunState.round_index == 3
+	var encore_plus_counts_preserved_ok: bool = (
+		RunState.player_attack_bag.count == encore_atk_count_before
+		and RunState.player_defense_bag.count == encore_def_count_before
+	)
+	var juggle_encore_ok: bool = (
+		encore_round_advanced_ok and encore_counts_preserved_ok
+		and encore_plus_round_advanced_ok and encore_plus_counts_preserved_ok
+	)
+	ok = juggle_encore_ok and ok
+	lines.append("  advance_round()+'곡예 앙코르'(+): round_index 1->2->3=%s 다이스 개수(공격=%d 방어=%d) 불변=%s -> %s" % [
+		encore_round_advanced_ok and encore_plus_round_advanced_ok, RunState.player_attack_bag.count, RunState.player_defense_bag.count,
+		encore_counts_preserved_ok and encore_plus_counts_preserved_ok, "OK" if juggle_encore_ok else "FAIL"
+	])
+	RunState.reset_run(encore_character_backup)
+
 	return ok
 
 
-## [미니 기획 D]-1/2 검증: UPGRADE_SKILLS 데이터 형태(7종, "upgrades" 필드가 실제
+## [미니 기획 D]-1/2 검증: UPGRADE_SKILLS 데이터 형태(9종, "upgrades" 필드가 실제
 ## SKILLS/UNIQUE_SKILLS id를 가리키는지)와 available_upgrade_choices()/grant_upgrade()의
 ## 필터링 동작(base 미보유 시 후보 제외, "+" 이미 보유 시 후보 제외, character_id 필터,
 ## grant_upgrade가 올바른 "+"id를 추가하는지)을 검증한다.
 func _check_upgrade_skill_pool(lines: PackedStringArray) -> bool:
 	var ok := true
 
-	# (1) UPGRADE_SKILLS는 7종(SKILLS 2 + UNIQUE_SKILLS 5)이고, 각 "upgrades" 필드가
+	# (1) UPGRADE_SKILLS는 9종(SKILLS 2 + UNIQUE_SKILLS 7)이고, 각 "upgrades" 필드가
 	# 실제 존재하는 base id를 가리키며, 이름은 전부 "<base 이름>+" 형태다.
 	var base_ids: Array = []
 	for s in SkillPool.SKILLS:
 		base_ids.append(s["id"])
 	for s in SkillPool.UNIQUE_SKILLS:
 		base_ids.append(s["id"])
-	var count_ok: bool = SkillPool.UPGRADE_SKILLS.size() == 7
+	var count_ok: bool = SkillPool.UPGRADE_SKILLS.size() == 9
 	var all_upgrades_valid := true
 	var all_names_plus := true
 	for s in SkillPool.UPGRADE_SKILLS:
@@ -2821,7 +2906,7 @@ func _check_upgrade_skill_pool(lines: PackedStringArray) -> bool:
 			all_names_plus = false
 	var data_ok: bool = count_ok and all_upgrades_valid and all_names_plus
 	ok = data_ok and ok
-	lines.append("  UPGRADE_SKILLS 데이터: 개수=%d(기대 7) upgrades 필드 전부 유효=%s 이름 전부 '+'로 끝남=%s -> %s" % [
+	lines.append("  UPGRADE_SKILLS 데이터: 개수=%d(기대 9) upgrades 필드 전부 유효=%s 이름 전부 '+'로 끝남=%s -> %s" % [
 		SkillPool.UPGRADE_SKILLS.size(), all_upgrades_valid, all_names_plus, "OK" if data_ok else "FAIL"
 	])
 

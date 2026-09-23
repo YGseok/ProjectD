@@ -160,3 +160,10 @@ func advance_round() -> void:
 		return
 	round_index += 1
 	rooms_cleared = 0
+	# "곡예 앙코르"/"곡예 앙코르+"(곡예사 전용 고유 스킬, INBOX.md 2026-09-24 [대형
+	# 기획 4]-D4): 자기 기믹 juggle_swap(런 시작 1회뿐)을 라운드 전환마다 재발동한다.
+	# "+"는 같은 전환에서 서로 다른 무작위 쌍으로 한 번 더 맞바꿔 총 2회가 되게 한다.
+	if skill_flags.has("juggle_encore") or skill_flags.has("juggle_encore_plus"):
+		DiceBag.swap_random_dice(player_attack_bag, player_defense_bag)
+		if skill_flags.has("juggle_encore_plus"):
+			DiceBag.swap_random_dice(player_attack_bag, player_defense_bag)
