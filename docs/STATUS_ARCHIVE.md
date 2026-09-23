@@ -8,6 +8,40 @@
 
 ---
 
+- **2026-09-17 (136)**: INBOX.md "부분 처리됨"의 [미니 기획 E](캐릭터별 시작 스킬
+  선택) 4번(적용 배선)을 시작 — 세션 지침이 명시한 대로 6개를 한 번에 하지 않고
+  "맹공"/"철벽" 2개만 먼저 배선했다. (1) `code/systems/run_state.gd`의
+  `reset_run()`이 이제 `skill_flags = []`로 비운 직후
+  `chosen_starting_skill_id`가 비어있지 않으면 `SkillPool.grant(chosen_starting_
+  skill_id)`를 호출한다 — `character_select.gd`가 "던전 시작" 버튼을 누르기
+  전에 이미 `chosen_starting_skill_id`를 확정해두므로(기존 (135) 구현), 새 런의
+  skill_flags에는 시작부터 그 id가 들어가 있다. (2) `code/scenes/combat_test.gd`의
+  `_do_exchange()`에 "여분" 분기 바로 뒤(공격턴)/"심호흡" 분기 바로 뒤(방어턴)에
+  각각 "맹공"(`start_aggro`: `RunState.player_attack_bag.dice.size() >
+  RunState.player_defense_bag.dice.size()`이면 `atk_bag.apply_flat_bonus(atk_values,
+  1)`)과 "철벽"(`start_wall`: 반대 부등호로 `def_bag.apply_flat_bonus(def_values,
+  1)`)을 추가했다 — 기존 심호흡/여분과 같은 위치·같은 헬퍼(`DiceBag.
+  apply_flat_bonus()`) 재사용, 새 다이스 연산 없음. 두 조건 모두 "다이스 개수"라는
+  정적 구성만 보므로 폭발/수호 보너스 턴(임시 1D20 주머니)에서도 매 턴 다시
+  평가해 적용된다(심호흡이 `used_guard_dice` 여부를 안 가리는 것과 같은 패턴).
+  **QA 검증**: `dice_test.gd`에 신규 `_check_starting_skill_combat_wiring`을
+  추가해 (a) `chosen_starting_skill_id="start_aggro"`로 `reset_run("berserker")`를
+  부르면 `skill_flags`에 실제로 `start_aggro`가 들어가는지, (b) 빈 문자열이면
+  아무 것도 부여되지 않고 크래시도 없는지, (c) 광전사 기본 구성(공격4/방어2)이
+  "맹공" 발동 조건을 만족하는지, (d) 수호자 기본 구성(공격2/방어4)이 "철벽" 발동
+  조건을 만족하는지를 검증했다 — 인라인 코드라 `_do_exchange()` 자체는 물리
+  시뮬레이션 없이 단위 테스트할 수 없어(기존 심호흡과 같은 한계), 조건/배선까지만
+  단위 테스트로 확인하고 크래시 여부는 `qa_shot.sh combat_test`로 별도 확인했다.
+  `bash scripts/qa_shot.sh dice_test` 전체 PASS, `qa_out/combat_test.png`로 전투
+  화면이 겹침/크래시 없이 정상 로드됨을 확인(맹공/철벽 자체의 실제 발동 장면은
+  캐릭터 선택+런 시작이 필요해 결정적 단일 스크린샷으로는 재현하지 않음, 조건
+  로직은 위 단위 테스트로 이미 검증됨). **남은 것: 4번의 나머지 4개("확장"/"정예"/
+  "수집가"/"강철 방비")는 아직 미배선** — `combat_test.gd`에 조건 분기만 추가하면
+  되는 동일 패턴이라 다음 이터레이션이 2개씩 이어가면 된다(예: 확장/정예 다음,
+  수집가/강철 방비 마지막). 4번이 전부 끝나면 INBOX.md [미니 기획 E] 항목을
+  "처리됨"으로 옮길 것(5번은 선택). "완료 기록" 10개 유지를 위해 (126)을
+  `docs/STATUS_ARCHIVE.md`로 옮겼다.
+
 - **2026-09-17 (135)**: INBOX.md "부분 처리됨"의 [미니 기획 E](캐릭터별 시작 스킬
   선택) 3번(선택 UI)을 진행 — 데이터(2번, (134))는 이미 있었으니 이번엔
   `character_select.gd`에 실제로 고를 수 있는 UI를 붙였다. 상세 패널에 "시작
