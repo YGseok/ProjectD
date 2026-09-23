@@ -36,7 +36,19 @@
   적당히 비어있는 포지션에 재미요소 맞춰서 해봐.
 
   → **A(방패병 리스킨)/B(매혹사)/C(곡예사) 완료(2026-09-24 (140)/(141)/(142)),
-  D만 미착수.**
+  D는 1~2번 완료(2026-09-24 (143)), 3~7번 남음.**
+  D-1~2: `achievement_manager.gd`의 `DEFINITIONS`에 기존 5종과 같은 패턴으로
+  `clear_enchantress`("매혹사로 첫 클리어")/`clear_juggler`("곡예사로 첫
+  클리어") 업적 2종을 추가했다. `combat_test.gd`의 실제 unlock 호출부
+  (`_apply_room_advance()`)는 정적 목록이 아니라 `_character_clear_
+  achievement_id(RunState.character_id)`로 `"clear_%s" % char_id`를 즉석에서
+  조합하는 구조라 이미 7종 전부를 자동으로 커버하고 있었음(코드 수정 불필요).
+  대신 `dice_test.gd`의 회귀 검증용 하드코딩 목록 `all_clear_ids`(5종만
+  있었음)에 두 id를 추가해 "업적 정의가 7종 다 있는지" 검증을 갱신했다.
+  `bash scripts/qa_shot.sh dice_test` 전체 PASS. D-3(STARTING_SKILLS 배정)/
+  D-4(UNIQUE_SKILLS 고유 스킬)/D-5(character_select QA)/D-6(DESIGN.md 표
+  갱신)/D-7(초상 확인)은 "한 이터레이션에 다 하지 말 것" 지시대로 다음
+  이터레이션으로 남긴다.
   **추가 지시(2026-09-24, 사람이 직접): A의 이름을 "침묵의 무녀"에서
   "주술사"로 바꾸고, "방어형"이라는 컨셉 표현은 빼달라고 함** — id/기믹
   (`guard_stack`)/수치는 그대로 두고 `name`을 "주술사"로, `desc`/`concept`

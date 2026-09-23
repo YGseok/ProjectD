@@ -5,35 +5,27 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-09-24 (142)
+- 일시: 2026-09-24 (143)
 - 작성자: AI 에이전트. INBOX.md "부분 처리됨"의 [대형 기획 4](캐릭터 로스터
-  개편)에서 A(방패병→주술사 리스킨)/B(매혹사)는 (140)/(141)에서 이미 끝났고,
-  세션 지침이 "이어서 C(신규 캐릭터 '곡예사', id: juggler, 신규 기믹
-  juggle_swap)를 진행하라"고 구체적으로 지시했으므로 **C만** 수행했다.
-  `code/systems/character_profiles.gd`의 `PROFILES`에 7번째 항목
-  `id: "juggler"`(이름 "곡예사", `gimmick: "juggle_swap"`, 공격/방어
-  D4x3/D4x2)를 추가하고, `code/systems/dice_bag.gd`에 신규 static
-  `swap_random_dice(bag_a, bag_b)` 헬퍼(두 주머니에서 무작위 다이스 하나씩
-  골라 통째로 맞바꿈)를 추가, `code/systems/run_state.gd`의
-  `_apply_character_gimmick()` match 문에 `"juggle_swap"` 분기를 걸어 런
-  시작(reset_run 직후) 1회만 적용되게 배선했다(min_max_only/
-  fixed_defense_die와 같은 정적 적용 패턴 — combat_test.gd가 아니라
-  run_state.gd 쪽). `code/scenes/skill_icon.gd`에 `juggle_swap` 전용
-  교차 화살표 아이콘을 추가해 `dice_test.gd`의 자동 검증
-  (`_check_skill_icons`)을 통과시켰고, `_check_character_profiles`에
-  곡예사 전용 검증과 `DiceBag.swap_random_dice()` 단위 검증(서로 다른 면
-  개수 주머니로 실제 교환이 일어나는지)을 신규로 추가했다.
-  `bash scripts/qa_shot.sh dice_test` 전체 PASS(신규 검증 포함),
-  `character_select.gd`에 `_debug_select_juggler()` QA 훅을 추가해
-  `qa_out/character_select_juggler.png`로 상세 패널(이름/설명/노랑·보라
-  초상/저글링 아이콘)이 겹침 없이 표시됨을 확인, 기본
-  `qa_out/character_select.png`도 재확인(7종째 추가로도 목록 레이아웃
-  안 깨짐). 자세한 내용은 아래 "완료 기록 (142)" 참고. "완료 기록" 10개
-  유지를 위해 (132)를 `docs/STATUS_ARCHIVE.md`로 옮겼다. `skill_pool.gd`
-  (시작/고유 스킬), `achievement_manager.gd`(clear_juggler 업적), `docs/
-  DESIGN.md` 캐릭터 표 갱신은 INBOX.md 원문이 "D. 공통 후속"(B/C 둘 다
-  끝난 뒤)으로 명시해 일부러 손대지 않았다. D(공통 후속)는 INBOX.md "부분
-  처리됨"에 그대로 남겨뒀다 — 다음 세션이 이어갈 차례.
+  개편) — A(주술사 리스킨)/B(매혹사)/C(곡예사)는 (140)~(142)에서 이미 완료,
+  세션 지침이 "이어서 D(공통 후속)의 1~2번(clear_enchantress/clear_juggler
+  업적 추가 + unlock 목록 반영)을 진행하라"고 구체적으로 지시했으므로
+  **D-1~2만** 수행했다. `code/systems/achievement_manager.gd`의
+  `DEFINITIONS`에 기존 5종과 같은 패턴으로 `clear_enchantress`/
+  `clear_juggler` 업적 2종을 추가했다. `combat_test.gd`의 실제 unlock
+  호출부(`_apply_room_advance()`)는 캐릭터 id를 정적 목록이 아니라
+  `_character_clear_achievement_id()`로 즉석에서 문자열 조합
+  (`"clear_%s" % char_id`)해서 부르는 구조라 이미 7종 전부를 자동으로
+  커버하고 있었다 — 대신 `dice_test.gd`의 회귀 검증용 하드코딩 목록
+  `all_clear_ids`(5종만 있었음)에 두 id를 추가하고 주석을 "캐릭터 7종"으로
+  갱신해, "업적 정의 자체가 7종 다 있는지"를 실질적으로 검증하게 했다.
+  `bash scripts/qa_shot.sh dice_test` 전체 PASS(캐릭터 7종 검증 통과
+  확인). 자세한 내용은 아래 "완료 기록 (143)" 참고. "완료 기록" 10개
+  유지를 위해 (133)을 `docs/STATUS_ARCHIVE.md`로 옮겼다. D의 나머지
+  3~7번(STARTING_SKILLS/UNIQUE_SKILLS 배정, character_select 7종 QA,
+  DESIGN.md 캐릭터 표 갱신)은 원문이 "한 이터레이션에 다 하지 말 것"이라
+  명시해 일부러 손대지 않았다 — INBOX.md "부분 처리됨"에 그대로 남겨뒀다,
+  다음 세션이 D-3부터 이어갈 차례.
 
 ## 지금 위치
 
@@ -52,16 +44,16 @@ id: `juggler`)**) → 던전 맵(런 5방 × 3라운드) → 전투/상점/특�
 이벤트)/[미니 기획 E](캐릭터별 시작 스킬 선택) 둘 다 전체 완료** 상태
 그대로 유지(이번 이터레이션은 손대지 않음, 상세는 STATUS_ARCHIVE.md와 아래
 "알려진 이슈" 참고). **진행 중: [대형 기획 4] 캐릭터 로스터 개편** —
-A(방패병→"주술사" 리스킨, id/기믹/수치 불변)/B(신규 "매혹사", id:
-`enchantress`, 기믹 `charm_flip`)/C(신규 "곡예사", id: `juggler`, 기믹
-`juggle_swap`) 완료, **D(공통 후속: 업적/시작 스킬/고유 스킬/DESIGN.md
-7종 갱신 등)만 남음** — INBOX.md "부분 처리됨" 참고. 매혹사/곡예사 둘 다
-`skill_pool.gd`의 STARTING_SKILLS/UNIQUE_SKILLS에 아직 항목이 없어(D에서
-처리 예정) 캐릭터 선택 화면에서 "시작 스킬" 슬롯이 둘 다 비어 보인다 —
-크래시는 아니고 의도된 중간 상태. **알려진 이슈**: 방패병(현 "주술사")의
-"정예" 슬롯은 기본 다이스 합계(7개)가 이미 조건(6개 이하)을 넘어서고
-다이스를 줄이는 수단이 게임에 전혀 없어 이론상 절대 발동하지 않는다 —
-"알려진 이슈" 섹션에 사람 결정 대기 중.
+A(방패병→"주술사" 리스킨)/B(매혹사)/C(곡예사) 완료, **D(공통 후속)는
+1~2번(업적 `clear_enchantress`/`clear_juggler` 추가 + unlock 경로 검증)
+완료, 3~7번(STARTING_SKILLS/UNIQUE_SKILLS 배정, character_select 7종 QA,
+DESIGN.md 캐릭터 표 7종 갱신 등)만 남음** — INBOX.md "부분 처리됨" 참고.
+매혹사/곡예사 둘 다 `skill_pool.gd`의 STARTING_SKILLS/UNIQUE_SKILLS에
+아직 항목이 없어(D-3/D-4에서 처리 예정) 캐릭터 선택 화면에서 "시작 스킬"
+슬롯이 둘 다 비어 보인다 — 크래시는 아니고 의도된 중간 상태. **알려진
+이슈**: 방패병(현 "주술사")의 "정예" 슬롯은 기본 다이스 합계(7개)가 이미
+조건(6개 이하)을 넘어서고 다이스를 줄이는 수단이 게임에 전혀 없어 이론상
+절대 발동하지 않는다 — "알려진 이슈" 섹션에 사람 결정 대기 중.
 
 - **캐릭터 7종** (`code/systems/character_profiles.gd`의
   `CharacterProfiles.PROFILES`): 견습 모험가(기믹 없음, D4x3/D4x3) / 광전사
@@ -133,20 +125,31 @@ A(방패병→"주술사" 리스킨, id/기믹/수치 불변)/B(신규 "매혹�
 이 순서를 반드시 지킬 필요는 없지만, 앞 단계가 뒤 단계의 전제가 되므로 대체로 순서대로
 진행하는 것을 권장한다. 한 이터레이션에 한두 개만 진행할 것.
 
--1. **(INBOX.md 2026-09-24, [대형 기획 4] 캐릭터 로스터 개편 — A/B/C 완료, D만
-   남음, 최우선)** A(방패병→"주술사" 리스킨)는 (140), B(신규 "매혹사", id:
-   `enchantress`, 기믹 `charm_flip`)는 (141), C(신규 "곡예사", id: `juggler`,
-   기믹 `juggle_swap`)는 (142)에서 완료. 남은 것:
-   - **D. 공통 후속** — `achievement_manager.gd`에 `clear_
-     enchantress`/`clear_juggler` 업적 2종 추가(+`combat_test.gd`의
-     `_apply_room_advance()` unlock 목록에도 추가), `skill_pool.gd`
-     STARTING_SKILLS/UNIQUE_SKILLS/UPGRADE_SKILLS에 매혹사/곡예사 항목
-     추가(둘 다 아직 시작 스킬이 하나도 없어 캐릭터 선택 화면에서 슬롯이
-     비어 보이는 상태 — D에서 채워야 함), `character_select.gd` 7종
-     레이아웃 QA(이미 (141)/(142)에서 스크린샷으로 깨짐 없음 확인됨 —
-     남은 건 사람 눈으로 최종 재확인 정도), `docs/DESIGN.md` 캐릭터 표
-     7종 갱신(지금은 5종까지만 기술돼 있어 코드와 크게 어긋난 상태).
-   완료 기준: D까지 끝나면 INBOX.md에서 "처리됨"으로 옮길 것.
+-1. **(INBOX.md 2026-09-24, [대형 기획 4] 캐릭터 로스터 개편 — A/B/C 완료,
+   D-1~2 완료, D-3~7 남음, 최우선)** A(방패병→"주술사" 리스킨)는 (140),
+   B(신규 "매혹사", id: `enchantress`, 기믹 `charm_flip`)는 (141), C(신규
+   "곡예사", id: `juggler`, 기믹 `juggle_swap`)는 (142), D-1~2(업적
+   `clear_enchantress`/`clear_juggler` 추가 + unlock 경로 검증)는 (143)에서
+   완료. 남은 것:
+   - **D-3.** `skill_pool.gd`의 `STARTING_SKILLS`(6원형: 맹공/철벽/확장/정예/
+     수집가/강철 방비)에서 매혹사/곡예사에게 각 2종씩 `character_ids` 추가
+     배정(INBOX.md 원문: "새 원형 만들 필요 없음 — 매혹사는 범용 축, 곡예사는
+     재미있게 배정해도 됨, 정확한 배정은 구현하는 사람이 정해도 됨").
+   - **D-4.** `skill_pool.gd`의 `UNIQUE_SKILLS`/`UPGRADE_SKILLS`에 매혹사/
+     곡예사 전용 고유 스킬 1종씩("+" 강화판 포함) 추가 — 자기 기믹과 시너지
+     방향으로(INBOX.md 원문 예시: 매혹사는 charm_flip 대상 다이스를
+     1개→2개로 늘리는 스킬, 곡예사는 juggle_swap을 라운드 전환 시 재발동하는
+     스킬 등).
+   - **D-5.** `character_select.gd`/`.tscn` 7종 레이아웃 QA — 이미 (141)/
+     (142)에서 스크린샷으로 깨짐 없음 확인됨, 남은 건 사람 눈으로 최종
+     재확인 정도.
+   - **D-6.** `docs/DESIGN.md`의 캐릭터 표를 7종으로 갱신(지금은 5종까지만
+     기술돼 있어 코드와 크게 어긋난 상태).
+   - **D-7.** `character_portrait_placeholder.gd`는 코드 수정 불필요(색만
+     새로 넘기면 재사용됨) — 확인만 하면 됨.
+   완료 기준: D까지 끝나면 INBOX.md에서 "처리됨"으로 옮길 것. INBOX.md 원문이
+   "D 항목을 한 이터레이션에 다 하지 말 것"이라 명시했으니 다음 이터레이션도
+   1~2개씩 나눠 진행할 것.
 
 0. **(INBOX.md 신규 2026-09-03) UI 접근성/가시성 4종 — 1/4 부분 착수.** 전부 "전투/
    선택지 화면 어디서든 정보가 상시 보이거나, 조작이 더 직관적이어야 한다"는 계열의
@@ -1093,60 +1096,37 @@ A(방패병→"주술사" 리스킨, id/기믹/수치 불변)/B(신규 "매혹�
   UI, `character_select.gd`에 시작 스킬 선택 줄 + 슬롯 1 자물쇠 표시)을
   이어가면 된다 — 아래 "다음 할 일 큐" 19번 참고.
 
-- **2026-09-17 (133)**: INBOX.md "부분 처리됨"의 [미니 기획 D](스킬 강화 이벤트)
-  마지막 남은 조각 두 개(4번 나머지 고유 1종 "임기응변+" 전투 배선 + 5번 UI
-  강조)를 마무리해 **[미니 기획 D] 전체 완료** — INBOX.md에서 "부분 처리됨"에서
-  "처리됨"으로 옮겼다.
-  **4번(전투 배선)**: `code/scenes/combat_test.gd`에
-  `player_versatile_plus_active`(`_ready()`에서 `RunState.skill_flags.
-  has("versatile_surge_plus")`로 초기화, 다른 "+" 플래그들과 같은 패턴) 변수를
-  신설했다. 다른 4쌍의 "+"는 전부 "보너스 턴 굴림 품질"(2번→3번 굴림 등)을
-  올리는데, base(임기응변)가 이미 "넓지만 얕게"(임계치·보너스 강화 없음)였던
-  만큼 "+"는 base와 같은 축인 "발동 빈도"를 마저 강화한다는 게 INBOX.md 원
-  설계 — `chain_explosion`/`chain_guard`와 완전히 같은 방식으로
-  `_player_explosive_threshold()`/`_player_guard_threshold()` 두 헬퍼가
-  `player_versatile_plus_active`도 함께 확인하도록 `or` 조건을 추가해 두
-  파이프라인 임계치를 동시에 3→2로 낮췄다(기존 두 헬퍼가 이미 `or`로 여러
-  플래그를 받는 구조라 조건 추가만으로 끝남 — 새 함수 불필요).
-  **5번(UI 강조)**: `code/scenes/item_card_style.gd`의 `build_card()`에
-  `highlight: bool = false` 매개변수를 추가 — true면 카드 테두리를 등급색+2px
-  대신 `HIGHLIGHT_BORDER`(노란색)+`HIGHLIGHT_BORDER_WIDTH`(4px)로 그린다.
-  `code/scenes/event.gd`의 `_show_skill_offer()`가 `build_card(skill, "",
-  false, _is_skill_upgrade_event)`로 이 플래그를 넘기도록 고쳤는데, 구현 중
-  버그를 하나 발견했다 — QA 훅 `_debug_force_skill_upgrade_event()`가
-  `_setup_skill_upgrade_event()`를 `_ready()` 경로를 거치지 않고 직접 호출해
-  `_is_skill_upgrade_event`가 여전히 false로 남는 바람에, 실제로는 강화
-  이벤트인데도 카드가 강조되지 않는 것을 QA 스크린샷에서 실제로 목격했다
-  (`qa_out/event_skill_upgrade_highlight.png` 1차 캡처, 초록 테두리로 나옴).
-  원인은 `_is_skill_upgrade_event = true` 세팅이 `_ready()`에만 있고
-  `_setup_skill_upgrade_event()` 자신은 이 플래그를 건드리지 않는 구조라
-  호출 경로에 의존적이었던 것 — `_setup_skill_upgrade_event()` 맨 앞에
-  `_is_skill_upgrade_event = true`를 추가해 자기 완결적으로 만들어 고쳤다
-  (정상 게임 플레이 경로(`_ready()`가 먼저 세팅)는 원래도 문제없었음 — QA
-  훅처럼 `_ready()`를 우회하는 호출자에서만 드러나던 잠재 버그였다).
-  **QA 검증**: `dice_test.gd`에 (7) "임기응변+ 보유 시 두 임계치 함수 모두 2를
-  반환하는지" 검증(기존 (6) "임기응변 base는 임계치 불변" 검증 바로 다음)과,
-  신규 `_check_skill_upgrade_card_highlight`(highlight=false는 등급색+2px,
-  highlight=true는 HIGHLIGHT_BORDER+HIGHLIGHT_BORDER_WIDTH인지 StyleBoxFlat을
-  직접 읽어 확인)를 추가, `bash scripts/qa_shot.sh dice_test` 전체 PASS(신규
-  검증 3개 포함). 버그 수정 후 재캡처한 `qa_out/event_skill_upgrade_highlight.png`
-  로 "임기응변+" 카드가 두껍고 노란 테두리로 표시됨을, `qa_out/
-  event_skill_offer_normal_recheck.png`로 일반 스킬 획득 카드는 기존 얇은
-  등급색 테두리 그대로 유지됨을, `qa_out/combat_test_recheck.png`로 기본
-  전투(스킬 미보유)가 새 분기 추가 후에도 정상 진행/크래시 없음을 확인했다.
-  `docs/DESIGN.md`의 "스킬 강화 이벤트([미니 기획 D])" 절을 갱신해 7종 전부
-  배선 완료 + UI 강조 완료로 반영. INBOX.md는 [미니 기획 D] 전체를 "처리됨"
-  으로 옮기고(완료 기준 1~5번 전부 충족, 6번은 선택이라 미착수), "처리됨"이
-  13개가 돼 가장 오래된 항목("키보드 단축키 크래시 버그", 2026-09-15)을
-  `docs/INBOX_ARCHIVE.md`로 옮겨 12개를 유지했다. `docs/STATUS.md`(이 파일)
-  "완료 기록"도 11개가 돼 가장 오래된 (123)을 `docs/STATUS_ARCHIVE.md`로
-  옮겼다. **[미니 기획 D] 전체 완료로, 다음 이터레이션부터는 INBOX.md "남은
-  이슈"의 [미니 기획 E](캐릭터별 시작 스킬 선택, 기획자가 이미 구체적으로
-  설계해둔 항목)로 넘어갈 차례** — 아래 "다음 할 일 큐" 19번 참고.
+- **2026-09-24 (143)**: INBOX.md "부분 처리됨"의 [대형 기획 4](캐릭터 로스터
+  개편) **D(공통 후속) 1~2번**을 세션 지침대로 진행했다 — A(주술사 리스킨)/
+  B(매혹사)/C(곡예사)는 (140)~(142)에서 이미 완료됐고, D는 항목이 7개라
+  한 이터레이션에 다 하지 말라는 원문 지시대로 이번엔 1~2번만 처리했다.
+  `code/systems/achievement_manager.gd`의 `DEFINITIONS`에 기존 5종
+  `clear_<id>` 패턴 그대로 `clear_enchantress`("매혹사로 첫 클리어")/
+  `clear_juggler`("곡예사로 첫 클리어")를 추가했다(D-2번). `combat_test.gd`의
+  실제 unlock 호출부는 확인해보니 정적 목록이 아니라
+  `_character_clear_achievement_id(RunState.character_id)`가
+  `"clear_%s" % char_id`로 즉석에서 문자열을 만드는 구조라, 어떤 character_id가
+  와도 이미 자동으로 올바른 업적 id를 해금한다 — 그래서 D-2번이 요청한
+  "`_apply_room_advance()`의 unlock 목록에도 추가"는 combat_test.gd 자체를
+  고칠 필요가 없었다(정적 목록이 애초에 없었음). 다만 `code/scenes/
+  dice_test.gd`(1620행)에 "캐릭터 전원 clear_<id> 업적이 DEFINITIONS에 다
+  정의돼 있는지" 자동 검증용 하드코딩 목록 `all_clear_ids`가 있었는데 5종만
+  들어있어서, 여기에 `clear_enchantress`/`clear_juggler`를 추가하고 주석/로그
+  문구도 "캐릭터 5종"→"캐릭터 7종"으로 갱신했다 — 이게 사실상 "unlock 경로가
+  7종 전부를 커버하는지"를 실질적으로 검증하는 역할을 한다.
+  `bash scripts/qa_shot.sh dice_test` 전체 PASS("캐릭터 7종 전부 \"clear_<id>\"
+  업적 정의 존재: true -> OK" 확인). 화면 변경이 없는 순수 데이터/검증 변경이라
+  스크린샷은 기존 `dice_test.gd` 실행이 자동으로 남기는 `qa_out/dice_test.png`
+  재확인만으로 충분하다고 판단(별도 씬 캡처 불필요).
+  **의도적으로 안 한 것**: D-3(STARTING_SKILLS 배정)/D-4(UNIQUE_SKILLS·
+  UPGRADE_SKILLS 고유 스킬)/D-5(character_select 7종 레이아웃 QA)/D-6
+  (DESIGN.md 캐릭터 표 7종 갱신)/D-7(초상 확인)은 원문이 "항목이 여러 개니
+  한 이터레이션에 다 하지 말 것"이라 명시했고, 세션 지침도 "1~2번"으로
+  범위를 못박아서 손대지 않았다 — 다음 이터레이션이 D-3부터 이어갈 차례.
 
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(142)에서 (132)를 그리로 옮겼다.)*
+이번 이터레이션(143)에서 (133)을 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 

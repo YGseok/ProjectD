@@ -1617,12 +1617,12 @@ func _check_round_clear_achievements(lines: PackedStringArray) -> bool:
 	])
 	combat4.free()
 
-	var all_clear_ids := ["clear_novice", "clear_berserker", "clear_guardian", "clear_explosive", "clear_shieldbearer"]
+	var all_clear_ids := ["clear_novice", "clear_berserker", "clear_guardian", "clear_explosive", "clear_shieldbearer", "clear_enchantress", "clear_juggler"]
 	var all_ids_defined_ok := true
 	for id in all_clear_ids:
 		all_ids_defined_ok = all_ids_defined_ok and AchievementManager.DEFINITIONS.has(id)
 	ok = all_ids_defined_ok and ok
-	lines.append("  캐릭터 5종 전부 \"clear_<id>\" 업적 정의 존재: %s -> %s" % [
+	lines.append("  캐릭터 7종 전부 \"clear_<id>\" 업적 정의 존재: %s -> %s" % [
 		all_ids_defined_ok, "OK" if all_ids_defined_ok else "FAIL"
 	])
 

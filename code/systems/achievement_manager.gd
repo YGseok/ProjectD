@@ -137,6 +137,16 @@ const DEFINITIONS := {
 		"desc": "주술사로 최종 클리어(3라운드 전부)에 성공했다.",
 		"icon": "milestone",
 	},
+	"clear_enchantress": {
+		"title": "매혹사로 첫 클리어",
+		"desc": "매혹사로 최종 클리어(3라운드 전부)에 성공했다.",
+		"icon": "milestone",
+	},
+	"clear_juggler": {
+		"title": "곡예사로 첫 클리어",
+		"desc": "곡예사로 최종 클리어(3라운드 전부)에 성공했다.",
+		"icon": "milestone",
+	},
 	# 큐 13("업적 시스템 — 남은 항목 추가") 후속. 특수 이벤트의 "위험을 감수하기"
 	# 판정(event.gd의 _resolve_risky)이 성공한 순간 바로 unlock — 새 RunState 카운터
 	# 없이 이미 있는 성공/실패 분기 지점 하나만 후킹하면 되는 독립 항목이라 사람의

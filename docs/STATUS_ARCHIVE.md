@@ -8,6 +8,57 @@
 
 ---
 
+- **2026-09-17 (133)**: INBOX.md "부분 처리됨"의 [미니 기획 D](스킬 강화 이벤트)
+  마지막 남은 조각 두 개(4번 나머지 고유 1종 "임기응변+" 전투 배선 + 5번 UI
+  강조)를 마무리해 **[미니 기획 D] 전체 완료** — INBOX.md에서 "부분 처리됨"에서
+  "처리됨"으로 옮겼다.
+  **4번(전투 배선)**: `code/scenes/combat_test.gd`에
+  `player_versatile_plus_active`(`_ready()`에서 `RunState.skill_flags.
+  has("versatile_surge_plus")`로 초기화, 다른 "+" 플래그들과 같은 패턴) 변수를
+  신설했다. 다른 4쌍의 "+"는 전부 "보너스 턴 굴림 품질"(2번→3번 굴림 등)을
+  올리는데, base(임기응변)가 이미 "넓지만 얕게"(임계치·보너스 강화 없음)였던
+  만큼 "+"는 base와 같은 축인 "발동 빈도"를 마저 강화한다는 게 INBOX.md 원
+  설계 — `chain_explosion`/`chain_guard`와 완전히 같은 방식으로
+  `_player_explosive_threshold()`/`_player_guard_threshold()` 두 헬퍼가
+  `player_versatile_plus_active`도 함께 확인하도록 `or` 조건을 추가해 두
+  파이프라인 임계치를 동시에 3→2로 낮췄다(기존 두 헬퍼가 이미 `or`로 여러
+  플래그를 받는 구조라 조건 추가만으로 끝남 — 새 함수 불필요).
+  **5번(UI 강조)**: `code/scenes/item_card_style.gd`의 `build_card()`에
+  `highlight: bool = false` 매개변수를 추가 — true면 카드 테두리를 등급색+2px
+  대신 `HIGHLIGHT_BORDER`(노란색)+`HIGHLIGHT_BORDER_WIDTH`(4px)로 그린다.
+  `code/scenes/event.gd`의 `_show_skill_offer()`가 `build_card(skill, "",
+  false, _is_skill_upgrade_event)`로 이 플래그를 넘기도록 고쳤는데, 구현 중
+  버그를 하나 발견했다 — QA 훅 `_debug_force_skill_upgrade_event()`가
+  `_setup_skill_upgrade_event()`를 `_ready()` 경로를 거치지 않고 직접 호출해
+  `_is_skill_upgrade_event`가 여전히 false로 남는 바람에, 실제로는 강화
+  이벤트인데도 카드가 강조되지 않는 것을 QA 스크린샷에서 실제로 목격했다
+  (`qa_out/event_skill_upgrade_highlight.png` 1차 캡처, 초록 테두리로 나옴).
+  원인은 `_is_skill_upgrade_event = true` 세팅이 `_ready()`에만 있고
+  `_setup_skill_upgrade_event()` 자신은 이 플래그를 건드리지 않는 구조라
+  호출 경로에 의존적이었던 것 — `_setup_skill_upgrade_event()` 맨 앞에
+  `_is_skill_upgrade_event = true`를 추가해 자기 완결적으로 만들어 고쳤다
+  (정상 게임 플레이 경로(`_ready()`가 먼저 세팅)는 원래도 문제없었음 — QA
+  훅처럼 `_ready()`를 우회하는 호출자에서만 드러나던 잠재 버그였다).
+  **QA 검증**: `dice_test.gd`에 (7) "임기응변+ 보유 시 두 임계치 함수 모두 2를
+  반환하는지" 검증(기존 (6) "임기응변 base는 임계치 불변" 검증 바로 다음)과,
+  신규 `_check_skill_upgrade_card_highlight`(highlight=false는 등급색+2px,
+  highlight=true는 HIGHLIGHT_BORDER+HIGHLIGHT_BORDER_WIDTH인지 StyleBoxFlat을
+  직접 읽어 확인)를 추가, `bash scripts/qa_shot.sh dice_test` 전체 PASS(신규
+  검증 3개 포함). 버그 수정 후 재캡처한 `qa_out/event_skill_upgrade_highlight.png`
+  로 "임기응변+" 카드가 두껍고 노란 테두리로 표시됨을, `qa_out/
+  event_skill_offer_normal_recheck.png`로 일반 스킬 획득 카드는 기존 얇은
+  등급색 테두리 그대로 유지됨을, `qa_out/combat_test_recheck.png`로 기본
+  전투(스킬 미보유)가 새 분기 추가 후에도 정상 진행/크래시 없음을 확인했다.
+  `docs/DESIGN.md`의 "스킬 강화 이벤트([미니 기획 D])" 절을 갱신해 7종 전부
+  배선 완료 + UI 강조 완료로 반영. INBOX.md는 [미니 기획 D] 전체를 "처리됨"
+  으로 옮기고(완료 기준 1~5번 전부 충족, 6번은 선택이라 미착수), "처리됨"이
+  13개가 돼 가장 오래된 항목("키보드 단축키 크래시 버그", 2026-09-15)을
+  `docs/INBOX_ARCHIVE.md`로 옮겼다. `docs/STATUS.md`(이 파일)
+  "완료 기록"도 11개가 돼 가장 오래된 (123)을 `docs/STATUS_ARCHIVE.md`로
+  옮겼다. **[미니 기획 D] 전체 완료로, 다음 이터레이션부터는 INBOX.md "남은
+  이슈"의 [미니 기획 E](캐릭터별 시작 스킬 선택, 기획자가 이미 구체적으로
+  설계해둔 항목)로 넘어갈 차례** — 아래 "다음 할 일 큐" 19번 참고.
+
 - **2026-09-17 (132)**: INBOX.md "부분 처리됨"의 [미니 기획 D](스킬 강화 이벤트)
   4번(전투 배선)을 계속 진행 — (131)이 광전사/수호자 페어를 끝냈으니 이어서
   지시된 순서대로 폭발병/방패병 페어(연쇄 폭발+/연쇄 방어+)를 배선했다.
