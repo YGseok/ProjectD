@@ -510,6 +510,13 @@ func _debug_start_run_as_shieldbearer() -> void:
 	_on_start_pressed()
 
 
+## QA 전용: "곡예사" 카드를 고른 상태 검증용 (_debug_select_berserker와 같은 이유,
+## INBOX.md 2026-09-24 [대형 기획 4]-C 신규). 7번째(목록 맨 아래) 카드라 왼쪽 목록
+## 스크롤/상세 패널 겹침 여부까지 함께 확인할 수 있다.
+func _debug_select_juggler() -> void:
+	_on_card_selected("juggler")
+
+
 ## QA 전용: 이전 QA 실행에서 남은 해금 상태가 섞이지 않도록 초기화한 뒤, 업적 하나를
 ## 미리 해금해 "잠김/해금" 두 상태가 동시에 보이는 화면을 스크린샷으로 검증한다.
 func _debug_show_achievements() -> void:

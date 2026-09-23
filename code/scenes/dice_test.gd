@@ -2271,6 +2271,57 @@ func _check_character_profiles(lines: PackedStringArray) -> bool:
 		charm_bag.dice[0][0], "OK" if charm_faces_untouched_ok else "FAIL"
 	])
 
+	# "곡예사"(juggle_swap, INBOX.md 2026-09-24 [대형 기획 4]-C)는 min_max_only/
+	# fixed_defense_die와 같은 "reset_run() 직후 1회 정적 적용" 패턴 — 시작 다이스가
+	# 전부 표준 D4라 swap 이후에도 값 배열([1,2,3,4])은 똑같아 보이므로, 여기서는
+	# id/gimmick/개수 불변만 확인하고 실제 swap 로직 자체는 아래 DiceBag.swap_random_dice()
+	# 순수 함수 단위 검증(서로 다른 면 개수의 두 주머니)으로 따로 확인한다.
+	RunState.reset_run("juggler")
+	var juggler_id_ok: bool = RunState.character_id == "juggler"
+	var juggler_gimmick_ok: bool = CharacterProfiles.get_profile("juggler")["gimmick"] == "juggle_swap"
+	var juggler_count_ok: bool = (
+		RunState.player_attack_bag.count == 3 and RunState.player_defense_bag.count == 2
+	)
+	ok = juggler_id_ok and juggler_gimmick_ok and juggler_count_ok and ok
+	lines.append("  reset_run(juggler): character_id=%s gimmick=juggle_swap=%s 시작 다이스 개수 공격=%d(기대 3) 방어=%d(기대 2) -> %s" % [
+		RunState.character_id, juggler_gimmick_ok, RunState.player_attack_bag.count, RunState.player_defense_bag.count,
+		"OK" if (juggler_id_ok and juggler_gimmick_ok and juggler_count_ok) else "FAIL"
+	])
+
+	# DiceBag.swap_random_dice(): 서로 면 개수가 다른 두 주머니(D6x2/D8x2)를 교환하면,
+	# bag_a는 원래 없던 8면체 다이스를 정확히 1개, bag_b는 원래 없던 6면체 다이스를
+	# 정확히 1개 갖게 돼야 하고(그 외 나머지 다이스는 원래 면 개수 그대로), 개수(count)는
+	# 양쪽 다 바뀌지 않아야 한다. 무작위 인덱스라 "몇 번째가 바뀌었는지"가 아니라 "몇 개가
+	# 바뀌었는지"로 검증한다.
+	var swap_bag_a := DiceBag.new(6, 2)
+	var swap_bag_b := DiceBag.new(8, 2)
+	DiceBag.swap_random_dice(swap_bag_a, swap_bag_b)
+	var a_eight_count := 0
+	for faces in swap_bag_a.dice:
+		if faces.size() == 8:
+			a_eight_count += 1
+	var b_six_count := 0
+	for faces in swap_bag_b.dice:
+		if faces.size() == 6:
+			b_six_count += 1
+	var swap_counts_unchanged_ok: bool = swap_bag_a.count == 2 and swap_bag_b.count == 2
+	var swap_exactly_one_each_ok: bool = a_eight_count == 1 and b_six_count == 1
+	ok = swap_counts_unchanged_ok and swap_exactly_one_each_ok and ok
+	lines.append("  swap_random_dice(D6x2, D8x2): bag_a에 8면체 %d개(기대 1)/bag_b에 6면체 %d개(기대 1), 개수 불변(2/2)=%s -> %s" % [
+		a_eight_count, b_six_count, swap_counts_unchanged_ok,
+		"OK" if (swap_counts_unchanged_ok and swap_exactly_one_each_ok) else "FAIL"
+	])
+
+	# 어느 한쪽 주머니가 비어 있으면 아무 일도 일어나지 않아야 한다(안전 가드).
+	var swap_empty_bag := DiceBag.new()
+	var swap_nonempty_bag := DiceBag.new(4, 2)
+	DiceBag.swap_random_dice(swap_empty_bag, swap_nonempty_bag)
+	var swap_empty_guard_ok: bool = swap_empty_bag.count == 0 and swap_nonempty_bag.count == 2
+	ok = swap_empty_guard_ok and ok
+	lines.append("  swap_random_dice(빈 주머니, D4x2): 아무 일도 안 일어남(개수 0/2 유지) -> %s" % [
+		"OK" if swap_empty_guard_ok else "FAIL"
+	])
+
 	# novice(빈 문자열/미정의 id 포함)는 기존과 같이 표준 3/3을 유지해야 한다(회귀 방지 —
 	# attack_count/defense_count 필드가 없는 프로필에도 reset_run()의 profile.get() 폴백이
 	# 여전히 3/3을 주는지 확인).

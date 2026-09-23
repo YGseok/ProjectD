@@ -35,7 +35,8 @@
   캐릭터는 음침 거유 캐릭터랑, 섹시하고 도발적인 캐릭터, 나머지 하나는
   적당히 비어있는 포지션에 재미요소 맞춰서 해봐.
 
-  → **A(방패병 리스킨)/B(매혹사) 완료(2026-09-24 (140)/(141)), C/D는 미착수.**
+  → **A(방패병 리스킨)/B(매혹사)/C(곡예사) 완료(2026-09-24 (140)/(141)/(142)),
+  D만 미착수.**
   **추가 지시(2026-09-24, 사람이 직접): A의 이름을 "침묵의 무녀"에서
   "주술사"로 바꾸고, "방어형"이라는 컨셉 표현은 빼달라고 함** — id/기믹
   (`guard_stack`)/수치는 그대로 두고 `name`을 "주술사"로, `desc`/`concept`
@@ -45,7 +46,7 @@
   `docs/DESIGN.md`의 캐릭터 표·초기 다이스 구성 절도 "주술사"로 함께
   갱신함(사람이 직접 처리, 이터레이션 커밋 아님). 아래 B/C/D 원문 설계의
   "침묵의 무녀"라는 이름은 이제 전부 "주술사"로 읽을 것 — 기믹/수치/id는
-  그대로이니 C/D를 이어갈 이터레이션은 이 이름만 바꿔서 진행하면 된다.
+  그대로이니 D를 이어갈 이터레이션은 이 이름만 바꿔서 진행하면 된다.
   A: `character_profiles.gd`의 `id: "shieldbearer"` 항목에서 id/기믹
   (`guard_stack`)/attack_count(3)/defense_count(4)/event_die_sides(6)는
   전혀 건드리지 않고 `name`("방패병"→"침묵의 무녀")/`desc`/`concept`/
@@ -60,11 +61,20 @@
   1D20 임시 주머니에는 적용 안 되게 방어적으로 처리). `skill_icon.gd`에
   하트 모양 전용 아이콘도 추가해 자동 검증(`dice_test.gd`의
   `_check_skill_icons`)을 통과시켰다.
+  C: `character_profiles.gd` PROFILES에 `id: "juggler"`(곡예사, `gimmick:
+  "juggle_swap"`, 공격/방어 D4x3/D4x2) 항목을 추가하고, `dice_bag.gd`에
+  신규 static `swap_random_dice(bag_a, bag_b)`(두 주머니에서 무작위
+  다이스 하나씩 골라 통째로 맞바꿈) 헬퍼를 추가했다. juggle_swap은
+  min_max_only류와 같은 "reset_run() 직후 1회 정적 적용" 패턴이라
+  combat_test.gd가 아니라 `run_state.gd`의 `_apply_character_gimmick()`
+  match 문에 분기를 걸었다(지시된 위치 그대로). `skill_icon.gd`에 교차
+  화살표 아이콘도 추가해 자동 검증을 통과시켰다.
   `bash scripts/qa_shot.sh dice_test` 전체 PASS(신규 검증 포함),
-  `qa_out/character_select.png`로 목록에 새 이름/색(방패병→침묵의 무녀,
-  신규 매혹사)이 정상 표시됨을 확인. C(곡예사)/D(공통 후속)는 다음
-  이터레이션이 이어갈 차례 — 아래 원문 설계를 그대로 남겨둔다.
-  docs/STATUS.md 완료 기록(140, 141)/다음 할 일 큐 -1번 참고.
+  `qa_out/character_select.png`/`character_select_juggler.png`로 목록에
+  새 이름/색(방패병→침묵의 무녀, 매혹사, 곡예사)이 정상 표시됨을 확인.
+  D(공통 후속)는 다음 이터레이션이 이어갈 차례 — 아래 원문 설계를 그대로
+  남겨둔다.
+  docs/STATUS.md 완료 기록(140, 141, 142)/다음 할 일 큐 -1번 참고.
 
   **(기획자 결정 — 구체적 설계, [대형 기획 4] 캐릭터 로스터 개편: 방패병 리스킨 +
   신규 2종)**

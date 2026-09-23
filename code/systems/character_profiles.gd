@@ -66,6 +66,15 @@ extends RefCounted
 ##                     호출해, 그 턴에 굴린 다이스들 중 가장 낮은 값을 보인 다이스 1개를
 ##                     그 다이스의 최댓값으로 바꾼다(INBOX.md 2026-09-24 [대형 기획 4]-B
 ##                     "매혹사" 전용, 스택/임계치 없이 매 턴 즉시 적용)
+##   "juggle_swap"   : min_max_only/fixed_defense_die와 같은 "reset_run() 직후 1회 정적
+##                     적용" 패턴 — run_state.gd._apply_character_gimmick()이 새 주머니를
+##                     만든 직후 DiceBag.swap_random_dice(player_attack_bag,
+##                     player_defense_bag)를 호출해, 공격 다이스 중 무작위 하나와 방어
+##                     다이스 중 무작위 하나를 통째로(면 구성 전체) 맞바꾼다(개수는 불변).
+##                     시작 상태는 전부 표준 D4라 겉보기엔 의미 없어 보일 수 있지만, 다이스
+##                     개조 아이템으로 면 구성이 달라진 뒤에는 "어느 다이스가 어느 역할로
+##                     굴러갈지 뒤섞여 있다"는 정체성이 체감된다(INBOX.md 2026-09-24
+##                     [대형 기획 4]-C "곡예사" 전용, 런 시작 1회만 — 매 전투 재적용 아님)
 ## GIMMICK_LABELS: 캐릭터 선택 화면의 상세 정보 패널(2026-09-15 신설, INBOX.md
 ## 2026-09-14 "패널 선택시 오른쪽에 상세 정보를 제공, 초기 제공 주사위/보유 스킬 등"
 ## 반영)에서 "보유 스킬" 줄에 쓸 짧은 이름표. gimmick 필드 값(위 주석 참고) ->
@@ -78,6 +87,7 @@ const GIMMICK_LABELS := {
 	"explosive_stack": "폭발 스택 (공격 최댓값 3회 누적 → 1D20)",
 	"guard_stack": "수호 스택 (방어 최댓값 3회 누적 → 1D20)",
 	"charm_flip": "매혹 (매 턴 최저값 다이스 1개를 최댓값으로 전환)",
+	"juggle_swap": "저글링 (런 시작 시 공격/방어 다이스 1개씩 맞교환)",
 }
 
 const PROFILES := [
@@ -152,6 +162,18 @@ const PROFILES := [
 		"event_die_sides": 6,
 		"hair_color": Color(0.75, 0.15, 0.45),
 		"dress_color": Color(0.55, 0.05, 0.25),
+	},
+	{
+		"id": "juggler",
+		"name": "곡예사",
+		"desc": "알록달록한 서커스 곡예사 — 던전 입장 직후 딱 한 번, 공격 다이스 중 하나와 방어 다이스 중 하나를 통째로 맞바꾼다(개수는 그대로). 시작 다이스: 공격 D4x3 / 방어 D4x2 (가볍게 움직이는 느낌)",
+		"concept": "알록달록한 서커스 곡예사 — 런 시작 시 1회, 공격 다이스 중 무작위 하나와 방어 다이스 중 무작위 하나를 서로 맞바꾼다(면 구성 전체가 이동, 개수는 불변).",
+		"gimmick": "juggle_swap",
+		"attack_count": 3,
+		"defense_count": 2,
+		"event_die_sides": 6,
+		"hair_color": Color(0.95, 0.85, 0.25),
+		"dress_color": Color(0.5, 0.15, 0.75),
 	},
 ]
 

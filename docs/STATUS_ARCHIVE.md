@@ -8,6 +8,40 @@
 
 ---
 
+- **2026-09-17 (132)**: INBOX.md "부분 처리됨"의 [미니 기획 D](스킬 강화 이벤트)
+  4번(전투 배선)을 계속 진행 — (131)이 광전사/수호자 페어를 끝냈으니 이어서
+  지시된 순서대로 폭발병/방패병 페어(연쇄 폭발+/연쇄 방어+)를 배선했다.
+  base(연쇄 폭발/연쇄 방어)는 스택 임계치만 3→2로 낮출 뿐 보너스 턴 굴림
+  자체는 그대로 1D20 한 번이었는데, "+"는 지시된 대로 임계치는 2로 유지한
+  채 보너스 턴 굴림을 광기/수호 심화 base와 같은 방식(1D20 한 번 더 굴려
+  최댓값 채택, 총 2번)으로 강화한다. `code/scenes/combat_test.gd`에
+  `player_chain_explosion_plus_active`/`player_chain_guard_plus_active`
+  (각각 `RunState.skill_flags.has("chain_explosion_plus"/"chain_guard_plus")`로
+  `_ready()`에서 설정) 두 변수를 추가하고, 기존 `_apply_bonus_reroll()`
+  헬퍼((131)에서 광기/수호 심화용으로 분리해둔 것)를 `extra_rolls=1`로
+  재사용해 `used_explosive_dice and player_chain_explosion_plus_active`/
+  `used_guard_dice and player_chain_guard_plus_active` 조건에서 각각
+  호출하도록 광기/수호 심화 리롤 블록 바로 다음에 새 블록 2개를 추가했다.
+  frenzy_deepen과 chain_explosion_plus는 서로 다른 캐릭터(광전사/폭발병)
+  전용 스킬이라 한 플레이어가 동시에 갖지 못하므로 별도 if 블록으로 두고
+  elif로 묶지 않았다(기존 frenzy/guard 두 분기도 같은 이유로 별도 if).
+  **QA 검증**: 새로 추가한 로직은 기존 `_apply_bonus_reroll()`을
+  `extra_rolls=1`로 호출할 뿐이라 (131)이 이미 추가한 `dice_test.gd`의
+  (3c) 검증(extra_rolls=1/2 둘 다 이미 커버)이 그대로 적용돼 별도 신규
+  단위 테스트는 추가하지 않았다 — `_player_explosive_threshold()`/
+  `_player_guard_threshold()`는 "+" 여부와 무관하게 여전히 2를 반환해야
+  하고((4)/(5) 검증이 이미 확인), 이번 변경은 그 값을 건드리지 않는다.
+  `bash scripts/qa_shot.sh dice_test` 전체 PASS(변경 없이 그대로 통과 확인).
+  이전 "+" 스킬들과 같은 이유로 실제 "+" 효과가 적용된 전투 화면은 캐릭터
+  선택 → 확률적 스킬 강화 이벤트를 만나야 하는 경로라 한 번의 qa_shot으로
+  결정적 재현이 어려워, `qa_out/combat_test.png`로 기본 전투(스킬 미보유)가
+  새 분기 추가 후에도 정상 진행/크래시 없음만 재확인했다.
+  `docs/DESIGN.md`의 "스킬 강화 이벤트([미니 기획 D])" 절에 이번에 배선한
+  2종의 실제 효과를 반영. INBOX.md [미니 기획 D] 항목은 1~5번이 모두 끝나야
+  "처리됨"으로 옮기라는 완료 기준이 있어 이번에도 "부분 처리됨"에 진행
+  상황만 갱신했다(아래 "다음 할 일 큐" 18번, 남은 것은 4번 나머지 고유 1종
+  (임기응변+)/5번 UI 강조/6번 선택).
+
 - **2026-09-17 (131)**: INBOX.md "부분 처리됨"의 [미니 기획 D](스킬 강화 이벤트)
   4번(전투 배선)을 계속 진행 — (130)이 공용 2종을 끝냈으니 지시된 "고유 5종은
   캐릭터 페어 단위로" 순서대로 광전사/수호자 페어(광기 심화+/수호 심화+)를

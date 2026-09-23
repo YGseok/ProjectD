@@ -137,6 +137,8 @@ func _apply_character_gimmick() -> void:
 			player_defense_bag.force_min_max_faces()
 		"fixed_defense_die":
 			player_defense_bag.force_fixed_value_for_die(0, CharacterProfiles.fixed_defense_die_value(4))
+		"juggle_swap":
+			DiceBag.swap_random_dice(player_attack_bag, player_defense_bag)
 		_:
 			pass
 

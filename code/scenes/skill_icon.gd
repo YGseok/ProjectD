@@ -18,8 +18,9 @@ extends Control
 ## - "explosive_stack": 폭발 스택 (별 모양 폭발)
 ## - "guard_stack": 수호 스택 (겹겹의 방패)
 ## - "charm_flip": 매혹 (하트 모양, 2026-09-24 [대형 기획 4]-B "매혹사" 신규)
+## - "juggle_swap": 저글링 (교차하는 화살표 2개, 2026-09-24 [대형 기획 4]-C "곡예사" 신규)
 
-const CATEGORIES := ["", "min_max_only", "fixed_defense_die", "explosive_stack", "guard_stack", "charm_flip"]
+const CATEGORIES := ["", "min_max_only", "fixed_defense_die", "explosive_stack", "guard_stack", "charm_flip", "juggle_swap"]
 
 var category: String = "":
 	set(v):
@@ -32,6 +33,7 @@ const COLOR_FIXED := Color(0.4, 0.55, 0.85)
 const COLOR_EXPLOSIVE := Color(0.95, 0.55, 0.15)
 const COLOR_GUARD := Color(0.55, 0.6, 0.65)
 const COLOR_CHARM := Color(0.85, 0.2, 0.5)
+const COLOR_JUGGLE := Color(0.9, 0.75, 0.15)
 
 
 func _ready() -> void:
@@ -54,6 +56,8 @@ func _draw() -> void:
 			_draw_layered_shield()
 		"charm_flip":
 			_draw_heart()
+		"juggle_swap":
+			_draw_swap_arrows()
 		_:
 			pass
 
@@ -113,6 +117,27 @@ func _draw_heart() -> void:
 		Vector2(size.x * 0.5, size.y * 0.92),
 	])
 	draw_colored_polygon(tip, COLOR_CHARM)
+
+
+## "juggle_swap"(곡예사) 전용 아이콘 — 서로 반대 방향을 가리키는 화살표 2개(각각 선분 +
+## 삼각형 화살촉)로 "두 다이스가 맞바뀐다"는 저글링/교환 느낌을 근사한다.
+func _draw_swap_arrows() -> void:
+	var top_y := size.y * 0.34
+	var bottom_y := size.y * 0.66
+	draw_line(Vector2(size.x * 0.2, top_y), Vector2(size.x * 0.72, top_y), COLOR_JUGGLE, 2.5)
+	var top_head := PackedVector2Array([
+		Vector2(size.x * 0.72, top_y - size.y * 0.1),
+		Vector2(size.x * 0.72, top_y + size.y * 0.1),
+		Vector2(size.x * 0.88, top_y),
+	])
+	draw_colored_polygon(top_head, COLOR_JUGGLE)
+	draw_line(Vector2(size.x * 0.8, bottom_y), Vector2(size.x * 0.28, bottom_y), COLOR_JUGGLE.darkened(0.2), 2.5)
+	var bottom_head := PackedVector2Array([
+		Vector2(size.x * 0.28, bottom_y - size.y * 0.1),
+		Vector2(size.x * 0.28, bottom_y + size.y * 0.1),
+		Vector2(size.x * 0.12, bottom_y),
+	])
+	draw_colored_polygon(bottom_head, COLOR_JUGGLE.darkened(0.2))
 
 
 func _draw_burst() -> void:

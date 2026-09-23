@@ -195,6 +195,22 @@ func apply_charm_flip(values: Array) -> Array:
 	return adjusted
 
 
+## 캐릭터 기믹 "juggle_swap"(곡예사, INBOX.md 2026-09-24 [대형 기획 4]-C) 전용 헬퍼 —
+## 다른 apply_* 헬퍼와 달리 주머니 하나가 아니라 두 주머니(공격/방어) 사이에서 동작하는
+## static 함수다. 각 주머니에서 무작위 다이스 하나씩 골라 통째로(면 구성 전체) 서로
+## 맞바꾼다 — 각 주머니의 다이스 "개수"(dice.size())는 그대로 유지된다. 둘 중 어느
+## 주머니든 다이스가 하나도 없으면 아무 일도 하지 않는다(안전 가드, 이론상 항상 일어나지
+## 않지만 attack_count/defense_count가 0인 프로필이 생겨도 크래시하지 않도록).
+static func swap_random_dice(bag_a: DiceBag, bag_b: DiceBag) -> void:
+	if bag_a.dice.is_empty() or bag_b.dice.is_empty():
+		return
+	var i := randi_range(0, bag_a.dice.size() - 1)
+	var j := randi_range(0, bag_b.dice.size() - 1)
+	var tmp: PackedInt32Array = bag_a.dice[i]
+	bag_a.dice[i] = bag_b.dice[j]
+	bag_b.dice[j] = tmp
+
+
 var count: int:
 	get:
 		return dice.size()
