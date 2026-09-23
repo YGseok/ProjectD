@@ -133,8 +133,8 @@ const DEFINITIONS := {
 		"icon": "milestone",
 	},
 	"clear_shieldbearer": {
-		"title": "방패병으로 첫 클리어",
-		"desc": "방패병으로 최종 클리어(3라운드 전부)에 성공했다.",
+		"title": "침묵의 무녀로 첫 클리어",
+		"desc": "침묵의 무녀로 최종 클리어(3라운드 전부)에 성공했다.",
 		"icon": "milestone",
 	},
 	# 큐 13("업적 시스템 — 남은 항목 추가") 후속. 특수 이벤트의 "위험을 감수하기"
