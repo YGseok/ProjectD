@@ -3024,6 +3024,8 @@ func _check_starting_skills(lines: PackedStringArray) -> bool:
 		"guardian": ["start_wall", "start_ironclad"],
 		"explosive": ["start_aggro", "start_expand"],
 		"shieldbearer": ["start_wall", "start_lean"],
+		"enchantress": ["start_expand", "start_lean"],
+		"juggler": ["start_aggro", "start_hoard"],
 	}
 	for character_id in expected.keys():
 		var choices := SkillPool.starting_skills_for_character(character_id)

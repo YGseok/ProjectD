@@ -8,6 +8,30 @@
 
 ---
 
+- **2026-09-17 (134)**: INBOX.md "남은 이슈"의 [미니 기획 E](캐릭터별 시작 스킬
+  선택) 2번(STARTING_SKILLS 데이터 정의)을 진행 — 지시대로 이 하나만 이번
+  이터레이션 범위로 한정했다(1/3/4/5번은 사람 설계가 이미 나와 있어도 순서대로
+  다음 이터레이션들이 나눠 이어갈 차례). `code/systems/skill_pool.gd`에
+  `STARTING_SKILLS: Array[Dictionary]`(6종: `start_aggro`/`start_wall`/
+  `start_expand`/`start_lean`/`start_hoard`/`start_ironclad`, 각각 기획서
+  원문의 id/이름/설명/`character_ids` 그대로)와, 이를 `character_ids`로
+  필터링해 "그 캐릭터가 고를 수 있는 시작 스킬 목록"(등장 순서=슬롯 순서)을
+  반환하는 `starting_skills_for_character(character_id)`를 추가했다. 기존
+  SKILLS/UNIQUE_SKILLS와 섞이지 않도록 완전히 별도 상수로 분리(기획서 2번
+  "런 중 이벤트로는 절대 안 나옴" 반영). RunState/character_select.gd/
+  combat_test.gd는 아직 손대지 않았다 — 이번 조각은 순수 데이터 정의만.
+  **QA 검증**: `dice_test.gd`에 신규 `_check_starting_skills`를 추가해 기획서가
+  명시한 5개 캐릭터의 슬롯 0/1 순서(견습=[확장,정예], 광전사=[맹공,수집가],
+  수호자=[철벽,강철 방비], 폭발병=[맹공,확장], 방패병=[철벽,정예])가
+  `starting_skills_for_character()`로 정확히 재현되는지와, 알 수 없는
+  캐릭터 id는 빈 배열을 반환하는지 확인했다. `bash scripts/qa_shot.sh
+  dice_test` 전체 PASS(신규 검증 6개 포함). 순수 데이터/로직 추가라 화면
+  레이아웃 영향은 없지만, `scripts/qa_shot.sh character_select`로 캐릭터
+  선택 화면이 이번 변경 후에도 크래시 없이 정상 로드됨을 재확인했다
+  (`qa_out/character_select.png`). 다음 이터레이션은 [미니 기획 E] 3번(선택
+  UI, `character_select.gd`에 시작 스킬 선택 줄 + 슬롯 1 자물쇠 표시)을
+  이어가면 된다 — 아래 "다음 할 일 큐" 19번 참고.
+
 - **2026-09-17 (133)**: INBOX.md "부분 처리됨"의 [미니 기획 D](스킬 강화 이벤트)
   마지막 남은 조각 두 개(4번 나머지 고유 1종 "임기응변+" 전투 배선 + 5번 UI
   강조)를 마무리해 **[미니 기획 D] 전체 완료** — INBOX.md에서 "부분 처리됨"에서

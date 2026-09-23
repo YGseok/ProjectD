@@ -36,7 +36,27 @@
   적당히 비어있는 포지션에 재미요소 맞춰서 해봐.
 
   → **A(방패병 리스킨)/B(매혹사)/C(곡예사) 완료(2026-09-24 (140)/(141)/(142)),
-  D는 1~2번 완료(2026-09-24 (143)), 3~7번 남음.**
+  D는 1~3번 완료(2026-09-24 (143)/(144)), 4~7번 남음.**
+  D-3(이번 이터레이션, (144)): `skill_pool.gd`의 `STARTING_SKILLS`에서
+  기존 원형 6종 중 4개의 `character_ids`에 매혹사/곡예사를 추가했다(새 원형은
+  만들지 않음, 지시대로). 매혹사(공격/방어 D4x3/D4x3, 균형형, 기믹이 공수
+  양쪽에 작용)는 원문 예시 그대로 "확장"(`start_expand`, 합계 8+)/"정예"
+  (`start_lean`, 합계 6 이하)에 추가 — 시작 합계가 6이라 "정예"가 런 시작부터
+  바로 발동하는 상태다. 곡예사(공격/방어 D4x3/D4x2, 가볍게 움직이는 컨셉)는
+  "맹공"(`start_aggro`, 공격>방어)/"수집가"(`start_hoard`, 눈금 5개 이상)에
+  추가 — 시작 다이스 구성 자체가 공격(3)>방어(2)라 "맹공"이 런 시작부터
+  바로 발동한다(캐릭터 컨셉과 우연히 잘 맞아 슬롯 0으로 배치). `STARTING_SKILLS`
+  배열 안에서의 등장 순서가 곧 슬롯 순서라(주석 참고), 매혹사는
+  [확장(슬롯0), 정예(슬롯1)], 곡예사는 [맹공(슬롯0), 수집가(슬롯1)]이 된다.
+  `combat_test.gd`의 6개 조건 분기는 전부 `RunState.skill_flags`만 검사하고
+  캐릭터 id를 하드코딩하지 않는 구조라 전투 배선은 코드 수정 없이 그대로
+  작동한다(확인만 함). `dice_test.gd`의 `_check_starting_skills` 기대값
+  맵에 enchantress/juggler 두 항목을 추가해 슬롯 순서를 검증하고,
+  `bash scripts/qa_shot.sh dice_test` 전체 PASS. `qa_out/character_select_
+  juggler_skills.png`(곡예사 상세 패널, `_debug_select_juggler` 훅 사용)로
+  "맹공"(선택됨, 금테)/"수집가"(자물쇠, 미해금) 두 슬롯이 겹침 없이 정상
+  표시됨을 확인. D-4(고유 스킬 신설)/D-5(character_select QA)/D-6(DESIGN.md
+  표 갱신)/D-7(초상 확인)은 지시대로 다음 이터레이션으로 남긴다.
   D-1~2: `achievement_manager.gd`의 `DEFINITIONS`에 기존 5종과 같은 패턴으로
   `clear_enchantress`("매혹사로 첫 클리어")/`clear_juggler`("곡예사로 첫
   클리어") 업적 2종을 추가했다. `combat_test.gd`의 실제 unlock 호출부

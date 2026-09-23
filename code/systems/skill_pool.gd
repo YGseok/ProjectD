@@ -193,7 +193,7 @@ const STARTING_SKILLS: Array[Dictionary] = [
 		"id": "start_aggro",
 		"name": "맹공",
 		"description": "공격 다이스 개수가 방어 다이스 개수보다 많으면, 공격 다이스 결과값 전체가 +1 된다 (상한: 각 다이스 면 개수).",
-		"character_ids": ["berserker", "explosive"],
+		"character_ids": ["berserker", "explosive", "juggler"],
 	},
 	{
 		"id": "start_wall",
@@ -205,19 +205,19 @@ const STARTING_SKILLS: Array[Dictionary] = [
 		"id": "start_expand",
 		"name": "확장",
 		"description": "공격+방어 다이스 합계가 8개 이상이면, 공격/방어 다이스 결과값 전체가 +1 된다 (상한: 각 다이스 면 개수).",
-		"character_ids": ["novice", "explosive"],
+		"character_ids": ["novice", "explosive", "enchantress"],
 	},
 	{
 		"id": "start_lean",
 		"name": "정예",
 		"description": "공격+방어 다이스 합계가 6개 이하로 유지되면, 공격/방어 다이스 결과값 전체가 +1 된다 (상한: 각 다이스 면 개수).",
-		"character_ids": ["novice", "shieldbearer"],
+		"character_ids": ["novice", "shieldbearer", "enchantress"],
 	},
 	{
 		"id": "start_hoard",
 		"name": "수집가",
 		"description": "보유한 눈금 인벤토리가 5개 이상이면, 공격 다이스 결과값 전체가 +1 된다 (상한: 각 다이스 면 개수).",
-		"character_ids": ["berserker"],
+		"character_ids": ["berserker", "juggler"],
 	},
 	{
 		"id": "start_ironclad",

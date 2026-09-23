@@ -5,27 +5,24 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-09-24 (143)
-- 작성자: AI 에이전트. INBOX.md "부분 처리됨"의 [대형 기획 4](캐릭터 로스터
-  개편) — A(주술사 리스킨)/B(매혹사)/C(곡예사)는 (140)~(142)에서 이미 완료,
-  세션 지침이 "이어서 D(공통 후속)의 1~2번(clear_enchantress/clear_juggler
-  업적 추가 + unlock 목록 반영)을 진행하라"고 구체적으로 지시했으므로
-  **D-1~2만** 수행했다. `code/systems/achievement_manager.gd`의
-  `DEFINITIONS`에 기존 5종과 같은 패턴으로 `clear_enchantress`/
-  `clear_juggler` 업적 2종을 추가했다. `combat_test.gd`의 실제 unlock
-  호출부(`_apply_room_advance()`)는 캐릭터 id를 정적 목록이 아니라
-  `_character_clear_achievement_id()`로 즉석에서 문자열 조합
-  (`"clear_%s" % char_id`)해서 부르는 구조라 이미 7종 전부를 자동으로
-  커버하고 있었다 — 대신 `dice_test.gd`의 회귀 검증용 하드코딩 목록
-  `all_clear_ids`(5종만 있었음)에 두 id를 추가하고 주석을 "캐릭터 7종"으로
-  갱신해, "업적 정의 자체가 7종 다 있는지"를 실질적으로 검증하게 했다.
-  `bash scripts/qa_shot.sh dice_test` 전체 PASS(캐릭터 7종 검증 통과
-  확인). 자세한 내용은 아래 "완료 기록 (143)" 참고. "완료 기록" 10개
-  유지를 위해 (133)을 `docs/STATUS_ARCHIVE.md`로 옮겼다. D의 나머지
-  3~7번(STARTING_SKILLS/UNIQUE_SKILLS 배정, character_select 7종 QA,
-  DESIGN.md 캐릭터 표 갱신)은 원문이 "한 이터레이션에 다 하지 말 것"이라
-  명시해 일부러 손대지 않았다 — INBOX.md "부분 처리됨"에 그대로 남겨뒀다,
-  다음 세션이 D-3부터 이어갈 차례.
+- 일시: 2026-09-24 (144)
+- 작성자: AI 에이전트. 세션 지침이 INBOX.md "부분 처리됨"의 [대형 기획 4]
+  (캐릭터 로스터 개편) D(공통 후속)의 **3번**(`skill_pool.gd`의
+  `STARTING_SKILLS` 6원형에서 매혹사/곡예사에게 각 2종씩 `character_ids`
+  배정)을 진행하라고 구체적으로 지시했으므로 **D-3만** 수행했다.
+  기존 6원형 중 매혹사에겐 "확장"/"정예", 곡예사에겐 "맹공"/"수집가"를
+  각각 배정(둘 다 시작 다이스 구성상 슬롯 0 스킬이 런 시작부터 바로
+  발동하는 우연한 시너지 확인). `combat_test.gd`는 스킬 flag만 검사하는
+  구조라 코드 수정 없이 자동으로 작동함을 확인했다. `dice_test.gd`의
+  `_check_starting_skills` 기대값에 두 캐릭터를 추가해 검증,
+  `bash scripts/qa_shot.sh dice_test` 전체 PASS. `qa_out/character_select_
+  juggler_skills.png`로 곡예사 상세 패널의 새 슬롯 2개(선택됨/잠김)가
+  겹침 없이 정상 표시됨을 확인. 자세한 내용은 아래 "완료 기록 (144)" 참고.
+  "완료 기록" 10개 유지를 위해 (134)를 `docs/STATUS_ARCHIVE.md`로 옮겼다.
+  D의 나머지 4~7번(UNIQUE_SKILLS 고유 스킬 신설, character_select 7종 최종
+  QA, DESIGN.md 캐릭터 표 갱신, 초상 확인)은 원문이 "한 이터레이션에 다
+  하지 말 것"이라 명시해 일부러 손대지 않았다 — INBOX.md "부분 처리됨"에
+  그대로 남겨뒀다, 다음 세션이 D-4부터 이어갈 차례.
 
 ## 지금 위치
 
@@ -44,16 +41,19 @@ id: `juggler`)**) → 던전 맵(런 5방 × 3라운드) → 전투/상점/특�
 이벤트)/[미니 기획 E](캐릭터별 시작 스킬 선택) 둘 다 전체 완료** 상태
 그대로 유지(이번 이터레이션은 손대지 않음, 상세는 STATUS_ARCHIVE.md와 아래
 "알려진 이슈" 참고). **진행 중: [대형 기획 4] 캐릭터 로스터 개편** —
-A(방패병→"주술사" 리스킨)/B(매혹사)/C(곡예사) 완료, **D(공통 후속)는
-1~2번(업적 `clear_enchantress`/`clear_juggler` 추가 + unlock 경로 검증)
-완료, 3~7번(STARTING_SKILLS/UNIQUE_SKILLS 배정, character_select 7종 QA,
-DESIGN.md 캐릭터 표 7종 갱신 등)만 남음** — INBOX.md "부분 처리됨" 참고.
-매혹사/곡예사 둘 다 `skill_pool.gd`의 STARTING_SKILLS/UNIQUE_SKILLS에
-아직 항목이 없어(D-3/D-4에서 처리 예정) 캐릭터 선택 화면에서 "시작 스킬"
-슬롯이 둘 다 비어 보인다 — 크래시는 아니고 의도된 중간 상태. **알려진
-이슈**: 방패병(현 "주술사")의 "정예" 슬롯은 기본 다이스 합계(7개)가 이미
-조건(6개 이하)을 넘어서고 다이스를 줄이는 수단이 게임에 전혀 없어 이론상
-절대 발동하지 않는다 — "알려진 이슈" 섹션에 사람 결정 대기 중.
+A(방패병→"주술사" 리스킨)/B(매혹사)/C(곡예사) 완료, D(공통 후속)는
+1~3번 완료(업적 `clear_enchantress`/`clear_juggler` 추가 + unlock 경로
+검증, `STARTING_SKILLS` 매혹사=[확장,정예]/곡예사=[맹공,수집가] 배정),
+**4~7번(UNIQUE_SKILLS 고유 스킬 신설, character_select 7종 최종 QA,
+DESIGN.md 캐릭터 표 7종 갱신, 초상 확인)만 남음** — INBOX.md "부분 처리됨"
+참고. 매혹사/곡예사 둘 다 `skill_pool.gd`의 `UNIQUE_SKILLS`(런 중 무작위
+이벤트로 얻는 고유 스킬)에는 아직 항목이 없어(D-4에서 처리 예정) 두
+캐릭터로 "캐릭터 스킬 부여 이벤트"를 만나도 공용 스킬(심호흡/여분)만
+뜬다 — 크래시는 아니고 의도된 중간 상태(시작 스킬 쪽은 D-3로 채워짐).
+**알려진 이슈**: 방패병(현 "주술사")의 "정예" 슬롯은 기본 다이스
+합계(7개)가 이미 조건(6개 이하)을 넘어서고 다이스를 줄이는 수단이 게임에
+전혀 없어 이론상 절대 발동하지 않는다 — "알려진 이슈" 섹션에 사람 결정
+대기 중.
 
 - **캐릭터 7종** (`code/systems/character_profiles.gd`의
   `CharacterProfiles.PROFILES`): 견습 모험가(기믹 없음, D4x3/D4x3) / 광전사
@@ -126,22 +126,19 @@ DESIGN.md 캐릭터 표 7종 갱신 등)만 남음** — INBOX.md "부분 처리
 진행하는 것을 권장한다. 한 이터레이션에 한두 개만 진행할 것.
 
 -1. **(INBOX.md 2026-09-24, [대형 기획 4] 캐릭터 로스터 개편 — A/B/C 완료,
-   D-1~2 완료, D-3~7 남음, 최우선)** A(방패병→"주술사" 리스킨)는 (140),
+   D-1~3 완료, D-4~7 남음, 최우선)** A(방패병→"주술사" 리스킨)는 (140),
    B(신규 "매혹사", id: `enchantress`, 기믹 `charm_flip`)는 (141), C(신규
    "곡예사", id: `juggler`, 기믹 `juggle_swap`)는 (142), D-1~2(업적
-   `clear_enchantress`/`clear_juggler` 추가 + unlock 경로 검증)는 (143)에서
-   완료. 남은 것:
-   - **D-3.** `skill_pool.gd`의 `STARTING_SKILLS`(6원형: 맹공/철벽/확장/정예/
-     수집가/강철 방비)에서 매혹사/곡예사에게 각 2종씩 `character_ids` 추가
-     배정(INBOX.md 원문: "새 원형 만들 필요 없음 — 매혹사는 범용 축, 곡예사는
-     재미있게 배정해도 됨, 정확한 배정은 구현하는 사람이 정해도 됨").
+   `clear_enchantress`/`clear_juggler` 추가 + unlock 경로 검증)는 (143),
+   D-3(`STARTING_SKILLS` 배정: 매혹사=[확장,정예], 곡예사=[맹공,수집가])는
+   (144)에서 완료. 남은 것:
    - **D-4.** `skill_pool.gd`의 `UNIQUE_SKILLS`/`UPGRADE_SKILLS`에 매혹사/
      곡예사 전용 고유 스킬 1종씩("+" 강화판 포함) 추가 — 자기 기믹과 시너지
      방향으로(INBOX.md 원문 예시: 매혹사는 charm_flip 대상 다이스를
      1개→2개로 늘리는 스킬, 곡예사는 juggle_swap을 라운드 전환 시 재발동하는
      스킬 등).
    - **D-5.** `character_select.gd`/`.tscn` 7종 레이아웃 QA — 이미 (141)/
-     (142)에서 스크린샷으로 깨짐 없음 확인됨, 남은 건 사람 눈으로 최종
+     (142)/(144)에서 스크린샷으로 깨짐 없음 확인됨, 남은 건 사람 눈으로 최종
      재확인 정도.
    - **D-6.** `docs/DESIGN.md`의 캐릭터 표를 7종으로 갱신(지금은 5종까지만
      기술돼 있어 코드와 크게 어긋난 상태).
@@ -746,6 +743,35 @@ DESIGN.md 캐릭터 표 7종 갱신 등)만 남음** — INBOX.md "부분 처리
 
 ## 완료 기록
 
+- **2026-09-24 (144)**: 세션 지침대로 INBOX.md "부분 처리됨"의 [대형 기획 4]
+  (캐릭터 로스터 개편) **D(공통 후속) 3번**(`STARTING_SKILLS` 6원형에서
+  매혹사/곡예사에게 각 2종씩 `character_ids` 배정)을 진행했다 — A/B/C는
+  (140)~(142), D-1~2는 (143)에서 이미 완료.
+  `code/systems/skill_pool.gd`의 `STARTING_SKILLS` 6원형 중 4개의
+  `character_ids`에 새 캐릭터를 추가했다(새 원형은 만들지 않음, 지시대로):
+  매혹사(공격/방어 D4x3/D4x3 균형형)는 원문 예시 그대로 "확장"(`start_expand`,
+  합계 8+)/"정예"(`start_lean`, 합계 6 이하)에 — 시작 합계가 정확히 6이라
+  "정예"가 런 시작부터 바로 발동한다. 곡예사(공격/방어 D4x3/D4x2)는 "맹공"
+  (`start_aggro`, 공격>방어)/"수집가"(`start_hoard`, 눈금 5개 이상)에 —
+  시작 다이스 구성 자체가 공격(3)>방어(2)라 "맹공"이 런 시작부터 바로
+  발동한다(캐릭터의 "가볍게 움직이는" 컨셉과 우연히 잘 맞아떨어져 슬롯 0으로
+  배치). `STARTING_SKILLS` 배열 안 등장 순서가 곧 슬롯 순서라(기존 주석 그대로
+  적용), 매혹사=[확장(슬롯0), 정예(슬롯1)], 곡예사=[맹공(슬롯0), 수집가(슬롯1)]이
+  된다. `combat_test.gd`의 6개 조건 분기는 전부 `RunState.skill_flags`만
+  검사하고 캐릭터 id를 하드코딩하지 않는 구조라 전투 배선은 코드 수정 없이도
+  이미 작동함을 확인했다(코드 변경 불필요).
+  `code/scenes/dice_test.gd`의 `_check_starting_skills` 기대값 맵에
+  `enchantress`/`juggler` 두 항목을 추가해 슬롯 순서를 자동 검증하고,
+  `bash scripts/qa_shot.sh dice_test` 전체 PASS. `qa_out/character_select_
+  juggler_skills.png`(`_debug_select_juggler` 훅으로 곡예사 상세 패널 직접
+  캡처)로 "맹공"(기본 선택, 금테 강조)/"수집가"(자물쇠, 미해금) 두 슬롯이
+  겹침·잘림 없이 정상 표시됨을 확인했다.
+  **의도적으로 안 한 것**: D-4(`UNIQUE_SKILLS`/`UPGRADE_SKILLS` 고유 스킬
+  신설)/D-5(character_select 7종 레이아웃 최종 육안 확인)/D-6(DESIGN.md
+  캐릭터 표 7종 갱신)/D-7(초상 확인)은 원문이 "D를 한 이터레이션에 다 하지
+  말 것"이라 명시했고 세션 지침도 3번으로 범위를 못박아 손대지 않았다 —
+  다음 이터레이션이 D-4부터 이어갈 차례.
+
 - **2026-09-24 (142)**: INBOX.md "부분 처리됨"의 [대형 기획 4](캐릭터 로스터
   개편) 중 **C(신규 캐릭터 "곡예사")를** 세션 지침대로 진행했다 — A(방패병→
   주술사 리스킨)/B(매혹사)는 (140)/(141)에서 이미 완료, D(공통 후속: 업적/
@@ -1072,30 +1098,6 @@ DESIGN.md 캐릭터 표 7종 갱신 등)만 남음** — INBOX.md "부분 처리
   지시대로 한 이터레이션에 2~3개씩 나눠 진행) — 1~3번이 끝났으니 다음
   이터레이션이 이어가면 된다. 5번(UI 강조)은 선택 사항.
 
-- **2026-09-17 (134)**: INBOX.md "남은 이슈"의 [미니 기획 E](캐릭터별 시작 스킬
-  선택) 2번(STARTING_SKILLS 데이터 정의)을 진행 — 지시대로 이 하나만 이번
-  이터레이션 범위로 한정했다(1/3/4/5번은 사람 설계가 이미 나와 있어도 순서대로
-  다음 이터레이션들이 나눠 이어갈 차례). `code/systems/skill_pool.gd`에
-  `STARTING_SKILLS: Array[Dictionary]`(6종: `start_aggro`/`start_wall`/
-  `start_expand`/`start_lean`/`start_hoard`/`start_ironclad`, 각각 기획서
-  원문의 id/이름/설명/`character_ids` 그대로)와, 이를 `character_ids`로
-  필터링해 "그 캐릭터가 고를 수 있는 시작 스킬 목록"(등장 순서=슬롯 순서)을
-  반환하는 `starting_skills_for_character(character_id)`를 추가했다. 기존
-  SKILLS/UNIQUE_SKILLS와 섞이지 않도록 완전히 별도 상수로 분리(기획서 2번
-  "런 중 이벤트로는 절대 안 나옴" 반영). RunState/character_select.gd/
-  combat_test.gd는 아직 손대지 않았다 — 이번 조각은 순수 데이터 정의만.
-  **QA 검증**: `dice_test.gd`에 신규 `_check_starting_skills`를 추가해 기획서가
-  명시한 5개 캐릭터의 슬롯 0/1 순서(견습=[확장,정예], 광전사=[맹공,수집가],
-  수호자=[철벽,강철 방비], 폭발병=[맹공,확장], 방패병=[철벽,정예])가
-  `starting_skills_for_character()`로 정확히 재현되는지와, 알 수 없는
-  캐릭터 id는 빈 배열을 반환하는지 확인했다. `bash scripts/qa_shot.sh
-  dice_test` 전체 PASS(신규 검증 6개 포함). 순수 데이터/로직 추가라 화면
-  레이아웃 영향은 없지만, `scripts/qa_shot.sh character_select`로 캐릭터
-  선택 화면이 이번 변경 후에도 크래시 없이 정상 로드됨을 재확인했다
-  (`qa_out/character_select.png`). 다음 이터레이션은 [미니 기획 E] 3번(선택
-  UI, `character_select.gd`에 시작 스킬 선택 줄 + 슬롯 1 자물쇠 표시)을
-  이어가면 된다 — 아래 "다음 할 일 큐" 19번 참고.
-
 - **2026-09-24 (143)**: INBOX.md "부분 처리됨"의 [대형 기획 4](캐릭터 로스터
   개편) **D(공통 후속) 1~2번**을 세션 지침대로 진행했다 — A(주술사 리스킨)/
   B(매혹사)/C(곡예사)는 (140)~(142)에서 이미 완료됐고, D는 항목이 7개라
@@ -1126,7 +1128,7 @@ DESIGN.md 캐릭터 표 7종 갱신 등)만 남음** — INBOX.md "부분 처리
 
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(143)에서 (133)을 그리로 옮겼다.)*
+이번 이터레이션(144)에서 (134)를 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 
