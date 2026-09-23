@@ -26,6 +26,83 @@
 ## 남은 이슈 (미처리)
 
 (플레이해보고 느낀 점을 이 섹션에 자유롭게 적어주세요.)
+- 2026-09-24 방패병이 수호자랑 겹치는데 빼고, 3개의 캐릭터 아이디어를 더 내줄래?
+  이어서 스킬 작업까지 이터레이션으로 해주고, 외형 프롬프트를 추가해줘. 컨셉이랑
+  어울리면 좋겠는데, 추가하면 좋겠는 캐릭터는 음침 거유 캐릭터랑, 섹시하고
+  도발적인 캐릭터, 나머지 하나는 적당히 비어있는 포지션에 재미요소 맞춰서 해봐.
+
+  **(기획자 결정 — 구체적 설계, [대형 기획 4] 캐릭터 로스터 개편: 방패병 리스킨 +
+  신규 2종)**
+
+  **A. 방패병 리스킨(삭제가 아니라 재사용)** — `character_profiles.gd`의
+  `id: "shieldbearer"` 항목은 **id/gimmick("guard_stack")/attack_count(3)/
+  defense_count(4)/event_die_sides(6)를 전부 그대로 유지**하고 `name`/`desc`/
+  `concept`/`hair_color`/`dress_color`만 바꾼다 — id를 바꾸면
+  `achievement_manager.gd`의 `clear_shieldbearer`, `skill_pool.gd`의
+  `chain_guard`/`chain_guard_plus`(character_id: "shieldbearer"), `start_wall`/
+  `start_lean`(character_ids에 "shieldbearer" 포함) 등 이미 이 id를 참조하는
+  모든 곳을 다 고쳐야 해서 위험하고 불필요하다 — **겉모습(이름/설명/색)만
+  "음침 거유" 컨셉으로 바꾸고 내부 id/기믹/수치는 절대 건드리지 않는다.**
+  새 이름: **"침묵의 무녀"**. concept: "음침하고 말이 없는 무녀 — 방어 다이스가
+  최댓값을 보여줄 때마다 수호 스택이 쌓임(기존 방패병 기믹과 완전히 동일, 이름만
+  교체)." `achievement_manager.gd`의 `clear_shieldbearer` title도 "침묵의 무녀로
+  첫 클리어"로 문구만 갱신(id는 유지).
+
+  **B. 신규 캐릭터 "매혹사"** (id: `enchantress`, 섹시·도발적 컨셉) — 신규 기믹
+  `charm_flip`: "그 턴에 굴린 다이스들 중 가장 낮은 값을 보인 다이스 딱 1개를
+  그 다이스의 최댓값으로 바꾼다(공격턴/방어턴 모두 적용, 턴마다 1개만)." 구현:
+  `dice_bag.gd`에 신규 `apply_charm_flip(values)` 헬퍼를 `apply_flat_bonus()`/
+  `apply_steady_guard()`와 같은 패턴(원본 배열 안 건드리고 보정된 새 배열 반환)
+  으로 추가 — `adjusted` 배열에서 `dice.size()` 범위 내 최솟값의 인덱스를 찾아
+  `adjusted[i] = dice[i].size()`(그 다이스의 면 개수, 즉 최댓값)로 교체. 이건
+  `steady_guard`(다크 나이트 몬스터 기믹)처럼 **런타임 매 턴 보정**이므로,
+  `combat_test.gd`에서 `player_dice_gimmick == "steady_guard"`류를 체크하는
+  것과 같은 위치에 `"charm_flip"` 분기를 추가해 공격/방어 양쪽 값 계산 직후
+  호출한다. attack_count/defense_count: 3/3(균형형 — 매혹은 공수 어디에나
+  작용하므로 몰빵 배분 불필요, 잠정값). hair_color/dress_color: 자주/붉은
+  계열, 기존 5종과 안 겹치는 톤으로 잠정 배정.
+
+  **C. 신규 캐릭터 "곡예사"** (id: `juggler`, 빈 포지션+재미요소) — 신규 기믹
+  `juggle_swap`: "런 시작 시 1회, 공격 다이스 중 무작위 하나와 방어 다이스 중
+  무작위 하나를 서로 맞바꾼다(다이스 객체 전체 — 면 구성/눈금까지 통째로 이동,
+  개수(attack_count/defense_count)는 안 바뀜)." 이건 min_max_only/
+  fixed_defense_die와 같은 **"reset_run() 직후 1회 정적 적용"** 패턴이므로,
+  `run_state.gd`의 기믹 적용 match 문(`_apply_character_gimmick()`류)에
+  `"juggle_swap"` 분기를 추가해 `player_attack_bag.dice`/
+  `player_defense_bag.dice` 배열에서 무작위 인덱스를 하나씩 골라
+  `dice[i]`끼리 교환한다(면 개수 통일된 시작 상태에서는 사실상 의미 없어
+  보일 수 있지만, 다이스 개조 아이템으로 나중에 눈금/면 개수가 달라지면 이
+  캐릭터는 "언제 어떤 다이스가 어느 역할로 굴러갈지 뒤섞여 있다"는 정체성이
+  체감됨 — 매 전투가 아니라 런 시작 1회이므로 한 런 안에서는 고정). attack_count/
+  defense_count: 3/2(가볍게 움직이는 느낌, 잠정값). hair_color/dress_color:
+  알록달록한 서커스풍 — 노랑/보라 등 대비되는 톤 잠정 배정.
+
+  **D. 공통 후속 작업** (B/C 둘 다 적용, 한 이터레이션에 다 하지 말 것):
+  1. `character_profiles.gd` PROFILES에 두 항목 추가(B/C 각각 desc/concept 문구
+     포함, 기존 5종과 같은 필드 구조).
+  2. `achievement_manager.gd`에 `clear_enchantress`/`clear_juggler` 업적 추가
+     (기존 `clear_<id>` 5종과 완전히 같은 패턴 — "최종 클리어(3라운드 전부)").
+     `combat_test.gd`의 `_apply_room_advance()`에서 이 두 id도 함께 unlock되게
+     기존 캐릭터별 unlock 목록에 추가.
+  3. `skill_pool.gd`의 `STARTING_SKILLS`(6원형: 맹공/철벽/확장/정예/수집가/강철
+     방비)에서 매혹사/곡예사에게 각 2종씩 `character_ids`를 추가 배정(새 원형을
+     만들 필요 없음 — 매혹사는 공수 겸용이니 "확장"+"정예" 같은 범용 축, 곡예사는
+     "수집가"+"확장"처럼 재미있게 배정해도 됨, 정확한 배정은 구현하는 사람이 컨셉에
+     맞게 정해도 됨).
+  4. `skill_pool.gd`의 `UNIQUE_SKILLS`/`UPGRADE_SKILLS`에 매혹사/곡예사 전용
+     고유 스킬 1종씩("+" 강화판 포함) 추가 — 기존 5종처럼 "자기 기믹과 시너지"
+     방향으로(예: 매혹사는 charm_flip 대상 다이스 개수를 1개->2개로 늘리는 스킬,
+     곡예사는 juggle_swap을 런 시작뿐 아니라 라운드가 바뀔 때마다 재발동하는
+     스킬 등 — 정확한 효과는 구현하는 사람이 기존 패턴에 맞춰 정해도 됨).
+  5. `character_select.gd`/`.tscn`: 캐릭터가 5->7종이 되므로 목록(왼쪽 세로
+     목록, 2단 레이아웃)이 7줄에서도 겹침 없이 스크롤/축소되는지 QA 확인 —
+     레이아웃이 깨지면 그때 고칠 것(미리 큰 구조를 바꾸지 말고, 실제로 깨질 때만).
+  6. `docs/DESIGN.md`의 캐릭터 표를 7종으로 갱신.
+  7. `character_portrait_placeholder.gd`는 코드 수정 없이(hair_color/dress_color
+     매개변수만 새로 넘기면 그대로 재사용됨) 매혹사/곡예사 placeholder 초상을
+     자동으로 얻는다 — 확인만 하면 됨.
+  완료 기준: A~D 전부 끝나면 이 항목을 "처리됨"으로 옮길 것. 진행 중에는 STATUS.md
+  에 A/B/C/D-N 중 몇 번까지 끝났는지 남길 것.
 
 ## 부분 처리됨
 
