@@ -5,53 +5,65 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-09-24 (140)
-- 작성자: AI 에이전트. INBOX.md "남은 이슈"에 2026-09-24 신규 지시([대형
-  기획 4] 캐릭터 로스터 개편 — 방패병 리스킨 + 매혹사/곡예사 신규)가 있었고,
-  세션 지침이 "이번 이터레이션은 A(방패병 리스킨)만 진행해도 충분하다"고
-  명시했으므로 **A만** 수행했다. `code/systems/character_profiles.gd`의
-  `id: "shieldbearer"` 항목에서 id/기믹(`guard_stack`)/attack_count(3)/
-  defense_count(4)/event_die_sides(6)는 그대로 두고 `name`("방패병"→
-  "침묵의 무녀")/`desc`/`concept`/`hair_color`/`dress_color`만 지시된 문구
-  그대로 교체(색은 "음침 거유" 컨셉에 맞춘 어두운 자주/적갈색 잠정 배정).
-  `code/systems/achievement_manager.gd`의 `clear_shieldbearer` 업적
-  title/desc 문구도 갱신(id는 유지). `docs/DESIGN.md`의 캐릭터 표/초기
-  다이스 목록도 새 이름으로 동기화. `bash scripts/qa_shot.sh dice_test`
-  전체 PASS, `bash scripts/qa_shot.sh character_select`로
-  `qa_out/character_select.png` 확인(목록에 "침묵의 무녀"가 어두운 색
-  초상으로 정상 표시, 레이아웃 문제 없음). 자세한 내용은 아래 "완료 기록
-  (140)" 참고. "완료 기록" 10개 유지를 위해 (130)을 `docs/STATUS_ARCHIVE.md`로
-  옮겼다. B(매혹사)/C(곡예사)/D(공통 후속)는 INBOX.md에 "부분 처리됨"으로
-  옮겨 남겨뒀다 — 다음 세션이 이어갈 차례.
+- 일시: 2026-09-24 (141)
+- 작성자: AI 에이전트. INBOX.md "부분 처리됨"의 [대형 기획 4](캐릭터 로스터
+  개편)에서 A(방패병 리스킨)는 (140)에서 이미 끝났고, 세션 지침이 "이어서
+  B(신규 캐릭터 '매혹사', id: enchantress, 신규 기믹 charm_flip)를
+  진행하라"고 구체적으로 지시했으므로 **B만** 수행했다.
+  `code/systems/character_profiles.gd`의 `PROFILES`에 6번째 항목
+  `id: "enchantress"`(이름 "매혹사", `gimmick: "charm_flip"`, 공격/방어
+  D4x3/D4x3 균형형)를 추가하고, `code/systems/dice_bag.gd`에 신규
+  `apply_charm_flip(values)` 헬퍼(그 턴 최저값 다이스 1개를 최댓값으로
+  교체)를 `apply_steady_guard()`류와 같은 패턴으로 추가했다.
+  `code/scenes/combat_test.gd`의 `_do_exchange()`에 런타임 분기를 걸어
+  플레이어 공격/방어턴마다 자기 주머니에 적용되게 배선(보너스 1D20 임시
+  주머니에는 적용 안 되게 방어적으로 걸러둠). `code/scenes/skill_icon.gd`에
+  `charm_flip` 전용 하트 아이콘을 추가해 `dice_test.gd`의 자동 검증
+  (`_check_skill_icons`)을 통과시켰고, `_check_character_profiles`에
+  매혹사 전용 검증과 `apply_charm_flip()` 단위 검증을 신규로 추가했다.
+  `bash scripts/qa_shot.sh dice_test` 전체 PASS(신규 검증 포함),
+  `bash scripts/qa_shot.sh character_select`로 `qa_out/character_select.png`
+  확인(6번째 항목 "매혹사"가 자주/붉은 계열 초상으로 겹침 없이 표시). 자세한
+  내용은 아래 "완료 기록 (141)" 참고. "완료 기록" 10개 유지를 위해 (131)을
+  `docs/STATUS_ARCHIVE.md`로 옮겼다. `skill_pool.gd`(시작/고유 스킬)와
+  `docs/DESIGN.md` 캐릭터 표 갱신은 INBOX.md 원문이 "D. 공통 후속"(B/C 둘
+  다 끝난 뒤)으로 명시해 일부러 손대지 않았다. C(곡예사)/D(공통 후속)는
+  INBOX.md "부분 처리됨"에 그대로 남겨뒀다 — 다음 세션이 이어갈 차례.
 
 ## 지금 위치
 
-캐릭터 선택(**7종 예정 중 현재 5종 그대로, 이름만 일부 변경** — 견습 모험가/
-광전사/수호자/폭발병/**침묵의 무녀**(id는 `shieldbearer` 그대로, 2026-09-24
-"방패병"에서 리스킨)) → 던전 맵(런 5방 × 3라운드) → 전투/상점/특수 이벤트/
-스토리 이벤트까지 한 바퀴 플레이 가능. 전투는 항상 노출, 상점은 2번째/4번째
-방 고정(`SHOP_FIXED_ROOM_INDICES`), 특수 이벤트/스토리 이벤트는 방마다 확률
-노출 + 결정적 순서 섞기. 마지막 방(보스 방)은 전투만 강제(`dungeon_map.gd`의
-`_room_options_for_index()`). 특수 이벤트 방은 세 갈래로 분기한다 —
-20%(`SKILL_UPGRADE_EVENT_CHANCE`) 확률로 스킬 강화(보유한 스킬 중 하나를
-"+"판으로), 그 다음 30%(`SKILL_EVENT_CHANCE`) 확률로 새 스킬 획득, 나머지는
-기존 안전/위험 아이템 이벤트 — 두 확률 모두 해당 후보가 없으면 항상 다음
-분기로 폴백한다. **[미니 기획 D](스킬 강화 이벤트)/[미니 기획 E](캐릭터별
-시작 스킬 선택) 둘 다 전체 완료** 상태 그대로 유지(이번 이터레이션은 손대지
-않음, 상세는 STATUS_ARCHIVE.md와 아래 "알려진 이슈" 참고). **진행 중:
-[대형 기획 4] 캐릭터 로스터 개편** — A(방패병→"침묵의 무녀" 리스킨,
-id/기믹/수치 불변)만 완료, B(신규 "매혹사")/C(신규 "곡예사")/D(공통 후속:
-업적/시작 스킬/DESIGN.md 7종 갱신 등)는 전부 미착수 — INBOX.md "부분
-처리됨" 참고. **알려진 이슈**: 방패병(현 "침묵의 무녀")의 "정예" 슬롯은
-기본 다이스 합계(7개)가 이미 조건(6개 이하)을 넘어서고 다이스를 줄이는
-수단이 게임에 전혀 없어 이론상 절대 발동하지 않는다 — "알려진 이슈" 섹션에
-사람 결정 대기 중.
+캐릭터 선택(**7종 예정 중 현재 6종 — 견습 모험가/광전사/수호자/폭발병/
+침묵의 무녀(id는 `shieldbearer` 그대로, 2026-09-24 "방패병"에서 리스킨)/
+매혹사(2026-09-24 신규, id: `enchantress`)**) → 던전 맵(런 5방 × 3라운드) →
+전투/상점/특수 이벤트/스토리 이벤트까지 한 바퀴 플레이 가능. 전투는 항상
+노출, 상점은 2번째/4번째 방 고정(`SHOP_FIXED_ROOM_INDICES`), 특수 이벤트/
+스토리 이벤트는 방마다 확률 노출 + 결정적 순서 섞기. 마지막 방(보스 방)은
+전투만 강제(`dungeon_map.gd`의 `_room_options_for_index()`). 특수 이벤트
+방은 세 갈래로 분기한다 — 20%(`SKILL_UPGRADE_EVENT_CHANCE`) 확률로 스킬
+강화(보유한 스킬 중 하나를 "+"판으로), 그 다음 30%(`SKILL_EVENT_CHANCE`)
+확률로 새 스킬 획득, 나머지는 기존 안전/위험 아이템 이벤트 — 두 확률 모두
+해당 후보가 없으면 항상 다음 분기로 폴백한다. **[미니 기획 D](스킬 강화
+이벤트)/[미니 기획 E](캐릭터별 시작 스킬 선택) 둘 다 전체 완료** 상태
+그대로 유지(이번 이터레이션은 손대지 않음, 상세는 STATUS_ARCHIVE.md와 아래
+"알려진 이슈" 참고). **진행 중: [대형 기획 4] 캐릭터 로스터 개편** —
+A(방패병→"침묵의 무녀" 리스킨, id/기믹/수치 불변)/B(신규 "매혹사",
+id: `enchantress`, 기믹 `charm_flip`) 완료, C(신규 "곡예사")/D(공통 후속:
+업적/시작 스킬/고유 스킬/DESIGN.md 7종 갱신 등)는 전부 미착수 — INBOX.md
+"부분 처리됨" 참고. 매혹사는 `skill_pool.gd`의 STARTING_SKILLS/
+UNIQUE_SKILLS에 아직 항목이 없어(D에서 처리 예정) 캐릭터 선택 화면에서
+"시작 스킬" 슬롯이 둘 다 비어 보인다 — 크래시는 아니고 의도된 중간 상태.
+**알려진 이슈**: 방패병(현 "침묵의 무녀")의 "정예" 슬롯은 기본 다이스
+합계(7개)가 이미 조건(6개 이하)을 넘어서고 다이스를 줄이는 수단이 게임에
+전혀 없어 이론상 절대 발동하지 않는다 — "알려진 이슈" 섹션에 사람 결정
+대기 중.
 
-- **캐릭터 5종** (`code/systems/character_profiles.gd`의
+- **캐릭터 6종** (`code/systems/character_profiles.gd`의
   `CharacterProfiles.PROFILES`): 견습 모험가(기믹 없음, D4x3/D4x3) / 광전사
   (min_max_only, D4x4/D4x2) / 수호자(fixed_defense_die, D4x2/D4x4) / 폭발병
-  (explosive_stack, D4x4/D4x3) / 방패병(guard_stack, D4x3/D4x4). 각 캐릭터는
-  공격/방어와 별개인 "이벤트 주사위"(`event_die_sides`, 5종 전부 D6)도 가짐.
+  (explosive_stack, D4x4/D4x3) / 침묵의 무녀(guard_stack, D4x3/D4x4) /
+  매혹사(charm_flip, D4x3/D4x3, 2026-09-24 신규 — 그 턴 최저값 다이스 1개를
+  최댓값으로 매 턴 즉시 전환, 스택/임계치 없음). 각 캐릭터는 공격/방어와
+  별개인 "이벤트 주사위"(`event_die_sides`, 6종 전부 D6)도 가짐.
   `character_select.tscn`은 왼쪽 좁은 목록(초상+이름+선택) + 오른쪽 상세
   패널(설명/시작 다이스/보유 스킬, 기믹 유형별 아이콘
   `code/scenes/skill_icon.gd`) 2단 레이아웃.
@@ -111,21 +123,22 @@ id/기믹/수치 불변)만 완료, B(신규 "매혹사")/C(신규 "곡예사")/
 이 순서를 반드시 지킬 필요는 없지만, 앞 단계가 뒤 단계의 전제가 되므로 대체로 순서대로
 진행하는 것을 권장한다. 한 이터레이션에 한두 개만 진행할 것.
 
--1. **(INBOX.md 2026-09-24, [대형 기획 4] 캐릭터 로스터 개편 — A만 완료, B~D
-   남음, 최우선)** A(방패병→"침묵의 무녀" 리스킨)는 (140)에서 완료. 다음
-   순서로 진행 권장(INBOX.md "부분 처리됨"에 전체 설계 원문 있음, 한
-   이터레이션에 다 하지 말 것):
-   - **B. 신규 캐릭터 "매혹사"**(id: `enchantress`, 섹시·도발적 컨셉) —
-     신규 기믹 `charm_flip`(그 턴 최저값 다이스 1개를 최댓값으로 교체,
-     `DiceBag.apply_charm_flip()` 신설). `character_profiles.gd`에 항목
-     추가부터 시작.
+-1. **(INBOX.md 2026-09-24, [대형 기획 4] 캐릭터 로스터 개편 — A/B 완료, C/D
+   남음, 최우선)** A(방패병→"침묵의 무녀" 리스킨)는 (140), B(신규 "매혹사",
+   id: `enchantress`, 기믹 `charm_flip`)는 (141)에서 완료. 다음 순서로 진행
+   권장(INBOX.md "부분 처리됨"에 전체 설계 원문 있음, 한 이터레이션에 다
+   하지 말 것):
    - **C. 신규 캐릭터 "곡예사"**(id: `juggler`, 빈 포지션+재미요소) — 신규
      기믹 `juggle_swap`(런 시작 1회, 공격/방어 다이스 하나씩 무작위 교환,
      `run_state.gd`의 기믹 적용 match 문에 분기 추가).
-   - **D. 공통 후속**(B/C 완료 후) — `achievement_manager.gd` 업적 2종
-     추가, `skill_pool.gd` STARTING_SKILLS/UNIQUE_SKILLS/UPGRADE_SKILLS에
-     매혹사/곡예사 항목 추가, `character_select.gd` 7종 레이아웃 QA,
-     `docs/DESIGN.md` 표 7종 갱신.
+   - **D. 공통 후속**(C 완료 후) — `achievement_manager.gd`에 `clear_
+     enchantress`/`clear_juggler` 업적 2종 추가(+`combat_test.gd`의
+     `_apply_room_advance()` unlock 목록에도 추가), `skill_pool.gd`
+     STARTING_SKILLS/UNIQUE_SKILLS/UPGRADE_SKILLS에 매혹사/곡예사 항목
+     추가(매혹사는 아직 시작 스킬이 하나도 없어 캐릭터 선택 화면에서
+     슬롯이 비어 보이는 상태 — D에서 채워야 함), `character_select.gd`
+     7종 레이아웃 QA, `docs/DESIGN.md` 캐릭터 표 7종 갱신(지금은 5종까지만
+     기술돼 있어 코드와 어긋난 상태).
    완료 기준: A~D 전부 끝나면 INBOX.md에서 "처리됨"으로 옮길 것.
 
 0. **(INBOX.md 신규 2026-09-03) UI 접근성/가시성 4종 — 1/4 부분 착수.** 전부 "전투/
@@ -723,6 +736,58 @@ id/기믹/수치 불변)만 완료, B(신규 "매혹사")/C(신규 "곡예사")/
 
 ## 완료 기록
 
+- **2026-09-24 (141)**: INBOX.md "부분 처리됨"의 [대형 기획 4](캐릭터 로스터
+  개편) 중 **B(신규 캐릭터 "매혹사")를** 세션 지침대로 진행했다 — A(방패병
+  리스킨)는 (140)에서 이미 완료, C(곡예사)/D(공통 후속)는 이번에도 손대지
+  않고 다음 이터레이션으로 남긴다.
+  `code/systems/character_profiles.gd`의 `PROFILES`에 6번째 항목
+  `id: "enchantress"`(이름 "매혹사", 컨셉 "섹시하고 도발적", `gimmick:
+  "charm_flip"`, `attack_count`/`defense_count` 3/3 균형형, `event_die_sides`
+  6)을 지시된 그대로 추가하고 `GIMMICK_LABELS`에도 짧은 이름표를 넣었다.
+  `code/systems/dice_bag.gd`에 신규 `apply_charm_flip(values)` 헬퍼를
+  `apply_steady_guard()`/`apply_flat_bonus()`와 같은 패턴(원본 배열은 안
+  건드리고 보정된 새 배열 반환)으로 추가 — `adjusted` 배열에서 최솟값의
+  인덱스(동률이면 먼저 나온 인덱스)를 찾아 `adjusted[i] = dice[i].size()`
+  (그 다이스의 면 개수, 즉 최댓값)로 교체한다.
+  `code/scenes/combat_test.gd`의 `_do_exchange()`에 `steady_guard` 사후
+  보정 바로 뒤에 `player_dice_gimmick == "charm_flip"` 분기를 추가해 공격턴/
+  방어턴 각각 자기 주머니(`RunState.player_attack_bag`/`player_defense_bag`)
+  결과에 적용한다 — explosive_stack/guard_stack의 보너스 1D20 임시 주머니
+  (`atk_bag`/`def_bag`이 그 임시 DiceBag일 때)에는 적용하지 않도록
+  `atk_bag == RunState.player_attack_bag`/`def_bag == RunState.player_
+  defense_bag` 조건으로 걸렀다(다이스가 1개뿐인 보너스 턴에 얹으면 "항상
+  최댓값 확정"이 되어 보너스 턴의 의미가 옅어지는 것을 피하기 위한 설계
+  판단 — 매혹사 본인은 explosive_stack/guard_stack 계열 파이프라인이 없어
+  지금 당장은 영향받지 않지만, 나중에 다른 스킬로 이 파이프라인이 열려도
+  안전하게 동작하도록 미리 막아둠).
+  `code/scenes/skill_icon.gd`의 `CATEGORIES`에 `"charm_flip"`을 추가하고
+  `_draw_heart()`(원 두 개+삼각형 조합의 절차적 하트 아이콘)를 신설 —
+  `dice_test.gd`의 `_check_skill_icons`가 PROFILES 전체의 gimmick이
+  `SkillIcon.CATEGORIES`에 있는지 자동으로 검증하므로 빠뜨리면 즉시
+  FAIL했을 항목.
+  `code/scenes/dice_test.gd`에 `_check_character_profiles`로 (1)
+  `reset_run("enchantress")`가 캐릭터 id/gimmick/시작 다이스 개수(3/3)를
+  올바르게 설정하고 정적 다이스 개조가 없는지(explosive_stack/guard_stack과
+  같은 패턴), (2) `DiceBag.apply_charm_flip()` 자체가 최저값 다이스 1개만
+  최댓값으로 바꾸고 동률이면 먼저 나온 인덱스를 고르며 면 값 자체는 안
+  바뀌는지 신규 검증을 추가했다. `bash scripts/qa_shot.sh dice_test`
+  전체 PASS(신규 검증 포함).
+  `bash scripts/qa_shot.sh character_select`로 `qa_out/character_select.png`
+  확인 — 목록에 6번째 항목 "매혹사"가 자주/붉은 계열 초상으로 겹침/잘림
+  없이 표시됨(세로 목록이 스크롤 가능한 구조라 6종째도 레이아웃이 깨지지
+  않음, 7종째까지의 정식 QA는 C 완료 후 D-5로 남김).
+  **의도적으로 안 한 것**: `skill_pool.gd`의 `STARTING_SKILLS`/
+  `UNIQUE_SKILLS`에 매혹사 항목을 추가하지 않았다 — INBOX.md 원문이 이걸
+  "D. 공통 후속"(B/C 둘 다 끝난 뒤)로 명시했고, 세션 지침도 B의 범위를
+  "character_profiles.gd 항목 추가 + dice_bag.gd 헬퍼 + combat_test.gd
+  런타임 분기"로 못박아서 스킬 콘텐츠는 포함하지 않았다. `docs/DESIGN.md`의
+  캐릭터 표(7종 갱신)도 마찬가지로 C까지 끝난 뒤 D에서 한 번에 갱신하기로
+  하고 이번엔 손대지 않음 — 지금은 DESIGN.md가 5종만 기술해 코드(6종)와
+  잠시 어긋나 있는 상태(알려진 이슈 아님, D에서 해소 예정).
+  **남은 것**: C(곡예사)/D(공통 후속: 업적 2종/시작 스킬/고유 스킬/
+  character_select 7종 레이아웃 QA/DESIGN.md 표 갱신)는 전부 미착수 — 아래
+  "다음 할 일 큐" 최상단 항목 참고.
+
 - **2026-09-24 (140)**: INBOX.md "남은 이슈"의 [대형 기획 4](캐릭터 로스터 개편)
   중 **A(방패병 리스킨)만** 세션 지침대로 진행했다 — B(매혹사)/C(곡예사)/D(공통
   후속 작업)는 손대지 않고 다음 이터레이션들로 남긴다.
@@ -1048,42 +1113,9 @@ id/기믹/수치 불변)만 완료, B(신규 "매혹사")/C(신규 "곡예사")/
   상황만 갱신했다(아래 "다음 할 일 큐" 18번, 남은 것은 4번 나머지 고유 1종
   (임기응변+)/5번 UI 강조/6번 선택).
 
-- **2026-09-17 (131)**: INBOX.md "부분 처리됨"의 [미니 기획 D](스킬 강화 이벤트)
-  4번(전투 배선)을 계속 진행 — (130)이 공용 2종을 끝냈으니 지시된 "고유 5종은
-  캐릭터 페어 단위로" 순서대로 광전사/수호자 페어(광기 심화+/수호 심화+)를
-  배선했다. `code/scenes/combat_test.gd`에 `player_frenzy_deepen_plus_active`/
-  `player_guard_deepen_plus_active`(각각 `RunState.skill_flags.has("frenzy_
-  deepen_plus"/"guard_deepen_plus")`로 `_ready()`에서 설정) 두 변수를 추가하고,
-  기존 "광기 심화"/"수호 심화" 리롤 로직(보너스 턴 1D20을 한 번 더 굴려 최댓값
-  채택)을 지시된 대로 "+"가 있으면 총 3번(추가 리롤 2회), 없으면 기존 2번(추가
-  리롤 1회) 굴리도록 확장했다.
-  기존 인라인 리롤 코드를 그대로 확장하는 대신, `_apply_spare_die()`와 같은
-  이유(물리 시뮬레이션 의존 없이 순수 함수로 단위 테스트 가능)로 신규
-  `_apply_bonus_reroll(bag, values, extra_rolls) -> Array` 헬퍼로 분리했다 —
-  `values[0]`을 `extra_rolls`번 다시 굴려 그 중 최댓값으로 대체하고 나머지
-  자리는 건드리지 않는 순수 함수, 로그 출력은 호출부(`_do_exchange()`)가 담당.
-  광기 심화/수호 심화 두 분기 모두 이 헬퍼를 `extra_rolls=2(+)/1(base)`로
-  호출하도록 바꿔, "+" > base > 없음(base가 없으면 애초에 이 분기 자체가 안
-  들어옴) 우선순위를 유지했다.
-  **QA 검증**: `dice_test.gd`의 `_check_skill_effects`에 (3c)로
-  `_apply_bonus_reroll()` 검증 추가 — `values[1]`(다른 자리)이 안 바뀌는지,
-  결과가 원래 값보다 낮아지는 일이 없는지, extra_rolls=2(3번 굴림)가
-  extra_rolls=1(2번 굴림)보다 대체 확률이 낮지 않은지(80회 표본, 실제 실행
-  결과 77/80 vs 62/80로 기대대로 더 높게 관측됨)를 (3b)의 "여분+" 검증과 같은
-  패턴으로 확인. `bash scripts/qa_shot.sh dice_test` 전체 PASS. 이전 "+"
-  스킬들과 같은 이유로 "+"가 실제로 적용된 전투 화면은 캐릭터 선택 → 확률적
-  스킬 강화 이벤트를 만나야 하는 경로라 한 번의 qa_shot으로 결정적 재현이
-  어려워, `qa_out/combat_test.png`로 기본 전투(스킬 미보유)가 새 분기 추가
-  후에도 정상 진행/크래시 없음만 재확인했다.
-  `docs/DESIGN.md`의 "스킬 강화 이벤트([미니 기획 D])" 절에 광기 심화+/수호
-  심화+의 실제 배선 내용(및 `_apply_bonus_reroll` 공용 헬퍼 설명)을 반영했다.
-  남은 것: 나머지 고유 스킬 3종(연쇄 폭발+/연쇄 방어+/임기응변+), UI 강조(5번),
-  선택 항목(6번) — 다음 이터레이션이 이어감(연쇄 폭발+/연쇄 방어+ 페어를 다음
-  순서로 권장).
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(140)에서 (130)을 그리로 옮겼다.)*
+이번 이터레이션(141)에서 (131)을 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 

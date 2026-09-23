@@ -17,8 +17,9 @@ extends Control
 ## - "fixed_defense_die": 고정 방어 (자물쇠 달린 방패 — 항상 같은 값)
 ## - "explosive_stack": 폭발 스택 (별 모양 폭발)
 ## - "guard_stack": 수호 스택 (겹겹의 방패)
+## - "charm_flip": 매혹 (하트 모양, 2026-09-24 [대형 기획 4]-B "매혹사" 신규)
 
-const CATEGORIES := ["", "min_max_only", "fixed_defense_die", "explosive_stack", "guard_stack"]
+const CATEGORIES := ["", "min_max_only", "fixed_defense_die", "explosive_stack", "guard_stack", "charm_flip"]
 
 var category: String = "":
 	set(v):
@@ -30,6 +31,7 @@ const COLOR_EXTREME := Color(0.85, 0.25, 0.2)
 const COLOR_FIXED := Color(0.4, 0.55, 0.85)
 const COLOR_EXPLOSIVE := Color(0.95, 0.55, 0.15)
 const COLOR_GUARD := Color(0.55, 0.6, 0.65)
+const COLOR_CHARM := Color(0.85, 0.2, 0.5)
 
 
 func _ready() -> void:
@@ -50,6 +52,8 @@ func _draw() -> void:
 			_draw_burst()
 		"guard_stack":
 			_draw_layered_shield()
+		"charm_flip":
+			_draw_heart()
 		_:
 			pass
 
@@ -94,6 +98,21 @@ func _draw_layered_shield() -> void:
 	_draw_shield_outline(COLOR_GUARD)
 	draw_arc(Vector2(size.x * 0.5, size.y * 0.4), size.x * 0.22, PI * 0.15, PI * 0.85, 10, COLOR_GUARD.darkened(0.35), 2.0)
 	draw_arc(Vector2(size.x * 0.5, size.y * 0.62), size.x * 0.18, PI * 0.15, PI * 0.85, 10, COLOR_GUARD.darkened(0.35), 2.0)
+
+
+## "charm_flip"(매혹사) 전용 아이콘 — 원 두 개(하트 윗부분) + 삼각형(하트 아랫부분)을
+## 겹쳐 하트 모양을 근사한다(achievement_icon.gd류처럼 draw_circle/draw_colored_polygon
+## 조합만으로 별도 벡터 에셋 없이 그림).
+func _draw_heart() -> void:
+	var lobe_r := size.x * 0.24
+	draw_circle(Vector2(size.x * 0.32, size.y * 0.38), lobe_r, COLOR_CHARM)
+	draw_circle(Vector2(size.x * 0.68, size.y * 0.38), lobe_r, COLOR_CHARM)
+	var tip := PackedVector2Array([
+		Vector2(size.x * 0.12, size.y * 0.42),
+		Vector2(size.x * 0.88, size.y * 0.42),
+		Vector2(size.x * 0.5, size.y * 0.92),
+	])
+	draw_colored_polygon(tip, COLOR_CHARM)
 
 
 func _draw_burst() -> void:

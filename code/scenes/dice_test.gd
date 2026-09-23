@@ -2222,6 +2222,55 @@ func _check_character_profiles(lines: PackedStringArray) -> bool:
 		"OK" if shieldbearer_count_ok else "FAIL"
 	])
 
+	# "매혹사"(charm_flip, INBOX.md 2026-09-24 [대형 기획 4]-B)도 explosive_stack/guard_stack과
+	# 마찬가지로 정적 다이스 개조가 없는 기믹(런타임 매 턴 apply_charm_flip()으로 사후
+	# 보정) — reset_run()이 만든 새 주머니는 표준 D4x3 그대로여야 한다.
+	RunState.reset_run("enchantress")
+	var enchantress_id_ok: bool = RunState.character_id == "enchantress"
+	var enchantress_gimmick_ok: bool = CharacterProfiles.get_profile("enchantress")["gimmick"] == "charm_flip"
+	var enchantress_bags_standard_ok: bool = (
+		RunState.player_attack_bag.dice[0] == PackedInt32Array([1, 2, 3, 4])
+		and RunState.player_defense_bag.dice[0] == PackedInt32Array([1, 2, 3, 4])
+	)
+	ok = enchantress_id_ok and enchantress_gimmick_ok and enchantress_bags_standard_ok and ok
+	lines.append("  reset_run(enchantress): character_id=%s gimmick=charm_flip=%s 공격/방어 주머니 표준 유지(정적 개조 없음)=%s -> %s" % [
+		RunState.character_id, enchantress_gimmick_ok, enchantress_bags_standard_ok,
+		"OK" if (enchantress_id_ok and enchantress_gimmick_ok and enchantress_bags_standard_ok) else "FAIL"
+	])
+	var enchantress_count_ok: bool = (
+		RunState.player_attack_bag.count == 3 and RunState.player_defense_bag.count == 3
+	)
+	ok = enchantress_count_ok and ok
+	lines.append("  reset_run(enchantress) 시작 다이스 개수: 공격=%d(기대 3) 방어=%d(기대 3) -> %s" % [
+		RunState.player_attack_bag.count, RunState.player_defense_bag.count,
+		"OK" if enchantress_count_ok else "FAIL"
+	])
+
+	# DiceBag.apply_charm_flip(): 그 턴 굴림값 중 가장 낮은 값을 보인 다이스 1개만 그
+	# 다이스의 최댓값(면 개수)으로 바뀌어야 하고, 나머지는 그대로 유지돼야 한다. 동률이면
+	# 먼저 나온(인덱스가 작은) 다이스를 고른다. steady_guard와 같은 이유로 면 값 자체
+	# (dice 배열)는 건드리지 않는다.
+	var charm_bag := DiceBag.new(4, 3)
+	var charm_input := [3, 1, 2]
+	var charm_adjusted: Array = charm_bag.apply_charm_flip(charm_input)
+	var charm_lowest_flipped_ok: bool = charm_adjusted == [3, 4, 2]
+	ok = charm_lowest_flipped_ok and ok
+	lines.append("  apply_charm_flip(D4x3, [3,1,2]): adjusted=%s (기대 [3,4,2], 최저값 인덱스1이 최댓값 4로) -> %s" % [
+		charm_adjusted, "OK" if charm_lowest_flipped_ok else "FAIL"
+	])
+	var charm_tie_input := [2, 2, 4]
+	var charm_tie_adjusted: Array = charm_bag.apply_charm_flip(charm_tie_input)
+	var charm_tie_ok: bool = charm_tie_adjusted == [4, 2, 4]
+	ok = charm_tie_ok and ok
+	lines.append("  apply_charm_flip(D4x3, [2,2,4], 동률): adjusted=%s (기대 [4,2,4], 먼저 나온 인덱스0 선택) -> %s" % [
+		charm_tie_adjusted, "OK" if charm_tie_ok else "FAIL"
+	])
+	var charm_faces_untouched_ok: bool = charm_bag.dice[0][0] == 1
+	ok = charm_faces_untouched_ok and ok
+	lines.append("  apply_charm_flip 호출 후 면 값 자체는 안 바뀜: dice[0][0]=%d (기대 1) -> %s" % [
+		charm_bag.dice[0][0], "OK" if charm_faces_untouched_ok else "FAIL"
+	])
+
 	# novice(빈 문자열/미정의 id 포함)는 기존과 같이 표준 3/3을 유지해야 한다(회귀 방지 —
 	# attack_count/defense_count 필드가 없는 프로필에도 reset_run()의 profile.get() 폴백이
 	# 여전히 3/3을 주는지 확인).

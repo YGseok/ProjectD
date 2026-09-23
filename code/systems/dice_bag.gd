@@ -175,6 +175,26 @@ func apply_flat_bonus(values: Array, bonus: int) -> Array:
 	return adjusted
 
 
+## 캐릭터 기믹 "charm_flip"(매혹사, INBOX.md 2026-09-24 [대형 기획 4]-B) 전용 헬퍼 —
+## apply_steady_guard()/apply_flat_bonus()와 같은 접근(원본 배열은 건드리지 않고 보정된
+## 새 배열을 반환)이지만, 이번 턴 굴림값 중 "가장 낮은 값을 보인 다이스 딱 1개"를 그
+## 다이스의 최댓값(면 개수)으로 교체한다. 동률이면 먼저 나온(인덱스가 작은) 다이스를
+## 고른다 — 매 턴 1개만이라는 지시를 지키기 위해 반드시 하나만 찾고 멈춘다.
+func apply_charm_flip(values: Array) -> Array:
+	var adjusted := values.duplicate()
+	var min_index := -1
+	var min_value := 0
+	for i in dice.size():
+		if i >= adjusted.size():
+			continue
+		if min_index == -1 or adjusted[i] < min_value:
+			min_index = i
+			min_value = adjusted[i]
+	if min_index != -1:
+		adjusted[min_index] = dice[min_index].size()
+	return adjusted
+
+
 var count: int:
 	get:
 		return dice.size()

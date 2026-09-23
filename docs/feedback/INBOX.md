@@ -35,17 +35,26 @@
   캐릭터는 음침 거유 캐릭터랑, 섹시하고 도발적인 캐릭터, 나머지 하나는
   적당히 비어있는 포지션에 재미요소 맞춰서 해봐.
 
-  → **A(방패병 리스킨)만 완료(2026-09-24 (140)), B/C/D는 미착수.**
-  `character_profiles.gd`의 `id: "shieldbearer"` 항목에서 id/기믹
+  → **A(방패병 리스킨)/B(매혹사) 완료(2026-09-24 (140)/(141)), C/D는 미착수.**
+  A: `character_profiles.gd`의 `id: "shieldbearer"` 항목에서 id/기믹
   (`guard_stack`)/attack_count(3)/defense_count(4)/event_die_sides(6)는
   전혀 건드리지 않고 `name`("방패병"→"침묵의 무녀")/`desc`/`concept`/
   `hair_color`/`dress_color`만 아래 지시된 문구 그대로 교체했고,
   `achievement_manager.gd`의 `clear_shieldbearer` title/desc 문구도
-  갱신했다(id는 유지). `docs/DESIGN.md`도 동기화. `bash scripts/qa_shot.sh
-  dice_test` 전체 PASS, `qa_out/character_select.png`로 목록에 새 이름/색이
-  정상 표시됨을 확인. B(매혹사)/C(곡예사)/D(공통 후속)는 다음 이터레이션이
-  이어갈 차례 — 아래 원문 설계를 그대로 남겨둔다. docs/STATUS.md 완료
-  기록(140)/다음 할 일 큐 -1번 참고.
+  갱신했다(id는 유지). `docs/DESIGN.md`도 동기화.
+  B: `character_profiles.gd` PROFILES에 `id: "enchantress"`(매혹사,
+  `gimmick: "charm_flip"`, 공격/방어 D4x3/D4x3) 항목을 추가하고,
+  `dice_bag.gd`에 신규 `apply_charm_flip(values)`(그 턴 최저값 다이스 1개를
+  최댓값으로 교체) 헬퍼를 추가, `combat_test.gd`의 `_do_exchange()`에
+  런타임 분기를 걸어 플레이어 공격/방어턴마다 적용되게 배선했다(보너스
+  1D20 임시 주머니에는 적용 안 되게 방어적으로 처리). `skill_icon.gd`에
+  하트 모양 전용 아이콘도 추가해 자동 검증(`dice_test.gd`의
+  `_check_skill_icons`)을 통과시켰다.
+  `bash scripts/qa_shot.sh dice_test` 전체 PASS(신규 검증 포함),
+  `qa_out/character_select.png`로 목록에 새 이름/색(방패병→침묵의 무녀,
+  신규 매혹사)이 정상 표시됨을 확인. C(곡예사)/D(공통 후속)는 다음
+  이터레이션이 이어갈 차례 — 아래 원문 설계를 그대로 남겨둔다.
+  docs/STATUS.md 완료 기록(140, 141)/다음 할 일 큐 -1번 참고.
 
   **(기획자 결정 — 구체적 설계, [대형 기획 4] 캐릭터 로스터 개편: 방패병 리스킨 +
   신규 2종)**

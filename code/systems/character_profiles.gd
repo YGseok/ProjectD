@@ -61,6 +61,11 @@ extends RefCounted
 ##                     최댓값 면을 보여줄 때마다 combat_test.gd가 전투 중 상태로 스택을
 ##                     쌓고, 3스택에서 다음 방어 한 턴만 1D20으로 굴림 (explosive_stack과
 ##                     완전히 같은 메커니즘을 플레이어 방어턴에 대칭 적용)
+##   "charm_flip"    : 정적 다이스 개조 없음(explosive_stack/guard_stack과 동일) — 대신
+##                     매 공격턴/방어턴마다 combat_test.gd가 DiceBag.apply_charm_flip()을
+##                     호출해, 그 턴에 굴린 다이스들 중 가장 낮은 값을 보인 다이스 1개를
+##                     그 다이스의 최댓값으로 바꾼다(INBOX.md 2026-09-24 [대형 기획 4]-B
+##                     "매혹사" 전용, 스택/임계치 없이 매 턴 즉시 적용)
 ## GIMMICK_LABELS: 캐릭터 선택 화면의 상세 정보 패널(2026-09-15 신설, INBOX.md
 ## 2026-09-14 "패널 선택시 오른쪽에 상세 정보를 제공, 초기 제공 주사위/보유 스킬 등"
 ## 반영)에서 "보유 스킬" 줄에 쓸 짧은 이름표. gimmick 필드 값(위 주석 참고) ->
@@ -72,6 +77,7 @@ const GIMMICK_LABELS := {
 	"fixed_defense_die": "고정 방어 (방어 다이스 1개 항상 같은 값)",
 	"explosive_stack": "폭발 스택 (공격 최댓값 3회 누적 → 1D20)",
 	"guard_stack": "수호 스택 (방어 최댓값 3회 누적 → 1D20)",
+	"charm_flip": "매혹 (매 턴 최저값 다이스 1개를 최댓값으로 전환)",
 }
 
 const PROFILES := [
@@ -134,6 +140,18 @@ const PROFILES := [
 		"event_die_sides": 6,
 		"hair_color": Color(0.12, 0.08, 0.16),
 		"dress_color": Color(0.18, 0.04, 0.1),
+	},
+	{
+		"id": "enchantress",
+		"name": "매혹사",
+		"desc": "섹시하고 도발적인 매혹사 — 매 턴 가장 낮은 값을 보인 다이스 1개를 그 다이스의 최댓값으로 홀려 바꿔버린다(공격/방어 양쪽 모두). 시작 다이스: 공격 D4x3 / 방어 D4x3 (균형형)",
+		"concept": "섹시하고 도발적인 매혹사 — 매 턴 가장 낮은 값을 보인 다이스 1개를 그 다이스의 최댓값으로 홀려 바꿔버린다(공격/방어 양쪽 모두 적용, 턴마다 1개만).",
+		"gimmick": "charm_flip",
+		"attack_count": 3,
+		"defense_count": 3,
+		"event_die_sides": 6,
+		"hair_color": Color(0.75, 0.15, 0.45),
+		"dress_color": Color(0.55, 0.05, 0.25),
 	},
 ]
 

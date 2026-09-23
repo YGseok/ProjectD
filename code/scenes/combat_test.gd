@@ -591,6 +591,17 @@ func _do_exchange(is_player_attacking: bool) -> void:
 	# 계산과 화면에 보이는 결과 칩(_show_exchange_dice_chips) 둘 다 보정된 값을 쓴다.
 	if is_player_attacking and monster_dice_gimmick == "steady_guard":
 		def_values = def_bag.apply_steady_guard(def_values)
+	# "charm_flip" 기믹(매혹사, INBOX.md 2026-09-24 [대형 기획 4]-B): 그 턴에 굴린
+	# 자기 다이스들 중 가장 낮은 값을 보인 다이스 1개를 그 다이스의 최댓값으로 바꾼다
+	# (공격턴/방어턴 모두 적용, 턴마다 1개만). explosive_stack/guard_stack의 보너스
+	# 1D20 턴에는 다이스가 하나뿐이라 이 효과를 얹으면 사실상 "항상 최댓값 확정"이
+	# 되어 보너스 턴의 의미가 옅어지므로, steady_guard처럼 사후 보정이되 여기서는
+	# 평소 자기 주머니(atk_bag/def_bag이 RunState.player_*_bag일 때)에만 적용한다.
+	if player_dice_gimmick == "charm_flip":
+		if is_player_attacking and atk_bag == RunState.player_attack_bag:
+			atk_values = atk_bag.apply_charm_flip(atk_values)
+		elif not is_player_attacking and def_bag == RunState.player_defense_bag:
+			def_values = def_bag.apply_charm_flip(def_values)
 	# "광기 심화"(INBOX.md [미니 기획 C]-4): 이번 공격턴이 폭발 스택 보너스 턴(1D20)이고
 	# 광기 심화를 보유했다면, 한 번 더 굴려 더 높은 값을 채택한다("두 번 굴려 advantage").
 	# "광기 심화+"([미니 기획 D]-4): 추가 리롤을 1번이 아니라 2번 해서 총 굴림 횟수를
