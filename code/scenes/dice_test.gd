@@ -209,6 +209,10 @@ func _ready() -> void:
 	all_pass = _check_starting_skill_combat_wiring(lines) and all_pass
 
 	lines.append("")
+	lines.append("[스킬 id -> 이름 조회 검증: skill_pool.gd SkillPool.find_skill / deck_panel.gd DeckPanel._add_skills_section]")
+	all_pass = _check_skill_pool_lookup(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -3375,4 +3379,48 @@ func _check_starting_skill_combat_wiring(lines: PackedStringArray) -> bool:
 
 	RunState.chosen_starting_skill_id = chosen_backup
 	RunState.reset_run(character_backup)
+	return ok
+
+
+## SkillPool.find_skill()이 DeckPanel "보유 스킬" 섹션(2026-09-28 신규)이 기댈 유일한
+## 조회 지점이라, 네 상수(SKILLS/UNIQUE_SKILLS/UPGRADE_SKILLS/STARTING_SKILLS) 각각에서
+## 최소 하나씩 실제로 찾아지는지 + 없는 id는 빈 Dictionary를 반환하는지 검증한다.
+func _check_skill_pool_lookup(lines: PackedStringArray) -> bool:
+	var ok := true
+
+	var deep_breath := SkillPool.find_skill("deep_breath")
+	var deep_breath_ok: bool = deep_breath.get("name", "") == "심호흡"
+	ok = deep_breath_ok and ok
+	lines.append("  SKILLS 조회: find_skill('deep_breath').name=%s (기대 '심호흡') -> %s" % [
+		deep_breath.get("name", ""), "OK" if deep_breath_ok else "FAIL"
+	])
+
+	var frenzy := SkillPool.find_skill("frenzy_deepen")
+	var frenzy_ok: bool = frenzy.get("name", "") == "광기 심화"
+	ok = frenzy_ok and ok
+	lines.append("  UNIQUE_SKILLS 조회: find_skill('frenzy_deepen').name=%s (기대 '광기 심화') -> %s" % [
+		frenzy.get("name", ""), "OK" if frenzy_ok else "FAIL"
+	])
+
+	var frenzy_plus := SkillPool.find_skill("frenzy_deepen_plus")
+	var frenzy_plus_ok: bool = frenzy_plus.get("name", "") == "광기 심화+"
+	ok = frenzy_plus_ok and ok
+	lines.append("  UPGRADE_SKILLS 조회: find_skill('frenzy_deepen_plus').name=%s (기대 '광기 심화+') -> %s" % [
+		frenzy_plus.get("name", ""), "OK" if frenzy_plus_ok else "FAIL"
+	])
+
+	var start_expand := SkillPool.find_skill("start_expand")
+	var start_expand_ok: bool = start_expand.get("name", "") == "확장"
+	ok = start_expand_ok and ok
+	lines.append("  STARTING_SKILLS 조회: find_skill('start_expand').name=%s (기대 '확장') -> %s" % [
+		start_expand.get("name", ""), "OK" if start_expand_ok else "FAIL"
+	])
+
+	var unknown := SkillPool.find_skill("no_such_skill_id")
+	var unknown_ok: bool = unknown.is_empty()
+	ok = unknown_ok and ok
+	lines.append("  존재하지 않는 id 조회: find_skill('no_such_skill_id')=%s (빈 Dictionary 기대) -> %s" % [
+		unknown, "OK" if unknown_ok else "FAIL"
+	])
+
 	return ok

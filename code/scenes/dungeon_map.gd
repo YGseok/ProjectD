@@ -718,6 +718,16 @@ func _debug_open_customize_die_target_none() -> void:
 	customize_panel._show_die_target_picker(0)
 
 
+## QA 전용 — DeckPanel "보유 스킬" 섹션(2026-09-28 신규)이 여러 개(공용/고유/"+" 강화판
+## 섞어서 이름 길이도 다양하게) 쌓였을 때 캐릭터/공격/방어 섹션과 겹치지 않는지 확인하기
+## 위함. 캡처 폭이 1028px로 잘리는 환경 이슈 때문에 기존 _debug_move_deck_panel_left류와
+## 같은 이유로 패널을 왼쪽으로 옮긴다.
+func _debug_move_deck_panel_left_with_skills() -> void:
+	RunState.skill_flags = ["deep_breath", "spare_die_plus", "frenzy_deepen_plus", "start_expand"]
+	deck_panel.offset_left = 20.0
+	deck_panel.offset_right = 280.0
+
+
 ## QA 전용 — 화면으로는 확인할 수 없는 "실제 교환 로직"(다이스 소모, 밀려난 다이스가
 ## 인벤토리로 돌아오는 것)을 콘솔 출력으로 검증하기 위한 일회성 훅.
 func _debug_verify_die_swap() -> void:

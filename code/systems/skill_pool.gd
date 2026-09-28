@@ -333,3 +333,22 @@ static func grant_upgrade(base_id: String) -> void:
 		if skill["upgrades"] == base_id:
 			grant(skill["id"])
 			return
+
+
+## skill_id로 네 상수(SKILLS/UNIQUE_SKILLS/UPGRADE_SKILLS/STARTING_SKILLS) 전체를 찾아
+## 이름/설명을 조회한다(DeckPanel "보유 스킬" 목록처럼 skill_flags에 쌓인 id만으로
+## 화면에 표시할 이름이 필요한 곳에서 재사용). 못 찾으면 빈 Dictionary를 반환한다.
+static func find_skill(skill_id: String) -> Dictionary:
+	for skill in SKILLS:
+		if skill["id"] == skill_id:
+			return skill
+	for skill in UNIQUE_SKILLS:
+		if skill["id"] == skill_id:
+			return skill
+	for skill in UPGRADE_SKILLS:
+		if skill["id"] == skill_id:
+			return skill
+	for skill in STARTING_SKILLS:
+		if skill["id"] == skill_id:
+			return skill
+	return {}

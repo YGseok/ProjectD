@@ -23,6 +23,12 @@ extends PanelContainer
 ## character_profiles.gd의 gimmick 설명 텍스트가 유일한 캐릭터별 능력이라 그걸
 ## 그대로 보여준다 — 이벤트로 얻는 별도 "고유 스킬" 시스템 자체는 아직 없음(DESIGN.md
 ## "고유 스킬(이벤트로 획득)은 아직 없음" 참고, 다음 할 일 큐 "캐릭터 스킬 이벤트 신설").
+##
+## 보유 스킬 목록(2026-09-28): [미니 기획 D]-6("선택, 급하지 않음"이라 미착수로 남아있던
+## 항목, STATUS.md 큐 16 참고) — RunState.skill_flags(런 시작 스킬 + 이벤트로 얻은
+## 공용/고유 스킬 + "+" 강화판, 전부 문자열 id로만 쌓이던 것)를 이름으로 풀어 캐릭터
+## 섹션 아래에 나열한다. 지금까지는 스킬을 얻어도 이 패널/캐릭터 선택 화면 어디에도
+## "지금 뭘 갖고 있는지" 모아서 보여주는 곳이 없었다.
 
 const CHIP_SIZE := 20.0
 const CHIP_GAP := 3.0
@@ -64,7 +70,7 @@ func _process(_delta: float) -> void:
 
 
 func _signature() -> String:
-	return "%s#%s#%s" % [RunState.character_id, _bag_signature(RunState.player_attack_bag), _bag_signature(RunState.player_defense_bag)]
+	return "%s#%s#%s#%s" % [RunState.character_id, _bag_signature(RunState.player_attack_bag), _bag_signature(RunState.player_defense_bag), ",".join(RunState.skill_flags)]
 
 
 func _bag_signature(bag: DiceBag) -> String:
@@ -81,6 +87,8 @@ func _rebuild() -> void:
 	for c in _vbox.get_children():
 		c.queue_free()
 	_add_character_section()
+	_add_spacer()
+	_add_skills_section()
 	_add_spacer()
 	_add_section("공격 주머니", RunState.player_attack_bag)
 	_add_spacer()
@@ -116,6 +124,37 @@ func _add_character_section() -> void:
 	desc.add_theme_color_override("font_color", Color(0.75, 0.75, 0.75))
 	desc.autowrap_mode = TextServer.AUTOWRAP_WORD
 	_vbox.add_child(desc)
+
+
+## STATUS.md 큐 16([미니 기획 D]-6, "선택, 급하지 않음"으로 미착수 남아있던 항목) —
+## RunState.skill_flags에 쌓인 스킬(런 시작 스킬 + 이벤트로 얻은 공용/고유 스킬 +
+## "+" 강화판, 전부 같은 배열에 문자열 id로만 저장됨)을 이름으로 풀어 목록으로 보여준다.
+## SkillPool.find_skill()이 SKILLS/UNIQUE_SKILLS/UPGRADE_SKILLS/STARTING_SKILLS 네
+## 상수를 전부 뒤져 이름을 찾아주므로, 이 패널은 어느 스킬이 어느 상수 출신인지 몰라도
+## 된다 — 새 스킬 종류가 늘어도 이 코드는 그대로 유지됨. 새 위젯을 만들지 않고 캐릭터
+## 섹션과 같은 Label 나열 패턴을 재사용했다.
+func _add_skills_section() -> void:
+	var title := Label.new()
+	title.text = "보유 스킬"
+	title.add_theme_font_size_override("font_size", 15)
+	title.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9))
+	_vbox.add_child(title)
+
+	if RunState.skill_flags.is_empty():
+		var empty_label := Label.new()
+		empty_label.text = "(없음)"
+		empty_label.add_theme_font_size_override("font_size", 12)
+		empty_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+		_vbox.add_child(empty_label)
+		return
+
+	for skill_id in RunState.skill_flags:
+		var skill := SkillPool.find_skill(skill_id)
+		var skill_label := Label.new()
+		skill_label.text = "· %s" % String(skill.get("name", skill_id))
+		skill_label.add_theme_font_size_override("font_size", 12)
+		skill_label.add_theme_color_override("font_color", Color(0.75, 0.75, 0.75))
+		_vbox.add_child(skill_label)
 
 
 func _add_section(title_text: String, bag: DiceBag) -> void:

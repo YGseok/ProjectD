@@ -1451,7 +1451,11 @@ func _debug_show_reward_with_deck_open() -> void:
 ## 때문에 화면 오른쪽 끝(x>=980)의 DeckPanel(캐릭터 정보 섹션 포함, 2026-09-15 신규)이
 ## 매번 잘려서 안 보임 — 확인용으로 패널을 화면 왼쪽으로 옮기고 열어서 캡처한다
 ## (게임 로직에는 영향 없음, dungeon_map.gd의 _debug_move_deck_panel_left와 같은 이유).
+## 2026-09-28: "보유 스킬" 섹션(deck_panel.gd 신규)이 이 화면(다이스 뷰포트/초상화/로그로
+## 이미 화면이 꽉 찬, 유일하게 DeckPanel이 상시 표시가 아니라 토글인 씬)에서도 다른
+## 섹션과 안 겹치는지 함께 확인하기 위해 skill_flags를 채운다.
 func _debug_move_deck_panel_left() -> void:
+	RunState.skill_flags = ["deep_breath", "spare_die_plus", "frenzy_deepen_plus", "start_expand"]
 	deck_panel.offset_left = 20.0
 	deck_panel.offset_right = 280.0
 	deck_panel.visible = true
