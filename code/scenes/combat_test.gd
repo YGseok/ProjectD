@@ -683,12 +683,13 @@ func _do_exchange(is_player_attacking: bool) -> void:
 		if RunState.player_attack_bag.dice.size() + RunState.player_defense_bag.dice.size() >= 8:
 			atk_values = atk_bag.apply_flat_bonus(atk_values, 1)
 			_append_log("확장 효과: 공격 다이스 결과값 +1 (공격+방어 합계 8개 이상)")
-	# "정예"([미니 기획 E]-4, 시작 스킬): 공격+방어 다이스 합계가 6개 이하로 유지되면
+	# "정예"([미니 기획 E]-4, 시작 스킬): 공격+방어 다이스 합계가 7개 이하로 유지되면
 	# 공격 다이스 결과값 전체 +1. 확장과 반대 방향 조건(방어턴은 "철벽" 옆에 대칭 적용).
+	# 임계값 6->7은 2026-09-29 기획자 결정(주술사 기본 합계 7이 발동 가능하도록 완화).
 	if is_player_attacking and RunState.skill_flags.has("start_lean"):
-		if RunState.player_attack_bag.dice.size() + RunState.player_defense_bag.dice.size() <= 6:
+		if RunState.player_attack_bag.dice.size() + RunState.player_defense_bag.dice.size() <= 7:
 			atk_values = atk_bag.apply_flat_bonus(atk_values, 1)
-			_append_log("정예 효과: 공격 다이스 결과값 +1 (공격+방어 합계 6개 이하)")
+			_append_log("정예 효과: 공격 다이스 결과값 +1 (공격+방어 합계 7개 이하)")
 	# "수집가"([미니 기획 E]-4, 시작 스킬): 보유한 눈금 인벤토리가 5개 이상이면
 	# 공격 다이스 결과값 전체 +1. 전투 중에는 눈금이 늘지 않으므로(눈금은 이벤트/
 	# 상점에서만 증가) 매 공격턴 확인해도 결과는 전투 시작 시점과 동일하지만, 다른
@@ -724,11 +725,12 @@ func _do_exchange(is_player_attacking: bool) -> void:
 			def_values = def_bag.apply_flat_bonus(def_values, 1)
 			_append_log("확장 효과: 방어 다이스 결과값 +1 (공격+방어 합계 8개 이상)")
 	# "정예"([미니 기획 E]-4, 시작 스킬, 방어턴): 위 공격턴 "정예"와 완전히 대칭 —
-	# 공격+방어 다이스 합계가 6개 이하로 유지되면 방어 다이스 결과값 전체 +1.
+	# 공격+방어 다이스 합계가 7개 이하로 유지되면 방어 다이스 결과값 전체 +1.
+	# 임계값 6->7은 2026-09-29 기획자 결정(주술사 기본 합계 7이 발동 가능하도록 완화).
 	if not is_player_attacking and RunState.skill_flags.has("start_lean"):
-		if RunState.player_attack_bag.dice.size() + RunState.player_defense_bag.dice.size() <= 6:
+		if RunState.player_attack_bag.dice.size() + RunState.player_defense_bag.dice.size() <= 7:
 			def_values = def_bag.apply_flat_bonus(def_values, 1)
-			_append_log("정예 효과: 방어 다이스 결과값 +1 (공격+방어 합계 6개 이하)")
+			_append_log("정예 효과: 방어 다이스 결과값 +1 (공격+방어 합계 7개 이하)")
 	# "강철 방비"([미니 기획 E]-4, 시작 스킬): 보유 다이스 중 철제 재질(D12/D20,
 	# _material_for_sides() 참고)이 1개 이상이면 방어 다이스 결과값 전체 +1.
 	# "보유"는 공격/방어 두 주머니를 모두 확인(어느 쪽에 있든 인정 — 지시문이 "보유

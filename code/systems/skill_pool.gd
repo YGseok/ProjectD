@@ -247,7 +247,7 @@ const STARTING_SKILLS: Array[Dictionary] = [
 	{
 		"id": "start_lean",
 		"name": "정예",
-		"description": "공격+방어 다이스 합계가 6개 이하로 유지되면, 공격/방어 다이스 결과값 전체가 +1 된다 (상한: 각 다이스 면 개수).",
+		"description": "공격+방어 다이스 합계가 7개 이하로 유지되면, 공격/방어 다이스 결과값 전체가 +1 된다 (상한: 각 다이스 면 개수).",
 		"character_ids": ["novice", "shieldbearer", "enchantress"],
 	},
 	{

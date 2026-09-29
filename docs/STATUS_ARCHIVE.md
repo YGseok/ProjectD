@@ -8,6 +8,41 @@
 
 ---
 
+- **2026-09-17 (138)**: INBOX.md "부분 처리됨"의 [미니 기획 E](캐릭터별 시작 스킬
+  선택) 4번(적용 배선)을 마무리 — 세션 지침이 지정한 순서("맹공/철벽 → 확장/정예
+  → 수집가/강철 방비")의 마지막 조각인 "수집가"/"강철 방비"를 배선해 6개 전부
+  완료됐다. `code/scenes/combat_test.gd`의 `_do_exchange()`에 "정예" 분기 바로
+  뒤(공격턴)에 "수집가"(`start_hoard`: `RunState.pip_inventory.size() >= 5`이면
+  공격 다이스 결과값 전체 `apply_flat_bonus(atk_values, 1)`), "정예" 분기 바로
+  뒤(방어턴)에 "강철 방비"(`start_ironclad`: 공격/방어 두 주머니 중 어디든
+  `_material_for_sides(die_faces.size()) == MATERIAL_METAL`(D12/D20)인 다이스가
+  1개 이상이면 방어 다이스 결과값 전체 +1)를 추가했다 — 앞의 4개와 같은
+  `DiceBag.apply_flat_bonus()` 재사용, 새 다이스 연산 없음.
+  구현 중 `DiceBag.dice`가 `Die` 객체 배열이 아니라 `Array[PackedInt32Array]`
+  (다이스별 면 값 배열, 면 개수 = `.size()`)라는 걸 처음엔 착각해 `die.sides`로
+  썼다가 파싱 에러(`Cannot find member "sides" in base "PackedInt32Array"`)를
+  냈다 — `_spawn_dice()`가 3D `Die` 노드(`.sides` 있음)를 스폰할 때만 그 필드를
+  쓰고, `DiceBag.dice` 자체는 면값 배열이라는 걸 다시 확인해 `die_faces.size()`로
+  고쳤다(dice_test.gd의 검증 코드도 같은 실수를 했다가 함께 고침).
+  **QA 검증**: `dice_test.gd`의 `_check_starting_skill_combat_wiring`에 (f)
+  "수집가" 조건이 새 런 직후(눈금 0개)엔 거짓, 눈금을 5개 채우면 참으로 바뀌는지,
+  (g) "강철 방비" 조건이 수호자 기본 구성(전부 D4, 철제 없음)에서는 거짓, D12
+  다이스를 추가하면 참으로 바뀌는지를 검증(combat_test.gd의
+  `_material_for_sides()`를 `load()`로 불러와 실제 판정 기준을 그대로 재사용,
+  기존 `_check_material_for_sides` 테스트와 같은 패턴) — 처음엔 `die.sides`
+  오타로 파싱 에러가 나서 dice_test 전체가 로드조차 안 됐는데, 고친 뒤
+  `bash scripts/qa_shot.sh dice_test` 전체 PASS로 확인. `qa_out/combat_test.png`
+  (전투 화면)/`qa_out/character_select.png`(캐릭터 선택+시작 스킬 UI) 둘 다
+  겹침·크래시 없이 정상 로드됨을 육안 확인(순수 조건 분기 추가라 레이아웃 영향
+  없음, 수집가/강철 방비 자체의 실제 발동 장면은 캐릭터 선택+눈금/철제 다이스
+  확보가 필요해 앞선 (136)/(137)과 같은 이유로 결정적 단일 스크린샷 재현은
+  하지 않음). **[미니 기획 E] 1~4번 전체 완료** — `docs/feedback/INBOX.md`의
+  해당 항목을 "처리됨"으로 옮겼다(5번 UI 강조는 지시대로 선택 사항이라 미착수,
+  3번 구현 때 이미 슬롯 버튼에 금테 스타일을 직접 그려 넣어 동등한 시각 효과는
+  있음). 방패병 "정예" 슬롯이 이론상 발동 불가능한 죽은 선택지라는 (137)의
+  발견은 여전히 해결되지 않은 채 "알려진 이슈"에 남아있다 — 이번에도 임의로
+  고치지 않음(사람 결정 대기).
+
 - **2026-09-17 (137)**: INBOX.md "부분 처리됨"의 [미니 기획 E](캐릭터별 시작 스킬
   선택) 4번(적용 배선)을 이어감 — (136)이 맹공/철벽 2개를 끝냈으니, 지시된 순서
   ("맹공/철벽 → 확장/정예 → 수집가/강철 방비") 그대로 이번엔 "확장"/"정예"를

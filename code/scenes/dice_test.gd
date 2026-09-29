@@ -3266,22 +3266,31 @@ func _check_starting_skill_combat_wiring(lines: PackedStringArray) -> bool:
 		RunState.player_attack_bag.dice.size(), RunState.player_defense_bag.dice.size(), "OK" if wall_condition_ok else "FAIL"
 	])
 
-	# (d) "정예"(합계 <= 6) 발동 조건은 견습 모험가 기본 구성(공격3/방어3=6)에서
-	# 참이어야 하고, 다이스를 하나 추가해 합계가 7이 되면 거짓으로 바뀌어야 한다.
+	# (d) "정예"(합계 <= 7, 2026-09-29 기획자 결정으로 6->7 완화) 발동 조건은 견습
+	# 모험가 기본 구성(공격3/방어3=6)에서 참이어야 하고, 다이스를 하나 추가해 합계가
+	# 7이 되어도 여전히 참이어야 하며, 두 개를 추가해 합계가 8이 되어야 거짓으로
+	# 바뀐다(주술사 기본 합계 7에서도 발동해야 한다는 것이 이 완화의 목적).
 	RunState.chosen_starting_skill_id = "start_lean"
 	RunState.reset_run("novice")
 	var lean_base_total: int = RunState.player_attack_bag.dice.size() + RunState.player_defense_bag.dice.size()
-	var lean_condition_ok: bool = lean_base_total <= 6
+	var lean_condition_ok: bool = lean_base_total <= 7
 	ok = lean_condition_ok and ok
-	lines.append("  '정예' 발동 조건(견습 기본): 합계=%d (<=6 기대) -> %s" % [
+	lines.append("  '정예' 발동 조건(견습 기본): 합계=%d (<=7 기대) -> %s" % [
 		lean_base_total, "OK" if lean_condition_ok else "FAIL"
 	])
 	RunState.player_attack_bag.add_die(4)
-	var lean_after_add_total: int = RunState.player_attack_bag.dice.size() + RunState.player_defense_bag.dice.size()
-	var lean_deactivate_ok: bool = lean_after_add_total > 6
+	var lean_after_one_add_total: int = RunState.player_attack_bag.dice.size() + RunState.player_defense_bag.dice.size()
+	var lean_still_active_ok: bool = lean_after_one_add_total <= 7
+	ok = lean_still_active_ok and ok
+	lines.append("  '정예' 다이스 1개 추가 후: 합계=%d (<=7 기대, 조건 유지) -> %s" % [
+		lean_after_one_add_total, "OK" if lean_still_active_ok else "FAIL"
+	])
+	RunState.player_attack_bag.add_die(4)
+	var lean_after_two_add_total: int = RunState.player_attack_bag.dice.size() + RunState.player_defense_bag.dice.size()
+	var lean_deactivate_ok: bool = lean_after_two_add_total > 7
 	ok = lean_deactivate_ok and ok
-	lines.append("  '정예' 다이스 추가 후: 합계=%d (>6 기대, 조건 꺼짐) -> %s" % [
-		lean_after_add_total, "OK" if lean_deactivate_ok else "FAIL"
+	lines.append("  '정예' 다이스 2개 추가 후: 합계=%d (>7 기대, 조건 꺼짐) -> %s" % [
+		lean_after_two_add_total, "OK" if lean_deactivate_ok else "FAIL"
 	])
 
 	# (e) "확장"(합계 >= 8) 발동 조건은 폭발병 기본 구성(공격4/방어3=7)에서는 아직
