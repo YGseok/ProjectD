@@ -205,6 +205,10 @@ func _ready() -> void:
 	all_pass = _check_starting_skill_selection_ui(lines) and all_pass
 
 	lines.append("")
+	lines.append("[잠긴 시작 스킬 미리보기 검증: character_select.gd _on_starting_skill_locked_preview / SkillPool.unlock_requirement]")
+	all_pass = _check_starting_skill_locked_preview(lines) and all_pass
+
+	lines.append("")
 	lines.append("[시작 스킬 적용 배선 검증: run_state.gd reset_run() -> SkillPool.grant() / combat_test.gd 조건부 apply_flat_bonus]")
 	all_pass = _check_starting_skill_combat_wiring(lines) and all_pass
 
@@ -3164,25 +3168,24 @@ func _check_starting_skill_selection_ui(lines: PackedStringArray) -> bool:
 		RunState.chosen_starting_skill_id, "OK" if default_ok else "FAIL"
 	])
 
-	# (b) 슬롯 1("정예", start_lean)은 clear_novice 업적이 없으면 버튼이 disabled여야
-	# 한다(스타일만 잠긴 게 아니라 pressed 시그널 자체가 연결 안 됨 -> 클릭 경로 차단).
+	# (b) [대형 기획 5] F-1부터는 잠긴 슬롯도 disabled=false(클릭 가능, 미리보기용)다 —
+	# "클릭으로 고를 수 없다"는 chosen_starting_skill_id가 안 바뀌는 것으로 검증한다.
 	var slot0_button: Button = node._starting_skill_container.get_child(0)
 	var slot1_button: Button = node._starting_skill_container.get_child(1)
-	var locked_ok: bool = not slot0_button.disabled and slot1_button.disabled
-	ok = locked_ok and ok
-	lines.append("  업적 미해금 상태: 슬롯0 disabled=%s(기대 false) 슬롯1 disabled=%s(기대 true) -> %s" % [
-		slot0_button.disabled, slot1_button.disabled, "OK" if locked_ok else "FAIL"
+	var both_enabled_ok: bool = not slot0_button.disabled and not slot1_button.disabled
+	ok = both_enabled_ok and ok
+	lines.append("  업적 미해금 상태: 슬롯0 disabled=%s 슬롯1 disabled=%s(둘 다 false 기대) -> %s" % [
+		slot0_button.disabled, slot1_button.disabled, "OK" if both_enabled_ok else "FAIL"
 	])
 
-	# (c) clear_novice를 해금하고 다시 선택하면 슬롯 1이 클릭 가능해지고, 실제로
+	# (c) clear_novice를 해금하고 다시 선택하면 슬롯 1이 "선택"으로 동작하고, 실제로
 	# 골랐을 때 chosen_starting_skill_id가 바뀐다.
 	AchievementManager.unlock("clear_novice")
 	node._on_card_selected("novice")
-	var slot1_after_unlock: Button = node._starting_skill_container.get_child(1)
-	var unlocked_ok: bool = not slot1_after_unlock.disabled
+	var unlocked_ok: bool = node._is_slot_unlocked("novice", 1)
 	ok = unlocked_ok and ok
-	lines.append("  clear_novice 해금 후: 슬롯1 disabled=%s(기대 false) -> %s" % [
-		slot1_after_unlock.disabled, "OK" if unlocked_ok else "FAIL"
+	lines.append("  clear_novice 해금 후: _is_slot_unlocked(novice, 1)=%s(기대 true) -> %s" % [
+		unlocked_ok, "OK" if unlocked_ok else "FAIL"
 	])
 	node._on_starting_skill_selected("start_lean")
 	var pick_slot1_ok: bool = RunState.chosen_starting_skill_id == "start_lean"
@@ -3203,6 +3206,85 @@ func _check_starting_skill_selection_ui(lines: PackedStringArray) -> bool:
 	lines.append("  교차 잠금(견습 슬롯0=폭발병 슬롯1인 start_expand) 전환: chosen=%s (기대 start_aggro) -> %s" % [
 		RunState.chosen_starting_skill_id, "OK" if cross_lock_ok else "FAIL"
 	])
+
+	remove_child(node)
+	node.free()
+	AchievementManager._debug_reset_for_qa()
+	RunState.character_id = character_backup
+	RunState.chosen_starting_skill_id = chosen_backup
+	return ok
+
+
+## [대형 기획 5] F-1 검증(INBOX.md 2026-10-06 기획자 결정): 잠긴 슬롯을 클릭하면
+## (1) chosen_starting_skill_id는 그대로 유지되고, (2) 설명란에 그 스킬의 효과 설명과
+## SkillPool.unlock_requirement()의 해금 조건 문구가 둘 다 나타나야 한다. 핵심은 "플래그가
+## 들어갔는가"가 아니라 "화면에 실제로 보이는 텍스트가 바뀌는가"를 보는 것 — 세션 지침이
+## 과거 수집가/강철 방비 중첩 버그를 놓친 원인으로 지목한 패턴을 반복하지 않기 위함.
+func _check_starting_skill_locked_preview(lines: PackedStringArray) -> bool:
+	var ok := true
+	var character_backup := RunState.character_id
+	var chosen_backup := RunState.chosen_starting_skill_id
+
+	AchievementManager._debug_reset_for_qa()
+
+	var scene := load("res://code/scenes/character_select.tscn")
+	var node = scene.instantiate()
+	add_child(node)
+
+	# (a) 견습 모험가, clear_novice 미해금 상태에서 슬롯 1("정예", start_lean)을 클릭.
+	node._on_card_selected("novice")
+	var chosen_before: String = RunState.chosen_starting_skill_id
+	node._on_starting_skill_locked_preview("start_lean")
+
+	var chosen_unchanged_ok: bool = RunState.chosen_starting_skill_id == chosen_before
+	ok = chosen_unchanged_ok and ok
+	lines.append("  잠긴 슬롯 클릭 후 chosen 불변: before=%s after=%s -> %s" % [
+		chosen_before, RunState.chosen_starting_skill_id, "OK" if chosen_unchanged_ok else "FAIL"
+	])
+
+	var desc_text: String = node._starting_skill_desc_label.text
+	var start_lean_skill := SkillPool.find_skill("start_lean")
+	var has_effect_text: bool = desc_text.find(String(start_lean_skill["description"])) != -1
+	ok = has_effect_text and ok
+	lines.append("  미리보기 설명란에 효과 문구 포함: \"%s\" -> %s" % [
+		desc_text, "OK" if has_effect_text else "FAIL"
+	])
+
+	var requirement: Dictionary = SkillPool.unlock_requirement("novice", 1)
+	var unlock_text: String = node._starting_skill_unlock_label.text
+	var has_unlock_text: bool = unlock_text.find(String(requirement["text"])) != -1
+	ok = has_unlock_text and ok
+	lines.append("  미리보기 해금 조건 줄: \"%s\" (기대 포함: \"%s\") -> %s" % [
+		unlock_text, requirement["text"], "OK" if has_unlock_text else "FAIL"
+	])
+
+	var badge_visible_ok: bool = node._starting_skill_lock_badge_label.visible and node._starting_skill_unlock_label.visible
+	ok = badge_visible_ok and ok
+	lines.append("  잠김 배지/해금 조건 줄 visible: badge=%s unlock=%s(둘 다 true 기대) -> %s" % [
+		node._starting_skill_lock_badge_label.visible, node._starting_skill_unlock_label.visible,
+		"OK" if badge_visible_ok else "FAIL"
+	])
+
+	# (b) 해금된 슬롯(슬롯 0, "확장")을 다시 고르면 미리보기가 꺼지고 배지/해금 줄이 숨겨진다.
+	node._on_starting_skill_selected("start_expand")
+	var preview_cleared_ok: bool = node._preview_skill_id == "" and not node._starting_skill_lock_badge_label.visible and not node._starting_skill_unlock_label.visible
+	ok = preview_cleared_ok and ok
+	lines.append("  해금된 슬롯 선택 후 미리보기 해제: preview_id=\"%s\" badge=%s unlock=%s -> %s" % [
+		node._preview_skill_id, node._starting_skill_lock_badge_label.visible, node._starting_skill_unlock_label.visible,
+		"OK" if preview_cleared_ok else "FAIL"
+	])
+
+	# (c) unlock_requirement() 자체 검증: 슬롯 0은 항상 해금, 슬롯 1은 캐릭터 이름이 들어간
+	# "최종 클리어" 문구와 clear_<id> 업적 id를 가리켜야 한다.
+	var req_slot0: Dictionary = SkillPool.unlock_requirement("guardian", 0)
+	var req_slot0_ok: bool = req_slot0["achievement_id"] == "" and req_slot0["text"] == "기본 해금"
+	ok = req_slot0_ok and ok
+	lines.append("  unlock_requirement(guardian, 0) = %s -> %s" % [req_slot0, "OK" if req_slot0_ok else "FAIL"])
+
+	var req_slot1: Dictionary = SkillPool.unlock_requirement("guardian", 1)
+	var req_slot1_ok: bool = req_slot1["achievement_id"] == "clear_guardian" and req_slot1["text"].find("수호자") != -1
+	ok = req_slot1_ok and ok
+	lines.append("  unlock_requirement(guardian, 1) = %s -> %s" % [req_slot1, "OK" if req_slot1_ok else "FAIL"])
 
 	remove_child(node)
 	node.free()

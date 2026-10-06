@@ -58,6 +58,14 @@ var _detail_event_die_visual: EventDieVisual
 ## 목록 자체가 달라지므로(cards_container와 달리) 매번 자식을 지우고 다시 만든다.
 var _starting_skill_container: HBoxContainer
 var _starting_skill_desc_label: Label
+var _starting_skill_lock_badge_label: Label
+var _starting_skill_unlock_label: Label
+
+## 잠긴 슬롯을 "미리보기" 중인 스킬 id([대형 기획 5] F-1) — 빈 문자열이면 미리보기
+## 없음(설명란은 RunState.chosen_starting_skill_id를 보여줌). 캐릭터를 바꾸거나 실제로
+## 해금된 스킬을 고르면 비운다. chosen_starting_skill_id와 별개 상태이므로 미리보기
+## 중에도 "던전 시작"은 항상 chosen_starting_skill_id(해금된 마지막 선택) 기준으로 진행된다.
+var _preview_skill_id: String = ""
 
 ## KeyboardShortcuts로 1~N 숫자 키를 순서대로 배정하는 데 쓴다(INBOX.md 2026-09-14
 ## "키보드로도 조작이 되도록" — 던전 맵/스토리 이벤트/특수 이벤트에 이어 이 화면에도
@@ -222,8 +230,22 @@ func _build_detail_panel() -> void:
 	_starting_skill_container.add_theme_constant_override("separation", 10)
 	info_vbox.add_child(_starting_skill_container)
 
+	# 잠긴 슬롯 미리보기([대형 기획 5] F-1) — 자물쇠+"잠김" 배지(맨 위) / 효과 설명
+	# (기존 _starting_skill_desc_label 재사용, 선택/미리보기 공통) / 해금 조건(노란 계열,
+	# 미리보기 중일 때만 보임) 순서로 쌓는다.
+	_starting_skill_lock_badge_label = _make_detail_body_label()
+	_starting_skill_lock_badge_label.text = "🔒 잠김 (미리보기)"
+	_starting_skill_lock_badge_label.add_theme_color_override("font_color", Color(0.85, 0.68, 0.25))
+	_starting_skill_lock_badge_label.visible = false
+	info_vbox.add_child(_starting_skill_lock_badge_label)
+
 	_starting_skill_desc_label = _make_detail_body_label()
 	info_vbox.add_child(_starting_skill_desc_label)
+
+	_starting_skill_unlock_label = _make_detail_body_label()
+	_starting_skill_unlock_label.add_theme_color_override("font_color", Color(0.95, 0.85, 0.3))
+	_starting_skill_unlock_label.visible = false
+	info_vbox.add_child(_starting_skill_unlock_label)
 
 	var note_label := Label.new()
 	note_label.text = "※ 플레이스홀더 실루엣 — 실제 일러스트는 추후 작업"
@@ -257,6 +279,7 @@ func _refresh_detail_panel() -> void:
 	var event_sides: int = int(profile.get("event_die_sides", 6))
 	_detail_event_die_label.text = "이벤트 주사위: D%d (로마 숫자로 표기, 커스터마이징 불가)" % event_sides
 	_detail_event_die_visual.value = 1
+	_preview_skill_id = "" # 캐릭터가 바뀌면 이전 캐릭터의 잠긴 슬롯 미리보기는 의미가 없다.
 	_rebuild_starting_skill_slots()
 
 
@@ -282,10 +305,21 @@ func _rebuild_starting_skill_slots() -> void:
 
 	for i in candidates.size():
 		var skill: Dictionary = candidates[i]
-		var unlocked: bool = i == 0 or AchievementManager.is_unlocked("clear_" + _selected_id)
-		_starting_skill_container.add_child(_make_starting_skill_slot(skill, unlocked))
+		var unlocked: bool = _is_slot_unlocked(_selected_id, i)
+		_starting_skill_container.add_child(_make_starting_skill_slot(skill, unlocked, i))
 
 	_update_starting_skill_description(candidates)
+
+
+## 슬롯 해금 여부를 SkillPool.unlock_requirement() 한 곳에서만 판정한다([대형 기획 5]
+## F-1) — 예전에는 이 파일 안에 "clear_" + id 하드코딩이 두 곳 있었는데, 그 둘을 포함해
+## 이 함수로 단일화했다(F-2가 슬롯을 3단으로 늘릴 때 unlock_requirement()만 고치면 됨).
+func _is_slot_unlocked(character_id: String, slot_index: int) -> bool:
+	var requirement := SkillPool.unlock_requirement(character_id, slot_index)
+	var achievement_id: String = requirement.get("achievement_id", "")
+	if achievement_id == "":
+		return true
+	return AchievementManager.is_unlocked(achievement_id)
 
 
 ## chosen_id가 candidates 안에서 "잠기지 않은" 슬롯을 가리키면 그대로 유지하고,
@@ -296,19 +330,20 @@ func _valid_or_default_starting_skill_id(character_id: String, chosen_id: String
 		return ""
 	for i in candidates.size():
 		if candidates[i]["id"] == chosen_id:
-			if i == 0 or AchievementManager.is_unlocked("clear_" + character_id):
+			if _is_slot_unlocked(character_id, i):
 				return chosen_id
 			break
 	return candidates[0]["id"]
 
 
-## 슬롯 하나(PanelContainer 역할을 겸하는 Button)를 만든다. 잠긴 슬롯은 LockIcon +
-## 흐린 이름표를 보여주고 disabled=true라 pressed 시그널을 아예 연결하지 않는다 —
-## "잠긴 슬롯은 클릭으로 고를 수 없다"는 걸 스타일이 아니라 실제 입력 경로로 보장한다.
-func _make_starting_skill_slot(skill: Dictionary, unlocked: bool) -> Button:
+## 슬롯 하나(PanelContainer 역할을 겸하는 Button)를 만든다. [대형 기획 5] F-1부터는
+## 잠긴 슬롯도 클릭 가능하다(disabled=false로 유지) — 클릭하면 chosen_starting_skill_id를
+## 바꾸는 대신 "미리보기"(_on_starting_skill_locked_preview)로 빠진다. 잠긴 슬롯은
+## 여전히 LockIcon + 흐린 이름표로 구분해 보이지만, "선택 불가"는 이제 스타일이 아니라
+## pressed 핸들러의 분기(실제로 chosen을 바꾸는지 여부)로 보장한다.
+func _make_starting_skill_slot(skill: Dictionary, unlocked: bool, slot_index: int) -> Button:
 	var button := Button.new()
 	button.custom_minimum_size = Vector2(150, 56)
-	button.disabled = not unlocked
 	button.mouse_filter = Control.MOUSE_FILTER_STOP
 
 	var content := VBoxContainer.new()
@@ -336,22 +371,26 @@ func _make_starting_skill_slot(skill: Dictionary, unlocked: bool) -> Button:
 		name_label.add_theme_color_override("font_color", Color(0.55, 0.55, 0.55))
 		lock_row.add_child(name_label)
 		content.add_child(lock_row)
-		button.tooltip_text = "이 캐릭터로 최종 클리어(3라운드 전부)하면 다음 회차부터 선택할 수 있습니다."
+		button.tooltip_text = SkillPool.unlock_requirement(_selected_id, slot_index)["text"]
 
-	button.add_theme_stylebox_override("normal", _starting_skill_slot_style(skill["id"] == RunState.chosen_starting_skill_id, unlocked))
-	button.add_theme_stylebox_override("hover", _starting_skill_slot_style(skill["id"] == RunState.chosen_starting_skill_id, unlocked))
-	button.add_theme_stylebox_override("pressed", _starting_skill_slot_style(skill["id"] == RunState.chosen_starting_skill_id, unlocked))
-	button.add_theme_stylebox_override("disabled", _starting_skill_slot_style(false, unlocked))
+	var is_previewing: bool = not unlocked and skill["id"] == _preview_skill_id
+	var selected: bool = unlocked and skill["id"] == RunState.chosen_starting_skill_id
+	button.add_theme_stylebox_override("normal", _starting_skill_slot_style(selected, unlocked, is_previewing))
+	button.add_theme_stylebox_override("hover", _starting_skill_slot_style(selected, unlocked, is_previewing))
+	button.add_theme_stylebox_override("pressed", _starting_skill_slot_style(selected, unlocked, is_previewing))
 
 	if unlocked:
 		button.pressed.connect(_on_starting_skill_selected.bind(skill["id"]))
+	else:
+		button.pressed.connect(_on_starting_skill_locked_preview.bind(skill["id"]))
 
 	return button
 
 
 ## selected(현재 chosen_starting_skill_id와 일치)면 캐릭터 카드 선택과 같은 금테,
-## 잠긴 슬롯이면 어두운 배경, 나머지(선택 안 된 해금 슬롯)는 일반 회색 테두리.
-func _starting_skill_slot_style(selected: bool, unlocked: bool) -> StyleBoxFlat:
+## previewing(잠긴 슬롯을 지금 미리보는 중)이면 얇은 노란 테두리로 "보는 중"임을 표시,
+## 그 외 잠긴 슬롯은 어두운 배경, 나머지(선택 안 된 해금 슬롯)는 일반 회색 테두리.
+func _starting_skill_slot_style(selected: bool, unlocked: bool, previewing: bool = false) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.set_corner_radius_all(8)
 	style.content_margin_left = 8
@@ -360,8 +399,12 @@ func _starting_skill_slot_style(selected: bool, unlocked: bool) -> StyleBoxFlat:
 	style.content_margin_bottom = 6
 	if not unlocked:
 		style.bg_color = Color(0.1, 0.1, 0.1, 0.9)
-		style.border_color = Color(0.3, 0.3, 0.3)
-		style.set_border_width_all(1)
+		if previewing:
+			style.border_color = Color(0.85, 0.68, 0.25)
+			style.set_border_width_all(2)
+		else:
+			style.border_color = Color(0.3, 0.3, 0.3)
+			style.set_border_width_all(1)
 	elif selected:
 		style.bg_color = Color(0.22, 0.19, 0.08, 0.95)
 		style.border_color = Color(0.85, 0.68, 0.25)
@@ -373,17 +416,43 @@ func _starting_skill_slot_style(selected: bool, unlocked: bool) -> StyleBoxFlat:
 	return style
 
 
+## 해금된 슬롯을 고르면 실제로 선택이 바뀐다 — 미리보기 상태였다면 비운다(이제 선택된
+## 스킬 자체가 설명란에 보이므로 미리보기와 구분할 필요가 없다).
 func _on_starting_skill_selected(id: String) -> void:
 	RunState.chosen_starting_skill_id = id
+	_preview_skill_id = ""
 	_rebuild_starting_skill_slots()
 
 
+## 잠긴 슬롯을 클릭([대형 기획 5] F-1)하면 RunState.chosen_starting_skill_id는 그대로
+## 두고 "미리보기"만 바꾼다 — 설명란에 그 스킬의 효과 + 해금 조건이 보이지만, 실제
+## 시작 스킬(그리고 "던전 시작"이 쓰는 값)은 여전히 해금된 마지막 선택이다.
+func _on_starting_skill_locked_preview(id: String) -> void:
+	_preview_skill_id = id
+	_rebuild_starting_skill_slots()
+
+
+## 미리보기 중이면(_preview_skill_id != "") 그 스킬의 효과+해금 조건을, 아니면 현재
+## chosen_starting_skill_id의 효과만 보여준다. 자물쇠 배지/해금 조건 줄은 미리보기 중일
+## 때만 visible=true가 된다(선택된 스킬은 항상 해금 상태이므로 평소엔 숨김).
 func _update_starting_skill_description(candidates: Array[Dictionary]) -> void:
-	for skill in candidates:
-		if skill["id"] == RunState.chosen_starting_skill_id:
-			_starting_skill_desc_label.text = "효과: %s" % skill["description"]
-			return
+	var show_id: String = _preview_skill_id if _preview_skill_id != "" else RunState.chosen_starting_skill_id
+	for i in candidates.size():
+		var skill: Dictionary = candidates[i]
+		if skill["id"] != show_id:
+			continue
+		_starting_skill_desc_label.text = "효과: %s" % skill["description"]
+		if _preview_skill_id != "":
+			_starting_skill_lock_badge_label.visible = true
+			_starting_skill_unlock_label.text = "해금 조건: %s" % SkillPool.unlock_requirement(_selected_id, i)["text"]
+			_starting_skill_unlock_label.visible = true
+		else:
+			_starting_skill_lock_badge_label.visible = false
+			_starting_skill_unlock_label.visible = false
+		return
 	_starting_skill_desc_label.text = ""
+	_starting_skill_lock_badge_label.visible = false
+	_starting_skill_unlock_label.visible = false
 
 
 ## 숫자 키(1~9)로 캐릭터 카드 "선택" 버튼(+던전 시작/업적)을 순서대로 누른다
@@ -553,6 +622,15 @@ func _debug_show_starting_skill_unlocked() -> void:
 	AchievementManager.unlock("clear_novice")
 	_on_card_selected("novice")
 	_on_starting_skill_selected("start_lean")
+
+
+## QA 전용: [대형 기획 5] F-1 — 잠긴 슬롯("정예")을 클릭해 미리보기 상태(자물쇠 배지 +
+## 효과 설명 + 노란 해금 조건 줄)가 겹침 없이 보이는지 확인한다. chosen_starting_skill_id는
+## 바뀌지 않아야 한다(여전히 슬롯 0 "확장").
+func _debug_show_starting_skill_locked_preview() -> void:
+	AchievementManager._debug_reset_for_qa()
+	_on_card_selected("novice")
+	_on_starting_skill_locked_preview("start_lean")
 
 
 ## QA 전용 — 실제 숫자 키 입력이 _unhandled_input()을 거쳐 버튼까지 눌리는 전체 경로를

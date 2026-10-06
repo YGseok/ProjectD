@@ -265,6 +265,22 @@ const STARTING_SKILLS: Array[Dictionary] = [
 ]
 
 
+## 시작 스킬 슬롯의 해금 조건을 한 곳에서 만든다([대형 기획 5] F-1, INBOX.md 2026-10-06
+## 기획자 결정). 지금은 슬롯이 2개뿐이라 규칙이 단순하지만(슬롯 0=항상 해금, 슬롯 1=해당
+## 캐릭터로 최종 클리어), character_select.gd가 이 함수 하나만 참조하게 해두면 F-2가
+## 슬롯 구조를 3단으로 늘릴 때 호출부를 건드리지 않고 이 함수만 고치면 된다.
+## 반환: {"achievement_id": String(빈 문자열이면 "항상 해금"을 뜻함), "text": String}.
+static func unlock_requirement(character_id: String, slot_index: int) -> Dictionary:
+	if slot_index <= 0:
+		return {"achievement_id": "", "text": "기본 해금"}
+	var achievement_id := "clear_" + character_id
+	var character_name: String = CharacterProfiles.get_profile(character_id).get("name", character_id)
+	return {
+		"achievement_id": achievement_id,
+		"text": "%s(으)로 최종 클리어(3라운드 전부)하면 해금" % character_name,
+	}
+
+
 ## character_id가 STARTING_SKILLS의 "character_ids"에 포함된 항목만, 배열 등장 순서
 ## 그대로 필터링해 반환한다(순서가 곧 슬롯 순서 — 위 주석 참고). 해당 캐릭터의 원형이
 ## 하나도 없으면 빈 배열을 반환한다.
