@@ -147,6 +147,48 @@ const DEFINITIONS := {
 		"desc": "곡예사로 최종 클리어(3라운드 전부)에 성공했다.",
 		"icon": "milestone",
 	},
+	# [대형 기획 5] F-2(a), INBOX.md 2026-10-06 기획자 결정: 시작 스킬 해금 사다리를
+	# 2단(기본/최종 클리어)에서 3단(기본/라운드1 클리어/최종 클리어)으로 늘리면서, 슬롯 1의
+	# 해금 조건을 "최종 클리어"에서 "해당 캐릭터로 첫 던전(라운드 1) 클리어"로 앞당기기 위해
+	# 신설. combat_test.gd의 _unlock_round_clear_achievements()가 round1_clear와 같은 시점에
+	# 캐릭터별로 해금한다. 기존 clear_<id>(최종 클리어, 라운드1 클리어를 포함)가 이미 해금된
+	# 세이브를 위한 마이그레이션은 skill_pool.gd의 is_slot_requirement_met()가 처리한다
+	# (r1_<id> 미해금이어도 clear_<id>가 해금돼 있으면 슬롯 1을 열어줌).
+	"r1_novice": {
+		"title": "견습 모험가로 첫 던전 클리어",
+		"desc": "견습 모험가로 첫 던전(라운드 1)을 클리어했다.",
+		"icon": "milestone",
+	},
+	"r1_berserker": {
+		"title": "광전사로 첫 던전 클리어",
+		"desc": "광전사로 첫 던전(라운드 1)을 클리어했다.",
+		"icon": "milestone",
+	},
+	"r1_guardian": {
+		"title": "수호자로 첫 던전 클리어",
+		"desc": "수호자로 첫 던전(라운드 1)을 클리어했다.",
+		"icon": "milestone",
+	},
+	"r1_explosive": {
+		"title": "폭발병으로 첫 던전 클리어",
+		"desc": "폭발병으로 첫 던전(라운드 1)을 클리어했다.",
+		"icon": "milestone",
+	},
+	"r1_shieldbearer": {
+		"title": "주술사로 첫 던전 클리어",
+		"desc": "주술사로 첫 던전(라운드 1)을 클리어했다.",
+		"icon": "milestone",
+	},
+	"r1_enchantress": {
+		"title": "매혹사로 첫 던전 클리어",
+		"desc": "매혹사로 첫 던전(라운드 1)을 클리어했다.",
+		"icon": "milestone",
+	},
+	"r1_juggler": {
+		"title": "곡예사로 첫 던전 클리어",
+		"desc": "곡예사로 첫 던전(라운드 1)을 클리어했다.",
+		"icon": "milestone",
+	},
 	# 큐 13("업적 시스템 — 남은 항목 추가") 후속. 특수 이벤트의 "위험을 감수하기"
 	# 판정(event.gd의 _resolve_risky)이 성공한 순간 바로 unlock — 새 RunState 카운터
 	# 없이 이미 있는 성공/실패 분기 지점 하나만 후킹하면 되는 독립 항목이라 사람의

@@ -311,15 +311,11 @@ func _rebuild_starting_skill_slots() -> void:
 	_update_starting_skill_description(candidates)
 
 
-## 슬롯 해금 여부를 SkillPool.unlock_requirement() 한 곳에서만 판정한다([대형 기획 5]
-## F-1) — 예전에는 이 파일 안에 "clear_" + id 하드코딩이 두 곳 있었는데, 그 둘을 포함해
-## 이 함수로 단일화했다(F-2가 슬롯을 3단으로 늘릴 때 unlock_requirement()만 고치면 됨).
+## 슬롯 해금 여부를 SkillPool.is_slot_requirement_met() 한 곳에서만 판정한다([대형 기획 5]
+## F-1, F-2(a)) — 예전에는 이 파일 안에 "clear_" + id 하드코딩이 두 곳 있었는데, 그 둘을
+## 포함해 SkillPool로 단일화했다(마이그레이션 "또는" 판정도 거기서 처리).
 func _is_slot_unlocked(character_id: String, slot_index: int) -> bool:
-	var requirement := SkillPool.unlock_requirement(character_id, slot_index)
-	var achievement_id: String = requirement.get("achievement_id", "")
-	if achievement_id == "":
-		return true
-	return AchievementManager.is_unlocked(achievement_id)
+	return SkillPool.is_slot_requirement_met(character_id, slot_index)
 
 
 ## chosen_id가 candidates 안에서 "잠기지 않은" 슬롯을 가리키면 그대로 유지하고,

@@ -8,6 +8,43 @@
 
 ---
 
+- **2026-09-24 (140)**: INBOX.md "남은 이슈"의 [대형 기획 4](캐릭터 로스터 개편)
+  중 **A(방패병 리스킨)만** 세션 지침대로 진행했다 — B(매혹사)/C(곡예사)/D(공통
+  후속 작업)는 손대지 않고 다음 이터레이션들로 남긴다.
+  `code/systems/character_profiles.gd`의 `id: "shieldbearer"` 항목에서
+  `id`/`gimmick`("guard_stack")/`attack_count`(3)/`defense_count`(4)/
+  `event_die_sides`(6)는 지시대로 전혀 건드리지 않고 `name`("방패병"→"침묵의
+  무녀")/`desc`/`concept`/`hair_color`/`dress_color`만 바꿨다(지시된 원문
+  concept 문구 그대로 사용). 색은 "음침 거유" 컨셉에 맞춰 어두운 자주/적갈색
+  계열(hair `Color(0.12,0.08,0.16)`, dress `Color(0.18,0.04,0.1)`)로 잠정
+  배정 — 기존 5종과 안 겹치는 톤인지, "거유" 실루엣은 플레이스홀더가
+  `set_palette()`만 받아 색만 바뀌는 구조라 이번엔 반영 안 됨(체형 표현은
+  `character_portrait_placeholder.gd`의 `_draw()` 로직 자체를 바꿔야 하는
+  더 큰 작업이라 지시 범위(이름/설명/색만) 밖으로 보고 손대지 않음).
+  `code/systems/achievement_manager.gd`의 `clear_shieldbearer` 업적
+  title/desc도 지시대로 "침묵의 무녀로 첫 클리어" / "침묵의 무녀로 최종
+  클리어(3라운드 전부)에 성공했다."로 문구만 갱신(id는 `clear_shieldbearer`
+  그대로 유지 — 다른 곳(`chain_guard`/`chain_guard_plus`/`start_wall`/
+  `start_lean`의 `character_ids`)이 참조하는 id라 지시대로 안 건드림).
+  `docs/DESIGN.md`의 "플레이어블 캐릭터" 표 행과 "초기 다이스 구성" 목록도
+  새 이름 + "구명 방패병" 각주로 갱신했다(코드 변경과 문서 동기화, "현재
+  구현 콘텐츠" 섹션 취지).
+  코드 내 주석(`skill_pool.gd`/`combat_test.gd`/`dice_test.gd`/
+  `character_select.gd`/`run_state.gd` 등 여러 곳에 "방패병"이라는 옛 이름이
+  내부 설명용으로 남아있음)은 기능에 영향 없고 지시 범위(이름/설명/색+업적
+  문구)도 아니라 일부러 그대로 뒀다 — 전부 고치려면 스코프가 커져서
+  session 지침("작은 단위로") 위반 우려.
+  **QA**: `bash scripts/qa_shot.sh dice_test` 전체 PASS(로직 변경 없음이라
+  회귀 없음 당연 확인). `bash scripts/qa_shot.sh character_select`로
+  `qa_out/character_select.png` 캡처 — 캐릭터 목록 5번째 항목이 어두운
+  색 초상+"침묵의 무녀" 이름으로 정상 표시됨, 레이아웃 겹침/잘림 없음
+  확인(상세 패널까지는 기본 프레임에서 자동으로 안 열려 스크린샷엔 목록만
+  보이지만, 이름/색은 목록에서 이미 확인 가능).
+  **남은 것**: B(매혹사)/C(곡예사)/D(공통 후속)는 전부 미착수 — 당시 "다음
+  할 일 큐" 최상단 항목 참고(현재는 전부 완료돼 큐에서 제거됨). "거유"
+  실루엣 표현이 실제로 필요한지, 색 배정이 "음침"하게 느껴지는지는 사람
+  판단 영역.
+
 - **2026-09-17 (139)**: 세션 지침대로 [미니 기획 E]가 이미 "처리됨"으로 옮겨져
   있음을 확인한 뒤, "코드를 다시 읽어보고 실제 버그가 있으면 고쳐라"에 따라
   (138)이 막 추가한 "수집가"/"강철 방비" 배선 코드를 다시 읽다가 실제 버그를

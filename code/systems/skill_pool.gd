@@ -266,19 +266,40 @@ const STARTING_SKILLS: Array[Dictionary] = [
 
 
 ## 시작 스킬 슬롯의 해금 조건을 한 곳에서 만든다([대형 기획 5] F-1, INBOX.md 2026-10-06
-## 기획자 결정). 지금은 슬롯이 2개뿐이라 규칙이 단순하지만(슬롯 0=항상 해금, 슬롯 1=해당
-## 캐릭터로 최종 클리어), character_select.gd가 이 함수 하나만 참조하게 해두면 F-2가
-## 슬롯 구조를 3단으로 늘릴 때 호출부를 건드리지 않고 이 함수만 고치면 된다.
+## 기획자 결정). F-2(a)부터 3단 사다리(슬롯 0=항상 해금 / 슬롯 1=해당 캐릭터로 첫 던전
+## (라운드 1) 클리어 / 슬롯 2=해당 캐릭터로 최종 클리어)다 — character_select.gd는 이
+## 함수 하나만 참조하므로, 나중에 조건이 또 바뀌어도 여기만 고치면 된다.
 ## 반환: {"achievement_id": String(빈 문자열이면 "항상 해금"을 뜻함), "text": String}.
 static func unlock_requirement(character_id: String, slot_index: int) -> Dictionary:
+	var character_name: String = CharacterProfiles.get_profile(character_id).get("name", character_id)
 	if slot_index <= 0:
 		return {"achievement_id": "", "text": "기본 해금"}
-	var achievement_id := "clear_" + character_id
-	var character_name: String = CharacterProfiles.get_profile(character_id).get("name", character_id)
-	return {
-		"achievement_id": achievement_id,
-		"text": "%s(으)로 최종 클리어(3라운드 전부)하면 해금" % character_name,
-	}
+	elif slot_index == 1:
+		return {
+			"achievement_id": "r1_" + character_id,
+			"text": "%s(으)로 첫 던전(라운드 1)을 클리어하면 해금" % character_name,
+		}
+	else:
+		return {
+			"achievement_id": "clear_" + character_id,
+			"text": "%s(으)로 최종 클리어(3라운드 전부)하면 해금" % character_name,
+		}
+
+
+## unlock_requirement()가 가리키는 업적이 실제로 해금됐는지 판정한다(AchievementManager
+## 조회 + 마이그레이션 포함). 슬롯 1의 새 조건은 "r1_<id>"(라운드 1 클리어)지만, F-2(a) 전에
+## 이미 "clear_<id>"(최종 클리어)를 해금해둔 기존 세이브는 그 자체로 라운드 1 클리어를
+## 포함하므로 r1_<id>가 없어도 슬롯 1을 열어준다 — 이 "또는" 판정을 한 곳에만 둔다.
+static func is_slot_requirement_met(character_id: String, slot_index: int) -> bool:
+	var requirement := unlock_requirement(character_id, slot_index)
+	var achievement_id: String = requirement.get("achievement_id", "")
+	if achievement_id == "":
+		return true
+	if AchievementManager.is_unlocked(achievement_id):
+		return true
+	if slot_index == 1:
+		return AchievementManager.is_unlocked("clear_" + character_id)
+	return false
 
 
 ## character_id가 STARTING_SKILLS의 "character_ids"에 포함된 항목만, 배열 등장 순서

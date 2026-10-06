@@ -1143,6 +1143,9 @@ func _apply_room_advance() -> bool:
 func _unlock_round_clear_achievements(cleared_round: int) -> void:
 	if cleared_round == 1:
 		AchievementManager.unlock("round1_clear")
+		# [대형 기획 5] F-2(a), INBOX.md 2026-10-06: 시작 스킬 슬롯 1의 해금 조건이
+		# "최종 클리어"에서 "해당 캐릭터로 라운드 1 클리어"로 앞당겨져 같은 시점에 함께 연다.
+		AchievementManager.unlock(_character_round1_achievement_id(RunState.character_id))
 	elif cleared_round == 2:
 		AchievementManager.unlock("round2_clear")
 	elif cleared_round == RunState.TOTAL_ROUNDS:
@@ -1163,6 +1166,13 @@ func _unlock_defeat_achievement() -> void:
 ## 추가하면 된다(character_profiles.gd의 id 값과 이름이 그대로 맞아떨어지는 구조).
 func _character_clear_achievement_id(char_id: String) -> String:
 	return "clear_%s" % char_id
+
+
+## character_id -> achievement_manager.gd DEFINITIONS의 "r1_<id>" 키([대형 기획 5] F-2(a)
+## 신설, _character_clear_achievement_id()와 같은 패턴). 새 캐릭터를 추가할 때 이 함수는
+## 그대로 두고 DEFINITIONS에 "r1_<새id>" 항목만 추가하면 된다.
+func _character_round1_achievement_id(char_id: String) -> String:
+	return "r1_%s" % char_id
 
 
 ## 승리 시 다이스 개조 아이템 2개를 제시하고, 어느 주머니(공격/방어)에 적용할지

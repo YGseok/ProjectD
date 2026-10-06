@@ -1557,6 +1557,9 @@ func _check_round_clear_achievements(lines: PackedStringArray) -> bool:
 	var combat_script := load("res://code/scenes/combat_test.gd")
 
 	# 라운드 1 보스 클리어 -> "round1_clear"만 해금, round2_clear/game_clear는 아직 아님.
+	# [대형 기획 5] F-2(a): 같은 시점에 캐릭터 전용 "r1_<id>"도 해금돼야 한다(다른 캐릭터는
+	# 건드리지 않음) — 수호자로 검증.
+	RunState.character_id = "guardian"
 	RunState.round_index = 1
 	RunState.rooms_cleared = RunState.TOTAL_ROOMS - 1
 	var combat1 = combat_script.new()
@@ -1571,6 +1574,13 @@ func _check_round_clear_achievements(lines: PackedStringArray) -> bool:
 		AchievementManager.is_unlocked("round1_clear"),
 		[AchievementManager.is_unlocked("round2_clear"), AchievementManager.is_unlocked("game_clear")],
 		"OK" if (round1_ok and round1_no_overreach_ok) else "FAIL"
+	])
+	var r1_char_ok := AchievementManager.is_unlocked("r1_guardian")
+	var r1_other_char_not_unlocked_ok := not AchievementManager.is_unlocked("r1_berserker")
+	ok = r1_char_ok and r1_other_char_not_unlocked_ok and ok
+	lines.append("  라운드 1 보스 클리어(수호자): r1_guardian=%s(기대 true) r1_berserker=%s(기대 false) -> %s" % [
+		AchievementManager.is_unlocked("r1_guardian"), AchievementManager.is_unlocked("r1_berserker"),
+		"OK" if (r1_char_ok and r1_other_char_not_unlocked_ok) else "FAIL"
 	])
 	combat1.free()
 
@@ -1632,6 +1642,16 @@ func _check_round_clear_achievements(lines: PackedStringArray) -> bool:
 	ok = all_ids_defined_ok and ok
 	lines.append("  캐릭터 7종 전부 \"clear_<id>\" 업적 정의 존재: %s -> %s" % [
 		all_ids_defined_ok, "OK" if all_ids_defined_ok else "FAIL"
+	])
+
+	# [대형 기획 5] F-2(a) 신설: 시작 스킬 슬롯 1의 새 조건 "r1_<id>"도 7종 전부 정의돼야 한다.
+	var all_r1_ids := ["r1_novice", "r1_berserker", "r1_guardian", "r1_explosive", "r1_shieldbearer", "r1_enchantress", "r1_juggler"]
+	var all_r1_ids_defined_ok := true
+	for id in all_r1_ids:
+		all_r1_ids_defined_ok = all_r1_ids_defined_ok and AchievementManager.DEFINITIONS.has(id)
+	ok = all_r1_ids_defined_ok and ok
+	lines.append("  캐릭터 7종 전부 \"r1_<id>\" 업적 정의 존재: %s -> %s" % [
+		all_r1_ids_defined_ok, "OK" if all_r1_ids_defined_ok else "FAIL"
 	])
 
 	AchievementManager._debug_reset_for_qa()
@@ -3141,9 +3161,11 @@ func _check_starting_skills(lines: PackedStringArray) -> bool:
 
 
 ## [미니 기획 E]-3 검증(INBOX.md 2026-09-17 기획자 결정): character_select.gd의 시작
-## 스킬 슬롯 UI가 (a) 기본 선택은 항상 슬롯 0, (b) 슬롯 1은 "clear_<character_id>"
-## 업적 미해금 시 버튼 자체가 disabled(클릭 경로 자체가 막힘, 스타일만 다른 게
-## 아님)인지, (c) 해금되면 실제로 슬롯 1을 고를 수 있는지, (d) 캐릭터를 바꿨을 때
+## 스킬 슬롯 UI가 (a) 기본 선택은 항상 슬롯 0, (b) 슬롯 1 업적("r1_<character_id>",
+## [대형 기획 5] F-2(a)부터 — 아래 (c)는 그 전 조건이던 "clear_<character_id>"를 해금해
+## 마이그레이션 경로로 슬롯 1을 여는지 검증) 미해금 시 버튼 자체가 disabled(클릭 경로
+## 자체가 막힘, 스타일만 다른 게 아님)인지, (c) 해금되면 실제로 슬롯 1을 고를 수 있는지,
+## (d) 캐릭터를 바꿨을 때
 ## 이전에 고른 스킬 id가 새 캐릭터에서 잠긴 슬롯을 가리키면 슬롯 0으로 되돌아가는지
 ## (start_expand가 견습 모험가의 슬롯 0이자 폭발병의 슬롯 1이라는 교차 사례로 검증)를
 ## 확인한다. shop.gd 검증(이터레이션 45)과 같은 패턴으로 실제 character_select.tscn을
@@ -3274,17 +3296,28 @@ func _check_starting_skill_locked_preview(lines: PackedStringArray) -> bool:
 		"OK" if preview_cleared_ok else "FAIL"
 	])
 
-	# (c) unlock_requirement() 자체 검증: 슬롯 0은 항상 해금, 슬롯 1은 캐릭터 이름이 들어간
-	# "최종 클리어" 문구와 clear_<id> 업적 id를 가리켜야 한다.
+	# (c) unlock_requirement() 자체 검증([대형 기획 5] F-2(a)부터 3단): 슬롯 0은 항상 해금,
+	# 슬롯 1은 캐릭터 이름이 들어간 "라운드 1 클리어" 문구와 r1_<id> 업적 id를 가리켜야 한다.
 	var req_slot0: Dictionary = SkillPool.unlock_requirement("guardian", 0)
 	var req_slot0_ok: bool = req_slot0["achievement_id"] == "" and req_slot0["text"] == "기본 해금"
 	ok = req_slot0_ok and ok
 	lines.append("  unlock_requirement(guardian, 0) = %s -> %s" % [req_slot0, "OK" if req_slot0_ok else "FAIL"])
 
 	var req_slot1: Dictionary = SkillPool.unlock_requirement("guardian", 1)
-	var req_slot1_ok: bool = req_slot1["achievement_id"] == "clear_guardian" and req_slot1["text"].find("수호자") != -1
+	var req_slot1_ok: bool = (req_slot1["achievement_id"] == "r1_guardian"
+		and req_slot1["text"].find("수호자") != -1 and req_slot1["text"].find("라운드 1") != -1)
 	ok = req_slot1_ok and ok
 	lines.append("  unlock_requirement(guardian, 1) = %s -> %s" % [req_slot1, "OK" if req_slot1_ok else "FAIL"])
+
+	# (d) 마이그레이션: r1_<id>는 미해금이어도 clear_<id>(최종 클리어)가 이미 해금돼 있으면
+	# is_slot_requirement_met()이 슬롯 1을 열어줘야 한다(F-2(a) 이전 세이브 호환).
+	AchievementManager.unlock("clear_explosive")
+	var migration_ok: bool = (SkillPool.is_slot_requirement_met("explosive", 1)
+		and not AchievementManager.is_unlocked("r1_explosive"))
+	ok = migration_ok and ok
+	lines.append("  마이그레이션(clear_explosive만 해금, r1_explosive는 미해금): is_slot_requirement_met=%s -> %s" % [
+		SkillPool.is_slot_requirement_met("explosive", 1), "OK" if migration_ok else "FAIL"
+	])
 
 	remove_child(node)
 	node.free()
