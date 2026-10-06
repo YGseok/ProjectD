@@ -25,3 +25,8 @@ only. Decided 2026-10-06: monsters are personified (musume); explosive main art 
 **How to apply:** In the artwork thread, keep the ledger as source of truth and update
 statuses whenever art is ordered/delivered/applied. Claude can't generate images —
 "발주" means writing the spec for the user to produce/commission.
+
+**Art → Work handoff:** improvements Work should do because of applied art go into
+`docs/feedback/INBOX.md` "남은 이슈" as `[미니 기획 ART-n]` entries (Work loop reads INBOX first
+every iteration). ART-1 (2026-10-06): a=select-list overflow/overlap bug, b=combat face-cut
+code path, c=monster art path tied to G-1 MonsterCatalog ids.

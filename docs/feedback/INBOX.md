@@ -26,6 +26,43 @@
 ## 남은 이슈 (미처리)
 
 (플레이해보고 느낀 점을 이 섹션에 자유롭게 적어주세요.)
+- 2026-10-06 [미니 기획 ART-1] 원화 적용에 따른 개선 (아트 스레드 "ProjectD Art"에서 전달).
+  배경: 캐릭터 선택 화면에 전신 원화 4장(견습 모험가/광전사/수호자/폭발병)이 적용됨
+  (커밋 `0867fc6`, `code/scenes/character_art.gd`의 `CharacterArt` — 파일이 있으면 원화,
+  없으면 기존 플레이스홀더). 원화 목록·발주·파일 규칙은 `docs/art/ART_RESOURCES.md`가
+  원천이다. **Work 쪽은 `resources/`와 `docs/art/`를 수정하지 말 것**(경로를 읽기만 함).
+  사람 설계 결정은 필요 없음 — 진행 중인 F/G 순서를 깨지 않는 선에서 한 이터레이션에 한
+  조각씩 끼워서 진행해도 된다.
+
+  **ART-1a. 캐릭터 선택 목록 넘침/겹침 (버그, 원화 적용 전부터 있던 문제)**
+  - 카드 패널 실제 높이가 `CARD_HEIGHT`(92)보다 커서 위아래 카드 테두리가 겹친다.
+  - 캐릭터가 7종이 되면서 7번째(곡예사) 카드가 화면(720) 밖으로 밀려 **마우스로 선택 불가**
+    (`CardsContainer` 높이 540 < 7 × 104). `qa_out/art_character_select.png` 참고.
+  - 해결: 카드 실제 높이에 맞춰 간격을 잡고, 목록을 ScrollContainer(또는 VBoxContainer)로
+    바꾸거나 카드를 2열로 배치 — 캐릭터가 더 늘어나도 깨지지 않는 방식으로.
+    원화 썸네일 칸은 72×92 기준(`CharacterArt.load_thumb()`의 크롭 영역)이니 유지할 것.
+
+  **ART-1b. 전투 화면 상반신 표정 컷 연결 준비 (원화 도착 전 코드 경로만)**
+  - 결정 사항: 전투 화면은 **상반신 표정 컷**, 선택 화면은 전신. 파일 규칙:
+    `res://resources/characters/<캐릭터 id>/face_{neutral,happy,hurt,sad,angry}.png`
+    (768×768 PNG 투명, 5장 모두 같은 구도. 플레이어는 화면 오른쪽, 몬스터는 왼쪽을 봄).
+  - `CharacterArt`에 `load_face(id, expression)` / "5장이 모두 있는지" 검사 함수를 추가하고,
+    `combat_test.gd`의 `$PlayerPortrait`가 5장이 다 있으면 원화 표정 컷을, 하나라도 없으면
+    지금의 `CharacterPortraitPlaceholder`를 쓰게 한다(표정 일부만 원화로 섞이지 않게).
+    기존 `set_expression()` 호출 지점은 그대로 재사용.
+  - 표시 크기는 현재 플레이스홀더 영역(약 136×248, 중심 (70,270)) 부근에서 HP바·다이스
+    영역과 겹치지 않는 선으로 잡고 스크린샷으로 확인. TextureRect를 쓰면
+    `texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS`(선택 화면과 동일).
+  - 검증: 아직 face 파일이 없으므로 "파일 없음 → 플레이스홀더 유지"가 깨지지 않는지 확인하고,
+    테스트용 임시 이미지는 `resources/`에 넣지 말고 테스트 코드 안에서만 만들 것.
+
+  **ART-1c. 몬스터 원화 경로 (G-1 MonsterCatalog와 함께)**
+  - 몬스터도 같은 규칙: `res://resources/monsters/<몬스터 id>/full.png` + `face_*.png` 5종.
+    `<몬스터 id>`는 G-1 `MonsterCatalog.MONSTERS`의 id를 그대로 쓴다 — 기존 5종은 아트 쪽에서
+    `slime` / `goblin` / `skeleton` / `orc` / `dark_knight`로 부르고 있으니 가능하면 이 id를 유지.
+  - `$MonsterPortrait`도 ART-1b와 같은 방식(5장 다 있으면 원화, 아니면 플레이스홀더).
+  - G-9까지 끝나면 신규 몬스터 목록(id/이름/계열/등급/성격/색)을 아트 스레드로 넘길 것
+    (아트 쪽 ID 대역: 일반 MO001~599 / 정예 MO600~799 / 보스 MO800~999).
 - 2026-10-06 [대형 기획 6] 몬스터 대개편: 계열(패밀리) + 대형 몬스터 풀 + 정예 방 +
   라운드별 보스 2종. 사용자 지시 원문: "몬스터가 각각 달라야지 않겠나. 몬스터가 좀 더
   다양해야 할 듯. 그 중에서도 계열은 어느 정도 맞춰서, 고블린 계열은 좀 비슷한 스타일의

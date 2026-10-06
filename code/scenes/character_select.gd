@@ -135,6 +135,7 @@ func _make_card(profile: Dictionary, select_buttons: Array[Button]) -> PanelCont
 		var thumb_rect := TextureRect.new()
 		thumb_rect.texture = thumb
 		thumb_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		thumb_rect.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 		thumb_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		thumb_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
 		thumb_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -203,6 +204,7 @@ func _build_detail_panel() -> void:
 	_detail_art = TextureRect.new()
 	_detail_art.size = DETAIL_ART_SIZE
 	_detail_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_detail_art.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	_detail_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	_detail_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	portrait_holder.add_child(_detail_art)

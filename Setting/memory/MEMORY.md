@@ -5,4 +5,4 @@
 - [Don't ask to continue the loop](feedback_dont_ask_to_continue_loop.md) — once user says "keep running iterations," report and move on, don't ask "continue?" each time
 - [Artwork thread](project_artwork_thread.md) — a ProjectD thread owns art list/발주/적용; ledger docs/art/ART_RESOURCES.md
 - [Art handoff duty](project_art_thread_handoff.md) — when Work-thread features finish, SendMessage the new art needs to "ProjectD Art" session; pending: 몬스터 대개편 (G-9 후)
-- [Art auto-push](feedback_art_auto_push.md) — art thread: commit+push finished art work without asking; stage only art files
+- [Art auto-push](feedback_art_auto_push.md) — art thread: always keep GitHub current, push every finished art change without asking; stage only art files
