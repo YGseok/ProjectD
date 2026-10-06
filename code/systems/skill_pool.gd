@@ -221,10 +221,12 @@ const UPGRADE_SKILLS: Array[Dictionary] = [
 ##
 ## "character_ids": 여러 캐릭터가 같은 원형을 공유할 수 있어 Array[String]로 표시한다.
 ## starting_skills_for_character()가 이 배열을 필터링해 "그 캐릭터가 고를 수 있는 시작
-## 스킬 목록"을 만드는데, STARTING_SKILLS 안에서의 등장 순서가 곧 슬롯 순서다(슬롯 0=항상
-## 해금, 슬롯 1=AchievementManager.is_unlocked("clear_"+character_id) 해금 시에만 — UI
-## 배선은 [미니 기획 E]-3이 담당). 예: 견습 모험가는 start_expand -> start_lean 순으로
-## 등장해 슬롯 0="확장", 슬롯 1="정예"가 된다.
+## 스킬 목록"을 만드는데, STARTING_SKILLS 안에서의 등장 순서가 곧 슬롯 순서다. [대형
+## 기획 5] F-2(a)부터 3단 해금 사다리다(슬롯 0=항상 해금 / 슬롯 1=해당 캐릭터로 첫
+## 던전(라운드 1) 클리어, r1_<id> / 슬롯 2=해당 캐릭터로 최종 클리어, clear_<id> — 실제
+## 판정은 unlock_requirement()/is_slot_requirement_met()이 슬롯 번호로 분기). 예: 견습
+## 모험가는 start_expand -> start_lean -> start_wealth 순으로 등장해 슬롯 0="확장",
+## 슬롯 1="정예", 슬롯 2="황금손"이 된다.
 const STARTING_SKILLS: Array[Dictionary] = [
 	{
 		"id": "start_aggro",
@@ -261,6 +263,48 @@ const STARTING_SKILLS: Array[Dictionary] = [
 		"name": "강철 방비",
 		"description": "철제 재질(D12/D20) 다이스를 1개 이상 보유하면, 방어 다이스 결과값 전체가 +1 된다 (상한: 각 다이스 면 개수).",
 		"character_ids": ["guardian"],
+	},
+	{
+		"id": "start_vanguard",
+		"name": "선제",
+		"description": "전투의 첫 공격턴 한 번만, 공격 다이스 결과값 전체가 +2 된다 (상한: 각 다이스 면 개수).",
+		"character_ids": ["berserker"],
+	},
+	{
+		"id": "start_bulwark",
+		"name": "대비",
+		"description": "전투의 첫 방어턴 한 번만, 방어 다이스 결과값 전체가 +2 된다 (상한: 각 다이스 면 개수).",
+		"character_ids": ["guardian"],
+	},
+	{
+		"id": "start_wealth",
+		"name": "황금손",
+		"description": "보유한 골드 30마다 공격 다이스 결과값 전체가 +1 된다 (최대 +2, 상한: 각 다이스 면 개수).",
+		"character_ids": ["novice"],
+	},
+	{
+		"id": "start_overflow",
+		"name": "과적",
+		"description": "공격/방어 주머니 중 다이스 개수가 최대(6개)로 꽉 찬 쪽은 결과값 전체가 +1 된다 (두 쪽 다 꽉 차면 둘 다, 상한: 각 다이스 면 개수).",
+		"character_ids": ["explosive"],
+	},
+	{
+		"id": "start_second_wind",
+		"name": "오뚝이",
+		"description": "전투 중 플레이어 HP가 최대 HP의 절반 이하이면, 방어 다이스 결과값 전체가 +1 된다 (상한: 각 다이스 면 개수).",
+		"character_ids": ["shieldbearer"],
+	},
+	{
+		"id": "start_gambler",
+		"name": "승부사",
+		"description": "특수 이벤트 '위험을 감수하기'의 판정 DC가 1 낮아진다 (최저 DC 2).",
+		"character_ids": ["enchantress"],
+	},
+	{
+		"id": "start_diverse",
+		"name": "잡화점",
+		"description": "공격+방어 다이스 중 서로 다른 면 개수의 종류가 3종 이상이면, 공격/방어 다이스 결과값 전체가 +1 된다 (상한: 각 다이스 면 개수).",
+		"character_ids": ["juggler"],
 	},
 ]
 

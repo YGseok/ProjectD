@@ -8,6 +8,34 @@
 
 ---
 
+- **2026-09-24 (143)**: INBOX.md "부분 처리됨"의 [대형 기획 4](캐릭터 로스터
+  개편) **D(공통 후속) 1~2번**을 세션 지침대로 진행했다 — A(주술사 리스킨)/
+  B(매혹사)/C(곡예사)는 (140)~(142)에서 이미 완료됐고, D는 항목이 7개라
+  한 이터레이션에 다 하지 말라는 원문 지시대로 이번엔 1~2번만 처리했다.
+  `code/systems/achievement_manager.gd`의 `DEFINITIONS`에 기존 5종
+  `clear_<id>` 패턴 그대로 `clear_enchantress`("매혹사로 첫 클리어")/
+  `clear_juggler`("곡예사로 첫 클리어")를 추가했다(D-2번). `combat_test.gd`의
+  실제 unlock 호출부는 확인해보니 정적 목록이 아니라
+  `_character_clear_achievement_id(RunState.character_id)`가
+  `"clear_%s" % char_id`로 즉석에서 문자열을 만드는 구조라, 어떤 character_id가
+  와도 이미 자동으로 올바른 업적 id를 해금한다 — 그래서 D-2번이 요청한
+  "`_apply_room_advance()`의 unlock 목록에도 추가"는 combat_test.gd 자체를
+  고칠 필요가 없었다(정적 목록이 애초에 없었음). 다만 `code/scenes/
+  dice_test.gd`(1620행)에 "캐릭터 전원 clear_<id> 업적이 DEFINITIONS에 다
+  정의돼 있는지" 자동 검증용 하드코딩 목록 `all_clear_ids`가 있었는데 5종만
+  들어있어서, 여기에 `clear_enchantress`/`clear_juggler`를 추가하고 주석/로그
+  문구도 "캐릭터 5종"→"캐릭터 7종"으로 갱신했다 — 이게 사실상 "unlock 경로가
+  7종 전부를 커버하는지"를 실질적으로 검증하는 역할을 한다.
+  `bash scripts/qa_shot.sh dice_test` 전체 PASS("캐릭터 7종 전부 \"clear_<id>\"
+  업적 정의 존재: true -> OK" 확인). 화면 변경이 없는 순수 데이터/검증 변경이라
+  스크린샷은 기존 `dice_test.gd` 실행이 자동으로 남기는 `qa_out/dice_test.png`
+  재확인만으로 충분하다고 판단(별도 씬 캡처 불필요).
+  **의도적으로 안 한 것**: D-3(STARTING_SKILLS 배정)/D-4(UNIQUE_SKILLS·
+  UPGRADE_SKILLS 고유 스킬)/D-5(character_select 7종 레이아웃 QA)/D-6
+  (DESIGN.md 캐릭터 표 7종 갱신)/D-7(초상 확인)은 원문이 "항목이 여러 개니
+  한 이터레이션에 다 하지 말 것"이라 명시했고, 세션 지침도 "1~2번"으로
+  범위를 못박아서 손대지 않았다 — 다음 이터레이션이 D-3부터 이어갈 차례.
+
 - **2026-09-24 (140)**: INBOX.md "남은 이슈"의 [대형 기획 4](캐릭터 로스터 개편)
   중 **A(방패병 리스킨)만** 세션 지침대로 진행했다 — B(매혹사)/C(곡예사)/D(공통
   후속 작업)는 손대지 않고 다음 이터레이션들로 남긴다.

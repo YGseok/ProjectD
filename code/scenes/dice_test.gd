@@ -3124,21 +3124,21 @@ func _check_skill_upgrade_card_highlight(lines: PackedStringArray) -> bool:
 	return ok
 
 
-## [미니 기획 E]-2 검증(INBOX.md 2026-09-17 기획자 결정): STARTING_SKILLS 6종이 모두
-## 전투 배선 없이도 검증 가능한 순수 데이터/필터 로직이므로, 기획서가 명시한
-## "캐릭터별 선택 가능한 시작 스킬 목록"(슬롯 0/1 순서 포함)이 starting_skills_for_
-## character()로 정확히 재현되는지 확인한다.
+## [미니 기획 E]-2 검증(INBOX.md 2026-09-17 기획자 결정, [대형 기획 5] F-2(b)로 13종/
+## 3슬롯으로 갱신): STARTING_SKILLS가 모두 전투 배선 없이도 검증 가능한 순수 데이터/필터
+## 로직이므로, 기획서가 명시한 "캐릭터별 선택 가능한 시작 스킬 목록"(슬롯 0/1/2 순서 포함)이
+## starting_skills_for_character()로 정확히 재현되는지 확인한다.
 func _check_starting_skills(lines: PackedStringArray) -> bool:
 	var ok := true
 
 	var expected := {
-		"novice": ["start_expand", "start_lean"],
-		"berserker": ["start_aggro", "start_hoard"],
-		"guardian": ["start_wall", "start_ironclad"],
-		"explosive": ["start_aggro", "start_expand"],
-		"shieldbearer": ["start_wall", "start_lean"],
-		"enchantress": ["start_expand", "start_lean"],
-		"juggler": ["start_aggro", "start_hoard"],
+		"novice": ["start_expand", "start_lean", "start_wealth"],
+		"berserker": ["start_aggro", "start_hoard", "start_vanguard"],
+		"guardian": ["start_wall", "start_ironclad", "start_bulwark"],
+		"explosive": ["start_aggro", "start_expand", "start_overflow"],
+		"shieldbearer": ["start_wall", "start_lean", "start_second_wind"],
+		"enchantress": ["start_expand", "start_lean", "start_gambler"],
+		"juggler": ["start_aggro", "start_hoard", "start_diverse"],
 	}
 	for character_id in expected.keys():
 		var choices := SkillPool.starting_skills_for_character(character_id)
