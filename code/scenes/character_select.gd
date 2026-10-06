@@ -30,6 +30,9 @@ const CARD_GAP := 12.0
 ## 크기로 그려지므로, 목록의 작은 초상 칸에 맞추려면 축소해야 한다(Node2D.scale 사용 —
 ## _draw() 좌표 자체를 다시 계산하지 않고 그대로 축소).
 const PORTRAIT_SCALE := 0.32
+## DETAIL_ART_SIZE: 상세 패널 왼쪽 전신 원화 칸 크기. 원화 비율(1181x1332 ≈ 0.89)에
+## 맞추고, 패널 내용 높이(540 - 상하 여백 48 = 492) 안에 들어가게 잡았다.
+const DETAIL_ART_SIZE := Vector2(260, 293)
 
 @onready var cards_container: Control = $CardsContainer
 @onready var detail_container: Control = $DetailPanelContainer
@@ -44,6 +47,10 @@ var _card_panels: Dictionary = {} # id -> PanelContainer (선택 강조 갱신�
 ## 카드를 고를 때마다 _refresh_detail_panel()이 텍스트/초상만 바꿔 다시 만들지 않는다
 ## (매번 새로 만들면 불필요하게 무겁고, 스크롤 위치 등 상태가 있다면 리셋될 수 있음).
 var _detail_portrait: CharacterPortraitPlaceholder
+## 원화가 입고된 캐릭터는 이 TextureRect에 전신(CharacterArt.load_full)을 띄우고
+## _detail_portrait(플레이스홀더)를 숨긴다. 원화가 없으면 반대로.
+var _detail_art: TextureRect
+var _detail_placeholder_note: Label
 var _detail_name_label: Label
 var _detail_concept_label: Label
 var _detail_dice_label: Label
@@ -120,15 +127,20 @@ func _make_card(profile: Dictionary, select_buttons: Array[Button]) -> PanelCont
 
 	var portrait_holder := Control.new()
 	portrait_holder.custom_minimum_size = Vector2(56, CARD_HEIGHT)
-	var portrait := CharacterPortraitPlaceholder.new()
-	portrait.scale = Vector2(PORTRAIT_SCALE, PORTRAIT_SCALE)
-	# 실루엣 그리기 범위는 원본 스케일 기준 x -68~68 / y -108~140(character_portrait_
-	# placeholder.gd 참고). PORTRAIT_SCALE(0.32)을 곱하면 x -21.8~21.8 / y -34.6~44.8 —
-	# holder(56 x CARD_HEIGHT) 안에서 가로는 중앙(28), 세로는 위/아래 범위 중간이 holder
-	# 세로 중앙(CARD_HEIGHT/2)에 오도록 원점을 살짝 위로 올린다((-34.6+44.8)/2 ≈ 5.1).
-	portrait.position = Vector2(28, CARD_HEIGHT / 2.0 - 5)
-	portrait.set_palette(profile["hair_color"], profile["dress_color"])
-	portrait_holder.add_child(portrait)
+	# 원화가 입고된 캐릭터는 상반신 썸네일(CharacterArt.load_thumb)을, 아직 없는
+	# 캐릭터는 아래의 도형 플레이스홀더를 그린다(docs/art/ART_RESOURCES.md 4장).
+	var thumb := CharacterArt.load_thumb(profile["id"])
+	if thumb != null:
+		portrait_holder.custom_minimum_size = Vector2(72, CARD_HEIGHT)
+		var thumb_rect := TextureRect.new()
+		thumb_rect.texture = thumb
+		thumb_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		thumb_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		thumb_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
+		thumb_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		portrait_holder.add_child(thumb_rect)
+	else:
+		_add_placeholder_thumb(portrait_holder, profile)
 	hbox.add_child(portrait_holder)
 
 	var name_label := Label.new()
@@ -148,6 +160,18 @@ func _make_card(profile: Dictionary, select_buttons: Array[Button]) -> PanelCont
 	select_buttons.append(select_button)
 
 	return panel
+
+
+func _add_placeholder_thumb(portrait_holder: Control, profile: Dictionary) -> void:
+	var portrait := CharacterPortraitPlaceholder.new()
+	portrait.scale = Vector2(PORTRAIT_SCALE, PORTRAIT_SCALE)
+	# 실루엣 그리기 범위는 원본 스케일 기준 x -68~68 / y -108~140(character_portrait_
+	# placeholder.gd 참고). PORTRAIT_SCALE(0.32)을 곱하면 x -21.8~21.8 / y -34.6~44.8 —
+	# holder(56 x CARD_HEIGHT) 안에서 가로는 중앙(28), 세로는 위/아래 범위 중간이 holder
+	# 세로 중앙(CARD_HEIGHT/2)에 오도록 원점을 살짝 위로 올린다((-34.6+44.8)/2 ≈ 5.1).
+	portrait.position = Vector2(28, CARD_HEIGHT / 2.0 - 5)
+	portrait.set_palette(profile["hair_color"], profile["dress_color"])
+	portrait_holder.add_child(portrait)
 
 
 ## 오른쪽 상세 정보 패널의 뼈대(패널 배경 + 제목/초상/설명/시작 다이스/보유 스킬
@@ -172,10 +196,16 @@ func _build_detail_panel() -> void:
 	panel.add_child(hbox)
 
 	var portrait_holder := Control.new()
-	portrait_holder.custom_minimum_size = Vector2(160, 0)
+	portrait_holder.custom_minimum_size = Vector2(DETAIL_ART_SIZE.x, 0)
 	_detail_portrait = CharacterPortraitPlaceholder.new()
-	_detail_portrait.position = Vector2(80, 120)
+	_detail_portrait.position = Vector2(DETAIL_ART_SIZE.x / 2.0, 120)
 	portrait_holder.add_child(_detail_portrait)
+	_detail_art = TextureRect.new()
+	_detail_art.size = DETAIL_ART_SIZE
+	_detail_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_detail_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_detail_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	portrait_holder.add_child(_detail_art)
 	hbox.add_child(portrait_holder)
 
 	var info_vbox := VBoxContainer.new()
@@ -248,6 +278,7 @@ func _build_detail_panel() -> void:
 	info_vbox.add_child(_starting_skill_unlock_label)
 
 	var note_label := Label.new()
+	_detail_placeholder_note = note_label
 	note_label.text = "※ 플레이스홀더 실루엣 — 실제 일러스트는 추후 작업"
 	note_label.autowrap_mode = TextServer.AUTOWRAP_WORD
 	note_label.add_theme_font_size_override("font_size", 12)
@@ -269,6 +300,11 @@ func _make_detail_body_label() -> Label:
 func _refresh_detail_panel() -> void:
 	var profile := CharacterProfiles.get_profile(_selected_id)
 	_detail_portrait.set_palette(profile["hair_color"], profile["dress_color"])
+	var art := CharacterArt.load_full(_selected_id)
+	_detail_art.texture = art
+	_detail_art.visible = art != null
+	_detail_portrait.visible = art == null
+	_detail_placeholder_note.visible = art == null
 	_detail_name_label.text = profile["name"]
 	_detail_concept_label.text = "설명: %s" % String(profile.get("concept", profile.get("desc", "")))
 	_detail_dice_label.text = "시작 다이스: 공격 D4 x%d / 방어 D4 x%d" % [
@@ -627,6 +663,18 @@ func _debug_show_starting_skill_locked_preview() -> void:
 	AchievementManager._debug_reset_for_qa()
 	_on_card_selected("novice")
 	_on_starting_skill_locked_preview("start_lean")
+
+
+## QA 전용: [대형 기획 5] F-2(b) — 견습 모험가의 3개 슬롯(확장/정예/황금손)이 모두
+## 해금된 상태(r1_novice + clear_novice)로 겹침 없이 가로 배치되는지 확인한다. 상세
+## 패널 폭(~600px)에서 150px 버튼 3개(+separation 10px x2)가 들어가는지가 핵심
+## 검증 지점(F-2(a) 완료 기록 참고 — 그때는 슬롯이 2개뿐이라 이 레이아웃을 아직
+## 확인할 수 없었음).
+func _debug_show_starting_skill_all_unlocked() -> void:
+	AchievementManager._debug_reset_for_qa()
+	AchievementManager.unlock("r1_novice")
+	AchievementManager.unlock("clear_novice")
+	_on_card_selected("novice")
 
 
 ## QA 전용 — 실제 숫자 키 입력이 _unhandled_input()을 거쳐 버튼까지 눌리는 전체 경로를
