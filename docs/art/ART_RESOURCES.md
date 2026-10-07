@@ -167,8 +167,8 @@ ART-<분류><대상 번호 3자리>-<종류>
 | `guardian` | 수호자 | `#668CD9` / `#40668C` | ✅ 적용 | 📝 ART-CH003-FACE |
 | `explosive` | 폭발병 | `#F28C26` / `#802E0D` | ✅ 적용 | 📝 ART-CH004-FACE |
 | `shieldbearer` | 주술사 | `#1F1429` / `#2E0A1A` | ✅ 적용 | 📝 ART-CH005-FACE (전신 입고됨 — 착수 가능) |
-| `enchantress` | 매혹사 | `#BF2673` / `#8C0D40` | 📝 ART-CH006-FULL | 📝 ART-CH006-FACE (ART-CH006-FULL 입고 후) |
-| `juggler` | 곡예사 | `#F2D940` / `#8026BF` | 📝 ART-CH007-FULL | 📝 ART-CH007-FACE (ART-CH007-FULL 입고 후) |
+| `enchantress` | 매혹사 | `#BF2673` / `#8C0D40` | ✅ 적용 | 📝 ART-CH006-FACE (전신 입고됨 — 착수 가능) |
+| `juggler` | 곡예사 | `#F2D940` / `#8026BF` | ✅ 적용 | 📝 ART-CH007-FACE (전신 입고됨 — 착수 가능) |
 
 ### 2-2. 몬스터 (의인화, 35종) — 정의: `code/systems/monster_catalog.gd`
 
@@ -411,9 +411,9 @@ M1과 M2는 병행 가능 — 같은 계열 보스와 대표작(예: 고블린 �
 |---|---|---|---|---|
 | ART-CH001~004-FULL | 견습 모험가 / 광전사 / 수호자 / 폭발병 전신 + 설정 시트 (발주 전 사전 입고) | — | ✅ 적용 | `characters/{novice,berserker,guardian,explosive}/full.png`, `_reference/` |
 | ART-CH005-FULL | 주술사 전신 | 2026-10-06 | ✅ 적용 | `characters/shieldbearer/full.png` |
-| ART-CH006~007-FULL | 매혹사 / 곡예사 전신 | 2026-10-06 | 📝 발주 | |
+| ART-CH006~007-FULL | 매혹사 / 곡예사 전신 | 2026-10-06 | ✅ 적용 | `characters/{enchantress,juggler}/full.png` (원본 합본은 `_reference/characters/enchantress_juggler_combined.png`) |
 | ART-CH001~004-FACE | 기존 4종 표정 세트 | 2026-10-06 | 📝 발주 | |
-| ART-CH005~007-FACE | 신규 3종 표정 세트 | 2026-10-06 | 📝 발주 (전신 입고 후 착수) | |
+| ART-CH005~007-FACE | 신규 3종 표정 세트 | 2026-10-06 | 📝 발주 (전신 입고 완료 — 착수 가능) | |
 | ART-MO001~004-FULL, ART-MO600-FULL | 몬스터 계열 대표 4종 + 다크 나이트(MO005→MO600 이관) 전신 | 2026-10-06 | 📝 발주 | |
 | ART-MO001~004-FACE, ART-MO600-FACE | 위 5종 표정 세트 | 2026-10-06 | 📝 발주 (전신 입고 후 착수) | |
 | ART-MO800~805-FULL/FACE | 보스 6종 (우선순위 M1) | 2026-10-07 | 📝 발주 | |
@@ -446,6 +446,7 @@ M1과 M2는 병행 가능 — 같은 계열 보스와 대표작(예: 고블린 �
 |---|---|---|---|
 | 2026-10-06 | ART-CH001~004-FULL (견습 모험가/광전사/수호자/폭발병 전신) | 캐릭터 선택 화면 — 목록 카드 썸네일(상반신 크롭) + 상세 패널 전신. 원화 없는 캐릭터는 플레이스홀더 유지 (`code/scenes/character_art.gd`) | `qa_out/art_character_select.png`, `qa_out/art_character_select_juggler.png` |
 | 2026-10-07 | ART-CH005-FULL (주술사 전신, 파일명 `enchantress.png`로 입고 → 사용자 확인 후 `shieldbearer/full.png`로 정리) | 캐릭터 선택 화면 (코드 수정 없이 자동 적용) | `qa_out/art_character_select_shieldbearer.png` |
+| 2026-10-07 | ART-CH006~007-FULL (매혹사·곡예사 전신 — 한 장(1275×1234)에 둘이 함께 입고 → 두 캐릭터 사이 투명 경로를 따라 분리해 1181×1332 캔버스 중앙 배치) | 캐릭터 선택 화면 (코드 수정 없이 자동 적용) | `qa_out/art_character_select_juggler.png` |
 
 ---
 
