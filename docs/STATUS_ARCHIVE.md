@@ -8,6 +8,40 @@
 
 ---
 
+- **2026-09-24 (146)**: 세션 지침대로 INBOX.md "부분 처리됨"의 [대형 기획 4]
+  (캐릭터 로스터 개편) **D(공통 후속) 5~7번**(마지막 남은 항목)을 마무리했다
+  — A/B/C/D-1~4는 (140)~(145)에서 이미 완료.
+  **D-5 (character_select 7종 레이아웃 QA)**: `scripts/qa_shot.sh
+  character_select`로 `qa_out/character_select.png`를 다시 찍어 육안
+  확인 — 왼쪽 목록(견습 모험가~매혹사까지 보이고 곡예사는 스크롤 필요)과
+  오른쪽 상세 패널(견습 모험가) 모두 겹침/잘림 없이 정상. 기존
+  `qa_out/character_select_juggler.png`(곡예사 상세 패널, (141)에서
+  `_debug_select_juggler` 훅으로 캡처된 것)도 함께 재확인 — 시작 다이스/
+  보유 스킬/이벤트 주사위 3줄 모두 안 겹치고 정상 표시됨. 코드 변경
+  없음(이미 (141)/(142)/(144)에서 검증된 레이아웃이 그대로 유지됨을
+  재확인한 것).
+  **D-6 (DESIGN.md 캐릭터 표 7종 갱신)**: `docs/DESIGN.md`의 "플레이어블
+  캐릭터 (5종)" 표를 "(7종)"으로 제목을 바꾸고, `character_profiles.gd`의
+  `PROFILES`를 그대로 옮겨 매혹사(`enchantress`)/곡예사(`juggler`) 두 행을
+  추가했다(기존 5행은 그대로 유지, 주술사 리스킨 경위 각주도 유지). 표
+  위에 "2026-09-24 [대형 기획 4]로 5종 → 7종이 됐다"는 한 줄 설명을
+  덧붙였다. 표 아래의 "캐릭터 스킬 부여 이벤트"/"시작 스킬 선택" 등 서술
+  섹션은 특정 시점(2026-09-16/17)의 완료 기록을 그대로 남겨두는 것이라
+  이번 스코프(표만 갱신)에서는 손대지 않았다 — INBOX.md D-6 원문이 "캐릭터
+  표"로 범위를 못박았다.
+  **D-7 (초상 placeholder 확인)**: `code/scenes/character_portrait_
+  placeholder.gd`를 읽어 `set_palette(hair_color, dress_color)`가
+  `@export` 색상 두 개만 받아 `_draw()`에서 그대로 쓰는 완전히 범용적인
+  구조임을 확인 — 매혹사/곡예사도 `character_profiles.gd`에 이미 있는
+  `hair_color`/`dress_color`(자주/붉은 계열, 노랑/보라 계열)를 코드 수정
+  없이 자동으로 받는다. 위 D-5 스크린샷(`character_select_juggler.png`)에서
+  실제로 노란 머리/보라 원피스 실루엣이 정상 렌더링됨을 육안으로도 재확인
+  했다 — 코드 변경 불필요, 확인만으로 완료.
+  **D 전체(1~7번) 완료** — INBOX.md "부분 처리됨"의 [대형 기획 4] 항목
+  전체를 "처리됨"으로 옮겼다(아래 참고). `bash scripts/qa_shot.sh dice_test`
+  전체 PASS(회귀 없음, 이번 변경은 문서/QA 재확인뿐이라 새 검증 추가 없음).
+  "완료 기록" 10개 유지를 위해 (136)을 `docs/STATUS_ARCHIVE.md`로 옮겼다.
+
 - **2026-09-24 (145)**: 세션 지침대로 INBOX.md "부분 처리됨"의 [대형 기획 4]
   (캐릭터 로스터 개편) **D(공통 후속) 4번**(`skill_pool.gd`의
   `UNIQUE_SKILLS`/`UPGRADE_SKILLS`에 매혹사/곡예사 전용 고유 스킬 1종씩 +

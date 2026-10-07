@@ -347,7 +347,14 @@
 
 ### 던전 몬스터 (5종)
 
-정의 위치: `code/scenes/combat_test.gd` (`MONSTER_PROFILES`). 방 번호(`room_index`)에
+정의 위치: `code/systems/monster_catalog.gd` (`MonsterCatalog.MONSTERS`, 2026-10-07
+[대형 기획 6] G-1로 `code/scenes/combat_test.gd`의 `MONSTER_PROFILES`에서 이전 — 이
+단계는 데이터 위치만 옮겼을 뿐 전투 동작은 전과 동일하다. 몬스터마다 "계열"(인간형/
+부정형/야수형/언데드형, `MonsterCatalog.FAMILIES`)이 추가되어 전투 화면 몬스터 이름
+앞에 계열 아이콘(`code/scenes/family_icon.gd`의 `FamilyIcon`)이 표시된다 — 아이콘은
+인간형=방패, 부정형=물방울, 야수형=발톱, 언데드형=해골. 대형 몬스터 풀(일반 20/정예
+8/보스 6)과 정예 전투 방은 아직 미착수 — INBOX.md [대형 기획 6] G-2~G-9 참고). 방
+번호(`room_index`)에
 따라 5종이 순환 배정되고(5방을 넘어가면 "강화 " 접두어가 붙으며 재사용), 방이 진행될수록
 공격/방어 다이스 개수·면 개수(D4→D6→D8)·HP가 함께 커진다(공식은 `_monster_config_for_room()`,
 DESIGN.md "아직 정해지지 않은 것" 참고 — 스케일링 수치 자체는 잠정값). 마지막 방의 몬스터는

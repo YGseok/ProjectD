@@ -225,6 +225,10 @@ func _ready() -> void:
 	all_pass = _check_skill_pool_lookup(lines) and all_pass
 
 	lines.append("")
+	lines.append("[G-1: 몬스터 카탈로그 계열 아이콘 검증: monster_catalog.gd MonsterCatalog / family_icon.gd FamilyIcon]")
+	all_pass = _check_monster_catalog_family_icons(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -3990,5 +3994,41 @@ func _check_skill_pool_lookup(lines: PackedStringArray) -> bool:
 	lines.append("  존재하지 않는 id 조회: find_skill('no_such_skill_id')=%s (빈 Dictionary 기대) -> %s" % [
 		unknown, "OK" if unknown_ok else "FAIL"
 	])
+
+	return ok
+
+
+## [대형 기획 6] G-1(2026-10-07) 검증 — _check_skill_icons와 같은 패턴. 두 가지를 확인:
+## (1) MonsterCatalog.MONSTERS 전부의 "family" 값이 FamilyIcon.CATEGORIES(그리고
+## MonsterCatalog.FAMILIES 자신의 키)에 실제로 존재하는지 — 몬스터가 늘어날 G-5 이후에도
+## 오타/리네임으로 아이콘이 조용히 빈 채로 그려지는 걸 사전에 잡기 위함.
+## (2) G-1이 "동작 변경 없음"을 지켰는지 — MonsterCatalog.gimmick_of()로 뽑은 값이
+## combat_test.gd._monster_config_for_room()이 돌려주는 기존 "dice_gimmick"과 방마다
+## 정확히 일치하는지(5종 전부 한 바퀴 room 0~4로 확인).
+func _check_monster_catalog_family_icons(lines: PackedStringArray) -> bool:
+	var ok := true
+
+	for monster in MonsterCatalog.MONSTERS:
+		var family: String = monster.get("family", "")
+		var family_known := MonsterCatalog.FAMILIES.has(family)
+		var icon_known := FamilyIcon.CATEGORIES.has(family)
+		var monster_ok := family_known and icon_known
+		ok = monster_ok and ok
+		lines.append("  \"%s\" family=%s -> FAMILIES=%s FamilyIcon.CATEGORIES=%s -> %s" % [
+			monster["id"], family, "OK" if family_known else "FAIL", "OK" if icon_known else "FAIL",
+			"OK" if monster_ok else "FAIL"
+		])
+
+	var script := load("res://code/scenes/combat_test.gd")
+	var combat = script.new()
+	for room_index in range(5):
+		var expect_gimmick: String = MonsterCatalog.gimmick_of(MonsterCatalog.MONSTERS[room_index])
+		var actual_gimmick: String = combat._monster_config_for_room(room_index)["dice_gimmick"]
+		var room_ok := expect_gimmick == actual_gimmick
+		ok = room_ok and ok
+		lines.append("  room%d: MonsterCatalog.gimmick_of=%s vs _monster_config_for_room dice_gimmick=%s -> %s" % [
+			room_index, expect_gimmick, actual_gimmick, "OK" if room_ok else "FAIL"
+		])
+	combat.free()
 
 	return ok

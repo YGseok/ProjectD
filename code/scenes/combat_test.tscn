@@ -5,6 +5,7 @@
 [ext_resource type="Script" path="res://code/scenes/monster_portrait_placeholder.gd" id="3_monster_portrait"]
 [ext_resource type="Script" path="res://code/scenes/deck_panel.gd" id="4_deck_panel"]
 [ext_resource type="Script" path="res://code/scenes/customize_panel.gd" id="5_customize_panel"]
+[ext_resource type="Script" path="res://code/scenes/family_icon.gd" id="6_family_icon"]
 
 [sub_resource type="LabelSettings" id="LabelSettings_title"]
 font_size = 26
@@ -72,6 +73,13 @@ offset_right = 420.0
 offset_bottom = 100.0
 text = "플레이어 HP: 20 / 20"
 label_settings = SubResource("LabelSettings_hp")
+
+[node name="MonsterFamilyIcon" type="Control" parent="."]
+offset_left = 868.0
+offset_top = 73.0
+offset_right = 892.0
+offset_bottom = 97.0
+script = ExtResource("6_family_icon")
 
 [node name="MonsterHPLabel" type="Label" parent="."]
 offset_left = 900.0

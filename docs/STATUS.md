@@ -5,33 +5,29 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-10-07 (155)
-- 작성자: AI 에이전트. INBOX.md "부분 처리됨"의 [대형 기획 5] 실행 순서
-  (F-2→F-3→G-1~G-9→F-4)에 따라, **F-3(테스트 보강, 3개 이터레이션 예정)의
-  3번째이자 마지막 조각**을 끝내 F-3 전체를 완료했다. (154)가 "남은 F-3
-  범위"로 지목한 네 가지 중 spare_die(+)/charm_flip/juggle_swap 효과
-  검증은 실제로는 더 이전 커밋(`_check_skill_effects()`, (142)~(145)
-  전후)에 이미 있었음을 확인했고, 진짜 남아있던 gap은 재굴림형 스택
-  (frenzy_deepen/guard_deepen/chain_explosion/chain_guard)의 "스택 적립→
-  보너스 턴 전환" 로직 자체였다 — `combat_test.gd`에 순수 함수
-  `_update_stack_progress(current_stacks, used_bonus_dice, max_hits,
-  threshold) -> Dictionary`를 신설해 `_do_exchange()`의 공격(explosive)/
-  방어(guard) 스택 블록을 이 함수 호출로 교체(동작 동일)하고, `dice_test.gd`
-  에 적립/도달/무변화/소모 리셋 네 경로를 직접 검증하는 섹션을 추가했다.
-  이어서 F-3이 요구한 **전체 흐름(E2E) 테스트**도 추가했다 — 견습
-  모험가+곡예사로 "새 런 시작 → 라운드1 보스 격파(r1 업적/슬롯1 해금) →
-  최종 클리어(clear 업적/슬롯2 해금) → 해금된 슬롯2 스킬 선택 → 새 런 →
-  skill_flags 반영 → `_do_exchange()`와 같은 조건식+함수(`_wealth_bonus()`/
-  `_diverse_bonus()`)로 실제 양수 효과 확인"까지 이어서 돌린다
-  (`_apply_room_advance()`를 직접 불러 물리 시뮬레이션 없이 "보스 격파"를
-  흉내 냄). 업적 저장 파일은 `AchievementManager._unlocked`를 백업/복원해
-  실제 플레이 진행도를 건드리지 않게 했다(F-3 지시문이 명시한 방식).
-  `bash scripts/qa_shot.sh dice_test` 전체 PASS(신규 두 섹션 포함),
-  `scripts/qa_shot.sh combat_test`로 전투 화면 크래시/회귀 없음 확인.
-  자세한 내용은 아래 "완료 기록 (155)" 참고. **F-3(1~3번째 조각) 전체
-  완료.** 실행 순서상 다음 할 일은 INBOX.md [대형 기획 6]의 **G-1**(계열+
-  몬스터 카탈로그, 아직 미착수 — 아래 "지금 위치"/"다음 할 일 큐" 참고).
-  "완료 기록" 10개 유지를 위해 (145)를 `docs/STATUS_ARCHIVE.md`로 옮겼다.
+- 일시: 2026-10-07 (156)
+- 작성자: AI 에이전트. F-3 완료로 실행 순서(F-2→F-3→G-1~G-9→F-4)상 다음인
+  INBOX.md "남은 이슈"의 [대형 기획 6](몬스터 대개편) **G-1(계열 + 몬스터
+  카탈로그 + 계열 아이콘, 동작 변경 없음)**을 진행했다. 신규
+  `code/systems/monster_catalog.gd`(`MonsterCatalog`)에 계열 4종
+  (`FAMILIES`: 인간형/부정형/야수형/언데드형)과 기존 몬스터 5종
+  (`MONSTERS`: id/name/family/tier/color/skills/hp_mult/personality)을
+  정의하고, `combat_test.gd`의 `MONSTER_PROFILES` 상수를 삭제해
+  `_monster_config_for_room()`이 이 카탈로그를 직접 읽게 바꿨다 — "이
+  단계에서는 전투 동작을 바꾸지 않는다"는 지시대로 dice_gimmick 적용
+  로직 자체는 전혀 건드리지 않았고(`MonsterCatalog.gimmick_of()`가
+  skills[0].id를 꺼내 기존 코드 경로에 그대로 넘기는 호환 다리 역할만
+  함), `dice_test.gd`의 새 검증(`_check_monster_catalog_family_icons`)으로
+  room 0~4 전부에서 기존과 동일한 dice_gimmick이 나오는지 직접 비교해
+  확인했다. 신규 `code/scenes/family_icon.gd`(`FamilyIcon`)로 계열별
+  도형(인간형=방패/부정형=물방울/야수형=발톱/언데드형=해골 + 보스는 왕관
+  오버레이)을 그려 `combat_test.tscn`의 몬스터 HP 라벨 왼쪽에 배치했다.
+  `bash scripts/qa_shot.sh dice_test` 전체 PASS(신규 섹션 포함),
+  `scripts/qa_shot.sh combat_test`로 전투 화면에서 계열 아이콘이 겹침 없이
+  잘 보임을 스크린샷으로 확인. 자세한 내용은 아래 "완료 기록 (156)" 참고.
+  **G-1 완료.** 다음 할 일은 **G-2**(몬스터 스킬 프레임워크 신설 + 기존
+  4종 이식, 동작 보존 — 아래 "지금 위치"/"다음 할 일 큐" 참고).
+  "완료 기록" 10개 유지를 위해 (146)을 `docs/STATUS_ARCHIVE.md`로 옮겼다.
 
 ## 지금 위치
 
@@ -74,11 +70,15 @@ unlock_requirement()`)가 함께 보인다(F-1). 시작 스킬은 캐릭터당 3
 전체 흐름(E2E)도 견습 모험가+곡예사 2종으로 검증됐다**(완료 기록 (155)).
 **F-4(밸런스 시뮬)는 설계상 G-1~G-9(아래 [대형 기획 6]) 완료 후 진행 —
 아직 착수 전.**
-**[대형 기획 6] G-1~G-9(몬스터 대개편) 아직 착수 전** — 다음 할 일.
+**[대형 기획 6] G-1 완료(2026-10-07), G-2~G-9 남음** — 다음 할 일.
 사람이 몬스터를 계열(인간형/부정형/야수형/언데드형) + 일반 20종/정예
 8종/보스 6종의 대형 풀로 개편하고 정예 전투 방을 추가하는 설계를 이미
-끝내뒀다(INBOX.md "남은 이슈" [대형 기획 6] 원문 참고) — G-1(계열+몬스터
-카탈로그)부터 순서대로 한 조각씩 진행하면 된다.
+끝내뒀다(INBOX.md "남은 이슈" [대형 기획 6] 원문 참고). G-1로
+`code/systems/monster_catalog.gd`(`MonsterCatalog`)에 계열 4종 +
+기존 몬스터 5종 데이터를 옮기고 전투 화면에 계열 아이콘(`family_icon.gd`)을
+붙였다(동작 변경 없음, 완료 기록 (156)) — 다음은 **G-2**(몬스터 스킬
+프레임워크 `code/systems/monster_skills.gd` 신설 + 기존 4종 기믹을 그
+구조로 이식, 역시 동작 보존)부터 순서대로 한 조각씩 진행하면 된다.
 **ART-1a(아트 스레드 전달, 2026-10-06) 완료** — 캐릭터 선택 카드 목록이
 7종으로 늘어나며 7번째(곡예사) 카드가 화면 밖으로 밀려 마우스로 선택 불가하던
 버그를 ScrollContainer로 해결(자세한 내용은 "완료 기록 (152)"). ART-1b/1c는
@@ -145,11 +145,14 @@ unlock_requirement()`)가 함께 보인다(F-1). 시작 스킬은 캐릭터당 3
 - **업적 시스템**: `AchievementManager`(Autoload)가 `user://achievements.json`에
   영구 저장, `AchievementPanel`로 열람. 21종 등록(`DEFINITIONS` 참고, 유형별
   아이콘 포함). 해금 순간 토스트/팝업은 없음.
-- **몬스터 5종 + 성격/기믹** (`combat_test.gd`의 `MONSTER_PROFILES`): 슬라임
-  (기믹 없음) / 고블린(anger_stack) / 해골 전사(fixed_value) / 오크
-  (min_max_only) / 다크 나이트(steady_guard, 방어 결과 하한선). 각각 성격
-  1줄 문구 보유, 방 진행에 따라 개수/면 개수/HP 스케일링 + 마지막 방은 보스
-  강화(공격+2/방어+1/HP×2). 3라운드 클리어 시 게임 클리어.
+- **몬스터 5종 + 성격/기믹** (`code/systems/monster_catalog.gd`의
+  `MonsterCatalog.MONSTERS`, 2026-10-07 G-1로 `combat_test.gd`의
+  `MONSTER_PROFILES`에서 이전): 슬라임(부정형, 기믹 없음) / 고블린(인간형,
+  anger_stack) / 해골 전사(언데드형, fixed_value) / 오크(야수형,
+  min_max_only) / 다크 나이트(인간형, steady_guard, 방어 결과 하한선). 각각
+  성격 1줄 문구 보유, 전투 화면 몬스터 이름 앞에 계열 아이콘(`FamilyIcon`)
+  표시, 방 진행에 따라 개수/면 개수/HP 스케일링 + 마지막 방은 보스 강화
+  (공격+2/방어+1/HP×2). 3라운드 클리어 시 게임 클리어.
 - **QA 도구**: `scripts/qa_shot.sh <scene> [frame] [out] [qa_call] [settle]`.
   `dice_test.gd`가 로직 회귀 스위트(스크린샷 없이 텍스트 PASS/FAIL). 주의사항은
   아래 "알려진 이슈" 참고(특히 `GAME_QA_CALL`은 항상 인자 없는 0-arity
@@ -804,6 +807,43 @@ unlock_requirement()`)가 함께 보인다(F-1). 시작 스킬은 캐릭터당 3
 
 ## 완료 기록
 
+- **2026-10-07 (156)**: INBOX.md "남은 이슈"의 [대형 기획 6](몬스터 대개편)
+  **G-1(계열 + 몬스터 카탈로그 + 계열 아이콘)**을 진행했다. F-3 완료로 실행
+  순서상 다음은 G-1이었고, 지시문대로 **이 단계는 전투 동작을 바꾸지
+  않는다** — 기존 5종(슬라임/고블린/해골 전사/오크/다크 나이트)의 dice_gimmick
+  적용 로직은 전혀 안 건드리고 데이터 위치만 옮겼다.
+  신규 `code/systems/monster_catalog.gd`(`MonsterCatalog`)에 `FAMILIES`
+  (인간형/부정형/야수형/언데드형 4종, id/이름/설명)와 `MONSTERS`(5종, id/name/
+  family/tier/color/skills/hp_mult/personality)를 정의하고, `combat_test.gd`의
+  기존 `MONSTER_PROFILES` 상수를 삭제해 `_monster_config_for_room()`이
+  `MonsterCatalog.MONSTERS`를 직접 읽게 바꿨다. "skills" 필드(미래형 — G-2
+  몬스터 스킬 프레임워크가 읽을 자리)는 지금은 `[{"id": <기존 dice_gimmick
+  문자열>}]` 하나뿐이고, 신규 `MonsterCatalog.gimmick_of()`가 skills[0].id를
+  뽑아 기존 "dice_gimmick" 코드 경로에 그대로 넘기는 호환 다리 역할만 한다.
+  계열 배정은 지시문 그대로: 슬라임=부정형, 고블린=인간형, 해골 전사=언데드형,
+  오크=야수형, 다크 나이트=인간형.
+  신규 `code/scenes/family_icon.gd`(`FamilyIcon`, `skill_icon.gd`/
+  `reward_icon.gd`와 같은 절차적 `_draw()` 패턴)로 계열별 도형(인간형=방패,
+  부정형=물방울, 야수형=발톱 자국 3개, 언데드형=해골)을 그리고, `is_boss`가
+  true면 작은 왕관을 덧그린다(G-8 보스 6종이 쓸 자리를 미리 열어둠 — 지금은
+  기존 "마지막 방 보스 강화"의 `is_boss` 플래그에 그대로 연동). `combat_test.
+  tscn`에 `MonsterFamilyIcon` 노드를 `MonsterHPLabel`(몬스터 이름이 들어간
+  HP 라벨) 바로 왼쪽에 추가하고, `_ready()`/`_debug_show_anger_dice()`에서
+  `monster_family_icon.category`를 몬스터 family로 세팅한다.
+  `dice_test.gd`에 `_check_monster_catalog_family_icons()`를 추가해 (1)
+  MONSTERS 5종의 family가 전부 `MonsterCatalog.FAMILIES`와
+  `FamilyIcon.CATEGORIES`에 실제로 존재하는지, (2) G-1이 "동작 변경 없음"을
+  지켰는지(`MonsterCatalog.gimmick_of()`가 room 0~4 각각에서 기존
+  `_monster_config_for_room()["dice_gimmick"]`과 정확히 일치하는지)를
+  검증한다. `bash scripts/qa_shot.sh dice_test` 전체 PASS(신규 섹션 포함),
+  `scripts/qa_shot.sh combat_test`로 전투 화면 크래시 없음 + 몬스터 HP 라벨
+  왼쪽에 계열 아이콘(슬라임=물방울)이 겹침 없이 표시됨을 스크린샷으로 확인
+  (`qa_out/combat_test.png`). `docs/DESIGN.md`의 "던전 몬스터" 절 정의 위치
+  설명도 `MonsterCatalog`를 가리키도록 갱신(표 자체는 G-9에서 전면 개편
+  예정이라 아직 안 건드림). 다음 할 일은 **G-2**(몬스터 스킬 프레임워크
+  신설 + 기존 4종 이식, 동작 보존) — 아래 "다음 할 일 큐" 참고. "완료 기록"
+  10개 유지를 위해 (146)을 `docs/STATUS_ARCHIVE.md`로 옮겼다.
+
 - **2026-10-07 (155)**: INBOX.md "부분 처리됨"의 [대형 기획 5] **F-3(테스트
   보강)의 3번째이자 마지막 조각**을 진행했다 — (154)가 "남은 F-3 범위"로
   지목한 항목 중 (1) 재굴림형 스택(frenzy_deepen/guard_deepen/chain_explosion/
@@ -1221,43 +1261,9 @@ unlock_requirement()`)가 함께 보인다(F-1). 시작 스킬은 캐릭터당 3
   확인(사용자 원화 `resources/*.png`만 미추적 상태로 남아있고 그대로 둠).
   "완료 기록" 10개 유지를 위해 (137)을 `docs/STATUS_ARCHIVE.md`로 옮겼다.
 
-- **2026-09-24 (146)**: 세션 지침대로 INBOX.md "부분 처리됨"의 [대형 기획 4]
-  (캐릭터 로스터 개편) **D(공통 후속) 5~7번**(마지막 남은 항목)을 마무리했다
-  — A/B/C/D-1~4는 (140)~(145)에서 이미 완료.
-  **D-5 (character_select 7종 레이아웃 QA)**: `scripts/qa_shot.sh
-  character_select`로 `qa_out/character_select.png`를 다시 찍어 육안
-  확인 — 왼쪽 목록(견습 모험가~매혹사까지 보이고 곡예사는 스크롤 필요)과
-  오른쪽 상세 패널(견습 모험가) 모두 겹침/잘림 없이 정상. 기존
-  `qa_out/character_select_juggler.png`(곡예사 상세 패널, (141)에서
-  `_debug_select_juggler` 훅으로 캡처된 것)도 함께 재확인 — 시작 다이스/
-  보유 스킬/이벤트 주사위 3줄 모두 안 겹치고 정상 표시됨. 코드 변경
-  없음(이미 (141)/(142)/(144)에서 검증된 레이아웃이 그대로 유지됨을
-  재확인한 것).
-  **D-6 (DESIGN.md 캐릭터 표 7종 갱신)**: `docs/DESIGN.md`의 "플레이어블
-  캐릭터 (5종)" 표를 "(7종)"으로 제목을 바꾸고, `character_profiles.gd`의
-  `PROFILES`를 그대로 옮겨 매혹사(`enchantress`)/곡예사(`juggler`) 두 행을
-  추가했다(기존 5행은 그대로 유지, 주술사 리스킨 경위 각주도 유지). 표
-  위에 "2026-09-24 [대형 기획 4]로 5종 → 7종이 됐다"는 한 줄 설명을
-  덧붙였다. 표 아래의 "캐릭터 스킬 부여 이벤트"/"시작 스킬 선택" 등 서술
-  섹션은 특정 시점(2026-09-16/17)의 완료 기록을 그대로 남겨두는 것이라
-  이번 스코프(표만 갱신)에서는 손대지 않았다 — INBOX.md D-6 원문이 "캐릭터
-  표"로 범위를 못박았다.
-  **D-7 (초상 placeholder 확인)**: `code/scenes/character_portrait_
-  placeholder.gd`를 읽어 `set_palette(hair_color, dress_color)`가
-  `@export` 색상 두 개만 받아 `_draw()`에서 그대로 쓰는 완전히 범용적인
-  구조임을 확인 — 매혹사/곡예사도 `character_profiles.gd`에 이미 있는
-  `hair_color`/`dress_color`(자주/붉은 계열, 노랑/보라 계열)를 코드 수정
-  없이 자동으로 받는다. 위 D-5 스크린샷(`character_select_juggler.png`)에서
-  실제로 노란 머리/보라 원피스 실루엣이 정상 렌더링됨을 육안으로도 재확인
-  했다 — 코드 변경 불필요, 확인만으로 완료.
-  **D 전체(1~7번) 완료** — INBOX.md "부분 처리됨"의 [대형 기획 4] 항목
-  전체를 "처리됨"으로 옮겼다(아래 참고). `bash scripts/qa_shot.sh dice_test`
-  전체 PASS(회귀 없음, 이번 변경은 문서/QA 재확인뿐이라 새 검증 추가 없음).
-  "완료 기록" 10개 유지를 위해 (136)을 `docs/STATUS_ARCHIVE.md`로 옮겼다.
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(155)에서 (145)를 그리로 옮겼다.)*
+이번 이터레이션(156)에서 (146)을 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 

@@ -166,6 +166,7 @@ const DICE_SPAWN_ROW_SPACING := 0.5
 
 @onready var player_hp_label: Label = $PlayerHPLabel
 @onready var monster_hp_label: Label = $MonsterHPLabel
+@onready var monster_family_icon: FamilyIcon = $MonsterFamilyIcon
 @onready var monster_debug_info_label: Label = $MonsterDebugInfoLabel
 @onready var player_hp_bar_fill: ColorRect = $PlayerHPBarFill
 @onready var monster_hp_bar_fill: ColorRect = $MonsterHPBarFill
@@ -379,13 +380,10 @@ const PIP_REWARD_MAX_PER_ROOM := 1
 ## 2026-09-15가 확정한 성격 요약)를 추가한다. dice_gimmick 배정 근거를 문구로도
 ## 확인할 수 있게 하려는 목적 — _monster_config_for_room()이 그대로 config에 담아
 ## 넘기고, _monster_debug_info_text()가 디버그 표시줄에 함께 보여준다.
-const MONSTER_PROFILES := [
-	{"name": "슬라임", "color": Color(0.35, 0.85, 0.4), "personality": "무기력하고 단순함"},
-	{"name": "고블린", "color": Color(0.75, 0.55, 0.25), "dice_gimmick": "anger_stack", "personality": "성급하고 화를 잘 냄"},
-	{"name": "해골 전사", "color": Color(0.85, 0.85, 0.8), "dice_gimmick": "fixed_value", "personality": "감정 없이 명령대로만 움직이는 병사, 늘 같은 힘으로 정확하게 타격"},
-	{"name": "오크", "color": Color(0.3, 0.55, 0.3), "dice_gimmick": "min_max_only", "personality": "힘만 믿고 저돌적으로 날뛰는 성격, 전부 아니면 전무"},
-	{"name": "다크 나이트", "color": Color(0.55, 0.25, 0.75), "dice_gimmick": "steady_guard", "personality": "차갑고 노련하며 방어에서 흔들리지 않는 기사"},
-]
+## [대형 기획 6] G-1(2026-10-07)로 이 5종의 데이터는 `code/systems/monster_catalog.gd`
+## (`MonsterCatalog.MONSTERS`)로 옮겨졌다 — "계열"(family)/"등급"(tier)/스킬 목록 등
+## 미래 확장 필드가 추가됐을 뿐, 이 함수가 읽는 값(name/color/personality/dice_gimmick)은
+## 전과 완전히 동일하다(MonsterCatalog.gimmick_of()가 호환 다리 역할).
 
 
 ## 몬스터 다이스 면 개수(sides) 스케일링. 지금까지 몬스터 주머니는 방과 무관하게 항상
@@ -416,12 +414,12 @@ func _monster_dice_sides_for_room(room_index: int) -> int:
 ## QA에서 GAME_QA_ROOM_OVERRIDE로 더 큰 값(9, 14 등)을 줘도 정확히 일치하지 않는 한
 ## 보스로 취급하지 않는다(다음 라운드 개념이 아직 없으므로).
 func _monster_config_for_room(room_index: int) -> Dictionary:
-	var profile: Dictionary = MONSTER_PROFILES[room_index % MONSTER_PROFILES.size()]
-	var cycle := int(room_index / float(MONSTER_PROFILES.size()))
+	var profile: Dictionary = MonsterCatalog.MONSTERS[room_index % MonsterCatalog.MONSTERS.size()]
+	var cycle := int(room_index / float(MonsterCatalog.MONSTERS.size()))
 	var name_text: String = profile["name"]
 	if cycle > 0:
 		name_text = "강화 ".repeat(cycle) + name_text
-	var gimmick: String = profile.get("dice_gimmick", "")
+	var gimmick: String = MonsterCatalog.gimmick_of(profile)
 	var dice_sides := _monster_dice_sides_for_room(room_index)
 	var gimmick_value := 0
 	if gimmick == "min_max_only":
@@ -460,6 +458,7 @@ func _monster_config_for_room(room_index: int) -> Dictionary:
 		"dice_gimmick_value": gimmick_value,
 		"is_boss": is_boss,
 		"personality": profile.get("personality", ""),
+		"family": profile.get("family", ""),
 	}
 
 
@@ -531,6 +530,8 @@ func _ready() -> void:
 	monster_name = config["name"]
 	monster_color = config["color"]
 	monster_is_boss = config["is_boss"]
+	monster_family_icon.category = config.get("family", "")
+	monster_family_icon.is_boss = monster_is_boss
 	monster_portrait.set_body_color(monster_color if monster_color.a > 0 else Color(0.5, 0.5, 0.5))
 	monster_debug_info_label.text = _monster_debug_info_text(config)
 
@@ -1791,6 +1792,7 @@ func _debug_show_anger_dice() -> void:
 	monster_anger_stacks = ANGER_STACK_THRESHOLD
 	monster_anger_pending = true
 	monster_name = "고블린 [분노]"
+	monster_family_icon.category = "humanoid"
 	_clear_dice()
 	var die := DieScene.instantiate()
 	die.sides = ANGER_DICE_SIDES
