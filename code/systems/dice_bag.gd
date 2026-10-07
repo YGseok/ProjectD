@@ -201,6 +201,73 @@ func apply_charm_flip(values: Array, count: int = 1) -> Array:
 	return adjusted
 
 
+## 몬스터 스킬 프리미티브 "armor(n)"(인간형, INBOX.md [대형 기획 6] G-3, 2026-10-07) 전용
+## 헬퍼 — apply_flat_bonus()는 "다이스별 +n"(다이스 개수만큼 곱해져 총합이 커짐)이지만,
+## armor는 "주머니 합계 +n"(다이스 개수와 무관하게 딱 한 번만 더해짐)이라 의미가 달라
+## 별도로 둔다. 다이스 하나(0번째)에만 더하는 방식으로 "합계 +n"을 구현 — 어느 다이스에
+## 더하든 합계는 똑같이 n만큼 커지므로 결과는 동일하다.
+func apply_total_bonus(values: Array, amount: int) -> Array:
+	var adjusted := values.duplicate()
+	if adjusted.is_empty() or amount == 0:
+		return adjusted
+	adjusted[0] += amount
+	return adjusted
+
+
+## 몬스터 스킬 프리미티브 "sticky"(부정형, 플레이어 공격 다이스 중 최댓값 1개 -1)/
+## "numb"(부정형, 플레이어 방어 다이스 중 최댓값 1개 -1) 공용 헬퍼. 가장 높은 값을 보인
+## 다이스 1개를 amount만큼 깎되 min_floor 밑으로는 내려가지 않는다(동률이면 먼저 나온
+## 다이스). apply_charm_flip()의 "가장 낮은 값 찾기"와 반대 방향.
+func apply_reduce_highest(values: Array, amount: int, min_floor: int) -> Array:
+	var adjusted := values.duplicate()
+	if adjusted.is_empty():
+		return adjusted
+	var max_index := 0
+	var max_value: int = adjusted[0]
+	for i in adjusted.size():
+		if adjusted[i] > max_value:
+			max_index = i
+			max_value = adjusted[i]
+	adjusted[max_index] = max(min_floor, adjusted[max_index] - amount)
+	return adjusted
+
+
+## 몬스터 스킬 프리미티브 "seal"(부정형, 플레이어 공격 다이스 중 최솟값 1개를 0으로)
+## 전용 헬퍼 — apply_reduce_highest()와 반대로 가장 낮은 값을 보인 다이스 1개를 완전히
+## 0으로 만든다(하한선 없이 의도적으로 0을 허용 — "봉인"이라는 이름 그대로).
+func apply_zero_lowest(values: Array) -> Array:
+	var adjusted := values.duplicate()
+	if adjusted.is_empty():
+		return adjusted
+	var min_index := 0
+	var min_value: int = adjusted[0]
+	for i in adjusted.size():
+		if adjusted[i] < min_value:
+			min_index = i
+			min_value = adjusted[i]
+	adjusted[min_index] = 0
+	return adjusted
+
+
+## 몬스터 스킬 프리미티브 "dull"(부정형, 플레이어 다이스 중 최댓값 면이 나온 다이스는
+## 전부 최댓값-amount로) 전용 헬퍼 — count_max_rolls()와 같은 "이 다이스가 자신의
+## 최댓값 면을 보였는가" 판정을 재사용해, 해당하는 다이스 전부(1개가 아니라 전부)를
+## amount만큼 깎는다(최소 1 — 0 이하로는 내려가지 않음). 폭발/수호 스택 캐릭터의
+## "최댓값이 나오면 스택 적립" 조건을 약화시키려는 의도된 카운터.
+func apply_reduce_max_rolls(values: Array, amount: int) -> Array:
+	var adjusted := values.duplicate()
+	for i in dice.size():
+		if i >= adjusted.size():
+			continue
+		var faces := dice[i]
+		var m: int = faces[0]
+		for v in faces:
+			m = max(m, v)
+		if adjusted[i] == m:
+			adjusted[i] = max(1, adjusted[i] - amount)
+	return adjusted
+
+
 ## 캐릭터 기믹 "juggle_swap"(곡예사, INBOX.md 2026-09-24 [대형 기획 4]-C) 전용 헬퍼 —
 ## 다른 apply_* 헬퍼와 달리 주머니 하나가 아니라 두 주머니(공격/방어) 사이에서 동작하는
 ## static 함수다. 각 주머니에서 무작위 다이스 하나씩 골라 통째로(면 구성 전체) 서로

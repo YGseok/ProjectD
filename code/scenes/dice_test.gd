@@ -233,6 +233,10 @@ func _ready() -> void:
 	all_pass = _check_monster_skills_framework(lines) and all_pass
 
 	lines.append("")
+	lines.append("[G-3: 인간형 armor/guard_up/counter + 부정형 sticky/seal/dull/numb 프리미티브 검증]")
+	all_pass = _check_g3_monster_skill_primitives(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -4132,6 +4136,198 @@ func _check_monster_skills_framework(lines: PackedStringArray) -> bool:
 			room_index, gimmick, skill_ids, expect_ids, "OK" if room_ok else "FAIL"
 		])
 	combat.free()
+
+	return ok
+
+
+## [대형 기획 6] G-3(2026-10-07) 검증 — "플래그"가 아니라 "계산 결과"(보정된 다이스
+## 값/합계/반사 피해)가 실제로 바뀌는지 직접 확인(F-3 원칙). 아직 몬스터 카탈로그에는
+## 이 7종을 쓰는 몬스터가 없으므로(G-5 몫) 여기서는 MonsterSkills/DiceBag 함수를
+## 직접 호출해 검증한다 — combat_test.gd 경로는 room 0~4 전부 기존 4종만 쓰므로
+## _check_monster_skills_framework의 (6)번 검증이 그대로 "동작 보존"을 보장한다.
+func _check_g3_monster_skill_primitives(lines: PackedStringArray) -> bool:
+	var ok := true
+
+	# (1) DiceBag.apply_total_bonus: "다이스별 +n"이 아니라 "합계 +n" — 다이스가 몇 개든
+	# 결과 합계가 정확히 amount만큼만 커져야 한다.
+	var total_bonus_result: Array = DiceBag.new(6, 2).apply_total_bonus([2, 3], 3)
+	var total_bonus_ok: bool = total_bonus_result == [5, 3]
+	ok = total_bonus_ok and ok
+	lines.append("  DiceBag.apply_total_bonus([2,3], 3) = %s (기대 [5,3], 합계 5->8) -> %s" % [
+		total_bonus_result, "OK" if total_bonus_ok else "FAIL"
+	])
+
+	# (2) DiceBag.apply_reduce_highest: 가장 높은 값 1개만 깎이고, min_floor 밑으로는
+	# 안 내려간다.
+	var reduce_highest_result: Array = DiceBag.new(6, 3).apply_reduce_highest([2, 5, 3], 1, 1)
+	var reduce_highest_ok: bool = reduce_highest_result == [2, 4, 3]
+	ok = reduce_highest_ok and ok
+	lines.append("  DiceBag.apply_reduce_highest([2,5,3], 1, floor=1) = %s (기대 [2,4,3]) -> %s" % [
+		reduce_highest_result, "OK" if reduce_highest_ok else "FAIL"
+	])
+	var reduce_highest_floor_result: Array = DiceBag.new(6, 1).apply_reduce_highest([1], 1, 1)
+	var reduce_highest_floor_ok: bool = reduce_highest_floor_result == [1]
+	ok = reduce_highest_floor_ok and ok
+	lines.append("  DiceBag.apply_reduce_highest([1], 1, floor=1) = %s (기대 [1], floor 보장) -> %s" % [
+		reduce_highest_floor_result, "OK" if reduce_highest_floor_ok else "FAIL"
+	])
+
+	# (3) DiceBag.apply_zero_lowest: 가장 낮은 값 1개만 0이 되고 나머지는 그대로.
+	var zero_lowest_result: Array = DiceBag.new(6, 3).apply_zero_lowest([2, 6, 4])
+	var zero_lowest_ok: bool = zero_lowest_result == [0, 6, 4]
+	ok = zero_lowest_ok and ok
+	lines.append("  DiceBag.apply_zero_lowest([2,6,4]) = %s (기대 [0,6,4]) -> %s" % [
+		zero_lowest_result, "OK" if zero_lowest_ok else "FAIL"
+	])
+
+	# (4) DiceBag.apply_reduce_max_rolls: 자신의 최댓값 면을 보인 다이스만(1개가 아니라
+	# 전부) 깎이고, 최댓값이 아닌 다이스는 그대로 — 최소 1까지만 깎인다.
+	var reduce_max_bag := DiceBag.new(6, 2)
+	var reduce_max_result: Array = reduce_max_bag.apply_reduce_max_rolls([6, 3], 1)
+	var reduce_max_ok: bool = reduce_max_result == [5, 3]
+	ok = reduce_max_ok and ok
+	lines.append("  DiceBag.apply_reduce_max_rolls([6,3](D6x2), 1) = %s (기대 [5,3], 최댓값 다이스만 -1) -> %s" % [
+		reduce_max_result, "OK" if reduce_max_ok else "FAIL"
+	])
+	var reduce_max_floor_result: Array = reduce_max_bag.apply_reduce_max_rolls([6, 3], 10)
+	var reduce_max_floor_ok: bool = reduce_max_floor_result == [1, 3]
+	ok = reduce_max_floor_ok and ok
+	lines.append("  DiceBag.apply_reduce_max_rolls([6,3](D6x2), 10) = %s (기대 [1,3], 최소 1 보장) -> %s" % [
+		reduce_max_floor_result, "OK" if reduce_max_floor_ok else "FAIL"
+	])
+
+	# (5) armor(n): 몬스터 "방어 합계" +n. modify_monster_roll은 is_player_attacking=true
+	# (몬스터 방어턴)에만 적용한다.
+	var armor_bag := DiceBag.new(6, 2)
+	var armor_result: Array = MonsterSkills.modify_monster_roll(["armor"], [2, 3], {}, {
+		"is_player_attacking": true, "bag": armor_bag, "armor_amount": 3,
+	})
+	var armor_ok: bool = armor_result == [5, 3]
+	ok = armor_ok and ok
+	lines.append("  modify_monster_roll([armor], [2,3], armor_amount=3, is_player_attacking=true) = %s (기대 [5,3]) -> %s" % [
+		armor_result, "OK" if armor_ok else "FAIL"
+	])
+
+	# (6) guard_up: 몬스터 HP가 최대 HP의 절반 이하일 때만 방어 다이스 결과값 전체 +1.
+	var guard_up_bag := DiceBag.new(6, 2)
+	var guard_up_active: Array = MonsterSkills.modify_monster_roll(["guard_up"], [2, 3], {}, {
+		"is_player_attacking": true, "bag": guard_up_bag, "monster_hp": 5, "monster_max_hp": 10,
+	})
+	var guard_up_active_ok: bool = guard_up_active == [3, 4]
+	ok = guard_up_active_ok and ok
+	lines.append("  modify_monster_roll([guard_up], [2,3], HP 5/10) = %s (기대 [3,4], 절반 이하라 발동) -> %s" % [
+		guard_up_active, "OK" if guard_up_active_ok else "FAIL"
+	])
+	var guard_up_inactive: Array = MonsterSkills.modify_monster_roll(["guard_up"], [2, 3], {}, {
+		"is_player_attacking": true, "bag": guard_up_bag, "monster_hp": 6, "monster_max_hp": 10,
+	})
+	var guard_up_inactive_ok: bool = guard_up_inactive == [2, 3]
+	ok = guard_up_inactive_ok and ok
+	lines.append("  modify_monster_roll([guard_up], [2,3], HP 6/10) = %s (기대 [2,3], 절반 초과라 미발동) -> %s" % [
+		guard_up_inactive, "OK" if guard_up_inactive_ok else "FAIL"
+	])
+
+	# (7) counter(n): 플레이어 공격이 완전히 막혀(dmg==0) 데미지가 0일 때만 반사 피해를
+	# 돌려준다 — dmg>0이거나 몬스터 공격턴(is_player_attacking=false)이면 발동하지 않는다.
+	var counter_hit: Dictionary = MonsterSkills.on_damage(["counter"], {}, {
+		"is_player_attacking": true, "dmg": 0, "counter_amount": 4,
+	})
+	var counter_hit_ok: bool = counter_hit.get("reflect_damage", 0) == 4
+	ok = counter_hit_ok and ok
+	lines.append("  on_damage([counter], dmg=0, is_player_attacking=true) = %s (기대 reflect_damage=4) -> %s" % [
+		counter_hit, "OK" if counter_hit_ok else "FAIL"
+	])
+	var counter_miss_dmg: Dictionary = MonsterSkills.on_damage(["counter"], {}, {
+		"is_player_attacking": true, "dmg": 2, "counter_amount": 4,
+	})
+	var counter_miss_dmg_ok: bool = counter_miss_dmg.is_empty()
+	ok = counter_miss_dmg_ok and ok
+	lines.append("  on_damage([counter], dmg=2, is_player_attacking=true) = %s (기대 빈 Dictionary, 완전히 막히지 않음) -> %s" % [
+		counter_miss_dmg, "OK" if counter_miss_dmg_ok else "FAIL"
+	])
+	var counter_wrong_turn: Dictionary = MonsterSkills.on_damage(["counter"], {}, {
+		"is_player_attacking": false, "dmg": 0, "counter_amount": 4,
+	})
+	var counter_wrong_turn_ok: bool = counter_wrong_turn.is_empty()
+	ok = counter_wrong_turn_ok and ok
+	lines.append("  on_damage([counter], dmg=0, is_player_attacking=false) = %s (기대 빈 Dictionary, 몬스터 공격턴엔 미발동) -> %s" % [
+		counter_wrong_turn, "OK" if counter_wrong_turn_ok else "FAIL"
+	])
+
+	# (8) sticky/seal: 플레이어 "공격" 턴에만 적용 — 방어턴(is_player_attacking=false)에는
+	# 걸리지 않아야 한다.
+	var sticky_bag := DiceBag.new(6, 3)
+	var sticky_atk: Array = MonsterSkills.modify_player_roll(["sticky"], [2, 6, 4], {}, {
+		"is_player_attacking": true, "bag": sticky_bag,
+	})
+	var sticky_atk_ok: bool = sticky_atk == [2, 5, 4]
+	ok = sticky_atk_ok and ok
+	lines.append("  modify_player_roll([sticky], [2,6,4], 공격턴) = %s (기대 [2,5,4]) -> %s" % [
+		sticky_atk, "OK" if sticky_atk_ok else "FAIL"
+	])
+	var sticky_def: Array = MonsterSkills.modify_player_roll(["sticky"], [2, 6, 4], {}, {
+		"is_player_attacking": false, "bag": sticky_bag,
+	})
+	var sticky_def_ok: bool = sticky_def == [2, 6, 4]
+	ok = sticky_def_ok and ok
+	lines.append("  modify_player_roll([sticky], [2,6,4], 방어턴) = %s (기대 [2,6,4], 공격턴에만 적용) -> %s" % [
+		sticky_def, "OK" if sticky_def_ok else "FAIL"
+	])
+	var seal_atk: Array = MonsterSkills.modify_player_roll(["seal"], [2, 6, 4], {}, {
+		"is_player_attacking": true, "bag": sticky_bag,
+	})
+	var seal_atk_ok: bool = seal_atk == [0, 6, 4]
+	ok = seal_atk_ok and ok
+	lines.append("  modify_player_roll([seal], [2,6,4], 공격턴) = %s (기대 [0,6,4]) -> %s" % [
+		seal_atk, "OK" if seal_atk_ok else "FAIL"
+	])
+
+	# (9) numb: 플레이어 "방어" 턴에만 적용 — 공격턴에는 걸리지 않아야 한다(sticky와
+	# 반대 게이팅).
+	var numb_def: Array = MonsterSkills.modify_player_roll(["numb"], [2, 6, 4], {}, {
+		"is_player_attacking": false, "bag": sticky_bag,
+	})
+	var numb_def_ok: bool = numb_def == [2, 5, 4]
+	ok = numb_def_ok and ok
+	lines.append("  modify_player_roll([numb], [2,6,4], 방어턴) = %s (기대 [2,5,4]) -> %s" % [
+		numb_def, "OK" if numb_def_ok else "FAIL"
+	])
+	var numb_atk: Array = MonsterSkills.modify_player_roll(["numb"], [2, 6, 4], {}, {
+		"is_player_attacking": true, "bag": sticky_bag,
+	})
+	var numb_atk_ok: bool = numb_atk == [2, 6, 4]
+	ok = numb_atk_ok and ok
+	lines.append("  modify_player_roll([numb], [2,6,4], 공격턴) = %s (기대 [2,6,4], 방어턴에만 적용) -> %s" % [
+		numb_atk, "OK" if numb_atk_ok else "FAIL"
+	])
+
+	# (10) dull: 공격/방어 양쪽 다 적용 — 자신의 최댓값 면을 보인 다이스 전부 -1.
+	var dull_bag := DiceBag.new(6, 3)
+	var dull_atk: Array = MonsterSkills.modify_player_roll(["dull"], [6, 3, 6], {}, {
+		"is_player_attacking": true, "bag": dull_bag,
+	})
+	var dull_atk_ok: bool = dull_atk == [5, 3, 5]
+	ok = dull_atk_ok and ok
+	lines.append("  modify_player_roll([dull], [6,3,6], 공격턴) = %s (기대 [5,3,5], 최댓값 다이스 전부 -1) -> %s" % [
+		dull_atk, "OK" if dull_atk_ok else "FAIL"
+	])
+	var dull_def: Array = MonsterSkills.modify_player_roll(["dull"], [6, 3, 6], {}, {
+		"is_player_attacking": false, "bag": dull_bag,
+	})
+	var dull_def_ok: bool = dull_def == [5, 3, 5]
+	ok = dull_def_ok and ok
+	lines.append("  modify_player_roll([dull], [6,3,6], 방어턴) = %s (기대 [5,3,5], 공격/방어 양쪽 적용) -> %s" % [
+		dull_def, "OK" if dull_def_ok else "FAIL"
+	])
+
+	# (11) modify_player_roll에 "bag"이 없으면(ctx={}) 새 스킬 id가 있어도 크래시 없이
+	# 입력을 그대로 반환해야 한다(null-bag 안전장치).
+	var no_bag_result: Array = MonsterSkills.modify_player_roll(["sticky", "seal", "dull", "numb"], [1, 2, 3], {}, {})
+	var no_bag_ok: bool = no_bag_result == [1, 2, 3]
+	ok = no_bag_ok and ok
+	lines.append("  modify_player_roll([sticky,seal,dull,numb], [1,2,3], ctx={}) = %s (기대 [1,2,3], bag 없으면 no-op) -> %s" % [
+		no_bag_result, "OK" if no_bag_ok else "FAIL"
+	])
 
 	return ok
 

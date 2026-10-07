@@ -218,6 +218,12 @@ var monster_is_boss := false
 ## 정예/보스가 2~3개를 가지면 그대로 늘어날 수 있는 구조).
 var monster_skill_ids: Array = []
 var monster_skill_state: Dictionary = {}
+## skill_id -> 해당 스킬의 파라미터 Dictionary(G-3, `armor(n)`/`counter(n)`의 n 등).
+## `_monster_config_for_room()`이 `MonsterCatalog`의 `skills` 배열(각 원소가
+## {"id":..., 그 외 파라미터 키...})을 id로 인덱싱해 만든다 — 지금 몬스터 5종은 전부
+## 파라미터 없는 스킬이라 각 값이 {"id": <id>}뿐이지만, G-5가 "armor"/"counter"에
+## "amount" 키를 채운 몬스터를 추가하면 바로 쓸 수 있는 구조.
+var monster_skill_params: Dictionary = {}
 const ANGER_STACK_THRESHOLD := 3
 const ANGER_DICE_SIDES := 20
 
@@ -450,6 +456,13 @@ func _monster_config_for_room(room_index: int) -> Dictionary:
 		defense_count += 1
 		max_hp *= 2
 		name_text += " [보스]"
+	# G-3(MonsterSkills 파라미터) — skills 배열(각 원소 {"id":..., 파라미터...})을
+	# id로 인덱싱한 Dictionary. 지금 5종은 전부 파라미터 없음(skills[i]가 {"id":...}뿐).
+	var skill_params := {}
+	for skill in profile.get("skills", []):
+		var skill_id: String = skill.get("id", "")
+		if skill_id != "":
+			skill_params[skill_id] = skill
 	return {
 		"attack_count": attack_count,
 		"defense_count": defense_count,
@@ -463,6 +476,7 @@ func _monster_config_for_room(room_index: int) -> Dictionary:
 		# MonsterSkills 훅이 받는 "skill_ids: Array" 형태로도 함께 담는다(지금 몬스터는
 		# 전부 0개 또는 1개뿐이라 gimmick 하나를 그대로 배열에 담은 것과 동일).
 		"skill_ids": [] if gimmick == "" else [gimmick],
+		"skill_params": skill_params,
 		"is_boss": is_boss,
 		"personality": profile.get("personality", ""),
 		"family": profile.get("family", ""),
@@ -525,6 +539,7 @@ func _ready() -> void:
 	monster_defense_bag = DiceBag.new(monster_sides, config["defense_count"])
 	monster_dice_gimmick = config["dice_gimmick"]
 	monster_skill_ids = config["skill_ids"]
+	monster_skill_params = config["skill_params"]
 	monster_skill_state = {}
 	MonsterSkills.on_combat_start(monster_skill_ids, monster_skill_state, monster_attack_bag, monster_defense_bag, config["dice_gimmick_value"])
 	monster_max_hp = config["max_hp"]
@@ -704,6 +719,23 @@ func _do_exchange(is_player_attacking: bool) -> void:
 	if is_player_attacking:
 		def_values = MonsterSkills.modify_monster_roll(monster_skill_ids, def_values, monster_skill_state, {
 			"is_player_attacking": true,
+			"bag": def_bag,
+			"monster_hp": monster_hp,
+			"monster_max_hp": monster_max_hp,
+			"armor_amount": monster_skill_params.get("armor", {}).get("amount", 0),
+		})
+	# G-3(MonsterSkills 부정형 프리미티브: sticky/seal/dull/numb) — 부정형 계열이 플레이어
+	# 주사위 결과를 직접 보정하는 첫 자리. steady_guard처럼 롤 직후, 플레이어 자신의 스킬
+	# 보정(바로 아래 charm_flip 등)보다 먼저 적용한다. 지금 몬스터 카탈로그(G-5 이전)에는
+	# 이 네 스킬을 가진 몬스터가 없어 당장은 no-op — 동작 보존.
+	if is_player_attacking:
+		atk_values = MonsterSkills.modify_player_roll(monster_skill_ids, atk_values, monster_skill_state, {
+			"is_player_attacking": true,
+			"bag": atk_bag,
+		})
+	else:
+		def_values = MonsterSkills.modify_player_roll(monster_skill_ids, def_values, monster_skill_state, {
+			"is_player_attacking": false,
 			"bag": def_bag,
 		})
 	# "charm_flip" 기믹(매혹사, INBOX.md 2026-09-24 [대형 기획 4]-B): 그 턴에 굴린
@@ -958,6 +990,21 @@ func _do_exchange(is_player_attacking: bool) -> void:
 		_append_log("몬스터 공격 %d vs 플레이어 방어 %d -> 데미지 %d (플레이어 HP %d)" % [atk_total, def_total, dmg, player_hp])
 		monster_portrait.set_expression("happy")
 		player_portrait.set_expression("hurt" if dmg > 0 else "neutral")
+
+	# "counter(n)" 기믹(인간형, G-3): 플레이어 공격이 몬스터 방어에 완전히 막혀(dmg==0)
+	# 데미지가 0이면 플레이어가 n 반사 피해를 입는다. 지금 몬스터 카탈로그(G-5 이전)에는
+	# "counter"를 쓰는 몬스터가 없어 reflect_damage는 항상 0 — 동작 보존.
+	if is_player_attacking:
+		var counter_result: Dictionary = MonsterSkills.on_damage(monster_skill_ids, monster_skill_state, {
+			"is_player_attacking": true,
+			"dmg": dmg,
+			"counter_amount": monster_skill_params.get("counter", {}).get("amount", 0),
+		})
+		var reflect_damage: int = counter_result.get("reflect_damage", 0)
+		if reflect_damage > 0:
+			player_hp = max(0, player_hp - reflect_damage)
+			_append_log("반격! 공격이 완전히 막혀 플레이어가 %d의 피해를 입었다 (플레이어 HP %d)" % [reflect_damage, player_hp])
+			player_portrait.set_expression("hurt")
 
 	# "anger_stack" 기믹(고블린): G-2(MonsterSkills)로 스택 적립/리셋 자체는
 	# MonsterSkills.modify_monster_roll()로 옮겨졌다(skill_ids에 "anger_stack"이 없으면

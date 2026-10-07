@@ -32,21 +32,25 @@
 - [부분 처리됨 - 2026-10-07] 2026-10-06 [대형 기획 6] 몬스터 대개편: 계열(패밀리) +
   대형 몬스터 풀 + 정예 방 + 라운드별 보스 2종.
 
-  → **G-1·G-2 완료(2026-10-07), G-3~G-9는 아직**(상세는 `docs/STATUS.md` 완료
-  기록 (156)/(157) 참고). G-1: `code/systems/monster_catalog.gd`
+  → **G-1·G-2·G-3 완료(2026-10-07), G-4~G-9는 아직**(상세는 `docs/STATUS.md`
+  완료 기록 (156)/(157)/(158) 참고). G-1: `code/systems/monster_catalog.gd`
   (`MonsterCatalog`)에 계열 4종(`FAMILIES`)과 기존 몬스터 5종(`MONSTERS`)을
   데이터로 옮기고, `code/scenes/family_icon.gd`(`FamilyIcon`)로 계열 아이콘을
   그려 전투 화면 몬스터 HP 라벨 옆에 표시했다. G-2: 신규 `code/systems/
   monster_skills.gd`(`MonsterSkills`)에 훅 4개(on_combat_start/
   modify_monster_roll/modify_player_roll/on_damage)를 만들고 기존 4종 기믹
-  (anger_stack/fixed_value/min_max_only/steady_guard)을 그 구조로 옮겼다 —
-  두 단계 모두 지시대로 "전투 동작을 바꾸지 않는다"를 지켜 기존 dice_gimmick
-  적용 로직/스케일링 공식/로그 문구는 전혀 안 바뀌었고, `dice_test.gd`의 신규
-  검증(각 단계별)으로 room 0~4 전부에서 기존과 동일한 결과가 나옴을 확인했다.
-  다음은 **G-3**(인간형 프리미티브 armor/guard_up/counter + 부정형 프리미티브
-  sticky/seal/dull/numb, 수치는 잠정값 — F-4 시뮬로 조정)부터 순서대로. 아래는
-  원문 전문(사용 규칙상 요약하지 않고 그대로 보존 — G-1~G-9 전부 끝나면
-  "처리됨"으로 옮기면서 정리).
+  (anger_stack/fixed_value/min_max_only/steady_guard)을 그 구조로 옮겼다.
+  G-3: 인간형 프리미티브 armor(n)/guard_up/counter(n) + 부정형 프리미티브
+  sticky/seal/dull/numb 7종을 `MonsterSkills`/`code/systems/dice_bag.gd`에
+  구현했다(수치는 전부 잠정값 — F-4 시뮬로 조정). 세 단계 모두 지시대로
+  "전투 동작을 바꾸지 않는다"를 지켜 기존 dice_gimmick 적용 로직/스케일링
+  공식/로그 문구는 전혀 안 바뀌었다(G-3의 7종은 아직 어느 몬스터도 안 써서
+  전부 no-op). `dice_test.gd`의 신규 검증(각 단계별)으로 room 0~4 전부에서
+  기존과 동일한 결과가 나오는지 + G-3 7종의 계산 결과(게이팅 포함)를
+  확인했다. 다음은 **G-4**(야수형 프리미티브 pounce(n)/bloodlust + 언데드형
+  프리미티브 drain/revive/chill, 수치는 잠정값 — F-4 시뮬로 조정)부터
+  순서대로. 아래는 원문 전문(사용 규칙상 요약하지 않고 그대로 보존 — G-1~G-9
+  전부 끝나면 "처리됨"으로 옮기면서 정리).
 
   사용자 지시 원문: "몬스터가 각각 달라야지 않겠나. 몬스터가 좀 더
   다양해야 할 듯. 그 중에서도 계열은 어느 정도 맞춰서, 고블린 계열은 좀 비슷한 스타일의

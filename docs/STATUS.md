@@ -5,26 +5,26 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-10-07 (157)
-- 작성자: AI 에이전트. G-1 완료로 실행 순서(F-2→F-3→G-1~G-9→F-4)상 다음인
-  INBOX.md "부분 처리됨"의 [대형 기획 6](몬스터 대개편) **G-2(몬스터 스킬
-  프레임워크 신설 + 기존 4종 기믹 이식, 동작 보존)**을 진행했다. 신규
-  `code/systems/monster_skills.gd`(`MonsterSkills`)에 훅 4개(`on_combat_start`/
-  `modify_monster_roll`/`modify_player_roll`/`on_damage`)를 만들고 기존
-  `anger_stack`/`fixed_value`/`min_max_only`/`steady_guard` 4종을 그
-  구조로 옮겼다 — `DiceBag` 헬퍼는 새로 만들지 않고 그대로 호출만 했고,
-  `combat_test.gd`의 로그 문구/순서가 이식 전후 한 글자도 안 바뀌게 유지했다.
-  기존 인스턴스 변수(`monster_anger_stacks`/`monster_anger_pending`)는 범용
-  `monster_skill_state: Dictionary`로 대체(향후 정예/보스가 스킬 2~3개를
-  동시에 가질 때를 대비). `dice_test.gd`의 새 검증(`_check_monster_skills_
-  framework`)으로 "플래그가 아니라 계산 결과"가 실제로 맞는지(F-3 원칙)
-  확인했고, `scripts/qa_shot.sh combat_test ... _debug_show_anger_dice`로
-  실제 전투 화면에서도 분노 스택 로그 문구가 그대로 남는 것을 확인했다.
-  자세한 내용은 아래 "완료 기록 (157)" 참고.
-  **G-2 완료.** 다음 할 일은 **G-3**(인간형+부정형 프리미티브: armor/
-  guard_up/counter + sticky/seal/dull/numb — 아래 "지금 위치"/"다음 할 일
-  큐" 참고).
-  "완료 기록" 10개 유지를 위해 (147)을 `docs/STATUS_ARCHIVE.md`로 옮겼다.
+- 일시: 2026-10-07 (158)
+- 작성자: AI 에이전트. G-2 완료로 실행 순서(F-2→F-3→G-1~G-9→F-4)상 다음인
+  INBOX.md "부분 처리됨"의 [대형 기획 6](몬스터 대개편) **G-3(인간형
+  armor/guard_up/counter + 부정형 sticky/seal/dull/numb 프리미티브 신설)**을
+  진행했다. `code/systems/dice_bag.gd`에 범용 헬퍼 4개(`apply_total_bonus`/
+  `apply_reduce_highest`/`apply_zero_lowest`/`apply_reduce_max_rolls`)를
+  추가하고, `code/systems/monster_skills.gd`의 `modify_monster_roll`(armor/
+  guard_up)·`modify_player_roll`(sticky/seal/dull/numb, 처음으로 실제
+  구현)·`on_damage`(counter, 반환형을 void->Dictionary로 변경)를 채웠다.
+  `combat_test.gd`에 새 인스턴스 변수 `monster_skill_params`를 신설하고
+  관련 훅 호출 지점 3곳을 배선했다. **지금 몬스터 카탈로그(G-5 이전) 5종은
+  이 7종 중 아무것도 안 쓰므로 모든 신규 경로가 현재는 no-op**(G-2와 같은
+  "동작 보존" 원칙). `dice_test.gd`의 신규 `_check_g3_monster_skill_
+  primitives()`로 "플래그가 아니라 계산 결과"가 실제로 맞는지(F-3 원칙,
+  게이팅 포함) 확인했고, `scripts/qa_shot.sh combat_test`로 실제 전투
+  화면도 크래시 없이 정상 진행됨을 확인했다. 자세한 내용은 아래 "완료 기록
+  (158)" 참고.
+  **G-3 완료.** 다음 할 일은 **G-4**(야수형+언데드형 프리미티브: pounce/
+  bloodlust + drain/revive/chill — 아래 "지금 위치"/"다음 할 일 큐" 참고).
+  "완료 기록" 10개 유지를 위해 (148)을 `docs/STATUS_ARCHIVE.md`로 옮겼다.
 
 ## 지금 위치
 
@@ -67,7 +67,7 @@ unlock_requirement()`)가 함께 보인다(F-1). 시작 스킬은 캐릭터당 3
 전체 흐름(E2E)도 견습 모험가+곡예사 2종으로 검증됐다**(완료 기록 (155)).
 **F-4(밸런스 시뮬)는 설계상 G-1~G-9(아래 [대형 기획 6]) 완료 후 진행 —
 아직 착수 전.**
-**[대형 기획 6] G-1·G-2 완료(2026-10-07), G-3~G-9 남음** — 다음 할 일.
+**[대형 기획 6] G-1·G-2·G-3 완료(2026-10-07), G-4~G-9 남음** — 다음 할 일.
 사람이 몬스터를 계열(인간형/부정형/야수형/언데드형) + 일반 20종/정예
 8종/보스 6종의 대형 풀로 개편하고 정예 전투 방을 추가하는 설계를 이미
 끝내뒀다(INBOX.md "부분 처리됨" [대형 기획 6] 원문 참고). G-1로
@@ -77,11 +77,12 @@ unlock_requirement()`)가 함께 보인다(F-1). 시작 스킬은 캐릭터당 3
 (`MonsterSkills`)에 훅 4개(on_combat_start/modify_monster_roll/
 modify_player_roll/on_damage)를 만들고 기존 4종 기믹(anger_stack/
 fixed_value/min_max_only/steady_guard)을 그 구조로 이식했다(동작 보존,
-완료 기록 (157)) — 다음은 **G-3**(인간형 프리미티브 armor/guard_up/
-counter + 부정형 프리미티브 sticky/seal/dull/numb, 수치는 잠정값)부터
-순서대로 한 조각씩 진행하면 된다. G-3부터는 `modify_player_roll` 훅이
-처음으로 실제 쓰이기 시작한다(부정형 계열이 플레이어 주사위를 직접
-건드리는 자리).
+완료 기록 (157)). G-3으로 인간형 프리미티브 armor(n)/guard_up/counter(n) +
+부정형 프리미티브 sticky/seal/dull/numb 7종을 `MonsterSkills`/`DiceBag`에
+구현했다(수치는 전부 잠정값, 완료 기록 (158)) — **몬스터 카탈로그에 이
+7종을 실제로 쓰는 몬스터는 아직 없음**(G-5가 채울 자리). 다음은 **G-4**
+(야수형 프리미티브 pounce(n)/bloodlust + 언데드형 프리미티브 drain/
+revive/chill, 수치는 잠정값)부터 순서대로 한 조각씩 진행하면 된다.
 **ART-1a(아트 스레드 전달, 2026-10-06) 완료** — 캐릭터 선택 카드 목록이
 7종으로 늘어나며 7번째(곡예사) 카드가 화면 밖으로 밀려 마우스로 선택 불가하던
 버그를 ScrollContainer로 해결(자세한 내용은 "완료 기록 (152)"). ART-1b/1c는
@@ -813,6 +814,50 @@ counter + 부정형 프리미티브 sticky/seal/dull/numb, 수치는 잠정값)�
 
 ## 완료 기록
 
+- **2026-10-07 (158)**: INBOX.md "부분 처리됨"의 [대형 기획 6](몬스터 대개편)
+  **G-3(인간형 armor/guard_up/counter + 부정형 sticky/seal/dull/numb 프리미티브
+  신설)**을 진행했다 — G-2 완료로 실행 순서상 다음 조각.
+  `code/systems/dice_bag.gd`에 재사용 가능한 범용 헬퍼 4개를 추가:
+  `apply_total_bonus(values, amount)`(다이스별이 아니라 "합계" +amount, armor
+  전용), `apply_reduce_highest(values, amount, min_floor)`(가장 높은 값 1개만
+  깎고 하한선 보장, sticky/numb 공용), `apply_zero_lowest(values)`(가장 낮은
+  값 1개를 0으로, seal 전용), `apply_reduce_max_rolls(values, amount)`(자신의
+  최댓값 면을 보인 다이스 전부를 깎음, dull 전용, count_max_rolls()와 같은
+  판정 재사용). `code/systems/monster_skills.gd`를 확장: `modify_monster_roll`
+  의 몬스터 "방어"턴 분기(`is_player_attacking==true`)에 armor(ctx의
+  `armor_amount`)와 guard_up(ctx의 `monster_hp`/`monster_max_hp`로 "HP 절반
+  이하" 판정)을 steady_guard 옆에 추가. `modify_player_roll`을 처음으로 실제
+  구현 — sticky/seal은 플레이어 "공격"턴에만, numb는 "방어"턴에만, dull은
+  공격/방어 양쪽 다(explosive_stack과 guard_stack 둘 다의 "최댓값 스택" 조건을
+  동시에 약화하려는 의도) 적용되도록 게이팅. `on_damage`를 void에서
+  `Dictionary` 반환으로 바꿔 counter(n)을 구현 — "플레이어 공격이 몬스터
+  방어에 완전히 막혀(dmg==0) 데미지가 0"일 때만 `{"reflect_damage": n}`을
+  돌려주고, 실제 player_hp 차감/로그는 player_hp를 모르는 이 파일 대신
+  `combat_test.gd`가 반환값을 받아 처리한다(반환형이 바뀌어도 기존
+  `MonsterSkills.on_damage(...)` 호출부는 반환값을 안 받으므로 안전).
+  `combat_test.gd`는 새 인스턴스 변수 `monster_skill_params: Dictionary`
+  (skill_id -> 파라미터, `_monster_config_for_room()`이 `MonsterCatalog`의
+  `skills` 배열을 id로 인덱싱해 만듦)를 신설하고, `_do_exchange()`의 기존
+  steady_guard 호출 지점에 armor/guard_up용 ctx 키를 추가 + `modify_player_
+  roll` 2곳(공격턴/방어턴) + 데미지 계산 직후 counter용 `on_damage` 호출을
+  새로 배선했다. **지금 몬스터 카탈로그(G-5 이전) 5종은 전부 이 7종 중 아무것도
+  안 쓰므로 모든 신규 경로가 현재는 no-op** — G-2와 같은 "동작 보존" 원칙을
+  지켰다(skill_ids에 새 id가 없으면 ctx를 받아도 아무 것도 안 바뀜).
+  **검증**: `dice_test.gd`에 신규 `_check_g3_monster_skill_primitives()`를
+  추가(F-3 원칙대로 "플래그"가 아니라 "계산 결과" 직접 비교) — DiceBag 헬퍼
+  4개 각각의 출력값, armor/guard_up의 ctx 게이팅(HP 경계값 포함), counter의
+  3가지 게이팅(완전히 막힘/일부만 막힘/몬스터 공격턴), sticky/seal/numb의
+  "공격턴에만"/"방어턴에만" 게이팅(반대 턴엔 no-op인지까지), dull의 "양쪽
+  다 적용", 그리고 `ctx={}`(bag 없음)일 때 새 스킬 id가 있어도 크래시 없이
+  입력을 그대로 돌려주는 안전장치까지 전부 확인. `bash scripts/qa_shot.sh
+  dice_test` 전체 PASS(신규 섹션 포함, 기존 G-1/G-2 검증도 그대로 PASS).
+  `scripts/qa_shot.sh combat_test 900 "" "" 1`로 실제 전투 화면(슬라임, 기믹
+  없음)이 크래시 없이 승리까지 진행되고 로그에 반사/방어 보정 같은 이상 동작이
+  섞이지 않는 것도 확인(`qa_out/combat_test_g3.png`).
+  **G-3 완료.** 다음 할 일은 **G-4**(야수형+언데드형 프리미티브: pounce/
+  bloodlust + drain/revive/chill — 수치는 전부 잠정값, F-4 시뮬이 조정).
+  "완료 기록" 10개 유지를 위해 (148)을 `docs/STATUS_ARCHIVE.md`로 옮겼다.
+
 - **2026-10-07 (157)**: INBOX.md "부분 처리됨"의 [대형 기획 6](몬스터 대개편)
   **G-2(몬스터 스킬 프레임워크 신설 + 기존 4종 기믹 이식, 동작 보존)**을
   진행했다 — G-1 완료로 실행 순서상 다음 조각.
@@ -1263,33 +1308,9 @@ counter + 부정형 프리미티브 sticky/seal/dull/numb, 수치는 잠정값)�
   3단 해금 사다리) — INBOX.md 원문이 (a)/(b)/(c) 세 조각으로 더 쪼개뒀으니
   F-2a(업적 r1 7종 + 사다리/unlock_requirement 갱신)부터.
 
-- **2026-09-29 (148)**: INBOX.md "남은 이슈"의 2026-09-29자 기획자 결정 — 시작
-  스킬 "정예"(`start_lean`)의 죽은 선택지 문제를 (a) 임계값 완화(6→7)로
-  해결했다. `code/scenes/combat_test.gd`의 `_do_exchange()` 안 "정예" 분기
-  2곳(공격턴/방어턴)의 `<= 6` 비교를 `<= 7`로 바꾸고 로그 문구("합계 6개
-  이하"→"합계 7개 이하")도 갱신 — 이제 주술사(구 방패병, 기본 공격3+방어4=7)가
-  런 시작 시점부터 이 스킬을 고르면 바로 보너스를 받는다(다이스를 하나라도
-  추가하면 여전히 조건이 꺼짐 — "정예"의 "적게 유지하면 이득" 정체성은
-  그대로). `code/systems/skill_pool.gd`의 `start_lean` `description` 문구도
-  "6개 이하"→"7개 이하"로 동기화. `code/scenes/dice_test.gd`의 (d) 회귀
-  테스트를 새 임계값에 맞춰 재설계 — 기존엔 "기본(합계6, 켜짐)/다이스 1개
-  추가(합계7, 꺼짐)" 2단계였는데, 이제 "기본(합계6, 켜짐)/1개 추가(합계7,
-  여전히 켜짐)/2개 추가(합계8, 꺼짐)" 3단계로 늘려 새 임계값의 양쪽 경계
-  (켜짐 유지 경계와 꺼짐 경계)를 모두 검증하도록 했다(이 테스트를 안 고치면
-  회귀 스위트가 FAIL한다는 지시가 있어 최우선으로 처리). `docs/DESIGN.md`의
-  "시작 스킬 선택([미니 기획 E])" 절 "정예" 설명을 7개 이하로 갱신하고,
-  더 이상 유효하지 않은 "알려진 이슈"(방패병 정예 죽은 선택지) 단락을
-  삭제했다. `bash scripts/qa_shot.sh dice_test` 전체 PASS(신규 3단계 (d)
-  검증 포함), `scripts/qa_shot.sh combat_test`로 전투 화면도 크래시 없이
-  로드됨을 확인(순수 조건 분기 변경이라 레이아웃 영향 없음). `docs/STATUS.md`
-  "알려진 이슈"의 해당 항목도 삭제하고, `docs/feedback/INBOX.md`에서 이
-  항목을 "처리됨"으로 옮겼다(처리됨이 13개가 되어 가장 오래된 1개를
-  `docs/INBOX_ARCHIVE.md`로 이관, 12개 유지). "완료 기록" 10개 유지를 위해
-  (138)을 `docs/STATUS_ARCHIVE.md`로 옮겼다.
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(157)에서 (147)을 그리로 옮겼다.)*
+이번 이터레이션(158)에서 (148)을 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 

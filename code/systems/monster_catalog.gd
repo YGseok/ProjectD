@@ -24,10 +24,15 @@ extends RefCounted
 ## - "family": 위 FAMILIES의 키.
 ## - "tier": "normal" | "elite" | "boss". 지금은 전부 "normal" — G-7(정예 8종)/
 ##   G-8(보스 6종)이 각각 "elite"/"boss" 몬스터를 이 배열에 추가한다.
-## - "skills": 스킬 id(+파라미터) 목록 — G-2에서 생길 `monster_skills.gd` 프레임워크가
-##   읽을 미래형 필드. 지금은 각 원소가 {"id": <기존 dice_gimmick 문자열>}뿐이고(기믹
-##   없는 슬라임은 빈 배열), 실제 적용은 여전히 `combat_test.gd`가 `gimmick_of()`로
-##   skills[0].id를 꺼내 기존 "dice_gimmick" 코드 경로에 그대로 넘기는 다리 역할만 한다.
+## - "skills": 스킬 id(+파라미터) 목록 — `monster_skills.gd`(`MonsterSkills`)가 읽는
+##   필드. 지금은 각 원소가 {"id": <기존 dice_gimmick 문자열>}뿐이고(기믹 없는 슬라임은
+##   빈 배열), 실제 적용은 여전히 `combat_test.gd`가 `gimmick_of()`로 skills[0].id를
+##   꺼내 기존 "dice_gimmick" 코드 경로에 그대로 넘기는 다리 역할만 한다. G-3(2026-10-07)
+##   으로 `MonsterSkills`에 인간형 "armor"(파라미터 "amount")/"guard_up"/"counter"
+##   (파라미터 "amount") + 부정형 "sticky"/"seal"/"dull"/"numb"(파라미터 없음) 7종이
+##   추가됐지만, G-5(일반 몬스터 20종)가 몬스터 데이터를 채우기 전까지는 이 배열에
+##   실제로 쓰는 몬스터가 없다 — 지금 5종은 전부 기존 4종(anger_stack/fixed_value/
+##   min_max_only/steady_guard) 그대로.
 ## - "hp_mult": 등급별 HP 배율. 지금은 전부 1.0(동작 변경 없음) — G-7(정예 1.5)에서
 ##   쓰일 자리를 미리 만들어 둠(보스는 기존 "마지막 방 HP x2" 공식을 그대로 유지하고
 ##   이 필드와는 아직 연동하지 않음, G-8에서 결정).
