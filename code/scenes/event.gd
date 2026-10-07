@@ -81,7 +81,7 @@ var _shortcut_buttons: Array[Button] = []
 
 
 func _ready() -> void:
-	_dc = difficulty_for_room(RunState.rooms_cleared)
+	_dc = gambler_adjusted_dc(difficulty_for_room(RunState.rooms_cleared), RunState.skill_flags.has("start_gambler"))
 	customize_button.pressed.connect(customize_panel.open)
 	fail_label.hide()
 	continue_button.hide()
@@ -144,6 +144,15 @@ func _setup_skill_upgrade_event(skills: Array[Dictionary]) -> void:
 ## room_index는 RunState.rooms_cleared와 같은 기준(0부터 시작, 몇 번째 몬스터/방인지).
 static func difficulty_for_room(room_index: int) -> int:
 	return min(5, 3 + room_index / 2)
+
+
+## "승부사"([대형 기획 5] F-2(c), 매혹사 시작 스킬): "위험을 감수하기"의 DC를 1
+## 낮춘다(최저 2). difficulty_for_room()과 분리된 순수 함수라, dice_test.gd가 물리/
+## 노드 없이 "스킬 있음/없음"일 때 실제 DC 값이 달라지는지 직접 검증할 수 있다.
+static func gambler_adjusted_dc(base_dc: int, has_gambler: bool) -> int:
+	if has_gambler:
+		return max(2, base_dc - 1)
+	return base_dc
 
 
 func _refresh_shortcuts(buttons: Array[Button]) -> void:

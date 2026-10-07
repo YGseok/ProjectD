@@ -19,10 +19,13 @@ extends Node2D
 ## CARD_WIDTH/CARD_HEIGHT/CARD_GAP: 왼쪽 카드 목록(초상+이름만, INBOX.md 2026-09-14
 ## "외형과 이름들만 간략하게 나오고, 패널 선택시 오른쪽에 상세 정보를 제공"을 반영해
 ## 2026-09-15에 "카드 하나에 모든 정보" 방식에서 "간략한 목록 + 오른쪽 상세 패널"
-## 방식으로 개편)의 한 행 크기. 예전에는 카드 폭을 캐릭터 수에 맞춰 동적으로 계산했지만
-## (화면 폭을 5등분), 이제는 카드가 세로로 쌓이는 목록이라 폭이 고정이어도 캐릭터가
-## 늘어나도(6종째부터는 CardsContainer 높이를 넘어 스크롤이 필요해질 수 있음 — 지금
-## 5종까지는 문제 없음) 문제가 없다.
+## 방식으로 개편)의 한 행 "기대" 크기 — 실제 행 간격은 _build_cards()가 각 카드의
+## 실제 결합 최소 높이(get_combined_minimum_size())를 측정해서 쌓으므로(ART-1a,
+## 2026-10-07), CARD_HEIGHT는 포트레이트 칸 크기 등 다른 계산의 기준값으로만 쓰인다.
+## **CardsContainer는 이제 ScrollContainer**(캐릭터가 늘어나 목록이 보이는 영역(540px)
+## 보다 길어져도 스크롤로 전부 닿을 수 있게 — 7종(7×104=728px)부터 실제로 넘침,
+## `qa_out/art_character_select.png`에서 7번째 카드가 화면 밖으로 밀려 선택 불가했던
+## 버그로 발견됨).
 const CARD_WIDTH := 360.0
 const CARD_HEIGHT := 92.0
 const CARD_GAP := 12.0
@@ -34,7 +37,7 @@ const PORTRAIT_SCALE := 0.32
 ## 맞추고, 패널 내용 높이(540 - 상하 여백 48 = 492) 안에 들어가게 잡았다.
 const DETAIL_ART_SIZE := Vector2(260, 293)
 
-@onready var cards_container: Control = $CardsContainer
+@onready var cards_container: Control = $CardsContainer/CardsList
 @onready var detail_container: Control = $DetailPanelContainer
 @onready var start_button: Button = $StartButton
 @onready var achievement_button: Button = $AchievementButton
@@ -96,12 +99,21 @@ func _build_cards() -> void:
 	_card_panels.clear()
 
 	var select_buttons: Array[Button] = []
+	# ART-1a(2026-10-07): CARD_HEIGHT(92)를 고정 행 간격으로 썼더니, 패널의 실제
+	# 결합 최소 높이(panel 스타일박스 여백 + 내부 버튼/라벨 최소 크기)가 그보다 커서
+	# Godot이 자동으로 size를 키우며 다음 행과 겹쳤다. 대신 카드를 추가할 때마다
+	# get_combined_minimum_size()로 실제 필요한 높이를 재고 그만큼만 다음 행을 내린다.
+	var y := 0.0
 	for i in CharacterProfiles.PROFILES.size():
 		var profile: Dictionary = CharacterProfiles.PROFILES[i]
 		var card := _make_card(profile, select_buttons)
-		card.position = Vector2(0, i * (CARD_HEIGHT + CARD_GAP))
 		cards_container.add_child(card)
+		card.position = Vector2(0, y)
+		var card_height: float = max(CARD_HEIGHT, card.get_combined_minimum_size().y)
+		card.size = Vector2(CARD_WIDTH, card_height)
+		y += card_height + CARD_GAP
 		_card_panels[profile["id"]] = card
+	cards_container.custom_minimum_size = Vector2(CARD_WIDTH, max(0.0, y - CARD_GAP))
 
 	_refresh_selection_highlight()
 	_refresh_detail_panel()

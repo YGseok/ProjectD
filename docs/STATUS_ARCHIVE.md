@@ -8,6 +8,58 @@
 
 ---
 
+- **2026-09-24 (141)**: INBOX.md "부분 처리됨"의 [대형 기획 4](캐릭터 로스터
+  개편) 중 **B(신규 캐릭터 "매혹사")를** 세션 지침대로 진행했다 — A(방패병
+  리스킨)는 (140)에서 이미 완료, C(곡예사)/D(공통 후속)는 이번에도 손대지
+  않고 다음 이터레이션으로 남긴다.
+  `code/systems/character_profiles.gd`의 `PROFILES`에 6번째 항목
+  `id: "enchantress"`(이름 "매혹사", 컨셉 "섹시하고 도발적", `gimmick:
+  "charm_flip"`, `attack_count`/`defense_count` 3/3 균형형, `event_die_sides`
+  6)을 지시된 그대로 추가하고 `GIMMICK_LABELS`에도 짧은 이름표를 넣었다.
+  `code/systems/dice_bag.gd`에 신규 `apply_charm_flip(values)` 헬퍼를
+  `apply_steady_guard()`/`apply_flat_bonus()`와 같은 패턴(원본 배열은 안
+  건드리고 보정된 새 배열 반환)으로 추가 — `adjusted` 배열에서 최솟값의
+  인덱스(동률이면 먼저 나온 인덱스)를 찾아 `adjusted[i] = dice[i].size()`
+  (그 다이스의 면 개수, 즉 최댓값)로 교체한다.
+  `code/scenes/combat_test.gd`의 `_do_exchange()`에 `steady_guard` 사후
+  보정 바로 뒤에 `player_dice_gimmick == "charm_flip"` 분기를 추가해 공격턴/
+  방어턴 각각 자기 주머니(`RunState.player_attack_bag`/`player_defense_bag`)
+  결과에 적용한다 — explosive_stack/guard_stack의 보너스 1D20 임시 주머니
+  (`atk_bag`/`def_bag`이 그 임시 DiceBag일 때)에는 적용하지 않도록
+  `atk_bag == RunState.player_attack_bag`/`def_bag == RunState.player_
+  defense_bag` 조건으로 걸렀다(다이스가 1개뿐인 보너스 턴에 얹으면 "항상
+  최댓값 확정"이 되어 보너스 턴의 의미가 옅어지는 것을 피하기 위한 설계
+  판단 — 매혹사 본인은 explosive_stack/guard_stack 계열 파이프라인이 없어
+  지금 당장은 영향받지 않지만, 나중에 다른 스킬로 이 파이프라인이 열려도
+  안전하게 동작하도록 미리 막아둠).
+  `code/scenes/skill_icon.gd`의 `CATEGORIES`에 `"charm_flip"`을 추가하고
+  `_draw_heart()`(원 두 개+삼각형 조합의 절차적 하트 아이콘)를 신설 —
+  `dice_test.gd`의 `_check_skill_icons`가 PROFILES 전체의 gimmick이
+  `SkillIcon.CATEGORIES`에 있는지 자동으로 검증하므로 빠뜨리면 즉시
+  FAIL했을 항목.
+  `code/scenes/dice_test.gd`에 `_check_character_profiles`로 (1)
+  `reset_run("enchantress")`가 캐릭터 id/gimmick/시작 다이스 개수(3/3)를
+  올바르게 설정하고 정적 다이스 개조가 없는지(explosive_stack/guard_stack과
+  같은 패턴), (2) `DiceBag.apply_charm_flip()` 자체가 최저값 다이스 1개만
+  최댓값으로 바꾸고 동률이면 먼저 나온 인덱스를 고르며 면 값 자체는 안
+  바뀌는지 신규 검증을 추가했다. `bash scripts/qa_shot.sh dice_test`
+  전체 PASS(신규 검증 포함).
+  `bash scripts/qa_shot.sh character_select`로 `qa_out/character_select.png`
+  확인 — 목록에 6번째 항목 "매혹사"가 자주/붉은 계열 초상으로 겹침/잘림
+  없이 표시됨(세로 목록이 스크롤 가능한 구조라 6종째도 레이아웃이 깨지지
+  않음, 7종째까지의 정식 QA는 C 완료 후 D-5로 남김).
+  **의도적으로 안 한 것**: `skill_pool.gd`의 `STARTING_SKILLS`/
+  `UNIQUE_SKILLS`에 매혹사 항목을 추가하지 않았다 — INBOX.md 원문이 이걸
+  "D. 공통 후속"(B/C 둘 다 끝난 뒤)로 명시했고, 세션 지침도 B의 범위를
+  "character_profiles.gd 항목 추가 + dice_bag.gd 헬퍼 + combat_test.gd
+  런타임 분기"로 못박아서 스킬 콘텐츠는 포함하지 않았다. `docs/DESIGN.md`의
+  캐릭터 표(7종 갱신)도 마찬가지로 C까지 끝난 뒤 D에서 한 번에 갱신하기로
+  하고 이번엔 손대지 않음 — 지금은 DESIGN.md가 5종만 기술해 코드(6종)와
+  잠시 어긋나 있는 상태(알려진 이슈 아님, D에서 해소 예정).
+  **남은 것**: C(곡예사)/D(공통 후속: 업적 2종/시작 스킬/고유 스킬/
+  character_select 7종 레이아웃 QA/DESIGN.md 표 갱신)는 전부 미착수 — 아래
+  "다음 할 일 큐" 최상단 항목 참고.
+
 - **2026-09-24 (143)**: INBOX.md "부분 처리됨"의 [대형 기획 4](캐릭터 로스터
   개편) **D(공통 후속) 1~2번**을 세션 지침대로 진행했다 — A(주술사 리스킨)/
   B(매혹사)/C(곡예사)는 (140)~(142)에서 이미 완료됐고, D는 항목이 7개라

@@ -3501,6 +3501,106 @@ func _check_starting_skill_combat_wiring(lines: PackedStringArray) -> bool:
 		RunState.skill_flags, "OK" if ironclad_without_lean_ok else "FAIL"
 	])
 
+	# (i) "선제"(start_vanguard)/"대비"(start_bulwark): 1회성 플래그 게이팅이 실제로
+	# "계산 결과"를 바꾸는지 — combat_test.gd의 인라인 조건식(skill_flags.has(...) and
+	# not player_*_used)을 그대로 재현해, 1회차엔 발동(true)/사용 플래그를 올린 뒤
+	# 2회차엔 발동 안 함(false)으로 바뀌는지 직접 확인한다(심호흡과 같은 패턴이라
+	# 새 버그 유형은 아니지만, F-2(c)에서 "수집가" 블록 안에 중첩됐다가 바로 고친
+	# 사고가 있었으므로 독립 조건으로 평가됨을 명시적으로 남긴다).
+	var vanguard_combat = combat_script.new()
+	RunState.skill_flags = ["start_vanguard"]
+	var vanguard_fires_first: bool = RunState.skill_flags.has("start_vanguard") and not vanguard_combat.player_vanguard_used
+	vanguard_combat.player_vanguard_used = true
+	var vanguard_fires_second: bool = RunState.skill_flags.has("start_vanguard") and not vanguard_combat.player_vanguard_used
+	var vanguard_ok: bool = vanguard_fires_first and not vanguard_fires_second
+	ok = vanguard_ok and ok
+	lines.append("  '선제' 1회성 게이팅: 1회차 발동=%s 2회차 발동=%s (기대 true/false) -> %s" % [
+		vanguard_fires_first, vanguard_fires_second, "OK" if vanguard_ok else "FAIL"
+	])
+	vanguard_combat.free()
+
+	var bulwark_combat = combat_script.new()
+	RunState.skill_flags = ["start_bulwark"]
+	var bulwark_fires_first: bool = RunState.skill_flags.has("start_bulwark") and not bulwark_combat.player_bulwark_used
+	bulwark_combat.player_bulwark_used = true
+	var bulwark_fires_second: bool = RunState.skill_flags.has("start_bulwark") and not bulwark_combat.player_bulwark_used
+	var bulwark_ok: bool = bulwark_fires_first and not bulwark_fires_second
+	ok = bulwark_ok and ok
+	lines.append("  '대비' 1회성 게이팅: 1회차 발동=%s 2회차 발동=%s (기대 true/false) -> %s" % [
+		bulwark_fires_first, bulwark_fires_second, "OK" if bulwark_ok else "FAIL"
+	])
+	bulwark_combat.free()
+
+	# (j) "황금손"(start_wealth): combat_test.gd._wealth_bonus()를 물리 없이 직접 호출해
+	# 골드 액수별 보너스 "계산 결과"(0/+1/+2)가 실제로 달라지는지 검증 — 플래그 유무가
+	# 아니라 최종 수치 자체를 비교한다.
+	var wealth_0: int = combat_script._wealth_bonus(0)
+	var wealth_29: int = combat_script._wealth_bonus(29)
+	var wealth_30: int = combat_script._wealth_bonus(30)
+	var wealth_59: int = combat_script._wealth_bonus(59)
+	var wealth_60: int = combat_script._wealth_bonus(60)
+	var wealth_90: int = combat_script._wealth_bonus(90)
+	var wealth_ok: bool = wealth_0 == 0 and wealth_29 == 0 and wealth_30 == 1 and wealth_59 == 1 and wealth_60 == 2 and wealth_90 == 2
+	ok = wealth_ok and ok
+	lines.append("  '황금손' 보너스 계산: gold=0/29/30/59/60/90 -> bonus=%d/%d/%d/%d/%d/%d (기대 0/0/1/1/2/2) -> %s" % [
+		wealth_0, wealth_29, wealth_30, wealth_59, wealth_60, wealth_90, "OK" if wealth_ok else "FAIL"
+	])
+
+	# (k) "과적"(start_overflow): DiceBag.is_full()(MAX_DICE=6 캡) 조건이 combat_test.gd가
+	# 실제로 쓰는 것과 동일한 함수이므로, 가득 차기 전/후 결과가 실제로 바뀌는지 확인한다.
+	var overflow_bag := DiceBag.new(4, 3)
+	var overflow_not_full_ok: bool = not overflow_bag.is_full()
+	for i in range(3):
+		overflow_bag.add_die(4)
+	var overflow_full_ok: bool = overflow_bag.is_full()
+	var overflow_ok: bool = overflow_not_full_ok and overflow_full_ok
+	ok = overflow_ok and ok
+	lines.append("  '과적' 발동 조건(MAX_DICE=6 캡): 3개일 때 가득 참=%s, 6개로 채운 뒤 가득 참=%s (기대 false/true) -> %s" % [
+		not overflow_not_full_ok, overflow_full_ok, "OK" if overflow_ok else "FAIL"
+	])
+
+	# (l) "오뚝이"(start_second_wind): player_hp * 2 <= PLAYER_MAX_HP 조건이 HP 변화에
+	# 따라 실제로 켜지고 꺼지는지 확인(HP 11=거짓, HP 10=절반 경계에서 참).
+	var second_wind_combat = combat_script.new()
+	second_wind_combat.player_hp = 11
+	var second_wind_above_half_ok: bool = not (second_wind_combat.player_hp * 2 <= combat_script.PLAYER_MAX_HP)
+	second_wind_combat.player_hp = 10
+	var second_wind_at_half_ok: bool = second_wind_combat.player_hp * 2 <= combat_script.PLAYER_MAX_HP
+	var second_wind_ok: bool = second_wind_above_half_ok and second_wind_at_half_ok
+	ok = second_wind_ok and ok
+	lines.append("  '오뚝이' 발동 조건(HP 절반 이하, MAX_HP=%d): HP=11 발동=%s, HP=10 발동=%s (기대 false/true) -> %s" % [
+		combat_script.PLAYER_MAX_HP, not second_wind_above_half_ok, second_wind_at_half_ok, "OK" if second_wind_ok else "FAIL"
+	])
+	second_wind_combat.free()
+
+	# (m) "잡화점"(start_diverse): combat_test.gd._diverse_dice_type_count()를 직접 호출해
+	# 다이스 종류 수가 2종->3종으로 늘어날 때 실제 집계 결과가 바뀌는지 검증한다.
+	RunState.chosen_starting_skill_id = "start_diverse"
+	RunState.reset_run("juggler")
+	var diverse_before: int = combat_script._diverse_dice_type_count(RunState.player_attack_bag, RunState.player_defense_bag)
+	var diverse_before_ok: bool = diverse_before < 3
+	RunState.player_attack_bag.add_die(8)
+	RunState.player_attack_bag.add_die(12)
+	var diverse_after: int = combat_script._diverse_dice_type_count(RunState.player_attack_bag, RunState.player_defense_bag)
+	var diverse_after_ok: bool = diverse_after >= 3
+	var diverse_ok: bool = diverse_before_ok and diverse_after_ok
+	ok = diverse_ok and ok
+	lines.append("  '잡화점' 다이스 종류 집계: D8/D12 추가 전=%d종(<3 기대) 추가 후=%d종(>=3 기대) -> %s" % [
+		diverse_before, diverse_after, "OK" if diverse_ok else "FAIL"
+	])
+
+	# (n) "승부사"(start_gambler): event.gd.gambler_adjusted_dc()가 실제 DC 값을 1 낮추고
+	# (최저 2), 스킬이 없으면 원래 DC를 그대로 유지하는지 — 물리/노드 없이 직접 호출.
+	var event_script := load("res://code/scenes/event.gd")
+	var gambler_dc3_without: int = event_script.gambler_adjusted_dc(3, false)
+	var gambler_dc3_with: int = event_script.gambler_adjusted_dc(3, true)
+	var gambler_dc_floor: int = event_script.gambler_adjusted_dc(2, true)
+	var gambler_ok: bool = gambler_dc3_without == 3 and gambler_dc3_with == 2 and gambler_dc_floor == 2
+	ok = gambler_ok and ok
+	lines.append("  '승부사' DC 보정: base=3 미보유=%d(기대 3) 보유=%d(기대 2), base=2 보유=%d(최저 2 기대) -> %s" % [
+		gambler_dc3_without, gambler_dc3_with, gambler_dc_floor, "OK" if gambler_ok else "FAIL"
+	])
+
 	RunState.chosen_starting_skill_id = chosen_backup
 	RunState.reset_run(character_backup)
 	return ok

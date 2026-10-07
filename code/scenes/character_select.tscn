@@ -23,11 +23,14 @@ offset_bottom = 60.0
 text = "캐릭터 선택"
 label_settings = SubResource("LabelSettings_title")
 
-[node name="CardsContainer" type="Control" parent="."]
+[node name="CardsContainer" type="ScrollContainer" parent="."]
 offset_left = 20.0
 offset_top = 100.0
 offset_right = 400.0
 offset_bottom = 640.0
+horizontal_scroll_mode = 0
+
+[node name="CardsList" type="Control" parent="CardsContainer"]
 
 [node name="DetailPanelContainer" type="Control" parent="."]
 offset_left = 420.0

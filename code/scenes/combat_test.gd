@@ -51,6 +51,23 @@ static func _material_for_sides(sides: int) -> DiceMaterial:
 		_:
 			return null # null이면 die_d4.tscn 기본값(plastic)을 그대로 씀
 
+## "황금손"([대형 기획 5] F-2(c), 견습 모험가 시작 스킬) 보너스 계산 — 보유 골드
+## 30마다 +1, 최대 +2(골드 60 이상). 순수 함수로 분리해 dice_test.gd가 물리 다이스
+## 스폰 없이 직접 호출해 "계산 결과가 실제로 바뀌는가"를 검증할 수 있게 한다.
+static func _wealth_bonus(gold: int) -> int:
+	return min(2, gold / 30)
+
+## "잡화점"([대형 기획 5] F-2(c), 곡예사 시작 스킬) 조건 계산 — 공격+방어 두
+## 주머니를 합쳐 서로 다른 면 개수(D4/D6/D8 …) 종류가 몇 종인지 센다. _wealth_bonus()와
+## 같은 이유로 순수 함수 분리.
+static func _diverse_dice_type_count(attack_bag: DiceBag, defense_bag: DiceBag) -> int:
+	var sides_seen: Dictionary = {}
+	for die_faces in attack_bag.dice:
+		sides_seen[die_faces.size()] = true
+	for die_faces in defense_bag.dice:
+		sides_seen[die_faces.size()] = true
+	return sides_seen.size()
+
 const SETTLE_LIN_THRESHOLD := 0.08
 const SETTLE_ANG_THRESHOLD := 0.5
 const SETTLE_MIN_FRAMES := 10
@@ -142,6 +159,11 @@ const GUARD_DICE_SIDES := 20
 ## player_deep_breath_used: "심호흡"이 이번 전투에서 이미 적용됐는지(첫 방어턴 1회
 ## 한정이라 전투마다, 즉 _ready()마다 초기화).
 var player_deep_breath_used := false
+## player_vanguard_used/player_bulwark_used: "선제"(광전사 시작 스킬, [대형 기획 5]
+## F-2(c))/"대비"(수호자 시작 스킬)가 이번 전투에서 이미 적용됐는지 — 둘 다
+## deep_breath_used와 같은 "전투 첫 턴 1회" 패턴(공격/방어로 대칭).
+var player_vanguard_used := false
+var player_bulwark_used := false
 ## player_frenzy_active: "광기 심화"(광전사 전용 고유 스킬) 보유 여부. RunState.
 ## skill_flags는 캐릭터와 무관하게 문자열만 쌓이므로, SkillPool이 캐릭터 필터로
 ## 이 스킬을 광전사에게만 제시했다는 전제 하에 플래그 존재 여부만 확인한다. true이면
@@ -436,6 +458,8 @@ func _ready() -> void:
 	player_guard_stacks = 0
 	player_guard_pending = false
 	player_deep_breath_used = false
+	player_vanguard_used = false
+	player_bulwark_used = false
 	player_frenzy_active = RunState.skill_flags.has("frenzy_deepen")
 	player_frenzy_deepen_plus_active = RunState.skill_flags.has("frenzy_deepen_plus")
 	player_guard_deepen_active = RunState.skill_flags.has("guard_deepen")
@@ -698,6 +722,43 @@ func _do_exchange(is_player_attacking: bool) -> void:
 		if RunState.pip_inventory.size() >= 5:
 			atk_values = atk_bag.apply_flat_bonus(atk_values, 1)
 			_append_log("수집가 효과: 공격 다이스 결과값 +1 (눈금 인벤토리 5개 이상)")
+	# "선제"([대형 기획 5] F-2(c), 광전사 시작 스킬): 이번 전투의 첫 공격턴 한 번만
+	# 공격 다이스 결과값 전체 +2 — "심호흡"(방어턴 1회 +1)과 같은 1회성 패턴을
+	# 공격턴 쪽에 적용한 것(배율만 +2로 다름, player_vanguard_used로 1회 제한).
+	# **독립 조건**(start_hoard 보유 여부와 무관) — 수집가 블록 안에 중첩시켰다가
+	# "수집가 없으면 선제도 영원히 발동 안 함" 버그가 될 뻔했던 것을 여기서 바로잡음
+	# (2026-09-17 (149) F-1의 동기가 된 "조건문 안에 중첩된 죽은 분기" 버그와 같은
+	# 유형 — 반드시 skill_flags.has() 조건마다 톱레벨 if로 분리해야 한다).
+	if is_player_attacking and RunState.skill_flags.has("start_vanguard") and not player_vanguard_used:
+		atk_values = atk_bag.apply_flat_bonus(atk_values, 2)
+		player_vanguard_used = true
+		_append_log("선제 효과: 공격 다이스 결과값 +2 (이번 전투 최초 공격 1회)")
+	# "황금손"([대형 기획 5] F-2(c), 견습 모험가 시작 스킬): 보유 골드 30마다 공격
+	# 다이스 결과값 +1, 최대 +2(골드 60 이상). 정수 나눗셈으로 "30마다"를 그대로
+	# 표현하고 min(2, ...)로 상한을 건다 — 골드가 전투 중에는 바뀌지 않으므로 다른
+	# 정적 조건 스킬들과 같은 패턴(매 턴 재확인)을 유지. 보너스 계산을 정적 함수
+	# _wealth_bonus()로 분리해 dice_test.gd가 물리 없이 직접 호출해 검증할 수 있게 함.
+	if is_player_attacking and RunState.skill_flags.has("start_wealth"):
+		var wealth_bonus: int = _wealth_bonus(RunState.gold)
+		if wealth_bonus > 0:
+			atk_values = atk_bag.apply_flat_bonus(atk_values, wealth_bonus)
+			_append_log("황금손 효과: 공격 다이스 결과값 +%d (골드 %d)" % [wealth_bonus, RunState.gold])
+	# "과적"([대형 기획 5] F-2(c), 폭발병 시작 스킬): 공격 주머니가 MAX_DICE(6)에
+	# 꽉 찬 경우에만 공격 다이스 결과값 전체 +1(방어턴 쪽은 아래 대칭 적용 — 두 쪽
+	# 다 꽉 차면 둘 다 적용됨).
+	if is_player_attacking and RunState.skill_flags.has("start_overflow"):
+		if RunState.player_attack_bag.is_full():
+			atk_values = atk_bag.apply_flat_bonus(atk_values, 1)
+			_append_log("과적 효과: 공격 다이스 결과값 +1 (공격 주머니가 가득 찼음)")
+	# "잡화점"([대형 기획 5] F-2(c), 곡예사 시작 스킬): 공격+방어 다이스를 합쳐
+	# 서로 다른 면 개수(D4/D6/D8 등) 종류가 3종 이상이면 공격 다이스 결과값 전체 +1
+	# (방어턴 쪽은 아래 대칭 적용). 종류 집계를 정적 함수 _diverse_dice_type_count()로
+	# 분리해 dice_test.gd가 직접 검증할 수 있게 함.
+	if is_player_attacking and RunState.skill_flags.has("start_diverse"):
+		var diverse_count := _diverse_dice_type_count(RunState.player_attack_bag, RunState.player_defense_bag)
+		if diverse_count >= 3:
+			atk_values = atk_bag.apply_flat_bonus(atk_values, 1)
+			_append_log("잡화점 효과: 공격 다이스 결과값 +1 (다이스 종류 %d종)" % diverse_count)
 	# "심호흡+"([미니 기획 D]-4, 공용 강화): base는 이번 전투 첫 방어턴 한 번만
 	# 적용되지만, "+"는 매 방어턴마다 적용된다(상한은 base와 동일하게 다이스별 면
 	# 개수). "+" > base 우선순위 — 두 id가 함께 있어도 "+"만 적용하고 player_deep_
@@ -749,6 +810,35 @@ func _do_exchange(is_player_attacking: bool) -> void:
 		if has_metal_die:
 			def_values = def_bag.apply_flat_bonus(def_values, 1)
 			_append_log("강철 방비 효과: 방어 다이스 결과값 +1 (철제 재질 다이스 보유)")
+	# "대비"([대형 기획 5] F-2(c), 수호자 시작 스킬): 이번 전투의 첫 방어턴 한 번만
+	# 방어 다이스 결과값 전체 +2 — "선제"와 완전히 대칭(공격 대신 방어). **독립
+	# 조건**(start_ironclad 보유 여부와 무관) — 위 "선제"와 같은 이유로 강철 방비
+	# 블록 밖 톱레벨로 둔다.
+	if not is_player_attacking and RunState.skill_flags.has("start_bulwark") and not player_bulwark_used:
+		def_values = def_bag.apply_flat_bonus(def_values, 2)
+		player_bulwark_used = true
+		_append_log("대비 효과: 방어 다이스 결과값 +2 (이번 전투 최초 방어 1회)")
+	# "오뚝이"([대형 기획 5] F-2(c), 주술사 시작 스킬): 플레이어 HP가 최대 HP의
+	# 절반 이하이면 방어 다이스 결과값 전체 +1. player_hp는 이 교환의 데미지 적용
+	# 전 값(공격턴에서 몬스터가 때리기 전 HP)이므로 "버틸수록 발동" 조건이 정확히
+	# 반영된다.
+	if not is_player_attacking and RunState.skill_flags.has("start_second_wind"):
+		if player_hp * 2 <= PLAYER_MAX_HP:
+			def_values = def_bag.apply_flat_bonus(def_values, 1)
+			_append_log("오뚝이 효과: 방어 다이스 결과값 +1 (HP 절반 이하)")
+	# "과적"(방어턴, 공격턴 쪽과 대칭): 방어 주머니가 MAX_DICE(6)에 꽉 찬 경우에만
+	# 방어 다이스 결과값 전체 +1.
+	if not is_player_attacking and RunState.skill_flags.has("start_overflow"):
+		if RunState.player_defense_bag.is_full():
+			def_values = def_bag.apply_flat_bonus(def_values, 1)
+			_append_log("과적 효과: 방어 다이스 결과값 +1 (방어 주머니가 가득 찼음)")
+	# "잡화점"(방어턴, 공격턴 쪽과 대칭): 공격+방어 다이스를 합쳐 서로 다른 면
+	# 개수 종류가 3종 이상이면 방어 다이스 결과값 전체 +1.
+	if not is_player_attacking and RunState.skill_flags.has("start_diverse"):
+		var diverse_count_def := _diverse_dice_type_count(RunState.player_attack_bag, RunState.player_defense_bag)
+		if diverse_count_def >= 3:
+			def_values = def_bag.apply_flat_bonus(def_values, 1)
+			_append_log("잡화점 효과: 방어 다이스 결과값 +1 (다이스 종류 %d종)" % diverse_count_def)
 	var atk_total := 0
 	for v in atk_values:
 		atk_total += v
