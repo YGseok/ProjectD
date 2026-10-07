@@ -715,7 +715,14 @@ func _do_exchange(is_player_attacking: bool) -> void:
 	# 계산과 화면에 보이는 결과 칩(_show_exchange_dice_chips) 둘 다 보정된 값을 쓴다.
 	# G-2(MonsterSkills)로 이 보정은 MonsterSkills.modify_monster_roll()의
 	# "몬스터 자신의 굴림 보정" 훅으로 옮겨졌다(skill_ids에 "steady_guard"가 없으면
-	# 그대로 입력을 반환하는 no-op).
+	# 그대로 입력을 반환하는 no-op). "anger_stack"(고블린)/"pounce(n)"·"bloodlust"
+	# (야수형, G-4)은 몬스터 "공격"턴(else)에 같은 자리에서 적용한다 — dmg 계산 "전"에
+	# atk_values를 보정해야 pounce/bloodlust의 값 보정이 실제 데미지와 화면 칩에
+	# 반영된다(G-4를 추가하기 전까지는 이 자리에 anger_stack 스택 "적립"만 있었고
+	# 값 보정이 없어 dmg 계산 이후에 호출해도 결과가 같았지만, pounce/bloodlust는 값을
+	# 바꾸므로 반드시 여기(이른 시점)에서 호출해야 한다 — G-7에서 둘을 같은 몬스터가
+	# 함께 가질 수 있어 이 함수를 두 번 호출하면 anger_stack이 중복 집계되므로 호출은
+	# 이 자리 한 곳뿐이다).
 	if is_player_attacking:
 		def_values = MonsterSkills.modify_monster_roll(monster_skill_ids, def_values, monster_skill_state, {
 			"is_player_attacking": true,
@@ -724,6 +731,24 @@ func _do_exchange(is_player_attacking: bool) -> void:
 			"monster_max_hp": monster_max_hp,
 			"armor_amount": monster_skill_params.get("armor", {}).get("amount", 0),
 		})
+	else:
+		atk_values = MonsterSkills.modify_monster_roll(monster_skill_ids, atk_values, monster_skill_state, {
+			"is_player_attacking": false,
+			"bag": atk_bag,
+			"used_bonus_dice": used_anger_dice,
+			"anger_threshold": ANGER_STACK_THRESHOLD,
+			"monster_hp": monster_hp,
+			"monster_max_hp": monster_max_hp,
+			"pounce_amount": monster_skill_params.get("pounce", {}).get("amount", 0),
+		})
+		var anger_event: Dictionary = monster_skill_state.get("last_event", {})
+		match anger_event.get("type", ""):
+			"anger_reset":
+				_append_log("분노가 가라앉았다 (분노 스택 초기화)")
+			"anger_gain":
+				_append_log("몬스터 분노 스택 +%d (%d/%d)" % [anger_event["amount"], anger_event["stacks"], ANGER_STACK_THRESHOLD])
+				if anger_event["activated"]:
+					_append_log("몬스터가 분노했다! 다음 공격은 20면체 주사위로 굴린다")
 	# G-3(MonsterSkills 부정형 프리미티브: sticky/seal/dull/numb) — 부정형 계열이 플레이어
 	# 주사위 결과를 직접 보정하는 첫 자리. steady_guard처럼 롤 직후, 플레이어 자신의 스킬
 	# 보정(바로 아래 charm_flip 등)보다 먼저 적용한다. 지금 몬스터 카탈로그(G-5 이전)에는
@@ -992,39 +1017,42 @@ func _do_exchange(is_player_attacking: bool) -> void:
 		player_portrait.set_expression("hurt" if dmg > 0 else "neutral")
 
 	# "counter(n)" 기믹(인간형, G-3): 플레이어 공격이 몬스터 방어에 완전히 막혀(dmg==0)
-	# 데미지가 0이면 플레이어가 n 반사 피해를 입는다. 지금 몬스터 카탈로그(G-5 이전)에는
-	# "counter"를 쓰는 몬스터가 없어 reflect_damage는 항상 0 — 동작 보존.
+	# 데미지가 0이면 플레이어가 n 반사 피해를 입는다. "revive" 기믹(언데드형, G-4):
+	# 이 교환으로 몬스터 HP가 0 이하가 됐으면 전투당 1회 최대 HP의 일부로 부활한다 —
+	# 반드시 아래 "if monster_hp <= 0:" 승패 판정 "전"에 적용해야 실제로 부활이 된다.
+	# 지금 몬스터 카탈로그(G-5 이전)에는 "counter"/"revive"를 쓰는 몬스터가 없어 둘 다
+	# 항상 no-op — 동작 보존.
 	if is_player_attacking:
 		var counter_result: Dictionary = MonsterSkills.on_damage(monster_skill_ids, monster_skill_state, {
 			"is_player_attacking": true,
 			"dmg": dmg,
 			"counter_amount": monster_skill_params.get("counter", {}).get("amount", 0),
+			"monster_hp": monster_hp,
+			"monster_max_hp": monster_max_hp,
+			"revive_percent": monster_skill_params.get("revive", {}).get("percent", 0.3),
 		})
 		var reflect_damage: int = counter_result.get("reflect_damage", 0)
 		if reflect_damage > 0:
 			player_hp = max(0, player_hp - reflect_damage)
 			_append_log("반격! 공격이 완전히 막혀 플레이어가 %d의 피해를 입었다 (플레이어 HP %d)" % [reflect_damage, player_hp])
 			player_portrait.set_expression("hurt")
-
-	# "anger_stack" 기믹(고블린): G-2(MonsterSkills)로 스택 적립/리셋 자체는
-	# MonsterSkills.modify_monster_roll()로 옮겨졌다(skill_ids에 "anger_stack"이 없으면
-	# no-op). 로그 문구는 여전히 이 화면(combat_test.gd) 책임이라 state["last_event"]를
-	# 읽어 기존과 똑같은 문구를 그대로 남긴다 — 이식 전후 로그 순서/문구가 완전히 같다.
-	if not is_player_attacking:
-		atk_values = MonsterSkills.modify_monster_roll(monster_skill_ids, atk_values, monster_skill_state, {
+		var revive_to: int = counter_result.get("revive_to", 0)
+		if revive_to > 0:
+			monster_hp = revive_to
+			_append_log("몬스터가 부활했다! (몬스터 HP %d)" % monster_hp)
+			monster_portrait.set_expression("angry")
+	else:
+		# "drain" 기믹(언데드형, G-4): 몬스터가 이번 공격으로 플레이어에게 입힌 피해의
+		# 절반(내림)만큼 몬스터가 HP를 회복한다(최대 HP 초과 불가). 지금 몬스터
+		# 카탈로그(G-5 이전)에는 "drain"을 쓰는 몬스터가 없어 heal_amount는 항상 0.
+		var drain_result: Dictionary = MonsterSkills.on_damage(monster_skill_ids, monster_skill_state, {
 			"is_player_attacking": false,
-			"bag": atk_bag,
-			"used_bonus_dice": used_anger_dice,
-			"anger_threshold": ANGER_STACK_THRESHOLD,
+			"dmg": dmg,
 		})
-		var anger_event: Dictionary = monster_skill_state.get("last_event", {})
-		match anger_event.get("type", ""):
-			"anger_reset":
-				_append_log("분노가 가라앉았다 (분노 스택 초기화)")
-			"anger_gain":
-				_append_log("몬스터 분노 스택 +%d (%d/%d)" % [anger_event["amount"], anger_event["stacks"], ANGER_STACK_THRESHOLD])
-				if anger_event["activated"]:
-					_append_log("몬스터가 분노했다! 다음 공격은 20면체 주사위로 굴린다")
+		var heal_amount: int = drain_result.get("heal_amount", 0)
+		if heal_amount > 0:
+			monster_hp = min(monster_max_hp, monster_hp + heal_amount)
+			_append_log("흡수! 몬스터가 %d만큼 체력을 회복했다 (몬스터 HP %d)" % [heal_amount, monster_hp])
 
 	if is_player_attacking and (player_dice_gimmick == "explosive_stack" or player_frenzy_active or player_versatile_active):
 		var explosive_threshold := _player_explosive_threshold()

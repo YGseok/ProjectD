@@ -18,17 +18,38 @@ extends RefCounted
 ## 몬스터 데이터를 늘릴 때의 일) — 지금은 combat_test.gd가 훅을 항상 호출하도록
 ## 배선만 해두고(G-2와 같은 방식), 실제 몬스터가 생기기 전까지는 전부 no-op이다.
 ##
+## G-4 범위: 야수형 프리미티브 pounce(n)/bloodlust + 언데드형 프리미티브
+## drain/revive/chill 신설(수치는 전부 잠정값 — F-4 시뮬로 조정). G-3과 같은 이유로
+## 아직 몬스터 카탈로그에 이 5종을 쓰는 몬스터가 없어 전부 no-op — G-5가 채운다.
+## - pounce(n)(야수형): 전투의 "몬스터 첫 공격턴" 한 번만 몬스터 공격 "합계" +n
+##   (armor(n)과 같은 "합계" 의미로 apply_total_bonus 재사용). 1회성 플래그는
+##   state["pounce_used"]에 저장(전투당 1회, on_combat_start가 state를 비울 때 함께
+##   초기화됨 — 읽을 때 기본값 false로 처리해 별도 초기화 코드 없이도 안전).
+## - bloodlust(야수형): guard_up과 대칭(공격 대신 방어 쪽 조건) — 몬스터 HP가 최대
+##   HP의 절반 이하일 때만 몬스터 공격 다이스 결과값 전체 +1.
+## - drain(언데드형): 몬스터가 입힌 피해(dmg, 몬스터 공격턴 한정)의 절반(내림)만큼
+##   몬스터가 HP를 회복한다(최대 HP 초과 불가 — 실제 클램프는 monster_max_hp를 모르는
+##   이 파일 대신 호출부가 함). on_damage가 {"heal_amount": int}로 반환.
+## - revive(언데드형): 전투당 1회, 플레이어 공격으로 몬스터 HP가 0 이하가 되는 순간
+##   최대 HP의 30%(잠정값)로 부활한다. state["revive_used"]로 1회 제한. on_damage가
+##   {"revive_to": int}로 반환 — 호출부가 monster_hp를 그 값으로 되돌리고 battle_over
+##   판정을 하기 "전"에 적용해야 실제로 부활이 된다.
+## - chill(언데드형): "플레이어 공격 다이스 중 가장 높은 1개 -1"(부정형 numb은 플레이어
+##   "방어" 다이스를 깎으므로 턴이 달라 numb과 같은 효과가 되지 않는다 — G-4 지시문의
+##   구분 요구 충족. sticky와 공식은 같지만 다른 계열의 다른 스킬 id라 한 몬스터가 둘을
+##   동시에 갖는 경우는 설계상 없음).
+##
 ## 훅 4개:
 ## - on_combat_start(skill_ids, state, ...): 전투당 1회 상태 초기화 + "주머니 자체를
 ##   바꾸는" 종류(min_max_only/fixed_value) 적용.
 ## - modify_monster_roll(skill_ids, values, state, ctx): 몬스터 "자신의" 굴림(공격 또는
 ##   방어) 보정 — steady_guard/guard_up/armor(값 보정) + anger_stack(스택 적립/리셋,
-##   값은 안 바꿈).
+##   값은 안 바꿈) + pounce(n)/bloodlust(야수형, G-4, 공격 쪽 값 보정).
 ## - modify_player_roll(skill_ids, values, state, ctx): 플레이어 굴림 보정(부정형 계열
-##   sticky/seal/dull/numb, G-3) — 기존 4종에는 해당하는 것이 없어 항상 입력을 그대로
-##   반환.
+##   sticky/seal/dull/numb, G-3 + 언데드 계열 chill, G-4) — 해당하는 스킬이 없으면
+##   항상 입력을 그대로 반환.
 ## - on_damage(skill_ids, state, ctx): 피해 확정 후(인간형 counter(n), G-3 + 언데드
-##   계열의 drain/revive, G-4가 채울 자리) — 해당하는 스킬이 없으면 빈 Dictionary.
+##   계열의 drain/revive, G-4) — 해당하는 스킬이 없으면 빈 Dictionary.
 ##
 ## 위 4개 외에 should_use_bonus_attack_dice()가 하나 더 있다 — anger_stack이 "다음
 ## 공격은 1D20으로 굴린다"를 결정하는 시점은 다이스를 물리적으로 스폰하기 **전**이라
@@ -76,7 +97,9 @@ static func should_use_bonus_attack_dice(skill_ids: Array, state: Dictionary) ->
 ## - "anger_threshold": int. 분노 스택 임계치(기존 ANGER_STACK_THRESHOLD).
 ## ctx의 추가 키(G-3, 인간형 armor/guard_up용): "monster_hp"/"monster_max_hp"(guard_up의
 ## "HP 절반 이하" 판정용), "armor_amount"(armor(n)의 n — 몬스터 카탈로그 skill_params에서
-## 옴, 해당 스킬이 없으면 0).
+## 옴, 해당 스킬이 없으면 0). ctx의 추가 키(G-4, 야수형 pounce/bloodlust용): 몬스터
+## 공격턴(is_player_attacking=false)에도 "monster_hp"/"monster_max_hp"를 넘겨야
+## bloodlust가 동작하고, "pounce_amount"(pounce(n)의 n)도 함께 넘긴다.
 static func modify_monster_roll(skill_ids: Array, values: Array, state: Dictionary, ctx: Dictionary) -> Array:
 	state.erase("last_event")
 	var result := values
@@ -93,6 +116,15 @@ static func modify_monster_roll(skill_ids: Array, values: Array, state: Dictiona
 	else:
 		if skill_ids.has("anger_stack"):
 			_update_anger_stack(state, ctx.get("used_bonus_dice", false), ctx["bag"], result, ctx.get("anger_threshold", 3))
+		# "pounce(n)"(야수형, G-4): 전투의 몬스터 첫 공격턴 한 번만 공격 "합계" +n.
+		# armor(n)과 같은 "합계" 의미라 apply_total_bonus를 재사용한다.
+		if skill_ids.has("pounce") and not state.get("pounce_used", false):
+			result = ctx["bag"].apply_total_bonus(result, ctx.get("pounce_amount", 0))
+			state["pounce_used"] = true
+		# "bloodlust"(야수형, G-4): guard_up과 대칭(공격 쪽) — 몬스터 HP가 최대 HP의
+		# 절반 이하일 때만 공격 다이스 결과값 전체 +1.
+		if skill_ids.has("bloodlust") and ctx.get("monster_hp", 0) <= ctx.get("monster_max_hp", 0) / 2.0:
+			result = ctx["bag"].apply_flat_bonus(result, 1)
 	return result
 
 
@@ -125,10 +157,12 @@ static func _update_anger_stack(state: Dictionary, used_bonus_dice: bool, bag: D
 ##   스택의 보너스 1D20 임시 주머니일 수도 있음) — dull의 "자신의 최댓값 면" 판정에 씀.
 ##
 ## 적용 범위:
-## - sticky/seal: 플레이어 "공격" 턴에만(보너스 1D20 턴 포함).
+## - sticky/seal/chill: 플레이어 "공격" 턴에만(보너스 1D20 턴 포함).
 ## - numb: 플레이어 "방어" 턴에만.
 ## - dull: 공격/방어 양쪽 다 — explosive_stack(공격 최댓값 스택)과 guard_stack(방어
 ##   최댓값 스택) 둘 다의 "스택 조건"을 약화하려는 의도된 카운터이기 때문.
+## - chill(언데드형, G-4): "플레이어 공격 다이스 중 가장 높은 1개 -1" — numb과 공식은
+##   같지만 numb은 "방어" 턴에만 걸려 같은 효과가 되지 않는다(G-4 지시문의 구분 요구).
 static func modify_player_roll(skill_ids: Array, values: Array, _state: Dictionary, ctx: Dictionary) -> Array:
 	var bag: DiceBag = ctx.get("bag")
 	if bag == null:
@@ -142,6 +176,8 @@ static func modify_player_roll(skill_ids: Array, values: Array, _state: Dictiona
 			result = bag.apply_reduce_highest(result, 1, 1)
 		if skill_ids.has("seal"):
 			result = bag.apply_zero_lowest(result)
+		if skill_ids.has("chill"):
+			result = bag.apply_reduce_highest(result, 1, 1)
 	else:
 		if skill_ids.has("numb"):
 			result = bag.apply_reduce_highest(result, 1, 1)
@@ -155,15 +191,41 @@ static func modify_player_roll(skill_ids: Array, values: Array, _state: Dictiona
 ##
 ## "counter(n)"(인간형, G-3): 플레이어 공격이 몬스터 방어에 완전히 막혀(이번 교환의
 ## 확정 데미지 dmg==0) 데미지가 0이면, 플레이어에게 amount만큼 반사 피해를 입힌다.
-## 이 파일은 player_hp를 모르므로 실제 적용/로그는 반환값({"reflect_damage": int})을
-## 받은 호출부(combat_test.gd) 몫이다.
+## "revive"(언데드형, G-4): 같은 "플레이어 공격턴" 범주 — 이번 교환으로 몬스터 HP가
+## 0 이하가 됐고 아직 이번 전투에서 부활을 안 썼으면, 최대 HP의 revive_percent(기본
+## 30%, 내림)로 부활값을 돌려준다(state["revive_used"]로 1회 제한). 이 파일은
+## player_hp/monster_hp를 실제로 바꾸지 않으므로, 적용/로그/battle_over 판정 보류는
+## 반환값({"reflect_damage": int} / {"revive_to": int})을 받은 호출부(combat_test.gd)
+## 몫이다 — 특히 revive_to는 "HP 0 이하 -> 패배/승리 판정" 전에 반드시 적용해야 한다.
 ##
-## ctx 필요 키(counter에만 해당): "is_player_attacking": bool(true여야 "몬스터가
-## 방어턴이었다" = 플레이어가 공격한 턴), "dmg": int(이번 교환 확정 데미지),
-## "counter_amount": int(counter(n)의 n).
-static func on_damage(skill_ids: Array, _state: Dictionary, ctx: Dictionary) -> Dictionary:
-	if skill_ids.has("counter") and ctx.get("is_player_attacking", false) and ctx.get("dmg", -1) == 0:
-		var amount: int = ctx.get("counter_amount", 0)
-		if amount > 0:
-			return {"reflect_damage": amount}
-	return {}
+## "drain"(언데드형, G-4): "몬스터 공격턴"(is_player_attacking=false) 범주 — 몬스터가
+## 이번 교환에서 플레이어에게 입힌 피해(dmg)의 절반(내림)만큼 몬스터가 회복한다.
+## 최대 HP 클램프는 이 파일이 monster_max_hp 상한을 적용 대상으로 알 필요가 없으므로
+## (회복량 계산 자체는 상한과 무관) 호출부가 한다 — 반환값 {"heal_amount": int}.
+##
+## ctx 필요 키: "is_player_attacking": bool(true=플레이어가 공격한 턴=몬스터 방어턴,
+## false=몬스터가 공격한 턴). counter: "dmg"(이번 교환 확정 데미지), "counter_amount"
+## (counter(n)의 n). revive: "monster_hp"(이번 교환 후 몬스터 HP), "monster_max_hp",
+## "revive_percent"(revive의 비율, 기본 0.3). drain: "dmg"(이번 교환 확정 데미지,
+## 몬스터가 플레이어에게 입힌 양).
+static func on_damage(skill_ids: Array, state: Dictionary, ctx: Dictionary) -> Dictionary:
+	var result := {}
+	if ctx.get("is_player_attacking", false):
+		# early return이 아니라 Dictionary에 누적한다 — G-7/G-8 정예/보스가 counter와
+		# revive를 동시에 가질 수 있어, 둘 다 조건을 만족하면 둘 다 반환해야 한다.
+		if skill_ids.has("counter") and ctx.get("dmg", -1) == 0:
+			var amount: int = ctx.get("counter_amount", 0)
+			if amount > 0:
+				result["reflect_damage"] = amount
+		if skill_ids.has("revive") and ctx.get("monster_hp", 1) <= 0 and not state.get("revive_used", false):
+			var revive_percent: float = ctx.get("revive_percent", 0.3)
+			var revive_to: int = int(floor(ctx.get("monster_max_hp", 0) * revive_percent))
+			if revive_to > 0:
+				state["revive_used"] = true
+				result["revive_to"] = revive_to
+	else:
+		if skill_ids.has("drain"):
+			var dmg: int = ctx.get("dmg", 0)
+			if dmg > 0:
+				result["heal_amount"] = int(floor(dmg / 2.0))
+	return result

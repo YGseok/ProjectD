@@ -237,6 +237,10 @@ func _ready() -> void:
 	all_pass = _check_g3_monster_skill_primitives(lines) and all_pass
 
 	lines.append("")
+	lines.append("[G-4: 야수형 pounce/bloodlust + 언데드형 drain/revive/chill 프리미티브 검증]")
+	all_pass = _check_g4_monster_skill_primitives(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -4327,6 +4331,141 @@ func _check_g3_monster_skill_primitives(lines: PackedStringArray) -> bool:
 	ok = no_bag_ok and ok
 	lines.append("  modify_player_roll([sticky,seal,dull,numb], [1,2,3], ctx={}) = %s (기대 [1,2,3], bag 없으면 no-op) -> %s" % [
 		no_bag_result, "OK" if no_bag_ok else "FAIL"
+	])
+
+	return ok
+
+
+## [대형 기획 6] G-4(2026-10-07) 검증 — _check_g3_monster_skill_primitives와 같은 패턴
+## (플래그가 아니라 실제 계산 결과를 직접 검증).
+func _check_g4_monster_skill_primitives(lines: PackedStringArray) -> bool:
+	var ok := true
+
+	# (1) pounce(n): 전투의 몬스터 "첫" 공격턴 한 번만 공격 합계 +n. state["pounce_used"]로
+	# 1회 제한 — 같은 state로 두 번째 호출하면 보너스가 다시 붙지 않아야 한다.
+	var pounce_bag := DiceBag.new(6, 2)
+	var pounce_state := {}
+	var pounce_first: Array = MonsterSkills.modify_monster_roll(["pounce"], [2, 3], pounce_state, {
+		"is_player_attacking": false, "bag": pounce_bag, "pounce_amount": 3,
+	})
+	var pounce_first_ok: bool = pounce_first == [5, 3]
+	ok = pounce_first_ok and ok
+	lines.append("  modify_monster_roll([pounce], [2,3], pounce_amount=3, 1번째 공격) = %s (기대 [5,3]) -> %s" % [
+		pounce_first, "OK" if pounce_first_ok else "FAIL"
+	])
+	var pounce_second: Array = MonsterSkills.modify_monster_roll(["pounce"], [2, 3], pounce_state, {
+		"is_player_attacking": false, "bag": pounce_bag, "pounce_amount": 3,
+	})
+	var pounce_second_ok: bool = pounce_second == [2, 3]
+	ok = pounce_second_ok and ok
+	lines.append("  modify_monster_roll([pounce], [2,3], pounce_amount=3, 2번째 공격(이미 사용)) = %s (기대 [2,3], 전투당 1회) -> %s" % [
+		pounce_second, "OK" if pounce_second_ok else "FAIL"
+	])
+
+	# (2) bloodlust: guard_up과 대칭(공격 쪽) — 몬스터 HP가 최대 HP의 절반 이하일 때만
+	# 몬스터 "공격" 다이스 결과값 전체 +1.
+	var bloodlust_bag := DiceBag.new(6, 2)
+	var bloodlust_active: Array = MonsterSkills.modify_monster_roll(["bloodlust"], [2, 3], {}, {
+		"is_player_attacking": false, "bag": bloodlust_bag, "monster_hp": 5, "monster_max_hp": 10,
+	})
+	var bloodlust_active_ok: bool = bloodlust_active == [3, 4]
+	ok = bloodlust_active_ok and ok
+	lines.append("  modify_monster_roll([bloodlust], [2,3], HP 5/10) = %s (기대 [3,4], 절반 이하라 발동) -> %s" % [
+		bloodlust_active, "OK" if bloodlust_active_ok else "FAIL"
+	])
+	var bloodlust_inactive: Array = MonsterSkills.modify_monster_roll(["bloodlust"], [2, 3], {}, {
+		"is_player_attacking": false, "bag": bloodlust_bag, "monster_hp": 6, "monster_max_hp": 10,
+	})
+	var bloodlust_inactive_ok: bool = bloodlust_inactive == [2, 3]
+	ok = bloodlust_inactive_ok and ok
+	lines.append("  modify_monster_roll([bloodlust], [2,3], HP 6/10) = %s (기대 [2,3], 절반 초과라 미발동) -> %s" % [
+		bloodlust_inactive, "OK" if bloodlust_inactive_ok else "FAIL"
+	])
+
+	# (3) pounce + anger_stack을 한 몬스터가 함께 가져도(G-7 "암흑 늑대") 한 번의
+	# modify_monster_roll 호출로 스택 집계가 중복되지 않고, 값 보정(pounce)과 스택
+	# 집계(anger_stack)가 동시에 올바르게 일어나야 한다.
+	var combo_bag := DiceBag.new(4, 2)
+	var combo_state := {}
+	var combo_result: Array = MonsterSkills.modify_monster_roll(["anger_stack", "pounce"], [4, 4], combo_state, {
+		"is_player_attacking": false, "bag": combo_bag, "used_bonus_dice": false, "anger_threshold": 3,
+		"monster_hp": 10, "monster_max_hp": 10, "pounce_amount": 2,
+	})
+	var combo_values_ok: bool = combo_result == [6, 4]
+	var combo_stacks_ok: bool = combo_state.get("anger_stacks", -1) == 2
+	ok = combo_values_ok and combo_stacks_ok and ok
+	lines.append("  modify_monster_roll([anger_stack,pounce], [4,4](D4x2 최댓값), pounce_amount=2) = %s / anger_stacks=%s (기대 [6,4] / 2, 중복 집계 없음) -> %s" % [
+		combo_result, combo_state.get("anger_stacks", -1), "OK" if (combo_values_ok and combo_stacks_ok) else "FAIL"
+	])
+
+	# (4) drain: "몬스터 공격턴"(is_player_attacking=false)에 입힌 피해의 절반(내림)만큼
+	# 회복량을 돌려준다 — 플레이어 공격턴(is_player_attacking=true)에는 발동하지 않는다
+	# (counter/revive 전용 분기이기 때문).
+	var drain_hit: Dictionary = MonsterSkills.on_damage(["drain"], {}, {"is_player_attacking": false, "dmg": 5})
+	var drain_hit_ok: bool = drain_hit.get("heal_amount", -1) == 2
+	ok = drain_hit_ok and ok
+	lines.append("  on_damage([drain], dmg=5, is_player_attacking=false) = %s (기대 heal_amount=2, floor(5/2)) -> %s" % [
+		drain_hit, "OK" if drain_hit_ok else "FAIL"
+	])
+	var drain_no_dmg: Dictionary = MonsterSkills.on_damage(["drain"], {}, {"is_player_attacking": false, "dmg": 0})
+	var drain_no_dmg_ok: bool = drain_no_dmg.is_empty()
+	ok = drain_no_dmg_ok and ok
+	lines.append("  on_damage([drain], dmg=0, is_player_attacking=false) = %s (기대 빈 Dictionary, 피해 없으면 회복 없음) -> %s" % [
+		drain_no_dmg, "OK" if drain_no_dmg_ok else "FAIL"
+	])
+	var drain_wrong_turn: Dictionary = MonsterSkills.on_damage(["drain"], {}, {"is_player_attacking": true, "dmg": 5})
+	var drain_wrong_turn_ok: bool = drain_wrong_turn.is_empty()
+	ok = drain_wrong_turn_ok and ok
+	lines.append("  on_damage([drain], dmg=5, is_player_attacking=true) = %s (기대 빈 Dictionary, 플레이어 공격턴엔 미발동) -> %s" % [
+		drain_wrong_turn, "OK" if drain_wrong_turn_ok else "FAIL"
+	])
+
+	# (5) revive: 전투당 1회, 몬스터 HP가 0 이하가 된 플레이어 공격턴에만 부활값을
+	# 돌려준다 — HP가 아직 남아있으면, 또는 이미 한 번 썼으면 발동하지 않는다.
+	var revive_state := {}
+	var revive_hit: Dictionary = MonsterSkills.on_damage(["revive"], revive_state, {
+		"is_player_attacking": true, "monster_hp": 0, "monster_max_hp": 10, "revive_percent": 0.3,
+	})
+	var revive_hit_ok: bool = revive_hit.get("revive_to", -1) == 3
+	ok = revive_hit_ok and ok
+	lines.append("  on_damage([revive], monster_hp=0, max_hp=10, percent=0.3) = %s (기대 revive_to=3, floor(10*0.3)) -> %s" % [
+		revive_hit, "OK" if revive_hit_ok else "FAIL"
+	])
+	var revive_twice: Dictionary = MonsterSkills.on_damage(["revive"], revive_state, {
+		"is_player_attacking": true, "monster_hp": 0, "monster_max_hp": 10, "revive_percent": 0.3,
+	})
+	var revive_twice_ok: bool = revive_twice.is_empty()
+	ok = revive_twice_ok and ok
+	lines.append("  on_damage([revive], 같은 전투에서 2번째 HP 0 (이미 부활 사용)) = %s (기대 빈 Dictionary, 전투당 1회) -> %s" % [
+		revive_twice, "OK" if revive_twice_ok else "FAIL"
+	])
+	var revive_alive: Dictionary = MonsterSkills.on_damage(["revive"], {}, {
+		"is_player_attacking": true, "monster_hp": 4, "monster_max_hp": 10, "revive_percent": 0.3,
+	})
+	var revive_alive_ok: bool = revive_alive.is_empty()
+	ok = revive_alive_ok and ok
+	lines.append("  on_damage([revive], monster_hp=4(생존)) = %s (기대 빈 Dictionary, HP 0 이하일 때만 발동) -> %s" % [
+		revive_alive, "OK" if revive_alive_ok else "FAIL"
+	])
+
+	# (6) chill: "플레이어 공격 다이스 중 가장 높은 1개 -1" — numb은 "방어" 턴에만 걸리므로
+	# 같은 ctx(공격턴)에서 numb은 미발동, chill은 발동해야 둘이 구분된다(G-4 지시문).
+	var chill_bag := DiceBag.new(6, 3)
+	var chill_atk: Array = MonsterSkills.modify_player_roll(["chill"], [2, 6, 4], {}, {
+		"is_player_attacking": true, "bag": chill_bag,
+	})
+	var chill_atk_ok: bool = chill_atk == [2, 5, 4]
+	ok = chill_atk_ok and ok
+	lines.append("  modify_player_roll([chill], [2,6,4], 공격턴) = %s (기대 [2,5,4]) -> %s" % [
+		chill_atk, "OK" if chill_atk_ok else "FAIL"
+	])
+	var chill_def: Array = MonsterSkills.modify_player_roll(["chill"], [2, 6, 4], {}, {
+		"is_player_attacking": false, "bag": chill_bag,
+	})
+	var chill_def_ok: bool = chill_def == [2, 6, 4]
+	ok = chill_def_ok and ok
+	lines.append("  modify_player_roll([chill], [2,6,4], 방어턴) = %s (기대 [2,6,4], 공격턴에만 적용 — numb과 구분) -> %s" % [
+		chill_def, "OK" if chill_def_ok else "FAIL"
 	])
 
 	return ok

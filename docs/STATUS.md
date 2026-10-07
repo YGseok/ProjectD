@@ -5,26 +5,32 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-10-07 (158)
-- 작성자: AI 에이전트. G-2 완료로 실행 순서(F-2→F-3→G-1~G-9→F-4)상 다음인
-  INBOX.md "부분 처리됨"의 [대형 기획 6](몬스터 대개편) **G-3(인간형
-  armor/guard_up/counter + 부정형 sticky/seal/dull/numb 프리미티브 신설)**을
-  진행했다. `code/systems/dice_bag.gd`에 범용 헬퍼 4개(`apply_total_bonus`/
-  `apply_reduce_highest`/`apply_zero_lowest`/`apply_reduce_max_rolls`)를
-  추가하고, `code/systems/monster_skills.gd`의 `modify_monster_roll`(armor/
-  guard_up)·`modify_player_roll`(sticky/seal/dull/numb, 처음으로 실제
-  구현)·`on_damage`(counter, 반환형을 void->Dictionary로 변경)를 채웠다.
-  `combat_test.gd`에 새 인스턴스 변수 `monster_skill_params`를 신설하고
-  관련 훅 호출 지점 3곳을 배선했다. **지금 몬스터 카탈로그(G-5 이전) 5종은
-  이 7종 중 아무것도 안 쓰므로 모든 신규 경로가 현재는 no-op**(G-2와 같은
-  "동작 보존" 원칙). `dice_test.gd`의 신규 `_check_g3_monster_skill_
-  primitives()`로 "플래그가 아니라 계산 결과"가 실제로 맞는지(F-3 원칙,
-  게이팅 포함) 확인했고, `scripts/qa_shot.sh combat_test`로 실제 전투
-  화면도 크래시 없이 정상 진행됨을 확인했다. 자세한 내용은 아래 "완료 기록
-  (158)" 참고.
-  **G-3 완료.** 다음 할 일은 **G-4**(야수형+언데드형 프리미티브: pounce/
-  bloodlust + drain/revive/chill — 아래 "지금 위치"/"다음 할 일 큐" 참고).
-  "완료 기록" 10개 유지를 위해 (148)을 `docs/STATUS_ARCHIVE.md`로 옮겼다.
+- 일시: 2026-10-07 (159)
+- 작성자: AI 에이전트. G-3 완료로 실행 순서(F-2→F-3→G-1~G-9→F-4)상 다음인
+  INBOX.md "부분 처리됨"의 [대형 기획 6](몬스터 대개편) **G-4(야수형
+  pounce(n)/bloodlust + 언데드형 drain/revive/chill 프리미티브 신설)**을
+  진행했다. `code/systems/monster_skills.gd`의 `modify_monster_roll`(몬스터
+  공격턴 분기에 pounce/bloodlust 추가)·`modify_player_roll`(chill 추가,
+  numb과 겹치지 않게 공격 쪽으로 구분)·`on_damage`(drain/revive 추가 +
+  early-return을 Dictionary 누적 구조로 리팩터링해 미래의 counter+revive
+  동시 보유에 대비)를 채웠다. **부수적으로 발견한 버그 하나를 고쳤다** —
+  pounce/bloodlust는 실제로 다이스 "값"을 바꾸는데, 기존 anger_stack 호출
+  자리(데미지 계산 "후")를 그대로 재사용하면 보정이 이번 턴 데미지에 전혀
+  반영 안 되는 잠재 버그였다. `combat_test.gd`에서 몬스터 공격턴의
+  `modify_monster_roll` 호출을 atk_total 계산 "전"(steady_guard/armor/
+  guard_up과 같은 자리)으로 옮겨 고쳤다(수치 변화 없음, "분노 스택" 로그
+  줄 순서만 데미지 로그보다 앞으로 바뀜 — `combat_test_g4_goblin.png`로
+  확인). **지금 몬스터 카탈로그(G-5 이전) 5종은 이 5종 중 아무것도 안
+  쓰므로 모든 신규 경로가 현재는 no-op**(G-2/G-3과 같은 원칙).
+  `dice_test.gd`의 신규 `_check_g4_monster_skill_primitives()`로 계산
+  결과(1회 제한, HP 게이팅, pounce+anger_stack 동시 적용 시 중복 집계
+  없음 포함)를 직접 검증했고, `scripts/qa_shot.sh combat_test`로 기본
+  몬스터 및 `GAME_QA_ROOM_OVERRIDE=1`(고블린) 둘 다 실제 전투 화면이
+  크래시 없이 정상 진행됨을 확인했다. 자세한 내용은 아래 "완료 기록
+  (159)" 참고.
+  **G-4 완료.** 다음 할 일은 **G-5**(일반 몬스터 20종 데이터, 계열당 5종 —
+  아래 "지금 위치"/"다음 할 일 큐" 참고). "완료 기록" 10개 유지를 위해
+  (149)를 `docs/STATUS_ARCHIVE.md`로 옮겼다.
 
 ## 지금 위치
 
@@ -67,7 +73,7 @@ unlock_requirement()`)가 함께 보인다(F-1). 시작 스킬은 캐릭터당 3
 전체 흐름(E2E)도 견습 모험가+곡예사 2종으로 검증됐다**(완료 기록 (155)).
 **F-4(밸런스 시뮬)는 설계상 G-1~G-9(아래 [대형 기획 6]) 완료 후 진행 —
 아직 착수 전.**
-**[대형 기획 6] G-1·G-2·G-3 완료(2026-10-07), G-4~G-9 남음** — 다음 할 일.
+**[대형 기획 6] G-1~G-4 완료(2026-10-07), G-5~G-9 남음** — 다음 할 일.
 사람이 몬스터를 계열(인간형/부정형/야수형/언데드형) + 일반 20종/정예
 8종/보스 6종의 대형 풀로 개편하고 정예 전투 방을 추가하는 설계를 이미
 끝내뒀다(INBOX.md "부분 처리됨" [대형 기획 6] 원문 참고). G-1로
@@ -78,11 +84,17 @@ unlock_requirement()`)가 함께 보인다(F-1). 시작 스킬은 캐릭터당 3
 modify_player_roll/on_damage)를 만들고 기존 4종 기믹(anger_stack/
 fixed_value/min_max_only/steady_guard)을 그 구조로 이식했다(동작 보존,
 완료 기록 (157)). G-3으로 인간형 프리미티브 armor(n)/guard_up/counter(n) +
-부정형 프리미티브 sticky/seal/dull/numb 7종을 `MonsterSkills`/`DiceBag`에
-구현했다(수치는 전부 잠정값, 완료 기록 (158)) — **몬스터 카탈로그에 이
-7종을 실제로 쓰는 몬스터는 아직 없음**(G-5가 채울 자리). 다음은 **G-4**
-(야수형 프리미티브 pounce(n)/bloodlust + 언데드형 프리미티브 drain/
-revive/chill, 수치는 잠정값)부터 순서대로 한 조각씩 진행하면 된다.
+부정형 프리미티브 sticky/seal/dull/numb 7종을(완료 기록 (158)), G-4로
+야수형 프리미티브 pounce(n)/bloodlust + 언데드형 프리미티브 drain/revive/
+chill 5종을(완료 기록 (159)) `MonsterSkills`/`DiceBag`에 구현했다(수치는
+전부 잠정값, F-4 시뮬로 조정 예정) — **몬스터 카탈로그에 이 12종을 실제로
+쓰는 몬스터는 아직 없음**(G-5가 채울 자리). G-4에서 "몬스터 공격턴에
+다이스 값을 바꾸는 프리미티브는 데미지 계산 전에 호출해야 실제로 반영된다"는
+버그를 하나 고쳐 anger_stack 호출 위치도 함께 당겨졌다(동작 보존 — 데미지
+수치는 그대로, "분노 스택" 로그 줄 순서만 바뀜, 완료 기록 (159) 참고).
+다음은 **G-5**(일반 몬스터 20종 데이터, 계열당 5종 — 지금까지 만든 12종
+프리미티브를 실제 몬스터에 배정하는 첫 단계)부터 순서대로 한 조각씩
+진행하면 된다.
 **ART-1a(아트 스레드 전달, 2026-10-06) 완료** — 캐릭터 선택 카드 목록이
 7종으로 늘어나며 7번째(곡예사) 카드가 화면 밖으로 밀려 마우스로 선택 불가하던
 버그를 ScrollContainer로 해결(자세한 내용은 "완료 기록 (152)"). ART-1b/1c는
@@ -814,6 +826,51 @@ revive/chill, 수치는 잠정값)부터 순서대로 한 조각씩 진행하면
 
 ## 완료 기록
 
+- **2026-10-07 (159)**: INBOX.md "부분 처리됨"의 [대형 기획 6](몬스터 대개편)
+  **G-4(야수형 pounce(n)/bloodlust + 언데드형 drain/revive/chill 프리미티브
+  신설)**을 진행했다 — G-3 완료로 실행 순서상 다음 조각.
+  `code/systems/monster_skills.gd`를 확장: `modify_monster_roll`의 몬스터
+  "공격"턴 분기(`is_player_attacking==false`, anger_stack이 있던 자리)에
+  pounce(n)(state["pounce_used"]로 전투당 1회, `apply_total_bonus` 재사용)와
+  bloodlust(guard_up과 대칭, HP 절반 이하면 공격 결과값 +1)를 추가. `on_damage`를
+  early-return 구조에서 Dictionary 누적 구조로 바꿔(미래에 counter+revive를
+  한 몬스터가 같이 가져도 둘 다 반환되게) drain(몬스터 공격턴, 입힌 피해의
+  절반 내림만큼 `heal_amount` 반환)과 revive(플레이어 공격턴, monster_hp<=0
+  이고 전투당 미사용이면 최대 HP의 30%(잠정값)를 `revive_to`로 반환,
+  state["revive_used"]로 1회 제한)를 추가. `modify_player_roll`에 chill
+  (플레이어 "공격" 다이스 중 최댓값 1개 -1)을 추가 — INBOX.md 원문이 애초에
+  제시한 chill 정의("방어" 다이스 중 최댓값 -1)는 numb과 완전히 같은 효과라,
+  원문이 명시적으로 허용한 대안(공격 쪽으로 구분)을 택했다(numb과는 턴이
+  달라 구분됨, sticky와는 공식은 같지만 다른 계열의 다른 skill id).
+  **버그를 하나 고쳤다**: G-2/G-3까지 anger_stack의 `modify_monster_roll`
+  호출은 "값을 안 바꾸는 부수효과(스택 집계)뿐"이라 데미지 계산 "후"(기존
+  _do_exchange()의 counter 체크 옆)에 호출해도 무방했는데, pounce/bloodlust는
+  실제로 공격 다이스 "값"을 바꾸므로 그 자리에서 호출하면 이미 atk_total이
+  계산된 뒤라 보정이 데미지에 전혀 반영되지 않는 잠재 버그였다. `combat_test.gd`의
+  `_do_exchange()`에서 몬스터 공격턴의 `modify_monster_roll` 호출(anger_stack
+  포함)을 조기 호출 지점(기존 steady_guard/armor/guard_up 자리 바로 옆,
+  atk_total 계산 **전**)으로 통째로 옮기고 late 자리의 중복 호출은 제거했다
+  — anger_stack 자체의 계산 결과(스택 수)는 그대로지만, "분노 스택" 로그
+  줄 순서가 데미지 로그보다 앞으로 바뀐다(수치 변경 없음, 순서만 변경 —
+  `qa_out/combat_test_g4_goblin.png`로 실제 화면에서 크래시/깨짐 없이
+  정상 동작함을 확인). G-7에서 pounce+anger_stack을 한 몬스터(암흑 늑대)가
+  같이 가질 수 있어 이 함수를 두 번 호출하면 스택이 중복 집계되는 문제까지
+  미리 막았다(신규 테스트 (3)으로 직접 검증). **지금 몬스터 카탈로그(G-5
+  이전) 5종은 이 5종 중 아무것도 안 쓰므로 모든 신규 경로가 현재는
+  no-op**(G-2/G-3과 같은 원칙). `dice_test.gd`의 신규 `_check_g4_monster_
+  skill_primitives()`로 pounce 1회 제한/bloodlust HP 게이팅/pounce+anger_stack
+  동시 적용 시 중복 집계 없음/drain의 턴 게이팅/revive 1회 제한과 생존 시
+  미발동/chill의 "공격턴에만, numb과 구분"을 계산 결과로 직접 검증했다.
+  `bash scripts/qa_shot.sh dice_test` 전체 PASS(신규 섹션 포함, 기존
+  G-1~G-3 검증도 그대로 PASS). `scripts/qa_shot.sh combat_test`로 기본
+  몬스터(슬라임, 기믹 없음) 승리 흐름과, `GAME_QA_ROOM_OVERRIDE=1`로
+  고블린(anger_stack)의 실제 전투 로그가 크래시/깨짐 없이 정상 진행됨을
+  둘 다 확인(`qa_out/combat_test_g4.png`/`combat_test_g4_goblin.png`).
+  **G-4 완료.** 다음 할 일은 **G-5**(일반 몬스터 20종 데이터, 계열당 5종 —
+  G-3/G-4가 만든 12종 프리미티브를 실제로 쓰는 첫 단계, 아래 "지금 위치"/
+  "다음 할 일 큐" 참고). "완료 기록" 10개 유지를 위해 (149)를
+  `docs/STATUS_ARCHIVE.md`로 옮겼다.
+
 - **2026-10-07 (158)**: INBOX.md "부분 처리됨"의 [대형 기획 6](몬스터 대개편)
   **G-3(인간형 armor/guard_up/counter + 부정형 sticky/seal/dull/numb 프리미티브
   신설)**을 진행했다 — G-2 완료로 실행 순서상 다음 조각.
@@ -1261,56 +1318,9 @@ revive/chill, 수치는 잠정값)부터 순서대로 한 조각씩 진행하면
   **다음 조각은 F-2(b)**: 신규 시작 스킬 원형 7종 데이터 정의 + 캐릭터별
   슬롯 2 배정 + UI 3칸 레이아웃.
 
-- **2026-10-06 (149)**: INBOX.md "남은 이슈"의 2026-10-06 [대형 기획 5] F-1~F-4
-  중 **F-1(잠긴 시작 스킬 미리보기)을 완료**했다 — 실행 순서(F-1→F-2→F-3→F-4)
-  대로 첫 조각. `code/systems/skill_pool.gd`에 신규
-  `SkillPool.unlock_requirement(character_id, slot_index) -> Dictionary`
-  (슬롯 0은 `{"achievement_id":"", "text":"기본 해금"}`, 슬롯 1은
-  `{"achievement_id":"clear_<id>", "text":"<캐릭터 이름>(으)로 최종
-  클리어(3라운드 전부)하면 해금"}`)를 추가해 해금 조건 문구를 한 곳에서만
-  만들게 했다. `code/scenes/character_select.gd`의 하드코딩된 `"clear_" +
-  id` 두 곳(`_rebuild_starting_skill_slots()`/`_valid_or_default_starting_
-  skill_id()`)을 신규 `_is_slot_unlocked(character_id, slot_index)` 헬퍼로
-  교체해 전부 `unlock_requirement()`를 거치게 단일화했다(F-2가 슬롯을 3단으로
-  늘릴 때 이 함수 하나만 고치면 되도록). 잠긴 슬롯 버튼은 더 이상
-  `disabled=true`가 아니다 — 눌러도 `RunState.chosen_starting_skill_id`는
-  바뀌지 않고, 신규 `_on_starting_skill_locked_preview(id)`가
-  `_preview_skill_id`만 바꿔 "미리보기" 상태로 들어간다. 설명란 구조를
-  "자물쇠+'잠김' 배지(맨 위, 미리보기 중에만 visible) / 효과 설명(항상 표시,
-  기존 라벨 재사용) / 해금 조건(노란 계열 `Color(0.95,0.85,0.3)`, 미리보기
-  중에만 visible)" 3단으로 나눴다(`_update_starting_skill_description()`).
-  해금된 슬롯을 실제로 고르면(`_on_starting_skill_selected()`) 미리보기를
-  비운다. 캐릭터를 바꿀 때(`_refresh_detail_panel()`)도 이전 캐릭터의
-  미리보기가 남지 않도록 `_preview_skill_id`를 리셋한다. 잠긴 슬롯 중
-  미리보기 중인 것은 얇은 노란 테두리로 "보는 중"임을 구분(선택된 해금
-  슬롯의 두꺼운 금테와는 다른 톤).
-  **기존 테스트 수정**: `dice_test.gd`의 `_check_starting_skill_selection_ui`
-  (b)가 "잠긴 슬롯은 `disabled=true`"를 검증하던 걸, 이제 잠긴 슬롯도
-  클릭 가능해야 하므로 "둘 다 `disabled=false`"로 바꾸고 (c)는
-  `_is_slot_unlocked()` 직접 호출로 교체했다(예전 버전 그대로 뒀으면
-  F-1 구현과 모순돼 FAIL났을 것). **신규 테스트**:
-  `_check_starting_skill_locked_preview`를 추가해 (a) 잠긴 슬롯 클릭 후에도
-  `chosen_starting_skill_id`가 안 바뀌는지, (b) 설명란에 스킬 효과
-  **문구 자체**(`SkillPool.find_skill()` 결과와 문자열 대조)와 해금 조건
-  **문구 자체**가 둘 다 실제로 들어갔는지(플래그가 아니라 화면에 보이는
-  텍스트를 직접 비교 — INBOX.md가 지적한 "플래그만 보고 효과는 안 보는"
-  과거 패턴을 반복하지 않기 위함), (c) 배지/해금 줄의 `visible`이 미리보기
-  중에만 true인지, (d) 해금된 슬롯을 고르면 미리보기가 꺼지는지,
-  (e) `unlock_requirement()` 자체가 슬롯 0/1에 대해 기대한 Dictionary를
-  정확히 돌려주는지 검증한다. `bash scripts/qa_shot.sh dice_test` 전체
-  PASS(기존 102개+ 항목 전부 포함). `scripts/qa_shot.sh character_select 60
-  qa_out/character_select_starting_skill_locked_preview.png
-  _debug_show_starting_skill_locked_preview`로 견습 모험가의 잠긴 "정예"
-  슬롯을 미리보는 화면을 캡처 — 자물쇠 배지/효과 설명/노란 해금 조건 줄이
-  겹침 없이 표시되고, 선택된 슬롯 0("확장")은 여전히 금테로 구분됨을 눈으로
-  확인했다. `docs/feedback/INBOX.md`에서 이 항목을 "부분 처리됨"(F-1 완료,
-  F-2~F-4 남음)으로 옮겼다. 다음 조각은 F-2(직업별 시작 스킬 다양화,
-  3단 해금 사다리) — INBOX.md 원문이 (a)/(b)/(c) 세 조각으로 더 쪼개뒀으니
-  F-2a(업적 r1 7종 + 사다리/unlock_requirement 갱신)부터.
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(158)에서 (148)을 그리로 옮겼다.)*
+이번 이터레이션(159)에서 (149)를 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 

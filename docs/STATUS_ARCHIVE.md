@@ -8,6 +8,53 @@
 
 ---
 
+- **2026-10-06 (149)**: INBOX.md "남은 이슈"의 2026-10-06 [대형 기획 5] F-1~F-4
+  중 **F-1(잠긴 시작 스킬 미리보기)을 완료**했다 — 실행 순서(F-1→F-2→F-3→F-4)
+  대로 첫 조각. `code/systems/skill_pool.gd`에 신규
+  `SkillPool.unlock_requirement(character_id, slot_index) -> Dictionary`
+  (슬롯 0은 `{"achievement_id":"", "text":"기본 해금"}`, 슬롯 1은
+  `{"achievement_id":"clear_<id>", "text":"<캐릭터 이름>(으)로 최종
+  클리어(3라운드 전부)하면 해금"}`)를 추가해 해금 조건 문구를 한 곳에서만
+  만들게 했다. `code/scenes/character_select.gd`의 하드코딩된 `"clear_" +
+  id` 두 곳(`_rebuild_starting_skill_slots()`/`_valid_or_default_starting_
+  skill_id()`)을 신규 `_is_slot_unlocked(character_id, slot_index)` 헬퍼로
+  교체해 전부 `unlock_requirement()`를 거치게 단일화했다(F-2가 슬롯을 3단으로
+  늘릴 때 이 함수 하나만 고치면 되도록). 잠긴 슬롯 버튼은 더 이상
+  `disabled=true`가 아니다 — 눌러도 `RunState.chosen_starting_skill_id`는
+  바뀌지 않고, 신규 `_on_starting_skill_locked_preview(id)`가
+  `_preview_skill_id`만 바꿔 "미리보기" 상태로 들어간다. 설명란 구조를
+  "자물쇠+'잠김' 배지(맨 위, 미리보기 중에만 visible) / 효과 설명(항상 표시,
+  기존 라벨 재사용) / 해금 조건(노란 계열 `Color(0.95,0.85,0.3)`, 미리보기
+  중에만 visible)" 3단으로 나눴다(`_update_starting_skill_description()`).
+  해금된 슬롯을 실제로 고르면(`_on_starting_skill_selected()`) 미리보기를
+  비운다. 캐릭터를 바꿀 때(`_refresh_detail_panel()`)도 이전 캐릭터의
+  미리보기가 남지 않도록 `_preview_skill_id`를 리셋한다. 잠긴 슬롯 중
+  미리보기 중인 것은 얇은 노란 테두리로 "보는 중"임을 구분(선택된 해금
+  슬롯의 두꺼운 금테와는 다른 톤).
+  **기존 테스트 수정**: `dice_test.gd`의 `_check_starting_skill_selection_ui`
+  (b)가 "잠긴 슬롯은 `disabled=true`"를 검증하던 걸, 이제 잠긴 슬롯도
+  클릭 가능해야 하므로 "둘 다 `disabled=false`"로 바꾸고 (c)는
+  `_is_slot_unlocked()` 직접 호출로 교체했다(예전 버전 그대로 뒀으면
+  F-1 구현과 모순돼 FAIL났을 것). **신규 테스트**:
+  `_check_starting_skill_locked_preview`를 추가해 (a) 잠긴 슬롯 클릭 후에도
+  `chosen_starting_skill_id`가 안 바뀌는지, (b) 설명란에 스킬 효과
+  **문구 자체**(`SkillPool.find_skill()` 결과와 문자열 대조)와 해금 조건
+  **문구 자체**가 둘 다 실제로 들어갔는지(플래그가 아니라 화면에 보이는
+  텍스트를 직접 비교 — INBOX.md가 지적한 "플래그만 보고 효과는 안 보는"
+  과거 패턴을 반복하지 않기 위함), (c) 배지/해금 줄의 `visible`이 미리보기
+  중에만 true인지, (d) 해금된 슬롯을 고르면 미리보기가 꺼지는지,
+  (e) `unlock_requirement()` 자체가 슬롯 0/1에 대해 기대한 Dictionary를
+  정확히 돌려주는지 검증한다. `bash scripts/qa_shot.sh dice_test` 전체
+  PASS(기존 102개+ 항목 전부 포함). `scripts/qa_shot.sh character_select 60
+  qa_out/character_select_starting_skill_locked_preview.png
+  _debug_show_starting_skill_locked_preview`로 견습 모험가의 잠긴 "정예"
+  슬롯을 미리보는 화면을 캡처 — 자물쇠 배지/효과 설명/노란 해금 조건 줄이
+  겹침 없이 표시되고, 선택된 슬롯 0("확장")은 여전히 금테로 구분됨을 눈으로
+  확인했다. `docs/feedback/INBOX.md`에서 이 항목을 "부분 처리됨"(F-1 완료,
+  F-2~F-4 남음)으로 옮겼다. 다음 조각은 F-2(직업별 시작 스킬 다양화,
+  3단 해금 사다리) — INBOX.md 원문이 (a)/(b)/(c) 세 조각으로 더 쪼개뒀으니
+  F-2a(업적 r1 7종 + 사다리/unlock_requirement 갱신)부터.
+
 - **2026-09-29 (148)**: INBOX.md "남은 이슈"의 2026-09-29자 기획자 결정 — 시작
   스킬 "정예"(`start_lean`)의 죽은 선택지 문제를 (a) 임계값 완화(6→7)로
   해결했다. `code/scenes/combat_test.gd`의 `_do_exchange()` 안 "정예" 분기
