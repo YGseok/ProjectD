@@ -140,6 +140,10 @@ var _map_line: ColorRect
 var _map_hbox: HBoxContainer
 var _reward_icon_rows: Dictionary = {} # room type -> HBoxContainer, 방 선택 버튼 옆에 붙는 보상 카테고리 아이콘
 var _shop_gold_label: Label # "상점 입장" 버튼 바로 아래에 보유 골드를 보여주는 라벨
+## G-9(2026-10-07, INBOX.md [대형 기획 6]): "combat"/"elite" -> FamilyIcon, 두 보상
+## 아이콘 행(_reward_icon_rows) 맨 앞에 끼워 넣어 "다음 방에서 어떤 계열의 몬스터를
+## 만날지"를 보여준다. 상점/이벤트와 달리 전투는 스포일링 문제가 없어 노출(INBOX.md 원문).
+var _family_icon_by_type: Dictionary = {}
 
 ## 지금 화면에 보이는 방 선택 버튼들(+커스터마이징) — _layout_visible_buttons()가 매번
 ## 다시 채운다. KeyboardShortcuts로 1~N 숫자 키를 순서대로 배정하는 데 쓴다(INBOX.md
@@ -225,6 +229,13 @@ func _setup_reward_icons() -> void:
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 4)
 		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		# G-9: "전투"/"정예 전투" 행만 보상 아이콘 앞에 계열 아이콘을 둔다(어떤 몬스터를
+		# 상대하는지는 전투 쪽에만 해당, 상점/이벤트는 몬스터가 없어 대상 없음).
+		if t == "combat" or t == "elite":
+			var family_icon := FamilyIcon.new()
+			family_icon.custom_minimum_size = Vector2(18, 18)
+			row.add_child(family_icon)
+			_family_icon_by_type[t] = family_icon
 		for cat in REWARD_CATEGORIES[t]:
 			row.add_child(_make_reward_icon(cat))
 		add_child(row)
@@ -329,6 +340,56 @@ func _is_material_collector(attack_bag: DiceBag, defense_bag: DiceBag) -> bool:
 	return found.size() >= MATERIAL_SIDES.size()
 
 
+## G-9(2026-10-07): "전투" 선택지가 실제로 들어갈 몬스터의 카탈로그 프로필을 조회한다 —
+## combat_test.gd의 `_monster_config_for_plan()`과 같은 소스(RunState.monster_plan,
+## round_index 기준)를 읽어 미리보기가 실제 결과와 어긋나지 않게 한다. idx는 "이번 라운드
+## 안에서의" 방 번호(RunState.rooms_cleared와 동일 기준) — MapStrip은 항상 현재 라운드
+## 하나만 보여주므로 round_index는 항상 현재 값을 쓴다.
+func _monster_profile_for_room(idx: int) -> Dictionary:
+	var plan: Array = RunState.monster_plan
+	if plan.is_empty():
+		return MonsterCatalog.legacy_cycle_monster(idx)
+	var r: int = clampi(RunState.round_index - 1, 0, plan.size() - 1)
+	var round_slots: Array = plan[r]
+	var rm: int = clampi(idx, 0, round_slots.size() - 1)
+	return MonsterCatalog.get_by_id(round_slots[rm])
+
+
+## G-9: "정예 전투" 선택지가 그 방에서 노출된다면 들어갈 몬스터 프로필 — 위와 같은
+## 방식으로 RunState.elite_plan을 읽는다(combat_test.gd의 `_monster_config_for_elite()`와
+## 같은 소스). 그 방이 정예 선택지가 없는 자리(0번째/보스 방)면 빈 Dictionary.
+func _elite_profile_for_room(idx: int) -> Dictionary:
+	var plan: Array = RunState.elite_plan
+	if plan.is_empty():
+		return {}
+	var r: int = clampi(RunState.round_index - 1, 0, plan.size() - 1)
+	var round_slots: Array = plan[r]
+	if idx < 0 or idx >= round_slots.size():
+		return {}
+	var elite_id: String = round_slots[idx]
+	return MonsterCatalog.get_by_id(elite_id)
+
+
+## 버튼 옆 계열 아이콘(_family_icon_by_type)을 "지금 들어갈 방"(RunState.rooms_cleared)
+## 기준으로 갱신한다. 런이 끝난 상태("새 런 시작"만 보이는 화면)는 다음 방 자체가 없어
+## 갱신하지 않는다(이전 값이 남아있어도 그 행은 숨겨진 버튼 옆이라 안 보임).
+func _update_family_icons() -> void:
+	if RunState.is_run_complete():
+		return
+	if _family_icon_by_type.has("combat"):
+		var profile := _monster_profile_for_room(RunState.rooms_cleared)
+		var icon: FamilyIcon = _family_icon_by_type["combat"]
+		icon.category = profile.get("family", "")
+		icon.is_boss = profile.get("tier", "normal") == "boss"
+		icon.is_elite = false
+	if _family_icon_by_type.has("elite"):
+		var eprofile := _elite_profile_for_room(RunState.rooms_cleared)
+		var eicon: FamilyIcon = _family_icon_by_type["elite"]
+		eicon.category = eprofile.get("family", "")
+		eicon.is_boss = false
+		eicon.is_elite = true
+
+
 func _update_labels() -> void:
 	gold_label.text = "보유 골드: %d" % RunState.gold
 	# 상점 버튼 하단 골드 표시 — 가장 싼 품목(MIN_SHOP_ITEM_COST)조차 못 사는 상태면
@@ -394,6 +455,7 @@ func _update_labels() -> void:
 		enter_event_button.visible = _event_available
 		enter_story_button.visible = _story_available
 		enter_elite_button.visible = _elite_available
+	_update_family_icons()
 	_layout_visible_buttons()
 	_build_map_strip()
 
@@ -467,7 +529,11 @@ func _make_map_node(idx: int) -> Control:
 	vbox.add_child(title)
 
 	var opts := _room_options_for_index(idx)
-	vbox.add_child(_make_type_chip("전투", Color(0.5, 0.2, 0.2), "combat"))
+	var combat_profile := _monster_profile_for_room(idx)
+	vbox.add_child(_make_type_chip(
+		"전투", Color(0.5, 0.2, 0.2), "combat",
+		combat_profile.get("family", ""), combat_profile.get("tier", "normal") == "boss"
+	))
 	var chip_specs := {
 		"shop": ["상점", Color(0.5, 0.42, 0.15)],
 		"event": ["특수 이벤트", Color(0.35, 0.22, 0.5)],
@@ -477,7 +543,11 @@ func _make_map_node(idx: int) -> Control:
 	for t in opts.order:
 		if opts[t]:
 			var spec: Array = chip_specs[t]
-			vbox.add_child(_make_type_chip(spec[0], spec[1], t))
+			if t == "elite":
+				var elite_profile := _elite_profile_for_room(idx)
+				vbox.add_child(_make_type_chip(spec[0], spec[1], t, elite_profile.get("family", ""), false, true))
+			else:
+				vbox.add_child(_make_type_chip(spec[0], spec[1], t))
 
 	return panel
 
@@ -485,7 +555,9 @@ func _make_map_node(idx: int) -> Control:
 ## room_type을 넘기면 REWARD_CATEGORIES에 따른 보상 카테고리 아이콘을 텍스트 앞에
 ## 붙여, MapStrip 미리보기에서도 "이 방이 뭘 줄 수 있는지"를 도형으로 알 수 있게 한다
 ## (INBOX.md 피드백 — 선택지 버튼과 같은 시각 언어를 미리보기에도 반영).
-func _make_type_chip(text: String, color: Color, room_type: String = "") -> Control:
+## family가 비어있지 않으면(G-9, 2026-10-07) 보상 아이콘보다 앞에 FamilyIcon을 하나 더
+## 붙여 "이 방에서 만날 몬스터의 계열"도 함께 보여준다(전투/정예 전투 칩만 해당).
+func _make_type_chip(text: String, color: Color, room_type: String = "", family: String = "", is_boss: bool = false, is_elite: bool = false) -> Control:
 	var chip := PanelContainer.new()
 	var style := StyleBoxFlat.new()
 	style.bg_color = color
@@ -499,6 +571,14 @@ func _make_type_chip(text: String, color: Color, room_type: String = "") -> Cont
 	var hbox := HBoxContainer.new()
 	hbox.add_theme_constant_override("separation", 3)
 	chip.add_child(hbox)
+
+	if family != "":
+		var family_icon := FamilyIcon.new()
+		family_icon.custom_minimum_size = Vector2(12, 12)
+		family_icon.category = family
+		family_icon.is_boss = is_boss
+		family_icon.is_elite = is_elite
+		hbox.add_child(family_icon)
 
 	if REWARD_CATEGORIES.has(room_type):
 		for cat in REWARD_CATEGORIES[room_type]:

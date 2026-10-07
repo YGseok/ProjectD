@@ -5,35 +5,27 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-10-07 (163)
-- 작성자: AI 에이전트. G-7 완료로 실행 순서(F-2→F-3→G-1~G-9→F-4)상 다음인
-  INBOX.md "부분 처리됨"의 [대형 기획 6](몬스터 대개편) **G-8(보스 6종
-  전용 풀)**을 진행했다. `MonsterCatalog`에 보스 6종(라운드당 2종,
-  `tier="boss"`)과 `BOSS_ROSTER_BY_ROUND`/`boss_roster_ids()`를 추가하고,
-  `build_monster_plan()`의 보스 자리 선택을 "일반 20종 풀에서 무작위"에서
-  "그 라운드 보스 후보 2종 중 run_seed로 하나 고정"으로 바꿨다. 각 보스의
-  `phase2_skills`(HP 절반 이하에서 1회 발동)는 순수 함수
-  `combat_test._boss_phase2_activation()`이 "이미 보유한 스킬이면 강화,
-  아니면 새로 추가"로 계산하고, `_maybe_activate_boss_phase2()`가 그 결과를
-  실제 주머니/로그/디버그 텍스트에 적용한다(`min_max_only`가 phase2로
-  들어오는 경우만 `force_min_max_faces()`를 즉시 호출하는 특수 처리).
-  보스 초상화 1.25배 확대(`_ready()`)도 추가했다 — 왕관 오버레이는 G-1에서
-  이미 `is_boss`에 연동돼 있어 손댈 필요 없었다.
-  `dice_test.gd`에 신규 `_check_g8_boss()`(보스 풀 규모/라운드 배정,
-  `_monster_config_for_plan()`의 보스 실제 계산 결과, `_boss_phase2_
-  activation()`의 게이트 조건 + "강화"/"신규 추가"/"min_max_only" 세
-  패턴 + 디버그 텍스트)를 추가하고, G-6/G-5 검증의 기대값(보스 풀 출처,
-  카탈로그 규모 35종, 계열별 개수)을 갱신했다(`bash scripts/qa_shot.sh
-  dice_test` 전체 PASS). **시각 QA**로 `GAME_QA_MONSTER_ID=goblin_king`
-  + `GAME_QA_ROOM_OVERRIDE=4`로 보스 전투를 실제로 띄워 크래시 없음과
-  왕관/확대 초상화/3스킬 디버그 텍스트, armor/counter 스킬의 실제 전투
-  반영을 확인했다(`qa_out/combat_test_boss_g8.png`) — 다만 이 매치업은
-  플레이어가 초반에 패배해 2페이즈 전환 자체는 화면으로 못 봤고, 그
-  경로는 `_check_g8_boss()`의 순수 함수 검증으로만 확인됨. 자세한 내용은
-  아래 "완료 기록 (163)" 참고.
-  **G-8 완료.** 다음 할 일은 **G-9**(맵 미리보기 + DESIGN.md 몬스터 절
-  갱신 — 아래 "지금 위치"/"다음 할 일 큐" 참고). "완료 기록" 10개 유지를
-  위해 (153)을 `docs/STATUS_ARCHIVE.md`로 옮겼다.
+- 일시: 2026-10-07 (164)
+- 작성자: AI 에이전트. G-8 완료로 실행 순서(F-2→F-3→G-1~G-9→F-4)상 마지막
+  조각인 INBOX.md "부분 처리됨"의 [대형 기획 6](몬스터 대개편) **G-9(마무리:
+  맵 미리보기 + 문서)**를 진행했다. `dungeon_map.gd`에
+  `_monster_profile_for_room(idx)`/`_elite_profile_for_room(idx)`를
+  신설해 `combat_test.gd`의 `_monster_config_for_plan()`/
+  `_monster_config_for_elite()`와 같은 소스(`RunState.monster_plan`/
+  `elite_plan`)를 읽게 하고, "전투"/"정예 전투" 버튼 옆(보상 아이콘 행
+  맨 앞)과 MapStrip 칩에 `FamilyIcon`(다음 몬스터의 계열, 보스/정예 표시
+  포함)을 미리 보여주도록 했다 — 미리보기와 실제 입장 결과가 항상 일치.
+  `docs/DESIGN.md`의 "던전 몬스터" 절을 예전 "첫 5종" 표에서 **계열×등급
+  전체 카탈로그**(스킬 프리미티브 16종 범례 + 일반 20종 + 정예 8종 + 보스
+  6종 표)로 갱신했다. `bash scripts/qa_shot.sh dice_test` 전체 PASS(이번
+  변경은 테스트 대상 함수를 건드리지 않아 기존 검증 그대로 통과),
+  `scripts/qa_shot.sh dungeon_map`으로 크래시 없음 + 계열 아이콘이 실제로
+  그려지는지 확인했다(`qa_out/dungeon_map.png`). **G-9 완료로 [대형 기획
+  6](G-1~G-9) 전체 완료** — INBOX.md 해당 항목을 "처리됨"으로 이관했다.
+  다음 할 일은 **[대형 기획 5] F-4**(밸런스 자동 시뮬레이션, 3개
+  이터레이션으로 쪼갤 것 — 아래 "지금 위치"/"다음 할 일 큐" 참고). 자세한
+  내용은 아래 "완료 기록 (164)" 참고. "완료 기록" 10개 유지를 위해 (154)를
+  `docs/STATUS_ARCHIVE.md`로 옮겼다.
 
 ## 지금 위치
 
@@ -76,36 +68,55 @@ unlock_requirement()`)가 함께 보인다(F-1). 시작 스킬은 캐릭터당 3
 클리어→최종 클리어→해금된 시작 스킬로 새 런 시작까지 이어지는 전체
 흐름(E2E)도 견습 모험가+곡예사 2종으로 검증됐다**(상세는
 `docs/STATUS_ARCHIVE.md`의 완료 기록 (153)~(155)).
-**F-4(밸런스 시뮬)는 설계상 G-1~G-9(아래 [대형 기획 6]) 완료 후 진행 —
-아직 착수 전.**
-**[대형 기획 6] G-1~G-8 완료(2026-10-07), G-9만 남음** — 다음 할 일.
-사람이 몬스터를 계열(인간형/부정형/야수형/언데드형) + 일반 20종/정예
-8종/보스 6종의 대형 풀로 개편하고 정예 전투 방을 추가하는 설계를 이미
-끝내뒀다(INBOX.md "부분 처리됨" [대형 기획 6] 원문 참고). G-1로 계열
-4종 + 기존 몬스터 5종 데이터를 `MonsterCatalog`로 옮기고 전투 화면에
-계열 아이콘을 붙였다. G-2로 `MonsterSkills`(훅 4개: on_combat_start/
-modify_monster_roll/modify_player_roll/on_damage)를 만들고 기존 4종
-기믹을 그 구조로 이식했다(동작 보존). G-3으로 인간형 프리미티브
-armor(n)/guard_up/counter(n) + 부정형 sticky/seal/dull/numb 7종을, G-4로
-야수형 pounce(n)/bloodlust + 언데드형 drain/revive/chill 5종을 구현했다
-(수치는 전부 잠정값, F-4 시뮬로 조정 예정). G-5로 이 12종 프리미티브를
-일반 몬스터 신규 16종(계열당 5종 로스터 완성)에 배정했다. G-6으로 던전
-순환 로직을 `RunState.monster_plan`(런 시작마다 라운드×방 몬스터를
-미리 뽑아 저장, 난이도 공식 `room_index + (round_index-1)*3`)으로
-교체해 **정상 플레이(QA 환경변수 없이)에서 일반 20종 로스터 전체를
-실제로 만날 수 있게** 됐다. G-7로 정예 8종 + "정예 전투" 방을
-추가해, 정상 플레이에서 정예도 실제로 만날 수 있게 됐다. **G-8로
-보스 6종(라운드당 2종, `tier="boss"`)을 추가해 `build_monster_plan()`의
-마지막 방(보스) 자리가 더는 일반 풀이 아니라 그 라운드의 보스 후보
-2종 중 `run_seed`로 고정된 하나를 쓴다. 보스마다 전용 스킬 2~3개 +
-HP 절반 이하에서 1회 발동하는 2페이즈(`combat_test._boss_phase2_
-activation()` 순수 함수 + `_maybe_activate_boss_phase2()`) + 초상화
-1.25배 확대를 갖춘다**(위 "마지막 갱신" 참고 — 상세는 완료 기록
-(157)~(163), 오래된 것은 `docs/STATUS_ARCHIVE.md`).
-다음은 **G-9**(마무리 — 던전 맵의 "전투" 선택지 옆에 다음 몬스터의 계열
-아이콘 표시, `docs/DESIGN.md` 몬스터 절을 계열×등급 카탈로그 표로 갱신,
-STATUS.md에 풀 규모/잠정 수치 목록 정리)부터 진행하면 된다. G-9가 끝나면
-[대형 기획 6] 전체가 끝나 F-4(밸런스 시뮬)로 넘어갈 차례.
+**F-4(밸런스 시뮬, 3개 이터레이션: F-4a 헤드리스 시뮬 경로 → F-4b 시뮬
+러너 → F-4c 보고서)가 다음 할 일 —** [대형 기획 6](G-1~G-9)이 2026-10-07에
+전체 완료돼 착수 조건이 갖춰졌다.
+**[대형 기획 6] G-1~G-9 전체 완료(2026-10-07)** — 몬스터를 계열(인간형/
+부정형/야수형/언데드형) + 일반 20종/정예 8종/보스 6종의 대형 풀로 개편하고
+정예 전투 방을 추가하는 설계가 전부 반영됐다. G-1로 계열 4종 + 기존 몬스터
+5종 데이터를 `MonsterCatalog`로 옮기고 전투 화면에 계열 아이콘을 붙였다.
+G-2로 `MonsterSkills`(훅 4개: on_combat_start/modify_monster_roll/
+modify_player_roll/on_damage)를 만들고 기존 4종 기믹을 그 구조로
+이식했다(동작 보존). G-3으로 인간형 프리미티브 armor(n)/guard_up/
+counter(n) + 부정형 sticky/seal/dull/numb 7종을, G-4로 야수형
+pounce(n)/bloodlust + 언데드형 drain/revive/chill 5종을 구현했다(수치는
+전부 잠정값, F-4 시뮬로 조정 예정). G-5로 이 12종 프리미티브를 일반
+몬스터 신규 16종(계열당 5종 로스터 완성)에 배정했다. G-6으로 던전 순환
+로직을 `RunState.monster_plan`(런 시작마다 라운드×방 몬스터를 미리 뽑아
+저장, 난이도 공식 `room_index + (round_index-1)*3`)으로 교체해 **정상
+플레이(QA 환경변수 없이)에서 일반 20종 로스터 전체를 실제로 만날 수
+있게** 됐다. G-7로 정예 8종 + "정예 전투" 방을 추가해, 정상 플레이에서
+정예도 실제로 만날 수 있게 됐다. G-8로 보스 6종(라운드당 2종,
+`tier="boss"`)을 추가해 `build_monster_plan()`의 마지막 방(보스) 자리가
+그 라운드의 보스 후보 2종 중 `run_seed`로 고정된 하나를 쓰고, 보스마다
+전용 스킬 2~3개 + HP 절반 이하에서 1회 발동하는 2페이즈 + 초상화 1.25배
+확대를 갖춘다. **G-9(2026-10-07, 이번 이터레이션)로 던전 맵의
+"전투"/"정예 전투" 선택지(버튼 + MapStrip 칩 둘 다)에 다음 몬스터의
+계열 아이콘을 미리 보여주고**(`dungeon_map.gd`의 `_monster_profile_for_
+room()`/`_elite_profile_for_room()`이 `combat_test.gd`와 같은
+`RunState.monster_plan`/`elite_plan`을 읽어 미리보기와 실제 결과가
+어긋나지 않음), **`docs/DESIGN.md` 몬스터 절을 계열×등급 카탈로그 표로
+갱신**했다(상세는 완료 기록 (157)~(164), 오래된 것은
+`docs/STATUS_ARCHIVE.md`).
+
+**F-4가 참조할 풀 규모/잠정 수치 요약** (상세 수치는 `code/systems/
+monster_catalog.gd`/`combat_test.gd`가 원천):
+- 몬스터 카탈로그 총 35종 = 일반 20종(계열당 5종, 풀 뽑기 대상) + 레거시
+  전용 1종("다크 나이트" `dark_knight`, `legacy_cycle_monster()`/QA 전용
+  — 정상 플레이에는 안 나옴) + 정예 8종(계열당 2종) + 보스 6종(라운드당
+  2종).
+- 난이도: `effective_difficulty = room_index + (round_index-1)*3`
+  (`_monster_config_for_plan()`), 몬스터 다이스 면 수는 `_monster_dice_
+  sides_for_room(difficulty)`로 D4(0~1)→D6(2~3)→D8(4+).
+- 보스 배율: 공격 다이스 +2개/방어 +1개/HP×2(`_build_monster_config()`의
+  `is_boss` 분기, tier와 무관하게 전부 공통) + 전용 스킬 2~3개 + 2페이즈
+  (HP 50% 이하 1회, 스킬 1개 추가 또는 기존 스킬 강화).
+- 정예 배율: 스킬 2개 + `hp_mult 1.5` + 공격 다이스 +1개(8종 공통 공식),
+  보상 골드 ×2 + `EliteRewardPool`(A급 이상 카드 중심).
+- 등장 확률: "정예 전투"는 방 1~3에서 35%(`ELITE_CHANCE`)로 일반 전투
+  옆 추가 선택지. "보스"는 라운드의 마지막 방(5번째)에 그 라운드 후보
+  2종 중 `run_seed` 기반으로 등장(런 안에서는 고정, 라운드마다 다시
+  결정).
 **ART-1a(아트 스레드 전달, 2026-10-06) 완료** — 캐릭터 선택 카드 목록이
 7종으로 늘어나며 7번째(곡예사) 카드가 화면 밖으로 밀려 마우스로 선택 불가하던
 버그를 ScrollContainer로 해결(상세는 `docs/STATUS_ARCHIVE.md`의 완료
@@ -195,8 +206,11 @@ STATUS.md에 풀 규모/잠정 수치 목록 정리)부터 진행하면 된다. 
   공격+2/방어+1/HP×2는 그대로, 전용 스킬 2~3개 + HP 절반 이하에서 1회
   발동하는 2페이즈(`combat_test._boss_phase2_activation()` 순수 함수 —
   고블린 왕은 기존 스킬 강화, 나머지 5종은 새 스킬 1개 추가, 광란의
-  마수만 min_max_only라 특수 처리) + 초상화 1.25배 확대). 각 몬스터는
-  성격 1줄 문구를 갖고, 전투 화면 몬스터 이름 앞에 계열 아이콘
+  마수만 min_max_only라 특수 처리) + 초상화 1.25배 확대). **G-9(2026-10-07)로
+  던전 맵의 "전투"/"정예 전투" 선택지에도 같은 `FamilyIcon`을 붙여 다음
+  몬스터의 계열을 미리 보여준다**(버튼 옆 + MapStrip 칩 둘 다, 아직 안
+  간 방도 `RunState.monster_plan`/`elite_plan`을 미리 읽어 계산). 각
+  몬스터는 성격 1줄 문구를 갖고, 전투 화면 몬스터 이름 앞에 계열 아이콘
   (`FamilyIcon`, 보스는 왕관 오버레이) 표시, 난이도는
   `room_index + (round_index-1)*3` 공식으로 다이스 개수/면 개수/HP가
   스케일링된다. 3라운드 클리어 시 게임 클리어. 기믹의
@@ -869,6 +883,48 @@ STATUS.md에 풀 규모/잠정 수치 목록 정리)부터 진행하면 된다. 
 
 ## 완료 기록
 
+- **2026-10-07 (164)**: G-8 완료로 실행 순서(F-2→F-3→G-1~G-9→F-4)상 마지막
+  조각인 INBOX.md "부분 처리됨"의 [대형 기획 6](몬스터 대개편) **G-9(마무리:
+  맵 미리보기 + 문서)**를 진행했다 — **[대형 기획 6] G-1~G-9 전체 완료**,
+  INBOX.md로 "처리됨" 이관.
+  1. **던전 맵 미리보기**: `dungeon_map.gd`에 `_monster_profile_for_room(idx)`/
+     `_elite_profile_for_room(idx)`를 신설해 `combat_test.gd`의
+     `_monster_config_for_plan()`/`_monster_config_for_elite()`와 **같은
+     소스**(`RunState.monster_plan`/`elite_plan`, `round_index` 기준)를
+     읽게 했다 — 미리보기와 실제 입장 결과가 항상 일치. "전투"/"정예 전투"
+     버튼 옆 보상 아이콘 행(`_reward_icon_rows`) 맨 앞에 `FamilyIcon`을
+     하나씩 끼워 넣고(`_family_icon_by_type`), `_update_family_icons()`가
+     지금 방(`RunState.rooms_cleared`) 기준으로 매번 category/is_boss/
+     is_elite를 갱신한다(런 완료 화면에서는 "다음 방"이 없어 갱신하지
+     않음). `MapStrip`의 "전투"/"정예 전투" 칩(`_make_type_chip()`에
+     family/is_boss/is_elite 매개변수 3개를 추가)도 같은 방식으로 각
+     idx(아직 안 간 방 포함)의 몬스터 계열을 미리 보여준다 — 상점/이벤트는
+     스포일링 문제가 있어 그대로 "미정" 아이콘만 유지(INBOX.md 원문 그대로,
+     건드리지 않음).
+  2. **`docs/DESIGN.md`의 "던전 몬스터" 절**을 예전 "첫 5종" 표에서 **계열×
+     등급 전체 카탈로그**로 갱신했다 — 계열 4종 의미 설명, 스킬 프리미티브
+     16종(armor/guard_up/counter/steady_guard/sticky/seal/dull/numb/
+     anger_stack/min_max_only/pounce/bloodlust/fixed_value/drain/revive/
+     chill) 효과를 계열별로 정리한 범례 표, 일반 20종(계열당 5종) 표,
+     정예 8종 표, 보스 6종(라운드별 2종 + 2페이즈) 표, 그리고 "다크
+     나이트"(id `dark_knight`)가 카탈로그엔 남아있지만 일반 풀에서는
+     제외된 레거시 전용 몬스터임을 명시했다.
+  3. **STATUS.md 수치 정리**: 아래 "지금 위치" 문단에 풀 규모(일반 20/
+     레거시 1/정예 8/보스 6 = 총 35종)와 핵심 잠정 수치(난이도 공식,
+     보스/정예 배율, 등장 확률)를 F-4 밸런스 시뮬이 참조할 수 있도록
+     모아뒀다 — 상세 수치 자체는 이미 (156)~(163)/`monster_catalog.gd`
+     주석에 있으므로 새 숫자를 만들지 않고 위치만 가리킨다.
+  검증: `bash scripts/qa_shot.sh dice_test` 전체 PASS(이번 변경은 테스트
+  대상인 `_monster_config_for_*`/`MonsterCatalog`를 건드리지 않아 기존
+  검증 그대로 통과 — 새 dice_test 섹션은 추가하지 않음, 미리보기는 "화면에
+  보이는가"가 전부라 시각 QA로 충분). `bash scripts/qa_shot.sh dungeon_map`
+  으로 크래시 없음 + 1번째 방(전투 버튼 옆)/2번째 방(정예 전투 버튼과 그
+  버튼의 MapStrip 칩)에 계열 아이콘이 실제로 그려지는지, 보스 방(5번째
+  칸)에도 전투 칩에 아이콘이 붙는지 확인했다(`qa_out/dungeon_map.png`).
+  **[대형 기획 6] 전체가 끝나 다음은 [대형 기획 5] F-4(밸런스 시뮬)** —
+  아래 "다음 할 일 큐" 참고. "완료 기록" 10개 유지를 위해 (154)를
+  `docs/STATUS_ARCHIVE.md`로 옮겼다.
+
 - **2026-10-07 (163)**: G-7 완료로 실행 순서(F-2→F-3→G-1~G-9→F-4)상 다음인
   INBOX.md "부분 처리됨"의 [대형 기획 6](몬스터 대개편) **G-8(보스 6종 전용
   풀)**을 진행했다. `MonsterCatalog.MONSTERS`에 `tier="boss"` 6종(라운드당
@@ -1348,64 +1404,9 @@ STATUS.md에 풀 규모/잠정 수치 목록 정리)부터 진행하면 된다. 
   21번 참고) — 아직 미착수.
   "완료 기록" 10개 유지를 위해 (145)를 `docs/STATUS_ARCHIVE.md`로 옮겼다.
 
-- **2026-10-07 (154)**: INBOX.md "부분 처리됨"의 [대형 기획 5] **F-3(테스트
-  보강)의 2번째 조각**을 진행했다 — (153)이 "남은 F-3 범위"에 명시적으로
-  지목했던 "아직 '조건만 손으로 재현'하는 수준에 머물러 있는 나머지
-  스킬들(확장/정예/수집가/강철 방비/선제/대비/오뚝이/과적)"을 이번 조각의
-  범위로 잡았고, 같은 패턴인 "잡화점"도 함께 추출해 시작 스킬 13종 중
-  이미 (153)에서 끝난 맹공/철벽/황금손/승부사 4종을 뺀 나머지 9종
-  (확장/정예/수집가/강철 방비/선제/대비/과적/오뚝이/잡화점)을 전부 처리했다
-  — 이로써 13종 시작 스킬 전부가 "조건만 손으로 재현"이 아니라 실제
-  프로덕션 함수를 호출해 "계산 결과"를 검증받는다.
-  `combat_test.gd`에 정적 함수 9개를 신설했다: `_expand_bonus`/`_lean_bonus`
-  (합계 임계값), `_hoard_bonus`(눈금 개수), `_has_metal_die`+`_ironclad_bonus`
-  (재질 판정은 별도 함수로 분리해 두 주머니 중 "어느 쪽"이든 감지하는지도
-  독립적으로 테스트 가능하게 함), `_vanguard_bonus`/`_bulwark_bonus`(1회성
-  +2, `_deep_breath_bonus`보다 단순한 int 반환 — "+" 강화판이 없어서),
-  `_overflow_bonus`(주머니 가득 참), `_second_wind_bonus`(HP 절반 이하),
-  `_diverse_bonus`(기존 `_diverse_dice_type_count()`의 임계값 판정만 분리).
-  `_do_exchange()`의 해당 12개 지점(확장/정예/과적/잡화점은 공격턴+방어턴
-  각각이라 2곳씩, 나머지는 1곳씩)을 전부 이 함수 호출로 교체했다 — 동작은
-  동일(로그 문구만 "+1"/"+2" 고정값에서 "+%d"로 일반화)하고, "선제"/"대비"는
-  기존에 `and not player_*_used`를 if 조건에 직접 걸어 보너스 미적용 시에도
-  플래그를 건드리지 않던 구조를 "bonus > 0일 때만 플래그를 올림" 구조로
-  바꿔(심호흡/다른 F-3(153) 정리 스킬들과 같은 패턴) 일관성을 맞췄다(동작
-  결과는 동일 — 조건이 꺼져 있으면 애초에 아무 일도 안 일어나므로).
-  `dice_test.gd`의 `_check_starting_skill_combat_wiring()`에 (o) 바로 뒤
-  (p) 섹션을 신설해 9개 함수 전부를 "조건 충족 시 값"과 "조건 미충족 시
-  값"(선제/대비는 "1회차/2회차") 양쪽으로 직접 호출하고, 선제 보너스를
-  실제 `DiceBag.apply_flat_bonus()`에 넣어 `[1,4]`(D4 다이스)에 +2를
-  적용하면 `[3,4]`(두 번째 값은 면 상한 4에 걸려 그대로)가 되는지까지
-  확인했다(기존 (o)의 맹공 적용 결과 검증과 같은 패턴). 기존 (e)/(f)/(g)/
-  (i)/(k)/(l)/(m) 섹션(조건만 손으로 재현하던 것들)은 그대로 남겨뒀다 —
-  틀린 내용이 아니라 "여전히 유효하지만 불완전"했던 것이고, (h) 회귀
-  방지 테스트(수집가/강철 방비가 조건문에 중첩됐던 과거 버그 재발 방지)도
-  이번 리팩터와 무관하게 계속 유효해 손대지 않았다.
-  Edit 도구로 인라인 치환할 때 (153)과 같은 "Read 줄번호 탭을 들여쓰기로
-  착각" 실수를 다시 할 뻔해, 이번엔 먼저 `sed`+`cat -A`로 실제 탭 개수(최상위
-  if=1탭, 중첩 if=2탭, 본문=3탭)를 확인한 뒤 Edit old_string을 작성해 첫
-  시도부터 전부 성공했다(Bash로 python 스크립트를 실행하는 방식은 이 환경에서
-  "승인 필요"로 막혀 있어 포기하고 Edit 도구로 전환함 — 다음에도 python
-  일괄치환보다 Edit 도구+정확한 탭 확인이 더 빠를 것).
-  `bash scripts/qa_shot.sh dice_test` 전체 PASS(신규 (p) 섹션 포함),
-  `scripts/qa_shot.sh combat_test`로 전투 화면 크래시/겹침 없음도 확인(순수
-  리팩터링이라 레이아웃 영향 없음, `qa_out/combat_test.png`).
-  **남은 F-3 범위(3번째 조각)**: frenzy_deepen/guard_deepen/chain_explosion/
-  chain_guard류의 "재굴림" 스킬(이미 `_apply_bonus_reroll()`로 굴림 자체는
-  순수 함수화돼 있으나 "스택이 임계치에 도달해 보너스 턴으로 전환되는"
-  로직 자체는 아직 미검증 — `_do_exchange()` 하단의 `player_explosive_
-  stacks`/`player_guard_stacks` 집계 블록 참고), spare_die(+)의 "가장 낮은
-  값 대체" 효과 검증(`_apply_spare_die()`는 이미 순수 함수지만 호출 결과를
-  직접 비교하는 테스트는 없음), charm_flip/juggle_swap 등 캐릭터 기믹 자체의
-  효과 검증, 그리고 F-3이 요구하는 **전체 흐름(E2E) 테스트**(새 런 시작 →
-  라운드1 보스 격파 → r1 업적/슬롯1 해금 → 최종 클리어 → clear 업적/슬롯2
-  해금 → 새 런에서 실제 전투 효과 반영, 견습 모험가+곡예사 2종)는 이번에도
-  손대지 않았다.
-  "완료 기록" 10개 유지를 위해 (144)를 `docs/STATUS_ARCHIVE.md`로 옮겼다.
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(163)에서 (153)을 그리로 옮겼다.)*
+이번 이터레이션(164)에서 (154)를 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 
