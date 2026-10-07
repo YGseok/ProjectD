@@ -32,8 +32,17 @@
 - [부분 처리됨 - 2026-10-07] 2026-10-06 [대형 기획 6] 몬스터 대개편: 계열(패밀리) +
   대형 몬스터 풀 + 정예 방 + 라운드별 보스 2종.
 
-  → **G-1·G-2·G-3·G-4·G-5 완료(2026-10-07), G-6~G-9는 아직**(상세는
-  `docs/STATUS.md` 완료 기록 (156)/(157)/(158)/(159)/(160) 참고). G-1:
+  → **G-1·G-2·G-3·G-4·G-5·G-6 완료(2026-10-07), G-7~G-9는 아직**(상세는
+  `docs/STATUS.md` 완료 기록 (156)/(157)/(158)/(159)/(160)/(161) 참고). G-6으로
+  `MonsterCatalog.build_monster_plan()`이 라운드×방 몬스터를 런 시작마다
+  미리 뽑아 `RunState.monster_plan`에 저장하고, `combat_test.gd`의 신규
+  `_monster_config_for_plan()`이 이를 읽어 몬스터를 고르며 난이도 공식도
+  `room_index+(round_index-1)*3`으로 라운드를 반영한다 — 이제 정상
+  플레이(QA 환경변수 없이)에서 G-5가 채운 신규 16종을 포함한 일반 20종
+  로스터 전체를 만날 수 있다(기존 `legacy_cycle_monster()` 5종 고정 순환은
+  QA 훅(GAME_QA_ROOM_OVERRIDE/테스트 직접 호출) 전용으로 범위가 좁혀졌을
+  뿐 동작은 그대로 보존됨). 다음은 **G-7**(정예 전투 방 + 정예 풀 8종)부터.
+  G-1:
   `code/systems/monster_catalog.gd`(`MonsterCatalog`)에 계열 4종(`FAMILIES`)과
   기존 몬스터 5종(`MONSTERS`)을 데이터로 옮기고, `code/scenes/family_icon.gd`
   (`FamilyIcon`)로 계열 아이콘을 그려 전투 화면 몬스터 HP 라벨 옆에 표시했다.

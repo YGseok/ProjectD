@@ -245,6 +245,10 @@ func _ready() -> void:
 	all_pass = _check_g5_monster_catalog(lines) and all_pass
 
 	lines.append("")
+	lines.append("[G-6: 런 몬스터 계획(MonsterCatalog.build_monster_plan) + 라운드 난이도 스케일링 검증]")
+	all_pass = _check_g6_monster_plan(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -4670,5 +4674,135 @@ func _check_g5_monster_catalog(lines: PackedStringArray) -> bool:
 	lines.append("  구울 drain: dmg=9 -> heal_amount=%d(기대4, floor(9/2)) -> %s" % [
 		drain_result.get("heal_amount", -1), "OK" if drain_ok else "FAIL"
 	])
+
+	return ok
+
+
+## [대형 기획 6] G-6(2026-10-07) 검증 — MonsterCatalog.build_monster_plan()(순수 함수)이
+## "라운드x방" 모양으로 결정론적인 계획을 만드는지, combat_test.gd의
+## _monster_config_for_plan()이 그 계획 + 라운드를 반영한 난이도 공식(room_index +
+## (round_index-1)*3)을 "플래그"가 아니라 실제 attack_count/defense_count/max_hp/
+## dice_sides 계산 결과로 바꾸는지(F-3 원칙), reset_run()이 실제로 RunState.monster_plan을
+## 채우는지까지 확인한다.
+func _check_g6_monster_plan(lines: PackedStringArray) -> bool:
+	var ok := true
+
+	# (1) normal_roster_ids(): 20종, 다크 나이트 제외(G-7 전까지 일반 풀 뽑기 대상 아님).
+	var normal_ids: Array = MonsterCatalog.normal_roster_ids()
+	var roster_size_ok: bool = normal_ids.size() == 20 and not normal_ids.has("dark_knight")
+	ok = roster_size_ok and ok
+	lines.append("  MonsterCatalog.normal_roster_ids().size()=%d, 다크 나이트 포함=%s (기대 20, false) -> %s" % [
+		normal_ids.size(), normal_ids.has("dark_knight"), "OK" if roster_size_ok else "FAIL"
+	])
+
+	# (2) build_monster_plan(seed, 3, 5): 라운드 3개 x 방 5개 모양 + 같은 seed -> 같은 결과
+	# (재현 가능해야 QA/F-4 시뮬에서 의미가 있음).
+	var plan_a: Array = MonsterCatalog.build_monster_plan(12345, 3, 5)
+	var plan_b: Array = MonsterCatalog.build_monster_plan(12345, 3, 5)
+	var shape_ok: bool = plan_a.size() == 3
+	for round_slots in plan_a:
+		if round_slots.size() != 5:
+			shape_ok = false
+	var deterministic_ok: bool = str(plan_a) == str(plan_b)
+	ok = shape_ok and deterministic_ok and ok
+	lines.append("  build_monster_plan(seed=12345, 3, 5) 모양(3라운드x5방)=%s, 같은 seed 재현=%s -> %s" % [
+		shape_ok, deterministic_ok, "OK" if (shape_ok and deterministic_ok) else "FAIL"
+	])
+
+	# (3) "일반 전투" 자리(방 0~3, 라운드당 4개 = 총 12개)는 전부 서로 다른 id + 20종 풀 안
+	# (INBOX.md 원문 "한 판 안에서 중복 없이").
+	var normal_slot_ids: Array = []
+	for round_slots in plan_a:
+		for room in range(4):
+			normal_slot_ids.append(round_slots[room])
+	var seen := {}
+	var all_unique := true
+	for id in normal_slot_ids:
+		if seen.has(id):
+			all_unique = false
+		seen[id] = true
+	var all_in_pool := true
+	for id in normal_slot_ids:
+		if not normal_ids.has(id):
+			all_in_pool = false
+	ok = all_unique and all_in_pool and ok
+	lines.append("  일반 전투 자리(방 0~3 x 3라운드=12개) 전부 고유=%s, 전부 20종 풀 안=%s -> %s" % [
+		all_unique, all_in_pool, "OK" if (all_unique and all_in_pool) else "FAIL"
+	])
+
+	# (4) 보스 자리(방4)도 20종 풀 안의 몬스터(G-8 전까지 전용 보스 풀이 없어 같은 풀에서
+	# 뽑되, 중복은 허용됨 — "보스"는 아직 기존 스탯 배율로만 표현).
+	var boss_ok := true
+	for round_slots in plan_a:
+		if not normal_ids.has(round_slots[4]):
+			boss_ok = false
+	ok = boss_ok and ok
+	lines.append("  보스 자리(방4, 3라운드) 전부 20종 풀 안의 몬스터=%s -> %s" % [
+		boss_ok, "OK" if boss_ok else "FAIL"
+	])
+
+	# (5) 실제 배선: combat_test._monster_config_for_plan(round_index, room_index)이
+	# RunState.monster_plan을 읽어 몬스터를 고르고, 난이도 공식(room_index+(round_index-1)*3)을
+	# attack_count/defense_count/max_hp/dice_sides에 실제로 반영하는지 — "스킬 플래그가
+	# 들어갔는가"가 아니라 "계산 결과가 실제로 바뀌는가"를 직접 비교(F-3 원칙). 검증용 계획을
+	# RunState.monster_plan에 직접 꽂아두고 끝나면 원래 값으로 복원.
+	var plan_backup: Array = RunState.monster_plan
+	RunState.monster_plan = [
+		["slime", "goblin", "skeleton", "orc", "dark_knight"],
+		["armored_goblin", "poison_slime", "wolf", "ghoul", "zombie"],
+		["bandit", "ghost", "mad_dog", "wraith_soldier", "dark_knight"],
+	]
+	var script := load("res://code/scenes/combat_test.gd")
+	var combat = script.new()
+
+	# 라운드1/방0: difficulty = 0+(1-1)*3 = 0 -> DESIGN.md 확정값(공격2D4/방어1D4/HP10)과 동일.
+	var r1_room0: Dictionary = combat._monster_config_for_plan(1, 0)
+	var r1_room0_ok: bool = r1_room0["name"] == "슬라임" and r1_room0["attack_count"] == 2 \
+		and r1_room0["defense_count"] == 1 and r1_room0["max_hp"] == 10 and r1_room0["dice_sides"] == 4 \
+		and r1_room0["is_boss"] == false
+	ok = r1_room0_ok and ok
+	lines.append("  라운드1/방0: name=%s 공격=%d 방어=%d hp=%d sides=%d is_boss=%s (기대 슬라임,2,1,10,4,false) -> %s" % [
+		r1_room0["name"], r1_room0["attack_count"], r1_room0["defense_count"], r1_room0["max_hp"],
+		r1_room0["dice_sides"], r1_room0["is_boss"], "OK" if r1_room0_ok else "FAIL"
+	])
+
+	# 라운드2/방0: difficulty = 0+(2-1)*3 = 3 -> 공격=2+1=3, 방어=1+1=2, hp=10+9=19, sides=6(>=2).
+	# "아머 고블린"은 atk/def_dice_delta·hp_mult 전부 기본값(0/0/1.0)이라 공식 그대로 나와야 함.
+	var r2_room0: Dictionary = combat._monster_config_for_plan(2, 0)
+	var r2_room0_ok: bool = r2_room0["name"] == "아머 고블린" and r2_room0["attack_count"] == 3 \
+		and r2_room0["defense_count"] == 2 and r2_room0["max_hp"] == 19 and r2_room0["dice_sides"] == 6
+	ok = r2_room0_ok and ok
+	lines.append("  라운드2/방0: name=%s 공격=%d(기대3) 방어=%d(기대2) hp=%d(기대19) sides=%d(기대6) -> %s" % [
+		r2_room0["name"], r2_room0["attack_count"], r2_room0["defense_count"], r2_room0["max_hp"],
+		r2_room0["dice_sides"], "OK" if r2_room0_ok else "FAIL"
+	])
+
+	# 라운드2/방4(보스): difficulty = 4+(2-1)*3 = 7 -> 기본 공격=2+3=5, 방어=1+2=3,
+	# hp=round((10+21)*1.4)=43(좀비 hp_mult 1.4 반영), sides=8(>=4). 보스 보정(+2/+1/x2) 추가 ->
+	# 공격7 방어4 hp86.
+	var r2_room4: Dictionary = combat._monster_config_for_plan(2, 4)
+	var r2_room4_ok: bool = r2_room4["name"] == "좀비 [보스]" and r2_room4["attack_count"] == 7 \
+		and r2_room4["defense_count"] == 4 and r2_room4["max_hp"] == 86 and r2_room4["is_boss"] == true
+	ok = r2_room4_ok and ok
+	lines.append("  라운드2/방4(보스): name=%s 공격=%d(기대7) 방어=%d(기대4) hp=%d(기대86, 좀비 hp_mult 1.4 반영) is_boss=%s -> %s" % [
+		r2_room4["name"], r2_room4["attack_count"], r2_room4["defense_count"], r2_room4["max_hp"],
+		r2_room4["is_boss"], "OK" if r2_room4_ok else "FAIL"
+	])
+
+	combat.free()
+	RunState.monster_plan = plan_backup
+
+	# (6) reset_run()이 실제로 RunState.monster_plan을 "라운드x방" 모양으로 채우는지
+	# (글루 코드 자체가 호출되는지 — 값은 위 (1)~(5)에서 이미 직접 계산으로 검증했으므로
+	# 여기서는 "비어있지 않고 모양이 맞는지"만 확인).
+	var char_backup: String = RunState.character_id
+	RunState.reset_run()
+	var plan_generated_ok: bool = RunState.monster_plan.size() == RunState.TOTAL_ROUNDS \
+		and RunState.monster_plan[0].size() == RunState.TOTAL_ROOMS
+	ok = plan_generated_ok and ok
+	lines.append("  reset_run() 후 RunState.monster_plan 모양 일치(기대 %d라운드x%d방)=%s -> %s" % [
+		RunState.TOTAL_ROUNDS, RunState.TOTAL_ROOMS, plan_generated_ok, "OK" if plan_generated_ok else "FAIL"
+	])
+	RunState.reset_run(char_backup)
 
 	return ok

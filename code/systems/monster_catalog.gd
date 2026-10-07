@@ -195,6 +195,86 @@ static func legacy_cycle_monster(room_index: int) -> Dictionary:
 	return get_by_id(id)
 
 
+## G-6(2026-10-07): "일반 전투" 풀 뽑기 대상 20종 id. tier=="normal"인 몬스터 전부에서
+## "다크 나이트"만 제외한다 — G-5 범위/의도적 보류 주석대로, 다크 나이트는 tier 필드가
+## 여전히 "normal"이지만 G-7에서 정예로 재배정될 예정이라 일반 풀 뽑기 대상이 아니다
+## (legacy_cycle_monster()의 기존 5종 순환 호환을 위해 MONSTERS 자체에서 빼지는 않음).
+static func normal_roster_ids() -> Array:
+	var ids := []
+	for m in MONSTERS:
+		if m.get("tier", "normal") == "normal" and m.get("id", "") != "dark_knight":
+			ids.append(m["id"])
+	return ids
+
+
+static func _family_of(id: String) -> String:
+	return get_by_id(id).get("family", "")
+
+
+static func _shuffled(ids: Array, rng: RandomNumberGenerator) -> Array:
+	var arr: Array = ids.duplicate()
+	for i in range(arr.size() - 1, 0, -1):
+		var j := rng.randi_range(0, i)
+		var tmp = arr[i]
+		arr[i] = arr[j]
+		arr[j] = tmp
+	return arr
+
+
+## sequence 안에서 "바로 이웃한 두 자리가 같은 계열"인 경우를 뒤쪽의 다른 계열 자리와
+## 맞바꿔 깨뜨린다(best-effort — INBOX.md 원문 "가능하면 같은 계열 연속 2번 금지", 맞바꿀
+## 상대가 없으면 그대로 둔다). 한 번의 좌->우 스캔만 하므로 모든 경우를 완전히 보장하진
+## 않는다.
+static func _avoid_consecutive_family(sequence: Array) -> void:
+	for i in range(1, sequence.size()):
+		if _family_of(sequence[i]) == _family_of(sequence[i - 1]):
+			for j in range(i + 1, sequence.size()):
+				if _family_of(sequence[j]) != _family_of(sequence[i - 1]):
+					var tmp = sequence[i]
+					sequence[i] = sequence[j]
+					sequence[j] = tmp
+					break
+
+
+## G-6(2026-10-07): 런 시작 시 한 번만 뽑는 "몬스터 계획" — RunState.monster_plan이
+## 저장하는 값을 만드는 순수 함수(RunState 없이 직접 테스트 가능, F-3 원칙). seed가 같으면
+## 항상 같은 결과를 내므로 RunState.run_seed로 재현 가능(QA/F-4 시뮬용).
+## 반환: Array[Array[String]] — plan[round][room] = 몬스터 id (round/room 둘 다 0부터
+## 시작, round는 rooms_per_round개의 방을 가짐 — 마지막 방이 보스 자리).
+## - 보스가 아닌 자리(0 .. rooms_per_round-2)는 normal_roster_ids()(20종) 안에서
+##   "이번 런 전체에서 중복 없이" 뽑는다(INBOX.md 원문 — total_rounds*(rooms_per_round-1)이
+##   풀 크기 이하일 때만 전부 중복 없이 뽑을 수 있다, 지금 3*4=12 <= 20).
+## - 마지막 방(보스 자리)은 G-7(정예)/G-8(보스 전용 풀)이 생기기 전까지 전용 풀이 없어
+##   같은 20종 풀에서 별도로 뽑는다(중복 허용 — "보스"는 여전히 기존 스탯 배율로만 표현).
+static func build_monster_plan(seed: int, total_rounds: int, rooms_per_round: int) -> Array:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed
+	var pool := normal_roster_ids()
+	var normal_slots_per_round: int = rooms_per_round - 1
+	var normal_sequence: Array = _shuffled(pool, rng).slice(0, total_rounds * normal_slots_per_round)
+	_avoid_consecutive_family(normal_sequence)
+	var plan: Array = []
+	var seq_i := 0
+	for r in total_rounds:
+		var round_slots: Array = []
+		for room in rooms_per_round:
+			if room == rooms_per_round - 1:
+				var boss_id: String = pool[rng.randi_range(0, pool.size() - 1)]
+				var prev_id: String = round_slots.back() if not round_slots.is_empty() else ""
+				if prev_id != "" and _family_of(boss_id) == _family_of(prev_id):
+					for _attempt in 3:
+						var candidate: String = pool[rng.randi_range(0, pool.size() - 1)]
+						if _family_of(candidate) != _family_of(prev_id):
+							boss_id = candidate
+							break
+				round_slots.append(boss_id)
+			else:
+				round_slots.append(normal_sequence[seq_i])
+				seq_i += 1
+		plan.append(round_slots)
+	return plan
+
+
 static func family_ids() -> Array:
 	return FAMILIES.keys()
 

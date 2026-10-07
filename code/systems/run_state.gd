@@ -70,6 +70,15 @@ extends Node
 ## 진행하기로 확정된 범위이고, 다음 이터레이션이 SkillPool.SKILLS의 각 스킬 효과를
 ## combat_test.gd에 실제로 배선해야 한다(DESIGN.md/STATUS.md 참고).
 ##
+## monster_plan / run_seed: INBOX.md [대형 기획 6] G-6(2026-10-07) — "방마다 어떤
+## 몬스터가 나오는지"를 던전 순환(기존 MonsterCatalog.legacy_cycle_monster(), 기존 5종만
+## 돌던 호환 함수)이 아니라 reset_run() 시점에 한 번에 미리 뽑아 저장한다
+## (MonsterCatalog.build_monster_plan() 참고 — 순수 함수, RunState는 결과만 들고 있음).
+## run_seed는 그 뽑기에 쓴 난수 시드를 그대로 저장해 재현 가능하게 한다(QA/F-4 밸런스
+## 시뮬용). combat_test.gd의 _ready()가 GAME_QA_ROOM_OVERRIDE가 없을 때
+## monster_plan[round_index-1][rooms_cleared]를 읽어 몬스터를 구성한다(GAME_QA_ROOM_OVERRIDE/
+## GAME_QA_MONSTER_ID가 있으면 기존처럼 이 계획을 완전히 우회).
+##
 ## chosen_starting_skill_id: [미니 기획 E]-3 (INBOX.md 2026-09-17 기획자 결정) —
 ## 캐릭터 선택 화면에서 미리 확정하는 "시작 스킬" 로드아웃(SkillPool.STARTING_SKILLS,
 ## skill_flags와는 별개 레이어). character_select.gd가 캐릭터 카드를 고를 때마다 그
@@ -94,6 +103,8 @@ var pip_inventory: Array[int] = []
 var die_inventory: Array[int] = []
 var skill_flags: Array[String] = []
 var chosen_starting_skill_id: String = ""
+var monster_plan: Array = []
+var run_seed: int = 0
 
 
 func _ready() -> void:
@@ -110,6 +121,8 @@ func reset_run(new_character_id: String = "") -> void:
 	round_index = 1
 	gold = 0
 	shop_visits = 0
+	run_seed = randi()
+	monster_plan = MonsterCatalog.build_monster_plan(run_seed, TOTAL_ROUNDS, TOTAL_ROOMS)
 	var profile := CharacterProfiles.get_profile(character_id)
 	player_attack_bag = DiceBag.new(4, profile.get("attack_count", 3))
 	player_defense_bag = DiceBag.new(4, profile.get("defense_count", 3))

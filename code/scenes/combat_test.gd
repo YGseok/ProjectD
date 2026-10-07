@@ -422,6 +422,13 @@ func _monster_dice_sides_for_room(room_index: int) -> int:
 ## 사람 플레이 피드백 필요). TOTAL_ROOMS가 5로 고정돼 있는 한 room_index=4만 해당되고,
 ## QA에서 GAME_QA_ROOM_OVERRIDE로 더 큰 값(9, 14 등)을 줘도 정확히 일치하지 않는 한
 ## 보스로 취급하지 않는다(다음 라운드 개념이 아직 없으므로).
+##
+## G-6(2026-10-07)로 이 함수는 "GAME_QA_ROOM_OVERRIDE/테스트가 직접 room_index를 넘겨
+## 호출하는 경로"(기존 5종 순환 + room_index 자체가 난이도) 전용으로 범위가 좁혀졌다 —
+## 동작은 전혀 바뀌지 않았다(기존 dice_test.gd 검증이 그대로 PASS해야 함). 실제 던전
+## 플레이(정상 진행, QA 환경변수 없음)는 대신 `_monster_config_for_plan()`이
+## RunState.monster_plan을 읽어 몬스터를 고르고 라운드까지 반영한 난이도를 쓴다. 둘 다
+## 공통 스탯 계산은 `_build_monster_config()`로 모아 중복을 없앴다.
 func _monster_config_for_room(room_index: int) -> Dictionary:
 	# G-5(2026-10-07) QA 훅: GAME_QA_MONSTER_ID 환경변수가 유효한 카탈로그 id면 room 순환과
 	# 무관하게 그 몬스터를 직접 구성한다(스케일링은 그대로 room_index 기준) — 신규 15종이
@@ -440,8 +447,49 @@ func _monster_config_for_room(room_index: int) -> Dictionary:
 		name_text = profile["name"]
 		if cycle > 0:
 			name_text = "강화 ".repeat(cycle) + name_text
+	var is_boss: bool = room_index == RunState.TOTAL_ROOMS - 1
+	return _build_monster_config(profile, name_text, room_index, is_boss)
+
+
+## G-6(2026-10-07) 신규 — 정상 던전 진행(QA 환경변수 없음)에서 몬스터를 고르는 경로.
+## round_index(1부터)/room_index(0부터, RunState.rooms_cleared와 동일 기준)로
+## RunState.monster_plan을 조회해 몬스터 id를 얻고, "난이도"는 room_index 하나가 아니라
+## INBOX.md G-6 공식 그대로 `room_index + (round_index - 1) * 3`을 쓴다 — 라운드가
+## 올라가도 매번 처음부터(공격 2D4/방어 1D4) 시작하진 않지만, room_index만 썼을 때처럼
+## 라운드마다 꾸준히 5단계씩 쌓이지도 않게 완화된 곡선(실제로 적당한지는 F-4 시뮬/사람
+## 피드백 영역). "보스" 여부는 여전히 room_index(라운드 내 실제 위치)만 본다 — 몇 라운드든
+## 그 라운드의 마지막 방(room_index == TOTAL_ROOMS-1)이면 보스.
+func _monster_config_for_plan(round_index: int, room_index: int) -> Dictionary:
+	var id_override := OS.get_environment("GAME_QA_MONSTER_ID")
+	var override_profile: Dictionary = MonsterCatalog.get_by_id(id_override) if id_override != "" else {}
+	var profile: Dictionary
+	if not override_profile.is_empty():
+		profile = override_profile
+	else:
+		var plan: Array = RunState.monster_plan
+		# plan이 비어있는 상태(이론상 reset_run()을 거치지 않은 테스트 전용 인스턴스 등)는
+		# 기존 5종 순환으로 안전하게 폴백한다 — 크래시보다 "뭔가는 나온다"가 낫다.
+		if plan.is_empty():
+			profile = MonsterCatalog.legacy_cycle_monster(room_index)
+		else:
+			var r: int = clampi(round_index - 1, 0, plan.size() - 1)
+			var round_slots: Array = plan[r]
+			var rm: int = clampi(room_index, 0, round_slots.size() - 1)
+			profile = MonsterCatalog.get_by_id(round_slots[rm])
+	var difficulty: int = room_index + (round_index - 1) * 3
+	var is_boss: bool = room_index == RunState.TOTAL_ROOMS - 1
+	return _build_monster_config(profile, profile["name"], difficulty, is_boss)
+
+
+## `_monster_config_for_room()`/`_monster_config_for_plan()`이 공유하는 스탯 계산부 —
+## 몬스터 프로필 + 이름 문자열(접두어 처리 전) + "난이도"(스케일링에 쓰는 정수, 둘 다 전과
+## 동일하게 "room_index" 자리에 넣던 값) + is_boss만 받으면 나머지(기믹 표시용 접미사,
+## 다이스 개수/HP/면 개수, 스킬 파라미터 dict)는 완전히 같은 계산. 이 함수 자체는
+## G-6에서 기존 _monster_config_for_room() 본문을 그대로 옮겨온 것뿐이라 동작 변경 없음.
+func _build_monster_config(profile: Dictionary, name_text_in: String, difficulty: int, is_boss: bool) -> Dictionary:
+	var name_text := name_text_in
 	var gimmick: String = MonsterCatalog.gimmick_of(profile)
-	var dice_sides := _monster_dice_sides_for_room(room_index)
+	var dice_sides := _monster_dice_sides_for_room(difficulty)
 	var gimmick_value := 0
 	if gimmick == "min_max_only":
 		name_text += " [극단]"
@@ -463,10 +511,9 @@ func _monster_config_for_room(room_index: int) -> Dictionary:
 	# def_dice_delta=0/hp_mult=1.0이라 아래 세 줄을 추가해도 결과가 완전히 그대로임,
 	# 동작 보존). 신규 몬스터 중 "독거미"/"해골 궁수"/"망령 병사"의 "방어 낮음"/"공격
 	# 낮음" 같은 잠정 메모가 이 delta로 표현된다(최소 1개는 보장).
-	var attack_count: int = max(1, 2 + int(room_index / 2.0) + int(profile.get("atk_dice_delta", 0)))
-	var defense_count: int = max(1, 1 + int(room_index / 3.0) + int(profile.get("def_dice_delta", 0)))
-	var max_hp: int = int(round((10 + room_index * 3) * profile.get("hp_mult", 1.0)))
-	var is_boss: bool = room_index == RunState.TOTAL_ROOMS - 1
+	var attack_count: int = max(1, 2 + int(difficulty / 2.0) + int(profile.get("atk_dice_delta", 0)))
+	var defense_count: int = max(1, 1 + int(difficulty / 3.0) + int(profile.get("def_dice_delta", 0)))
+	var max_hp: int = int(round((10 + difficulty * 3) * profile.get("hp_mult", 1.0)))
 	if is_boss:
 		attack_count += 2
 		defense_count += 1
@@ -558,22 +605,29 @@ func _monster_debug_info_text(config: Dictionary) -> String:
 	return text
 
 
-## QA 전용 — GAME_QA_ROOM_OVERRIDE 환경변수(정수)가 있으면 RunState.rooms_cleared
-## 대신 그 room_index로 몬스터를 구성한다. RunState 자체는 건드리지 않아(다른 화면/
-## 다음 판에 영향 없음) 순수 QA 검증용. 방마다 몬스터 다이스 개수/모양(sides)이 실제
-## "정지 감지가 끝난 뒤" 물리적으로 벽(combat_test.tscn Wall*) 안에 잘 들어와
-## 있는지를, freeze로 고정한 스냅샷이 아니라 정상 플레이와 동일한 경로
-## (_run_battle() -> _do_exchange() -> _wait_for_dice_to_settle())로 검증하기 위함
-## (여러 방을 실제로 깨야만 후반 몬스터 다이스를 볼 수 있어 느린 문제를 우회).
-func _room_index_for_monster_config() -> int:
+## QA 전용 — GAME_QA_ROOM_OVERRIDE 환경변수(정수)가 있으면 RunState.monster_plan을
+## 완전히 우회해 "그 난이도 인덱스의 임의 몬스터"(기존 5종 순환, _monster_config_for_room()
+## 그대로)를 구성한다. RunState 자체는 건드리지 않아(다른 화면/다음 판에 영향 없음) 순수
+## QA 검증용. 방마다 몬스터 다이스 개수/모양(sides)이 실제 "정지 감지가 끝난 뒤"
+## 물리적으로 벽(combat_test.tscn Wall*) 안에 잘 들어와 있는지를, freeze로 고정한
+## 스냅샷이 아니라 정상 플레이와 동일한 경로(_run_battle() -> _do_exchange() ->
+## _wait_for_dice_to_settle())로 검증하기 위함(여러 방을 실제로 깨야만 후반 몬스터
+## 다이스를 볼 수 있어 느린 문제를 우회). G-6(2026-10-07) 이전에는 정상 플레이도 이
+## 환경변수가 없을 때 같은 "room_index 기준 5종 순환" 경로를 썼지만, 이제는 정상 플레이
+## (환경변수 없음)는 `_monster_config_for_plan()`이 RunState.monster_plan을 쓴다 —
+## 이 함수는 "환경변수가 있을 때만" 호출되는 QA 전용 경로로 범위가 좁혀졌다.
+func _monster_config_for_room_override() -> Dictionary:
 	var override_env := OS.get_environment("GAME_QA_ROOM_OVERRIDE")
-	if override_env.is_valid_int():
-		return override_env.to_int()
-	return RunState.rooms_cleared
+	return _monster_config_for_room(override_env.to_int())
 
 
 func _ready() -> void:
-	var config := _monster_config_for_room(_room_index_for_monster_config())
+	var room_override := OS.get_environment("GAME_QA_ROOM_OVERRIDE")
+	var config: Dictionary
+	if room_override.is_valid_int():
+		config = _monster_config_for_room_override()
+	else:
+		config = _monster_config_for_plan(RunState.round_index, RunState.rooms_cleared)
 	var monster_sides: int = config["dice_sides"]
 	monster_attack_bag = DiceBag.new(monster_sides, config["attack_count"])
 	monster_defense_bag = DiceBag.new(monster_sides, config["defense_count"])

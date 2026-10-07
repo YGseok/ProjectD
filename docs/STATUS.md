@@ -5,30 +5,35 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-10-07 (160)
-- 작성자: AI 에이전트. G-4 완료로 실행 순서(F-2→F-3→G-1~G-9→F-4)상 다음인
-  INBOX.md "부분 처리됨"의 [대형 기획 6](몬스터 대개편) **G-5(일반 몬스터
-  20종 데이터, 계열당 5종)**를 진행했다. `monster_catalog.gd`에 신규 16종을
-  추가해 G-3/G-4가 만든 12종 프리미티브를 INBOX.md G-5 표대로 실제 몬스터에
-  배정했다(총 21개 = 20종 로스터 + 아직 정예로 안 옮겨간 다크 나이트).
-  기존 5종(슬라임/고블린/해골 전사/오크/다크 나이트)의 skills는 건드리지
-  않았다 — INBOX.md 원문은 슬라임/고블린 재배정도 원했지만, 그 둘은
-  `dice_test.gd` 회귀 테스트와 실제 던전 순환에 바로 영향을 줘 한
-  이터레이션 범위를 넘는다고 판단해 G-6(던전 순환 로직 자체를 교체하는
-  단계)으로 미뤘다. 글루 코드 3가지를 추가: (1) `legacy_cycle_monster()`로
-  MONSTERS가 늘어나도 기존 5종 순환이 전과 동일하게 유지되도록, (2)
-  `atk_dice_delta`/`def_dice_delta` 필드로 몬스터별 다이스 개수 보정, (3)
-  `hp_mult`를 처음으로 `max_hp` 계산에 실제 반영. QA 검증용
-  `GAME_QA_MONSTER_ID` 환경변수 훅과 `scripts/qa_shot.sh`의 8번째 인자도
-  신설했다. `dice_test.gd`의 신규 `_check_g5_monster_catalog()`로 카탈로그
-  규모/순환 호환/신규 프리미티브 5종의 계산 결과(효과, 플래그 아님)를
-  직접 검증했고(`bash scripts/qa_shot.sh dice_test` 전체 PASS),
-  `scripts/qa_shot.sh combat_test`로 기존 순환 회귀 없음 + "아머 고블린"/
-  "좀비" 두 신규 몬스터가 실제 전투에서 정상 동작함을 확인했다. 자세한
-  내용은 아래 "완료 기록 (160)" 참고.
-  **G-5 완료.** 다음 할 일은 **G-6**(런 시작 몬스터 계획 + 라운드 스케일링 —
-  아래 "지금 위치"/"다음 할 일 큐" 참고). "완료 기록" 10개 유지를 위해
-  (150)을 `docs/STATUS_ARCHIVE.md`로 옮겼다.
+- 일시: 2026-10-07 (161)
+- 작성자: AI 에이전트. G-5 완료로 실행 순서(F-2→F-3→G-1~G-9→F-4)상 다음인
+  INBOX.md "부분 처리됨"의 [대형 기획 6](몬스터 대개편) **G-6(런 시작
+  몬스터 계획 + 라운드 스케일링)**을 진행했다. `MonsterCatalog.
+  build_monster_plan(seed, total_rounds, rooms_per_round)`(순수 함수)으로
+  라운드×방 몬스터 계획을 한 번에 뽑고, `RunState.monster_plan`/`run_seed`가
+  그 결과를 저장해 `reset_run()`마다 새로 생성한다. 일반 전투 자리(라운드당
+  4개, 총 12개)는 일반 20종 풀에서 런 전체 중복 없이, 보스 자리(5번째 방)는
+  전용 풀이 아직 없어 같은 20종 풀에서 별도로(중복 허용) 뽑는다. 같은 계열
+  연속 2번은 best-effort로 피한다. `combat_test.gd`는 기존
+  `_monster_config_for_room()`(QA 환경변수/테스트 직접 호출 전용, 동작
+  완전 보존)은 그대로 두고, 신규 `_monster_config_for_plan(round_index,
+  room_index)`이 `RunState.monster_plan`을 읽어 몬스터를 고르며 난이도
+  공식을 `room_index + (round_index-1)*3`으로 라운드까지 반영한다 — 둘 다
+  공통 스탯 계산(`_build_monster_config()`)을 공유해 중복이 없다. `_ready()`
+  가 GAME_QA_ROOM_OVERRIDE 없을 때 이 새 경로로 분기해, **이제 정상 플레이
+  (QA 훅 없이)에서도 G-5가 채운 신규 16종 몬스터를 만날 수 있다** — 실제로
+  `combat_test`를 QA 환경변수 없이 로드해 신규 몬스터("유령")가 뜨는 것을
+  스크린샷으로 확인했다. 기존 GAME_QA_ROOM_OVERRIDE/GAME_QA_MONSTER_ID 훅과
+  `dice_test.gd`의 기존 스케일링/보스/카탈로그 검증은 전부 리팩터 전과 동일한
+  결과로 그대로 PASS(동작 보존 재확인). `dice_test.gd`의 신규
+  `_check_g6_monster_plan()`으로 계획의 모양/결정론성/풀 소속/중복 없음과
+  `_monster_config_for_plan()`의 실제 계산 결과(라운드별 난이도가 반영된
+  attack_count/defense_count/max_hp/dice_sides, hp_mult와 보스 배율이 함께
+  들어가는지)를 직접 검증했다(`bash scripts/qa_shot.sh dice_test` 전체
+  PASS). 자세한 내용은 아래 "완료 기록 (161)" 참고.
+  **G-6 완료.** 다음 할 일은 **G-7**(정예 전투 방 + 정예 풀 8종 — 아래
+  "지금 위치"/"다음 할 일 큐" 참고). "완료 기록" 10개 유지를 위해
+  (151)을 `docs/STATUS_ARCHIVE.md`로 옮겼다.
 
 ## 지금 위치
 
@@ -71,7 +76,7 @@ unlock_requirement()`)가 함께 보인다(F-1). 시작 스킬은 캐릭터당 3
 전체 흐름(E2E)도 견습 모험가+곡예사 2종으로 검증됐다**(완료 기록 (155)).
 **F-4(밸런스 시뮬)는 설계상 G-1~G-9(아래 [대형 기획 6]) 완료 후 진행 —
 아직 착수 전.**
-**[대형 기획 6] G-1~G-5 완료(2026-10-07), G-6~G-9 남음** — 다음 할 일.
+**[대형 기획 6] G-1~G-6 완료(2026-10-07), G-7~G-9 남음** — 다음 할 일.
 사람이 몬스터를 계열(인간형/부정형/야수형/언데드형) + 일반 20종/정예
 8종/보스 6종의 대형 풀로 개편하고 정예 전투 방을 추가하는 설계를 이미
 끝내뒀다(INBOX.md "부분 처리됨" [대형 기획 6] 원문 참고). G-1로
@@ -87,15 +92,21 @@ fixed_value/min_max_only/steady_guard)을 그 구조로 이식했다(동작 보�
 chill 5종을(완료 기록 (159)) `MonsterSkills`/`DiceBag`에 구현했다(수치는
 전부 잠정값, F-4 시뮬로 조정 예정). G-5로 이 12종 프리미티브를
 `monster_catalog.gd`의 실제 몬스터 데이터(신규 16종, 계열당 5종 로스터
-완성)에 배정했다(완료 기록 (160)) — 기존 5종의 skills는 그대로 두고(이유는
-위 "마지막 갱신" 참고), `_monster_config_for_room()`이 `legacy_cycle_
-monster()`를 통해 여전히 그 5종만 순환하므로 **지금 정상 플레이로는 신규
-16종을 만날 수 없다**(`GAME_QA_MONSTER_ID` QA 훅으로만 확인 가능 — G-6이
-이 순환을 "런 몬스터 계획"으로 대체해야 실제로 등장한다).
-다음은 **G-6**(런 시작 몬스터 계획 + 라운드 스케일링 — `RunState.
-monster_plan` 신설, 20종 풀에서 중복 없이 뽑기, 기존 `legacy_cycle_
-monster()` 순환 완전 제거, 이때 보류해둔 슬라임/고블린 재배정도 함께
-처리하는 게 안전)부터 순서대로 한 조각씩 진행하면 된다.
+완성)에 배정했다(완료 기록 (160)) — 기존 5종의 skills는 그대로 두었다(이유는
+`monster_catalog.gd` 상단 주석 참고). **G-6으로 던전 순환 로직 자체를
+"런 몬스터 계획"으로 교체했다**(완료 기록 (161)) — `MonsterCatalog.
+build_monster_plan()`이 런 시작마다 라운드×방 몬스터를 미리 뽑아
+`RunState.monster_plan`에 저장하고, `combat_test.gd`의 신규
+`_monster_config_for_plan()`이 이를 읽어 몬스터를 고르며 난이도 공식도
+`room_index + (round_index-1)*3`으로 라운드를 반영한다. **이제 정상
+플레이(QA 환경변수 없이)에서 G-5가 채운 신규 16종 몬스터를 실제로 만날 수
+있다** — 기존 5종(슬라임/고블린 등)도 여전히 20종 풀의 일원으로 똑같이
+뽑힐 수 있다(재배정은 안 했을 뿐 순환 자체에서 빠진 건 아님). 기존
+`_monster_config_for_room(room_index)`(GAME_QA_ROOM_OVERRIDE/테스트 직접
+호출 전용)는 동작 변경 없이 그대로 남아있다.
+다음은 **G-7**(정예 전투 방 + 정예 풀 8종 — 방 1~3에 "정예 전투" 선택지를
+확률 노출, 정예 몬스터는 스킬 2개+hp_mult 1.5+공격 다이스+1, 보상은 일반
+전투보다 큼)부터 순서대로 한 조각씩 진행하면 된다.
 **ART-1a(아트 스레드 전달, 2026-10-06) 완료** — 캐릭터 선택 카드 목록이
 7종으로 늘어나며 7번째(곡예사) 카드가 화면 밖으로 밀려 마우스로 선택 불가하던
 버그를 ScrollContainer로 해결(자세한 내용은 "완료 기록 (152)"). ART-1b/1c는
@@ -162,25 +173,26 @@ monster()` 순환 완전 제거, 이때 보류해둔 슬라임/고블린 재배�
 - **업적 시스템**: `AchievementManager`(Autoload)가 `user://achievements.json`에
   영구 저장, `AchievementPanel`로 열람. 21종 등록(`DEFINITIONS` 참고, 유형별
   아이콘 포함). 해금 순간 토스트/팝업은 없음.
-- **몬스터 카탈로그 21종(실제 플레이에 등장하는 건 여전히 기존 5종)**
-  (`code/systems/monster_catalog.gd`의 `MonsterCatalog.MONSTERS`): 던전
-  순환(`legacy_cycle_monster()`)에 실제로 쓰이는 건 여전히 기존 5종뿐 —
-  슬라임(부정형, 기믹 없음) / 고블린(인간형, anger_stack) / 해골
-  전사(언데드형, fixed_value) / 오크(야수형, min_max_only) / 다크
-  나이트(인간형, steady_guard, 방어 결과 하한선). 각각 성격 1줄 문구 보유,
-  전투 화면 몬스터 이름 앞에 계열 아이콘(`FamilyIcon`) 표시, 방 진행에
-  따라 개수/면 개수/HP 스케일링 + 마지막 방은 보스 강화(공격+2/방어+1/
-  HP×2). 3라운드 클리어 시 게임 클리어. 4종 기믹의 실제 적용 로직은
-  2026-10-07 G-2로 `code/systems/monster_skills.gd`(`MonsterSkills`, 훅
-  4개)로 이식됨(`combat_test.gd`는 이제 이 클래스를 호출만 함, 동작은
-  이식 전과 동일). **2026-10-07 G-5로 신규 16종(인간형 아머 고블린/방패
-  고블린/산적/경비병, 부정형 독 슬라임/유령/그림자/안개, 야수형 늑대/광견/
-  멧돼지/독거미, 언데드형 구울/좀비/해골 궁수/망령 병사)이 카탈로그에
-  추가돼 계열당 5종 로스터(+ 아직 정예로 안 옮겨간 다크 나이트)가
-  완성됐지만, G-6(런 몬스터 계획)이 던전 순환을 아직 대체하지 않아 지금은
-  `GAME_QA_MONSTER_ID` QA 훅으로만 확인 가능**(몬스터 초상화
-  `monster_portrait_placeholder.gd`도 G-5로 `family` export를 받아 계열별
-  최소 장식이 생겼다).
+- **몬스터 카탈로그 21종, 정상 플레이에서 20종(일반 로스터) 전부 등장**
+  (`code/systems/monster_catalog.gd`의 `MonsterCatalog.MONSTERS`): 2026-10-07
+  G-6으로 던전 순환이 `legacy_cycle_monster()`(기존 5종 고정 순환) 대신
+  `RunState.monster_plan`(런 시작마다 `MonsterCatalog.build_monster_plan()`
+  으로 미리 뽑아둠)을 쓰도록 바뀌어, **정상 플레이에서 일반 20종 로스터
+  전체(기존 슬라임/고블린/해골 전사/오크 + G-5 신규 16종)를 만날 수
+  있다**(다크 나이트만 G-7 정예 재배정 예정이라 일반 풀 뽑기 대상에서
+  제외됨, `legacy_cycle_monster()`로만 등장). 각 몬스터는 성격 1줄 문구를
+  갖고, 전투 화면 몬스터 이름 앞에 계열 아이콘(`FamilyIcon`) 표시, 난이도는
+  `room_index + (round_index-1)*3` 공식으로 다이스 개수/면 개수/HP가
+  스케일링되고 각 라운드의 마지막 방(5번째)은 보스 강화(공격+2/방어+1/
+  HP×2, 아직 몬스터 자체는 전용 보스 풀이 아니라 같은 20종 풀에서 뽑힘 —
+  G-8이 전용 보스 6종을 추가할 예정). 3라운드 클리어 시 게임 클리어. 기믹의
+  실제 적용 로직은 `code/systems/monster_skills.gd`(`MonsterSkills`, 훅
+  4개, G-2)로 이식돼 있다. QA 전용 `GAME_QA_ROOM_OVERRIDE`/
+  `GAME_QA_MONSTER_ID` 환경변수는 이 계획을 완전히 우회해 기존처럼 "그
+  난이도 인덱스의 임의 몬스터"/"지정한 특정 몬스터"를 직접 구성한다(동작
+  변경 없음 — `combat_test.gd`의 `_monster_config_for_room()`, G-6 이전과
+  동일). 몬스터 초상화 `monster_portrait_placeholder.gd`는 G-5로 `family`
+  export를 받아 계열별 최소 장식이 생겼다.
 - **QA 도구**: `scripts/qa_shot.sh <scene> [frame] [out] [qa_call] [settle]
   [click_path] [room_override] [monster_id_override]` — 8번째 인자는
   2026-10-07 G-5 신설, `GAME_QA_MONSTER_ID`로 전달돼 `combat_test.gd`가
@@ -844,6 +856,65 @@ monster()` 순환 완전 제거, 이때 보류해둔 슬라임/고블린 재배�
 
 ## 완료 기록
 
+- **2026-10-07 (161)**: INBOX.md "부분 처리됨"의 [대형 기획 6](몬스터 대개편)
+  **G-6(런 시작 몬스터 계획 + 라운드 스케일링)**을 진행했다 — G-5 완료로
+  실행 순서상 다음 조각. `code/systems/monster_catalog.gd`에 순수 함수
+  `MonsterCatalog.build_monster_plan(seed, total_rounds, rooms_per_round)`을
+  신설해, 라운드(3)×방(5)의 "몬스터 계획"을 한 번에 뽑는다 — 보스가 아닌
+  4개 방(라운드당)은 `normal_roster_ids()`(일반 20종, 다크 나이트 제외)
+  안에서 **런 전체(3×4=12자리) 중복 없이** 셔플+슬라이스로 뽑고, 마지막
+  방(보스 자리)은 G-7/G-8 전용 풀이 아직 없어 같은 20종 풀에서 별도로
+  뽑는다(중복 허용, "보스"는 여전히 기존 스탯 배율로만 표현). "가능하면
+  같은 계열 연속 2번 금지"(INBOX.md 원문)는 `_avoid_consecutive_family()`
+  로 좌→우 1회 스캔하며 뒤쪽의 다른 계열 자리와 맞바꾸는 best-effort로
+  구현(완전 보장은 아님, 원문 그대로). `RunState`에 `monster_plan`(plan[
+  round][room]=몬스터 id)과 `run_seed`(재현용)를 신설해 `reset_run()`이
+  매번 `randi()`로 시드를 뽑고 계획을 생성해둔다.
+  `code/scenes/combat_test.gd`는 기존 `_monster_config_for_room(room_index)`
+  (GAME_QA_ROOM_OVERRIDE/테스트가 직접 room_index를 넘기는 경로, 기존 5종
+  순환 + room_index=난이도)를 **동작 변경 없이 그대로 남겨두고**, 신규
+  `_monster_config_for_plan(round_index, room_index)`을 추가했다 — 둘 다
+  공통 스탯 계산(`_build_monster_config()`, 기존 함수 본문을 그대로 옮김)을
+  공유해서 중복 없이 "몬스터 선택 경로"만 다르다. 난이도 공식은 INBOX.md
+  원문 그대로 `difficulty = room_index + (round_index-1)*3`(라운드가
+  올라가도 room_index 누적만큼 매번 처음부터 쌓이진 않지만, 그렇다고 매
+  라운드 5단계씩 꾸준히 쌓이지도 않는 완화된 곡선 — 실제로 적당한지는 F-4
+  시뮬/사람 피드백 영역). `is_boss`는 여전히 "그 라운드 안에서의 실제 위치"
+  (room_index==TOTAL_ROOMS-1)만 본다. `_ready()`는 GAME_QA_ROOM_OVERRIDE가
+  있으면(QA 전용) 기존 경로로, 없으면(정상 플레이) `_monster_config_for_plan
+  (RunState.round_index, RunState.rooms_cleared)`로 분기 — **이제 실제
+  정상 플레이에서 G-5가 채운 16종 신규 몬스터를 만날 수 있다**(QA 훅 없이도).
+  **동작 보존 확인**: `_monster_config_for_room()`을 직접 호출하는 기존
+  dice_test.gd 검증(스케일링 공식/보스 보정/GAME_QA_MONSTER_ID 훅 등, 전부
+  `script.new()`로 `_ready()`를 안 거치고 직접 함수 호출하는 방식이라 이번
+  리팩터와 독립적)이 전부 그대로 PASS — 리팩터가 기존 동작을 하나도
+  안 바꿨음을 재확인. **검증(신규)**: `dice_test.gd`에 신규
+  `_check_g6_monster_plan()` 추가 — (1) `normal_roster_ids()` 크기(20,
+  다크 나이트 제외), (2) `build_monster_plan()`이 결정론적인지(같은 seed
+  → 같은 결과, 문자열 비교), (3) 일반 전투 12자리 전부 고유 + 20종 풀 안,
+  (4) 보스 4자리 전부 20종 풀 안, (5) `_monster_config_for_plan()`이
+  "플래그"가 아니라 실제 attack_count/defense_count/max_hp/dice_sides
+  계산 결과를 바꾸는지(F-3 원칙 — 검증용 계획을 RunState.monster_plan에
+  직접 꽂아 라운드1/방0(난이도0), 라운드2/방0(난이도3), 라운드2/방4(보스,
+  난이도7, 좀비 hp_mult 1.4까지 반영해 HP 86으로 두 배율이 함께 들어가는지)
+  세 지점을 손으로 공식을 재계산해 대조), (6) `reset_run()`이 실제로
+  `monster_plan`을 3라운드×5방 모양으로 채우는지. `bash scripts/qa_shot.sh
+  dice_test` 전체 PASS(신규 섹션 포함, 기존 G-1~G-5 검증 전부 그대로 PASS).
+  **시각 QA**: `scripts/qa_shot.sh combat_test`로 (a) GAME_QA_ROOM_OVERRIDE/
+  GAME_QA_MONSTER_ID 환경변수 없이 그냥 로드했더니 기존처럼 항상 "슬라임"이
+  아니라 무작위로 뽑힌 신규 몬스터("유령", 기믹 "봉인")가 실제 전투 화면에
+  이름/계열 아이콘/디버그 정보 줄까지 정상 표시됨을 확인(정상 플레이에서
+  신규 몬스터가 처음으로 실제로 등장) — `combat_test_g6_normal.png`. (b)
+  `GAME_QA_ROOM_OVERRIDE=4`로 기존과 동일하게 "다크 나이트 [철벽] [보스]"가
+  그대로 뜸(공격6D8/방어3D8/HP44, 리팩터 전과 완전히 동일) —
+  `combat_test_g6_room_override.png`. (c) `GAME_QA_MONSTER_ID=armored_goblin`도
+  기존처럼 room0 기준(공격2D4/방어1D4)으로 그대로 뜸 —
+  `combat_test_g6_monster_override.png`. 셋 다 qa_out/에 저장, 프로젝트
+  루트에 스트레이 스크린샷 없음.
+  **G-6 완료.** 다음 할 일은 **G-7**(정예 전투 방 + 정예 풀 8종 — 아래
+  "지금 위치"/"다음 할 일 큐" 참고). "완료 기록" 10개 유지를 위해 (151)을
+  `docs/STATUS_ARCHIVE.md`로 옮겼다.
+
 - **2026-10-07 (160)**: INBOX.md "부분 처리됨"의 [대형 기획 6](몬스터 대개편)
   **G-5(일반 몬스터 20종 데이터, 계열당 5종)**을 진행했다 — G-4 완료로 실행
   순서상 다음 조각. `code/systems/monster_catalog.gd`의 `MONSTERS`에 신규
@@ -1299,70 +1370,9 @@ monster()` 순환 완전 제거, 이때 보류해둔 슬라임/고블린 재배�
   런에서 새 시작 스킬 선택" 전체 흐름 E2E 테스트 추가, 원문은 3개
   이터레이션으로 쪼개라고 지시).
 
-- **2026-10-06 (151)**: INBOX.md "부분 처리됨"의 [대형 기획 5] F-2(직업별
-  시작 스킬 다양화) 중 **(b)만** 진행했다 — F-2(a)(업적 사다리)는 이전
-  이터레이션(150)에서 끝났고, 원문이 F-2를 (a)/(b)/(c)로 쪼개둔 대로 이번엔
-  "신규 원형 7종 데이터 정의 + 캐릭터별 슬롯 2 배정 + UI 3칸 레이아웃"만.
-  `code/systems/skill_pool.gd`의 `STARTING_SKILLS`(기존 6종)에 INBOX.md
-  원문이 지정한 신규 원형 7종을 그대로 추가했다 — `start_vanguard`
-  "선제"(광전사, 첫 공격턴 1회 +2) / `start_bulwark` "대비"(수호자, 첫
-  방어턴 1회 +2) / `start_wealth` "황금손"(견습 모험가, 골드 30마다 공격
-  +1 최대 +2) / `start_overflow` "과적"(폭발병, MAX_DICE에 꽉 찬 주머니
-  +1) / `start_second_wind` "오뚝이"(주술사, HP 절반 이하일 때 방어 +1) /
-  `start_gambler` "승부사"(매혹사, 위험 이벤트 DC -1, 최저 2) /
-  `start_diverse` "잡화점"(곡예사, 서로 다른 면 개수 3종 이상이면 전체
-  +1). 전부 기존 `DiceBag.apply_flat_bonus()`/`RunState` 값만 쓰는 조건부
-  보너스로 설계됐고(새 다이스 연산 없음), `character_ids`에 각자 캐릭터
-  하나씩만 넣어 다른 캐릭터와 안 겹치게 했다 — 이번 조각은 **데이터
-  정의만**이라 `combat_test.gd`/`event.gd`에는 아직 배선하지 않았다(실제
-  전투/이벤트 효과는 F-2(c)가 담당, 지금은 선택은 가능하지만 아무 효과도
-  없는 상태 — 기존 6종을 처음 추가했을 때(미니 기획 E-2)와 같은 패턴).
-  신규 스킬들은 배열 끝에 추가돼 각 캐릭터의 필터링 결과에서 항상 마지막
-  (슬롯 2)에 오므로, `unlock_requirement()`/`is_slot_requirement_met()`이
-  이미 F-2(a)에서 슬롯 번호로 범용 분기(슬롯 0=기본, 슬롯 1=r1_<id>, 그 외
-  =clear_<id>)하도록 만들어져 있어 **코드 수정 없이** 슬롯 2가 자동으로
-  "최종 클리어 해금" 조건을 따른다. `character_select.gd`의 슬롯 UI도
-  `starting_skills_for_character()`가 돌려주는 후보 개수만큼 버튼을 동적으로
-  채우는 구조(`_rebuild_starting_skill_slots()`가 `candidates.size()`로
-  반복)라 **UI 코드도 전혀 안 고쳤다** — 슬롯이 2개에서 3개로 늘어나는 것
-  자체가 기존 구조에서 자동으로 해결됨, "UI 3칸 레이아웃"은 실제로는
-  "3칸이 겹치지 않는지 확인"이 전부였다. 검증을 위해 QA 전용
-  `_debug_show_starting_skill_all_unlocked()`(r1_novice+clear_novice를
-  미리 해금하고 견습 모험가를 선택, 슬롯 0/1/2 전부 해금 상태로 만듦)를
-  신설해 `qa_out/character_select_starting_skill_3slots.png`로 확인 —
-  150px 버튼 3개(+10px 간격 2개=470px)가 상세 패널 폭(~596px) 안에
-  겹침/잘림 없이 들어감(캡처 결과 참고, 그림 안에서 "확장"(선택됨, 금테)/
-  "정예"/"황금손" 세 슬롯 모두 또렷이 보임).
-  `code/scenes/dice_test.gd`의 `_check_starting_skills`(캐릭터별 시작
-  스킬 슬롯 순서 검증)의 `expected` 맵을 7캐릭터 전부 3개 id 배열로
-  갱신해 새 슬롯 2가 의도한 자리(견습=황금손/광전사=선제/수호자=대비/
-  폭발병=과적/주술사=오뚝이/매혹사=승부사/곡예사=잡화점)에 정확히 오는지
-  검증한다. `bash scripts/qa_shot.sh dice_test` 전체 PASS(기존
-  슬롯 0/1 검증·잠금 미리보기 검증 등은 손대지 않아 그대로 통과 — 새
-  스킬들은 아직 전투 배선이 없어 효과 단위 테스트 대상도 아님, F-2(c)가
-  맡음). `docs/feedback/INBOX.md`의 [대형 기획 5] 항목은 "부분
-  처리됨"(F-1/F-2(a)/F-2(b) 완료, F-2(c)·F-3·F-4 남음)으로 진행 한 줄만
-  갱신하고 그대로 둔다. **DESIGN.md의 시작 스킬 표 7×3 갱신(F-2 원문
-  4번)은 일부러 미룬다** — 새 스킬 7종이 아직 실제 전투 효과가 없는
-  상태라, 지금 문서화하면 "코드에서 그대로 옮겨 적은 실제 동작" 원칙(기존
-  섹션 서문)과 어긋난다. F-2(c)가 배선을 마치고 효과가 실제로 동작하는
-  시점에 한 번에 갱신하는 게 맞다고 판단. "완료 기록" 10개 유지를 위해
-  (143)을 `docs/STATUS_ARCHIVE.md`로 옮겼다.
-  **다음 조각은 F-2(c)**: 신규 원형 7종의 실제 전투/이벤트 배선
-  (`combat_test.gd`/`event.gd`) + 각각 효과 단위 검증, 끝나면 DESIGN.md
-  표도 함께 갱신.
-
-  **참고(동시 작업 발견)**: 이 이터레이션 중 저장소에 다른 세션(아트
-  담당 스레드)이 커밋(`0867fc6` "캐릭터 선택 화면에 전신 원화 적용")을
-  동시에 올렸다 — `character_select.gd`에 QA 디버그 헬퍼 1개를 추가하던
-  중이라 그 커밋에 내 변경(`_debug_show_starting_skill_all_unlocked`)이
-  함께 섞여 들어갔다(기능적으로 문제는 없음, git history가 약간
-  뒤섞였을 뿐). 이번 커밋은 `skill_pool.gd`/`dice_test.gd`/
-  `docs/STATUS.md`/`docs/STATUS_ARCHIVE.md`만 포함한다.
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(160)에서 (150)을 그리로 옮겼다.)*
+이번 이터레이션(161)에서 (151)을 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 
