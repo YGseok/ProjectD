@@ -3331,12 +3331,14 @@ func _check_starting_skill_locked_preview(lines: PackedStringArray) -> bool:
 ## 검증은 데이터/UI뿐이라 선택해도 실제 skill_flags에는 전혀 반영되지 않았다. 이 함수는
 ## RunState.reset_run()이 chosen_starting_skill_id를 실제로 SkillPool.grant()에 넘기는지
 ## (character_select.gd가 "던전 시작" 직전에 하는 것과 같은 순서 — chosen을 먼저 정하고
-## reset_run()을 호출) 확인한다. combat_test.gd의 "맹공"/"철벽" 조건부 apply_flat_bonus는
-## deep_breath와 마찬가지로 _do_exchange() 안에 인라인돼 있어(별도 순수 함수로 분리돼
-## 있지 않음) 물리 시뮬레이션 없이 단위 테스트할 수 없다 — 대신 아래에서 두 캐릭터의
-## 기본 다이스 구성(광전사=공격4/방어2, 수호자=공격2/방어4)이 각 스킬의 발동 조건과
-## 실제로 맞아떨어지는지(설계 의도대로 "그 캐릭터 기본 상태에서 발동 가능"인지)를
-## 확인하고, 실전투 크래시 여부는 qa_shot.sh 스크린샷으로 별도 확인한다.
+## reset_run()을 호출) 확인한다. 아래에서 두 캐릭터의 기본 다이스 구성(광전사=공격4/
+## 방어2, 수호자=공격2/방어4)이 각 스킬의 발동 조건과 실제로 맞아떨어지는지(설계
+## 의도대로 "그 캐릭터 기본 상태에서 발동 가능"인지)를 확인하고, 실전투 크래시 여부는
+## qa_shot.sh 스크린샷으로 별도 확인한다. **2026-10-07 (F-3) 갱신**: 여기서 확인하는
+## 조건식 자체는 여전히 combat_test.gd의 인라인 조건을 손으로 재현한 것이지만, "맹공"/
+## "철벽"/"심호흡"(+)가 실제로 적용할 보너스 값을 계산하는 부분은 _aggro_bonus()/
+## _wall_bonus()/_deep_breath_bonus() 정적 함수로 분리돼 물리 없이 직접 호출/검증
+## 가능해졌다 — 아래 (n) 섹션 참고(더 이상 "단위 테스트할 수 없다"가 아님).
 func _check_starting_skill_combat_wiring(lines: PackedStringArray) -> bool:
 	var ok := true
 	var character_backup := RunState.character_id
@@ -3599,6 +3601,60 @@ func _check_starting_skill_combat_wiring(lines: PackedStringArray) -> bool:
 	ok = gambler_ok and ok
 	lines.append("  '승부사' DC 보정: base=3 미보유=%d(기대 3) 보유=%d(기대 2), base=2 보유=%d(최저 2 기대) -> %s" % [
 		gambler_dc3_without, gambler_dc3_with, gambler_dc_floor, "OK" if gambler_ok else "FAIL"
+	])
+
+	# (o) "맹공"/"철벽"/"심호흡"(+): 2026-10-07 (F-3)에 이 세 스킬의 보너스 계산이
+	# _aggro_bonus()/_wall_bonus()/_deep_breath_bonus() 정적 함수로 분리됐다 — 위 (c)/(i)
+	# 섹션은 combat_test.gd의 조건식을 손으로 재현해 "조건이 맞는지"만 봤지만, 여기서는
+	# 실제 게임이 호출하는 그 함수를 그대로 호출해 "적용될 보너스 값"(그리고 그 값을
+	# apply_flat_bonus에 넣었을 때 결과 배열이 실제로 올라가는지)까지 확인한다 — F-3이
+	# 지목한 "플래그만 보고 효과는 안 보는" 유형의 재발을 막기 위한 보강.
+	var aggro_bonus_on: int = combat_script._aggro_bonus(4, 2)
+	var aggro_bonus_off: int = combat_script._aggro_bonus(2, 2)
+	var aggro_bonus_ok: bool = aggro_bonus_on == 1 and aggro_bonus_off == 0
+	ok = aggro_bonus_ok and ok
+	lines.append("  '맹공' 보너스 계산: 공격4/방어2 -> %d(기대 1), 공격2/방어2 -> %d(기대 0) -> %s" % [
+		aggro_bonus_on, aggro_bonus_off, "OK" if aggro_bonus_ok else "FAIL"
+	])
+
+	var wall_bonus_on: int = combat_script._wall_bonus(2, 4)
+	var wall_bonus_off: int = combat_script._wall_bonus(2, 2)
+	var wall_bonus_ok: bool = wall_bonus_on == 1 and wall_bonus_off == 0
+	ok = wall_bonus_ok and ok
+	lines.append("  '철벽' 보너스 계산: 공격2/방어4 -> %d(기대 1), 공격2/방어2 -> %d(기대 0) -> %s" % [
+		wall_bonus_on, wall_bonus_off, "OK" if wall_bonus_ok else "FAIL"
+	])
+
+	# 보너스 값을 실제로 다이스 결과 배열에 적용했을 때 합계가 바뀌는지까지 확인한다
+	# (DiceBag.apply_flat_bonus()는 기존에 검증된 순수 함수 — 여기서는 "보너스 계산 ->
+	# 적용"의 연결 자체를 본다, 면 개수 상한도 함께 확인).
+	var aggro_bag := DiceBag.new(4, 2)
+	var aggro_values: Array = [1, 2]
+	var aggro_applied: Array = aggro_bag.apply_flat_bonus(aggro_values, aggro_bonus_on)
+	var aggro_applied_ok: bool = aggro_applied == [2, 3]
+	ok = aggro_applied_ok and ok
+	lines.append("  '맹공' 적용 결과: [1,2]에 보너스 %d 적용 -> %s(기대 [2, 3]) -> %s" % [
+		aggro_bonus_on, aggro_applied, "OK" if aggro_applied_ok else "FAIL"
+	])
+
+	# "심호흡"(base, 1회성) vs "심호흡+"(매 방어턴): 둘 다 있으면 "+"만 적용되고
+	# consume=false(1회성 플래그를 건드리지 않음), base만 있으면 1회차엔 bonus=1/
+	# consume=true, 이미 썼으면 bonus=0.
+	var db_plus_result: Dictionary = combat_script._deep_breath_bonus(["deep_breath", "deep_breath_plus"], false)
+	var db_plus_ok: bool = db_plus_result["bonus"] == 1 and db_plus_result["consume"] == false
+	ok = db_plus_ok and ok
+	lines.append("  '심호흡+' 보너스(base도 보유, 미사용): %s(기대 {bonus:1, consume:false}) -> %s" % [
+		db_plus_result, "OK" if db_plus_ok else "FAIL"
+	])
+
+	var db_base_first: Dictionary = combat_script._deep_breath_bonus(["deep_breath"], false)
+	var db_base_first_ok: bool = db_base_first["bonus"] == 1 and db_base_first["consume"] == true
+	var db_base_second: Dictionary = combat_script._deep_breath_bonus(["deep_breath"], true)
+	var db_base_second_ok: bool = db_base_second["bonus"] == 0
+	var db_base_ok: bool = db_base_first_ok and db_base_second_ok
+	ok = db_base_ok and ok
+	lines.append("  '심호흡' 보너스: 1회차(미사용) %s(기대 {bonus:1, consume:true}), 2회차(사용함) %s(기대 bonus:0) -> %s" % [
+		db_base_first, db_base_second, "OK" if db_base_ok else "FAIL"
 	])
 
 	RunState.chosen_starting_skill_id = chosen_backup

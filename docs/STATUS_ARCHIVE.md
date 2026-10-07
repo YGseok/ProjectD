@@ -8,6 +8,64 @@
 
 ---
 
+- **2026-09-24 (142)**: INBOX.md "부분 처리됨"의 [대형 기획 4](캐릭터 로스터
+  개편) 중 **C(신규 캐릭터 "곡예사")를** 세션 지침대로 진행했다 — A(방패병→
+  주술사 리스킨)/B(매혹사)는 (140)/(141)에서 이미 완료, D(공통 후속: 업적/
+  시작 스킬/고유 스킬/DESIGN.md 7종 갱신)는 INBOX.md 원문이 "B/C 둘 다 끝난
+  뒤"로 명시해 이번에도 손대지 않고 다음 이터레이션으로 남긴다.
+  `code/systems/character_profiles.gd`의 `PROFILES`에 7번째 항목
+  `id: "juggler"`(이름 "곡예사", 컨셉 "알록달록한 서커스 곡예사",
+  `gimmick: "juggle_swap"`, `attack_count`3/`defense_count`2 — "가볍게
+  움직이는 느낌"이라는 지시대로, `event_die_sides` 6, 노랑/보라 계열
+  hair/dress_color)를 지시된 그대로 추가하고 `GIMMICK_LABELS`에도 짧은
+  이름표("저글링")를 넣었다.
+  `juggle_swap`은 min_max_only/fixed_defense_die와 같은 "reset_run() 직후
+  1회 정적 적용" 패턴이라 지시대로 `combat_test.gd`가 아니라
+  `code/systems/run_state.gd`의 `_apply_character_gimmick()` match 문에
+  분기를 추가했다. 실제 맞교환 로직은 `code/systems/dice_bag.gd`에 신규
+  static 함수 `DiceBag.swap_random_dice(bag_a, bag_b)`로 구현 —
+  다른 `apply_*` 헬퍼(한 주머니 안에서만 동작)와 달리 이건 공격/방어 두
+  주머니를 "가로질러" 동작해야 해서 인스턴스 메서드 대신 static으로
+  분리했다(두 주머니 중 하나라도 비어 있으면 아무 일도 안 하는 안전 가드
+  포함). `run_state.gd`는 `"juggle_swap": DiceBag.swap_random_dice(player_
+  attack_bag, player_defense_bag)` 한 줄로 배선.
+  `code/scenes/skill_icon.gd`의 `CATEGORIES`에 `"juggle_swap"`을 추가하고
+  `_draw_swap_arrows()`(서로 반대 방향을 가리키는 화살표 2개로 "교환"을
+  표현하는 절차적 아이콘)를 신설 — `dice_test.gd`의 `_check_skill_icons`가
+  PROFILES 전체의 gimmick이 `SkillIcon.CATEGORIES`에 있는지 자동 검증하므로
+  빠뜨리면 즉시 FAIL했을 항목.
+  `code/scenes/dice_test.gd`에 두 종류의 신규 검증을 추가했다: (1)
+  `_check_character_profiles`에 `reset_run("juggler")`가 id/gimmick/시작
+  다이스 개수(3/2)를 올바르게 설정하는지, (2) `DiceBag.swap_random_dice()`
+  자체를 서로 면 개수가 다른 두 주머니(D6x2/D8x2)로 직접 호출해 "bag_a에
+  8면체가 정확히 1개, bag_b에 6면체가 정확히 1개 생기고 개수(count)는 양쪽
+  다 불변"임을 확인(무작위 인덱스라 "몇 번째가 바뀌었는지"가 아니라 "몇 개가
+  바뀌었는지"로 검증) + 빈 주머니 안전 가드 검증. 시작 다이스가 전부 표준
+  D4라 `reset_run("juggler")` 결과만으로는 swap이 실제로 일어났는지 눈으로
+  구분이 안 돼(면 값 배열이 swap 전후 똑같은 [1,2,3,4]), 로직 자체의 정확성은
+  이 순수 함수 단위 테스트로 따로 검증한 것 — INBOX.md 원문도 "시작 상태는
+  전부 표준 D4라 사실상 의미 없어 보일 수 있다"고 미리 언급한 부분.
+  `bash scripts/qa_shot.sh dice_test` 전체 PASS(신규 검증 포함).
+  `code/scenes/character_select.gd`에 `_debug_select_juggler()`(QA 전용,
+  인자 없는 0-arity 래퍼 패턴) 추가 후 `bash scripts/qa_shot.sh
+  character_select 60 qa_out/character_select_juggler.png
+  _debug_select_juggler`로 상세 패널을 직접 캡처 — "곡예사" 이름/설명/
+  노랑머리·보라원피스 초상/저글링 아이콘("보유 스킬: 저글링 (런 시작 시
+  공격/방어 다이스 1개씩 맞교환)")이 겹침·잘림 없이 표시됨을 확인. 기본
+  `qa_shot.sh character_select`(인자 없음, `qa_out/character_select.png`)도
+  다시 찍어 7종째 추가로 왼쪽 목록이 깨지지 않는지(스크롤 가능한 구조라 기존
+  6종과 동일하게 문제 없음) 확인.
+  **의도적으로 안 한 것**: `skill_pool.gd`의 `STARTING_SKILLS`/
+  `UNIQUE_SKILLS`에 곡예사 항목을 추가하지 않았다 — INBOX.md 원문이 이걸
+  "D. 공통 후속"(B/C 둘 다 끝난 뒤)으로 명시했고, 세션 지침도 C의 범위를
+  "character_profiles.gd 항목 추가 + run_state.gd의 기믹 적용 match 문
+  분기"로 못박아서 스킬 콘텐츠는 포함하지 않았다(그래서 곡예사 상세 패널의
+  "시작 스킬" 섹션도 매혹사와 마찬가지로 비어 보임 — 크래시 아니고 의도된
+  중간 상태). `achievement_manager.gd`의 `clear_juggler` 업적, `docs/
+  DESIGN.md`의 캐릭터 표 7종 갱신도 마찬가지로 D에서 한 번에 처리하기로
+  하고 이번엔 손대지 않음 — 지금은 DESIGN.md가 5종만 기술해 코드(7종)와
+  더 크게 어긋나 있는 상태(알려진 이슈 아님, D에서 해소 예정).
+
 - **2026-09-24 (141)**: INBOX.md "부분 처리됨"의 [대형 기획 4](캐릭터 로스터
   개편) 중 **B(신규 캐릭터 "매혹사")를** 세션 지침대로 진행했다 — A(방패병
   리스킨)는 (140)에서 이미 완료, C(곡예사)/D(공통 후속)는 이번에도 손대지

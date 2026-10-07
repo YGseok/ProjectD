@@ -68,6 +68,29 @@ static func _diverse_dice_type_count(attack_bag: DiceBag, defense_bag: DiceBag) 
 		sides_seen[die_faces.size()] = true
 	return sides_seen.size()
 
+## "심호흡"/"심호흡+" 보너스 계산 — INBOX.md 2026-10-06 [대형 기획 5] F-3이 지목한
+## 미검증 지점(이 함수가 분리되기 전에는 _do_exchange() 안에 인라인돼 있어 물리
+## 시뮬레이션 없이는 "적용될 보너스 값"을 단위 테스트할 수 없었음). "+" > base >
+## 없음 우선순위, base는 1회성(consume=true일 때 호출부가 player_deep_breath_used를
+## 올려야 함)이고 "+"는 매 방어턴 적용(consume=false)이라 플래그를 건드리지 않는다.
+static func _deep_breath_bonus(skill_flags: Array, already_used: bool) -> Dictionary:
+	if skill_flags.has("deep_breath_plus"):
+		return {"bonus": 1, "consume": false}
+	if skill_flags.has("deep_breath") and not already_used:
+		return {"bonus": 1, "consume": true}
+	return {"bonus": 0, "consume": false}
+
+## "맹공"(광전사 등, 공격 다이스 개수 > 방어 다이스 개수) 보너스 계산. "철벽"과
+## 완전히 대칭이라 두 함수를 나란히 둔다 — F-3이 지목한 또 다른 미검증 지점(위
+## _deep_breath_bonus와 같은 이유로 분리).
+static func _aggro_bonus(attack_count: int, defense_count: int) -> int:
+	return 1 if attack_count > defense_count else 0
+
+## "철벽"(수호자 등, 방어 다이스 개수 > 공격 다이스 개수) 보너스 계산 — _aggro_bonus와
+## 대칭.
+static func _wall_bonus(attack_count: int, defense_count: int) -> int:
+	return 1 if defense_count > attack_count else 0
+
 const SETTLE_LIN_THRESHOLD := 0.08
 const SETTLE_ANG_THRESHOLD := 0.5
 const SETTLE_MIN_FRAMES := 10
@@ -697,9 +720,10 @@ func _do_exchange(is_player_attacking: bool) -> void:
 	# 공격 다이스 결과값 전체 +1. 주머니 구성(개수)만 보는 정적 조건이라 전투 중 바뀌지
 	# 않음 — 매 공격턴(폭발 보너스 턴 포함)마다 다시 확인해 적용한다.
 	if is_player_attacking and RunState.skill_flags.has("start_aggro"):
-		if RunState.player_attack_bag.dice.size() > RunState.player_defense_bag.dice.size():
-			atk_values = atk_bag.apply_flat_bonus(atk_values, 1)
-			_append_log("맹공 효과: 공격 다이스 결과값 +1 (공격 다이스가 더 많음)")
+		var aggro_bonus := _aggro_bonus(RunState.player_attack_bag.dice.size(), RunState.player_defense_bag.dice.size())
+		if aggro_bonus > 0:
+			atk_values = atk_bag.apply_flat_bonus(atk_values, aggro_bonus)
+			_append_log("맹공 효과: 공격 다이스 결과값 +%d (공격 다이스가 더 많음)" % aggro_bonus)
 	# "확장"([미니 기획 E]-4, 시작 스킬): 공격+방어 다이스 합계가 8개 이상이면 공격
 	# 다이스 결과값 전체 +1(방어턴 쪽은 아래 "철벽" 옆에 대칭으로 적용). 맹공과 달리
 	# 개수 "차이"가 아니라 "합계"만 보므로 어느 주머니가 더 큰지는 무관하다.
@@ -765,20 +789,22 @@ func _do_exchange(is_player_attacking: bool) -> void:
 	# breath_used는 건드리지 않는다(혹시 나중에 "+"를 잃는 경우를 대비해 base의
 	# 1회성 상태를 훼손하지 않음).
 	if not is_player_attacking:
-		if RunState.skill_flags.has("deep_breath_plus"):
-			def_values = def_bag.apply_flat_bonus(def_values, 1)
-			_append_log("심호흡+ 효과: 방어 다이스 결과값 +1 (매 방어턴)")
-		elif RunState.skill_flags.has("deep_breath") and not player_deep_breath_used:
-			def_values = def_bag.apply_flat_bonus(def_values, 1)
-			player_deep_breath_used = true
-			_append_log("심호흡 효과: 방어 다이스 결과값 +1 (이번 전투 최초 1회)")
+		var deep_breath_result := _deep_breath_bonus(RunState.skill_flags, player_deep_breath_used)
+		if deep_breath_result["bonus"] > 0:
+			def_values = def_bag.apply_flat_bonus(def_values, deep_breath_result["bonus"])
+			if deep_breath_result["consume"]:
+				player_deep_breath_used = true
+				_append_log("심호흡 효과: 방어 다이스 결과값 +%d (이번 전투 최초 1회)" % deep_breath_result["bonus"])
+			else:
+				_append_log("심호흡+ 효과: 방어 다이스 결과값 +%d (매 방어턴)" % deep_breath_result["bonus"])
 	# "철벽"([미니 기획 E]-4, 시작 스킬): 방어 다이스 개수가 공격 다이스 개수보다 많으면
 	# 방어 다이스 결과값 전체 +1. 맹공과 완전히 대칭 구조(공격 대신 방어) — 주머니
 	# 구성(개수)만 보는 정적 조건이라 매 방어턴(수호 보너스 턴 포함)마다 다시 확인한다.
 	if not is_player_attacking and RunState.skill_flags.has("start_wall"):
-		if RunState.player_defense_bag.dice.size() > RunState.player_attack_bag.dice.size():
-			def_values = def_bag.apply_flat_bonus(def_values, 1)
-			_append_log("철벽 효과: 방어 다이스 결과값 +1 (방어 다이스가 더 많음)")
+		var wall_bonus := _wall_bonus(RunState.player_attack_bag.dice.size(), RunState.player_defense_bag.dice.size())
+		if wall_bonus > 0:
+			def_values = def_bag.apply_flat_bonus(def_values, wall_bonus)
+			_append_log("철벽 효과: 방어 다이스 결과값 +%d (방어 다이스가 더 많음)" % wall_bonus)
 	# "확장"([미니 기획 E]-4, 시작 스킬, 방어턴): 위 공격턴 "확장"과 완전히 대칭 —
 	# 공격+방어 다이스 합계가 8개 이상이면 방어 다이스 결과값 전체 +1.
 	if not is_player_attacking and RunState.skill_flags.has("start_expand"):
