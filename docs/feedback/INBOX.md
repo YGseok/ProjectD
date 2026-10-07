@@ -32,8 +32,9 @@
 - [부분 처리됨 - 2026-10-07] 2026-10-06 [대형 기획 6] 몬스터 대개편: 계열(패밀리) +
   대형 몬스터 풀 + 정예 방 + 라운드별 보스 2종.
 
-  → **G-1·G-2·G-3·G-4·G-5·G-6 완료(2026-10-07), G-7~G-9는 아직**(상세는
-  `docs/STATUS.md` 완료 기록 (156)/(157)/(158)/(159)/(160)/(161) 참고). G-6으로
+  → **G-1·G-2·G-3·G-4·G-5·G-6·G-7 완료(2026-10-07), G-8~G-9는 아직**(상세는
+  `docs/STATUS.md` 완료 기록 (156)/(157)/(158)/(159)/(160)/(161)/(162) 참고 —
+  (152) 이하는 `docs/STATUS_ARCHIVE.md`로 이동됨). G-6으로
   `MonsterCatalog.build_monster_plan()`이 라운드×방 몬스터를 런 시작마다
   미리 뽑아 `RunState.monster_plan`에 저장하고, `combat_test.gd`의 신규
   `_monster_config_for_plan()`이 이를 읽어 몬스터를 고르며 난이도 공식도
@@ -41,7 +42,17 @@
   플레이(QA 환경변수 없이)에서 G-5가 채운 신규 16종을 포함한 일반 20종
   로스터 전체를 만날 수 있다(기존 `legacy_cycle_monster()` 5종 고정 순환은
   QA 훅(GAME_QA_ROOM_OVERRIDE/테스트 직접 호출) 전용으로 범위가 좁혀졌을
-  뿐 동작은 그대로 보존됨). 다음은 **G-7**(정예 전투 방 + 정예 풀 8종)부터.
+  뿐 동작은 그대로 보존됨). G-7로 정예 8종(`MonsterCatalog`에 `tier="elite"`
+  로 추가, 전부 스킬 2개+hp_mult 1.5+공격 다이스+1 공식) +
+  `RunState.elite_plan`(`build_elite_plan()`으로 라운드마다 방 1~3에 중복
+  없이 배정) + 던전 맵 "정예 전투" 선택지(35% 확률, 빨간 테두리)를 추가해
+  정상 플레이에서도 정예를 실제로 만날 수 있다. 원문의 "다크 나이트를
+  정예로 재배정"은 기존 id(`dark_knight`)를 바꾸는 대신 같은 이름·같은
+  1번째 스킬을 쓰는 새 id `dark_knight_elite`로 구현했다(레거시 QA 경로의
+  이름 고정 회귀 테스트를 깨지 않기 위해 — 상세 이유는
+  `code/systems/monster_catalog.gd` G-7 주석). 승리 보상은 골드 ×2 +
+  `EliteRewardPool`(A급 이상 카드 중심)로 "일반 전투보다 크게" 구현했다.
+  다음은 **G-8**(보스 6종 전용 풀)부터.
   G-1:
   `code/systems/monster_catalog.gd`(`MonsterCatalog`)에 계열 4종(`FAMILIES`)과
   기존 몬스터 5종(`MONSTERS`)을 데이터로 옮기고, `code/scenes/family_icon.gd`

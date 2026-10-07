@@ -15,6 +15,8 @@ extends Control
 ##   "특수 이벤트 선택지 옆 아이콘으로... 어떤 보상이 될지 모른다는 느낌의 물음표
 ##   아이콘만 있으면 될것 같다" 반영. 특수 이벤트만 매번 dice/pip 중 무엇이 나올지
 ##   달라져 카테고리 아이콘이 결과를 스포일링했던 것을 이걸로 대체)
+## - "elite": 불꽃형 외곽선 + 해골 눈 느낌의 점 2개(INBOX.md [대형 기획 6] G-7 원문
+##   "전용 아이콘(해골+불꽃 느낌)" 반영) — "정예 전투" 선택지/범례 전용.
 
 var category: String = "gold":
 	set(v):
@@ -25,6 +27,7 @@ const COLOR_GOLD := Color(0.85, 0.7, 0.25)
 const COLOR_PIP := Color(0.3, 0.75, 0.75)
 const COLOR_DICE := Color(0.55, 0.35, 0.75)
 const COLOR_MYSTERY := Color(0.65, 0.65, 0.7)
+const COLOR_ELITE := Color(0.85, 0.25, 0.2)
 const COLOR_FACE_BG := Color(0.92, 0.88, 0.78)
 
 
@@ -44,6 +47,8 @@ func _draw() -> void:
 			_draw_die_face([Vector2(0.28, 0.28), Vector2(0.5, 0.5), Vector2(0.72, 0.72)], COLOR_DICE)
 		"mystery":
 			_draw_mystery()
+		"elite":
+			_draw_elite()
 		_:
 			pass
 
@@ -68,6 +73,23 @@ func _draw_mystery() -> void:
 	var text_size := font.get_string_size(text, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size)
 	var pos := Vector2(center.x - text_size.x * 0.5, center.y + text_size.y * 0.32)
 	draw_string(font, pos, text, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size, COLOR_MYSTERY)
+
+
+## 불꽃형 외곽(위가 뾰족한 5각 윤곽) + 눈구멍 2개(어두운 점) — "해골+불꽃 느낌"(INBOX.md
+## G-7 원문)의 "위험한 강적"을 도형으로 근사한다. family_icon.gd의 draw_colored_polygon
+## 패턴을 그대로 재사용.
+func _draw_elite() -> void:
+	var pts := PackedVector2Array([
+		Vector2(size.x * 0.5, size.y * 0.06),
+		Vector2(size.x * 0.84, size.y * 0.42),
+		Vector2(size.x * 0.68, size.y * 0.94),
+		Vector2(size.x * 0.32, size.y * 0.94),
+		Vector2(size.x * 0.16, size.y * 0.42),
+	])
+	draw_colored_polygon(pts, COLOR_ELITE)
+	var eye_r := size.x * 0.07
+	draw_circle(Vector2(size.x * 0.38, size.y * 0.46), eye_r, Color(0.12, 0.05, 0.05))
+	draw_circle(Vector2(size.x * 0.62, size.y * 0.46), eye_r, Color(0.12, 0.05, 0.05))
 
 
 ## 주사위 면(둥근 사각형) 안에 dot_ratios(0..1 비율 좌표) 위치에 점을 찍어, "눈금이 있는

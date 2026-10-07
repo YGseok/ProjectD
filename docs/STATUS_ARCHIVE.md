@@ -8,6 +8,68 @@
 
 ---
 
+- **2026-10-07 (152)**: 이전 이터레이션(151 직후)이 사용량 한도로 끊기며
+  `code/scenes/combat_test.gd`에 미커밋 상태로 남겨둔 F-2(c)(신규 시작 스킬
+  7종 전투 배선) 작업을 이어받아 완성했다. 이어받은 diff에서 **심각한 버그**를
+  발견했다 — 선제(`start_vanguard`)/황금손(`start_wealth`)/과적
+  (`start_overflow`, 공격턴)/잡화점(`start_diverse`, 공격턴) 4개 분기가
+  "수집가"(`start_hoard`) if-블록 안에, 대비(`start_bulwark`)/오뚝이
+  (`start_second_wind`)/과적(방어턴)/잡화점(방어턴) 4개 분기가 "강철 방비"
+  (`start_ironclad`) if-블록 안에 중첩돼 있어, 각각 수집가/강철 방비를
+  **함께 보유하지 않으면 영원히 발동하지 않는** 상태였다 — 2026-09-17 (138)
+  "조건문 안에 중첩된 죽은 분기" 버그(F-1 도입 동기가 된 바로 그 사고)가
+  F-2(c) 작업 중 재발한 것. 수집가=광전사 슬롯1, 선제=광전사 슬롯2처럼 같은
+  캐릭터가 둘 다 "선택 가능"하지만 **시작 스킬은 한 번에 1개만 고르는
+  구조**(`chosen_starting_skill_id` 단일값)라 실전에서는 거의 항상 둘 중
+  하나만 보유 — 즉 신규 스킬 8개 중 사실상 전부가 일반적인 플레이에서는
+  죽은 코드가 될 뻔했다. 모든 중첩 블록을 톱레벨 `if`로 분리해 바로잡았다.
+  이어서 "황금손"(`_wealth_bonus(gold)`)과 "잡화점"
+  (`_diverse_dice_type_count(attack_bag, defense_bag)`) 조건 계산을
+  `combat_test.gd`의 정적 함수로, "승부사" DC 보정을 `event.gd`의
+  `gambler_adjusted_dc(base_dc, has_gambler)`로 분리했다(`_material_for_
+  sides()`/`_apply_spare_die()` 등 기존 패턴과 동일 — 물리 다이스 스폰 없이
+  `dice_test.gd`가 직접 호출해 "계산 결과"를 검증할 수 있게 하기 위함).
+  `dice_test.gd`의 `_check_starting_skill_combat_wiring()`에 F-2(c) 신규
+  7종 전부의 효과 단위 테스트를 추가했다(i~n) — 선제/대비는 "1회성 게이팅"
+  (1회차 발동=true/사용 플래그 올린 뒤 2회차 발동=false)을, 황금손은
+  골드 0/29/30/59/60/90 → 보너스 0/0/1/1/2/2 실제 계산값을, 과적은
+  `DiceBag.is_full()` 전/후를, 오뚝이는 HP 11(거짓)/10(참) 경계를, 잡화점은
+  다이스 종류 1종→3종으로 늘어날 때 집계값을, 승부사는 `gambler_adjusted_
+  dc()`의 실제 DC 변화(3→2, 최저 2)를 검증한다 — 전부 플래그 유무가 아니라
+  "계산 결과가 실제로 바뀌는가"를 본다(세션 지침의 핵심 요구사항). `bash
+  scripts/qa_shot.sh dice_test` 전체 PASS, `scripts/qa_shot.sh combat_test`로
+  전투 화면 크래시/겹침 없음도 확인. `docs/DESIGN.md`의 "시작 스킬 선택" 절을
+  5캐릭터×2슬롯 구문에서 7캐릭터×3슬롯 표 + 13종(기존 6+신규 7) 전체 효과
+  설명으로 갱신했다(F-2 원문 4번). 이로써 **F-2(a)(b)(c) 전부 완료 — [대형
+  기획 5] F-2 전체 완료**, `docs/feedback/INBOX.md`는 F-1/F-2 완료, F-3/F-4
+  남음으로 갱신.
+  이어서 INBOX.md "남은 이슈"의 **ART-1a**(아트 스레드 전달, 캐릭터 선택 카드
+  목록이 7종으로 늘어나며 7번째 카드가 화면 밖으로 밀려 마우스로 선택 불가,
+  `qa_out/art_character_select.png`에서 발견된 버그)도 처리했다. 원인은
+  두 가지였다 — (1) `CardsContainer`가 스크롤 불가능한 `Control`이라 목록
+  영역(540px) 밖으로 밀린 콘텐츠(7×104=728px)에 손이 안 닿았던 것, (2) 카드
+  행 간격을 `CARD_HEIGHT`(92) 고정값으로 계산했는데, `PanelContainer`의
+  실제 결합 최소 높이(스타일박스 여백 + 내부 버튼/라벨 최소 크기)가 그보다
+  커서 Godot이 패널 크기를 자동으로 키우며 다음 행과 겹친 것. (1)은
+  `character_select.tscn`의 `CardsContainer`를 `ScrollContainer`로 바꾸고
+  그 안에 실제 카드를 담는 `CardsList`(Control) 자식을 추가해 해결
+  (`character_select.gd`의 `cards_container`가 이제 `$CardsContainer/
+  CardsList`를 가리킴). (2)는 `_build_cards()`가 각 카드를 추가한 직후
+  `card.get_combined_minimum_size().y`로 실제 필요한 높이를 재서 다음 행
+  위치를 누적하도록 바꿨다(고정값 대신 측정값 사용) — `cards_container.
+  custom_minimum_size`도 누적된 전체 높이로 설정해 ScrollContainer가 스크롤
+  범위를 올바르게 계산하게 함. `scripts/qa_shot.sh dice_test` 전체 PASS(회귀
+  없음 확인), `scripts/qa_shot.sh character_select`로 `qa_out/character_
+  select_art1a.png`(7종 목록이 스크롤바와 함께 겹침 없이 표시) +
+  `qa_out/character_select_juggler_select.png`(기존 `_debug_select_juggler()`
+  QA 훅으로 7번째 카드 선택이 실제로 동작하고 상세 패널이 정확히 갱신됨을
+  확인) 두 장으로 검증.
+  "완료 기록" 10개 유지를 위해 (141)을 `docs/STATUS_ARCHIVE.md`로 옮겼다.
+  **다음 조각은 F-3**(테스트 보강 — 기존 6종 스킬의 효과 단위 테스트가
+  비어 있으면 채우고, "새 런→라운드1 클리어→최종 클리어→업적 해금→다음
+  런에서 새 시작 스킬 선택" 전체 흐름 E2E 테스트 추가, 원문은 3개
+  이터레이션으로 쪼개라고 지시).
+
 - **2026-10-06 (151)**: INBOX.md "부분 처리됨"의 [대형 기획 5] F-2(직업별
   시작 스킬 다양화) 중 **(b)만** 진행했다 — F-2(a)(업적 사다리)는 이전
   이터레이션(150)에서 끝났고, 원문이 F-2를 (a)/(b)/(c)로 쪼개둔 대로 이번엔

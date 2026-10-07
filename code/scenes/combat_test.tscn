@@ -132,7 +132,7 @@ position = Vector2(70, 270)
 script = ExtResource("2_player_portrait")
 
 [node name="MonsterPortrait" type="Node2D" parent="."]
-position = Vector2(1210, 270)
+position = Vector2(1210, 312)
 script = ExtResource("3_monster_portrait")
 
 [node name="DiceViewportContainer" type="SubViewportContainer" parent="."]

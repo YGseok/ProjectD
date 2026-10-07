@@ -208,6 +208,10 @@ var monster_dice_gimmick := ""
 ## is_boss를 _ready()에서 그대로 저장해두고, _apply_room_advance()가 승리 시 이 방이
 ## 라운드의 마지막(보스) 방이었는지 판단해 RunState.advance_round() 호출 여부를 정하는 데 쓴다.
 var monster_is_boss := false
+## 이번 방이 "정예 전투"였는지(INBOX.md [대형 기획 6] G-7) — monster_is_boss와 같은
+## 패턴. RunState.pending_elite_fight를 _ready()에서 소비한 결과를 그대로 저장해
+## _apply_room_advance()(골드 x2)/_show_reward_ui()(A급 이상 중심 보상)가 분기에 쓴다.
+var monster_is_elite := false
 
 ## 몬스터 스킬 프레임워크(G-2, `code/systems/monster_skills.gd`의 `MonsterSkills`) 전용
 ## 상태 — 기존 "anger_stack 기믹 전용 전투 중 상태"(monster_anger_stacks/
@@ -481,6 +485,36 @@ func _monster_config_for_plan(round_index: int, room_index: int) -> Dictionary:
 	return _build_monster_config(profile, profile["name"], difficulty, is_boss)
 
 
+## G-7(2026-10-07) 신규 — "정예 전투" 선택지로 들어왔을 때 몬스터를 고르는 경로.
+## _monster_config_for_plan()과 같은 "RunState의 미리 뽑힌 계획을 읽기만 한다" 구조를
+## RunState.elite_plan에 적용한 버전. 정예는 보스를 겸할 수 없으므로(다른 방 슬롯이라
+## 같은 방에서 둘 다 뜰 일이 없음) is_boss는 항상 false로 고정 — "정예[G-7]+보스[G-8
+## 몫]" 조합은 G-8이 전용 보스 풀을 만들 때 다시 설계할 영역.
+func _monster_config_for_elite(round_index: int, room_index: int) -> Dictionary:
+	var id_override := OS.get_environment("GAME_QA_MONSTER_ID")
+	var override_profile: Dictionary = MonsterCatalog.get_by_id(id_override) if id_override != "" else {}
+	var profile: Dictionary
+	if not override_profile.is_empty():
+		profile = override_profile
+	else:
+		var plan: Array = RunState.elite_plan
+		var elite_id := ""
+		if not plan.is_empty():
+			var r: int = clampi(round_index - 1, 0, plan.size() - 1)
+			var round_slots: Array = plan[r]
+			var rm: int = clampi(room_index, 0, round_slots.size() - 1)
+			elite_id = round_slots[rm]
+		profile = MonsterCatalog.get_by_id(elite_id)
+		if profile.is_empty():
+			# elite_plan이 비어있거나(테스트 전용 인스턴스) 그 자리가 ""(room 0/마지막
+			# 방처럼 정예 선택지가 없는 자리)였던 예외 상황 — 크래시 대신 정예 풀의
+			# 첫 몬스터로 안전하게 폴백한다.
+			var fallback_ids := MonsterCatalog.elite_roster_ids()
+			profile = MonsterCatalog.get_by_id(fallback_ids[0]) if not fallback_ids.is_empty() else {}
+	var difficulty: int = room_index + (round_index - 1) * 3
+	return _build_monster_config(profile, profile.get("name", "정예 몬스터"), difficulty, false)
+
+
 ## `_monster_config_for_room()`/`_monster_config_for_plan()`이 공유하는 스탯 계산부 —
 ## 몬스터 프로필 + 이름 문자열(접두어 처리 전) + "난이도"(스케일링에 쓰는 정수, 둘 다 전과
 ## 동일하게 "room_index" 자리에 넣던 값) + is_boss만 받으면 나머지(기믹 표시용 접미사,
@@ -507,6 +541,12 @@ func _build_monster_config(profile: Dictionary, name_text_in: String, difficulty
 		# 예: D4 -> 2, D6 -> 3, D8 -> 4.
 		gimmick_value = int(ceil(dice_sides / 2.0))
 		name_text += " [철벽]"
+	# G-7(2026-10-07) — "정예"(tier=="elite") 전용 이름 태그. 기존 5종(legacy_cycle_monster()
+	# 경로)은 전부 tier=="normal"이라 이 분기에 전혀 안 걸려 동작 보존됨 — G-7 신규 8종만
+	# tier=="elite"로 추가됐다.
+	var is_elite: bool = profile.get("tier", "normal") == "elite"
+	if is_elite:
+		name_text += " [정예]"
 	# G-5(2026-10-07) — 몬스터별 다이스 개수/HP 보정(기존 5종은 전부 atk_dice_delta=0/
 	# def_dice_delta=0/hp_mult=1.0이라 아래 세 줄을 추가해도 결과가 완전히 그대로임,
 	# 동작 보존). 신규 몬스터 중 "독거미"/"해골 궁수"/"망령 병사"의 "방어 낮음"/"공격
@@ -520,12 +560,15 @@ func _build_monster_config(profile: Dictionary, name_text_in: String, difficulty
 		max_hp *= 2
 		name_text += " [보스]"
 	# G-3(MonsterSkills 파라미터) — skills 배열(각 원소 {"id":..., 파라미터...})을
-	# id로 인덱싱한 Dictionary. 지금 5종은 전부 파라미터 없음(skills[i]가 {"id":...}뿐).
+	# id로 인덱싱한 Dictionary. 기존 5종은 전부 파라미터 없음(skills[i]가 {"id":...}뿐),
+	# G-7 정예 8종부터 "amount" 파라미터가 실제로 채워진다.
 	var skill_params := {}
+	var all_skill_ids: Array = []
 	for skill in profile.get("skills", []):
 		var skill_id: String = skill.get("id", "")
 		if skill_id != "":
 			skill_params[skill_id] = skill
+			all_skill_ids.append(skill_id)
 	return {
 		"attack_count": attack_count,
 		"defense_count": defense_count,
@@ -535,12 +578,15 @@ func _build_monster_config(profile: Dictionary, name_text_in: String, difficulty
 		"color": profile["color"],
 		"dice_gimmick": gimmick,
 		"dice_gimmick_value": gimmick_value,
-		# G-2(MonsterSkills) 전용 — 기존 "dice_gimmick" 단일 문자열과 같은 정보를
-		# MonsterSkills 훅이 받는 "skill_ids: Array" 형태로도 함께 담는다(지금 몬스터는
-		# 전부 0개 또는 1개뿐이라 gimmick 하나를 그대로 배열에 담은 것과 동일).
-		"skill_ids": [] if gimmick == "" else [gimmick],
+		# G-2(MonsterSkills) 전용 — MonsterSkills 훅이 받는 "skill_ids: Array" 형태.
+		# G-7 전까지는 몬스터가 전부 0개 또는 1개 스킬뿐이라 gimmick(=skills[0].id) 하나를
+		# 배열에 담은 것과 결과가 같았지만(동작 보존), G-7 정예 8종은 스킬이 2개씩이라
+		# profile["skills"] 전체를 id로 매핑해야 2번째 스킬도 실제로 적용된다 — gimmick
+		# 변수 하나만 쓰면 정예의 2번째 스킬이 통째로 무시되는 버그가 생기므로 주의.
+		"skill_ids": all_skill_ids,
 		"skill_params": skill_params,
 		"is_boss": is_boss,
+		"is_elite": is_elite,
 		"personality": profile.get("personality", ""),
 		"family": profile.get("family", ""),
 	}
@@ -563,46 +609,63 @@ func _monster_debug_info_text(config: Dictionary) -> String:
 	var personality: String = config.get("personality", "")
 	if personality != "":
 		text += "\n성격: %s" % personality
-	match config.get("dice_gimmick", ""):
-		"anger_stack":
-			text += "\n기믹: 분노 스택 (공격 최댓값 %d회 -> 다음 공격 1D%d)" % [
-				ANGER_STACK_THRESHOLD, ANGER_DICE_SIDES
-			]
-		"fixed_value":
-			text += "\n기믹: 고정값 (항상 %d만 나옴, 안 굴림)" % config["dice_gimmick_value"]
-		"min_max_only":
-			text += "\n기믹: 극단 (최소·최대값만 나옴)"
-		"steady_guard":
-			text += "\n기믹: 철벽 방어 (방어 다이스 결과가 %d 미만이면 %d로 보정)" % [
-				config["dice_gimmick_value"], config["dice_gimmick_value"]
-			]
-		# G-5(2026-10-07)부터 실제로 쓰는 몬스터가 생긴 G-3/G-4 프리미티브 — "스킬이
-		# 효과가 있는지" QA 확인용으로 동일한 디버그 줄 패턴에 추가(기존 4종과 같은 형식).
-		"armor":
-			text += "\n기믹: 방어구 (방어 합계 +%d)" % config["skill_params"].get("armor", {}).get("amount", 0)
-		"guard_up":
-			text += "\n기믹: 궁지의 방어 (HP 절반 이하면 방어 다이스 결과 +1)"
-		"counter":
-			text += "\n기믹: 반격 (공격이 완전히 막히면 공격자에게 %d 반사)" % config["skill_params"].get("counter", {}).get("amount", 0)
-		"sticky":
-			text += "\n기믹: 끈적임 (플레이어 공격 최댓값 다이스 1개 -1)"
-		"seal":
-			text += "\n기믹: 봉인 (플레이어 공격 최솟값 다이스 1개를 0으로)"
-		"dull":
-			text += "\n기믹: 둔화 (플레이어 다이스 중 최댓값 면이 나온 것은 전부 -1)"
-		"numb":
-			text += "\n기믹: 마비 (플레이어 방어 최댓값 다이스 1개 -1)"
-		"pounce":
-			text += "\n기믹: 기습 (전투 첫 공격 합계 +%d)" % config["skill_params"].get("pounce", {}).get("amount", 0)
-		"bloodlust":
-			text += "\n기믹: 피의 갈망 (HP 절반 이하면 공격 다이스 결과 +1)"
-		"drain":
-			text += "\n기믹: 흡수 (입힌 피해의 절반만큼 HP 회복)"
-		"chill":
-			text += "\n기믹: 한기 (플레이어 공격 최댓값 다이스 1개 -1)"
+	# G-7(2026-10-07): 정예 8종은 스킬이 2개씩이라, 예전처럼 "dice_gimmick"
+	# 하나(skills[0]만)만 보던 단일 match 대신 config["skill_ids"] 전체를 돌며 스킬마다
+	# 한 줄씩 붙인다. 기존 5종은 전부 skill_ids.size() <= 1이라 결과 문자열이 전과
+	# 완전히 동일하다(동작 보존 — dice_test.gd의 .contains() 기반 검증이 그대로 PASS).
+	for skill_id in config.get("skill_ids", []):
+		text += _skill_debug_line(skill_id, config)
+	if config.get("is_elite", false):
+		text += "\n[정예] 스킬 2개 + 공격 다이스 +1 + HP x1.5 강화됨"
 	if config.get("is_boss", false):
 		text += "\n[보스] 공격+2 / 방어+1 / HP x2 강화됨"
 	return text
+
+
+## _monster_debug_info_text()가 skill_ids 배열을 돌며 호출하는 스킬 1개당 문구 —
+## 기존에 한 몬스터당 하나뿐이던 match 분기를 그대로 함수로 뺀 것뿐이라 문구 자체는
+## 전혀 바뀌지 않았다(G-4가 추가했지만 이 디버그 텍스트에는 아직 안 붙어있던 "revive"만
+## 이번에 누락분으로 함께 채움).
+func _skill_debug_line(skill_id: String, config: Dictionary) -> String:
+	match skill_id:
+		"anger_stack":
+			return "\n기믹: 분노 스택 (공격 최댓값 %d회 -> 다음 공격 1D%d)" % [
+				ANGER_STACK_THRESHOLD, ANGER_DICE_SIDES
+			]
+		"fixed_value":
+			return "\n기믹: 고정값 (항상 %d만 나옴, 안 굴림)" % config["dice_gimmick_value"]
+		"min_max_only":
+			return "\n기믹: 극단 (최소·최대값만 나옴)"
+		"steady_guard":
+			return "\n기믹: 철벽 방어 (방어 다이스 결과가 %d 미만이면 %d로 보정)" % [
+				config["dice_gimmick_value"], config["dice_gimmick_value"]
+			]
+		"armor":
+			return "\n기믹: 방어구 (방어 합계 +%d)" % config["skill_params"].get("armor", {}).get("amount", 0)
+		"guard_up":
+			return "\n기믹: 궁지의 방어 (HP 절반 이하면 방어 다이스 결과 +1)"
+		"counter":
+			return "\n기믹: 반격 (공격이 완전히 막히면 공격자에게 %d 반사)" % config["skill_params"].get("counter", {}).get("amount", 0)
+		"sticky":
+			return "\n기믹: 끈적임 (플레이어 공격 최댓값 다이스 1개 -1)"
+		"seal":
+			return "\n기믹: 봉인 (플레이어 공격 최솟값 다이스 1개를 0으로)"
+		"dull":
+			return "\n기믹: 둔화 (플레이어 다이스 중 최댓값 면이 나온 것은 전부 -1)"
+		"numb":
+			return "\n기믹: 마비 (플레이어 방어 최댓값 다이스 1개 -1)"
+		"pounce":
+			return "\n기믹: 기습 (전투 첫 공격 합계 +%d)" % config["skill_params"].get("pounce", {}).get("amount", 0)
+		"bloodlust":
+			return "\n기믹: 피의 갈망 (HP 절반 이하면 공격 다이스 결과 +1)"
+		"drain":
+			return "\n기믹: 흡수 (입힌 피해의 절반만큼 HP 회복)"
+		"chill":
+			return "\n기믹: 한기 (플레이어 공격 최댓값 다이스 1개 -1)"
+		"revive":
+			return "\n기믹: 불사 (전투당 1회, HP 0이 되면 최대 HP 30%%로 부활)"
+		_:
+			return ""
 
 
 ## QA 전용 — GAME_QA_ROOM_OVERRIDE 환경변수(정수)가 있으면 RunState.monster_plan을
@@ -624,7 +687,15 @@ func _monster_config_for_room_override() -> Dictionary:
 func _ready() -> void:
 	var room_override := OS.get_environment("GAME_QA_ROOM_OVERRIDE")
 	var config: Dictionary
-	if room_override.is_valid_int():
+	# G-7(2026-10-07): RunState.pending_elite_fight가 세팅돼 있으면(dungeon_map.gd의
+	# "정예 전투" 버튼) GAME_QA_ROOM_OVERRIDE보다도 먼저 우선한다 — 둘 다 QA/실제 플레이
+	# 각자의 명시적 의도이지만, 실제 플레이에서 정예 버튼을 누른 경우 환경변수가 설정돼
+	# 있을 일이 없으므로 우선순위 충돌은 실질적으로 발생하지 않는다. 승패와 무관하게
+	# 즉시 소비(false로 되돌림) — 다음 전투 입장은 항상 일반 전투가 기본이어야 한다.
+	if RunState.pending_elite_fight:
+		RunState.pending_elite_fight = false
+		config = _monster_config_for_elite(RunState.round_index, RunState.rooms_cleared)
+	elif room_override.is_valid_int():
 		config = _monster_config_for_room_override()
 	else:
 		config = _monster_config_for_plan(RunState.round_index, RunState.rooms_cleared)
@@ -641,8 +712,10 @@ func _ready() -> void:
 	monster_name = config["name"]
 	monster_color = config["color"]
 	monster_is_boss = config["is_boss"]
+	monster_is_elite = config.get("is_elite", false)
 	monster_family_icon.category = config.get("family", "")
 	monster_family_icon.is_boss = monster_is_boss
+	monster_family_icon.is_elite = monster_is_elite
 	monster_portrait.set_body_color(monster_color if monster_color.a > 0 else Color(0.5, 0.5, 0.5))
 	monster_portrait.set_family(config.get("family", ""))
 	monster_debug_info_label.text = _monster_debug_info_text(config)
@@ -1196,6 +1269,11 @@ func _do_exchange(is_player_attacking: bool) -> void:
 		if _is_overkill_win(dmg, monster_max_hp):
 			AchievementManager.unlock("overkill_win")
 		var gold_gain := GOLD_REWARD_BASE + RunState.rooms_cleared * GOLD_REWARD_PER_ROOM
+		# G-7(2026-10-07, INBOX.md [대형 기획 6]): "정예"는 "보상이 일반 전투보다 커야
+		# 함: ... + 골드 x2" — 다른 보상 수치(PIP_REWARD 등)는 원문이 언급하지 않아
+		# 그대로 두고 골드만 배로 준다.
+		if monster_is_elite:
+			gold_gain *= 2
 		RunState.gold += gold_gain
 		_append_log("골드 획득: +%d (보유 %d)" % [gold_gain, RunState.gold])
 		if RunState.gold >= 100:
@@ -1560,7 +1638,12 @@ func _character_round1_achievement_id(char_id: String) -> String:
 ## 건너뛰기 전까지는 숨겨서 보상을 먼저 보게 한다.
 func _show_reward_ui() -> void:
 	if _reward_items.is_empty():
-		_reward_items = DiceItemPool.random_choices(2, RunState.player_attack_bag, RunState.player_defense_bag)
+		# G-7(2026-10-07): "정예" 승리는 EliteRewardPool(A급 이상 중심 가중치)에서 뽑는다 —
+		# 일반 전투는 기존 DiceItemPool.random_choices()(C/B급 위주) 그대로 동작 보존.
+		if monster_is_elite:
+			_reward_items = EliteRewardPool.random_choices(2)
+		else:
+			_reward_items = DiceItemPool.random_choices(2, RunState.player_attack_bag, RunState.player_defense_bag)
 
 	_clear_reward_ui()
 	next_button.hide()

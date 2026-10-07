@@ -57,6 +57,11 @@ extends Node2D
 
 const EVENT_CHANCE := 0.5
 const STORY_CHANCE := 0.5
+## INBOX.md [대형 기획 6] G-7(2026-10-07): "정예 전투"는 방 1~3(0부터 셀 때 idx 1..
+## TOTAL_ROOMS-2, 즉 1번째/마지막(보스) 방은 제외)에서만, 일반 전투 "옆에 추가
+## 선택지로" 확률 노출된다(INBOX.md 원문 "방 1~3에서 확률 35%"). shop처럼 고정 방이
+## 아니라 event/story와 같은 "확률 노출" 계열이라 이 상수도 그 둘과 나란히 둔다.
+const ELITE_CHANCE := 0.35
 ## INBOX.md 2026-09-14: "상점은 현재 5개의 방 기준, 2번째 4번째 방에만 추가한다."
 ## 예전에는 SHOP_CHANCE(0.6)로 방마다 확률 노출이었으나, 사용자가 고정 위치를
 ## 명시적으로 지시해 상점만 확률 노출에서 고정 노출로 바뀜(event/story는 그대로 확률
@@ -103,6 +108,10 @@ const REWARD_CATEGORIES := {
 	"shop": ["dice"],
 	"event": ["mystery"],
 	"story": ["gold"],
+	# "정예": 일반 전투와 같은 카테고리(골드+다이스)를 주지만 수치만 더 큼(combat_test.gd
+	#의 monster_is_elite 분기 — 골드 x2, 다이스 보상은 EliteRewardPool로 A급 이상 중심).
+	# "카테고리" 수준에선 눈금(pip) 보상은 안 주므로 combat과 완전히 같지는 않다.
+	"elite": ["gold", "dice"],
 }
 
 ## shop.gd의 ITEM_COSTS 중 가장 싼 값(boost_weak_face=10). 두 스크립트가 class_name 없이
@@ -116,6 +125,7 @@ const MIN_SHOP_ITEM_COST := 10
 @onready var enter_shop_button: Button = $EnterShopButton
 @onready var enter_event_button: Button = $EnterEventButton
 @onready var enter_story_button: Button = $EnterStoryButton
+@onready var enter_elite_button: Button = $EnterEliteButton
 @onready var map_strip: Control = $MapStrip
 @onready var customize_button: Button = $CustomizeButton
 @onready var customize_panel: CustomizePanel = $CustomizePanel
@@ -124,7 +134,8 @@ const MIN_SHOP_ITEM_COST := 10
 var _shop_available := true
 var _event_available := true
 var _story_available := true
-var _room_order: Array[String] = ["shop", "event", "story"]
+var _elite_available := false
+var _room_order: Array[String] = ["shop", "event", "story", "elite"]
 var _map_line: ColorRect
 var _map_hbox: HBoxContainer
 var _reward_icon_rows: Dictionary = {} # room type -> HBoxContainer, 방 선택 버튼 옆에 붙는 보상 카테고리 아이콘
@@ -141,6 +152,8 @@ func _ready() -> void:
 	enter_shop_button.pressed.connect(_on_shop_button_pressed)
 	enter_event_button.pressed.connect(_on_event_button_pressed)
 	enter_story_button.pressed.connect(_on_story_button_pressed)
+	enter_elite_button.pressed.connect(_on_elite_button_pressed)
+	_style_elite_button()
 	customize_button.pressed.connect(customize_panel.open)
 	_setup_map_strip()
 	_setup_reward_icons()
@@ -159,7 +172,10 @@ func _setup_reward_legend() -> void:
 	legend.add_theme_constant_override("separation", 16)
 	legend.position = Vector2(560.0, 116.0)
 	legend.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var specs := [["gold", "골드"], ["pip", "눈금"], ["dice", "다이스"], ["mystery", "미정(이벤트)"]]
+	var specs := [
+		["gold", "골드"], ["pip", "눈금"], ["dice", "다이스"], ["mystery", "미정(이벤트)"],
+		["elite", "정예(강적, 보상 큼)"],
+	]
 	for spec in specs:
 		var pair := HBoxContainer.new()
 		pair.add_theme_constant_override("separation", 5)
@@ -178,6 +194,20 @@ func _setup_reward_legend() -> void:
 ## 보유 골드량을 표시해준다. 해당 선택지가 의미가 없음을 보여줘야 한다"). 위치는 상점
 ## 버튼이 방마다 노출 여부/순서가 바뀌므로 정적 배치가 불가능해 _layout_visible_buttons()
 ## 에서 다른 버튼들과 함께 매번 다시 계산한다.
+## INBOX.md [대형 기획 6] G-7 원문 "버튼에 빨간 테두리" — "정예 전투" 버튼만 기본 테마
+## 스타일박스를 복제해 테두리색/두께를 바꾼 것으로 교체해 다른 방 버튼과 구분한다.
+## get_theme_stylebox()가 기본 테마의 StyleBoxFlat을 주지 않을 수도 있는 환경을 대비해
+## 항상 새 StyleBoxFlat을 만들어 적용(테마 의존 없이 결정적으로 동작).
+func _style_elite_button() -> void:
+	for state in ["normal", "hover", "pressed", "focus"]:
+		var style := StyleBoxFlat.new()
+		style.bg_color = Color(0.22, 0.08, 0.08) if state == "normal" else Color(0.3, 0.1, 0.1)
+		style.border_color = Color(0.85, 0.2, 0.2)
+		style.set_border_width_all(2)
+		style.set_corner_radius_all(4)
+		enter_elite_button.add_theme_stylebox_override(state, style)
+
+
 func _setup_shop_gold_label() -> void:
 	_shop_gold_label = Label.new()
 	_shop_gold_label.add_theme_font_size_override("font_size", 13)
@@ -215,6 +245,7 @@ func _roll_room_choices() -> void:
 	_shop_available = opts.shop
 	_event_available = opts.event
 	_story_available = opts.story
+	_elite_available = opts.elite
 	_room_order = opts.order
 
 
@@ -240,15 +271,24 @@ func _roll_room_choices() -> void:
 func _room_options_for_index(idx: int) -> Dictionary:
 	if idx == RunState.TOTAL_ROOMS - 1:
 		var empty_order: Array[String] = []
-		return {"shop": false, "event": false, "story": false, "order": empty_order}
+		return {"shop": false, "event": false, "story": false, "elite": false, "order": empty_order}
 	var rng := RandomNumberGenerator.new()
 	rng.seed = idx * 104729 + 7
 	var opts := {
 		"shop": SHOP_FIXED_ROOM_INDICES.has(idx),
 		"event": rng.randf() < EVENT_CHANCE,
 		"story": rng.randf() < STORY_CHANCE,
+		# G-7(2026-10-07): "정예 전투"는 1번째 방(idx 0)과 보스 방(위 early-return)을 뺀
+		# 나머지(idx 1 .. TOTAL_ROOMS-2, 5방 기준 1~3)에서만 확률 노출. rng.randf()를
+		# shop/event/story와 같은 순서로 "항상" 호출해야(조건 바깥에서 먼저 굴리지 않고
+		# and로 단락 평가) idx가 구조적으로 제외되는 구간에서도 이후 story/order 셔플에
+		# 쓰는 rng 시퀀스가 어긋나지 않는다 — and는 왼쪽이 false면 오른쪽을 평가하지
+		# 않으므로, 제외 구간에서는 의도적으로 randf()를 호출하지 않는다(그 구간은 결과가
+		# 항상 false이므로 호출 여부가 결과엔 영향 없고, 셔플 시퀀스가 달라져도 결정성
+		# 자체는 깨지지 않음 — "같은 idx는 항상 같은 결과"만 지키면 충분하기 때문).
+		"elite": idx >= 1 and idx <= RunState.TOTAL_ROOMS - 2 and rng.randf() < ELITE_CHANCE,
 	}
-	var order: Array[String] = ["shop", "event", "story"]
+	var order: Array[String] = ["shop", "event", "story", "elite"]
 	for i in range(order.size() - 1, 0, -1):
 		var j := rng.randi_range(0, i)
 		var tmp := order[i]
@@ -338,6 +378,7 @@ func _update_labels() -> void:
 		enter_shop_button.hide()
 		enter_event_button.hide()
 		enter_story_button.hide()
+		enter_elite_button.hide()
 	else:
 		# 라운드 번호를 항상 함께 보여줘 보스를 잡고 새 라운드로 넘어갔을 때(rooms_cleared가
 		# 0으로 리셋된 것) 플레이어가 "왜 방 개수가 줄었지"로 헷갈리지 않게 한다.
@@ -348,9 +389,11 @@ func _update_labels() -> void:
 		enter_shop_button.text = "상점 입장 (%d번째 방)" % (RunState.rooms_cleared + 1)
 		enter_event_button.text = "특수 이벤트 입장 (%d번째 방)" % (RunState.rooms_cleared + 1)
 		enter_story_button.text = "스토리 이벤트 입장 (%d번째 방)" % (RunState.rooms_cleared + 1)
+		enter_elite_button.text = "정예 전투 입장 (%d번째 방)" % (RunState.rooms_cleared + 1)
 		enter_shop_button.visible = _shop_available
 		enter_event_button.visible = _event_available
 		enter_story_button.visible = _story_available
+		enter_elite_button.visible = _elite_available
 	_layout_visible_buttons()
 	_build_map_strip()
 
@@ -429,6 +472,7 @@ func _make_map_node(idx: int) -> Control:
 		"shop": ["상점", Color(0.5, 0.42, 0.15)],
 		"event": ["특수 이벤트", Color(0.35, 0.22, 0.5)],
 		"story": ["스토리 이벤트", Color(0.18, 0.4, 0.4)],
+		"elite": ["정예 전투", Color(0.55, 0.12, 0.12)],
 	}
 	for t in opts.order:
 		if opts[t]:
@@ -481,6 +525,7 @@ func _layout_visible_buttons() -> void:
 		"shop": enter_shop_button,
 		"event": enter_event_button,
 		"story": enter_story_button,
+		"elite": enter_elite_button,
 	}
 	var visible_buttons: Array[Button] = [enter_combat_button]
 	var visible_types: Array[String] = ["combat"]
@@ -556,6 +601,14 @@ func _on_event_button_pressed() -> void:
 
 func _on_story_button_pressed() -> void:
 	get_tree().change_scene_to_file("res://code/scenes/story_event.tscn")
+
+
+## G-7(2026-10-07): "정예 전투" 버튼 — RunState.pending_elite_fight를 세팅해 combat_test.gd
+## _ready()가 일반 던전 순환(RunState.monster_plan) 대신 RunState.elite_plan에서 몬스터를
+## 고르게 한다. 씬 전환 자체는 일반 전투와 완전히 같은 combat_test.tscn을 재사용.
+func _on_elite_button_pressed() -> void:
+	RunState.pending_elite_fight = true
+	get_tree().change_scene_to_file("res://code/scenes/combat_test.tscn")
 
 
 ## qa/visual_qa.gd의 GAME_QA_CALL로 호출하기 위한 QA 전용 훅. 실제 전투 승리를 끝까지
@@ -694,6 +747,22 @@ func _debug_press_shortcut_2() -> void:
 	var key := InputEventKey.new()
 	key.pressed = true
 	key.keycode = KEY_2
+	_unhandled_input(key)
+
+
+## QA 전용 — G-7(2026-10-07) "정예 전투" 버튼이 실제 입력 파이프라인(숫자 키 ->
+## _unhandled_input() -> 버튼)을 거쳐 combat_test 씬까지 전환하고, override 없이
+## RunState.elite_plan에서 몬스터를 고르는지 확인하기 위함(_debug_press_shortcut_2와
+## 같은 패턴). 2번째 방(idx=1)은 ELITE_CHANCE 시드가 고정적으로 "정예 전투"를
+## 노출시키는 자리라 재현 가능(qa_out/dungeon_g7_room2.png로 먼저 확인한 값) — 그 방의
+## 버튼 순서는 [1]전투/[2]상점/[3]정예 전투/[4]커스터마이징이라 "3번"을 누른다.
+func _debug_press_shortcut_elite() -> void:
+	RunState.rooms_cleared = 1
+	_roll_room_choices()
+	_update_labels()
+	var key := InputEventKey.new()
+	key.pressed = true
+	key.keycode = KEY_3
 	_unhandled_input(key)
 
 

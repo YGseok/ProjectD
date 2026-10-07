@@ -33,11 +33,20 @@ var is_boss: bool = false:
 		is_boss = v
 		queue_redraw()
 
+## G-7(2026-10-07, INBOX.md [대형 기획 6]): "정예" 전투 몬스터 표시 — 왕관(is_boss)과
+## 겹치지 않는 별도 시각 신호로 아이콘 바깥에 빨간 테두리 링을 두른다("버튼에 빨간
+## 테두리"라는 원문 지시를 아이콘에도 일관되게 반영).
+var is_elite: bool = false:
+	set(v):
+		is_elite = v
+		queue_redraw()
+
 const COLOR_HUMANOID := Color(0.55, 0.65, 0.85)
 const COLOR_AMORPHOUS := Color(0.35, 0.75, 0.7)
 const COLOR_BEAST := Color(0.8, 0.45, 0.25)
 const COLOR_UNDEAD := Color(0.75, 0.78, 0.72)
 const COLOR_CROWN := Color(0.95, 0.8, 0.25)
+const COLOR_ELITE_RING := Color(0.85, 0.2, 0.2)
 
 
 func _ready() -> void:
@@ -60,6 +69,8 @@ func _draw() -> void:
 			pass
 	if is_boss and category != "":
 		_draw_crown()
+	if is_elite and category != "":
+		draw_rect(Rect2(Vector2.ZERO, size), COLOR_ELITE_RING, false, 2.0)
 
 
 func _draw_shield() -> void:

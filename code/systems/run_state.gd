@@ -79,6 +79,20 @@ extends Node
 ## monster_plan[round_index-1][rooms_cleared]를 읽어 몬스터를 구성한다(GAME_QA_ROOM_OVERRIDE/
 ## GAME_QA_MONSTER_ID가 있으면 기존처럼 이 계획을 완전히 우회).
 ##
+## elite_plan: INBOX.md [대형 기획 6] G-7(2026-10-07) — "정예 전투" 선택지가 뜰 때
+## 누가 나오는지를 monster_plan과 같은 방식(MonsterCatalog.build_elite_plan(), 순수
+## 함수)으로 reset_run() 시점에 미리 뽑아 저장한다. run_seed에 소수 오프셋(ELITE_SEED_
+## OFFSET)을 더한 값을 시드로 써서 monster_plan의 셔플 순서와 상관되지 않게 한다("정예
+## 노출 여부" 자체는 RunState가 모르는 별도 결정 — dungeon_map.gd가 상점/이벤트와 같은
+## 방식으로 방 번호 기반 결정적 RNG로 따로 굴린다. 이 배열은 "노출된다면 누가 나오는지"
+## 만 담음, room 0/마지막 방은 항상 빈 문자열).
+##
+## pending_elite_fight: dungeon_map.gd가 "정예 전투" 버튼을 누르는 순간 true로 세팅하고
+## combat_test.tscn으로 씬을 전환한다. change_scene_to_file()은 씬 사이에 인자를 못
+## 넘기므로(이 Autoload를 거치는 다른 모든 "선택" 상태와 같은 이유), combat_test.gd의
+## _ready()가 이 플래그를 읽어 "이번 전투는 elite_plan에서 몬스터를 고른다"를 판단한 뒤
+## 승패와 무관하게 즉시 false로 되돌린다(다음 전투 입장은 항상 일반 전투가 기본).
+##
 ## chosen_starting_skill_id: [미니 기획 E]-3 (INBOX.md 2026-09-17 기획자 결정) —
 ## 캐릭터 선택 화면에서 미리 확정하는 "시작 스킬" 로드아웃(SkillPool.STARTING_SKILLS,
 ## skill_flags와는 별개 레이어). character_select.gd가 캐릭터 카드를 고를 때마다 그
@@ -105,6 +119,12 @@ var skill_flags: Array[String] = []
 var chosen_starting_skill_id: String = ""
 var monster_plan: Array = []
 var run_seed: int = 0
+var elite_plan: Array = []
+var pending_elite_fight: bool = false
+
+## monster_plan과 elite_plan의 셔플 순서가 상관되지 않도록 elite_plan 시드에 더하는
+## 오프셋(소수, build_monster_plan()이 쓰는 dungeon_map.gd류 "간격 소수" 관례와 같은 맥락).
+const ELITE_SEED_OFFSET := 104729
 
 
 func _ready() -> void:
@@ -123,6 +143,8 @@ func reset_run(new_character_id: String = "") -> void:
 	shop_visits = 0
 	run_seed = randi()
 	monster_plan = MonsterCatalog.build_monster_plan(run_seed, TOTAL_ROUNDS, TOTAL_ROOMS)
+	elite_plan = MonsterCatalog.build_elite_plan(run_seed + ELITE_SEED_OFFSET, TOTAL_ROUNDS, TOTAL_ROOMS)
+	pending_elite_fight = false
 	var profile := CharacterProfiles.get_profile(character_id)
 	player_attack_bag = DiceBag.new(4, profile.get("attack_count", 3))
 	player_defense_bag = DiceBag.new(4, profile.get("defense_count", 3))

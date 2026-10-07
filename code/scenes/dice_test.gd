@@ -249,6 +249,10 @@ func _ready() -> void:
 	all_pass = _check_g6_monster_plan(lines) and all_pass
 
 	lines.append("")
+	lines.append("[G-7: 정예 전투 풀 8종 + 정예 계획(build_elite_plan) + 보상(EliteRewardPool) 검증]")
+	all_pass = _check_g7_elite_combat(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -533,33 +537,48 @@ func _check_dungeon_map_room_options(lines: PackedStringArray) -> bool:
 	# "ObjectDB instances leaked" 경고가 남는다).
 	var second = map._room_options_for_index(3)
 	var deterministic_ok: bool = first.shop == second.shop and first.event == second.event \
-		and first.story == second.story and first.order == second.order
+		and first.story == second.story and first.elite == second.elite and first.order == second.order
 	ok = deterministic_ok and ok
 	lines.append("  _room_options_for_index(3) 반복 호출 결정성(노출 여부+순서 동일): %s -> %s" % [
 		deterministic_ok, "OK" if deterministic_ok else "FAIL"
 	])
 
-	# order는 노출 여부(shop/event/story 각각 true/false)와 무관하게 항상 세 종류를
+	# order는 노출 여부(shop/event/story/elite 각각 true/false)와 무관하게 항상 네 종류를
 	# 정확히 한 번씩만 담은 순열이어야 한다 — 버튼 레이아웃(_layout_visible_buttons)과
 	# 칩 나열(_make_map_node)이 둘 다 "for t in opts.order: if opts[t]: ..."로
 	# 순회하므로, order 자체에 값이 빠지거나 중복되면 노출된 방 선택지 하나가 화면에서
 	# 통째로 안 보이거나(버튼 없음) 중복 렌더링될 수 있다. 단, 라운드 마지막 방
 	# (idx == TOTAL_ROOMS - 1, 보스 방)은 2026-09-14 버그 수정으로 전투만 가능하도록
-	# 강제되어 shop/event/story가 전부 false + order가 빈 배열인 것이 의도된 예외다.
+	# 강제되어 shop/event/story/elite가 전부 false + order가 빈 배열인 것이 의도된 예외다.
+	# G-7(2026-10-07)로 "elite"가 네 번째 종류로 추가됐다(idx 1..TOTAL_ROOMS-2에서만
+	# 확률 노출 — idx 0과 보스 방은 항상 false지만 order 순열에는 여전히 포함됨, 아래
+	# 별도 검증에서 그 범위 제한을 직접 확인한다).
 	var order_valid := true
 	for idx in range(10):
 		var opts = map._room_options_for_index(idx)
 		if idx == RunState.TOTAL_ROOMS - 1:
-			if opts.shop or opts.event or opts.story or not opts.order.is_empty():
+			if opts.shop or opts.event or opts.story or opts.elite or not opts.order.is_empty():
 				order_valid = false
 			continue
 		var sorted_order: Array = opts.order.duplicate()
 		sorted_order.sort()
-		if sorted_order != ["event", "shop", "story"]:
+		if sorted_order != ["elite", "event", "shop", "story"]:
 			order_valid = false
 	ok = order_valid and ok
-	lines.append("  order가 항상 shop/event/story 순열임(idx 0..9, 보스 방 idx=%d는 예외로 3종 전부 미노출 확인): %s -> %s" % [
+	lines.append("  order가 항상 shop/event/story/elite 순열임(idx 0..9, 보스 방 idx=%d는 예외로 4종 전부 미노출 확인): %s -> %s" % [
 		RunState.TOTAL_ROOMS - 1, order_valid, "OK" if order_valid else "FAIL"
+	])
+
+	# G-7(2026-10-07) 신규: "정예 전투"는 idx 1..TOTAL_ROOMS-2(5방 기준 1~3)에서만 노출
+	# 가능하고, idx 0(첫 방)과 보스 방(위에서 이미 확인)에서는 확률과 무관하게 항상 false.
+	var elite_range_ok: bool = not map._room_options_for_index(0).elite
+	var elite_seen_in_range := false
+	for idx in range(1, RunState.TOTAL_ROOMS - 1):
+		if map._room_options_for_index(idx).elite:
+			elite_seen_in_range = true
+	ok = elite_range_ok and ok
+	lines.append("  정예 전투는 idx=0에서 항상 false=%s, idx 1..%d 중 적어도 한 곳은 true 가능=%s -> %s" % [
+		elite_range_ok, RunState.TOTAL_ROOMS - 2, elite_seen_in_range, "OK" if elite_range_ok else "FAIL"
 	])
 
 	map.free()
@@ -4525,11 +4544,15 @@ func _check_monster_catalog_family_icons(lines: PackedStringArray) -> bool:
 func _check_g5_monster_catalog(lines: PackedStringArray) -> bool:
 	var ok := true
 
-	# (1) 카탈로그 규모: "일반 20종"(계열당 5) + 아직 정예로 안 옮겨간 "다크 나이트" 1개 = 21.
+	# (1) 카탈로그 규모: "일반 20종"(계열당 5) + 아직 정예로 안 옮겨간 "다크 나이트" 1개
+	# + G-7(2026-10-07) 정예 8종(계열당 2) = 29. 다크 나이트(id="dark_knight")는 G-7에서도
+	# 그대로 손대지 않았고(위 monster_catalog.gd 주석 참고 — 정예판은 다른 id
+	# "dark_knight_elite"로 따로 추가), 아직 보스 전용 풀(G-8)로도 옮겨가지 않아 계속 21개
+	# 쪽 "인간형 6" 집계에 남아있다.
 	var total := MonsterCatalog.MONSTERS.size()
-	var size_ok: bool = total == 21
+	var size_ok: bool = total == 29
 	ok = size_ok and ok
-	lines.append("  MonsterCatalog.MONSTERS.size()=%d (기대 21 = 20종 로스터 + 다크 나이트) -> %s" % [
+	lines.append("  MonsterCatalog.MONSTERS.size()=%d (기대 29 = 20종 로스터 + 다크 나이트 + 정예 8종) -> %s" % [
 		total, "OK" if size_ok else "FAIL"
 	])
 
@@ -4544,11 +4567,12 @@ func _check_g5_monster_catalog(lines: PackedStringArray) -> bool:
 		if ids_seen.has(mid):
 			ids_unique_ok = false
 		ids_seen[mid] = true
-	# 인간형만 "다크 나이트"가 아직 남아있어 6, 나머지 세 계열은 정확히 5.
-	var family_counts_ok: bool = family_counts["humanoid"] == 6 and family_counts["amorphous"] == 5 \
-		and family_counts["beast"] == 5 and family_counts["undead"] == 5
+	# 인간형만 "다크 나이트"가 아직 남아있어 기본 6, 나머지 세 계열은 기본 5 — G-7
+	# 정예 8종(계열당 2)이 전부 더해져 인간형8/부정형7/야수형7/언데드형7이 된다.
+	var family_counts_ok: bool = family_counts["humanoid"] == 8 and family_counts["amorphous"] == 7 \
+		and family_counts["beast"] == 7 and family_counts["undead"] == 7
 	ok = family_counts_ok and ids_unique_ok and ok
-	lines.append("  계열별 개수=%s (기대 인간형6/부정형5/야수형5/언데드5), id 전부 고유=%s -> %s" % [
+	lines.append("  계열별 개수=%s (기대 인간형8/부정형7/야수형7/언데드7), id 전부 고유=%s -> %s" % [
 		family_counts, ids_unique_ok, "OK" if (family_counts_ok and ids_unique_ok) else "FAIL"
 	])
 
@@ -4804,5 +4828,149 @@ func _check_g6_monster_plan(lines: PackedStringArray) -> bool:
 		RunState.TOTAL_ROUNDS, RunState.TOTAL_ROOMS, plan_generated_ok, "OK" if plan_generated_ok else "FAIL"
 	])
 	RunState.reset_run(char_backup)
+
+	return ok
+
+
+## [대형 기획 6] G-7(2026-10-07) 검증 — 정예 풀 8종 + MonsterCatalog.build_elite_plan()
+## (순수 함수)의 모양/결정론성/범위 제한, combat_test.gd의 _monster_config_for_elite()가
+## "플래그"가 아니라 실제 계산 결과(hp_mult/atk_dice_delta가 attack_count/max_hp에
+## 반영되는지, 스킬 2개가 skill_ids에 둘 다 담기는지)를 바꾸는지(F-3 원칙), 보상 풀
+## (EliteRewardPool)이 DiceItemPool보다 실제로 더 높은 등급 쪽에 치우쳐 있는지까지
+## 확인한다.
+func _check_g7_elite_combat(lines: PackedStringArray) -> bool:
+	var ok := true
+
+	# (1) elite_roster_ids(): INBOX.md 원문 그대로 8종.
+	var elite_ids: Array = MonsterCatalog.elite_roster_ids()
+	var elite_size_ok: bool = elite_ids.size() == 8
+	ok = elite_size_ok and ok
+	lines.append("  MonsterCatalog.elite_roster_ids().size()=%d (기대 8) -> %s" % [
+		elite_ids.size(), "OK" if elite_size_ok else "FAIL"
+	])
+
+	# (2) 8종 전부 tier=="elite"이고 skills가 정확히 2개씩이어야 한다("정예 = 스킬 2개"
+	# 공통 공식).
+	var all_elite_two_skills := true
+	for id in elite_ids:
+		var m: Dictionary = MonsterCatalog.get_by_id(id)
+		if m.get("tier", "") != "elite" or m.get("skills", []).size() != 2:
+			all_elite_two_skills = false
+	ok = all_elite_two_skills and ok
+	lines.append("  정예 8종 전부 tier==elite && skills.size()==2: %s -> %s" % [
+		all_elite_two_skills, "OK" if all_elite_two_skills else "FAIL"
+	])
+
+	# (3) build_elite_plan(seed, 3, 5): 모양(3라운드x5방) + 같은 seed -> 같은 결과 +
+	# room 0/마지막 방(보스 자리)은 항상 "" + 중간(1~3)은 항상 elite_roster_ids() 안.
+	var plan_a: Array = MonsterCatalog.build_elite_plan(777, 3, 5)
+	var plan_b: Array = MonsterCatalog.build_elite_plan(777, 3, 5)
+	var shape_ok: bool = plan_a.size() == 3
+	for round_slots in plan_a:
+		if round_slots.size() != 5:
+			shape_ok = false
+	var deterministic_ok: bool = str(plan_a) == str(plan_b)
+	ok = shape_ok and deterministic_ok and ok
+	lines.append("  build_elite_plan(seed=777, 3, 5) 모양(3라운드x5방)=%s, 같은 seed 재현=%s -> %s" % [
+		shape_ok, deterministic_ok, "OK" if (shape_ok and deterministic_ok) else "FAIL"
+	])
+
+	var edge_slots_empty_ok := true
+	var middle_slots_valid_ok := true
+	for round_slots in plan_a:
+		if round_slots[0] != "" or round_slots[4] != "":
+			edge_slots_empty_ok = false
+		for room in range(1, 4):
+			if not elite_ids.has(round_slots[room]):
+				middle_slots_valid_ok = false
+	ok = edge_slots_empty_ok and middle_slots_valid_ok and ok
+	lines.append("  방0/방4(보스 자리)는 항상 빈 문자열=%s, 방1~3은 항상 정예 8종 풀 안=%s -> %s" % [
+		edge_slots_empty_ok, middle_slots_valid_ok, "OK" if (edge_slots_empty_ok and middle_slots_valid_ok) else "FAIL"
+	])
+
+	# (4) 실제 배선: combat_test._monster_config_for_elite(round_index, room_index)이
+	# RunState.elite_plan을 읽어 몬스터를 고르고, "정예 = 스킬 2개 + hp_mult 1.5 + 공격
+	# 다이스 +1" 공식이 계산 결과(attack_count/max_hp/skill_ids)에 실제로 반영되는지.
+	# "다크 나이트"(dark_knight_elite, steady_guard+armor 2)를 1번째 방에 직접 꽂아
+	# 검증용 계획을 만든다.
+	var elite_plan_backup: Array = RunState.elite_plan
+	RunState.elite_plan = [
+		["", "dark_knight_elite", "goblin_chief", "orc_warrior", ""],
+	]
+	var script := load("res://code/scenes/combat_test.gd")
+	var combat = script.new()
+
+	# 라운드1/방1: difficulty=1+(1-1)*3=1 -> 기본(델타 전) 공격=2+int(1/2.0)=2, 방어=1+int(1/3.0)=1.
+	# atk_dice_delta=1 -> 공격=3. hp_mult=1.5 -> max_hp=round((10+1*3)*1.5)=20(델타 없음).
+	var elite_config: Dictionary = combat._monster_config_for_elite(1, 1)
+	var elite_stats_ok: bool = elite_config["name"] == "다크 나이트 [철벽] [정예]" \
+		and elite_config["attack_count"] == 3 and elite_config["max_hp"] == 20 \
+		and elite_config["is_elite"] == true and elite_config["is_boss"] == false
+	ok = elite_stats_ok and ok
+	lines.append("  라운드1/방1(다크 나이트 정예): name=%s 공격=%d(기대3) hp=%d(기대20) is_elite=%s is_boss=%s -> %s" % [
+		elite_config["name"], elite_config["attack_count"], elite_config["max_hp"],
+		elite_config["is_elite"], elite_config["is_boss"], "OK" if elite_stats_ok else "FAIL"
+	])
+
+	# "스킬 2개가 전부 skill_ids에 담기는가"(F-3 원칙 — 과거 "[] if gimmick=='' else
+	# [gimmick]" 방식이면 skills[0]만 담겨 2번째 스킬이 통째로 무시되는 버그가 있었음).
+	var skill_ids_ok: bool = elite_config["skill_ids"] == ["steady_guard", "armor"] \
+		and elite_config["skill_params"].get("armor", {}).get("amount", 0) == 2
+	ok = skill_ids_ok and ok
+	lines.append("  다크 나이트 정예 skill_ids=%s armor.amount=%d (기대 [steady_guard, armor], 2) -> %s" % [
+		elite_config["skill_ids"], elite_config["skill_params"].get("armor", {}).get("amount", 0),
+		"OK" if skill_ids_ok else "FAIL"
+	])
+
+	# 디버그 텍스트도 두 스킬 문구가 전부 들어있어야 한다(_skill_debug_line() 루프 검증).
+	var elite_debug_text: String = combat._monster_debug_info_text(elite_config)
+	var debug_text_ok: bool = elite_debug_text.contains("철벽 방어") and elite_debug_text.contains("방어구") \
+		and elite_debug_text.contains("[정예]")
+	ok = debug_text_ok and ok
+	lines.append("  디버그 텍스트에 두 스킬(철벽 방어/방어구) + [정예] 태그 전부 포함: %s -> %s" % [
+		debug_text_ok, "OK" if debug_text_ok else "FAIL"
+	])
+
+	combat.free()
+	RunState.elite_plan = elite_plan_backup
+
+	# (5) reset_run()이 실제로 RunState.elite_plan을 "라운드x방" 모양으로 채우는지.
+	var char_backup: String = RunState.character_id
+	RunState.reset_run()
+	var elite_plan_generated_ok: bool = RunState.elite_plan.size() == RunState.TOTAL_ROUNDS \
+		and RunState.elite_plan[0].size() == RunState.TOTAL_ROOMS
+	ok = elite_plan_generated_ok and ok
+	lines.append("  reset_run() 후 RunState.elite_plan 모양 일치(기대 %d라운드x%d방)=%s -> %s" % [
+		RunState.TOTAL_ROUNDS, RunState.TOTAL_ROOMS, elite_plan_generated_ok, "OK" if elite_plan_generated_ok else "FAIL"
+	])
+	RunState.reset_run(char_backup)
+
+	# (6) EliteRewardPool: DiceItemPool(C/B급뿐)보다 실제로 더 높은 등급(A/S)을 포함해야
+	# "A급 이상 중심"이 의미가 있다. gain_pips(kind)는 combat_test.gd의 보상 카드 적용
+	# 로직이 못 다루므로 제외돼야 한다.
+	var elite_pool_grades := {}
+	var has_gain_pips := false
+	for item in EliteRewardPool._pool():
+		elite_pool_grades[item.get("grade", "")] = true
+		if item.get("kind", "") == "gain_pips":
+			has_gain_pips = true
+	var pool_grade_ok: bool = elite_pool_grades.has("A") and elite_pool_grades.has("S") and not has_gain_pips
+	ok = pool_grade_ok and ok
+	lines.append("  EliteRewardPool 풀에 A/S급 포함=%s, gain_pips 제외됨=%s -> %s" % [
+		elite_pool_grades.has("A") and elite_pool_grades.has("S"), not has_gain_pips,
+		"OK" if pool_grade_ok else "FAIL"
+	])
+
+	# random_choices(2)가 서로 다른 아이템 2개를 돌려주는지(복원추출 없음 — erase()가
+	# 실제로 중복을 막는지).
+	var distinct_ok := true
+	for _i in 20:
+		var choices: Array = EliteRewardPool.random_choices(2)
+		if choices.size() == 2 and choices[0] == choices[1]:
+			distinct_ok = false
+	ok = distinct_ok and ok
+	lines.append("  EliteRewardPool.random_choices(2) 20회 반복 — 같은 아이템 중복 없음: %s -> %s" % [
+		distinct_ok, "OK" if distinct_ok else "FAIL"
+	])
 
 	return ok
