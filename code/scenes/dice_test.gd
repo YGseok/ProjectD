@@ -229,6 +229,10 @@ func _ready() -> void:
 	all_pass = _check_monster_catalog_family_icons(lines) and all_pass
 
 	lines.append("")
+	lines.append("[G-2: 몬스터 스킬 프레임워크 이식 검증: monster_skills.gd MonsterSkills]")
+	all_pass = _check_monster_skills_framework(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -3994,6 +3998,140 @@ func _check_skill_pool_lookup(lines: PackedStringArray) -> bool:
 	lines.append("  존재하지 않는 id 조회: find_skill('no_such_skill_id')=%s (빈 Dictionary 기대) -> %s" % [
 		unknown, "OK" if unknown_ok else "FAIL"
 	])
+
+	return ok
+
+
+## [대형 기획 6] G-2(2026-10-07) 검증 — 기존 4종 기믹(anger_stack/fixed_value/
+## min_max_only/steady_guard)이 `code/systems/monster_skills.gd`(MonsterSkills)로
+## 이식된 뒤에도 "계산 결과"가 똑같이 나오는지 직접 확인한다(F-3 원칙 — 플래그가 아니라
+## 효과를 본다). DiceBag 쪽 헬퍼(force_fixed_value/force_min_max_faces/
+## apply_steady_guard/count_max_rolls) 자체의 정확성은 바로 아래 _check_monster_dice_
+## gimmick()이 이미 검증하므로, 여기서는 MonsterSkills가 그 헬퍼들을 올바른 조건/시점에
+## 불러 기존과 같은 결과를 내는지에 집중한다.
+func _check_monster_skills_framework(lines: PackedStringArray) -> bool:
+	var ok := true
+
+	# (1) on_combat_start: min_max_only는 주머니 면 값을 min/max로만 바꾼다 — 60회
+	# 반복 굴림으로 중간값이 단 한 번도 안 나오는지 확인.
+	var minmax_attack := DiceBag.new(6, 3)
+	var minmax_defense := DiceBag.new(6, 3)
+	var minmax_state := {}
+	MonsterSkills.on_combat_start(["min_max_only"], minmax_state, minmax_attack, minmax_defense, 0)
+	var minmax_hit_mid := false
+	for i in 60:
+		for v in minmax_attack.roll_detailed():
+			if v != 1 and v != 6:
+				minmax_hit_mid = true
+	var minmax_ok := not minmax_hit_mid
+	ok = minmax_ok and ok
+	lines.append("  on_combat_start([min_max_only], D6x3) 60회 굴림: 중간값 없음 -> %s" % ("OK" if minmax_ok else "FAIL"))
+
+	# (2) on_combat_start: fixed_value는 모든 면을 지정값으로 통일한다.
+	var fixed_attack := DiceBag.new(6, 2)
+	var fixed_defense := DiceBag.new(6, 2)
+	var fixed_state := {}
+	MonsterSkills.on_combat_start(["fixed_value"], fixed_state, fixed_attack, fixed_defense, 4)
+	var fixed_always_4 := true
+	for i in 10:
+		for v in fixed_attack.roll_detailed():
+			if v != 4:
+				fixed_always_4 = false
+	ok = fixed_always_4 and ok
+	lines.append("  on_combat_start([fixed_value], D6x2, 4) 10회 굴림: 항상 4 -> %s" % ("OK" if fixed_always_4 else "FAIL"))
+
+	# (3) steady_guard: 몬스터 "방어"턴(ctx.is_player_attacking=true)일 때만 하한선
+	# 보정이 걸리고, 몬스터 "공격"턴(ctx.is_player_attacking=false)에는 걸리지 않아야
+	# 한다(잘못된 턴에 적용되는 회귀를 잡기 위한 게이팅 검증 — 기존 코드는 `if
+	# is_player_attacking and monster_dice_gimmick == "steady_guard"`로 같은 게이팅을
+	# 했었다).
+	var guard_bag := DiceBag.new(6, 3)
+	var guard_state := {}
+	MonsterSkills.on_combat_start(["steady_guard"], guard_state, DiceBag.new(6, 1), guard_bag, 0)
+	var guard_adjusted: Array = MonsterSkills.modify_monster_roll(["steady_guard"], [1, 2, 3], guard_state, {
+		"is_player_attacking": true, "bag": guard_bag,
+	})
+	var guard_ok: bool = guard_adjusted == [3, 3, 3]
+	ok = guard_ok and ok
+	lines.append("  modify_monster_roll([steady_guard], [1,2,3], is_player_attacking=true): %s (기대 [3,3,3]) -> %s" % [
+		guard_adjusted, "OK" if guard_ok else "FAIL"
+	])
+	var guard_unaffected: Array = MonsterSkills.modify_monster_roll(["steady_guard"], [1, 2, 3], guard_state, {
+		"is_player_attacking": false, "bag": guard_bag,
+	})
+	var guard_gate_ok: bool = guard_unaffected == [1, 2, 3]
+	ok = guard_gate_ok and ok
+	lines.append("  modify_monster_roll([steady_guard], [1,2,3], is_player_attacking=false, 몬스터 공격턴엔 적용 안 됨): %s (기대 [1,2,3]) -> %s" % [
+		guard_unaffected, "OK" if guard_gate_ok else "FAIL"
+	])
+
+	# (4) anger_stack: 스택 적립 -> 임계치 도달 -> 보너스 다이스 사용 질의 -> 리셋까지
+	# 전체 상태 전환을 직접 확인한다(단순히 "플래그가 있는가"가 아니라 실제 스택 수치와
+	# should_use_bonus_attack_dice()의 반환값을 본다).
+	var anger_attack_bag := DiceBag.new(4, 2)
+	var anger_state := {}
+	MonsterSkills.on_combat_start(["anger_stack"], anger_state, anger_attack_bag, DiceBag.new(4, 1), 0)
+	var pending_before: bool = MonsterSkills.should_use_bonus_attack_dice(["anger_stack"], anger_state)
+	ok = (pending_before == false) and ok
+	lines.append("  초기 should_use_bonus_attack_dice([anger_stack])=%s (기대 false) -> %s" % [
+		pending_before, "OK" if pending_before == false else "FAIL"
+	])
+	# 두 다이스 모두 최댓값(4)을 보이는 굴림을 2번 반복(임계치 3) -> max_hits=2씩 쌓여
+	# 2번째 호출에서 누적 4로 이미 임계치를 넘어 pending=true가 돼야 한다.
+	MonsterSkills.modify_monster_roll(["anger_stack"], [4, 4], anger_state, {
+		"is_player_attacking": false, "bag": anger_attack_bag, "used_bonus_dice": false, "anger_threshold": 3,
+	})
+	var stacks_after_1: int = anger_state.get("anger_stacks", -1)
+	ok = (stacks_after_1 == 2) and ok
+	lines.append("  최댓값 2개 굴림 1회 후 anger_stacks=%d (기대 2) -> %s" % [
+		stacks_after_1, "OK" if stacks_after_1 == 2 else "FAIL"
+	])
+	MonsterSkills.modify_monster_roll(["anger_stack"], [4, 4], anger_state, {
+		"is_player_attacking": false, "bag": anger_attack_bag, "used_bonus_dice": false, "anger_threshold": 3,
+	})
+	var pending_after: bool = MonsterSkills.should_use_bonus_attack_dice(["anger_stack"], anger_state)
+	ok = (pending_after == true) and ok
+	lines.append("  최댓값 2개 굴림 2회 후(누적 4 >= 임계치 3) should_use_bonus_attack_dice=%s (기대 true) -> %s" % [
+		pending_after, "OK" if pending_after == true else "FAIL"
+	])
+	# 보너스 1D20을 실제로 썼으면(used_bonus_dice=true) 스택/대기 상태가 리셋된다.
+	MonsterSkills.modify_monster_roll(["anger_stack"], [20], anger_state, {
+		"is_player_attacking": false, "bag": DiceBag.new(20, 1), "used_bonus_dice": true, "anger_threshold": 3,
+	})
+	var reset_ok: bool = anger_state.get("anger_stacks", -1) == 0 and anger_state.get("anger_pending", true) == false
+	ok = reset_ok and ok
+	lines.append("  보너스 1D20 사용 후 anger_stacks=%s anger_pending=%s (기대 0/false) -> %s" % [
+		anger_state.get("anger_stacks", -1), anger_state.get("anger_pending", true), "OK" if reset_ok else "FAIL"
+	])
+
+	# (5) modify_player_roll / on_damage: 기존 4종에는 플레이어 굴림을 건드리거나 피해
+	# 확정 후 처리하는 것이 없으므로, 호출해도 입력이 그대로 반환되는지(크래시 없이)
+	# 확인 — G-3/G-4가 이 자리를 채우기 전까지의 "no-op" 계약을 지키는지 보장.
+	var noop_values: Array = MonsterSkills.modify_player_roll(["anger_stack", "steady_guard"], [1, 2, 3], {}, {})
+	var noop_ok: bool = noop_values == [1, 2, 3]
+	ok = noop_ok and ok
+	lines.append("  modify_player_roll(기존 4종, [1,2,3]) -> %s (기대 [1,2,3], no-op) -> %s" % [
+		noop_values, "OK" if noop_ok else "FAIL"
+	])
+	MonsterSkills.on_damage(["anger_stack"], {}, {})
+	lines.append("  on_damage(기존 4종) 호출 -> 크래시 없음 -> OK")
+
+	# (6) _monster_config_for_room()이 만드는 "skill_ids"가 기존 "dice_gimmick"과 항상
+	# 1:1로 대응하는지(room 0~4) — _do_exchange()가 이 필드로 MonsterSkills를 호출하므로
+	# 어긋나면 바로 동작이 깨진다.
+	var script := load("res://code/scenes/combat_test.gd")
+	var combat = script.new()
+	for room_index in range(5):
+		var config: Dictionary = combat._monster_config_for_room(room_index)
+		var gimmick: String = config["dice_gimmick"]
+		var skill_ids: Array = config["skill_ids"]
+		var expect_ids: Array = [] if gimmick == "" else [gimmick]
+		var room_ok: bool = skill_ids == expect_ids
+		ok = room_ok and ok
+		lines.append("  room%d: dice_gimmick=%s skill_ids=%s (기대 %s) -> %s" % [
+			room_index, gimmick, skill_ids, expect_ids, "OK" if room_ok else "FAIL"
+		])
+	combat.free()
 
 	return ok
 

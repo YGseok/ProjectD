@@ -8,6 +8,41 @@
 
 ---
 
+- **2026-09-28 (147)**: 큐를 다시 살펴본 결과 남은 항목이 전부 "사람 플레이
+  피드백/설계 결정 필요"로 막혀 있었고(밸런스 수치, 아트 방향, 방패병 "정예"
+  슬롯 처리 등), INBOX.md "남은 이슈"도 비어 있어 새 지시도 없었다. 대신
+  STATUS.md 큐 18([미니 기획 D] 스킬 강화 이벤트)에 "선택, 급하지 않음"이라
+  명시돼 미착수로 남아있던 **6번(DeckPanel 보유 스킬 목록)** — 사람 결정이
+  필요 없는, 원문이 이미 구체적으로 지정해둔 항목 — 을 마무리했다.
+  지금까지 스킬을 얻어도(시작 스킬 + 이벤트로 얻은 공용/고유 스킬 + "+"
+  강화판, 전부 `RunState.skill_flags`에 문자열 id로만 쌓임) 그걸 모아
+  "지금 뭘 갖고 있는지" 보여주는 화면이 어디에도 없었다.
+  `code/systems/skill_pool.gd`에 신규 `SkillPool.find_skill(skill_id)`를
+  추가 — `SKILLS`/`UNIQUE_SKILLS`/`UPGRADE_SKILLS`/`STARTING_SKILLS` 네
+  상수를 전부 뒤져 id에 대응하는 스킬 dict(이름 포함)를 찾아준다(못 찾으면
+  빈 Dictionary). `code/scenes/deck_panel.gd`에 `_add_skills_section()`을
+  추가해 캐릭터 정보 섹션 바로 아래에 "보유 스킬" 제목 + `skill_flags`를
+  이름으로 풀어 한 줄씩 나열(비어있으면 "(없음)")한다 — 새 위젯 없이 기존
+  Label 나열 패턴 재사용. `_signature()`에 `skill_flags`를 포함시켜(기존엔
+  캐릭터 id + 다이스 구성만 봐서, 다이스 개수/눈금 변화 없이 스킬만 새로
+  얻으면 패널이 갱신 안 되는 잠재 버그가 있었음 — 이번에 함께 고침)
+  전투 중 스킬을 얻어도 패널이 다음 프레임에 바로 갱신되게 했다.
+  **QA 검증**: `dice_test.gd`에 신규 `_check_skill_pool_lookup`을 추가해
+  `find_skill()`이 네 상수 각각에서 최소 하나씩(심호흡/광기 심화/광기
+  심화+/확장) 정확한 이름을 찾는지 + 존재하지 않는 id는 빈 Dictionary를
+  반환하는지 검증, `bash scripts/qa_shot.sh dice_test` 전체 PASS(신규 검증
+  포함). 화면 검증은 두 곳 — `dungeon_map.gd`에 신규 `_debug_move_deck_panel_
+  left_with_skills()`(스킬 4개를 채우고 패널을 왼쪽으로 옮겨 캡처 폭 1028px
+  이슈를 피함)로 `qa_out/dungeon_map_deck_skills.png`를 찍어 캐릭터/보유
+  스킬/공격·방어 주머니 네 섹션이 겹침 없이 표시됨을 확인. `combat_test.gd`의
+  기존 `_debug_move_deck_panel_left()`에도 같은 스킬 4개를 채우는 한 줄을
+  추가해(원래 DeckPanel 위치 확인용 훅을 재사용) `qa_out/
+  combat_test_deck_skills.png`로 화면이 가장 빡빡한 전투 화면(다이스
+  뷰포트/초상화/전투 로그와 한 화면에 공존)에서도 겹침이나 잘림이 없음을
+  확인했다. git status로 프로젝트 루트에 스크린샷이 잘못 저장되지 않았음도
+  확인(사용자 원화 `resources/*.png`만 미추적 상태로 남아있고 그대로 둠).
+  "완료 기록" 10개 유지를 위해 (137)을 `docs/STATUS_ARCHIVE.md`로 옮겼다.
+
 - **2026-09-24 (146)**: 세션 지침대로 INBOX.md "부분 처리됨"의 [대형 기획 4]
   (캐릭터 로스터 개편) **D(공통 후속) 5~7번**(마지막 남은 항목)을 마무리했다
   — A/B/C/D-1~4는 (140)~(145)에서 이미 완료.

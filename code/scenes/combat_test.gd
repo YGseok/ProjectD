@@ -201,20 +201,23 @@ var monster_attack_bag: DiceBag
 var monster_defense_bag: DiceBag
 var monster_name := "몬스터"
 var monster_color := Color(1, 1, 1, 0)
+## G-2(MonsterSkills) 이후로는 실제 분기 로직에는 더 안 쓰이고(그건 monster_skill_ids/
+## monster_skill_state가 담당) 디버그 정보 줄/QA 훅 표시용 라벨로만 남아있다.
 var monster_dice_gimmick := ""
 ## 이번 방의 몬스터가 "보스"였는지([대형 기획 2] 조각 (b)) — _monster_config_for_room()의
 ## is_boss를 _ready()에서 그대로 저장해두고, _apply_room_advance()가 승리 시 이 방이
 ## 라운드의 마지막(보스) 방이었는지 판단해 RunState.advance_round() 호출 여부를 정하는 데 쓴다.
 var monster_is_boss := false
 
-## "anger_stack" 기믹 전용 전투 중 상태(패배/승리로 씬이 끝나면 함께 사라짐, RunState에는
-## 저장 안 함 — 몬스터 개별 전투 한정 상태이므로). 몬스터가 공격턴에 자기 공격 다이스의
-## 최댓값 면을 ANGER_STACK_THRESHOLD번 보여주면(DiceBag.count_max_rolls() 참고) 다음
-## 공격턴 하나만 1D20으로 굴린다("주사위 값 x가 나올 때마다 분노 스택이 쌓여서 몇 개
-## 이상 쌓이면 다음 턴에 20면체 주사위를 돌린다"는 INBOX.md 예시를 그대로 구현 — x를
-## "그 다이스의 최댓값 면"으로 해석).
-var monster_anger_stacks := 0
-var monster_anger_pending := false
+## 몬스터 스킬 프레임워크(G-2, `code/systems/monster_skills.gd`의 `MonsterSkills`) 전용
+## 상태 — 기존 "anger_stack 기믹 전용 전투 중 상태"(monster_anger_stacks/
+## monster_anger_pending 변수 2개)를 대체한다. 전투당 1회(_ready()) `MonsterSkills.
+## on_combat_start()`로 초기화되고, 이 전투가 끝나면(패배/승리) 함께 사라진다(RunState에는
+## 저장 안 함 — 몬스터 개별 전투 한정 상태이므로). monster_skill_ids는 지금 몬스터가 가진
+## 스킬 id 목록(기존 몬스터는 전부 0개 또는 1개뿐이라 `[gimmick]` 또는 `[]` — G-7/G-8에서
+## 정예/보스가 2~3개를 가지면 그대로 늘어날 수 있는 구조).
+var monster_skill_ids: Array = []
+var monster_skill_state: Dictionary = {}
 const ANGER_STACK_THRESHOLD := 3
 const ANGER_DICE_SIDES := 20
 
@@ -456,6 +459,10 @@ func _monster_config_for_room(room_index: int) -> Dictionary:
 		"color": profile["color"],
 		"dice_gimmick": gimmick,
 		"dice_gimmick_value": gimmick_value,
+		# G-2(MonsterSkills) 전용 — 기존 "dice_gimmick" 단일 문자열과 같은 정보를
+		# MonsterSkills 훅이 받는 "skill_ids: Array" 형태로도 함께 담는다(지금 몬스터는
+		# 전부 0개 또는 1개뿐이라 gimmick 하나를 그대로 배열에 담은 것과 동일).
+		"skill_ids": [] if gimmick == "" else [gimmick],
 		"is_boss": is_boss,
 		"personality": profile.get("personality", ""),
 		"family": profile.get("family", ""),
@@ -517,14 +524,9 @@ func _ready() -> void:
 	monster_attack_bag = DiceBag.new(monster_sides, config["attack_count"])
 	monster_defense_bag = DiceBag.new(monster_sides, config["defense_count"])
 	monster_dice_gimmick = config["dice_gimmick"]
-	if monster_dice_gimmick == "min_max_only":
-		monster_attack_bag.force_min_max_faces()
-		monster_defense_bag.force_min_max_faces()
-	elif monster_dice_gimmick == "fixed_value":
-		monster_attack_bag.force_fixed_value(config["dice_gimmick_value"])
-		monster_defense_bag.force_fixed_value(config["dice_gimmick_value"])
-	monster_anger_stacks = 0
-	monster_anger_pending = false
+	monster_skill_ids = config["skill_ids"]
+	monster_skill_state = {}
+	MonsterSkills.on_combat_start(monster_skill_ids, monster_skill_state, monster_attack_bag, monster_defense_bag, config["dice_gimmick_value"])
 	monster_max_hp = config["max_hp"]
 	monster_hp = monster_max_hp
 	monster_name = config["name"]
@@ -662,7 +664,7 @@ func _do_exchange(is_player_attacking: bool) -> void:
 			used_explosive_dice = true
 		else:
 			atk_bag = RunState.player_attack_bag
-	elif monster_dice_gimmick == "anger_stack" and monster_anger_pending:
+	elif MonsterSkills.should_use_bonus_attack_dice(monster_skill_ids, monster_skill_state):
 		atk_bag = DiceBag.new(ANGER_DICE_SIDES, 1)
 		used_anger_dice = true
 	else:
@@ -696,8 +698,14 @@ func _do_exchange(is_player_attacking: bool) -> void:
 	# "steady_guard" 기믹(다크 나이트, [미니 기획 A]-2): 몬스터가 방어턴일 때만(플레이어
 	# 공격턴, def_bag == monster_defense_bag) 굴림 결과에 하한선을 적용한다 — 실제 데미지
 	# 계산과 화면에 보이는 결과 칩(_show_exchange_dice_chips) 둘 다 보정된 값을 쓴다.
-	if is_player_attacking and monster_dice_gimmick == "steady_guard":
-		def_values = def_bag.apply_steady_guard(def_values)
+	# G-2(MonsterSkills)로 이 보정은 MonsterSkills.modify_monster_roll()의
+	# "몬스터 자신의 굴림 보정" 훅으로 옮겨졌다(skill_ids에 "steady_guard"가 없으면
+	# 그대로 입력을 반환하는 no-op).
+	if is_player_attacking:
+		def_values = MonsterSkills.modify_monster_roll(monster_skill_ids, def_values, monster_skill_state, {
+			"is_player_attacking": true,
+			"bag": def_bag,
+		})
 	# "charm_flip" 기믹(매혹사, INBOX.md 2026-09-24 [대형 기획 4]-B): 그 턴에 굴린
 	# 자기 다이스들 중 가장 낮은 값을 보인 다이스 1개를 그 다이스의 최댓값으로 바꾼다
 	# (공격턴/방어턴 모두 적용, 턴마다 1개만). explosive_stack/guard_stack의 보너스
@@ -951,18 +959,24 @@ func _do_exchange(is_player_attacking: bool) -> void:
 		monster_portrait.set_expression("happy")
 		player_portrait.set_expression("hurt" if dmg > 0 else "neutral")
 
-	if not is_player_attacking and monster_dice_gimmick == "anger_stack":
-		if used_anger_dice:
-			monster_anger_stacks = 0
-			monster_anger_pending = false
-			_append_log("분노가 가라앉았다 (분노 스택 초기화)")
-		else:
-			var max_hits: int = monster_attack_bag.count_max_rolls(atk_values)
-			if max_hits > 0:
-				monster_anger_stacks += max_hits
-				_append_log("몬스터 분노 스택 +%d (%d/%d)" % [max_hits, monster_anger_stacks, ANGER_STACK_THRESHOLD])
-				if monster_anger_stacks >= ANGER_STACK_THRESHOLD:
-					monster_anger_pending = true
+	# "anger_stack" 기믹(고블린): G-2(MonsterSkills)로 스택 적립/리셋 자체는
+	# MonsterSkills.modify_monster_roll()로 옮겨졌다(skill_ids에 "anger_stack"이 없으면
+	# no-op). 로그 문구는 여전히 이 화면(combat_test.gd) 책임이라 state["last_event"]를
+	# 읽어 기존과 똑같은 문구를 그대로 남긴다 — 이식 전후 로그 순서/문구가 완전히 같다.
+	if not is_player_attacking:
+		atk_values = MonsterSkills.modify_monster_roll(monster_skill_ids, atk_values, monster_skill_state, {
+			"is_player_attacking": false,
+			"bag": atk_bag,
+			"used_bonus_dice": used_anger_dice,
+			"anger_threshold": ANGER_STACK_THRESHOLD,
+		})
+		var anger_event: Dictionary = monster_skill_state.get("last_event", {})
+		match anger_event.get("type", ""):
+			"anger_reset":
+				_append_log("분노가 가라앉았다 (분노 스택 초기화)")
+			"anger_gain":
+				_append_log("몬스터 분노 스택 +%d (%d/%d)" % [anger_event["amount"], anger_event["stacks"], ANGER_STACK_THRESHOLD])
+				if anger_event["activated"]:
 					_append_log("몬스터가 분노했다! 다음 공격은 20면체 주사위로 굴린다")
 
 	if is_player_attacking and (player_dice_gimmick == "explosive_stack" or player_frenzy_active or player_versatile_active):
@@ -1789,8 +1803,8 @@ func _debug_show_monster_dice_room4() -> void:
 ## D20 다이스를 직접 얼려서 스폰해 모양/재질/문구만 확인한다.
 func _debug_show_anger_dice() -> void:
 	monster_dice_gimmick = "anger_stack"
-	monster_anger_stacks = ANGER_STACK_THRESHOLD
-	monster_anger_pending = true
+	monster_skill_ids = ["anger_stack"]
+	monster_skill_state = {"anger_stacks": ANGER_STACK_THRESHOLD, "anger_pending": true}
 	monster_name = "고블린 [분노]"
 	monster_family_icon.category = "humanoid"
 	_clear_dice()

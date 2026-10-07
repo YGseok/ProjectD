@@ -5,29 +5,26 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-10-07 (156)
-- 작성자: AI 에이전트. F-3 완료로 실행 순서(F-2→F-3→G-1~G-9→F-4)상 다음인
-  INBOX.md "남은 이슈"의 [대형 기획 6](몬스터 대개편) **G-1(계열 + 몬스터
-  카탈로그 + 계열 아이콘, 동작 변경 없음)**을 진행했다. 신규
-  `code/systems/monster_catalog.gd`(`MonsterCatalog`)에 계열 4종
-  (`FAMILIES`: 인간형/부정형/야수형/언데드형)과 기존 몬스터 5종
-  (`MONSTERS`: id/name/family/tier/color/skills/hp_mult/personality)을
-  정의하고, `combat_test.gd`의 `MONSTER_PROFILES` 상수를 삭제해
-  `_monster_config_for_room()`이 이 카탈로그를 직접 읽게 바꿨다 — "이
-  단계에서는 전투 동작을 바꾸지 않는다"는 지시대로 dice_gimmick 적용
-  로직 자체는 전혀 건드리지 않았고(`MonsterCatalog.gimmick_of()`가
-  skills[0].id를 꺼내 기존 코드 경로에 그대로 넘기는 호환 다리 역할만
-  함), `dice_test.gd`의 새 검증(`_check_monster_catalog_family_icons`)으로
-  room 0~4 전부에서 기존과 동일한 dice_gimmick이 나오는지 직접 비교해
-  확인했다. 신규 `code/scenes/family_icon.gd`(`FamilyIcon`)로 계열별
-  도형(인간형=방패/부정형=물방울/야수형=발톱/언데드형=해골 + 보스는 왕관
-  오버레이)을 그려 `combat_test.tscn`의 몬스터 HP 라벨 왼쪽에 배치했다.
-  `bash scripts/qa_shot.sh dice_test` 전체 PASS(신규 섹션 포함),
-  `scripts/qa_shot.sh combat_test`로 전투 화면에서 계열 아이콘이 겹침 없이
-  잘 보임을 스크린샷으로 확인. 자세한 내용은 아래 "완료 기록 (156)" 참고.
-  **G-1 완료.** 다음 할 일은 **G-2**(몬스터 스킬 프레임워크 신설 + 기존
-  4종 이식, 동작 보존 — 아래 "지금 위치"/"다음 할 일 큐" 참고).
-  "완료 기록" 10개 유지를 위해 (146)을 `docs/STATUS_ARCHIVE.md`로 옮겼다.
+- 일시: 2026-10-07 (157)
+- 작성자: AI 에이전트. G-1 완료로 실행 순서(F-2→F-3→G-1~G-9→F-4)상 다음인
+  INBOX.md "부분 처리됨"의 [대형 기획 6](몬스터 대개편) **G-2(몬스터 스킬
+  프레임워크 신설 + 기존 4종 기믹 이식, 동작 보존)**을 진행했다. 신규
+  `code/systems/monster_skills.gd`(`MonsterSkills`)에 훅 4개(`on_combat_start`/
+  `modify_monster_roll`/`modify_player_roll`/`on_damage`)를 만들고 기존
+  `anger_stack`/`fixed_value`/`min_max_only`/`steady_guard` 4종을 그
+  구조로 옮겼다 — `DiceBag` 헬퍼는 새로 만들지 않고 그대로 호출만 했고,
+  `combat_test.gd`의 로그 문구/순서가 이식 전후 한 글자도 안 바뀌게 유지했다.
+  기존 인스턴스 변수(`monster_anger_stacks`/`monster_anger_pending`)는 범용
+  `monster_skill_state: Dictionary`로 대체(향후 정예/보스가 스킬 2~3개를
+  동시에 가질 때를 대비). `dice_test.gd`의 새 검증(`_check_monster_skills_
+  framework`)으로 "플래그가 아니라 계산 결과"가 실제로 맞는지(F-3 원칙)
+  확인했고, `scripts/qa_shot.sh combat_test ... _debug_show_anger_dice`로
+  실제 전투 화면에서도 분노 스택 로그 문구가 그대로 남는 것을 확인했다.
+  자세한 내용은 아래 "완료 기록 (157)" 참고.
+  **G-2 완료.** 다음 할 일은 **G-3**(인간형+부정형 프리미티브: armor/
+  guard_up/counter + sticky/seal/dull/numb — 아래 "지금 위치"/"다음 할 일
+  큐" 참고).
+  "완료 기록" 10개 유지를 위해 (147)을 `docs/STATUS_ARCHIVE.md`로 옮겼다.
 
 ## 지금 위치
 
@@ -70,15 +67,21 @@ unlock_requirement()`)가 함께 보인다(F-1). 시작 스킬은 캐릭터당 3
 전체 흐름(E2E)도 견습 모험가+곡예사 2종으로 검증됐다**(완료 기록 (155)).
 **F-4(밸런스 시뮬)는 설계상 G-1~G-9(아래 [대형 기획 6]) 완료 후 진행 —
 아직 착수 전.**
-**[대형 기획 6] G-1 완료(2026-10-07), G-2~G-9 남음** — 다음 할 일.
+**[대형 기획 6] G-1·G-2 완료(2026-10-07), G-3~G-9 남음** — 다음 할 일.
 사람이 몬스터를 계열(인간형/부정형/야수형/언데드형) + 일반 20종/정예
 8종/보스 6종의 대형 풀로 개편하고 정예 전투 방을 추가하는 설계를 이미
-끝내뒀다(INBOX.md "남은 이슈" [대형 기획 6] 원문 참고). G-1로
+끝내뒀다(INBOX.md "부분 처리됨" [대형 기획 6] 원문 참고). G-1로
 `code/systems/monster_catalog.gd`(`MonsterCatalog`)에 계열 4종 +
 기존 몬스터 5종 데이터를 옮기고 전투 화면에 계열 아이콘(`family_icon.gd`)을
-붙였다(동작 변경 없음, 완료 기록 (156)) — 다음은 **G-2**(몬스터 스킬
-프레임워크 `code/systems/monster_skills.gd` 신설 + 기존 4종 기믹을 그
-구조로 이식, 역시 동작 보존)부터 순서대로 한 조각씩 진행하면 된다.
+붙였다(완료 기록 (156)). G-2로 신규 `code/systems/monster_skills.gd`
+(`MonsterSkills`)에 훅 4개(on_combat_start/modify_monster_roll/
+modify_player_roll/on_damage)를 만들고 기존 4종 기믹(anger_stack/
+fixed_value/min_max_only/steady_guard)을 그 구조로 이식했다(동작 보존,
+완료 기록 (157)) — 다음은 **G-3**(인간형 프리미티브 armor/guard_up/
+counter + 부정형 프리미티브 sticky/seal/dull/numb, 수치는 잠정값)부터
+순서대로 한 조각씩 진행하면 된다. G-3부터는 `modify_player_roll` 훅이
+처음으로 실제 쓰이기 시작한다(부정형 계열이 플레이어 주사위를 직접
+건드리는 자리).
 **ART-1a(아트 스레드 전달, 2026-10-06) 완료** — 캐릭터 선택 카드 목록이
 7종으로 늘어나며 7번째(곡예사) 카드가 화면 밖으로 밀려 마우스로 선택 불가하던
 버그를 ScrollContainer로 해결(자세한 내용은 "완료 기록 (152)"). ART-1b/1c는
@@ -152,7 +155,10 @@ unlock_requirement()`)가 함께 보인다(F-1). 시작 스킬은 캐릭터당 3
   min_max_only) / 다크 나이트(인간형, steady_guard, 방어 결과 하한선). 각각
   성격 1줄 문구 보유, 전투 화면 몬스터 이름 앞에 계열 아이콘(`FamilyIcon`)
   표시, 방 진행에 따라 개수/면 개수/HP 스케일링 + 마지막 방은 보스 강화
-  (공격+2/방어+1/HP×2). 3라운드 클리어 시 게임 클리어.
+  (공격+2/방어+1/HP×2). 3라운드 클리어 시 게임 클리어. 4종 기믹의 실제
+  적용 로직은 2026-10-07 G-2로 `code/systems/monster_skills.gd`
+  (`MonsterSkills`, 훅 4개)로 이식됨(`combat_test.gd`는 이제 이 클래스를
+  호출만 함, 동작은 이식 전과 동일).
 - **QA 도구**: `scripts/qa_shot.sh <scene> [frame] [out] [qa_call] [settle]`.
   `dice_test.gd`가 로직 회귀 스위트(스크린샷 없이 텍스트 PASS/FAIL). 주의사항은
   아래 "알려진 이슈" 참고(특히 `GAME_QA_CALL`은 항상 인자 없는 0-arity
@@ -807,6 +813,61 @@ unlock_requirement()`)가 함께 보인다(F-1). 시작 스킬은 캐릭터당 3
 
 ## 완료 기록
 
+- **2026-10-07 (157)**: INBOX.md "부분 처리됨"의 [대형 기획 6](몬스터 대개편)
+  **G-2(몬스터 스킬 프레임워크 신설 + 기존 4종 기믹 이식, 동작 보존)**을
+  진행했다 — G-1 완료로 실행 순서상 다음 조각.
+  신규 `code/systems/monster_skills.gd`(`MonsterSkills`)에 지시문이 요구한
+  훅 4개(`on_combat_start`/`modify_monster_roll`/`modify_player_roll`/
+  `on_damage`)를 만들고, 기존 `anger_stack`/`fixed_value`/`min_max_only`/
+  `steady_guard` 4종을 그 구조로 옮겼다. `DiceBag` 쪽 헬퍼(force_fixed_value/
+  force_min_max_faces/apply_steady_guard/count_max_rolls)는 새로 만들지 않고
+  그대로 호출만 한다(지시문 그대로). `modify_player_roll`/`on_damage`는 기존
+  4종 중 해당하는 게 없어 지금은 항상 입력을 그대로 반환/아무 것도 안 하는
+  no-op — G-3(부정형 sticky/seal/dull/numb)/G-4(언데드 drain/revive)가 채울
+  자리를 미리 열어둔 것뿐. 추가로 `should_use_bonus_attack_dice(skill_ids,
+  state)`를 하나 더 뒀다 — anger_stack이 "다음 공격은 1D20"을 결정하는
+  시점이 다이스를 물리적으로 스폰하기 **전**이라(실제 굴림 전에 어떤 주머니를
+  굴릴지부터 정해야 함) "굴린 결과를 보정"하는 `modify_monster_roll` 호출보다
+  앞서 별도로 질의해야 했기 때문.
+  `combat_test.gd` 쪽은 기존 인스턴스 변수 `monster_anger_stacks`/
+  `monster_anger_pending`(anger_stack 전용 2개)을 범용 `monster_skill_state:
+  Dictionary` 하나로 대체했다(향후 G-7/G-8에서 정예/보스가 스킬을 2~3개
+  동시에 가지면 변수를 몬스터 스킬 개수만큼 늘릴 필요 없이 이 Dictionary
+  하나로 받을 수 있게 하려는 의도). `monster_skill_ids: Array`도 신설해
+  `_monster_config_for_room()`이 기존 "dice_gimmick"(단일 문자열) 외에
+  `"skill_ids": [gimmick]`(또는 빈 배열)도 함께 반환하도록 추가(기존
+  "dice_gimmick" 필드/값은 전혀 안 건드림 — G-1 검증/디버그 문구가 계속
+  그대로 동작). `_ready()`는 `MonsterSkills.on_combat_start()` 호출 한 줄로
+  기존 if/elif 블록(min_max_only/fixed_value 적용 + anger 상태 초기화)을
+  대체했고, `_do_exchange()`의 세 지점(① anger 보너스 다이스 사용 여부 판단,
+  ② steady_guard 보정, ③ anger 스택 적립/로그)을 각각 `MonsterSkills.
+  should_use_bonus_attack_dice()`/`modify_monster_roll()` 호출로 바꿨다 —
+  **로그 문구/순서는 한 글자도 안 바뀌게** 신경 썼다(②는 데미지 계산 전에,
+  ③은 데미지 로그 이후에 호출되는 기존 타이밍을 그대로 유지하고, state의
+  `"last_event"`를 읽어 똑같은 로그 문자열을 그대로 남김). QA 전용
+  `_debug_show_anger_dice()`도 새 구조(`monster_skill_ids`/
+  `monster_skill_state`)로 맞춰 갱신.
+  **검증**: `dice_test.gd`에 신규 `_check_monster_skills_framework()`를
+  추가 — "플래그가 들어갔는가"가 아니라 "계산 결과가 실제로 바뀌는가"를
+  본다(F-3 원칙). min_max_only/fixed_value는 각각 수십 회 굴려 중간값이 전혀
+  안 나오는지/항상 지정값만 나오는지, steady_guard는 `modify_monster_roll`을
+  `is_player_attacking=true`/`false` 양쪽으로 직접 호출해 하한선 보정이 몬스터
+  "방어"턴에만 걸리고 "공격"턴에는 안 걸리는지(게이팅 자체를 검증), anger_stack은
+  스택 적립→임계치 도달→`should_use_bonus_attack_dice()`가 true로 바뀌는 것→
+  보너스 다이스 사용 후 리셋까지 전체 상태 전이를 직접 호출해 확인했다.
+  `_monster_config_for_room()`의 신규 "skill_ids" 필드가 room 0~4에서 기존
+  "dice_gimmick"과 항상 1:1 대응하는지도 비교(G-1 검증과 같은 패턴).
+  `bash scripts/qa_shot.sh dice_test` 전체 PASS(신규 섹션 포함).
+  `scripts/qa_shot.sh combat_test`로 전투 화면 크래시 없음 확인,
+  `scripts/qa_shot.sh combat_test 60 qa_out/combat_test_anger.png
+  _debug_show_anger_dice`로 실제 전투 흐름(물리 다이스 포함) 중 분노 스택이
+  쌓여 "몬스터가 분노했다! 다음 공격은 20면체 주사위로 굴린다" 로그가 이식
+  전과 똑같은 문구로 남는 것도 실제 화면에서 확인(`qa_out/
+  combat_test_anger.png`).
+  **G-2 완료.** 다음 할 일은 **G-3**(인간형+부정형 프리미티브: armor/guard_up/
+  counter + sticky/seal/dull/numb — 수치는 전부 잠정값, F-4 시뮬이 조정).
+  "완료 기록" 10개 유지를 위해 (147)을 `docs/STATUS_ARCHIVE.md`로 옮겼다.
+
 - **2026-10-07 (156)**: INBOX.md "남은 이슈"의 [대형 기획 6](몬스터 대개편)
   **G-1(계열 + 몬스터 카탈로그 + 계열 아이콘)**을 진행했다. F-3 완료로 실행
   순서상 다음은 G-1이었고, 지시문대로 **이 단계는 전투 동작을 바꾸지
@@ -1226,44 +1287,9 @@ unlock_requirement()`)가 함께 보인다(F-1). 시작 스킬은 캐릭터당 3
   `docs/INBOX_ARCHIVE.md`로 이관, 12개 유지). "완료 기록" 10개 유지를 위해
   (138)을 `docs/STATUS_ARCHIVE.md`로 옮겼다.
 
-- **2026-09-28 (147)**: 큐를 다시 살펴본 결과 남은 항목이 전부 "사람 플레이
-  피드백/설계 결정 필요"로 막혀 있었고(밸런스 수치, 아트 방향, 방패병 "정예"
-  슬롯 처리 등), INBOX.md "남은 이슈"도 비어 있어 새 지시도 없었다. 대신
-  STATUS.md 큐 18([미니 기획 D] 스킬 강화 이벤트)에 "선택, 급하지 않음"이라
-  명시돼 미착수로 남아있던 **6번(DeckPanel 보유 스킬 목록)** — 사람 결정이
-  필요 없는, 원문이 이미 구체적으로 지정해둔 항목 — 을 마무리했다.
-  지금까지 스킬을 얻어도(시작 스킬 + 이벤트로 얻은 공용/고유 스킬 + "+"
-  강화판, 전부 `RunState.skill_flags`에 문자열 id로만 쌓임) 그걸 모아
-  "지금 뭘 갖고 있는지" 보여주는 화면이 어디에도 없었다.
-  `code/systems/skill_pool.gd`에 신규 `SkillPool.find_skill(skill_id)`를
-  추가 — `SKILLS`/`UNIQUE_SKILLS`/`UPGRADE_SKILLS`/`STARTING_SKILLS` 네
-  상수를 전부 뒤져 id에 대응하는 스킬 dict(이름 포함)를 찾아준다(못 찾으면
-  빈 Dictionary). `code/scenes/deck_panel.gd`에 `_add_skills_section()`을
-  추가해 캐릭터 정보 섹션 바로 아래에 "보유 스킬" 제목 + `skill_flags`를
-  이름으로 풀어 한 줄씩 나열(비어있으면 "(없음)")한다 — 새 위젯 없이 기존
-  Label 나열 패턴 재사용. `_signature()`에 `skill_flags`를 포함시켜(기존엔
-  캐릭터 id + 다이스 구성만 봐서, 다이스 개수/눈금 변화 없이 스킬만 새로
-  얻으면 패널이 갱신 안 되는 잠재 버그가 있었음 — 이번에 함께 고침)
-  전투 중 스킬을 얻어도 패널이 다음 프레임에 바로 갱신되게 했다.
-  **QA 검증**: `dice_test.gd`에 신규 `_check_skill_pool_lookup`을 추가해
-  `find_skill()`이 네 상수 각각에서 최소 하나씩(심호흡/광기 심화/광기
-  심화+/확장) 정확한 이름을 찾는지 + 존재하지 않는 id는 빈 Dictionary를
-  반환하는지 검증, `bash scripts/qa_shot.sh dice_test` 전체 PASS(신규 검증
-  포함). 화면 검증은 두 곳 — `dungeon_map.gd`에 신규 `_debug_move_deck_panel_
-  left_with_skills()`(스킬 4개를 채우고 패널을 왼쪽으로 옮겨 캡처 폭 1028px
-  이슈를 피함)로 `qa_out/dungeon_map_deck_skills.png`를 찍어 캐릭터/보유
-  스킬/공격·방어 주머니 네 섹션이 겹침 없이 표시됨을 확인. `combat_test.gd`의
-  기존 `_debug_move_deck_panel_left()`에도 같은 스킬 4개를 채우는 한 줄을
-  추가해(원래 DeckPanel 위치 확인용 훅을 재사용) `qa_out/
-  combat_test_deck_skills.png`로 화면이 가장 빡빡한 전투 화면(다이스
-  뷰포트/초상화/전투 로그와 한 화면에 공존)에서도 겹침이나 잘림이 없음을
-  확인했다. git status로 프로젝트 루트에 스크린샷이 잘못 저장되지 않았음도
-  확인(사용자 원화 `resources/*.png`만 미추적 상태로 남아있고 그대로 둠).
-  "완료 기록" 10개 유지를 위해 (137)을 `docs/STATUS_ARCHIVE.md`로 옮겼다.
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(156)에서 (146)을 그리로 옮겼다.)*
+이번 이터레이션(157)에서 (147)을 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 
