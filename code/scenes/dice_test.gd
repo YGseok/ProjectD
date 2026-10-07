@@ -213,6 +213,14 @@ func _ready() -> void:
 	all_pass = _check_starting_skill_combat_wiring(lines) and all_pass
 
 	lines.append("")
+	lines.append("[F-3 3번째 조각: 재굴림형 스택 적립->보너스 턴 전환 검증: combat_test.gd _update_stack_progress]")
+	all_pass = _check_stack_progress(lines) and all_pass
+
+	lines.append("")
+	lines.append("[F-3 3번째 조각: 전체 흐름(E2E) 검증: 새 런 시작->라운드1 보스 격파->r1/slot1 해금->최종 클리어->clear/slot2 해금->새 런에서 실제 효과 반영]")
+	all_pass = _check_f3_e2e_flow(lines) and all_pass
+
+	lines.append("")
 	lines.append("[스킬 id -> 이름 조회 검증: skill_pool.gd SkillPool.find_skill / deck_panel.gd DeckPanel._add_skills_section]")
 	all_pass = _check_skill_pool_lookup(lines) and all_pass
 
@@ -2907,6 +2915,183 @@ func _check_skill_effects(lines: PackedStringArray) -> bool:
 	])
 	RunState.reset_run(encore_character_backup)
 
+	return ok
+
+
+## [대형 기획 5] F-3 3번째 조각: combat_test.gd._update_stack_progress()(광기 심화/
+## 수호 심화/연쇄 폭발/연쇄 방어가 공유하는 "스택 적립->보너스 턴 전환" 공용 헬퍼) 검증.
+## 전에는 이 로직이 _do_exchange() 안에 인라인돼 있어 _player_explosive_threshold()
+## 같은 "임계치 값" 자체는 테스트할 수 있었지만 "그 임계치에 도달했을 때 실제로 스택이
+## 쌓이고 pending으로 전환되는지"는 물리 시뮬레이션 없이 검증할 수 없었다(완료 기록
+## (154)가 남긴 gap). 순수 함수로 분리된 지금은 물리 없이 직접 호출해 네 가지 경로
+## (적립/도달/무변화/소모 리셋)를 전부 확인한다.
+func _check_stack_progress(lines: PackedStringArray) -> bool:
+	var ok := true
+	var combat_script := load("res://code/scenes/combat_test.gd")
+	var combat = combat_script.new()
+
+	# (1) 적립: 현재 0스택, 이번 턴 최댓값 2회(max_hits=2), 임계치 3 -> 2스택까지만
+	# 쌓이고 아직 pending은 켜지지 않아야 한다.
+	var accumulate: Dictionary = combat._update_stack_progress(0, false, 2, 3)
+	var accumulate_ok: bool = accumulate["stacks"] == 2 and not accumulate["pending"] and not accumulate["activated"] and accumulate["gained"] == 2
+	ok = accumulate_ok and ok
+	lines.append("  _update_stack_progress(0, false, max_hits=2, threshold=3) = %s (기대 stacks=2 pending=false) -> %s" % [
+		accumulate, "OK" if accumulate_ok else "FAIL"
+	])
+
+	# (2) 도달: 2스택에서 1회 더 쌓이면(2+1=3) 임계치(3)에 도달해 pending이 켜져야 한다
+	# (광기/수호 심화 base). "activated"는 "이번 턴에 새로 도달했다"는 의미.
+	var activate: Dictionary = combat._update_stack_progress(2, false, 1, 3)
+	var activate_ok: bool = activate["stacks"] == 3 and activate["pending"] and activate["activated"] and activate["gained"] == 1
+	ok = activate_ok and ok
+	lines.append("  _update_stack_progress(2, false, max_hits=1, threshold=3) = %s (기대 stacks=3 pending=true) -> %s" % [
+		activate, "OK" if activate_ok else "FAIL"
+	])
+
+	# (2b) 연쇄 폭발/연쇄 방어는 임계치가 2로 낮아진다 — 같은 입력(2스택+1회)이라도
+	# threshold=2면 이미 도달(2+... 사실 2스택 자체가 이미 임계치 2 이상이므로, 0스택에서
+	# max_hits=2 한 번만으로도 즉시 도달해야 한다(threshold=3이었던 (1)과 대조).
+	var chain_activate: Dictionary = combat._update_stack_progress(0, false, 2, 2)
+	var chain_activate_ok: bool = chain_activate["stacks"] == 2 and chain_activate["pending"] and chain_activate["activated"]
+	ok = chain_activate_ok and ok
+	lines.append("  _update_stack_progress(0, false, max_hits=2, threshold=2) = %s (기대 stacks=2 pending=true, (1)의 threshold=3과 대조) -> %s" % [
+		chain_activate, "OK" if chain_activate_ok else "FAIL"
+	])
+
+	# (3) 무변화: 이번 턴에 최댓값이 하나도 없었으면(max_hits=0) 스택/pending 둘 다
+	# 그대로 유지돼야 한다(리셋도 아니고 추가 적립도 아님).
+	var untouched: Dictionary = combat._update_stack_progress(2, false, 0, 3)
+	var untouched_ok: bool = untouched["stacks"] == 2 and not untouched["pending"] and not untouched["reset"] and untouched["gained"] == 0
+	ok = untouched_ok and ok
+	lines.append("  _update_stack_progress(2, false, max_hits=0, threshold=3) = %s (기대 stacks=2 변화 없음) -> %s" % [
+		untouched, "OK" if untouched_ok else "FAIL"
+	])
+
+	# (4) 소모 리셋: 이번 턴에 보너스 다이스(1D20 등)를 썼으면(used_bonus_dice=true)
+	# 현재 스택이 얼마든 상관없이 0으로 리셋되고 pending도 꺼져야 한다.
+	var consumed: Dictionary = combat._update_stack_progress(3, true, 0, 3)
+	var consumed_ok: bool = consumed["stacks"] == 0 and not consumed["pending"] and consumed["reset"]
+	ok = consumed_ok and ok
+	lines.append("  _update_stack_progress(3, true, max_hits=0, threshold=3) = %s (기대 stacks=0 pending=false reset=true) -> %s" % [
+		consumed, "OK" if consumed_ok else "FAIL"
+	])
+
+	combat.free()
+	return ok
+
+
+## [대형 기획 5] F-3 3번째 조각(INBOX.md 2026-10-06 기획자 결정이 지목한 마지막 항목):
+## "전체 흐름(E2E)" 테스트 — 새 런 시작(슬롯0) -> 라운드1 보스 격파(r1 업적/슬롯1 해금) ->
+## 최종 클리어(clear 업적/슬롯2 해금) -> 캐릭터 선택 화면 복귀 -> 해금된 슬롯 선택 -> 새 런
+## 시작 -> skill_flags에 실제로 들어가고 실제 전투 한 판에서 효과가 적용되는지를 이어서
+## 검증한다. 물리 다이스 정지 대기가 필요한 실제 전투 루프(_run_battle())는 돌리지 않고,
+## _apply_room_advance()(순수 상태 전환 + 업적 unlock, 물리 의존 없음, _check_round_clear_
+## achievements()가 이미 쓰는 패턴)로 "보스를 이겼다"는 결과를 흉내 낸다. 지시대로 견습
+## 모험가+곡예사(런 시작 시 주머니를 바꾸는 유형) 2종만 돌린다. 업적 저장 파일은 실제
+## 플레이 진행도를 건드리지 않아야 하므로 AchievementManager._debug_reset_for_qa()(파일을
+## 통째로 지움)가 아니라 _unlocked Dictionary 자체를 백업/복원한다.
+func _check_f3_e2e_flow(lines: PackedStringArray) -> bool:
+	var ok := true
+	var achievements_backup: Dictionary = AchievementManager._unlocked.duplicate(true)
+	var character_backup := RunState.character_id
+	var chosen_backup := RunState.chosen_starting_skill_id
+	var round_backup := RunState.round_index
+	var rooms_backup := RunState.rooms_cleared
+	var combat_script := load("res://code/scenes/combat_test.gd")
+
+	for character_id in ["novice", "juggler"]:
+		AchievementManager._unlocked = {}
+		RunState.chosen_starting_skill_id = ""
+		RunState.reset_run(character_id)
+
+		var slots_locked_before: bool = (
+			not SkillPool.is_slot_requirement_met(character_id, 1)
+			and not SkillPool.is_slot_requirement_met(character_id, 2)
+		)
+
+		# 라운드 1 보스 격파 -> r1_<id> 해금 + 슬롯1 해금 + round_index가 2로 넘어감 +
+		# clear_<id>는 아직 미해금(슬롯2는 여전히 잠김).
+		RunState.round_index = 1
+		var combat1 = combat_script.new()
+		combat1.player_won = true
+		combat1.monster_is_boss = true
+		combat1._apply_room_advance()
+		combat1.free()
+		var r1_stage_ok: bool = (
+			AchievementManager.is_unlocked("r1_" + character_id)
+			and SkillPool.is_slot_requirement_met(character_id, 1)
+			and RunState.round_index == 2
+			and not AchievementManager.is_unlocked("clear_" + character_id)
+			and not SkillPool.is_slot_requirement_met(character_id, 2)
+		)
+		ok = r1_stage_ok and ok
+		lines.append("  [%s] 라운드1 보스 격파: r1 해금=%s 슬롯1 해금=%s round_index=%d(기대 2) clear 아직 미해금=%s 슬롯2 아직 잠김=%s -> %s" % [
+			character_id, AchievementManager.is_unlocked("r1_" + character_id), SkillPool.is_slot_requirement_met(character_id, 1),
+			RunState.round_index, not AchievementManager.is_unlocked("clear_" + character_id), not SkillPool.is_slot_requirement_met(character_id, 2),
+			"OK" if r1_stage_ok else "FAIL"
+		])
+
+		# 최종 라운드(TOTAL_ROUNDS) 보스 격파 -> clear_<id> 해금 + 슬롯2 해금.
+		RunState.round_index = RunState.TOTAL_ROUNDS
+		var combat2 = combat_script.new()
+		combat2.player_won = true
+		combat2.monster_is_boss = true
+		combat2._apply_room_advance()
+		combat2.free()
+		var clear_stage_ok: bool = (
+			AchievementManager.is_unlocked("clear_" + character_id)
+			and SkillPool.is_slot_requirement_met(character_id, 2)
+		)
+		ok = slots_locked_before and clear_stage_ok and ok
+		lines.append("  [%s] 최종 클리어: 시작 전 슬롯1/2 둘 다 잠김=%s clear 해금=%s 슬롯2 해금=%s -> %s" % [
+			character_id, slots_locked_before, AchievementManager.is_unlocked("clear_" + character_id),
+			SkillPool.is_slot_requirement_met(character_id, 2), "OK" if (slots_locked_before and clear_stage_ok) else "FAIL"
+		])
+
+		# 캐릭터 선택 화면으로 돌아가 이제 해금된 슬롯2 스킬을 고르고 새 런을 시작하면
+		# chosen_starting_skill_id -> RunState.reset_run() -> SkillPool.grant()를 거쳐
+		# skill_flags에 실제로 들어가야 한다("플래그만" 아니라, _do_exchange()가 그대로
+		# 쓰는 production 조건식+보너스 함수를 그대로 호출해 "효과" 자체도 함께 확인).
+		var slot2_skills: Array[Dictionary] = SkillPool.starting_skills_for_character(character_id)
+		var slot2_skill_id: String = String(slot2_skills[2]["id"])
+		RunState.chosen_starting_skill_id = slot2_skill_id
+		RunState.reset_run(character_id)
+		var flag_applied_ok: bool = RunState.skill_flags.has(slot2_skill_id)
+		var effect_applied_ok := false
+		if character_id == "novice":
+			# 슬롯2 "황금손"(start_wealth): combat_test._do_exchange()와 완전히 같은
+			# 조건(skill_flags.has("start_wealth")) + 같은 함수(_wealth_bonus(gold))를
+			# 호출해, 골드가 쌓인 상태라면 실제로 양수 보너스가 나오는지 확인한다.
+			RunState.gold = 60
+			effect_applied_ok = (
+				RunState.skill_flags.has("start_wealth")
+				and combat_script._wealth_bonus(RunState.gold) == 2
+			)
+		elif character_id == "juggler":
+			# 슬롯2 "잡화점"(start_diverse): 곡예사 기본 다이스는 전부 D4라
+			# diverse_dice_type_count()가 1이라 바로는 발동하지 않는다 — 다른 면 개수
+			# 다이스를 얻었다고 가정(아이템 습득 시뮬)하고 _do_exchange()와 같은 함수
+			# (_diverse_dice_type_count -> _diverse_bonus)로 실제 양수 보너스를 확인한다.
+			RunState.player_attack_bag.add_die(6)
+			RunState.player_attack_bag.add_die(8)
+			var diverse_count: int = combat_script._diverse_dice_type_count(RunState.player_attack_bag, RunState.player_defense_bag)
+			effect_applied_ok = (
+				RunState.skill_flags.has("start_diverse")
+				and diverse_count >= 3
+				and combat_script._diverse_bonus(diverse_count) == 1
+			)
+		ok = flag_applied_ok and effect_applied_ok and ok
+		lines.append("  [%s] 해금된 슬롯2(%s) 선택 후 새 런: skill_flags 포함=%s 실제 보너스 효과 적용=%s -> %s" % [
+			character_id, slot2_skill_id, flag_applied_ok, effect_applied_ok, "OK" if (flag_applied_ok and effect_applied_ok) else "FAIL"
+		])
+
+	AchievementManager._unlocked = achievements_backup
+	AchievementManager._save()
+	RunState.character_id = character_backup
+	RunState.chosen_starting_skill_id = chosen_backup
+	RunState.reset_run(character_backup)
+	RunState.round_index = round_backup
+	RunState.rooms_cleared = rooms_backup
 	return ok
 
 

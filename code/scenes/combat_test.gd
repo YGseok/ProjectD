@@ -965,36 +965,32 @@ func _do_exchange(is_player_attacking: bool) -> void:
 					_append_log("몬스터가 분노했다! 다음 공격은 20면체 주사위로 굴린다")
 
 	if is_player_attacking and (player_dice_gimmick == "explosive_stack" or player_frenzy_active or player_versatile_active):
-		if used_explosive_dice:
-			player_explosive_stacks = 0
-			player_explosive_pending = false
+		var explosive_threshold := _player_explosive_threshold()
+		var explosive_max_hits: int = 0 if used_explosive_dice else RunState.player_attack_bag.count_max_rolls(atk_values)
+		var explosive_result := _update_stack_progress(player_explosive_stacks, used_explosive_dice, explosive_max_hits, explosive_threshold)
+		player_explosive_stacks = explosive_result["stacks"]
+		player_explosive_pending = explosive_result["pending"]
+		if explosive_result["reset"]:
 			_append_log("광기가 가라앉았다 (스택 초기화)" if player_frenzy_active else "폭발이 진정됐다 (폭발 스택 초기화)")
-		else:
-			var max_hits: int = RunState.player_attack_bag.count_max_rolls(atk_values)
-			if max_hits > 0:
-				player_explosive_stacks += max_hits
-				var stack_label := "광기" if player_frenzy_active else "폭발"
-				var explosive_threshold := _player_explosive_threshold()
-				_append_log("%s 스택 +%d (%d/%d)" % [stack_label, max_hits, player_explosive_stacks, explosive_threshold])
-				if player_explosive_stacks >= explosive_threshold:
-					player_explosive_pending = true
-					_append_log("광기가 정점에 달했다! 다음 공격은 1D20을 두 번 굴려 더 높은 값을 채택한다" if player_frenzy_active else "폭발 직전! 다음 공격은 20면체 주사위로 터진다")
+		elif explosive_result["gained"] > 0:
+			var stack_label := "광기" if player_frenzy_active else "폭발"
+			_append_log("%s 스택 +%d (%d/%d)" % [stack_label, explosive_result["gained"], player_explosive_stacks, explosive_threshold])
+			if explosive_result["activated"]:
+				_append_log("광기가 정점에 달했다! 다음 공격은 1D20을 두 번 굴려 더 높은 값을 채택한다" if player_frenzy_active else "폭발 직전! 다음 공격은 20면체 주사위로 터진다")
 
 	if not is_player_attacking and (player_dice_gimmick == "guard_stack" or player_guard_deepen_active or player_versatile_active):
-		if used_guard_dice:
-			player_guard_stacks = 0
-			player_guard_pending = false
+		var guard_threshold := _player_guard_threshold()
+		var guard_max_hits: int = 0 if used_guard_dice else RunState.player_defense_bag.count_max_rolls(def_values)
+		var guard_result := _update_stack_progress(player_guard_stacks, used_guard_dice, guard_max_hits, guard_threshold)
+		player_guard_stacks = guard_result["stacks"]
+		player_guard_pending = guard_result["pending"]
+		if guard_result["reset"]:
 			_append_log("수호가 가라앉았다 (수호 스택 초기화)" if player_guard_deepen_active else "수호 태세가 풀렸다 (수호 스택 초기화)")
-		else:
-			var guard_hits: int = RunState.player_defense_bag.count_max_rolls(def_values)
-			if guard_hits > 0:
-				player_guard_stacks += guard_hits
-				var guard_stack_label := "수호 심화" if player_guard_deepen_active else "수호"
-				var guard_threshold := _player_guard_threshold()
-				_append_log("%s 스택 +%d (%d/%d)" % [guard_stack_label, guard_hits, player_guard_stacks, guard_threshold])
-				if player_guard_stacks >= guard_threshold:
-					player_guard_pending = true
-					_append_log("수호 심화가 정점에 달했다! 다음 방어는 1D20을 두 번 굴려 더 높은 값을 채택한다" if player_guard_deepen_active else "수호 태세 완성! 다음 방어는 20면체 주사위로 굳건해진다")
+		elif guard_result["gained"] > 0:
+			var guard_stack_label := "수호 심화" if player_guard_deepen_active else "수호"
+			_append_log("%s 스택 +%d (%d/%d)" % [guard_stack_label, guard_result["gained"], player_guard_stacks, guard_threshold])
+			if guard_result["activated"]:
+				_append_log("수호 심화가 정점에 달했다! 다음 방어는 1D20을 두 번 굴려 더 높은 값을 채택한다" if player_guard_deepen_active else "수호 태세 완성! 다음 방어는 20면체 주사위로 굳건해진다")
 
 	_update_labels()
 
@@ -1237,6 +1233,24 @@ func _apply_bonus_reroll(bag: DiceBag, values: Array, extra_rolls: int) -> Array
 			best = reroll[0]
 	result[0] = best
 	return result
+
+
+## 재굴림형 스택 기믹(광기/수호 심화, 연쇄 폭발/방어) 공용 적립 로직 — "이번 턴에
+## 보너스 다이스(1D20 등)를 소모했으면 스택 리셋, 아니면 max_hits만큼 쌓고 임계치에
+## 도달하면 pending을 켠다"를 순수 함수로 뽑아냈다(F-3 3번째 조각 — 전에는 이 로직이
+## _do_exchange() 안에 인라인돼 있어 "스택 적립→보너스 턴 전환" 자체는 _player_
+## explosive_threshold() 같은 임계치 값만 검증 가능했고, 실제 적립/리셋 전환은 물리
+## 시뮬레이션 없이 단위 테스트할 수 없었다). 반환 Dictionary의 "gained"는 이번 턴에
+## 실제로 쌓인 스택 수(로그 문구 분기용), "activated"는 이번 턴에 "새로" 임계치를
+## 넘어 pending이 켜졌는지를 구분한다. 로그 출력은 호출부(_do_exchange) 책임.
+func _update_stack_progress(current_stacks: int, used_bonus_dice: bool, max_hits: int, threshold: int) -> Dictionary:
+	if used_bonus_dice:
+		return {"stacks": 0, "pending": false, "reset": true, "gained": 0, "activated": false}
+	if max_hits <= 0:
+		return {"stacks": current_stacks, "pending": false, "reset": false, "gained": 0, "activated": false}
+	var new_stacks: int = current_stacks + max_hits
+	var activated: bool = new_stacks >= threshold
+	return {"stacks": new_stacks, "pending": activated, "reset": false, "gained": max_hits, "activated": activated}
 
 
 func _append_log(line: String) -> void:

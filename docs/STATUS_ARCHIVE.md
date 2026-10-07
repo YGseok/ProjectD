@@ -8,6 +8,52 @@
 
 ---
 
+- **2026-09-24 (145)**: 세션 지침대로 INBOX.md "부분 처리됨"의 [대형 기획 4]
+  (캐릭터 로스터 개편) **D(공통 후속) 4번**(`skill_pool.gd`의
+  `UNIQUE_SKILLS`/`UPGRADE_SKILLS`에 매혹사/곡예사 전용 고유 스킬 1종씩 +
+  "+" 강화판 추가)을 진행했다 — A/B/C/D-1~3은 (140)~(144)에서 이미 완료.
+  INBOX.md 원문이 예시로 든 방향을 그대로 채택했다(사람 결정 대기 없이 진행,
+  세션 지침대로).
+  **매혹사 "매혹 심화"(`charm_amplify`)**: 원문 예시 "charm_flip 대상 다이스를
+  1개→2개로 늘리는 스킬" 그대로. 새 메커니즘을 만들지 않고
+  `code/systems/dice_bag.gd`의 `apply_charm_flip(values)`에 `count: int = 1`
+  매개변수를 추가(기본값 1이라 기존 호출부는 그대로 동작, 하위 호환 깨짐
+  없음) — 이미 뒤집은 자리를 다시 고르지 않도록 매 반복마다 "아직 안 뒤집은
+  것 중" 최솟값을 새로 찾는 방식으로 count개까지 확장했다. "+"판
+  `charm_amplify_plus`는 2개→3개로 한 단계 더(다른 "+" 스킬들의 "숫자 한
+  단계 증가" 패턴과 동일, 예: 여분 1→2/광기 심화 2번→3번 굴림). 실제 배선은
+  `code/scenes/combat_test.gd`의 기존 `charm_flip` 분기에 "`+` > base > 미보유"
+  우선순위로 count를 계산하는 3줄만 추가(spare_die/spare_die_plus와 완전히
+  같은 우선순위 패턴).
+  **곡예사 "곡예 앙코르"(`juggle_encore`)**: 원문 예시 "juggle_swap을 라운드
+  전환 시 재발동하는 스킬" 그대로. 자기 기믹 `juggle_swap`이 "런 시작 1회뿐"
+  이라 한 런 안에서는 고정이었던 것을, `code/systems/run_state.gd`의
+  `advance_round()`(라운드가 바뀔 때만 호출되는 기존 함수, `round_index`
+  증가/`rooms_cleared` 리셋 바로 뒤)에 `skill_flags.has("juggle_encore")`
+  조건으로 `DiceBag.swap_random_dice(player_attack_bag, player_defense_bag)`
+  를 한 번 더 호출하는 3줄을 추가 — 새 다이스 연산 없이 기존 static 헬퍼
+  재사용. "+"판 `juggle_encore_plus`는 같은 전환에서 서로 다른 무작위 쌍으로
+  한 번 더 맞바꿔 총 2회가 되게 함(같은 함수를 두 번 호출, 매혹사 쪽과
+  마찬가지로 "횟수를 한 단계 늘림" 패턴).
+  **UPGRADE_SKILLS 배열에 두 "+"를 맨 끝(인덱스 7/8)에 추가**해 기존
+  `dice_test.gd`의 `UPGRADE_SKILLS[6] == "versatile_surge_plus"` 하드코딩
+  검증이 깨지지 않게 했다(인덱스 밀림 없음).
+  **QA 검증**: `code/scenes/dice_test.gd`의 `_check_skill_effects`에 (2f)
+  '매혹 심화'/(2g) '곡예 앙코르' 캐릭터 필터 검증(각각 매혹사/곡예사에게만
+  후보로 뜨는지), (8) `apply_charm_flip([1,2,3,4], count=1/2/3)`이 정확히
+  1/2/3개를 최댓값(4)으로 바꾸는지(D4x4 기준 [4,2,3,4]/[4,4,3,4]/[4,4,4,4]),
+  (9) `RunState.advance_round()`가 `juggle_encore`/`juggle_encore_plus`
+  보유 시 라운드 전환마다 실제로 추가 호출되는지(다이스 "개수"는 불변이어야
+  함을 함께 검증, swap 자체의 정확성은 이미 (142)의 `swap_random_dice()`
+  단위 테스트가 다룸)를 추가했다. `_check_upgrade_skill_pool`의 하드코딩
+  개수도 7→9로 갱신. `bash scripts/qa_shot.sh dice_test` 전체 PASS(신규
+  검증 전부 포함). 화면 레이아웃 변경은 없어(스킬 데이터 추가 + 순수 로직
+  배선뿐) `scripts/qa_shot.sh character_select`로 기존 7종 목록이 여전히
+  정상 로드됨을 재확인.
+  **남은 것**: D-5(character_select 7종 레이아웃 최종 육안 확인)/D-6
+  (DESIGN.md 캐릭터 표 7종 갱신)/D-7(초상 확인) — 다음 이터레이션이 이어갈
+  차례. "완료 기록" 10개 유지를 위해 (135)를 `docs/STATUS_ARCHIVE.md`로 옮겼다.
+
 - **2026-09-24 (144)**: 세션 지침대로 INBOX.md "부분 처리됨"의 [대형 기획 4]
   (캐릭터 로스터 개편) **D(공통 후속) 3번**(`STARTING_SKILLS` 6원형에서
   매혹사/곡예사에게 각 2종씩 `character_ids` 배정)을 진행했다 — A/B/C는
