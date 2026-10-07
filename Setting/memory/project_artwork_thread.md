@@ -30,3 +30,8 @@ statuses whenever art is ordered/delivered/applied. Claude can't generate images
 `docs/feedback/INBOX.md` "남은 이슈" as `[미니 기획 ART-n]` entries (Work loop reads INBOX first
 every iteration). ART-1 (2026-10-06): a=select-list overflow/overlap bug, b=combat face-cut
 code path, c=monster art path tied to G-1 MonsterCatalog ids.
+
+**Monster roster (2026-10-07):** Work finished monster overhaul — 35 monsters from
+`code/systems/monster_catalog.gd` mapped in ledger: normal MO001~021, elite MO600~607, boss
+MO800~805; MO005 `dark_knight` (compat, not in random pool) shares MO600 art. Order priority
+M1 bosses → M2 family reps (MO001~004) → M3 elites → M4 other normals.
