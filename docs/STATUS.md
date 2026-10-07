@@ -5,44 +5,35 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-10-07 (162)
-- 작성자: AI 에이전트. G-6 완료로 실행 순서(F-2→F-3→G-1~G-9→F-4)상 다음인
-  INBOX.md "부분 처리됨"의 [대형 기획 6](몬스터 대개편) **G-7(정예 전투
-  방 + 정예 풀 8종)**을 진행했다. `MonsterCatalog`에 정예 8종(전부
-  `tier="elite"`, 스킬 2개 + `atk_dice_delta=1` + `hp_mult=1.5` 공통
-  공식)과 `elite_roster_ids()`/`build_elite_plan()`(라운드마다 방 1~3에
-  중복 없이 배정하는 순수 함수, `build_monster_plan()`과 같은 패턴)을
-  추가했다. 기존 일반 몬스터 "다크 나이트"(id=`dark_knight`)는 그대로 두고
-  (레거시 QA 경로 `_monster_config_for_room(4)`가 그 id의 결과 이름을
-  정확히 고정해 검증하는 기존 테스트를 깨지 않기 위해) 같은 이름·같은
-  1번째 스킬을 쓰는 새 id `dark_knight_elite`를 정예용으로 따로 추가했다.
-  `RunState.elite_plan`/`pending_elite_fight`(정예 버튼 → combat_test
-  `_ready()`가 소비) 신설, `combat_test.gd`에 `_monster_config_for_elite()`
-  추가. **이 과정에서 진짜 버그 하나를 발견해 고쳤다**: 기존
-  `"skill_ids": [] if gimmick == "" else [gimmick]`가 몬스터의 0번째
-  스킬만 배열에 담고 있어서(지금까지는 몬스터가 전부 스킬 0~1개뿐이라
-  문제가 없었음) 그대로 썼다면 정예(스킬 2개)의 2번째 스킬이 `MonsterSkills`
-  훅에 영영 전달되지 않을 뻔했다 — `profile.get("skills", [])` 전체를
-  순회하도록 고쳤다(기존 몬스터는 결과 동일, 동작 보존). 보상은 골드
-  ×2(`monster_is_elite` 분기) + 신규 `EliteRewardPool`(A급 이상 중심
-  가중치)로 "일반 전투보다 크게" 구현. `dungeon_map.gd`에 "정예 전투"
-  선택지(방 1~3, 35% 확률, 빨간 테두리 버튼)와 전용 아이콘(`RewardIcon`
-  "elite" 카테고리, `FamilyIcon.is_elite` 빨간 링)을 추가했다.
-  `dice_test.gd`에 신규 `_check_g7_elite_combat()`(elite_roster_ids
-  크기/스킬 2개, build_elite_plan 모양·결정성·경계, `_monster_config_
-  for_elite()`의 실제 계산 결과(hp_mult/atk_dice_delta 반영, skill_ids에
-  스킬 2개가 **둘 다** 담기는지 — F-3 원칙), EliteRewardPool 등급 분포)를
-  추가하고, 기존 `_check_dungeon_map_room_options()`/`_check_g5_monster_
-  catalog()`는 카탈로그가 실제로 29종으로 늘어난 만큼 기대값을 갱신했다
-  (`bash scripts/qa_shot.sh dice_test` 전체 PASS). **시각 QA**로 실제
-  입력 파이프라인(숫자 키 → 버튼 → 씬 전환 → `RunState.elite_plan`에서
-  뽑힌 몬스터)까지 전부 확인했고, 그 과정에서 `MonsterDebugInfoLabel`이
-  정예의 추가 스킬 줄 때문에 `MonsterPortrait` 얼굴과 겹치는 레이아웃
-  버그를 발견해 포트레이트 위치를 살짝 내려 고쳤다. 자세한 내용은 아래
-  "완료 기록 (162)" 참고.
-  **G-7 완료.** 다음 할 일은 **G-8**(보스 6종 전용 풀 — 아래 "지금 위치"/
-  "다음 할 일 큐" 참고). "완료 기록" 10개 유지를 위해 (152)를
-  `docs/STATUS_ARCHIVE.md`로 옮겼다.
+- 일시: 2026-10-07 (163)
+- 작성자: AI 에이전트. G-7 완료로 실행 순서(F-2→F-3→G-1~G-9→F-4)상 다음인
+  INBOX.md "부분 처리됨"의 [대형 기획 6](몬스터 대개편) **G-8(보스 6종
+  전용 풀)**을 진행했다. `MonsterCatalog`에 보스 6종(라운드당 2종,
+  `tier="boss"`)과 `BOSS_ROSTER_BY_ROUND`/`boss_roster_ids()`를 추가하고,
+  `build_monster_plan()`의 보스 자리 선택을 "일반 20종 풀에서 무작위"에서
+  "그 라운드 보스 후보 2종 중 run_seed로 하나 고정"으로 바꿨다. 각 보스의
+  `phase2_skills`(HP 절반 이하에서 1회 발동)는 순수 함수
+  `combat_test._boss_phase2_activation()`이 "이미 보유한 스킬이면 강화,
+  아니면 새로 추가"로 계산하고, `_maybe_activate_boss_phase2()`가 그 결과를
+  실제 주머니/로그/디버그 텍스트에 적용한다(`min_max_only`가 phase2로
+  들어오는 경우만 `force_min_max_faces()`를 즉시 호출하는 특수 처리).
+  보스 초상화 1.25배 확대(`_ready()`)도 추가했다 — 왕관 오버레이는 G-1에서
+  이미 `is_boss`에 연동돼 있어 손댈 필요 없었다.
+  `dice_test.gd`에 신규 `_check_g8_boss()`(보스 풀 규모/라운드 배정,
+  `_monster_config_for_plan()`의 보스 실제 계산 결과, `_boss_phase2_
+  activation()`의 게이트 조건 + "강화"/"신규 추가"/"min_max_only" 세
+  패턴 + 디버그 텍스트)를 추가하고, G-6/G-5 검증의 기대값(보스 풀 출처,
+  카탈로그 규모 35종, 계열별 개수)을 갱신했다(`bash scripts/qa_shot.sh
+  dice_test` 전체 PASS). **시각 QA**로 `GAME_QA_MONSTER_ID=goblin_king`
+  + `GAME_QA_ROOM_OVERRIDE=4`로 보스 전투를 실제로 띄워 크래시 없음과
+  왕관/확대 초상화/3스킬 디버그 텍스트, armor/counter 스킬의 실제 전투
+  반영을 확인했다(`qa_out/combat_test_boss_g8.png`) — 다만 이 매치업은
+  플레이어가 초반에 패배해 2페이즈 전환 자체는 화면으로 못 봤고, 그
+  경로는 `_check_g8_boss()`의 순수 함수 검증으로만 확인됨. 자세한 내용은
+  아래 "완료 기록 (163)" 참고.
+  **G-8 완료.** 다음 할 일은 **G-9**(맵 미리보기 + DESIGN.md 몬스터 절
+  갱신 — 아래 "지금 위치"/"다음 할 일 큐" 참고). "완료 기록" 10개 유지를
+  위해 (153)을 `docs/STATUS_ARCHIVE.md`로 옮겼다.
 
 ## 지금 위치
 
@@ -87,7 +78,7 @@ unlock_requirement()`)가 함께 보인다(F-1). 시작 스킬은 캐릭터당 3
 `docs/STATUS_ARCHIVE.md`의 완료 기록 (153)~(155)).
 **F-4(밸런스 시뮬)는 설계상 G-1~G-9(아래 [대형 기획 6]) 완료 후 진행 —
 아직 착수 전.**
-**[대형 기획 6] G-1~G-7 완료(2026-10-07), G-8~G-9 남음** — 다음 할 일.
+**[대형 기획 6] G-1~G-8 완료(2026-10-07), G-9만 남음** — 다음 할 일.
 사람이 몬스터를 계열(인간형/부정형/야수형/언데드형) + 일반 20종/정예
 8종/보스 6종의 대형 풀로 개편하고 정예 전투 방을 추가하는 설계를 이미
 끝내뒀다(INBOX.md "부분 처리됨" [대형 기획 6] 원문 참고). G-1로 계열
@@ -102,15 +93,19 @@ armor(n)/guard_up/counter(n) + 부정형 sticky/seal/dull/numb 7종을, G-4로
 순환 로직을 `RunState.monster_plan`(런 시작마다 라운드×방 몬스터를
 미리 뽑아 저장, 난이도 공식 `room_index + (round_index-1)*3`)으로
 교체해 **정상 플레이(QA 환경변수 없이)에서 일반 20종 로스터 전체를
-실제로 만날 수 있게** 됐다. **G-7로 정예 8종 + "정예 전투" 방을
-추가해, 이제 정상 플레이에서 정예도 실제로 만날 수 있다**(위 "마지막
-갱신" 참고 — 상세는 완료 기록 (156)~(162), 오래된 것은
-`docs/STATUS_ARCHIVE.md`).
-다음은 **G-8**(보스 6종 전용 풀 — 라운드마다 보스 후보 2종 중 하나를
-`run_seed`로 결정해 `monster_plan`의 5번째 방 자리를 채움, 기존 보스
-배율(공격+2/방어+1/HP×2)은 유지하되 전용 스킬 3개 + 2페이즈(HP 50%
-이하에서 로그+스킬 1개 추가) + 전용 색/초상화 1.25배 + 계열 아이콘
-왕관 오버레이 추가)부터 순서대로 한 조각씩 진행하면 된다.
+실제로 만날 수 있게** 됐다. G-7로 정예 8종 + "정예 전투" 방을
+추가해, 정상 플레이에서 정예도 실제로 만날 수 있게 됐다. **G-8로
+보스 6종(라운드당 2종, `tier="boss"`)을 추가해 `build_monster_plan()`의
+마지막 방(보스) 자리가 더는 일반 풀이 아니라 그 라운드의 보스 후보
+2종 중 `run_seed`로 고정된 하나를 쓴다. 보스마다 전용 스킬 2~3개 +
+HP 절반 이하에서 1회 발동하는 2페이즈(`combat_test._boss_phase2_
+activation()` 순수 함수 + `_maybe_activate_boss_phase2()`) + 초상화
+1.25배 확대를 갖춘다**(위 "마지막 갱신" 참고 — 상세는 완료 기록
+(157)~(163), 오래된 것은 `docs/STATUS_ARCHIVE.md`).
+다음은 **G-9**(마무리 — 던전 맵의 "전투" 선택지 옆에 다음 몬스터의 계열
+아이콘 표시, `docs/DESIGN.md` 몬스터 절을 계열×등급 카탈로그 표로 갱신,
+STATUS.md에 풀 규모/잠정 수치 목록 정리)부터 진행하면 된다. G-9가 끝나면
+[대형 기획 6] 전체가 끝나 F-4(밸런스 시뮬)로 넘어갈 차례.
 **ART-1a(아트 스레드 전달, 2026-10-06) 완료** — 캐릭터 선택 카드 목록이
 7종으로 늘어나며 7번째(곡예사) 카드가 화면 밖으로 밀려 마우스로 선택 불가하던
 버그를 ScrollContainer로 해결(상세는 `docs/STATUS_ARCHIVE.md`의 완료
@@ -177,8 +172,8 @@ armor(n)/guard_up/counter(n) + 부정형 sticky/seal/dull/numb 7종을, G-4로
 - **업적 시스템**: `AchievementManager`(Autoload)가 `user://achievements.json`에
   영구 저장, `AchievementPanel`로 열람. 21종 등록(`DEFINITIONS` 참고, 유형별
   아이콘 포함). 해금 순간 토스트/팝업은 없음.
-- **몬스터 카탈로그 29종(일반 20 + 레거시 전용 다크 나이트 1 + 정예 8),
-  정상 플레이에서 일반 20종 + 정예 8종 전부 등장**
+- **몬스터 카탈로그 35종(일반 20 + 레거시 전용 다크 나이트 1 + 정예 8 +
+  보스 6), 정상 플레이에서 일반 20종 + 정예 8종 + 보스 6종 전부 등장**
   (`code/systems/monster_catalog.gd`의 `MonsterCatalog.MONSTERS`): 2026-10-07
   G-6으로 던전 순환이 `legacy_cycle_monster()`(기존 5종 고정 순환) 대신
   `RunState.monster_plan`(런 시작마다 `MonsterCatalog.build_monster_plan()`
@@ -186,18 +181,25 @@ armor(n)/guard_up/counter(n) + 부정형 sticky/seal/dull/numb 7종을, G-4로
   전체(기존 슬라임/고블린/해골 전사/오크 + G-5 신규 16종)를 만날 수
   있다**(다크 나이트는 `legacy_cycle_monster()`로만 등장하는 레거시
   전용으로 남음 — 정예판은 G-7이 새 id `dark_knight_elite`로 따로 추가).
-  **G-7(2026-10-07)로 정예 8종(인간형 다크 나이트/고블린 족장, 부정형
+  G-7(2026-10-07)로 정예 8종(인간형 다크 나이트/고블린 족장, 부정형
   젤라틴 큐브/망령, 야수형 오크 투사/암흑 늑대, 언데드형 해골 기사/리치
   견습생, 전부 스킬 2개+hp_mult 1.5+공격 다이스+1)이 추가됐고,
   `RunState.elite_plan`(런 시작마다 `build_elite_plan()`으로 미리 뽑음)을
   통해 던전 맵 방 1~3에서 35% 확률로 "정예 전투" 선택지로 실제로 만날 수
-  있다**(빨간 테두리 버튼, 승리 보상은 골드 ×2 + `EliteRewardPool`로
-  A급 이상 카드 중심). 각 몬스터는 성격 1줄 문구를
-  갖고, 전투 화면 몬스터 이름 앞에 계열 아이콘(`FamilyIcon`) 표시, 난이도는
+  있다(빨간 테두리 버튼, 승리 보상은 골드 ×2 + `EliteRewardPool`로
+  A급 이상 카드 중심). **G-8(2026-10-07)로 보스 6종(라운드당 2종 —
+  라운드1: 고블린 왕/점액 군주, 라운드2: 해골 장군/광란의 마수, 라운드3:
+  타락한 기사단장/공허의 눈, 전부 `tier="boss"`)이 추가됐고, 각 라운드의
+  마지막 방(5번째) 몬스터를 `build_monster_plan()`이 그 라운드의 보스
+  후보 2종 중 `run_seed`로 고정된 하나로 채운다**(기존 보스 배율
+  공격+2/방어+1/HP×2는 그대로, 전용 스킬 2~3개 + HP 절반 이하에서 1회
+  발동하는 2페이즈(`combat_test._boss_phase2_activation()` 순수 함수 —
+  고블린 왕은 기존 스킬 강화, 나머지 5종은 새 스킬 1개 추가, 광란의
+  마수만 min_max_only라 특수 처리) + 초상화 1.25배 확대). 각 몬스터는
+  성격 1줄 문구를 갖고, 전투 화면 몬스터 이름 앞에 계열 아이콘
+  (`FamilyIcon`, 보스는 왕관 오버레이) 표시, 난이도는
   `room_index + (round_index-1)*3` 공식으로 다이스 개수/면 개수/HP가
-  스케일링되고 각 라운드의 마지막 방(5번째)은 보스 강화(공격+2/방어+1/
-  HP×2, 아직 몬스터 자체는 전용 보스 풀이 아니라 같은 20종 풀에서 뽑힘 —
-  G-8이 전용 보스 6종을 추가할 예정). 3라운드 클리어 시 게임 클리어. 기믹의
+  스케일링된다. 3라운드 클리어 시 게임 클리어. 기믹의
   실제 적용 로직은 `code/systems/monster_skills.gd`(`MonsterSkills`, 훅
   4개, G-2)로 이식돼 있다. QA 전용 `GAME_QA_ROOM_OVERRIDE`/
   `GAME_QA_MONSTER_ID` 환경변수는 이 계획을 완전히 우회해 기존처럼 "그
@@ -859,14 +861,69 @@ armor(n)/guard_up/counter(n) + 부정형 sticky/seal/dull/numb 7종을, G-4로
 21. **(INBOX.md 2026-10-06, [대형 기획 6] G-1~G-9) 몬스터 대개편 — 계열
     (패밀리) + 대형 몬스터 풀 + 정예 방 + 라운드별 보스 2종.** 사람이 이미
     G-1~G-9 아홉 조각의 구체적 설계를 끝내뒀다(INBOX.md "부분 처리됨" 원문
-    참고) — **G-1~G-5 완료(2026-10-07, 완료 기록 (156)~(160))**, 다음은
-    **G-6**(런 시작 몬스터 계획 + 라운드 스케일링: `RunState.monster_plan`
-    신설, 20종 풀에서 중복 없이 뽑기, `legacy_cycle_monster()` 순환 제거,
-    보류해둔 슬라임/고블린 재배정도 함께). 이후 G-7(정예 방+8종)→
-    G-8(보스 6종)→G-9(맵 미리보기+문서)까지 순서대로 한 이터레이션에 한
-    조각씩 진행.
+    참고) — **G-1~G-8 완료(2026-10-07, 완료 기록 (156)~(163))**, 다음은
+    **G-9**(마무리 — 던전 맵 "전투" 선택지 옆에 다음 몬스터 계열 아이콘
+    표시, `docs/DESIGN.md` 몬스터 절을 계열×등급 카탈로그 표로 갱신,
+    STATUS.md에 풀 규모/잠정 수치 목록 정리)뿐 — 끝나면 [대형 기획 6]
+    전체를 INBOX.md "처리됨"으로 옮길 수 있다.
 
 ## 완료 기록
+
+- **2026-10-07 (163)**: G-7 완료로 실행 순서(F-2→F-3→G-1~G-9→F-4)상 다음인
+  INBOX.md "부분 처리됨"의 [대형 기획 6](몬스터 대개편) **G-8(보스 6종 전용
+  풀)**을 진행했다. `MonsterCatalog.MONSTERS`에 `tier="boss"` 6종(라운드당
+  2종 — 라운드1: 고블린 왕/점액 군주, 라운드2: 해골 장군/광란의 마수,
+  라운드3: 타락한 기사단장/공허의 눈)을 추가하고, 신규
+  `BOSS_ROSTER_BY_ROUND`(라운드별 후보 2종)와 `boss_roster_ids()`를 더했다.
+  `build_monster_plan()`의 "보스 자리(마지막 방)" 선택 로직을 기존
+  "일반 20종 풀에서 무작위"에서 "그 라운드의 보스 후보 2종 중
+  `run_seed`로 하나 고정"으로 바꿨다(INBOX.md 원문 "보스 2종 중 등장은
+  랜덤" — 전용 풀이 생겼으니 더는 일반 풀에서 뽑을 이유가 없어짐). 기존
+  보스 배율(공격+2/방어+1/HP×2)은 `_build_monster_config()`의 `is_boss`
+  분기가 tier와 무관하게 그대로 적용하므로 손대지 않았다.
+  **2페이즈**는 각 보스 데이터의 `phase2_skills`(스킬 1개짜리 배열 —
+  고블린 왕만 "이미 가진 armor를 2→4로 강화", 나머지 5종은 "새 스킬 1개
+  추가")로 표현하고, 순수 함수 `combat_test._boss_phase2_activation(is_boss,
+  already_active, hp, max_hp, phase2_skills, skill_ids, skill_params)`가
+  "활성화해야 하는지 + 활성화되면 skill_ids/skill_params가 어떻게 바뀌는지"를
+  계산한다(F-3 원칙 — UI/물리 없이 dice_test.gd가 직접 검증). "이미 보유한
+  스킬 id면 파라미터만 덮어쓰고, 없으면 새로 추가한다"는 규칙 하나로 6종
+  전부(강화형 1종 + 신규 추가형 5종)를 처리했다. `min_max_only`가 phase2로
+  들어오는 경우(광란의 마수)만 예외 — 이 스킬은 `modify_monster_roll` 훅이
+  아니라 주머니 면 값 자체를 영구히 바꾸는 종류(`on_combat_start`에서만
+  쓰이던 `force_min_max_faces()`)라, 순수 함수는 `"force_min_max": true`
+  신호만 돌려주고 `_maybe_activate_boss_phase2()`(인스턴스 메서드, 실제
+  주머니/로그/초상화 표정/디버그 라벨 적용 담당)가 그 신호를 보고 전투
+  중간에 한 번 호출한다. `_monster_debug_info_text()`에 `phase2_active`
+  플래그가 있으면 "[2페이즈] 보스가 격노했다!" 줄을 추가했다. 보스 전용
+  "초상화 1.25배" 연출(G-8 원문)은 `_ready()`에서
+  `monster_portrait.scale = Vector2(1.25,1.25) if monster_is_boss else
+  Vector2(1,1)`로 구현(계열 아이콘 왕관 오버레이는 G-1에서 이미 `is_boss`에
+  연동해 둔 상태라 추가 작업 불필요했다).
+  `dice_test.gd`에 신규 `_check_g8_boss()`(boss_roster_ids 크기 6,
+  BOSS_ROSTER_BY_ROUND 모양/겹침 없음, `_monster_config_for_plan()`의 보스
+  자리 실제 계산 결과(공격/방어/HP 배율 + skill_ids 3개), `_boss_phase2_
+  activation()`의 게이트 조건(보스 아님/HP 절반 초과/이미 활성화면 불발동)
+  + "기존 스킬 강화"/"신규 스킬 추가"/"min_max_only 특수 처리" 세 패턴
+  + 디버그 텍스트 반영)를 추가하고, 기존 `_check_g6_monster_plan()`의
+  "보스 자리는 20종 풀 안" 검증을 "그 라운드의 보스 후보 2종 안"으로,
+  `_check_g5_monster_catalog()`의 카탈로그 규모/계열별 개수 기대값을
+  35종(기존 29 + 보스 6)·인간형10/부정형9/야수형8/언데드8로 갱신했다
+  (`bash scripts/qa_shot.sh dice_test` 전체 PASS). **시각 QA**로
+  `GAME_QA_MONSTER_ID=goblin_king` + `GAME_QA_ROOM_OVERRIDE=4`로 보스
+  전투를 실제로 띄워 크래시 없음, 왕관 오버레이/확대된 초상화/3스킬
+  디버그 텍스트("방어구"/"궁지의 방어"/"반격" 전부 표시)가 화면에 정상
+  노출되는지, `armor`/`counter` 두 스킬이 실제 교환에서 몬스터 방어
+  합계·반격 데미지에 반영되는지(로그 "반격! 공격이 완전히 막혀...")까지
+  확인했다(`qa_out/combat_test_boss_g8.png`) — 다만 이 특정 매치업에서는
+  플레이어가 초반에 패배해 2페이즈(HP 절반 이하) 전환 자체는 화면으로
+  보지 못했고, 그 경로는 `_check_g8_boss()`의 순수 함수 검증으로만
+  확인됨(전투 템포상 다음 세션에서 사람이 실제로 보스 HP를 절반 밑으로
+  깎아보고 "[2페이즈]" 로그/디버그 줄이 실제로 뜨는지 플레이 확인해보면
+  좋음).
+  **G-8 완료.** 다음 할 일은 **G-9**(맵 미리보기 + DESIGN.md 몬스터 절
+  카탈로그 표 갱신 — 아래 "지금 위치"/"다음 할 일 큐" 참고). "완료 기록"
+  10개 유지를 위해 (153)을 `docs/STATUS_ARCHIVE.md`로 옮겼다.
 
 - **2026-10-07 (162)**: INBOX.md "부분 처리됨"의 [대형 기획 6](몬스터 대개편)
   **G-7(정예 전투 방 + 정예 풀 8종)**을 진행했다 — G-6 완료로 실행 순서상
@@ -1346,59 +1403,22 @@ armor(n)/guard_up/counter(n) + 부정형 sticky/seal/dull/numb 7종을, G-4로
   손대지 않았다.
   "완료 기록" 10개 유지를 위해 (144)를 `docs/STATUS_ARCHIVE.md`로 옮겼다.
 
-- **2026-10-07 (153)**: INBOX.md "부분 처리됨"의 [대형 기획 5] **F-3(테스트
-  보강)의 1번째 조각**을 진행했다 — 지시문이 "3개 이터레이션으로 쪼갤 것"이라고
-  명시한 F-3 중 첫 조각이고, 실행 순서(F-2→F-3→G-1~G-9→F-4)상 F-2가 이미
-  전체 완료돼 있어 F-3이 다음 차례였다. (152)가 `_check_starting_skill_
-  combat_wiring()`에 직접 남긴 메모("combat_test.gd의 '맹공'/'철벽' 조건부
-  apply_flat_bonus는 deep_breath와 마찬가지로 _do_exchange() 안에 인라인돼
-  있어 물리 시뮬레이션 없이 단위 테스트할 수 없다")가 F-3이 요구하는 "효과를
-  검증"(플래그가 아니라 계산 결과) 원칙의 구체적인 미해결 지점이라 이걸
-  첫 조각으로 골랐다. `combat_test.gd`에 `_wealth_bonus()`/`_diverse_dice_
-  type_count()`와 같은 패턴으로 정적 함수 3개를 신설했다: `_deep_breath_
-  bonus(skill_flags, already_used) -> {bonus, consume}`("+" > base > 없음
-  우선순위, base만 1회성 소모 플래그를 요구), `_aggro_bonus(attack_count,
-  defense_count)`("맹공"), `_wall_bonus(attack_count, defense_count)`
-  ("철벽", 맹공과 대칭). `_do_exchange()`의 세 지점(공격턴 맹공/방어턴 철벽/
-  방어턴 심호흡(+))을 인라인 조건에서 이 함수 호출로 교체했다 — 동작은
-  동일(로그 문구만 "+1"을 "+%d"로 일반화, 실제 수치는 그대로 1)하고 게임이
-  실행하는 코드와 테스트가 호출하는 코드가 이제 같은 함수다.
-  `dice_test.gd`의 `_check_starting_skill_combat_wiring()`에 (o) 섹션을
-  추가해 세 함수를 직접 호출하는 값 비교 테스트를 넣었다 — 맹공/철벽은
-  조건 충족/미충족 각각의 반환값(1/0)과, 그 값을 실제
-  `DiceBag.apply_flat_bonus()`에 넣었을 때 결과 배열이 올라가는지
-  (`[1,2]`+보너스1 → `[2,3]`)까지, 심호흡은 "+" 보유 시(base도 함께
-  보유해도 "+"만, consume=false) / base만 1회차(bonus=1, consume=true)
-  / base 2회차(이미 사용, bonus=0) 세 경우를 각각 확인한다 — 이전까지의
-  (c)/(i) 섹션은 combat_test.gd의 조건식을 "손으로 재현"해서 조건만 맞는지
-  봤을 뿐 실제 함수를 부르지 않았던 것과 달리, (o)는 실제 프로덕션 함수를
-  그대로 호출한다. `_check_starting_skill_combat_wiring()` 상단 docstring도
-  "더 이상 단위 테스트할 수 없다가 아님"으로 갱신해 해소된 gap을 명시했다.
-  Edit 도구로 인라인 치환을 할 때 Read 결과의 줄번호 뒤 탭을 들여쓰기로
-  착각해 tab 깊이를 한 칸씩 더 잡는 바람에 처음 여러 번 "문자열을 찾을 수
-  없음"으로 실패했다 — Bash `od -c`로 실제 탭 개수(1/2/3탭)를 직접 세어
-  바로잡음(다음에 Edit old_string이 반복 실패하면 Read의 줄번호 구분자 탭을
-  들여쓰기에 포함시키지 않았는지부터 의심할 것).
-  `bash scripts/qa_shot.sh dice_test` 전체 PASS(신규 (o) 섹션 포함),
-  `scripts/qa_shot.sh combat_test`로 전투 화면 크래시/겹침 없음도 확인(순수
-  리팩터링이라 레이아웃 영향 없음, `qa_out/combat_test.png`).
-  **남은 F-3 범위(2~3번째 조각)**: 아직 "조건만 손으로 재현"하는 수준에
-  머물러 있는 나머지 스킬들(확장/정예/수집가/강철 방비/선제/대비/오뚝이/
-  과적 — 이들도 같은 유형의 gap이지만 이번 조각에 명시적으로 지목되지는
-  않았음, 필요하면 같은 패턴으로 계속 추출), frenzy_deepen/guard_deepen/
-  chain_explosion/chain_guard류의 "재굴림" 스킬(이미 `_apply_bonus_reroll`로
-  부분 추출돼 있으나 "스택 적립→보너스 턴 전환" 자체는 아직 미검증), 그리고
-  F-3이 요구하는 **전체 흐름(E2E) 테스트**(새 런 시작 → 라운드1 보스 격파 →
-  r1 업적/슬롯1 해금 → 최종 클리어 → clear 업적/슬롯2 해금 → 새 런에서 실제
-  전투 효과 반영, 견습 모험가+곡예사 2종)는 이번에 손대지 않았다.
-  "완료 기록" 10개 유지를 위해 (142)를 `docs/STATUS_ARCHIVE.md`로 옮겼다.
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(162)에서 (152)를 그리로 옮겼다.)*
+이번 이터레이션(163)에서 (153)을 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 
+- **보스 2페이즈(G-8, 2026-10-07) 전환이 실제 플레이 화면에서 사람 눈으로
+  확인된 적은 아직 없음.** `combat_test._boss_phase2_activation()` 순수
+  함수는 `dice_test.gd`의 `_check_g8_boss()`로 6가지 경우(강화/신규 추가/
+  min_max_only 특수 처리/게이트 조건/디버그 텍스트)가 전부 직접 검증됐고,
+  시각 QA(`qa_out/combat_test_boss_g8.png`)로 보스 전투 자체(크래시 없음,
+  왕관/확대 초상화, 3스킬 디버그 텍스트, armor/counter 스킬의 실전 반영)는
+  확인했지만, 그 매치업에서는 플레이어가 보스 HP를 절반 밑으로 깎기 전에
+  패배해 "[2페이즈] 보스가 격노했다!" 로그/디버그 줄이 실제 화면에 뜨는
+  순간 자체는 못 봤다 — 다음에 사람이 플레이할 때(또는 더 약한 보스
+  매치업으로 QA를 다시 잡을 때) 한 번 확인해보면 좋음.
 - **`rm`/`Remove-Item`/`mv`가 프로젝트 루트의 특정 미추적 파일에 대해 거부됨 —
   무인 세션에 한정된 문제가 아님이 2026-09-15 (112)에 추가로 확인됨.** 이전
   사례(2026-09-15 (110), `achievements_new_scrolled.png`류)는 이후 사람이 직접

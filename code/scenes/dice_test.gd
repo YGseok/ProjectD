@@ -253,6 +253,10 @@ func _ready() -> void:
 	all_pass = _check_g7_elite_combat(lines) and all_pass
 
 	lines.append("")
+	lines.append("[G-8: 보스 6종(라운드당 2종) + 2페이즈(_maybe_activate_boss_phase2) 검증]")
+	all_pass = _check_g8_boss(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -4545,14 +4549,14 @@ func _check_g5_monster_catalog(lines: PackedStringArray) -> bool:
 	var ok := true
 
 	# (1) 카탈로그 규모: "일반 20종"(계열당 5) + 아직 정예로 안 옮겨간 "다크 나이트" 1개
-	# + G-7(2026-10-07) 정예 8종(계열당 2) = 29. 다크 나이트(id="dark_knight")는 G-7에서도
-	# 그대로 손대지 않았고(위 monster_catalog.gd 주석 참고 — 정예판은 다른 id
-	# "dark_knight_elite"로 따로 추가), 아직 보스 전용 풀(G-8)로도 옮겨가지 않아 계속 21개
-	# 쪽 "인간형 6" 집계에 남아있다.
+	# + 정예 8종(계열당 2, G-7) + 보스 6종(계열당 1~2, G-8) = 35. 다크 나이트
+	# (id="dark_knight")는 G-7/G-8 둘 다 그대로 손대지 않았고(위 monster_catalog.gd
+	# 주석 참고 — 정예판은 다른 id "dark_knight_elite"로 따로 추가) 계속 "일반" 쪽
+	# "인간형" 집계에 남아있다.
 	var total := MonsterCatalog.MONSTERS.size()
-	var size_ok: bool = total == 29
+	var size_ok: bool = total == 35
 	ok = size_ok and ok
-	lines.append("  MonsterCatalog.MONSTERS.size()=%d (기대 29 = 20종 로스터 + 다크 나이트 + 정예 8종) -> %s" % [
+	lines.append("  MonsterCatalog.MONSTERS.size()=%d (기대 35 = 20종 로스터 + 다크 나이트 + 정예 8종 + 보스 6종) -> %s" % [
 		total, "OK" if size_ok else "FAIL"
 	])
 
@@ -4567,12 +4571,13 @@ func _check_g5_monster_catalog(lines: PackedStringArray) -> bool:
 		if ids_seen.has(mid):
 			ids_unique_ok = false
 		ids_seen[mid] = true
-	# 인간형만 "다크 나이트"가 아직 남아있어 기본 6, 나머지 세 계열은 기본 5 — G-7
-	# 정예 8종(계열당 2)이 전부 더해져 인간형8/부정형7/야수형7/언데드형7이 된다.
-	var family_counts_ok: bool = family_counts["humanoid"] == 8 and family_counts["amorphous"] == 7 \
-		and family_counts["beast"] == 7 and family_counts["undead"] == 7
+	# 인간형만 "다크 나이트"가 아직 남아있어 기본 6, 나머지 세 계열은 기본 5 — G-7 정예
+	# 8종(계열당 2) + G-8 보스 6종(인간형2/부정형2/야수1/언데드1)이 더해져
+	# 인간형10/부정형9/야수형8/언데드형8이 된다.
+	var family_counts_ok: bool = family_counts["humanoid"] == 10 and family_counts["amorphous"] == 9 \
+		and family_counts["beast"] == 8 and family_counts["undead"] == 8
 	ok = family_counts_ok and ids_unique_ok and ok
-	lines.append("  계열별 개수=%s (기대 인간형8/부정형7/야수형7/언데드7), id 전부 고유=%s -> %s" % [
+	lines.append("  계열별 개수=%s (기대 인간형10/부정형9/야수형8/언데드8), id 전부 고유=%s -> %s" % [
 		family_counts, ids_unique_ok, "OK" if (family_counts_ok and ids_unique_ok) else "FAIL"
 	])
 
@@ -4754,14 +4759,16 @@ func _check_g6_monster_plan(lines: PackedStringArray) -> bool:
 		all_unique, all_in_pool, "OK" if (all_unique and all_in_pool) else "FAIL"
 	])
 
-	# (4) 보스 자리(방4)도 20종 풀 안의 몬스터(G-8 전까지 전용 보스 풀이 없어 같은 풀에서
-	# 뽑되, 중복은 허용됨 — "보스"는 아직 기존 스탯 배율로만 표현).
+	# (4) 보스 자리(방4)는 G-8(2026-10-07)부터 전용 보스 풀 — 그 라운드의
+	# BOSS_ROSTER_BY_ROUND 후보 2종 중 하나여야 한다(일반 20종 풀 안이 아니다).
 	var boss_ok := true
-	for round_slots in plan_a:
-		if not normal_ids.has(round_slots[4]):
+	for r in range(plan_a.size()):
+		var boss_id: String = plan_a[r][4]
+		var candidates: Array = MonsterCatalog.BOSS_ROSTER_BY_ROUND[r % MonsterCatalog.BOSS_ROSTER_BY_ROUND.size()]
+		if not candidates.has(boss_id):
 			boss_ok = false
 	ok = boss_ok and ok
-	lines.append("  보스 자리(방4, 3라운드) 전부 20종 풀 안의 몬스터=%s -> %s" % [
+	lines.append("  보스 자리(방4, 3라운드) 전부 그 라운드의 보스 후보 2종 안=%s -> %s" % [
 		boss_ok, "OK" if boss_ok else "FAIL"
 	])
 
@@ -4973,4 +4980,149 @@ func _check_g7_elite_combat(lines: PackedStringArray) -> bool:
 		distinct_ok, "OK" if distinct_ok else "FAIL"
 	])
 
+	return ok
+
+
+## [대형 기획 6] G-8(2026-10-07) 검증 — 보스 풀 6종(라운드당 2종) 데이터/배정 +
+## combat_test.gd의 _monster_config_for_plan()이 보스 몬스터에 대해서도 "계산 결과"
+## (attack_count/max_hp/skill_ids)를 실제로 바꾸는지 + 2페이즈 활성화 순수 함수
+## (_boss_phase2_activation())가 "이미 보유한 스킬 강화" / "새 스킬 추가" / "min_max_only
+## 특수 처리" 세 경우 모두에서 실제 반환값이 바뀌는지(F-3 원칙 — UI/물리 없이 직접 검증).
+func _check_g8_boss(lines: PackedStringArray) -> bool:
+	var ok := true
+
+	# (1) boss_roster_ids(): INBOX.md 원문 그대로 6종.
+	var boss_ids: Array = MonsterCatalog.boss_roster_ids()
+	var boss_size_ok: bool = boss_ids.size() == 6
+	ok = boss_size_ok and ok
+	lines.append("  MonsterCatalog.boss_roster_ids().size()=%d (기대 6) -> %s" % [
+		boss_ids.size(), "OK" if boss_size_ok else "FAIL"
+	])
+
+	# (2) BOSS_ROSTER_BY_ROUND: 라운드 3개 x 후보 2종, 6종이 라운드마다 겹치지 않고
+	# 정확히 한 번씩만 등장(합쳐서 boss_roster_ids()와 정확히 일치).
+	var round_roster_ok: bool = MonsterCatalog.BOSS_ROSTER_BY_ROUND.size() == 3
+	var seen_in_rounds := {}
+	for candidates in MonsterCatalog.BOSS_ROSTER_BY_ROUND:
+		if candidates.size() != 2:
+			round_roster_ok = false
+		for id in candidates:
+			if seen_in_rounds.has(id):
+				round_roster_ok = false
+			seen_in_rounds[id] = true
+	for id in boss_ids:
+		if not seen_in_rounds.has(id):
+			round_roster_ok = false
+	ok = round_roster_ok and ok
+	lines.append("  BOSS_ROSTER_BY_ROUND 모양(3라운드x2종) + 6종 전부 라운드당 1회씩만 등장=%s -> %s" % [
+		round_roster_ok, "OK" if round_roster_ok else "FAIL"
+	])
+
+	# (3) 실제 배선: _monster_config_for_plan()이 보스 자리에 "고블린 왕"(armor 2 +
+	# guard_up + counter 2, 3스킬)을 꽂았을 때 is_boss 배율(공격+2/방어+1/HP x2)과
+	# skill_ids 3개가 전부 계산 결과에 반영되는지.
+	var plan_backup: Array = RunState.monster_plan
+	RunState.monster_plan = [
+		["slime", "goblin", "skeleton", "orc", "goblin_king"],
+	]
+	var script := load("res://code/scenes/combat_test.gd")
+	var combat = script.new()
+
+	# 라운드1/방4(보스): difficulty=4+(1-1)*3=4 -> 기본 공격=2+int(4/2.0)=4, 방어=1+int(4/3.0)=2,
+	# hp=10+12=22(hp_mult 1.0). 보스 보정(+2/+1/x2) 적용 -> 공격6 방어3 hp44.
+	var boss_config: Dictionary = combat._monster_config_for_plan(1, 4)
+	var boss_stats_ok: bool = boss_config["name"] == "고블린 왕 [보스]" and boss_config["attack_count"] == 6 \
+		and boss_config["defense_count"] == 3 and boss_config["max_hp"] == 44 and boss_config["is_boss"] == true
+	ok = boss_stats_ok and ok
+	lines.append("  라운드1/방4(고블린 왕): name=%s 공격=%d(기대6) 방어=%d(기대3) hp=%d(기대44) is_boss=%s -> %s" % [
+		boss_config["name"], boss_config["attack_count"], boss_config["defense_count"], boss_config["max_hp"],
+		boss_config["is_boss"], "OK" if boss_stats_ok else "FAIL"
+	])
+
+	var boss_skill_ids_ok: bool = boss_config["skill_ids"] == ["armor", "guard_up", "counter"] \
+		and boss_config["skill_params"].get("armor", {}).get("amount", 0) == 2 \
+		and boss_config["skill_params"].get("counter", {}).get("amount", 0) == 2
+	ok = boss_skill_ids_ok and ok
+	lines.append("  고블린 왕 skill_ids=%s armor/counter.amount=%d/%d (기대 [armor,guard_up,counter], 2, 2) -> %s" % [
+		boss_config["skill_ids"], boss_config["skill_params"].get("armor", {}).get("amount", 0),
+		boss_config["skill_params"].get("counter", {}).get("amount", 0), "OK" if boss_skill_ids_ok else "FAIL"
+	])
+
+	# (4) _boss_phase2_activation() 순수 함수 — 보스가 아니거나 HP가 절반 넘으면 활성화
+	# 안 됨(플래그/조건이 아니라 반환 Dictionary 자체를 비교). 정적 함수라 인스턴스 없이
+	# 로드한 script 자체로 호출 가능(_wealth_bonus 등 기존 패턴과 동일).
+	var not_boss_result: Dictionary = script._boss_phase2_activation(
+		false, false, 5, 44, [{"id": "armor", "amount": 4}], ["armor"], {"armor": {"id": "armor", "amount": 2}}
+	)
+	var hp_above_half_result: Dictionary = script._boss_phase2_activation(
+		true, false, 23, 44, [{"id": "armor", "amount": 4}], ["armor"], {"armor": {"id": "armor", "amount": 2}}
+	)
+	var gate_ok: bool = not not_boss_result.get("activate", false) and not hp_above_half_result.get("activate", false)
+	ok = gate_ok and ok
+	lines.append("  _boss_phase2_activation: 보스 아님/HP 절반 초과 -> 활성화 안 됨=%s -> %s" % [
+		gate_ok, "OK" if gate_ok else "FAIL"
+	])
+
+	# (5) "고블린 왕" 패턴 — 이미 보유한 스킬(armor, amount=2)을 phase2_skills({"id":"armor",
+	# "amount":4})로 덮어쓴다(새 스킬 추가가 아니라 기존 스킬 강화, skill_ids 길이 불변).
+	var boost_result: Dictionary = script._boss_phase2_activation(
+		true, false, 22, 44, [{"id": "armor", "amount": 4}],
+		["armor", "guard_up", "counter"], {"armor": {"id": "armor", "amount": 2}, "counter": {"id": "counter", "amount": 2}}
+	)
+	var boost_ok: bool = boost_result.get("activate", false) and boost_result["skill_ids"].size() == 3 \
+		and boost_result["skill_params"]["armor"]["amount"] == 4 and not boost_result.get("force_min_max", false)
+	ok = boost_ok and ok
+	lines.append("  _boss_phase2_activation(고블린 왕류, armor 2->4): activate=%s skill_ids.size()=%d armor.amount=%d -> %s" % [
+		boost_result.get("activate", false), boost_result.get("skill_ids", []).size(),
+		boost_result.get("skill_params", {}).get("armor", {}).get("amount", 0), "OK" if boost_ok else "FAIL"
+	])
+
+	# (6) "해골 장군" 패턴 — 아직 없던 스킬("revive")을 새로 추가(skill_ids 길이 +1).
+	var add_result: Dictionary = script._boss_phase2_activation(
+		true, false, 10, 44, [{"id": "revive"}], ["fixed_value", "drain", "chill"], {}
+	)
+	var add_ok: bool = add_result.get("activate", false) and add_result["skill_ids"].size() == 4 \
+		and add_result["skill_ids"].has("revive") and not add_result.get("force_min_max", false)
+	ok = add_ok and ok
+	lines.append("  _boss_phase2_activation(해골 장군류, revive 신규 추가): activate=%s skill_ids=%s -> %s" % [
+		add_result.get("activate", false), add_result.get("skill_ids", []), "OK" if add_ok else "FAIL"
+	])
+
+	# (7) "광란의 마수" 패턴 — min_max_only가 phase2로 들어오면 force_min_max=true로
+	# 신호를 돌려줘야 호출부가 즉시 force_min_max_faces()를 적용할 수 있다.
+	var min_max_result: Dictionary = script._boss_phase2_activation(
+		true, false, 10, 44, [{"id": "min_max_only"}], ["anger_stack", "pounce", "bloodlust"], {}
+	)
+	var min_max_ok: bool = min_max_result.get("activate", false) and min_max_result.get("force_min_max", false) == true
+	ok = min_max_ok and ok
+	lines.append("  _boss_phase2_activation(광란의 마수류, min_max_only): activate=%s force_min_max=%s -> %s" % [
+		min_max_result.get("activate", false), min_max_result.get("force_min_max", false), "OK" if min_max_ok else "FAIL"
+	])
+
+	# (8) 이미 활성화된 상태(already_active=true)면 조건을 다시 만족해도 활성화 안 됨
+	# (전투당 1회 제한).
+	var already_active_result: Dictionary = script._boss_phase2_activation(
+		true, true, 10, 44, [{"id": "revive"}], ["fixed_value"], {}
+	)
+	var already_active_ok: bool = not already_active_result.get("activate", false)
+	ok = already_active_ok and ok
+	lines.append("  _boss_phase2_activation: 이미 활성화됨(already_active=true) -> 재활성화 안 됨=%s -> %s" % [
+		already_active_ok, "OK" if already_active_ok else "FAIL"
+	])
+
+	# (9) _monster_debug_info_text()(인스턴스 메서드, combat을 아직 안 free했으므로 재사용)
+	# 에 phase2_active 플래그가 있으면 "[2페이즈]" 문구가 실제로 붙는지(디버그 텍스트도
+	# "플래그"가 아니라 "출력 결과"로 검증).
+	var phase2_debug_text: String = combat._monster_debug_info_text({
+		"dice_sides": 6, "attack_count": 4, "defense_count": 3, "skill_ids": [], "is_boss": true,
+		"phase2_active": true,
+	})
+	var phase2_text_ok: bool = phase2_debug_text.contains("[2페이즈]")
+	ok = phase2_text_ok and ok
+	lines.append("  phase2_active=true인 config의 디버그 텍스트에 [2페이즈] 포함=%s -> %s" % [
+		phase2_text_ok, "OK" if phase2_text_ok else "FAIL"
+	])
+
+	combat.free()
+	RunState.monster_plan = plan_backup
 	return ok

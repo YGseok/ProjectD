@@ -8,6 +8,53 @@
 
 ---
 
+- **2026-10-07 (153)**: INBOX.md "부분 처리됨"의 [대형 기획 5] **F-3(테스트
+  보강)의 1번째 조각**을 진행했다 — 지시문이 "3개 이터레이션으로 쪼갤 것"이라고
+  명시한 F-3 중 첫 조각이고, 실행 순서(F-2→F-3→G-1~G-9→F-4)상 F-2가 이미
+  전체 완료돼 있어 F-3이 다음 차례였다. (152)가 `_check_starting_skill_
+  combat_wiring()`에 직접 남긴 메모("combat_test.gd의 '맹공'/'철벽' 조건부
+  apply_flat_bonus는 deep_breath와 마찬가지로 _do_exchange() 안에 인라인돼
+  있어 물리 시뮬레이션 없이 단위 테스트할 수 없다")가 F-3이 요구하는 "효과를
+  검증"(플래그가 아니라 계산 결과) 원칙의 구체적인 미해결 지점이라 이걸
+  첫 조각으로 골랐다. `combat_test.gd`에 `_wealth_bonus()`/`_diverse_dice_
+  type_count()`와 같은 패턴으로 정적 함수 3개를 신설했다: `_deep_breath_
+  bonus(skill_flags, already_used) -> {bonus, consume}`("+" > base > 없음
+  우선순위, base만 1회성 소모 플래그를 요구), `_aggro_bonus(attack_count,
+  defense_count)`("맹공"), `_wall_bonus(attack_count, defense_count)`
+  ("철벽", 맹공과 대칭). `_do_exchange()`의 세 지점(공격턴 맹공/방어턴 철벽/
+  방어턴 심호흡(+))을 인라인 조건에서 이 함수 호출로 교체했다 — 동작은
+  동일(로그 문구만 "+1"을 "+%d"로 일반화, 실제 수치는 그대로 1)하고 게임이
+  실행하는 코드와 테스트가 호출하는 코드가 이제 같은 함수다.
+  `dice_test.gd`의 `_check_starting_skill_combat_wiring()`에 (o) 섹션을
+  추가해 세 함수를 직접 호출하는 값 비교 테스트를 넣었다 — 맹공/철벽은
+  조건 충족/미충족 각각의 반환값(1/0)과, 그 값을 실제
+  `DiceBag.apply_flat_bonus()`에 넣었을 때 결과 배열이 올라가는지
+  (`[1,2]`+보너스1 → `[2,3]`)까지, 심호흡은 "+" 보유 시(base도 함께
+  보유해도 "+"만, consume=false) / base만 1회차(bonus=1, consume=true)
+  / base 2회차(이미 사용, bonus=0) 세 경우를 각각 확인한다 — 이전까지의
+  (c)/(i) 섹션은 combat_test.gd의 조건식을 "손으로 재현"해서 조건만 맞는지
+  봤을 뿐 실제 함수를 부르지 않았던 것과 달리, (o)는 실제 프로덕션 함수를
+  그대로 호출한다. `_check_starting_skill_combat_wiring()` 상단 docstring도
+  "더 이상 단위 테스트할 수 없다가 아님"으로 갱신해 해소된 gap을 명시했다.
+  Edit 도구로 인라인 치환을 할 때 Read 결과의 줄번호 뒤 탭을 들여쓰기로
+  착각해 tab 깊이를 한 칸씩 더 잡는 바람에 처음 여러 번 "문자열을 찾을 수
+  없음"으로 실패했다 — Bash `od -c`로 실제 탭 개수(1/2/3탭)를 직접 세어
+  바로잡음(다음에 Edit old_string이 반복 실패하면 Read의 줄번호 구분자 탭을
+  들여쓰기에 포함시키지 않았는지부터 의심할 것).
+  `bash scripts/qa_shot.sh dice_test` 전체 PASS(신규 (o) 섹션 포함),
+  `scripts/qa_shot.sh combat_test`로 전투 화면 크래시/겹침 없음도 확인(순수
+  리팩터링이라 레이아웃 영향 없음, `qa_out/combat_test.png`).
+  **남은 F-3 범위(2~3번째 조각)**: 아직 "조건만 손으로 재현"하는 수준에
+  머물러 있는 나머지 스킬들(확장/정예/수집가/강철 방비/선제/대비/오뚝이/
+  과적 — 이들도 같은 유형의 gap이지만 이번 조각에 명시적으로 지목되지는
+  않았음, 필요하면 같은 패턴으로 계속 추출), frenzy_deepen/guard_deepen/
+  chain_explosion/chain_guard류의 "재굴림" 스킬(이미 `_apply_bonus_reroll`로
+  부분 추출돼 있으나 "스택 적립→보너스 턴 전환" 자체는 아직 미검증), 그리고
+  F-3이 요구하는 **전체 흐름(E2E) 테스트**(새 런 시작 → 라운드1 보스 격파 →
+  r1 업적/슬롯1 해금 → 최종 클리어 → clear 업적/슬롯2 해금 → 새 런에서 실제
+  전투 효과 반영, 견습 모험가+곡예사 2종)는 이번에 손대지 않았다.
+  "완료 기록" 10개 유지를 위해 (142)를 `docs/STATUS_ARCHIVE.md`로 옮겼다.
+
 - **2026-10-07 (152)**: 이전 이터레이션(151 직후)이 사용량 한도로 끊기며
   `code/scenes/combat_test.gd`에 미커밋 상태로 남겨둔 F-2(c)(신규 시작 스킬
   7종 전투 배선) 작업을 이어받아 완성했다. 이어받은 diff에서 **심각한 버그**를

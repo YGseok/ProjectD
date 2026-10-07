@@ -32,9 +32,9 @@
 - [부분 처리됨 - 2026-10-07] 2026-10-06 [대형 기획 6] 몬스터 대개편: 계열(패밀리) +
   대형 몬스터 풀 + 정예 방 + 라운드별 보스 2종.
 
-  → **G-1·G-2·G-3·G-4·G-5·G-6·G-7 완료(2026-10-07), G-8~G-9는 아직**(상세는
-  `docs/STATUS.md` 완료 기록 (156)/(157)/(158)/(159)/(160)/(161)/(162) 참고 —
-  (152) 이하는 `docs/STATUS_ARCHIVE.md`로 이동됨). G-6으로
+  → **G-1·G-2·G-3·G-4·G-5·G-6·G-7·G-8 완료(2026-10-07), G-9만 아직**(상세는
+  `docs/STATUS.md` 완료 기록 (156)/(157)/(158)/(159)/(160)/(161)/(162)/(163)
+  참고 — (153) 이하는 `docs/STATUS_ARCHIVE.md`로 이동됨). G-6으로
   `MonsterCatalog.build_monster_plan()`이 라운드×방 몬스터를 런 시작마다
   미리 뽑아 `RunState.monster_plan`에 저장하고, `combat_test.gd`의 신규
   `_monster_config_for_plan()`이 이를 읽어 몬스터를 고르며 난이도 공식도
@@ -52,7 +52,15 @@
   이름 고정 회귀 테스트를 깨지 않기 위해 — 상세 이유는
   `code/systems/monster_catalog.gd` G-7 주석). 승리 보상은 골드 ×2 +
   `EliteRewardPool`(A급 이상 카드 중심)로 "일반 전투보다 크게" 구현했다.
-  다음은 **G-8**(보스 6종 전용 풀)부터.
+  **G-8로 보스 6종(라운드당 2종, `tier="boss"`)을 추가하고
+  `build_monster_plan()`의 마지막 방(보스) 자리를 "일반 풀에서 무작위"
+  대신 "그 라운드의 보스 후보 2종 중 run_seed로 고정된 하나"로 바꿨다.
+  각 보스는 전용 스킬 2~3개 + HP 절반 이하에서 1회 발동하는 2페이즈
+  (순수 함수 `combat_test._boss_phase2_activation()` — 고블린 왕은 기존
+  스킬 강화, 나머지 5종은 새 스킬 1개 추가) + 초상화 1.25배 확대를
+  갖는다(계열 아이콘 왕관 오버레이는 G-1에서 이미 `is_boss`에 연동돼
+  있어 추가 작업 불필요).**
+  다음은 **G-9**(맵 미리보기 + DESIGN.md 몬스터 절 갱신)부터.
   G-1:
   `code/systems/monster_catalog.gd`(`MonsterCatalog`)에 계열 4종(`FAMILIES`)과
   기존 몬스터 5종(`MONSTERS`)을 데이터로 옮기고, `code/scenes/family_icon.gd`

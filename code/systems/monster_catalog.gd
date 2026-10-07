@@ -229,6 +229,67 @@ const MONSTERS := [
 		"atk_dice_delta": 1, "hp_mult": 1.5,
 		"personality": "죽음을 두려워하지 않고 서늘한 기운으로 상대의 손끝마저 흐려놓는 견습생",
 	},
+	# G-8(2026-10-07) 신규 보스 6종(라운드당 2종, 등장은 run_seed로 라운드마다 결정 —
+	# BOSS_ROSTER_BY_ROUND/build_monster_plan() 참고). "보스" 배율(공격+2/방어+1/HP x2)은
+	# tier와 무관하게 _build_monster_config()의 is_boss 분기가 그대로 적용하므로, 여기
+	# hp_mult/atk_dice_delta는 "보스 전용 추가 보정"이 필요한 경우만 기본값(1.0/0)이 아니다
+	# (점액 군주만 정예 독슬라임과 같은 패턴으로 atk_dice_delta=1). "phase2_skills": 몬스터
+	# HP가 최대 HP의 절반 이하가 되는 순간 전투당 1회 활성화되는 스킬 목록(skills와 같은
+	# {"id":..., 파라미터...} 형태) — combat_test.gd의 `_maybe_activate_boss_phase2()`가
+	# 이미 보유한 id면 파라미터만 덮어쓰고(고블린 왕의 "armor+2"처럼 기존 스킬을 강화),
+	# 없는 id면 새로 추가한다(나머지 5종처럼 "새 스킬 1개 활성화"). 전부 1개짜리 배열이지만
+	# 나중에 더 늘어날 수 있어 단일 Dictionary가 아니라 배열로 둔다.
+	{
+		"id": "goblin_king", "name": "고블린 왕", "family": "humanoid", "tier": "boss",
+		"color": Color(0.85, 0.65, 0.15),
+		"skills": [{"id": "armor", "amount": 2}, {"id": "guard_up"}, {"id": "counter", "amount": 2}],
+		"hp_mult": 1.0, "phase2_skills": [{"id": "armor", "amount": 4}],
+		"personality": "고블린 무리를 호령하며 끝까지 버티는 왕",
+	},
+	{
+		"id": "ooze_lord", "name": "점액 군주", "family": "amorphous", "tier": "boss",
+		"color": Color(0.3, 0.55, 0.35),
+		"skills": [{"id": "sticky"}, {"id": "seal"}], "atk_dice_delta": 1, "hp_mult": 1.0,
+		"phase2_skills": [{"id": "dull"}],
+		"personality": "끈적한 본체로 모든 움직임을 둔하게 만드는 군주",
+	},
+	{
+		"id": "skeleton_general", "name": "해골 장군", "family": "undead", "tier": "boss",
+		"color": Color(0.65, 0.62, 0.5),
+		"skills": [{"id": "fixed_value"}, {"id": "drain"}, {"id": "chill"}], "hp_mult": 1.0,
+		"phase2_skills": [{"id": "revive"}],
+		"personality": "죽어서도 군대를 지휘하는 차가운 장군",
+	},
+	{
+		"id": "frenzied_beast", "name": "광란의 마수", "family": "beast", "tier": "boss",
+		"color": Color(0.55, 0.2, 0.15),
+		"skills": [{"id": "anger_stack"}, {"id": "pounce", "amount": 3}, {"id": "bloodlust"}],
+		"hp_mult": 1.0, "phase2_skills": [{"id": "min_max_only"}],
+		"personality": "이성을 잃고 날뛰는 거대한 짐승",
+	},
+	{
+		"id": "fallen_commander", "name": "타락한 기사단장", "family": "humanoid", "tier": "boss",
+		"color": Color(0.35, 0.3, 0.45),
+		"skills": [{"id": "steady_guard"}, {"id": "armor", "amount": 3}, {"id": "counter", "amount": 2}],
+		"hp_mult": 1.0, "phase2_skills": [{"id": "bloodlust"}],
+		"personality": "신념을 저버리고도 흔들림 없는 방어를 고수하는 기사단장",
+	},
+	{
+		"id": "void_eye", "name": "공허의 눈", "family": "amorphous", "tier": "boss",
+		"color": Color(0.2, 0.15, 0.3),
+		"skills": [{"id": "dull"}, {"id": "seal"}, {"id": "numb"}], "hp_mult": 1.0,
+		"phase2_skills": [{"id": "sticky"}],
+		"personality": "모든 손놀림을 무디게 가라앉히는 거대한 눈동자",
+	},
+]
+
+## G-8(2026-10-07): 라운드별 보스 후보 2종(인덱스 0=라운드1, 1=라운드2, 2=라운드3).
+## build_monster_plan()이 각 라운드의 보스 자리(마지막 방)를 뽑을 때 이 2종 중 하나를
+## run_seed 기반 rng로 고른다 — "보스 2종 중 등장은 랜덤, 런 안에서는 고정"(INBOX.md 원문).
+const BOSS_ROSTER_BY_ROUND := [
+	["goblin_king", "ooze_lord"],
+	["skeleton_general", "frenzied_beast"],
+	["fallen_commander", "void_eye"],
 ]
 
 ## [대형 기획 6] G-5(2026-10-07): 기존 던전 진행(`combat_test.gd`의 `_monster_config_for_room()`)은
@@ -279,6 +340,17 @@ static func elite_roster_ids() -> Array:
 	return ids
 
 
+## G-8(2026-10-07): 보스 풀 전체 6종 id(tier=="boss"). BOSS_ROSTER_BY_ROUND가 라운드별로
+## 이 중 2종씩만 후보로 쓰므로, 이 함수는 "전체 풀 규모" 검증(dice_test.gd)과 카탈로그
+## 조회용으로 쓰인다.
+static func boss_roster_ids() -> Array:
+	var ids := []
+	for m in MONSTERS:
+		if m.get("tier", "normal") == "boss":
+			ids.append(m["id"])
+	return ids
+
+
 static func _family_of(id: String) -> String:
 	return get_by_id(id).get("family", "")
 
@@ -316,8 +388,10 @@ static func _avoid_consecutive_family(sequence: Array) -> void:
 ## - 보스가 아닌 자리(0 .. rooms_per_round-2)는 normal_roster_ids()(20종) 안에서
 ##   "이번 런 전체에서 중복 없이" 뽑는다(INBOX.md 원문 — total_rounds*(rooms_per_round-1)이
 ##   풀 크기 이하일 때만 전부 중복 없이 뽑을 수 있다, 지금 3*4=12 <= 20).
-## - 마지막 방(보스 자리)은 G-7(정예)/G-8(보스 전용 풀)이 생기기 전까지 전용 풀이 없어
-##   같은 20종 풀에서 별도로 뽑는다(중복 허용 — "보스"는 여전히 기존 스탯 배율로만 표현).
+## - 마지막 방(보스 자리)은 G-8(2026-10-07)부터 전용 보스 풀(BOSS_ROSTER_BY_ROUND)에서
+##   그 라운드의 후보 2종 중 하나를 뽑는다("보스 2종 중 등장은 랜덤, 런 안에서는 고정" —
+##   INBOX.md 원문). 라운드 수가 BOSS_ROSTER_BY_ROUND보다 많아지는 경우(지금은 없음)는
+##   `% BOSS_ROSTER_BY_ROUND.size()`로 순환해 크래시를 피한다.
 static func build_monster_plan(seed: int, total_rounds: int, rooms_per_round: int) -> Array:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed
@@ -331,14 +405,8 @@ static func build_monster_plan(seed: int, total_rounds: int, rooms_per_round: in
 		var round_slots: Array = []
 		for room in rooms_per_round:
 			if room == rooms_per_round - 1:
-				var boss_id: String = pool[rng.randi_range(0, pool.size() - 1)]
-				var prev_id: String = round_slots.back() if not round_slots.is_empty() else ""
-				if prev_id != "" and _family_of(boss_id) == _family_of(prev_id):
-					for _attempt in 3:
-						var candidate: String = pool[rng.randi_range(0, pool.size() - 1)]
-						if _family_of(candidate) != _family_of(prev_id):
-							boss_id = candidate
-							break
+				var candidates: Array = BOSS_ROSTER_BY_ROUND[r % BOSS_ROSTER_BY_ROUND.size()]
+				var boss_id: String = candidates[rng.randi_range(0, candidates.size() - 1)]
 				round_slots.append(boss_id)
 			else:
 				round_slots.append(normal_sequence[seq_i])

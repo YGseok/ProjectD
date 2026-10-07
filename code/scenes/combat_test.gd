@@ -212,6 +212,14 @@ var monster_is_boss := false
 ## 패턴. RunState.pending_elite_fight를 _ready()에서 소비한 결과를 그대로 저장해
 ## _apply_room_advance()(골드 x2)/_show_reward_ui()(A급 이상 중심 보상)가 분기에 쓴다.
 var monster_is_elite := false
+## G-8(2026-10-07) — 이번 몬스터의 MonsterCatalog id(보스 2페이즈 조회용)와, _ready()가
+## 만든 config 전체(디버그 텍스트 재생성용으로 보관 — 2페이즈가 활성화되면
+## _maybe_activate_boss_phase2()가 skill_ids/skill_params/phase2_active를 다시 써넣는다).
+var monster_id := ""
+var monster_config: Dictionary = {}
+## 보스가 HP 절반 이하로 떨어져 2페이즈(전용 스킬 1개 추가 활성화)에 들어갔는지 — 전투당
+## 1회만 발동(_maybe_activate_boss_phase2() 참고).
+var monster_boss_phase2_active := false
 
 ## 몬스터 스킬 프레임워크(G-2, `code/systems/monster_skills.gd`의 `MonsterSkills`) 전용
 ## 상태 — 기존 "anger_stack 기믹 전용 전투 중 상태"(monster_anger_stacks/
@@ -589,6 +597,7 @@ func _build_monster_config(profile: Dictionary, name_text_in: String, difficulty
 		"is_elite": is_elite,
 		"personality": profile.get("personality", ""),
 		"family": profile.get("family", ""),
+		"id": profile.get("id", ""),
 	}
 
 
@@ -619,6 +628,8 @@ func _monster_debug_info_text(config: Dictionary) -> String:
 		text += "\n[정예] 스킬 2개 + 공격 다이스 +1 + HP x1.5 강화됨"
 	if config.get("is_boss", false):
 		text += "\n[보스] 공격+2 / 방어+1 / HP x2 강화됨"
+	if config.get("phase2_active", false):
+		text += "\n[2페이즈] 보스가 격노했다! 추가 스킬 발동 중"
 	return text
 
 
@@ -668,6 +679,64 @@ func _skill_debug_line(skill_id: String, config: Dictionary) -> String:
 			return ""
 
 
+## G-8(2026-10-07) — "보스 2페이즈가 활성화돼야 하는지"와 "활성화된다면 skill_ids/
+## skill_params가 어떻게 바뀌는지"를 계산하는 순수 함수(F-3 원칙 — _wealth_bonus 등과
+## 같은 이유로 UI/물리 없이 dice_test.gd가 직접 검증할 수 있게 분리). "이미 보유한
+## 스킬 id면 파라미터만 덮어쓰고(고블린 왕의 armor 2->4처럼 기존 스킬을 강화), 없는
+## id면 새 스킬로 추가한다"는 공통 규칙 하나로 6종 전부를 처리한다. min_max_only가
+## 새로 포함되면 호출부가 그 즉시 force_min_max_faces()를 적용해야 하므로
+## "force_min_max": true를 함께 돌려준다(주머니 자체의 면 값을 영구히 바꾸는 종류라
+## modify_monster_roll 훅으로는 표현할 수 없음).
+static func _boss_phase2_activation(is_boss: bool, already_active: bool, hp: int, max_hp: int, phase2_skills: Array, skill_ids: Array, skill_params: Dictionary) -> Dictionary:
+	if not is_boss or already_active or phase2_skills.is_empty():
+		return {"activate": false}
+	if hp > max_hp / 2.0:
+		return {"activate": false}
+	var new_skill_ids: Array = skill_ids.duplicate()
+	var new_skill_params: Dictionary = skill_params.duplicate()
+	var force_min_max := false
+	for skill in phase2_skills:
+		var skill_id: String = skill.get("id", "")
+		if skill_id == "":
+			continue
+		if skill_id == "min_max_only":
+			force_min_max = true
+		if not new_skill_ids.has(skill_id):
+			new_skill_ids.append(skill_id)
+		new_skill_params[skill_id] = skill
+	return {
+		"activate": true, "skill_ids": new_skill_ids, "skill_params": new_skill_params,
+		"force_min_max": force_min_max,
+	}
+
+
+## _do_exchange()가 몬스터 HP를 확정한 뒤(counter/revive/drain 반영 후), 승패 판정 전에
+## 호출한다. 계산은 전부 _boss_phase2_activation()이 하고, 이 함수는 그 결과를 실제
+## 전투 상태/UI에 적용만 한다.
+func _maybe_activate_boss_phase2() -> void:
+	var profile: Dictionary = MonsterCatalog.get_by_id(monster_id)
+	var result := _boss_phase2_activation(
+		monster_is_boss, monster_boss_phase2_active, monster_hp, monster_max_hp,
+		profile.get("phase2_skills", []), monster_skill_ids, monster_skill_params
+	)
+	if not result.get("activate", false):
+		return
+	monster_boss_phase2_active = true
+	monster_skill_ids = result["skill_ids"]
+	monster_skill_params = result["skill_params"]
+	monster_config["skill_ids"] = monster_skill_ids
+	monster_config["skill_params"] = monster_skill_params
+	monster_config["phase2_active"] = true
+	if result.get("force_min_max", false):
+		# 전투 중간에 들어오는 min_max_only는 on_combat_start 시점이 아니므로 여기서
+		# 즉시 한 번 적용해야 그 순간부터 두 주머니 모두 극단화된다.
+		monster_attack_bag.force_min_max_faces()
+		monster_defense_bag.force_min_max_faces()
+	_append_log("보스가 격노했다! (2페이즈 돌입)")
+	monster_portrait.set_expression("angry")
+	monster_debug_info_label.text = _monster_debug_info_text(monster_config)
+
+
 ## QA 전용 — GAME_QA_ROOM_OVERRIDE 환경변수(정수)가 있으면 RunState.monster_plan을
 ## 완전히 우회해 "그 난이도 인덱스의 임의 몬스터"(기존 5종 순환, _monster_config_for_room()
 ## 그대로)를 구성한다. RunState 자체는 건드리지 않아(다른 화면/다음 판에 영향 없음) 순수
@@ -713,11 +782,16 @@ func _ready() -> void:
 	monster_color = config["color"]
 	monster_is_boss = config["is_boss"]
 	monster_is_elite = config.get("is_elite", false)
+	monster_id = config.get("id", "")
+	monster_config = config
+	monster_boss_phase2_active = false
 	monster_family_icon.category = config.get("family", "")
 	monster_family_icon.is_boss = monster_is_boss
 	monster_family_icon.is_elite = monster_is_elite
 	monster_portrait.set_body_color(monster_color if monster_color.a > 0 else Color(0.5, 0.5, 0.5))
 	monster_portrait.set_family(config.get("family", ""))
+	# G-8(2026-10-07): "전용 초상화 크기(일반의 1.25배)" — 보스만 조금 크게 그린다.
+	monster_portrait.scale = Vector2(1.25, 1.25) if monster_is_boss else Vector2(1, 1)
 	monster_debug_info_label.text = _monster_debug_info_text(config)
 
 	player_dice_gimmick = CharacterProfiles.get_profile(RunState.character_id).get("gimmick", "")
@@ -1250,6 +1324,7 @@ func _do_exchange(is_player_attacking: bool) -> void:
 			if guard_result["activated"]:
 				_append_log("수호 심화가 정점에 달했다! 다음 방어는 1D20을 두 번 굴려 더 높은 값을 채택한다" if player_guard_deepen_active else "수호 태세 완성! 다음 방어는 20면체 주사위로 굳건해진다")
 
+	_maybe_activate_boss_phase2()
 	_update_labels()
 
 	if monster_hp <= 0:
