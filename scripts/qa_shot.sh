@@ -30,6 +30,13 @@
 #      실제로 그 방까지 이겨야만 물리 다이스로 확인할 수 있어 느렸던 것을 우회 — 5번째
 #      인자 settle=1과 함께 쓰면 후반 방의 더 많고/큰 몬스터 다이스가 실제 물리 정지 후에도
 #      벽(combat_test.tscn Wall*) 안에 들어와 있는지 정상 플레이와 동일한 경로로 검증 가능)
+#   scripts/qa_shot.sh combat_test 30 qa_out/combat_test_armored_goblin.png "" 1 "" "" armored_goblin
+#     (8번째 인자 monster_id_override: GAME_QA_MONSTER_ID 환경변수로 전달됨(G-5, 2026-10-07).
+#      combat_test.gd가 room 순환(기존 5종)과 무관하게 MonsterCatalog의 그 id 몬스터를 직접
+#      구성한다 — G-5가 새로 채운 20종 몬스터 데이터가 실제 전투 화면에서 스킬 효과를
+#      내는지(이름/다이스 구성/디버그 정보 줄) 스크린샷으로 확인하기 위한 용도. 아직
+#      런 몬스터 계획(G-6)이 없어 평소 플레이로는 신규 몬스터를 만날 수 없으므로 이 훅이
+#      유일한 확인 경로)
 #
 # 동작:
 #   1) godot --headless --import  (에셋 최초 1회 import / 최신화. 이미 최신이면 빠르게 끝남)
@@ -55,6 +62,7 @@ QA_CALL="${4:-}"
 SETTLE="${5:-}"
 CLICK_PATH="${6:-}"
 ROOM_OVERRIDE="${7:-}"
+MONSTER_ID_OVERRIDE="${8:-}"
 
 if [[ -z "$SCENE_NAME" ]]; then
   echo "사용법: $0 <scene_name> [frame] [output_path]" >&2
@@ -126,6 +134,9 @@ if [[ -n "$CLICK_PATH" ]]; then
 fi
 if [[ -n "$ROOM_OVERRIDE" ]]; then
   ENV_ARGS+=(GAME_QA_ROOM_OVERRIDE="$ROOM_OVERRIDE")
+fi
+if [[ -n "$MONSTER_ID_OVERRIDE" ]]; then
+  ENV_ARGS+=(GAME_QA_MONSTER_ID="$MONSTER_ID_OVERRIDE")
 fi
 
 env "${ENV_ARGS[@]}" "${RUN_CMD[@]}"

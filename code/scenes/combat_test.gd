@@ -423,11 +423,23 @@ func _monster_dice_sides_for_room(room_index: int) -> int:
 ## QA에서 GAME_QA_ROOM_OVERRIDE로 더 큰 값(9, 14 등)을 줘도 정확히 일치하지 않는 한
 ## 보스로 취급하지 않는다(다음 라운드 개념이 아직 없으므로).
 func _monster_config_for_room(room_index: int) -> Dictionary:
-	var profile: Dictionary = MonsterCatalog.MONSTERS[room_index % MonsterCatalog.MONSTERS.size()]
-	var cycle := int(room_index / float(MonsterCatalog.MONSTERS.size()))
-	var name_text: String = profile["name"]
-	if cycle > 0:
-		name_text = "강화 ".repeat(cycle) + name_text
+	# G-5(2026-10-07) QA 훅: GAME_QA_MONSTER_ID 환경변수가 유효한 카탈로그 id면 room 순환과
+	# 무관하게 그 몬스터를 직접 구성한다(스케일링은 그대로 room_index 기준) — 신규 15종이
+	# 실제 전투 화면에서 스킬 효과를 내는지 스크린샷으로 확인하기 위한 용도. 비어있거나
+	# 못 찾으면 기존 5종 순환으로 폴백(동작 보존).
+	var id_override := OS.get_environment("GAME_QA_MONSTER_ID")
+	var override_profile: Dictionary = MonsterCatalog.get_by_id(id_override) if id_override != "" else {}
+	var profile: Dictionary
+	var name_text: String
+	if not override_profile.is_empty():
+		profile = override_profile
+		name_text = profile["name"]
+	else:
+		profile = MonsterCatalog.legacy_cycle_monster(room_index)
+		var cycle := int(room_index / float(MonsterCatalog.LEGACY_ROOM_CYCLE_IDS.size()))
+		name_text = profile["name"]
+		if cycle > 0:
+			name_text = "강화 ".repeat(cycle) + name_text
 	var gimmick: String = MonsterCatalog.gimmick_of(profile)
 	var dice_sides := _monster_dice_sides_for_room(room_index)
 	var gimmick_value := 0
@@ -447,9 +459,13 @@ func _monster_config_for_room(room_index: int) -> Dictionary:
 		# 예: D4 -> 2, D6 -> 3, D8 -> 4.
 		gimmick_value = int(ceil(dice_sides / 2.0))
 		name_text += " [철벽]"
-	var attack_count := 2 + int(room_index / 2.0)
-	var defense_count := 1 + int(room_index / 3.0)
-	var max_hp := 10 + room_index * 3
+	# G-5(2026-10-07) — 몬스터별 다이스 개수/HP 보정(기존 5종은 전부 atk_dice_delta=0/
+	# def_dice_delta=0/hp_mult=1.0이라 아래 세 줄을 추가해도 결과가 완전히 그대로임,
+	# 동작 보존). 신규 몬스터 중 "독거미"/"해골 궁수"/"망령 병사"의 "방어 낮음"/"공격
+	# 낮음" 같은 잠정 메모가 이 delta로 표현된다(최소 1개는 보장).
+	var attack_count: int = max(1, 2 + int(room_index / 2.0) + int(profile.get("atk_dice_delta", 0)))
+	var defense_count: int = max(1, 1 + int(room_index / 3.0) + int(profile.get("def_dice_delta", 0)))
+	var max_hp: int = int(round((10 + room_index * 3) * profile.get("hp_mult", 1.0)))
 	var is_boss: bool = room_index == RunState.TOTAL_ROOMS - 1
 	if is_boss:
 		attack_count += 2
@@ -513,6 +529,30 @@ func _monster_debug_info_text(config: Dictionary) -> String:
 			text += "\n기믹: 철벽 방어 (방어 다이스 결과가 %d 미만이면 %d로 보정)" % [
 				config["dice_gimmick_value"], config["dice_gimmick_value"]
 			]
+		# G-5(2026-10-07)부터 실제로 쓰는 몬스터가 생긴 G-3/G-4 프리미티브 — "스킬이
+		# 효과가 있는지" QA 확인용으로 동일한 디버그 줄 패턴에 추가(기존 4종과 같은 형식).
+		"armor":
+			text += "\n기믹: 방어구 (방어 합계 +%d)" % config["skill_params"].get("armor", {}).get("amount", 0)
+		"guard_up":
+			text += "\n기믹: 궁지의 방어 (HP 절반 이하면 방어 다이스 결과 +1)"
+		"counter":
+			text += "\n기믹: 반격 (공격이 완전히 막히면 공격자에게 %d 반사)" % config["skill_params"].get("counter", {}).get("amount", 0)
+		"sticky":
+			text += "\n기믹: 끈적임 (플레이어 공격 최댓값 다이스 1개 -1)"
+		"seal":
+			text += "\n기믹: 봉인 (플레이어 공격 최솟값 다이스 1개를 0으로)"
+		"dull":
+			text += "\n기믹: 둔화 (플레이어 다이스 중 최댓값 면이 나온 것은 전부 -1)"
+		"numb":
+			text += "\n기믹: 마비 (플레이어 방어 최댓값 다이스 1개 -1)"
+		"pounce":
+			text += "\n기믹: 기습 (전투 첫 공격 합계 +%d)" % config["skill_params"].get("pounce", {}).get("amount", 0)
+		"bloodlust":
+			text += "\n기믹: 피의 갈망 (HP 절반 이하면 공격 다이스 결과 +1)"
+		"drain":
+			text += "\n기믹: 흡수 (입힌 피해의 절반만큼 HP 회복)"
+		"chill":
+			text += "\n기믹: 한기 (플레이어 공격 최댓값 다이스 1개 -1)"
 	if config.get("is_boss", false):
 		text += "\n[보스] 공격+2 / 방어+1 / HP x2 강화됨"
 	return text
@@ -550,6 +590,7 @@ func _ready() -> void:
 	monster_family_icon.category = config.get("family", "")
 	monster_family_icon.is_boss = monster_is_boss
 	monster_portrait.set_body_color(monster_color if monster_color.a > 0 else Color(0.5, 0.5, 0.5))
+	monster_portrait.set_family(config.get("family", ""))
 	monster_debug_info_label.text = _monster_debug_info_text(config)
 
 	player_dice_gimmick = CharacterProfiles.get_profile(RunState.character_id).get("gimmick", "")

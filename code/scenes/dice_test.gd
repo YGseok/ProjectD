@@ -241,6 +241,10 @@ func _ready() -> void:
 	all_pass = _check_g4_monster_skill_primitives(lines) and all_pass
 
 	lines.append("")
+	lines.append("[G-5: 일반 몬스터 20종 데이터(계열당 5종) + legacy_cycle_monster 호환 + GAME_QA_MONSTER_ID 훅 검증]")
+	all_pass = _check_g5_monster_catalog(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -4503,5 +4507,168 @@ func _check_monster_catalog_family_icons(lines: PackedStringArray) -> bool:
 			room_index, expect_gimmick, actual_gimmick, "OK" if room_ok else "FAIL"
 		])
 	combat.free()
+
+	return ok
+
+
+## [대형 기획 6] G-5(2026-10-07) 검증 — 일반 몬스터 20종 데이터(계열당 5종, INBOX.md
+## G-5 표) + 그 글루 코드(legacy_cycle_monster 호환, atk_dice_delta/def_dice_delta/
+## hp_mult 반영, GAME_QA_MONSTER_ID QA 훅)가 "플래그"가 아니라 실제 계산 결과(다이스
+## 개수/HP/스킬 보정값)를 바꾸는지 직접 확인한다(F-3 원칙).
+## monster_catalog.gd 주석이 설명하듯 이번 단계에서는 기존 5종(슬라임/고블린/해골 전사/
+## 오크/다크 나이트)의 skills/family/tier는 전혀 건드리지 않았으므로, legacy_cycle_monster()
+## 로 뽑히는 room 0~9 결과가 MONSTERS가 21개로 늘어나기 전과 완전히 같아야 한다(동작 보존).
+func _check_g5_monster_catalog(lines: PackedStringArray) -> bool:
+	var ok := true
+
+	# (1) 카탈로그 규모: "일반 20종"(계열당 5) + 아직 정예로 안 옮겨간 "다크 나이트" 1개 = 21.
+	var total := MonsterCatalog.MONSTERS.size()
+	var size_ok: bool = total == 21
+	ok = size_ok and ok
+	lines.append("  MonsterCatalog.MONSTERS.size()=%d (기대 21 = 20종 로스터 + 다크 나이트) -> %s" % [
+		total, "OK" if size_ok else "FAIL"
+	])
+
+	var family_counts := {"humanoid": 0, "amorphous": 0, "beast": 0, "undead": 0}
+	var ids_seen := {}
+	var ids_unique_ok := true
+	for m in MonsterCatalog.MONSTERS:
+		var fam: String = m.get("family", "")
+		if family_counts.has(fam):
+			family_counts[fam] += 1
+		var mid: String = m.get("id", "")
+		if ids_seen.has(mid):
+			ids_unique_ok = false
+		ids_seen[mid] = true
+	# 인간형만 "다크 나이트"가 아직 남아있어 6, 나머지 세 계열은 정확히 5.
+	var family_counts_ok: bool = family_counts["humanoid"] == 6 and family_counts["amorphous"] == 5 \
+		and family_counts["beast"] == 5 and family_counts["undead"] == 5
+	ok = family_counts_ok and ids_unique_ok and ok
+	lines.append("  계열별 개수=%s (기대 인간형6/부정형5/야수형5/언데드5), id 전부 고유=%s -> %s" % [
+		family_counts, ids_unique_ok, "OK" if (family_counts_ok and ids_unique_ok) else "FAIL"
+	])
+
+	# (2) legacy_cycle_monster(): MONSTERS가 21개로 늘어나도 room 0~9는 여전히 기존 5종만
+	# 순환해야 한다 — 신규 15종이 섞여 던전 순환(실제 플레이)이 바뀌면 안 됨(동작 보존).
+	var expect_cycle_ids := ["slime", "goblin", "skeleton", "orc", "dark_knight",
+		"slime", "goblin", "skeleton", "orc", "dark_knight"]
+	var cycle_ok := true
+	for room_index in range(10):
+		var picked: Dictionary = MonsterCatalog.legacy_cycle_monster(room_index)
+		if picked.get("id", "") != expect_cycle_ids[room_index]:
+			cycle_ok = false
+	ok = cycle_ok and ok
+	lines.append("  legacy_cycle_monster(room 0..9)가 기존 5종만 순환(기대 %s): %s -> %s" % [
+		expect_cycle_ids, cycle_ok, "OK" if cycle_ok else "FAIL"
+	])
+
+	# (3) GAME_QA_MONSTER_ID 훅: room 순환과 무관하게 지정한 몬스터로 구성되고,
+	# atk_dice_delta/def_dice_delta/hp_mult가 실제 attack_count/defense_count/max_hp에
+	# 반영되는지 확인. 테스트 끝에 반드시 빈 문자열로 되돌려 다른 테스트에 영향 없게 한다.
+	var script := load("res://code/scenes/combat_test.gd")
+	var combat = script.new()
+
+	OS.set_environment("GAME_QA_MONSTER_ID", "dire_spider")
+	var spider_cfg: Dictionary = combat._monster_config_for_room(0)
+	# room0 기본 공식: 공격=2+0=2, 방어=1+0=1. 독거미는 def_dice_delta=-1 -> max(1,1-1)=1
+	# (이미 1이라 클램프와 무관하게 동일값), atk_dice_delta 없음(그대로 2).
+	var spider_ok: bool = spider_cfg["name"] == "독거미" and spider_cfg["attack_count"] == 2 \
+		and spider_cfg["defense_count"] == 1 \
+		and spider_cfg["skill_params"].get("pounce", {}).get("amount", 0) == 2
+	ok = spider_ok and ok
+	lines.append("  GAME_QA_MONSTER_ID=dire_spider room0: name=%s 공격=%d 방어=%d pounce_amount=%d -> %s" % [
+		spider_cfg["name"], spider_cfg["attack_count"], spider_cfg["defense_count"],
+		spider_cfg["skill_params"].get("pounce", {}).get("amount", 0), "OK" if spider_ok else "FAIL"
+	])
+
+	OS.set_environment("GAME_QA_MONSTER_ID", "skeleton_archer")
+	var archer_cfg: Dictionary = combat._monster_config_for_room(2)
+	# room2 기본 공식: 공격=2+int(2/2.0)=3, 방어=1+int(2/3.0)=1. 해골 궁수는
+	# atk_dice_delta=+1 -> 4, def_dice_delta=-1 -> max(1,1-1)=1.
+	var archer_ok: bool = archer_cfg["name"] == "해골 궁수" and archer_cfg["attack_count"] == 4 \
+		and archer_cfg["defense_count"] == 1
+	ok = archer_ok and ok
+	lines.append("  GAME_QA_MONSTER_ID=skeleton_archer room2: name=%s 공격=%d(기대 4) 방어=%d(기대 1) -> %s" % [
+		archer_cfg["name"], archer_cfg["attack_count"], archer_cfg["defense_count"], "OK" if archer_ok else "FAIL"
+	])
+
+	OS.set_environment("GAME_QA_MONSTER_ID", "zombie")
+	var zombie_cfg: Dictionary = combat._monster_config_for_room(0)
+	# room0 기본 hp=10, 좀비 hp_mult=1.4 -> round(14.0)=14.
+	var zombie_ok: bool = zombie_cfg["name"] == "좀비" and zombie_cfg["max_hp"] == 14
+	ok = zombie_ok and ok
+	lines.append("  GAME_QA_MONSTER_ID=zombie room0: name=%s max_hp=%d(기대 14, hp_mult 1.4 반영) -> %s" % [
+		zombie_cfg["name"], zombie_cfg["max_hp"], "OK" if zombie_ok else "FAIL"
+	])
+
+	OS.set_environment("GAME_QA_MONSTER_ID", "")
+	var cleared_name: String = combat._monster_config_for_room(0)["name"]
+	var override_cleared_ok: bool = cleared_name == "슬라임"
+	ok = override_cleared_ok and ok
+	lines.append("  GAME_QA_MONSTER_ID=\"\"(해제) 후 room0: %s (기대 슬라임, 기존 순환 복귀) -> %s" % [
+		cleared_name, "OK" if override_cleared_ok else "FAIL"
+	])
+	combat.free()
+
+	# (4) 신규 프리미티브가 카탈로그의 실제 파라미터(amount)로 "계산 결과"를 바꾸는지 —
+	# 플래그 확인이 아니라 MonsterSkills 훅에 그대로 넘겨 보정된 값/합계를 직접 비교.
+	var armored_goblin: Dictionary = MonsterCatalog.get_by_id("armored_goblin")
+	var armor_amount: int = armored_goblin["skills"][0].get("amount", 0)
+	var armor_result: Array = MonsterSkills.modify_monster_roll(["armor"], [2, 3], {}, {
+		"is_player_attacking": true, "bag": DiceBag.new(6, 2), "armor_amount": armor_amount,
+	})
+	var armor_sum: int = armor_result[0] + armor_result[1]
+	var armor_ok: bool = armor_sum == 5 + armor_amount
+	ok = armor_ok and ok
+	lines.append("  아머 고블린 armor(%d): [2,3] -> %s (합계%d, 기대%d) -> %s" % [
+		armor_amount, armor_result, armor_sum, 5 + armor_amount, "OK" if armor_ok else "FAIL"
+	])
+
+	var bandit: Dictionary = MonsterCatalog.get_by_id("bandit")
+	var counter_amount: int = bandit["skills"][0].get("amount", 0)
+	var counter_effect: Dictionary = MonsterSkills.on_damage(["counter"], {}, {
+		"is_player_attacking": true, "dmg": 0, "counter_amount": counter_amount,
+	})
+	var counter_ok: bool = counter_effect.get("reflect_damage", 0) == counter_amount
+	ok = counter_ok and ok
+	lines.append("  산적 counter(%d): dmg=0 -> reflect_damage=%d(기대%d) -> %s" % [
+		counter_amount, counter_effect.get("reflect_damage", 0), counter_amount, "OK" if counter_ok else "FAIL"
+	])
+
+	var sticky_result: Array = MonsterSkills.modify_player_roll(["sticky"], [4, 6], {}, {
+		"is_player_attacking": true, "bag": DiceBag.new(6, 2),
+	})
+	var sticky_ok: bool = sticky_result == [4, 5]
+	ok = sticky_ok and ok
+	lines.append("  독 슬라임 sticky: 플레이어 공격 [4,6] -> %s(기대 [4,5], 최댓값 1개 -1) -> %s" % [
+		sticky_result, "OK" if sticky_ok else "FAIL"
+	])
+
+	var wolf: Dictionary = MonsterCatalog.get_by_id("wolf")
+	var pounce_amount: int = wolf["skills"][0].get("amount", 0)
+	var pounce_state := {}
+	var pounce_bag := DiceBag.new(6, 2)
+	var pounce_first: Array = MonsterSkills.modify_monster_roll(["pounce"], [1, 1], pounce_state, {
+		"is_player_attacking": false, "bag": pounce_bag, "pounce_amount": pounce_amount,
+	})
+	var pounce_second: Array = MonsterSkills.modify_monster_roll(["pounce"], [1, 1], pounce_state, {
+		"is_player_attacking": false, "bag": pounce_bag, "pounce_amount": pounce_amount,
+	})
+	var pounce_ok: bool = (pounce_first[0] + pounce_first[1] == 2 + pounce_amount) \
+		and (pounce_second[0] + pounce_second[1] == 2)
+	ok = pounce_ok and ok
+	lines.append("  늑대 pounce(%d): 1회차 합계=%d(기대%d) 2회차 합계=%d(기대2, 1회 제한) -> %s" % [
+		pounce_amount, pounce_first[0] + pounce_first[1], 2 + pounce_amount,
+		pounce_second[0] + pounce_second[1], "OK" if pounce_ok else "FAIL"
+	])
+
+	var drain_result: Dictionary = MonsterSkills.on_damage(["drain"], {}, {
+		"is_player_attacking": false, "dmg": 9,
+	})
+	var drain_ok: bool = drain_result.get("heal_amount", -1) == 4
+	ok = drain_ok and ok
+	lines.append("  구울 drain: dmg=9 -> heal_amount=%d(기대4, floor(9/2)) -> %s" % [
+		drain_result.get("heal_amount", -1), "OK" if drain_ok else "FAIL"
+	])
 
 	return ok

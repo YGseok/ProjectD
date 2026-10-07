@@ -32,30 +32,47 @@
 - [부분 처리됨 - 2026-10-07] 2026-10-06 [대형 기획 6] 몬스터 대개편: 계열(패밀리) +
   대형 몬스터 풀 + 정예 방 + 라운드별 보스 2종.
 
-  → **G-1·G-2·G-3·G-4 완료(2026-10-07), G-5~G-9는 아직**(상세는 `docs/STATUS.md`
-  완료 기록 (156)/(157)/(158)/(159) 참고). G-1: `code/systems/monster_catalog.gd`
-  (`MonsterCatalog`)에 계열 4종(`FAMILIES`)과 기존 몬스터 5종(`MONSTERS`)을
-  데이터로 옮기고, `code/scenes/family_icon.gd`(`FamilyIcon`)로 계열 아이콘을
-  그려 전투 화면 몬스터 HP 라벨 옆에 표시했다. G-2: 신규 `code/systems/
-  monster_skills.gd`(`MonsterSkills`)에 훅 4개(on_combat_start/
-  modify_monster_roll/modify_player_roll/on_damage)를 만들고 기존 4종 기믹
-  (anger_stack/fixed_value/min_max_only/steady_guard)을 그 구조로 옮겼다.
-  G-3: 인간형 프리미티브 armor(n)/guard_up/counter(n) + 부정형 프리미티브
-  sticky/seal/dull/numb 7종을 `MonsterSkills`/`code/systems/dice_bag.gd`에
-  구현했다. G-4: 야수형 프리미티브 pounce(n)/bloodlust + 언데드형 프리미티브
-  drain/revive/chill 5종을 추가로 구현했다(수치는 전부 잠정값 — F-4 시뮬로
-  조정). 네 단계 모두 지시대로 "전투 동작을 바꾸지 않는다"를 지켜 기존
-  dice_gimmick 적용 로직/스케일링 공식/로그 문구(수치)는 전혀 안 바뀌었다
-  (G-3/G-4가 만든 12종은 아직 어느 몬스터도 안 써서 전부 no-op) — 다만 G-4
-  작업 중 "몬스터 공격턴 값 보정은 데미지 계산 전에 호출해야 실제 반영된다"는
-  잠재 버그를 발견해 고치면서, anger_stack 관련 로그("분노 스택 ...") 한
-  줄의 출력 **순서**만 데미지 로그보다 앞으로 바뀌었다(수치는 그대로). `dice_
-  test.gd`의 신규 검증(각 단계별)으로 room 0~4 전부에서 기존과 동일한
-  결과가 나오는지 + G-3/G-4 12종의 계산 결과(게이팅, 1회 제한, 동시 적용
-  시 중복 집계 없음 포함)를 확인했다. 다음은 **G-5**(일반 몬스터 20종
-  데이터, 계열당 5종 — 지금까지 만든 12종 프리미티브를 실제 몬스터에
-  배정하는 첫 단계)부터 순서대로. 아래는 원문 전문(사용 규칙상 요약하지
-  않고 그대로 보존 — G-1~G-9 전부 끝나면 "처리됨"으로 옮기면서 정리).
+  → **G-1·G-2·G-3·G-4·G-5 완료(2026-10-07), G-6~G-9는 아직**(상세는
+  `docs/STATUS.md` 완료 기록 (156)/(157)/(158)/(159)/(160) 참고). G-1:
+  `code/systems/monster_catalog.gd`(`MonsterCatalog`)에 계열 4종(`FAMILIES`)과
+  기존 몬스터 5종(`MONSTERS`)을 데이터로 옮기고, `code/scenes/family_icon.gd`
+  (`FamilyIcon`)로 계열 아이콘을 그려 전투 화면 몬스터 HP 라벨 옆에 표시했다.
+  G-2: 신규 `code/systems/monster_skills.gd`(`MonsterSkills`)에 훅 4개
+  (on_combat_start/modify_monster_roll/modify_player_roll/on_damage)를 만들고
+  기존 4종 기믹(anger_stack/fixed_value/min_max_only/steady_guard)을 그
+  구조로 옮겼다. G-3: 인간형 프리미티브 armor(n)/guard_up/counter(n) +
+  부정형 프리미티브 sticky/seal/dull/numb 7종을 `MonsterSkills`/`code/
+  systems/dice_bag.gd`에 구현했다. G-4: 야수형 프리미티브 pounce(n)/
+  bloodlust + 언데드형 프리미티브 drain/revive/chill 5종을 추가로
+  구현했다(수치는 전부 잠정값 — F-4 시뮬로 조정). G-5: `monster_catalog.gd`
+  `MONSTERS`에 신규 16종(인간형 아머 고블린/방패 고블린/산적/경비병, 부정형
+  독 슬라임/유령/그림자/안개, 야수형 늑대/광견/멧돼지/독거미, 언데드형
+  구울/좀비/해골 궁수/망령 병사)을 추가해 G-3/G-4가 만든 12종 프리미티브를
+  INBOX.md G-5 표대로 실제 몬스터에 배정했다(계열당 5종 로스터 완성, 총
+  21개 = 20종 로스터 + 아직 정예로 안 옮겨간 다크 나이트). **기존 5종
+  (슬라임/고블린 포함)의 skills는 의도적으로 그대로 뒀다** — 원문은
+  슬라임→sticky/고블린→armor(1) 재배정도 원했지만, 회귀 테스트와 실제
+  던전 순환에 바로 영향을 줘 범위가 커서 G-6(던전 순환 로직 자체를
+  "런 몬스터 계획"으로 교체하는 단계)으로 미뤘다(이유 상세는
+  `monster_catalog.gd` 상단 주석). G-1~G-4까지는 지시대로 "전투 동작을
+  바꾸지 않는다"를 지켜 기존 dice_gimmick 적용 로직/스케일링 공식/로그
+  문구(수치)가 전혀 안 바뀌었다(G-3/G-4가 만든 12종은 그때까지 아무 몬스터도
+  안 써서 전부 no-op) — 다만 G-4 작업 중 "몬스터 공격턴 값 보정은 데미지
+  계산 전에 호출해야 실제 반영된다"는 잠재 버그를 발견해 고치면서, anger_
+  stack 관련 로그("분노 스택 ...") 한 줄의 출력 **순서**만 데미지 로그보다
+  앞으로 바뀌었다(수치는 그대로). G-5는 신규 16종에 한해 처음으로 "실제
+  동작하는" 몬스터 데이터를 만들었지만, 던전 순환 자체는 여전히 기존 5종만
+  쓰도록 `legacy_cycle_monster()`로 호환을 지켜(동작 보존) 신규 16종은
+  G-6 전까지 `GAME_QA_MONSTER_ID` QA 훅으로만 확인 가능하다. `dice_test.gd`의
+  신규 검증(각 단계별)으로 room 0~9 전부에서 기존과 동일한 결과가 나오는지
+  + G-3/G-4 12종의 계산 결과(게이팅, 1회 제한, 동시 적용 시 중복 집계
+  없음 포함) + G-5 카탈로그 규모/신규 프리미티브 적용 결과(amount
+  파라미터가 실제 계산값을 바꾸는지)까지 확인했다. 다음은 **G-6**(런 시작
+  몬스터 계획 + 라운드 스케일링 — `RunState.monster_plan` 신설, 20종
+  풀에서 중복 없이 뽑기, `legacy_cycle_monster()` 순환 완전 제거, 보류해둔
+  슬라임/고블린 재배정도 함께 처리하는 게 안전)부터 순서대로. 아래는 원문
+  전문(사용 규칙상 요약하지 않고 그대로 보존 — G-1~G-9 전부 끝나면
+  "처리됨"으로 옮기면서 정리).
 
   사용자 지시 원문: "몬스터가 각각 달라야지 않겠나. 몬스터가 좀 더
   다양해야 할 듯. 그 중에서도 계열은 어느 정도 맞춰서, 고블린 계열은 좀 비슷한 스타일의

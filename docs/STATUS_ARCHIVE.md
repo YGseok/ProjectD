@@ -8,6 +8,45 @@
 
 ---
 
+- **2026-10-06 (150)**: INBOX.md "부분 처리됨"의 [대형 기획 5] F-2(직업별
+  시작 스킬 다양화: 캐릭터당 3종 + 3단 해금 사다리) 중 **(a)만** 진행했다 —
+  원문이 F-2를 (a)/(b)/(c) 세 조각으로 더 쪼개뒀으므로 (a) 하나만.
+  `code/systems/achievement_manager.gd`의 `DEFINITIONS`에 `r1_novice`/
+  `r1_berserker`/`r1_guardian`/`r1_explosive`/`r1_shieldbearer`/
+  `r1_enchantress`/`r1_juggler` 7종을 신설(title "<캐릭터 이름>로 첫 던전
+  클리어", icon "milestone", 기존 `clear_<id>` 패턴을 그대로 복제).
+  `code/scenes/combat_test.gd`의 `_unlock_round_clear_achievements()`에서
+  `cleared_round == 1`일 때(기존 `round1_clear` 해금과 같은 시점, `advance_
+  round()` 전) 신규 `_character_round1_achievement_id(RunState.character_id)`
+  (`"r1_%s" % char_id`, `_character_clear_achievement_id()`와 같은 패턴)로
+  캐릭터 전용 업적도 함께 해금한다.
+  `code/systems/skill_pool.gd`의 `unlock_requirement(character_id, slot_index)`를
+  슬롯 번호로 분기하도록 바꿨다 — 슬롯 0은 그대로 "기본 해금", **슬롯 1은
+  이제 `r1_<id>`**(텍스트 "…(으)로 첫 던전(라운드 1)을 클리어하면 해금"),
+  슬롯 2 이상은 기존처럼 `clear_<id>`("…최종 클리어"). 슬롯 자체는 아직
+  2개뿐이라(F-2(b)가 3번째를 추가할 차례) 지금은 슬롯 1만 실제로 이 분기를
+  탄다. 기존에 `clear_<id>`를 이미 해금해둔 세이브가 `r1_<id>` 없이도 계속
+  슬롯 1을 쓸 수 있도록("최종 클리어는 라운드 1 클리어를 포함"), 신규
+  `SkillPool.is_slot_requirement_met(character_id, slot_index)`에 "r1_<id>
+  또는(슬롯 1에 한해) clear_<id>면 해금"이라는 마이그레이션 판정을 모았다.
+  `code/scenes/character_select.gd`의 `_is_slot_unlocked()`는 이제
+  `AchievementManager.is_unlocked()`를 직접 부르지 않고 이 새 함수 하나만
+  호출하도록 단순화(마이그레이션 로직이 UI 코드에 새지 않게).
+  **테스트**: `dice_test.gd`에 (1) 라운드 1 보스 클리어 시 해당 캐릭터의
+  `r1_<id>`만 해금되고 다른 캐릭터는 안 해금되는지(수호자로 검증, `_check_
+  round_clear_achievements`), (2) 7종 전부 `r1_<id>` 정의가 있는지, (3)
+  `unlock_requirement(guardian, 1)`이 `r1_guardian`과 "라운드 1" 문구를
+  돌려주는지, (4) `clear_explosive`만 해금한 상태에서 `is_slot_requirement_
+  met("explosive", 1)`이 true(마이그레이션 동작 확인)이면서 `r1_explosive`
+  자체는 여전히 미해금인지(둘을 혼동하지 않는지) 추가했다. `bash scripts/
+  qa_shot.sh dice_test` 전체 PASS(신규 검증 포함, achievement 아이콘 전체
+  순회 검증도 r1_* 7종을 자동으로 커버함을 확인). `scripts/qa_shot.sh
+  character_select`로 화면도 정상 로드 확인(슬롯 UI는 아직 2개라 레이아웃
+  변경 없음, 예상대로). `docs/feedback/INBOX.md`의 [대형 기획 5] 항목은
+  "부분 처리됨"에 그대로 두고 진행 한 줄만 갱신(F-1/F-2(a) 완료 → F-2(b) 다음).
+  **다음 조각은 F-2(b)**: 신규 시작 스킬 원형 7종 데이터 정의 + 캐릭터별
+  슬롯 2 배정 + UI 3칸 레이아웃.
+
 - **2026-10-06 (149)**: INBOX.md "남은 이슈"의 2026-10-06 [대형 기획 5] F-1~F-4
   중 **F-1(잠긴 시작 스킬 미리보기)을 완료**했다 — 실행 순서(F-1→F-2→F-3→F-4)
   대로 첫 조각. `code/systems/skill_pool.gd`에 신규
