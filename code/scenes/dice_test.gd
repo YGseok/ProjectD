@@ -3657,6 +3657,109 @@ func _check_starting_skill_combat_wiring(lines: PackedStringArray) -> bool:
 		db_base_first, db_base_second, "OK" if db_base_ok else "FAIL"
 	])
 
+	# (p) F-3(2번째 조각, 2026-10-07): "나머지 시작 스킬들"(확장/정예/수집가/강철 방비/
+	# 선제/대비/과적/오뚝이/잡화점) — 위 (e)/(f)/(g)/(i)/(k)/(l)/(m) 섹션은 모두
+	# combat_test.gd의 조건식을 손으로 재현해 "조건이 맞는지"만 봤을 뿐, 그 조건이
+	# 실제로 호출하는 _expand_bonus()/_lean_bonus()/_hoard_bonus()/_ironclad_bonus()/
+	# _vanguard_bonus()/_bulwark_bonus()/_overflow_bonus()/_second_wind_bonus()/
+	# _diverse_bonus() 함수가 돌려주는 "숫자"는 한 번도 검증하지 않았다 — (o)와
+	# 같은 이유로 여기서 그 함수들을 직접 호출하고, 그 값을 apply_flat_bonus()에
+	# 넣었을 때 결과 배열이 실제로 올라가는지까지 확인한다.
+	var expand_bonus_on: int = combat_script._expand_bonus(4, 4)
+	var expand_bonus_off: int = combat_script._expand_bonus(3, 4)
+	var expand_bonus_ok: bool = expand_bonus_on == 1 and expand_bonus_off == 0
+	ok = expand_bonus_ok and ok
+	lines.append("  '확장' 보너스 계산: 공격4/방어4(합8) -> %d(기대 1), 공격3/방어4(합7) -> %d(기대 0) -> %s" % [
+		expand_bonus_on, expand_bonus_off, "OK" if expand_bonus_ok else "FAIL"
+	])
+
+	var lean_bonus_on: int = combat_script._lean_bonus(3, 4)
+	var lean_bonus_off: int = combat_script._lean_bonus(4, 4)
+	var lean_bonus_ok: bool = lean_bonus_on == 1 and lean_bonus_off == 0
+	ok = lean_bonus_ok and ok
+	lines.append("  '정예' 보너스 계산: 공격3/방어4(합7) -> %d(기대 1), 공격4/방어4(합8) -> %d(기대 0) -> %s" % [
+		lean_bonus_on, lean_bonus_off, "OK" if lean_bonus_ok else "FAIL"
+	])
+
+	var hoard_bonus_on: int = combat_script._hoard_bonus(5)
+	var hoard_bonus_off: int = combat_script._hoard_bonus(4)
+	var hoard_bonus_ok: bool = hoard_bonus_on == 1 and hoard_bonus_off == 0
+	ok = hoard_bonus_ok and ok
+	lines.append("  '수집가' 보너스 계산: 눈금5 -> %d(기대 1), 눈금4 -> %d(기대 0) -> %s" % [
+		hoard_bonus_on, hoard_bonus_off, "OK" if hoard_bonus_ok else "FAIL"
+	])
+
+	var ironclad_bonus_on: int = combat_script._ironclad_bonus(true)
+	var ironclad_bonus_off: int = combat_script._ironclad_bonus(false)
+	var ironclad_bonus_ok: bool = ironclad_bonus_on == 1 and ironclad_bonus_off == 0
+	ok = ironclad_bonus_ok and ok
+	lines.append("  '강철 방비' 보너스 계산: 철제 보유 -> %d(기대 1), 미보유 -> %d(기대 0) -> %s" % [
+		ironclad_bonus_on, ironclad_bonus_off, "OK" if ironclad_bonus_ok else "FAIL"
+	])
+
+	# _has_metal_die()도 두 주머니 중 "어느 쪽"에 있어도 감지하는지 실제 DiceBag으로 확인.
+	var metal_atk_bag := DiceBag.new(4, 1)
+	var metal_def_bag := DiceBag.new(4, 1)
+	var metal_detect_before: bool = combat_script._has_metal_die(metal_atk_bag, metal_def_bag)
+	metal_def_bag.add_die(12)
+	var metal_detect_after: bool = combat_script._has_metal_die(metal_atk_bag, metal_def_bag)
+	var metal_detect_ok: bool = not metal_detect_before and metal_detect_after
+	ok = metal_detect_ok and ok
+	lines.append("  '강철 방비' 재질 감지(_has_metal_die): D12 추가 전=%s(기대 false) 추가 후=%s(기대 true) -> %s" % [
+		metal_detect_before, metal_detect_after, "OK" if metal_detect_ok else "FAIL"
+	])
+
+	var vanguard_bonus_first: int = combat_script._vanguard_bonus(false)
+	var vanguard_bonus_second: int = combat_script._vanguard_bonus(true)
+	var vanguard_bonus_ok: bool = vanguard_bonus_first == 2 and vanguard_bonus_second == 0
+	ok = vanguard_bonus_ok and ok
+	lines.append("  '선제' 보너스 계산: 1회차(미사용) -> %d(기대 2), 2회차(사용함) -> %d(기대 0) -> %s" % [
+		vanguard_bonus_first, vanguard_bonus_second, "OK" if vanguard_bonus_ok else "FAIL"
+	])
+
+	var bulwark_bonus_first: int = combat_script._bulwark_bonus(false)
+	var bulwark_bonus_second: int = combat_script._bulwark_bonus(true)
+	var bulwark_bonus_ok: bool = bulwark_bonus_first == 2 and bulwark_bonus_second == 0
+	ok = bulwark_bonus_ok and ok
+	lines.append("  '대비' 보너스 계산: 1회차(미사용) -> %d(기대 2), 2회차(사용함) -> %d(기대 0) -> %s" % [
+		bulwark_bonus_first, bulwark_bonus_second, "OK" if bulwark_bonus_ok else "FAIL"
+	])
+
+	var overflow_bonus_on: int = combat_script._overflow_bonus(true)
+	var overflow_bonus_off: int = combat_script._overflow_bonus(false)
+	var overflow_bonus_ok: bool = overflow_bonus_on == 1 and overflow_bonus_off == 0
+	ok = overflow_bonus_ok and ok
+	lines.append("  '과적' 보너스 계산: 주머니 가득 참 -> %d(기대 1), 안 참 -> %d(기대 0) -> %s" % [
+		overflow_bonus_on, overflow_bonus_off, "OK" if overflow_bonus_ok else "FAIL"
+	])
+
+	var second_wind_bonus_on: int = combat_script._second_wind_bonus(10, 20)
+	var second_wind_bonus_off: int = combat_script._second_wind_bonus(11, 20)
+	var second_wind_bonus_ok: bool = second_wind_bonus_on == 1 and second_wind_bonus_off == 0
+	ok = second_wind_bonus_ok and ok
+	lines.append("  '오뚝이' 보너스 계산: HP10/20(절반) -> %d(기대 1), HP11/20 -> %d(기대 0) -> %s" % [
+		second_wind_bonus_on, second_wind_bonus_off, "OK" if second_wind_bonus_ok else "FAIL"
+	])
+
+	var diverse_bonus_on: int = combat_script._diverse_bonus(3)
+	var diverse_bonus_off: int = combat_script._diverse_bonus(2)
+	var diverse_bonus_ok: bool = diverse_bonus_on == 1 and diverse_bonus_off == 0
+	ok = diverse_bonus_ok and ok
+	lines.append("  '잡화점' 보너스 계산: 종류3 -> %d(기대 1), 종류2 -> %d(기대 0) -> %s" % [
+		diverse_bonus_on, diverse_bonus_off, "OK" if diverse_bonus_ok else "FAIL"
+	])
+
+	# 보너스 값을 실제로 다이스 결과 배열에 적용했을 때 합계가 바뀌는지까지 확인한다
+	# (아래는 +2짜리 1회성 스킬(선제/대비)과 면 개수 상한이 실제로 걸리는지를 함께 본다).
+	var vanguard_bag := DiceBag.new(4, 2)
+	var vanguard_values: Array = [1, 4]
+	var vanguard_applied: Array = vanguard_bag.apply_flat_bonus(vanguard_values, vanguard_bonus_first)
+	var vanguard_applied_ok: bool = vanguard_applied == [3, 4]
+	ok = vanguard_applied_ok and ok
+	lines.append("  '선제' 적용 결과: [1,4](D4)에 보너스 %d 적용 -> %s(기대 [3, 4], 4는 면 상한에 걸림) -> %s" % [
+		vanguard_bonus_first, vanguard_applied, "OK" if vanguard_applied_ok else "FAIL"
+	])
+
 	RunState.chosen_starting_skill_id = chosen_backup
 	RunState.reset_run(character_backup)
 	return ok
