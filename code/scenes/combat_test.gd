@@ -617,9 +617,15 @@ func _build_monster_config(profile: Dictionary, name_text_in: String, difficulty
 	var defense_count: int = max(1, 1 + int(difficulty / 3.0) + int(profile.get("def_dice_delta", 0)))
 	var max_hp: int = int(round((10 + difficulty * 3) * profile.get("hp_mult", 1.0)))
 	if is_boss:
-		attack_count += 2
+		# [대형 기획 10] J-2(2026-10-08) 튜닝 1차 시도 — 보스 HP 배율을 x2에서 x1.5로
+		# 완화했으나 보스 승률이 1.5%->2.5%로 거의 안 움직였다(평균 턴수 2~5턴 — HP가
+		# 아니라 공격 다이스 "개수" 보정(+2)이 공격 합계를 과도하게 키워 플레이어가 HP를
+		# 깎을 기회도 없이 죽는 것이 진짜 원인으로 보임). 2차 시도로 공격 다이스 보정을
+		# +2에서 +1로 완화(방어 보정은 그대로 둠, INBOX.md 지시: 한 번에 한 손잡이씩).
+		# 결과는 docs/BALANCE_TUNING_LOG.md 참고.
+		attack_count += 1
 		defense_count += 1
-		max_hp *= 2
+		max_hp = int(round(max_hp * 1.5))
 		name_text += " [보스]"
 	# G-3(MonsterSkills 파라미터) — skills 배열(각 원소 {"id":..., 파라미터...})을
 	# id로 인덱싱한 Dictionary. 기존 5종은 전부 파라미터 없음(skills[i]가 {"id":...}뿐),
@@ -681,7 +687,7 @@ func _monster_debug_info_text(config: Dictionary) -> String:
 	if config.get("is_elite", false):
 		text += "\n[정예] 스킬 2개 + 공격 다이스 +1 + HP x1.5 강화됨"
 	if config.get("is_boss", false):
-		text += "\n[보스] 공격+2 / 방어+1 / HP x2 강화됨"
+		text += "\n[보스] 공격+1 / 방어+1 / HP x1.5 강화됨"
 	if config.get("phase2_active", false):
 		text += "\n[2페이즈] 보스가 격노했다! 추가 스킬 발동 중"
 	return text

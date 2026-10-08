@@ -9,6 +9,15 @@ extends Node2D
 ## 비교할 수 있도록 목표 밴드는 상수로 고정한다. 해석/조정은 하지 않고(이 스크립트는
 ## 숫자만 낸다) J-2/J-3/J-4가 이 표를 보고 실제로 손잡이를 움직인다.
 ##
+## [대형 기획 10] J-2(2026-10-08) 수정 — 원래 이 도구가 쓰는 섹션 이름이 "튜닝 전
+## 기준선"이었는데, J-2가 손잡이를 바꾸고 시뮬을 재실행한 뒤 이 도구를 다시 돌리면
+## "튜닝 전" 기준선이 매번 "지금(튜닝 후) 상태"로 조용히 덮어써지는 문제가 있었다
+## (J-1 기준선인 보스 1.5%가 J-2 1차 시도 후 재실행 한 번으로 사라짐 — 실제로
+## BALANCE_TUNING_LOG.md에서 발생함). 그래서 섹션 이름을 "최신 측정"으로 바꿔
+## 의미를 맞췄다 — 이 섹션은 항상 "지금 코드/데이터 기준 최신 상태"를 보여주고,
+## 변하지 않는 J-1 원본 기준선은 BALANCE_TUNING_LOG.md 맨 위에 손으로 고정해 둔
+## 별도 섹션("고정 기록")에 보존한다(이 스크립트는 그 섹션을 건드리지 않음 — 아래
+## _append_to_log()가 찾는 헤더 문자열이 다름).
 ## qa_shot.sh가 "씬을 띄우고 한 프레임 찍는" 구조를 요구하므로(실제 연산은 전부
 ## _ready()에서 동기적으로 끝남), balance_growth_report.gd와 같은 Node2D+ResultLabel
 ## 패턴을 그대로 따른다. 재생성: `bash scripts/qa_shot.sh balance_target_check`.
@@ -46,7 +55,7 @@ func _ready() -> void:
 	var md := _build_markdown(rows)
 	_append_to_log(md)
 
-	result_label.text = "[balance_target_check] 완료 — docs/BALANCE_TUNING_LOG.md에 '튜닝 전 기준선' 섹션 기록 (%d행)" % rows.size()
+	result_label.text = "[balance_target_check] 완료 — docs/BALANCE_TUNING_LOG.md에 '최신 측정' 섹션 기록 (%d행)" % rows.size()
 	print(result_label.text)
 
 
@@ -131,13 +140,17 @@ static func _format_cell(value: Variant) -> String:
 
 func _build_markdown(rows: Array[Dictionary]) -> String:
 	var lines: Array[String] = []
-	lines.append("## 튜닝 전 기준선 (J-1, 자동 생성)")
+	lines.append("## 최신 측정 (자동 생성, 재실행마다 이 섹션만 갱신)")
 	lines.append("")
 	lines.append("> `code/qa/balance_target_check.gd` 생성, `bash scripts/qa_shot.sh")
 	lines.append("> balance_target_check`로 재실행 가능. 원자료: `qa_out/")
-	lines.append("> balance_sim_growth_raw.tsv`(F-5b). **균형 정책만 판정**하고 공격/방어")
+	lines.append("> balance_sim_growth_raw.tsv`(F-5b, 손잡이를 바꾼 뒤 `bash scripts/qa_shot.sh")
+	lines.append("> balance_sim`으로 먼저 재생성할 것). **균형 정책만 판정**하고 공격/방어")
 	lines.append("> 몰빵은 참고용 열로만 둔다(INBOX.md [대형 기획 10] 지시). 측정만 하고")
 	lines.append("> 해석·조정 제안은 쓰지 않는다 — 조정은 J-2~J-4가 이 표를 보고 진행한다.")
+	lines.append("> **이 섹션은 \"지금\" 상태를 보여줄 뿐 고정 기준선이 아니다** — 재실행마다")
+	lines.append("> 통째로 교체된다. 변하지 않는 J-1 원본 기준선은 이 파일 맨 위 \"고정 기록\"")
+	lines.append("> 섹션 참고, 시도별 변화 추이는 \"J-2 보스 튜닝 시도 로그\" 섹션 참고.")
 	lines.append("")
 	lines.append("### 목표 밴드 대비 (균형 정책, 라운드별 평균, 8캐릭터 평균)")
 	lines.append("")
@@ -268,14 +281,17 @@ func _character_outliers(rows: Array[Dictionary]) -> Array[Dictionary]:
 	return outliers
 
 
-const BASELINE_SECTION_HEADER := "## 튜닝 전 기준선 (J-1, 자동 생성)"
+const LATEST_SECTION_HEADER := "## 최신 측정 (자동 생성, 재실행마다 이 섹션만 갱신)"
 
 
-## docs/BALANCE_TUNING_LOG.md에 이 결과를 "튜닝 전 기준선" 섹션으로 기록한다. 파일이
+## docs/BALANCE_TUNING_LOG.md에 이 결과를 "최신 측정" 섹션으로 기록한다. 파일이
 ## 없으면 새로 만들고(INBOX.md J-1 지시), 있으면 기존 내용 위에 이어 붙인다(덮어쓰지
-## 않음 — J-2~J-4가 "매 시도의 (바꾼 값, 평균)"을 계속 추가해 나갈 로그이므로). 다만
-## "튜닝 전 기준선" 섹션 자체는 재실행(디버깅/재측정) 시 중복 누적되지 않도록, 이미
-## 있으면 그 섹션만 통째로 교체한다(다음 "## " 헤더 또는 파일 끝까지).
+## 않음 — J-1 고정 기록/J-2 시도 로그 등 사람이 손으로 쌓아가는 다른 섹션은 그대로
+## 보존). 다만 "최신 측정" 섹션 자체는 재실행할 때마다 통째로 교체한다(다음 "## "
+## 헤더 또는 파일 끝까지) — 이 섹션은 "지금 상태"만 보여주는 자리이기 때문
+## (J-2(2026-10-08)에서 섹션 이름을 "튜닝 전 기준선"에서 바꿈 — 원래 이름 그대로
+## 뒀다면 J-2가 손잡이를 바꾸고 재실행할 때마다 "튜닝 전" 기준선이 "튜닝 후" 숫자로
+## 조용히 덮어써지는 문제가 있었음, 위 클래스 주석 참고).
 func _append_to_log(section_md: String) -> void:
 	var abs_path := ProjectSettings.globalize_path("res://docs/BALANCE_TUNING_LOG.md")
 	var existing := ""
@@ -290,14 +306,14 @@ func _append_to_log(section_md: String) -> void:
 		"> 섹션을 덮어쓰지 않고 이어 붙인다 — 맨 위가 가장 오래된 기록(J-1 기준선)이다.\n\n"
 
 	var body: String
-	var start := existing.find(BASELINE_SECTION_HEADER)
+	var start := existing.find(LATEST_SECTION_HEADER)
 	if start == -1:
 		body = existing if not existing.is_empty() else header
 		if not body.ends_with("\n"):
 			body += "\n"
 		body += "\n" + section_md
 	else:
-		var next_header := existing.find("\n## ", start + BASELINE_SECTION_HEADER.length())
+		var next_header := existing.find("\n## ", start + LATEST_SECTION_HEADER.length())
 		var after := existing.substr(next_header) if next_header != -1 else ""
 		body = existing.substr(0, start) + section_md
 		if not body.ends_with("\n"):

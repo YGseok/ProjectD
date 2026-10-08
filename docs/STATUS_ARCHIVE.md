@@ -8,6 +8,68 @@
 
 ---
 
+- **2026-10-08 (170)**: 직전 이터레이션(169)이 사용량 한도로 끊기며 남긴
+  [대형 기획 8] **H-3(성장 정도 + 보유 스킬 세팅)** 미커밋 변경을 이어서
+  완성·검증했다 — `git diff`로 확인한 결과 구현 자체(`test_battle_setup.gd`/
+  `.tscn`/`run_state.gd`/`dice_test.gd`)는 이미 끝나 있었고, 버리거나
+  새로 시작하지 않고 그대로 검증만 진행했다.
+  **성장 섹션**: 공격/방어 다이스 개수(각 1~6, `DiceBag.MAX_DICE` 상한)·
+  공통 면 개수(D4~D20 6종)·골드(0~200)·눈금 인벤토리(0~12)·다이스
+  인벤토리(0~6) 6개 컨트롤을 `GrowthControlsGrid`에 동적 생성, 프리셋 4종
+  ("시작 그대로"/"R1~R3 중반 정도", delta 0/2/3/4 + sides 4/6/8/10)을
+  `static func preset_growth(character_id, preset_index)`로 분리해
+  캐릭터 기본 개수에 상대값(delta)을 더하는 방식(캐릭터마다 시작 배분이
+  달라도 "그 캐릭터 기준 N개 늘어난" 결과가 나오게). 옆에 "적용될 구성"
+  미리보기 텍스트 실시간 갱신.
+  **보유 스킬 섹션**: 공용 2종(심호흡/여분) + 선택한 캐릭터의 고유 스킬
+  1종 + 각각의 "+" 강화판을 체크박스로 토글(`skill_flag_rows_for_
+  character()`로 행 목록 계산, "+"는 base가 켜져 있을 때만 활성화).
+  캐릭터를 바꾸면 `sanitize_skill_flags(flags, character_id)`가 그
+  캐릭터에 맞지 않는 고유 스킬/단독 "+"판을 자동 제거.
+  **적용 지점은 한 곳**: `_apply_start_selection()`에 `growth: Dictionary
+  = {}`/`extra_skill_flags: Array = []` 매개변수를 추가(기본값이 있어
+  H-2 시절 호출부와 하위 호환)하고, `reset_run()` 직후 신규
+  `_apply_growth()`가 주머니를 `DiceBag.new(sides, count)`로 다시 만든
+  뒤 골드/인벤토리를 덮어쓴다. **부수 발견 버그**: 수호자의
+  `fixed_defense_die` 기믹이 `RunState._apply_character_gimmick()`에서
+  "방어 다이스 면 개수는 항상 4"를 하드코딩하고 있었다(이전에는 이
+  함수가 `reset_run()` 직후(항상 D4)에만 불려서 드러나지 않던 전제 —
+  H-3이 growth로 D6/D8 등 다른 면 개수를 만든 뒤 이 함수를 재호출하는
+  첫 호출부). 실제 0번째 다이스의 면 개수를 읽어 고정값을 계산하도록
+  고쳐서, growth가 면 개수를 바꿔도 고정값이 항상 그 면 범위 안에
+  들어오게 했다.
+  **효과 테스트**: `dice_test.gd`의 `_check_h3_test_battle_growth()`가
+  (1) `preset_growth("guardian", 1)` 결과(공격4/방어6/D6)를 실제 값으로
+  확인, (2) `sanitize_skill_flags()`가 안 맞는 캐릭터 전용 스킬+단독
+  "+"판을 실제로 제거하는지, (3) `_apply_start_selection()`에 growth+
+  보유 스킬을 통째로 넣어 `RunState.player_attack_bag`/
+  `player_defense_bag`의 실제 다이스 개수·면 개수, `gold`,
+  `pip_inventory`/`die_inventory` 크기, `skill_flags`, 그리고 수호자
+  고정 방어 다이스 값이 새 면 개수(D8) 범위 안의 올바른 값인지까지
+  "계산 결과"로 검증(F-3 원칙), (4) `growth={}`(빈 dict) 호출이 기존
+  H-2 동작(캐릭터 기본 구성 그대로)을 깨지 않는 하위 호환까지 확인.
+  `scripts/qa_shot.sh dice_test` 전체 PASS.
+  **시각 QA 중 버그 발견 + 수정**: 설정 화면을 실제로 로드해보니
+  `_selected_skill_flags`(평범한 `Array`)를 `RunState.test_skill_flags`
+  (`Array[String]` 타입)에 대입하는 지점에서 "Invalid assignment" 런타임
+  오류가 났다 — `dice_test.gd`는 static 함수를 직접 호출해 검증했을 뿐
+  실제 씬 `_ready()` 흐름을 타지 않아 이 오류를 못 잡고 있었다(효과
+  테스트가 "계산 결과"는 맞게 봤지만 "그 계산 결과가 실제 씬 흐름에서
+  타입 오류 없이 대입되는가"는 별개였다는 교훈). `_selected_skill_flags`
+  선언과 `sanitize_skill_flags()`의 반환 타입을 전부 `Array[String]`로
+  맞춰 해결. 수정 후 설정 화면 재로드 시 스크립트 오류 없음을 확인.
+  **QA 캡처**: `qa_out/test_battle_setup_h3.png`(화면 상단 — 캐릭터/시작
+  스킬/성장 프리셋·컨트롤·미리보기/보유 스킬 체크박스까지 겹침 없음)와,
+  신규 QA 전용 래퍼 `_debug_scroll_to_bottom()`(ScrollContainer를
+  `scroll_vertical = max_value`로 내림)으로 찍은
+  `qa_out/test_battle_setup_h3_bottom.png`(몬스터 목록/난이도/전투 시작
+  버튼까지 화면 하단도 겹침 없음) 둘 다 확인 — H-3로 화면이 1280x720을
+  넘어 `MainScroll`(ScrollContainer) 아래로 모든 섹션이 옮겨졌기 때문에
+  상/하단을 따로 캡처해 전체를 확인했다.
+  **H-3 완료.** 다음은 **H-4**(캐릭터 선택 화면 진입 버튼 + DESIGN.md
+  문서화), 그 다음 [대형 기획 9] 해적 I-1~I-4, 마지막 [대형 기획 7] F-5.
+  "완료 기록" 10개 유지를 위해 (160)을 `docs/STATUS_ARCHIVE.md`로 옮겼다.
+
 - **2026-10-08 (169)**: INBOX.md "부분 처리됨"의 [대형 기획 8] **H-2(테스트 전투
   설정 화면)**를 진행했다 — H-1(플러밍만) 완료 후 다음 조각.
   신규 `code/scenes/test_battle_setup.gd`/`.tscn` — 위에서부터 **캐릭터**(7종,
