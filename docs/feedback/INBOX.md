@@ -63,13 +63,17 @@
   [대형 기획 7] F-5보다 우선). 진행 상황은 STATUS.md에 "H-n 완료"로 남기고 전부 끝나면
   "처리됨"으로 옮길 것.
 
-  → **H-1 완료(2026-10-08), H-2~H-4는 아직.** `RunState.test_battle`/`test_monster_id`/
-  `test_difficulty`/`test_round_index` 필드 + `combat_test.gd`의 `_monster_config_for_test()`/
-  승패·방진행 가드(업적·골드·눈금·rooms_cleared·round_index·reset_run() 전부 스킵)/결과 화면
-  "다시 하기"·"설정으로 돌아가기" 버튼까지 플러밍만 갖춰졌다. 진입점(H-2 설정 화면, H-4 버튼)이
-  아직 없어 실제 플레이에서는 도달 불가 — 코드/테스트(`dice_test.gd`의
-  `_check_h1_test_battle_mode()`)와 QA 디버그 래퍼(`_debug_show_test_battle_win/lose()`)로만
-  검증됨. 상세는 `docs/STATUS.md` 완료 기록(168) 참고.
+  → **H-1/H-2 완료(2026-10-08), H-3~H-4는 아직.** `RunState.test_battle`/`test_monster_id`/
+  `test_difficulty`/`test_round_index`(H-1) + `test_character_id`/`test_starting_skill_id`/
+  `test_room_index`(H-2) 필드 + `combat_test.gd`의 `_monster_config_for_test()`/승패·방진행
+  가드(업적·골드·눈금·rooms_cleared·round_index·reset_run() 전부 스킵)/결과 화면 "다시 하기"·
+  "설정으로 돌아가기" 버튼(H-1)에 이어, 신규 `code/scenes/test_battle_setup.gd/.tscn`(캐릭터/
+  시작 스킬(잠금 무시)/몬스터 35종(필터+상세)/난이도 선택 → "전투 시작")으로 실제로 테스트
+  전투를 돌릴 수 있게 됐다(H-2). 다만 캐릭터 선택 화면 안의 진입 버튼(H-4)이 아직 없어
+  `GAME_START=test_battle_setup`으로 직접 로드해야만 들어갈 수 있다 — 정식 플레이 흐름
+  중에는 여전히 도달 불가. 검증: `dice_test.gd`의 `_check_h1_test_battle_mode()`/
+  `_check_h2_test_battle_setup()` + QA 디버그 래퍼(`_debug_show_test_battle_win/lose()`,
+  `_debug_start_boss_test_battle()`). 상세는 `docs/STATUS.md` 완료 기록(168)/(169) 참고.
 
   **원칙**: ① 테스트 전투는 **진짜 전투 씬/규칙을 그대로** 쓴다(시뮬/별도 규칙 복제 금지 —
   테스트하려는 대상이 실제 게임이므로). ② **진행도를 절대 건드리지 않는다**: 업적 해금

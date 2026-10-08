@@ -115,6 +115,21 @@ var test_monster_id: String = ""
 var test_difficulty: int = 0
 var test_round_index: int = 1
 ##
+## test_character_id / test_starting_skill_id / test_room_index: [대형 기획 8] H-2
+## (2026-10-08) 신규 — 테스트 전투 설정 화면(test_battle_setup.gd)이 "직전 선택 유지"
+## (반복 테스트 편의, INBOX.md H-2 원문)를 위해 스스로의 선택 상태를 담아두는 필드다.
+## test_monster_id/test_difficulty/test_round_index와 같은 이유로 reset_run()이 건드리지
+## 않는다. test_character_id는 RunState.character_id(실제 플레이의 "현재 캐릭터")와
+## 별개 필드다 — 설정 화면에서 캐릭터를 둘러보는 것만으로 실제 진행 중인 캐릭터가
+## 바뀌면 안 되므로, "전투 시작"을 눌렀을 때만 reset_run(test_character_id)로 실제
+## character_id에 반영된다. test_room_index(0~4)는 test_round_index(1~3)와 함께
+## test_difficulty = test_room_index + (test_round_index-1)*3 계산에 쓰이는 "방" 쪼가리 —
+## test_difficulty 자체는 여전히 _monster_config_for_test()가 직접 쓰는 값이라 설정
+## 화면이 두 스피너 값을 바꿀 때마다 같이 갱신해줘야 한다.
+var test_character_id: String = ""
+var test_starting_skill_id: String = ""
+var test_room_index: int = 0
+##
 ## chosen_starting_skill_id: [미니 기획 E]-3 (INBOX.md 2026-09-17 기획자 결정) —
 ## 캐릭터 선택 화면에서 미리 확정하는 "시작 스킬" 로드아웃(SkillPool.STARTING_SKILLS,
 ## skill_flags와는 별개 레이어). character_select.gd가 캐릭터 카드를 고를 때마다 그

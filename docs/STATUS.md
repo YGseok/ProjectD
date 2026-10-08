@@ -5,48 +5,34 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-10-08 (168)
-- 작성자: AI 에이전트. INBOX.md에 같은 날 새로 올라온 두 대형 항목([대형 기획 8]
-  "테스트 전투" / [대형 기획 7] F-5 "성장 정책 시뮬") 중 지시된 실행 순서(H 먼저,
-  F-5는 그 다음)에 따라 **[대형 기획 8] H-1(테스트 전투 모드 플러밍, UI 없음)**을
-  진행했다.
-  `RunState`에 `test_battle`/`test_monster_id`/`test_difficulty`/`test_round_index`
-  4개 필드를 추가(`reset_run()`은 `test_battle`만 항상 false로 초기화 — 나머지는
-  다음 조각(H-2) 설정 화면이 reset_run() 이후에 이어서 채움). `combat_test.gd`에
-  신규 `_monster_config_for_test(difficulty)`(카탈로그 35종 중 `RunState.
-  test_monster_id`를 직접 구성, is_boss는 room 위치가 아니라 몬스터 프로필의
-  tier로 판정 — 보스를 고르면 2페이즈/왕관/확대 연출이 그대로 나옴)를 추가하고
-  `_ready()`가 `RunState.test_battle`을 `pending_elite_fight`/
-  `GAME_QA_ROOM_OVERRIDE`보다도 먼저 확인하도록 분기했다. `_resolve_exchange()`
-  승/패 분기와 `_apply_room_advance()`에 `if RunState.test_battle: ...` 가드를
-  넣어 업적 unlock·골드/눈금 보상·`rooms_cleared`/`round_index` 진행·
-  `advance_round()`/`reset_run()`을 전부 스킵하게 했다(H-1 원칙② "진행도를 절대
-  건드리지 않는다"). 결과 화면은 기존 "다음"/"처음부터 다시" 버튼 대신 신규
-  `TestRetryButton`("다시 하기", 씬 재로드)/`TestBackButton`("설정으로 돌아가기",
-  `test_battle_setup.tscn`이 아직 없어 — 그건 H-2 몫 — `ResourceLoader.exists()`로
-  확인 후 없으면 `character_select.tscn`으로 안전하게 폴백) 2개를 보여준다.
-  **효과 단위 테스트**: `dice_test.gd`에 `_check_h1_test_battle_mode()`를 추가해
-  `balance_sim.gd`가 쓰는 패턴(combat_test.gd를 `.new()`만 해서 production
-  함수를 직접 호출, 물리/UI 없음)대로 `DiceBag.force_fixed_value()`로 강제
-  승리/패배를 결정론적으로 재현 — `RunState.test_battle=true`일 때 업적
-  0개/골드 불변/눈금 불변/`rooms_cleared`·`round_index` 불변/`reset_run()`
-  미호출(패배해도 플레이어 다이스 주머니 유지)을 전부 "계산 결과"로 확인했고,
-  `test_battle=false`(일반 모드)에서는 같은 시나리오가 정상적으로 골드/눈금/
-  `rooms_cleared`를 바꾸는지(동작 보존)도 같이 검증했다(F-3 원칙 — 플래그가
-  아니라 결과 비교). `dice_test` 전체 PASS.
-  **시각 QA**: `scripts/qa_shot.sh combat_test`로 (a) 일반 전투 진행 화면이
-  새 버튼 2개 추가 후에도 안 깨지는지(`qa_out/combat_test_h1_check.png`),
-  (b) QA 전용 동기 래퍼 `_debug_show_test_battle_win()`/`_debug_show_test_battle_
-  lose()`(GAME_QA_CALL로 호출, `_maybe_finish_battle()`의 test_battle 분기를
-  await 없이 재현)로 승리/패배 결과 화면에서 "[1] 다시 하기"/"[2] 설정으로
-  돌아가기" 버튼이 겹침 없이 보이는지(`qa_out/combat_test_h1_result.png`,
-  `qa_out/combat_test_h1_result_lose.png`) 둘 다 확인했다.
-  **아직 없음(다음 조각 몫)**: 테스트 전투로 들어가는 진입점 자체(H-2 설정 화면,
-  H-4 캐릭터 선택 화면의 "테스트 전투" 버튼) — 지금은 `RunState.test_battle`을
-  코드/테스트가 직접 세팅해야만 재현 가능하고, 실제 플레이에서는 전혀 도달할 수
-  없는 플러밍 단계. `docs/DESIGN.md`의 "테스트 전투 모드" 절 신설도 H-4 몫으로
-  남겨뒀다(H-4 원문이 명시).
-  자세한 내용은 아래 "완료 기록 (168)" 참고.
+- 일시: 2026-10-08 (169)
+- 작성자: AI 에이전트. H-1(완료) 다음 조각인 **[대형 기획 8] H-2(테스트 전투
+  설정 화면)**를 진행했다. 신규 `code/scenes/test_battle_setup.gd`/`.tscn` —
+  캐릭터 7종/시작 스킬 3슬롯(잠금 무시)/몬스터 35종(계열·등급 필터 + 스크롤
+  목록 + 스킬·성격 상세)/난이도(라운드 1~3, 방 0~4 스피너) 순서로 선택하고
+  "[1] 전투 시작"을 누르면 `combat_test.tscn`으로 들어간다. "직전 선택
+  유지"를 위해 `RunState`에 `test_character_id`/`test_starting_skill_id`/
+  `test_room_index` 3개 필드를 신설(기존 `test_monster_id`/`test_round_index`/
+  `test_difficulty`와 같은 "테스트 전용, reset_run() 미초기화" 묶음). 실제
+  반영 로직은 `_apply_start_selection()`으로 분리해 @onready 노드 없이 직접
+  테스트 가능하게 했고, `RunState.chosen_starting_skill_id`(실제 캐릭터
+  선택 화면이 쓰는 "다음 런 시작 스킬")는 호출 전후로 백업/복원해 테스트
+  전투가 실제 플레이 선택을 오염시키지 않는다.
+  **효과 단위 테스트**: `dice_test.gd`의 `_check_h2_test_battle_setup()`이
+  "곡예사+맹공+고블린 왕(라운드3/방4)"을 적용한 뒤 character_id/다이스
+  개수/skill_flags/test_difficulty/몬스터 config.is_boss/
+  chosen_starting_skill_id 복원까지 전부 실제 값으로 검증(PASS).
+  **시각 QA**: 설정 화면 단독 로드(겹침 없음), `_debug_start_boss_test_battle()`
+  로 설정→전투 시작 전체 경로가 실제 보스(고블린 왕 HP 80/80, 왕관, 2페이즈
+  스킬)로 정상 진입하는지 확인. "설정으로 돌아가기" 버튼의 실제 클릭 네비게이션은
+  QA 하네스의 클릭/호출 순서 제약으로 자동 캡처하지 못했다 — 로직 자체는 H-1에서
+  이미 만든 `ResourceLoader.exists()` 분기 그대로라 코드 검토로 충분하다고
+  판단(아래 "알려진 이슈"에 상세 기록).
+  **아직 없음(다음 조각 몫)**: H-3(성장 정도 + 보유 스킬 세팅 프리셋), H-4(캐릭터
+  선택 화면 진입 버튼 + DESIGN.md 문서화) — 지금은 `test_battle_setup.tscn`을
+  직접 GAME_START로 로드해야만 들어갈 수 있고, 실제 플레이에서는 아직 도달할
+  진입점이 없다.
+  자세한 내용은 아래 "완료 기록 (169)" 참고.
 
 ## 지금 위치
 
@@ -89,10 +75,11 @@ F-4a(헤드리스 시뮬 경로)/F-4b(시뮬 러너, 7캐릭터×13종 시작 �
 완료 기록 (149)~(157)과 위 "완료 기록 (165)~(167)"). **조정은 사람이
 `docs/BALANCE_REPORT.md`를 보고 다음 지시로 결정** — 지금은 측정만 끝난
 상태.
-**[대형 기획 8](테스트 전투) H-1 완료, H-2 다음.** `RunState.test_battle`로
-던전 무작위 진행과 무관하게 몬스터/난이도를 직접 골라 즉시 붙어볼 수 있는
-플러밍만 갖춰졌다 — 진입점(설정 화면, 캐릭터 선택 화면의 진입 버튼)은 아직
-없어 지금은 코드/테스트만 켤 수 있다. 상세는 위 "완료 기록 (168)" 참고.
+**[대형 기획 8](테스트 전투) H-1/H-2 완료, H-3 다음.** `test_battle_setup.tscn`
+(캐릭터/시작 스킬/몬스터/난이도 선택 → "전투 시작")을 `GAME_START=test_battle_setup`
+으로 직접 로드하면 실제로 테스트 전투를 돌릴 수 있다 — 다만 캐릭터 선택 화면
+안에서의 진입 버튼(H-4)은 아직 없어, 정식 플레이 흐름 중에는 여전히 도달할
+수 없다. 상세는 위 "완료 기록 (169)" 참고.
 **[대형 기획 7] F-5(성장 정책 시뮬) 미착수** — INBOX.md 지시대로 H 전부가
 끝난 뒤 (a)성장 정책 구현→(b)시뮬 실행→(c)리포트 순으로 진행 예정.
 **ART-1a(아트 스레드 전달) 완료** — 캐릭터 선택 카드 목록 ScrollContainer
@@ -218,13 +205,18 @@ F-4a(헤드리스 시뮬 경로)/F-4b(시뮬 러너, 7캐릭터×13종 시작 �
 진행하는 것을 권장한다. 한 이터레이션에 한두 개만 진행할 것.
 
 **최우선 (INBOX.md 지시 — 아래 번호 매긴 큐보다 먼저):**
-- **[대형 기획 8] H-2(테스트 전투 설정 화면)** — H-1(완료, 플러밍만) 다음 조각.
-  신규 `code/scenes/test_battle_setup.tscn/.gd`: 캐릭터(7종)/시작 스킬(3슬롯 전부,
-  잠금 무시)/몬스터(계열+등급 필터, 35종 스크롤 목록)/난이도(라운드+방 스피너) 선택
-  → "전투 시작"으로 `RunState.reset_run(캐릭터)` 후 `test_battle=true` 세팅해
-  combat_test.tscn으로. INBOX.md "남은 이슈" [대형 기획 8] H-2 원문 참고.
-- 이어서 H-3(성장/보유 스킬 세팅) → H-4(캐릭터 선택 화면 진입 버튼 + DESIGN.md 문서화)
-  순서대로, 전부 끝나면 [대형 기획 7] F-5(a→b→c, 성장 정책 밸런스 시뮬)로.
+- **[대형 기획 8] H-3(성장 정도 + 보유 스킬 세팅)** — H-2(완료) 다음 조각.
+  `test_battle_setup.tscn`에 **성장** 섹션 추가: 공격/방어 주머니 다이스 개수(각
+  1~6)/면 개수(D4~D20 통일)/골드(0~200)/눈금 인벤토리(0~12)/다이스 인벤토리(0~6)
+  + 빠른 프리셋 버튼("시작 그대로"/"R1 중반"/"R2 중반"/"R3 중반", 옆에 실제 적용될
+  구성 텍스트 표시). **보유 스킬(런 중 획득)** 체크박스: 공용 2종 + 해당 캐릭터
+  고유 스킬 + 각 "+"판을 `RunState.skill_flags`에 토글(캐릭터 바꾸면 안 맞는
+  항목 자동 해제, "+"는 base가 켜져 있을 때만). 주머니 구성 적용은 `reset_run()`
+  이후 한 곳에서만(재전투 시 같은 설정 재현). 효과 테스트: 프리셋/직접 설정 후
+  `player_attack_bag.dice.size()`/면 개수/골드/skill_flags가 입력값 그대로인지.
+  INBOX.md "부분 처리됨" [대형 기획 8] H-3 원문 참고.
+- 이어서 H-4(캐릭터 선택 화면 진입 버튼 + DESIGN.md 문서화) 순서대로, 전부 끝나면
+  [대형 기획 7] F-5(a→b→c, 성장 정책 밸런스 시뮬)로.
 
 0. **(INBOX.md 신규 2026-09-03) UI 접근성/가시성 4종 — 1/4 부분 착수.** 전부 "전투/
    선택지 화면 어디서든 정보가 상시 보이거나, 조작이 더 직관적이어야 한다"는 계열의
@@ -831,6 +823,73 @@ F-4a(헤드리스 시뮬 경로)/F-4b(시뮬 러너, 7캐릭터×13종 시작 �
 
 ## 완료 기록
 
+- **2026-10-08 (169)**: INBOX.md "부분 처리됨"의 [대형 기획 8] **H-2(테스트 전투
+  설정 화면)**를 진행했다 — H-1(플러밍만) 완료 후 다음 조각.
+  신규 `code/scenes/test_battle_setup.gd`/`.tscn` — 위에서부터 **캐릭터**(7종,
+  원화 썸네일/플레이스홀더 초상+이름 버튼), **시작 스킬**(선택한 캐릭터의
+  `SkillPool.starting_skills_for_character()` 3슬롯 전부를 잠금 무시로 선택
+  가능), **몬스터**(계열 4종+전체/등급 3종+전체 필터 버튼 + `MonsterCatalog`
+  35종 전부를 보여주는 스크롤 목록, 각 행에 `FamilyIcon`+이름+등급 배지,
+  선택 시 오른쪽 상세 패널에 스킬 설명(신규 `SKILL_PRIMITIVE_DESCRIPTIONS`
+  — DESIGN.md "스킬 프리미티브 범례" 표를 그대로 옮김)+성격 1줄 표시),
+  **난이도**(라운드 1~3/방 0~4 `SpinBox` 2개, `effective_difficulty = 방 +
+  (라운드-1)x3` 실시간 표시, SpinBox 자체가 직접 수치 입력도 지원) 순서로
+  배치했다. 하단 "[1] 전투 시작" 버튼만 숫자 단축키를 받는다(INBOX.md H-2
+  원문 — 나머지 화면은 `KeyboardShortcuts` 미적용).
+  **"직전 선택 유지"**(반복 테스트 편의, INBOX.md 원문): `RunState`에 신규
+  필드 3개(`test_character_id`/`test_starting_skill_id`/`test_room_index`)를
+  추가해(H-1이 이미 가진 `test_monster_id`/`test_round_index`/`test_difficulty`와
+  같은 "테스트 설정 전용" 묶음, `reset_run()`이 건드리지 않음) 선택을 바꿀
+  때마다 즉시 반영한다 — 전투 후 "설정으로 돌아가기"로 이 씬이 다시 로드돼도
+  그대로 남는다. `test_character_id`는 `RunState.character_id`(실제 플레이
+  캐릭터)와 **의도적으로 별개 필드**다 — 설정 화면에서 캐릭터를 둘러보는
+  것만으로 실제 진행 캐릭터가 바뀌면 안 되므로, "전투 시작"을 눌렀을 때만
+  `RunState.reset_run(선택id)`로 실제 `character_id`에 반영된다.
+  **실제 반영 로직은 `_apply_start_selection(character_id, skill_id,
+  monster_id, round_index, room_index)`로 분리**(@onready 노드를 전혀 참조하지
+  않는 순수 함수라 F-3 패턴대로 씬 트리 없이 `.new()`만으로 직접 테스트
+  가능) — `RunState.chosen_starting_skill_id`(character_select.gd가 쓰는
+  "다음 실제 런의 시작 스킬" 선택)를 호출 직전 백업하고, 선택한 스킬로 잠깐
+  바꿔 `reset_run()`이 `skill_flags`에 그 스킬을 부여하게 한 뒤 즉시 원래
+  값으로 복원한다 — 테스트 전투를 돌렸다고 실제 캐릭터 선택 화면의 "다음 런
+  시작 스킬" 선택이 조용히 바뀌는 걸 막기 위함(H-1 원칙② "진행도를 건드리지
+  않는다"의 연장 — `chosen_starting_skill_id`도 엄밀히는 "진행도"는 아니지만
+  실제 플레이 상태를 오염시킬 수 있는 공유 필드라 같은 원칙을 적용). "전투
+  시작" 버튼은 업적을 전혀 unlock하지 않는다(character_select.gd의
+  "던전 시작"과 달리 `first_run_start` 업적도 호출 안 함).
+  **효과 단위 테스트**: `dice_test.gd`에 `_check_h2_test_battle_setup()` 추가
+  — H-1과 같은 패턴(`.new()`만 해서 production 함수 직접 호출)으로 곡예사+
+  "맹공"+고블린 왕(라운드3/방4)을 `_apply_start_selection()`에 넣고 "계산
+  결과"를 검증: `character_id=="juggler"`이고 공격/방어 다이스 개수가 실제
+  곡예사 프로필(3/2)과 일치, `skill_flags`에 `start_aggro`가 실제로 들어감,
+  `test_difficulty==10`, `_monster_config_for_test()`가 반환한 config의
+  `is_boss==true`이고 이름이 "고블린 왕"으로 시작, 호출 전후
+  `chosen_starting_skill_id`가 그대로 복원됨(의도적으로 다른 캐릭터의 다른
+  스킬을 미리 선택해둔 상태에서 검증) — 6개 조건 전부 "플래그가 들어갔는가"가
+  아니라 실제 값 비교. `scripts/qa_shot.sh dice_test` 전체 PASS(신규 섹션
+  포함).
+  **시각 QA**: (a) `test_battle_setup` 단독 로드 — 겹침 없이 캐릭터 7종 행 +
+  시작 스킬 3슬롯 + 몬스터 필터/목록(35종 스크롤) + 난이도 스피너 + 전투 시작
+  버튼까지 전부 보임(`qa_out/test_battle_setup.png`). (b) QA 전용 래퍼
+  `_debug_start_boss_test_battle()`(고블린 왕 선택 + 라운드3/방4 + "전투
+  시작" 호출)로 설정→전투 시작 전체 경로를 실제로 타서 `combat_test.tscn`이
+  올바른 보스(고블린 왕 [보스] HP 80/80, 왕관 아이콘, 전용 스킬 3개 디버그
+  텍스트)로 정상 진입하는지 확인(`qa_out/test_battle_setup_boss_start.png`).
+  (c) "설정으로 돌아가기" 버튼이 이제 실제로 `test_battle_setup.tscn`을
+  찾아 이동하는지는(H-1 당시엔 파일이 없어 `character_select.tscn`으로
+  폴백하던 경로) `GAME_QA_CLICK_PATH`가 `GAME_QA_CALL`보다 **먼저** 실행되는
+  QA 하네스 순서 제약 때문에(`code/qa/visual_qa.gd`) 자동 캡처로 직접
+  재현하지 못했다 — 결과 화면 버튼은 `GAME_QA_CALL`로 노출시켜야 하는데
+  그 시점엔 이미 클릭이 끝나있어 클릭이 숨겨진 버튼에 가서 아무 효과가 없다.
+  대신 `_on_test_back_button_pressed()` 자체는 H-1에서 전혀 수정하지
+  않았고(`ResourceLoader.exists("res://code/scenes/test_battle_setup.tscn")`
+  로 분기하는 로직 그대로) 이번 이터레이션으로 그 경로가 실제로 존재하게 된
+  것뿐이라 코드 검토로 충분하다고 판단했다 — 사람이 실제 플레이로 "설정으로
+  돌아가기"를 눌러 확인해주면 더 좋음(아래 "알려진 이슈" 참고).
+  **H-2 완료.** 다음은 **H-3**(성장 정도 + 보유 스킬 세팅 — 설정 화면에
+  주머니 크기/면 개수/골드/인벤토리 프리셋과 스킬 체크박스 추가). "완료
+  기록" 10개 유지를 위해 (159)를 `docs/STATUS_ARCHIVE.md`로 옮겼다.
+
 - **2026-10-08 (168)**: INBOX.md "남은 이슈"의 [대형 기획 8] **H-1(테스트 전투
   모드 플러밍, UI 없음)**을 진행했다 — 같은 날 올라온 [대형 기획 8]/[대형 기획
   7] F-5 중 지시된 실행 순서(H 먼저)상 첫 조각.
@@ -1349,54 +1408,9 @@ F-4a(헤드리스 시뮬 경로)/F-4b(시뮬 러너, 7캐릭터×13종 시작 �
   고블린 재배정도 함께 처리하는 게 안전). "완료 기록" 10개 유지를 위해
   (150)을 `docs/STATUS_ARCHIVE.md`로 옮겼다.
 
-- **2026-10-07 (159)**: INBOX.md "부분 처리됨"의 [대형 기획 6](몬스터 대개편)
-  **G-4(야수형 pounce(n)/bloodlust + 언데드형 drain/revive/chill 프리미티브
-  신설)**을 진행했다 — G-3 완료로 실행 순서상 다음 조각.
-  `code/systems/monster_skills.gd`를 확장: `modify_monster_roll`의 몬스터
-  "공격"턴 분기(`is_player_attacking==false`, anger_stack이 있던 자리)에
-  pounce(n)(state["pounce_used"]로 전투당 1회, `apply_total_bonus` 재사용)와
-  bloodlust(guard_up과 대칭, HP 절반 이하면 공격 결과값 +1)를 추가. `on_damage`를
-  early-return 구조에서 Dictionary 누적 구조로 바꿔(미래에 counter+revive를
-  한 몬스터가 같이 가져도 둘 다 반환되게) drain(몬스터 공격턴, 입힌 피해의
-  절반 내림만큼 `heal_amount` 반환)과 revive(플레이어 공격턴, monster_hp<=0
-  이고 전투당 미사용이면 최대 HP의 30%(잠정값)를 `revive_to`로 반환,
-  state["revive_used"]로 1회 제한)를 추가. `modify_player_roll`에 chill
-  (플레이어 "공격" 다이스 중 최댓값 1개 -1)을 추가 — INBOX.md 원문이 애초에
-  제시한 chill 정의("방어" 다이스 중 최댓값 -1)는 numb과 완전히 같은 효과라,
-  원문이 명시적으로 허용한 대안(공격 쪽으로 구분)을 택했다(numb과는 턴이
-  달라 구분됨, sticky와는 공식은 같지만 다른 계열의 다른 skill id).
-  **버그를 하나 고쳤다**: G-2/G-3까지 anger_stack의 `modify_monster_roll`
-  호출은 "값을 안 바꾸는 부수효과(스택 집계)뿐"이라 데미지 계산 "후"(기존
-  _do_exchange()의 counter 체크 옆)에 호출해도 무방했는데, pounce/bloodlust는
-  실제로 공격 다이스 "값"을 바꾸므로 그 자리에서 호출하면 이미 atk_total이
-  계산된 뒤라 보정이 데미지에 전혀 반영되지 않는 잠재 버그였다. `combat_test.gd`의
-  `_do_exchange()`에서 몬스터 공격턴의 `modify_monster_roll` 호출(anger_stack
-  포함)을 조기 호출 지점(기존 steady_guard/armor/guard_up 자리 바로 옆,
-  atk_total 계산 **전**)으로 통째로 옮기고 late 자리의 중복 호출은 제거했다
-  — anger_stack 자체의 계산 결과(스택 수)는 그대로지만, "분노 스택" 로그
-  줄 순서가 데미지 로그보다 앞으로 바뀐다(수치 변경 없음, 순서만 변경 —
-  `qa_out/combat_test_g4_goblin.png`로 실제 화면에서 크래시/깨짐 없이
-  정상 동작함을 확인). G-7에서 pounce+anger_stack을 한 몬스터(암흑 늑대)가
-  같이 가질 수 있어 이 함수를 두 번 호출하면 스택이 중복 집계되는 문제까지
-  미리 막았다(신규 테스트 (3)으로 직접 검증). **지금 몬스터 카탈로그(G-5
-  이전) 5종은 이 5종 중 아무것도 안 쓰므로 모든 신규 경로가 현재는
-  no-op**(G-2/G-3과 같은 원칙). `dice_test.gd`의 신규 `_check_g4_monster_
-  skill_primitives()`로 pounce 1회 제한/bloodlust HP 게이팅/pounce+anger_stack
-  동시 적용 시 중복 집계 없음/drain의 턴 게이팅/revive 1회 제한과 생존 시
-  미발동/chill의 "공격턴에만, numb과 구분"을 계산 결과로 직접 검증했다.
-  `bash scripts/qa_shot.sh dice_test` 전체 PASS(신규 섹션 포함, 기존
-  G-1~G-3 검증도 그대로 PASS). `scripts/qa_shot.sh combat_test`로 기본
-  몬스터(슬라임, 기믹 없음) 승리 흐름과, `GAME_QA_ROOM_OVERRIDE=1`로
-  고블린(anger_stack)의 실제 전투 로그가 크래시/깨짐 없이 정상 진행됨을
-  둘 다 확인(`qa_out/combat_test_g4.png`/`combat_test_g4_goblin.png`).
-  **G-4 완료.** 다음 할 일은 **G-5**(일반 몬스터 20종 데이터, 계열당 5종 —
-  G-3/G-4가 만든 12종 프리미티브를 실제로 쓰는 첫 단계, 아래 "지금 위치"/
-  "다음 할 일 큐" 참고). "완료 기록" 10개 유지를 위해 (149)를
-  `docs/STATUS_ARCHIVE.md`로 옮겼다.
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(168)에서 (158)을 그리로 옮겼다.)*
+이번 이터레이션(169)에서 (159)를 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 
@@ -1471,6 +1485,17 @@ F-4a(헤드리스 시뮬 경로)/F-4b(시뮬 러너, 7캐릭터×13종 시작 �
   것(`code/scenes/character_select.gd`의 `_debug_select_berserker()`/
   `_debug_select_guardian()` 참고). 앞으로 새 QA 훅을 만들 때 이 패턴을 반드시
   지킬 것 — 재발 방지.
+- **`scripts/qa_shot.sh`에 `GAME_QA_CALL`과 `GAME_QA_CLICK_PATH`를 동시에 넘기면
+  클릭이 호출보다 먼저 실행된다(2026-10-08 (169), `code/qa/visual_qa.gd`의
+  `_capture_and_quit()` 순서 — click → call → capture).** "메서드 호출로 UI를
+  특정 상태로 만든 뒤 그 상태에 나타난 버튼을 클릭해 네비게이션까지 확인"하려는
+  시도(예: `_debug_show_test_battle_lose()`로 결과 화면을 띄운 뒤 그 화면의
+  "설정으로 돌아가기" 버튼을 클릭)는 이 순서 때문에 작동하지 않는다 — 클릭 시점엔
+  아직 버튼이 `visible=false`라 클릭이 허공에 떨어진다. 이런 "두 단계(호출로 상태
+  진입 → 클릭으로 그 상태의 버튼 눌러보기)" 검증이 필요하면 클릭 대상 버튼을 직접
+  누르는 전용 QA 래퍼(인자 없는 메서드, 위 GAME_QA_CALL 0-arity 패턴처럼 버튼
+  pressed 핸들러까지 직접 호출)를 새로 만드는 수밖에 없다 — 두 환경변수를 같이
+  켜는 것으로는 해결 안 됨.
 - **다음 진행을 위해 사람의 플레이테스트/피드백 또는 설계 결정이 필요한 항목이
   남아있음(단, 전부 완전히 막힌 것은 아님).** "성장의 재미가 없다"(2026-09-09)의
   방향 1(다이스 개수 캡+교체) 첫 조각은 2026-09-09 (76)에 구현했지만, 캡 수치(6)와

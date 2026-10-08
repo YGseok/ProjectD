@@ -261,6 +261,10 @@ func _ready() -> void:
 	all_pass = _check_h1_test_battle_mode(lines) and all_pass
 
 	lines.append("")
+	lines.append("[H-2: 테스트 전투 설정 화면 검증: _apply_start_selection()이 캐릭터/스킬/몬스터/난이도를 실제로 반영하고 chosen_starting_skill_id를 되돌리는지]")
+	all_pass = _check_h2_test_battle_setup(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -5271,5 +5275,61 @@ func _check_h1_test_battle_mode(lines: PackedStringArray) -> bool:
 	RunState.pip_inventory = pip_backup
 	RunState.rooms_cleared = rooms_backup
 	RunState.round_index = round_backup
+	RunState.reset_run(character_backup)
+	return ok
+
+
+## [대형 기획 8] H-2(2026-10-08) — test_battle_setup.gd의 _apply_start_selection()이
+## @onready 노드를 전혀 참조하지 않는 순수 반영부라(스크립트 클래스 주석 참고)
+## combat_test.gd의 H-1 검증과 같은 패턴(.new()만 해서 production 함수를 직접 호출)으로
+## "결과가 실제로 바뀌는가"를 검증한다 — chosen_starting_skill_id가 호출 전후로
+## 그대로인지(실제 캐릭터 선택 화면의 "다음 런 시작 스킬"이 테스트 전투로 오염되지
+## 않는지)가 핵심.
+func _check_h2_test_battle_setup(lines: PackedStringArray) -> bool:
+	var ok := true
+	var character_backup := RunState.character_id
+	var chosen_backup := RunState.chosen_starting_skill_id
+	var test_battle_backup := RunState.test_battle
+	var test_monster_backup := RunState.test_monster_id
+	var test_difficulty_backup := RunState.test_difficulty
+	var test_round_backup := RunState.test_round_index
+	var test_room_backup := RunState.test_room_index
+
+	RunState.reset_run("novice")
+	RunState.chosen_starting_skill_id = "start_wealth" # 견습 모험가 슬롯 2(최종 클리어 해금) — 테스트 전투가 잠금을 무시한다는 걸 보여줄 대조값
+	RunState.test_battle = false
+
+	var setup_script := load("res://code/scenes/test_battle_setup.gd")
+	var setup_instance = setup_script.new()
+	setup_instance._apply_start_selection("juggler", "start_aggro", "goblin_king", 3, 4)
+
+	var combat_script := load("res://code/scenes/combat_test.gd")
+	var combat_instance = combat_script.new()
+	var config: Dictionary = combat_instance._monster_config_for_test(RunState.test_difficulty)
+	combat_instance.free()
+
+	var difficulty_ok: bool = RunState.test_difficulty == 10 # room4 + (round3-1)*3
+	var character_ok: bool = RunState.character_id == "juggler" and RunState.player_attack_bag.dice.size() == 3 and RunState.player_defense_bag.dice.size() == 2
+	var skill_ok: bool = RunState.skill_flags.has("start_aggro")
+	var monster_ok: bool = config.get("is_boss", false) == true and String(config.get("name", "")).begins_with("고블린 왕")
+	var chosen_restored_ok: bool = RunState.chosen_starting_skill_id == "start_wealth"
+	var test_battle_on_ok: bool = RunState.test_battle == true
+
+	var test_ok: bool = difficulty_ok and character_ok and skill_ok and monster_ok and chosen_restored_ok and test_battle_on_ok
+	ok = test_ok and ok
+	lines.append("  [설정->반영] 곡예사+맹공+고블린 왕(라운드3/방4) 적용 후 character_id=%s(공격%d/방어%d) skill_flags에 start_aggro=%s test_difficulty=%d config.is_boss=%s chosen_starting_skill_id 복원=%s test_battle=%s -> %s" % [
+		RunState.character_id, RunState.player_attack_bag.dice.size(), RunState.player_defense_bag.dice.size(),
+		RunState.skill_flags.has("start_aggro"), RunState.test_difficulty, config.get("is_boss", false),
+		chosen_restored_ok, RunState.test_battle, "OK" if test_ok else "FAIL"
+	])
+
+	setup_instance.free()
+
+	RunState.chosen_starting_skill_id = chosen_backup
+	RunState.test_battle = test_battle_backup
+	RunState.test_monster_id = test_monster_backup
+	RunState.test_difficulty = test_difficulty_backup
+	RunState.test_round_index = test_round_backup
+	RunState.test_room_index = test_room_backup
 	RunState.reset_run(character_backup)
 	return ok

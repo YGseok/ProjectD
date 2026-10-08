@@ -8,6 +8,51 @@
 
 ---
 
+- **2026-10-07 (159)**: INBOX.md "부분 처리됨"의 [대형 기획 6](몬스터 대개편)
+  **G-4(야수형 pounce(n)/bloodlust + 언데드형 drain/revive/chill 프리미티브
+  신설)**을 진행했다 — G-3 완료로 실행 순서상 다음 조각.
+  `code/systems/monster_skills.gd`를 확장: `modify_monster_roll`의 몬스터
+  "공격"턴 분기(`is_player_attacking==false`, anger_stack이 있던 자리)에
+  pounce(n)(state["pounce_used"]로 전투당 1회, `apply_total_bonus` 재사용)와
+  bloodlust(guard_up과 대칭, HP 절반 이하면 공격 결과값 +1)를 추가. `on_damage`를
+  early-return 구조에서 Dictionary 누적 구조로 바꿔(미래에 counter+revive를
+  한 몬스터가 같이 가져도 둘 다 반환되게) drain(몬스터 공격턴, 입힌 피해의
+  절반 내림만큼 `heal_amount` 반환)과 revive(플레이어 공격턴, monster_hp<=0
+  이고 전투당 미사용이면 최대 HP의 30%(잠정값)를 `revive_to`로 반환,
+  state["revive_used"]로 1회 제한)를 추가. `modify_player_roll`에 chill
+  (플레이어 "공격" 다이스 중 최댓값 1개 -1)을 추가 — INBOX.md 원문이 애초에
+  제시한 chill 정의("방어" 다이스 중 최댓값 -1)는 numb과 완전히 같은 효과라,
+  원문이 명시적으로 허용한 대안(공격 쪽으로 구분)을 택했다(numb과는 턴이
+  달라 구분됨, sticky와는 공식은 같지만 다른 계열의 다른 skill id).
+  **버그를 하나 고쳤다**: G-2/G-3까지 anger_stack의 `modify_monster_roll`
+  호출은 "값을 안 바꾸는 부수효과(스택 집계)뿐"이라 데미지 계산 "후"(기존
+  _do_exchange()의 counter 체크 옆)에 호출해도 무방했는데, pounce/bloodlust는
+  실제로 공격 다이스 "값"을 바꾸므로 그 자리에서 호출하면 이미 atk_total이
+  계산된 뒤라 보정이 데미지에 전혀 반영되지 않는 잠재 버그였다. `combat_test.gd`의
+  `_do_exchange()`에서 몬스터 공격턴의 `modify_monster_roll` 호출(anger_stack
+  포함)을 조기 호출 지점(기존 steady_guard/armor/guard_up 자리 바로 옆,
+  atk_total 계산 **전**)으로 통째로 옮기고 late 자리의 중복 호출은 제거했다
+  — anger_stack 자체의 계산 결과(스택 수)는 그대로지만, "분노 스택" 로그
+  줄 순서가 데미지 로그보다 앞으로 바뀐다(수치 변경 없음, 순서만 변경 —
+  `qa_out/combat_test_g4_goblin.png`로 실제 화면에서 크래시/깨짐 없이
+  정상 동작함을 확인). G-7에서 pounce+anger_stack을 한 몬스터(암흑 늑대)가
+  같이 가질 수 있어 이 함수를 두 번 호출하면 스택이 중복 집계되는 문제까지
+  미리 막았다(신규 테스트 (3)으로 직접 검증). **지금 몬스터 카탈로그(G-5
+  이전) 5종은 이 5종 중 아무것도 안 쓰므로 모든 신규 경로가 현재는
+  no-op**(G-2/G-3과 같은 원칙). `dice_test.gd`의 신규 `_check_g4_monster_
+  skill_primitives()`로 pounce 1회 제한/bloodlust HP 게이팅/pounce+anger_stack
+  동시 적용 시 중복 집계 없음/drain의 턴 게이팅/revive 1회 제한과 생존 시
+  미발동/chill의 "공격턴에만, numb과 구분"을 계산 결과로 직접 검증했다.
+  `bash scripts/qa_shot.sh dice_test` 전체 PASS(신규 섹션 포함, 기존
+  G-1~G-3 검증도 그대로 PASS). `scripts/qa_shot.sh combat_test`로 기본
+  몬스터(슬라임, 기믹 없음) 승리 흐름과, `GAME_QA_ROOM_OVERRIDE=1`로
+  고블린(anger_stack)의 실제 전투 로그가 크래시/깨짐 없이 정상 진행됨을
+  둘 다 확인(`qa_out/combat_test_g4.png`/`combat_test_g4_goblin.png`).
+  **G-4 완료.** 다음 할 일은 **G-5**(일반 몬스터 20종 데이터, 계열당 5종 —
+  G-3/G-4가 만든 12종 프리미티브를 실제로 쓰는 첫 단계, 아래 "지금 위치"/
+  "다음 할 일 큐" 참고). "완료 기록" 10개 유지를 위해 (149)를
+  `docs/STATUS_ARCHIVE.md`로 옮겼다.
+
 - **2026-10-07 (158)**: INBOX.md "부분 처리됨"의 [대형 기획 6](몬스터 대개편)
   **G-3(인간형 armor/guard_up/counter + 부정형 sticky/seal/dull/numb 프리미티브
   신설)**을 진행했다 — G-2 완료로 실행 순서상 다음 조각.
