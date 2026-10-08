@@ -8,6 +8,61 @@
 
 ---
 
+- **2026-10-07 (157)**: INBOX.md "부분 처리됨"의 [대형 기획 6](몬스터 대개편)
+  **G-2(몬스터 스킬 프레임워크 신설 + 기존 4종 기믹 이식, 동작 보존)**을
+  진행했다 — G-1 완료로 실행 순서상 다음 조각.
+  신규 `code/systems/monster_skills.gd`(`MonsterSkills`)에 지시문이 요구한
+  훅 4개(`on_combat_start`/`modify_monster_roll`/`modify_player_roll`/
+  `on_damage`)를 만들고, 기존 `anger_stack`/`fixed_value`/`min_max_only`/
+  `steady_guard` 4종을 그 구조로 옮겼다. `DiceBag` 쪽 헬퍼(force_fixed_value/
+  force_min_max_faces/apply_steady_guard/count_max_rolls)는 새로 만들지 않고
+  그대로 호출만 한다(지시문 그대로). `modify_player_roll`/`on_damage`는 기존
+  4종 중 해당하는 게 없어 지금은 항상 입력을 그대로 반환/아무 것도 안 하는
+  no-op — G-3(부정형 sticky/seal/dull/numb)/G-4(언데드 drain/revive)가 채울
+  자리를 미리 열어둔 것뿐. 추가로 `should_use_bonus_attack_dice(skill_ids,
+  state)`를 하나 더 뒀다 — anger_stack이 "다음 공격은 1D20"을 결정하는
+  시점이 다이스를 물리적으로 스폰하기 **전**이라(실제 굴림 전에 어떤 주머니를
+  굴릴지부터 정해야 함) "굴린 결과를 보정"하는 `modify_monster_roll` 호출보다
+  앞서 별도로 질의해야 했기 때문.
+  `combat_test.gd` 쪽은 기존 인스턴스 변수 `monster_anger_stacks`/
+  `monster_anger_pending`(anger_stack 전용 2개)을 범용 `monster_skill_state:
+  Dictionary` 하나로 대체했다(향후 G-7/G-8에서 정예/보스가 스킬을 2~3개
+  동시에 가지면 변수를 몬스터 스킬 개수만큼 늘릴 필요 없이 이 Dictionary
+  하나로 받을 수 있게 하려는 의도). `monster_skill_ids: Array`도 신설해
+  `_monster_config_for_room()`이 기존 "dice_gimmick"(단일 문자열) 외에
+  `"skill_ids": [gimmick]`(또는 빈 배열)도 함께 반환하도록 추가(기존
+  "dice_gimmick" 필드/값은 전혀 안 건드림 — G-1 검증/디버그 문구가 계속
+  그대로 동작). `_ready()`는 `MonsterSkills.on_combat_start()` 호출 한 줄로
+  기존 if/elif 블록(min_max_only/fixed_value 적용 + anger 상태 초기화)을
+  대체했고, `_do_exchange()`의 세 지점(① anger 보너스 다이스 사용 여부 판단,
+  ② steady_guard 보정, ③ anger 스택 적립/로그)을 각각 `MonsterSkills.
+  should_use_bonus_attack_dice()`/`modify_monster_roll()` 호출로 바꿨다 —
+  **로그 문구/순서는 한 글자도 안 바뀌게** 신경 썼다(②는 데미지 계산 전에,
+  ③은 데미지 로그 이후에 호출되는 기존 타이밍을 그대로 유지하고, state의
+  `"last_event"`를 읽어 똑같은 로그 문자열을 그대로 남김). QA 전용
+  `_debug_show_anger_dice()`도 새 구조(`monster_skill_ids`/
+  `monster_skill_state`)로 맞춰 갱신.
+  **검증**: `dice_test.gd`에 신규 `_check_monster_skills_framework()`를
+  추가 — "플래그가 들어갔는가"가 아니라 "계산 결과가 실제로 바뀌는가"를
+  본다(F-3 원칙). min_max_only/fixed_value는 각각 수십 회 굴려 중간값이 전혀
+  안 나오는지/항상 지정값만 나오는지, steady_guard는 `modify_monster_roll`을
+  `is_player_attacking=true`/`false` 양쪽으로 직접 호출해 하한선 보정이 몬스터
+  "방어"턴에만 걸리고 "공격"턴에는 안 걸리는지(게이팅 자체를 검증), anger_stack은
+  스택 적립→임계치 도달→`should_use_bonus_attack_dice()`가 true로 바뀌는 것→
+  보너스 다이스 사용 후 리셋까지 전체 상태 전이를 직접 호출해 확인했다.
+  `_monster_config_for_room()`의 신규 "skill_ids" 필드가 room 0~4에서 기존
+  "dice_gimmick"과 항상 1:1 대응하는지도 비교(G-1 검증과 같은 패턴).
+  `bash scripts/qa_shot.sh dice_test` 전체 PASS(신규 섹션 포함).
+  `scripts/qa_shot.sh combat_test`로 전투 화면 크래시 없음 확인,
+  `scripts/qa_shot.sh combat_test 60 qa_out/combat_test_anger.png
+  _debug_show_anger_dice`로 실제 전투 흐름(물리 다이스 포함) 중 분노 스택이
+  쌓여 "몬스터가 분노했다! 다음 공격은 20면체 주사위로 굴린다" 로그가 이식
+  전과 똑같은 문구로 남는 것도 실제 화면에서 확인(`qa_out/
+  combat_test_anger.png`).
+  **G-2 완료.** 다음 할 일은 **G-3**(인간형+부정형 프리미티브: armor/guard_up/
+  counter + sticky/seal/dull/numb — 수치는 전부 잠정값, F-4 시뮬이 조정).
+  "완료 기록" 10개 유지를 위해 (147)을 `docs/STATUS_ARCHIVE.md`로 옮겼다.
+
 - **2026-10-07 (156)**: INBOX.md "남은 이슈"의 [대형 기획 6](몬스터 대개편)
   **G-1(계열 + 몬스터 카탈로그 + 계열 아이콘)**을 진행했다. F-3 완료로 실행
   순서상 다음은 G-1이었고, 지시문대로 **이 단계는 전투 동작을 바꾸지
