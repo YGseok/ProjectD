@@ -710,17 +710,20 @@ static func _boss_phase2_activation(is_boss: bool, already_active: bool, hp: int
 	}
 
 
-## _do_exchange()가 몬스터 HP를 확정한 뒤(counter/revive/drain 반영 후), 승패 판정 전에
+## _resolve_exchange()가 몬스터 HP를 확정한 뒤(counter/revive/drain 반영 후), 승패 판정 전에
 ## 호출한다. 계산은 전부 _boss_phase2_activation()이 하고, 이 함수는 그 결과를 실제
-## 전투 상태/UI에 적용만 한다.
-func _maybe_activate_boss_phase2() -> void:
+## 전투 상태에 적용만 한다. [대형 기획 5] F-4a(2026-10-07) — 포트레이트/디버그 라벨 같은
+## UI 호출은 제거하고 "활성화됐는지" bool만 돌려준다(호출부인 _do_exchange()가 그 값을
+## 보고 UI를 입힌다). logs는 Array(참조형)라 호출부와 같은 배열을 공유 — 헤드리스 밸런스
+## 시뮬(code/qa/balance_sim.gd)도 UI 없이 안전하게 이 함수를 호출할 수 있다.
+func _maybe_activate_boss_phase2(logs: Array) -> bool:
 	var profile: Dictionary = MonsterCatalog.get_by_id(monster_id)
 	var result := _boss_phase2_activation(
 		monster_is_boss, monster_boss_phase2_active, monster_hp, monster_max_hp,
 		profile.get("phase2_skills", []), monster_skill_ids, monster_skill_params
 	)
 	if not result.get("activate", false):
-		return
+		return false
 	monster_boss_phase2_active = true
 	monster_skill_ids = result["skill_ids"]
 	monster_skill_params = result["skill_params"]
@@ -732,9 +735,8 @@ func _maybe_activate_boss_phase2() -> void:
 		# 즉시 한 번 적용해야 그 순간부터 두 주머니 모두 극단화된다.
 		monster_attack_bag.force_min_max_faces()
 		monster_defense_bag.force_min_max_faces()
-	_append_log("보스가 격노했다! (2페이즈 돌입)")
-	monster_portrait.set_expression("angry")
-	monster_debug_info_label.text = _monster_debug_info_text(monster_config)
+	logs.append("보스가 격노했다! (2페이즈 돌입)")
+	return true
 
 
 ## QA 전용 — GAME_QA_ROOM_OVERRIDE 환경변수(정수)가 있으면 RunState.monster_plan을
@@ -907,7 +909,63 @@ func _run_battle() -> void:
 
 ## is_player_attacking == true  -> 내 공격턴 (플레이어 공격 주머니 vs 몬스터 방어 주머니)
 ## is_player_attacking == false -> 몬스터 공격턴 (몬스터 공격 주머니 vs 플레이어 방어 주머니)
+##
+## [대형 기획 5] F-4a(2026-10-07): 다이스 "선택"(어느 주머니를 굴릴지 — 평소 주머니 vs
+## 스택 보너스 1D20 임시 주머니)과 "해석"(값 산출 + 기믹/스킬 보정 + 데미지 계산 + HP
+## 반영)을 각각 _select_exchange_bags()/_resolve_exchange()로 분리했다. 물리 스폰/정지
+## 대기(_clear_dice/_spawn_dice/_wait_for_dice_to_settle)와 화면 갱신(라벨/포트레이트/
+## 칩/업적/보상 UI)만 이 함수에 남고, 나머지 계산 전부는 그 두 함수가 담당한다 — 둘 다
+## 물리/UI 노드에 전혀 의존하지 않으므로 code/qa/balance_sim.gd(헤드리스 밸런스 시뮬)가
+## 물리 스폰 없이 바로 같은 두 함수를 호출해 "게임과 다른 규칙"을 쓰는 사고를 구조적으로
+## 막는다(F-3의 순수 함수 분리를 전투 한 턴 전체로 확장한 것).
 func _do_exchange(is_player_attacking: bool) -> void:
+	var selection := _select_exchange_bags(is_player_attacking)
+	var atk_bag: DiceBag = selection["atk_bag"]
+	var def_bag: DiceBag = selection["def_bag"]
+	var atk_color: Color = selection["atk_color"]
+	var def_color: Color = selection["def_color"]
+
+	turn_label.text = "내 공격턴" if is_player_attacking else "몬스터 공격턴 (내 방어턴)"
+
+	_clear_dice()
+	_spawn_dice(atk_bag, -1.4, atk_color)
+	_spawn_dice(def_bag, 1.4, def_color)
+
+	await _wait_for_dice_to_settle()
+
+	var result := _resolve_exchange(
+		is_player_attacking, atk_bag, def_bag,
+		selection["used_explosive_dice"], selection["used_guard_dice"], selection["used_anger_dice"]
+	)
+	for line in result["logs"]:
+		_append_log(line)
+	var atk_values: Array = result["atk_values"]
+	var def_values: Array = result["def_values"]
+	var dmg: int = result["dmg"]
+
+	_show_exchange_dice_chips(atk_bag, atk_values, def_bag, def_values, atk_color, def_color)
+
+	if is_player_attacking:
+		player_portrait.set_expression("happy")
+		monster_portrait.set_expression("hurt" if dmg > 0 else "neutral")
+	else:
+		monster_portrait.set_expression("happy")
+		player_portrait.set_expression("hurt" if dmg > 0 else "neutral")
+	if result.get("reflect_damage", 0) > 0:
+		player_portrait.set_expression("hurt")
+	if result.get("revive_to", 0) > 0:
+		monster_portrait.set_expression("angry")
+	if result.get("boss_phase2_activated", false):
+		monster_portrait.set_expression("angry")
+		monster_debug_info_label.text = _monster_debug_info_text(monster_config)
+
+	await _maybe_finish_battle(dmg)
+
+
+## _do_exchange()가 다이스를 "스폰하기 전"에 어느 주머니를 굴릴지(평소 주머니 vs 스택
+## 보너스 1D20 임시 주머니) 결정하는 부분만 분리 — 스폰 비주얼에 쓰는 색상까지 포함한다.
+## 물리/UI 의존이 전혀 없는 순수 계산이라 헤드리스 밸런스 시뮬도 그대로 재사용한다.
+func _select_exchange_bags(is_player_attacking: bool) -> Dictionary:
 	# "anger_stack" 기믹이 이전 몬스터 공격턴에 임계치를 채웠으면, 이번 몬스터 공격턴은
 	# 평소 monster_attack_bag 대신 1D20 임시 주머니로 굴린다(다음 문단에서 스택 집계 시
 	# used_anger_dice로 구분해 이 굴림 자체는 다시 스택을 쌓지 않게 함).
@@ -938,18 +996,27 @@ func _do_exchange(is_player_attacking: bool) -> void:
 	else:
 		def_bag = RunState.player_defense_bag
 
-	turn_label.text = "내 공격턴" if is_player_attacking else "몬스터 공격턴 (내 방어턴)"
-
 	var default_color := Color(1, 1, 1, 0)
 	var atk_color := monster_color if not is_player_attacking else default_color
 	var def_color := monster_color if is_player_attacking else default_color
 
-	_clear_dice()
-	_spawn_dice(atk_bag, -1.4, atk_color)
-	_spawn_dice(def_bag, 1.4, def_color)
+	return {
+		"atk_bag": atk_bag, "def_bag": def_bag,
+		"used_anger_dice": used_anger_dice, "used_explosive_dice": used_explosive_dice, "used_guard_dice": used_guard_dice,
+		"atk_color": atk_color, "def_color": def_color,
+	}
 
-	await _wait_for_dice_to_settle()
 
+## [대형 기획 5] F-4a 신규 — 다이스 스폰/정지 대기(물리) "이후"의 해석 전부(기믹/스킬
+## 보정/스택 적립/몬스터 기믹/데미지 계산/HP 반영)를 UI(라벨/포트레이트/칩/업적/보상)와
+## 분리한 순수 계산 함수. 반환하는 logs(Array[String])를 _do_exchange()가 그대로
+## _append_log()에 흘려보내고, 그 위에 UI만 입힌다. self.monster_hp/player_hp/
+## monster_skill_ids 등 전투 상태는 기존과 동일하게 이 인스턴스에 직접 반영된다(순수
+## 함수는 아니지만 물리/UI 의존이 없어 code/qa/balance_sim.gd가 다이스를 스폰하지 않고도
+## 그대로 호출해 전투 한 판을 계산할 수 있다 — "값 뽑기(roll_detailed, 이미 RNG 기반이라
+## 물리와 무관)만 쓰고 나머지는 게임과 같은 코드를 재사용"하는 F-4a 원칙).
+func _resolve_exchange(is_player_attacking: bool, atk_bag: DiceBag, def_bag: DiceBag, used_explosive_dice: bool, used_guard_dice: bool, used_anger_dice: bool) -> Dictionary:
+	var logs: Array[String] = []
 	var atk_values := atk_bag.roll_detailed()
 	var def_values := def_bag.roll_detailed()
 	# "steady_guard" 기믹(다크 나이트, [미니 기획 A]-2): 몬스터가 방어턴일 때만(플레이어
@@ -986,11 +1053,11 @@ func _do_exchange(is_player_attacking: bool) -> void:
 		var anger_event: Dictionary = monster_skill_state.get("last_event", {})
 		match anger_event.get("type", ""):
 			"anger_reset":
-				_append_log("분노가 가라앉았다 (분노 스택 초기화)")
+				logs.append("분노가 가라앉았다 (분노 스택 초기화)")
 			"anger_gain":
-				_append_log("몬스터 분노 스택 +%d (%d/%d)" % [anger_event["amount"], anger_event["stacks"], ANGER_STACK_THRESHOLD])
+				logs.append("몬스터 분노 스택 +%d (%d/%d)" % [anger_event["amount"], anger_event["stacks"], ANGER_STACK_THRESHOLD])
 				if anger_event["activated"]:
-					_append_log("몬스터가 분노했다! 다음 공격은 20면체 주사위로 굴린다")
+					logs.append("몬스터가 분노했다! 다음 공격은 20면체 주사위로 굴린다")
 	# G-3(MonsterSkills 부정형 프리미티브: sticky/seal/dull/numb) — 부정형 계열이 플레이어
 	# 주사위 결과를 직접 보정하는 첫 자리. steady_guard처럼 롤 직후, 플레이어 자신의 스킬
 	# 보정(바로 아래 charm_flip 등)보다 먼저 적용한다. 지금 몬스터 카탈로그(G-5 이전)에는
@@ -1036,9 +1103,9 @@ func _do_exchange(is_player_attacking: bool) -> void:
 		var frenzy_before: int = atk_values[0]
 		atk_values = _apply_bonus_reroll(atk_bag, atk_values, frenzy_extra_rolls)
 		if atk_values[0] > frenzy_before:
-			_append_log("광기 심화: %d 대신 %d 채택 (1D20 %d번 중 최댓값)" % [frenzy_before, atk_values[0], frenzy_total_rolls])
+			logs.append("광기 심화: %d 대신 %d 채택 (1D20 %d번 중 최댓값)" % [frenzy_before, atk_values[0], frenzy_total_rolls])
 		else:
-			_append_log("광기 심화: %d 유지 (1D20 %d번 중 최댓값)" % [frenzy_before, frenzy_total_rolls])
+			logs.append("광기 심화: %d 유지 (1D20 %d번 중 최댓값)" % [frenzy_before, frenzy_total_rolls])
 	# "수호 심화"(수호자 전용 고유 스킬, frenzy_deepen과 완전히 대칭): 이번 방어턴이
 	# 수호 스택 보너스 턴(1D20)이고 수호 심화를 보유했다면, 한 번 더 굴려 더 높은 값을
 	# 채택한다. "수호 심화+"는 frenzy_deepen_plus와 동일하게 총 굴림 횟수를 3번으로 늘림.
@@ -1048,9 +1115,9 @@ func _do_exchange(is_player_attacking: bool) -> void:
 		var guard_before: int = def_values[0]
 		def_values = _apply_bonus_reroll(def_bag, def_values, guard_extra_rolls)
 		if def_values[0] > guard_before:
-			_append_log("수호 심화: %d 대신 %d 채택 (1D20 %d번 중 최댓값)" % [guard_before, def_values[0], guard_total_rolls])
+			logs.append("수호 심화: %d 대신 %d 채택 (1D20 %d번 중 최댓값)" % [guard_before, def_values[0], guard_total_rolls])
 		else:
-			_append_log("수호 심화: %d 유지 (1D20 %d번 중 최댓값)" % [guard_before, guard_total_rolls])
+			logs.append("수호 심화: %d 유지 (1D20 %d번 중 최댓값)" % [guard_before, guard_total_rolls])
 	# "연쇄 폭발+"([미니 기획 D]-4, 폭발병 전용 강화판): base(chain_explosion)는
 	# 임계치만 2로 낮췄을 뿐 보너스 턴 굴림 자체는 그대로 1D20 한 번이었는데,
 	# "+"는 frenzy_deepen과 같은 방식으로 한 번 더 굴려("advantage") 더 높은 값을
@@ -1059,18 +1126,18 @@ func _do_exchange(is_player_attacking: bool) -> void:
 		var chain_explosion_before: int = atk_values[0]
 		atk_values = _apply_bonus_reroll(atk_bag, atk_values, 1)
 		if atk_values[0] > chain_explosion_before:
-			_append_log("연쇄 폭발+: %d 대신 %d 채택 (1D20 2번 중 최댓값)" % [chain_explosion_before, atk_values[0]])
+			logs.append("연쇄 폭발+: %d 대신 %d 채택 (1D20 2번 중 최댓값)" % [chain_explosion_before, atk_values[0]])
 		else:
-			_append_log("연쇄 폭발+: %d 유지 (1D20 2번 중 최댓값)" % chain_explosion_before)
+			logs.append("연쇄 폭발+: %d 유지 (1D20 2번 중 최댓값)" % chain_explosion_before)
 	# "연쇄 방어+"([미니 기획 D]-4, 방패병 전용 강화판): 연쇄 폭발+와 완전히 대칭
 	# (공격 대신 방어).
 	if used_guard_dice and player_chain_guard_plus_active:
 		var chain_guard_before: int = def_values[0]
 		def_values = _apply_bonus_reroll(def_bag, def_values, 1)
 		if def_values[0] > chain_guard_before:
-			_append_log("연쇄 방어+: %d 대신 %d 채택 (1D20 2번 중 최댓값)" % [chain_guard_before, def_values[0]])
+			logs.append("연쇄 방어+: %d 대신 %d 채택 (1D20 2번 중 최댓값)" % [chain_guard_before, def_values[0]])
 		else:
-			_append_log("연쇄 방어+: %d 유지 (1D20 2번 중 최댓값)" % chain_guard_before)
+			logs.append("연쇄 방어+: %d 유지 (1D20 2번 중 최댓값)" % chain_guard_before)
 	# "여분"(INBOX.md [미니 기획 C]-3): 폭발 보너스 턴이 아닌 평소 공격턴마다 여분
 	# 다이스를 하나 더 굴려, 이번 공격에서 가장 낮았던 다이스 값보다 높으면 그 자리를
 	# 대체한다(advantage를 가장 약한 다이스 한 곳에만 적용) — "이번 런 내내 유지"이므로
@@ -1090,7 +1157,7 @@ func _do_exchange(is_player_attacking: bool) -> void:
 		var aggro_bonus := _aggro_bonus(RunState.player_attack_bag.dice.size(), RunState.player_defense_bag.dice.size())
 		if aggro_bonus > 0:
 			atk_values = atk_bag.apply_flat_bonus(atk_values, aggro_bonus)
-			_append_log("맹공 효과: 공격 다이스 결과값 +%d (공격 다이스가 더 많음)" % aggro_bonus)
+			logs.append("맹공 효과: 공격 다이스 결과값 +%d (공격 다이스가 더 많음)" % aggro_bonus)
 	# "확장"([미니 기획 E]-4, 시작 스킬): 공격+방어 다이스 합계가 8개 이상이면 공격
 	# 다이스 결과값 전체 +1(방어턴 쪽은 아래 "철벽" 옆에 대칭으로 적용). 맹공과 달리
 	# 개수 "차이"가 아니라 "합계"만 보므로 어느 주머니가 더 큰지는 무관하다.
@@ -1098,7 +1165,7 @@ func _do_exchange(is_player_attacking: bool) -> void:
 		var expand_bonus := _expand_bonus(RunState.player_attack_bag.dice.size(), RunState.player_defense_bag.dice.size())
 		if expand_bonus > 0:
 			atk_values = atk_bag.apply_flat_bonus(atk_values, expand_bonus)
-			_append_log("확장 효과: 공격 다이스 결과값 +%d (공격+방어 합계 8개 이상)" % expand_bonus)
+			logs.append("확장 효과: 공격 다이스 결과값 +%d (공격+방어 합계 8개 이상)" % expand_bonus)
 	# "정예"([미니 기획 E]-4, 시작 스킬): 공격+방어 다이스 합계가 7개 이하로 유지되면
 	# 공격 다이스 결과값 전체 +1. 확장과 반대 방향 조건(방어턴은 "철벽" 옆에 대칭 적용).
 	# 임계값 6->7은 2026-09-29 기획자 결정(주술사 기본 합계 7이 발동 가능하도록 완화).
@@ -1106,7 +1173,7 @@ func _do_exchange(is_player_attacking: bool) -> void:
 		var lean_bonus := _lean_bonus(RunState.player_attack_bag.dice.size(), RunState.player_defense_bag.dice.size())
 		if lean_bonus > 0:
 			atk_values = atk_bag.apply_flat_bonus(atk_values, lean_bonus)
-			_append_log("정예 효과: 공격 다이스 결과값 +%d (공격+방어 합계 7개 이하)" % lean_bonus)
+			logs.append("정예 효과: 공격 다이스 결과값 +%d (공격+방어 합계 7개 이하)" % lean_bonus)
 	# "수집가"([미니 기획 E]-4, 시작 스킬): 보유한 눈금 인벤토리가 5개 이상이면
 	# 공격 다이스 결과값 전체 +1. 전투 중에는 눈금이 늘지 않으므로(눈금은 이벤트/
 	# 상점에서만 증가) 매 공격턴 확인해도 결과는 전투 시작 시점과 동일하지만, 다른
@@ -1115,7 +1182,7 @@ func _do_exchange(is_player_attacking: bool) -> void:
 		var hoard_bonus := _hoard_bonus(RunState.pip_inventory.size())
 		if hoard_bonus > 0:
 			atk_values = atk_bag.apply_flat_bonus(atk_values, hoard_bonus)
-			_append_log("수집가 효과: 공격 다이스 결과값 +%d (눈금 인벤토리 5개 이상)" % hoard_bonus)
+			logs.append("수집가 효과: 공격 다이스 결과값 +%d (눈금 인벤토리 5개 이상)" % hoard_bonus)
 	# "선제"([대형 기획 5] F-2(c), 광전사 시작 스킬): 이번 전투의 첫 공격턴 한 번만
 	# 공격 다이스 결과값 전체 +2 — "심호흡"(방어턴 1회 +1)과 같은 1회성 패턴을
 	# 공격턴 쪽에 적용한 것(배율만 +2로 다름, player_vanguard_used로 1회 제한).
@@ -1128,7 +1195,7 @@ func _do_exchange(is_player_attacking: bool) -> void:
 		if vanguard_bonus > 0:
 			atk_values = atk_bag.apply_flat_bonus(atk_values, vanguard_bonus)
 			player_vanguard_used = true
-			_append_log("선제 효과: 공격 다이스 결과값 +%d (이번 전투 최초 공격 1회)" % vanguard_bonus)
+			logs.append("선제 효과: 공격 다이스 결과값 +%d (이번 전투 최초 공격 1회)" % vanguard_bonus)
 	# "황금손"([대형 기획 5] F-2(c), 견습 모험가 시작 스킬): 보유 골드 30마다 공격
 	# 다이스 결과값 +1, 최대 +2(골드 60 이상). 정수 나눗셈으로 "30마다"를 그대로
 	# 표현하고 min(2, ...)로 상한을 건다 — 골드가 전투 중에는 바뀌지 않으므로 다른
@@ -1138,7 +1205,7 @@ func _do_exchange(is_player_attacking: bool) -> void:
 		var wealth_bonus: int = _wealth_bonus(RunState.gold)
 		if wealth_bonus > 0:
 			atk_values = atk_bag.apply_flat_bonus(atk_values, wealth_bonus)
-			_append_log("황금손 효과: 공격 다이스 결과값 +%d (골드 %d)" % [wealth_bonus, RunState.gold])
+			logs.append("황금손 효과: 공격 다이스 결과값 +%d (골드 %d)" % [wealth_bonus, RunState.gold])
 	# "과적"([대형 기획 5] F-2(c), 폭발병 시작 스킬): 공격 주머니가 MAX_DICE(6)에
 	# 꽉 찬 경우에만 공격 다이스 결과값 전체 +1(방어턴 쪽은 아래 대칭 적용 — 두 쪽
 	# 다 꽉 차면 둘 다 적용됨).
@@ -1146,7 +1213,7 @@ func _do_exchange(is_player_attacking: bool) -> void:
 		var overflow_bonus := _overflow_bonus(RunState.player_attack_bag.is_full())
 		if overflow_bonus > 0:
 			atk_values = atk_bag.apply_flat_bonus(atk_values, overflow_bonus)
-			_append_log("과적 효과: 공격 다이스 결과값 +%d (공격 주머니가 가득 찼음)" % overflow_bonus)
+			logs.append("과적 효과: 공격 다이스 결과값 +%d (공격 주머니가 가득 찼음)" % overflow_bonus)
 	# "잡화점"([대형 기획 5] F-2(c), 곡예사 시작 스킬): 공격+방어 다이스를 합쳐
 	# 서로 다른 면 개수(D4/D6/D8 등) 종류가 3종 이상이면 공격 다이스 결과값 전체 +1
 	# (방어턴 쪽은 아래 대칭 적용). 종류 집계를 정적 함수 _diverse_dice_type_count()로
@@ -1156,7 +1223,7 @@ func _do_exchange(is_player_attacking: bool) -> void:
 		var diverse_bonus := _diverse_bonus(diverse_count)
 		if diverse_bonus > 0:
 			atk_values = atk_bag.apply_flat_bonus(atk_values, diverse_bonus)
-			_append_log("잡화점 효과: 공격 다이스 결과값 +%d (다이스 종류 %d종)" % [diverse_bonus, diverse_count])
+			logs.append("잡화점 효과: 공격 다이스 결과값 +%d (다이스 종류 %d종)" % [diverse_bonus, diverse_count])
 	# "심호흡+"([미니 기획 D]-4, 공용 강화): base는 이번 전투 첫 방어턴 한 번만
 	# 적용되지만, "+"는 매 방어턴마다 적용된다(상한은 base와 동일하게 다이스별 면
 	# 개수). "+" > base 우선순위 — 두 id가 함께 있어도 "+"만 적용하고 player_deep_
@@ -1168,9 +1235,9 @@ func _do_exchange(is_player_attacking: bool) -> void:
 			def_values = def_bag.apply_flat_bonus(def_values, deep_breath_result["bonus"])
 			if deep_breath_result["consume"]:
 				player_deep_breath_used = true
-				_append_log("심호흡 효과: 방어 다이스 결과값 +%d (이번 전투 최초 1회)" % deep_breath_result["bonus"])
+				logs.append("심호흡 효과: 방어 다이스 결과값 +%d (이번 전투 최초 1회)" % deep_breath_result["bonus"])
 			else:
-				_append_log("심호흡+ 효과: 방어 다이스 결과값 +%d (매 방어턴)" % deep_breath_result["bonus"])
+				logs.append("심호흡+ 효과: 방어 다이스 결과값 +%d (매 방어턴)" % deep_breath_result["bonus"])
 	# "철벽"([미니 기획 E]-4, 시작 스킬): 방어 다이스 개수가 공격 다이스 개수보다 많으면
 	# 방어 다이스 결과값 전체 +1. 맹공과 완전히 대칭 구조(공격 대신 방어) — 주머니
 	# 구성(개수)만 보는 정적 조건이라 매 방어턴(수호 보너스 턴 포함)마다 다시 확인한다.
@@ -1178,14 +1245,14 @@ func _do_exchange(is_player_attacking: bool) -> void:
 		var wall_bonus := _wall_bonus(RunState.player_attack_bag.dice.size(), RunState.player_defense_bag.dice.size())
 		if wall_bonus > 0:
 			def_values = def_bag.apply_flat_bonus(def_values, wall_bonus)
-			_append_log("철벽 효과: 방어 다이스 결과값 +%d (방어 다이스가 더 많음)" % wall_bonus)
+			logs.append("철벽 효과: 방어 다이스 결과값 +%d (방어 다이스가 더 많음)" % wall_bonus)
 	# "확장"([미니 기획 E]-4, 시작 스킬, 방어턴): 위 공격턴 "확장"과 완전히 대칭 —
 	# 공격+방어 다이스 합계가 8개 이상이면 방어 다이스 결과값 전체 +1.
 	if not is_player_attacking and RunState.skill_flags.has("start_expand"):
 		var expand_bonus_def := _expand_bonus(RunState.player_attack_bag.dice.size(), RunState.player_defense_bag.dice.size())
 		if expand_bonus_def > 0:
 			def_values = def_bag.apply_flat_bonus(def_values, expand_bonus_def)
-			_append_log("확장 효과: 방어 다이스 결과값 +%d (공격+방어 합계 8개 이상)" % expand_bonus_def)
+			logs.append("확장 효과: 방어 다이스 결과값 +%d (공격+방어 합계 8개 이상)" % expand_bonus_def)
 	# "정예"([미니 기획 E]-4, 시작 스킬, 방어턴): 위 공격턴 "정예"와 완전히 대칭 —
 	# 공격+방어 다이스 합계가 7개 이하로 유지되면 방어 다이스 결과값 전체 +1.
 	# 임계값 6->7은 2026-09-29 기획자 결정(주술사 기본 합계 7이 발동 가능하도록 완화).
@@ -1193,7 +1260,7 @@ func _do_exchange(is_player_attacking: bool) -> void:
 		var lean_bonus_def := _lean_bonus(RunState.player_attack_bag.dice.size(), RunState.player_defense_bag.dice.size())
 		if lean_bonus_def > 0:
 			def_values = def_bag.apply_flat_bonus(def_values, lean_bonus_def)
-			_append_log("정예 효과: 방어 다이스 결과값 +%d (공격+방어 합계 7개 이하)" % lean_bonus_def)
+			logs.append("정예 효과: 방어 다이스 결과값 +%d (공격+방어 합계 7개 이하)" % lean_bonus_def)
 	# "강철 방비"([미니 기획 E]-4, 시작 스킬): 보유 다이스 중 철제 재질(D12/D20,
 	# _material_for_sides() 참고)이 1개 이상이면 방어 다이스 결과값 전체 +1.
 	# "보유"는 공격/방어 두 주머니를 모두 확인(어느 쪽에 있든 인정 — 지시문이 "보유
@@ -1202,7 +1269,7 @@ func _do_exchange(is_player_attacking: bool) -> void:
 		var ironclad_bonus := _ironclad_bonus(_has_metal_die(RunState.player_attack_bag, RunState.player_defense_bag))
 		if ironclad_bonus > 0:
 			def_values = def_bag.apply_flat_bonus(def_values, ironclad_bonus)
-			_append_log("강철 방비 효과: 방어 다이스 결과값 +%d (철제 재질 다이스 보유)" % ironclad_bonus)
+			logs.append("강철 방비 효과: 방어 다이스 결과값 +%d (철제 재질 다이스 보유)" % ironclad_bonus)
 	# "대비"([대형 기획 5] F-2(c), 수호자 시작 스킬): 이번 전투의 첫 방어턴 한 번만
 	# 방어 다이스 결과값 전체 +2 — "선제"와 완전히 대칭(공격 대신 방어). **독립
 	# 조건**(start_ironclad 보유 여부와 무관) — 위 "선제"와 같은 이유로 강철 방비
@@ -1245,18 +1312,12 @@ func _do_exchange(is_player_attacking: bool) -> void:
 		def_total += v
 	var dmg := CombatMath.calculate_damage(atk_total, def_total)
 
-	_show_exchange_dice_chips(atk_bag, atk_values, def_bag, def_values, atk_color, def_color)
-
 	if is_player_attacking:
 		monster_hp = max(0, monster_hp - dmg)
-		_append_log("플레이어 공격 %d vs 몬스터 방어 %d -> 데미지 %d (몬스터 HP %d)" % [atk_total, def_total, dmg, monster_hp])
-		player_portrait.set_expression("happy")
-		monster_portrait.set_expression("hurt" if dmg > 0 else "neutral")
+		logs.append("플레이어 공격 %d vs 몬스터 방어 %d -> 데미지 %d (몬스터 HP %d)" % [atk_total, def_total, dmg, monster_hp])
 	else:
 		player_hp = max(0, player_hp - dmg)
-		_append_log("몬스터 공격 %d vs 플레이어 방어 %d -> 데미지 %d (플레이어 HP %d)" % [atk_total, def_total, dmg, player_hp])
-		monster_portrait.set_expression("happy")
-		player_portrait.set_expression("hurt" if dmg > 0 else "neutral")
+		logs.append("몬스터 공격 %d vs 플레이어 방어 %d -> 데미지 %d (플레이어 HP %d)" % [atk_total, def_total, dmg, player_hp])
 
 	# "counter(n)" 기믹(인간형, G-3): 플레이어 공격이 몬스터 방어에 완전히 막혀(dmg==0)
 	# 데미지가 0이면 플레이어가 n 반사 피해를 입는다. "revive" 기믹(언데드형, G-4):
@@ -1264,6 +1325,8 @@ func _do_exchange(is_player_attacking: bool) -> void:
 	# 반드시 아래 "if monster_hp <= 0:" 승패 판정 "전"에 적용해야 실제로 부활이 된다.
 	# 지금 몬스터 카탈로그(G-5 이전)에는 "counter"/"revive"를 쓰는 몬스터가 없어 둘 다
 	# 항상 no-op — 동작 보존.
+	var reflect_damage := 0
+	var revive_to := 0
 	if is_player_attacking:
 		var counter_result: Dictionary = MonsterSkills.on_damage(monster_skill_ids, monster_skill_state, {
 			"is_player_attacking": true,
@@ -1273,16 +1336,14 @@ func _do_exchange(is_player_attacking: bool) -> void:
 			"monster_max_hp": monster_max_hp,
 			"revive_percent": monster_skill_params.get("revive", {}).get("percent", 0.3),
 		})
-		var reflect_damage: int = counter_result.get("reflect_damage", 0)
+		reflect_damage = counter_result.get("reflect_damage", 0)
 		if reflect_damage > 0:
 			player_hp = max(0, player_hp - reflect_damage)
-			_append_log("반격! 공격이 완전히 막혀 플레이어가 %d의 피해를 입었다 (플레이어 HP %d)" % [reflect_damage, player_hp])
-			player_portrait.set_expression("hurt")
-		var revive_to: int = counter_result.get("revive_to", 0)
+			logs.append("반격! 공격이 완전히 막혀 플레이어가 %d의 피해를 입었다 (플레이어 HP %d)" % [reflect_damage, player_hp])
+		revive_to = counter_result.get("revive_to", 0)
 		if revive_to > 0:
 			monster_hp = revive_to
-			_append_log("몬스터가 부활했다! (몬스터 HP %d)" % monster_hp)
-			monster_portrait.set_expression("angry")
+			logs.append("몬스터가 부활했다! (몬스터 HP %d)" % monster_hp)
 	else:
 		# "drain" 기믹(언데드형, G-4): 몬스터가 이번 공격으로 플레이어에게 입힌 피해의
 		# 절반(내림)만큼 몬스터가 HP를 회복한다(최대 HP 초과 불가). 지금 몬스터
@@ -1294,7 +1355,7 @@ func _do_exchange(is_player_attacking: bool) -> void:
 		var heal_amount: int = drain_result.get("heal_amount", 0)
 		if heal_amount > 0:
 			monster_hp = min(monster_max_hp, monster_hp + heal_amount)
-			_append_log("흡수! 몬스터가 %d만큼 체력을 회복했다 (몬스터 HP %d)" % [heal_amount, monster_hp])
+			logs.append("흡수! 몬스터가 %d만큼 체력을 회복했다 (몬스터 HP %d)" % [heal_amount, monster_hp])
 
 	if is_player_attacking and (player_dice_gimmick == "explosive_stack" or player_frenzy_active or player_versatile_active):
 		var explosive_threshold := _player_explosive_threshold()
@@ -1303,12 +1364,12 @@ func _do_exchange(is_player_attacking: bool) -> void:
 		player_explosive_stacks = explosive_result["stacks"]
 		player_explosive_pending = explosive_result["pending"]
 		if explosive_result["reset"]:
-			_append_log("광기가 가라앉았다 (스택 초기화)" if player_frenzy_active else "폭발이 진정됐다 (폭발 스택 초기화)")
+			logs.append("광기가 가라앉았다 (스택 초기화)" if player_frenzy_active else "폭발이 진정됐다 (폭발 스택 초기화)")
 		elif explosive_result["gained"] > 0:
 			var stack_label := "광기" if player_frenzy_active else "폭발"
-			_append_log("%s 스택 +%d (%d/%d)" % [stack_label, explosive_result["gained"], player_explosive_stacks, explosive_threshold])
+			logs.append("%s 스택 +%d (%d/%d)" % [stack_label, explosive_result["gained"], player_explosive_stacks, explosive_threshold])
 			if explosive_result["activated"]:
-				_append_log("광기가 정점에 달했다! 다음 공격은 1D20을 두 번 굴려 더 높은 값을 채택한다" if player_frenzy_active else "폭발 직전! 다음 공격은 20면체 주사위로 터진다")
+				logs.append("광기가 정점에 달했다! 다음 공격은 1D20을 두 번 굴려 더 높은 값을 채택한다" if player_frenzy_active else "폭발 직전! 다음 공격은 20면체 주사위로 터진다")
 
 	if not is_player_attacking and (player_dice_gimmick == "guard_stack" or player_guard_deepen_active or player_versatile_active):
 		var guard_threshold := _player_guard_threshold()
@@ -1317,20 +1378,18 @@ func _do_exchange(is_player_attacking: bool) -> void:
 		player_guard_stacks = guard_result["stacks"]
 		player_guard_pending = guard_result["pending"]
 		if guard_result["reset"]:
-			_append_log("수호가 가라앉았다 (수호 스택 초기화)" if player_guard_deepen_active else "수호 태세가 풀렸다 (수호 스택 초기화)")
+			logs.append("수호가 가라앉았다 (수호 스택 초기화)" if player_guard_deepen_active else "수호 태세가 풀렸다 (수호 스택 초기화)")
 		elif guard_result["gained"] > 0:
 			var guard_stack_label := "수호 심화" if player_guard_deepen_active else "수호"
-			_append_log("%s 스택 +%d (%d/%d)" % [guard_stack_label, guard_result["gained"], player_guard_stacks, guard_threshold])
+			logs.append("%s 스택 +%d (%d/%d)" % [guard_stack_label, guard_result["gained"], player_guard_stacks, guard_threshold])
 			if guard_result["activated"]:
-				_append_log("수호 심화가 정점에 달했다! 다음 방어는 1D20을 두 번 굴려 더 높은 값을 채택한다" if player_guard_deepen_active else "수호 태세 완성! 다음 방어는 20면체 주사위로 굳건해진다")
+				logs.append("수호 심화가 정점에 달했다! 다음 방어는 1D20을 두 번 굴려 더 높은 값을 채택한다" if player_guard_deepen_active else "수호 태세 완성! 다음 방어는 20면체 주사위로 굳건해진다")
 
-	_maybe_activate_boss_phase2()
-	_update_labels()
+	var boss_phase2_activated := _maybe_activate_boss_phase2(logs)
 
 	if monster_hp <= 0:
 		battle_over = true
 		player_won = true
-		turn_label.text = "승리! (몬스터 처치)"
 		# INBOX.md [대형 기획 3] 업적 #6 "D20 다이스를 보유한 채로 전투 승리". D20 다이스는
 		# faces 배열 크기가 20인 다이스로 판별한다(표준 다이스는 add_die(sides)로 만들어져
 		# faces.size() == sides가 항상 성립 — force_fixed_value() 등으로 면 값이 바뀌어도
@@ -1350,22 +1409,46 @@ func _do_exchange(is_player_attacking: bool) -> void:
 		if monster_is_elite:
 			gold_gain *= 2
 		RunState.gold += gold_gain
-		_append_log("골드 획득: +%d (보유 %d)" % [gold_gain, RunState.gold])
+		logs.append("골드 획득: +%d (보유 %d)" % [gold_gain, RunState.gold])
 		if RunState.gold >= 100:
 			AchievementManager.unlock("gold_100")
 		var pip_max := PIP_REWARD_MAX_BASE + RunState.rooms_cleared * PIP_REWARD_MAX_PER_ROOM
 		var pip_gain := randi_range(PIP_REWARD_MIN, pip_max)
 		RunState.pip_inventory.append(pip_gain)
-		_append_log("눈금 획득: [%d] (커스터마이징에서 다이스 면과 교환 가능)" % pip_gain)
-		player_portrait.set_expression("happy")
-		monster_portrait.set_expression("sad")
+		logs.append("눈금 획득: [%d] (커스터마이징에서 다이스 면과 교환 가능)" % pip_gain)
 	elif player_hp <= 0:
 		battle_over = true
 		player_won = false
-		turn_label.text = "패배... (플레이어 사망)"
-		player_portrait.set_expression("angry" if randi() % 2 == 0 else "sad")
-		monster_portrait.set_expression("happy")
 		_unlock_defeat_achievement()
+
+	return {
+		"logs": logs,
+		"atk_values": atk_values,
+		"def_values": def_values,
+		"dmg": dmg,
+		"reflect_damage": reflect_damage,
+		"revive_to": revive_to,
+		"boss_phase2_activated": boss_phase2_activated,
+	}
+
+
+## _do_exchange()가 _resolve_exchange()로 데미지/상태를 전부 확정한 뒤 호출 — 이번
+## 교환으로 전투가 끝났는지에 따른 화면 전환(라벨 갱신, 승리/패배 문구·포트레이트,
+## 커스터마이징 토글 노출, 다음 교환까지의 pause, 덱 패널 닫기, 다음 버튼/보상 UI)만
+## 담당한다. battle_over/player_won은 _resolve_exchange()가 이미 결정해 인스턴스
+## 상태에 반영해둔 값을 그대로 읽는다 — 여기서는 UI만 입힌다.
+func _maybe_finish_battle(_dmg: int) -> void:
+	_update_labels()
+
+	if battle_over:
+		if player_won:
+			turn_label.text = "승리! (몬스터 처치)"
+			player_portrait.set_expression("happy")
+			monster_portrait.set_expression("sad")
+		else:
+			turn_label.text = "패배... (플레이어 사망)"
+			player_portrait.set_expression("angry" if randi() % 2 == 0 else "sad")
+			monster_portrait.set_expression("happy")
 
 	# INBOX.md 피드백(2026-09-03) "커스터마이징은 전투 중에는 불가능해야 한다" — 전투가
 	# 끝난 뒤에만 상단 토글 버튼을 보여준다 (battle_over가 막 true가 된 시점에 맞춰 동기화).
