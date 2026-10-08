@@ -240,10 +240,14 @@ const MONSTERS := [
 	# 없는 id면 새로 추가한다(나머지 5종처럼 "새 스킬 1개 활성화"). 전부 1개짜리 배열이지만
 	# 나중에 더 늘어날 수 있어 단일 Dictionary가 아니라 배열로 둔다.
 	{
+		# [대형 기획 10] J-2 6차 시도(2026-10-08) — R1 보스 EV 진단(BALANCE_TUNING_LOG.md
+		# "J-2 R1 보스 0% 원인 진단")이 armor(2)/counter(2)를 고블린 왕 전용으로 지목해
+		# armor 2->1(phase2도 4->3으로 같이 완화, 기존 "+2" 강화 폭 유지)/counter 2->1로
+		# 완화. 결과는 BALANCE_TUNING_LOG.md "J-2 보스 튜닝 시도 로그" 참고.
 		"id": "goblin_king", "name": "고블린 왕", "family": "humanoid", "tier": "boss",
 		"color": Color(0.85, 0.65, 0.15),
-		"skills": [{"id": "armor", "amount": 2}, {"id": "guard_up"}, {"id": "counter", "amount": 2}],
-		"hp_mult": 1.0, "phase2_skills": [{"id": "armor", "amount": 4}],
+		"skills": [{"id": "armor", "amount": 1}, {"id": "guard_up"}, {"id": "counter", "amount": 1}],
+		"hp_mult": 1.0, "phase2_skills": [{"id": "armor", "amount": 3}],
 		"personality": "고블린 무리를 호령하며 끝까지 버티는 왕",
 	},
 	{

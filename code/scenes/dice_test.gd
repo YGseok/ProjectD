@@ -680,9 +680,10 @@ func _check_monster_config_scaling(lines: PackedStringArray) -> bool:
 	])
 
 	# 공식 자체를 room_index 0..6에서 직접 재계산해 대조(경계값 0/1/2/3/4/5/6 전부 확인).
-	# room_index == RunState.TOTAL_ROOMS - 1(지금은 4)은 "보스" 보정(공격+1/HP x1.5 —
+	# room_index == RunState.TOTAL_ROOMS - 1(지금은 4)은 "보스" 보정(공격+1/HP x1.0 —
 	# [대형 기획 10] J-2(2026-10-08) 2차 시도로 공격+2를 +1로 추가 완화, HP는 1차
-	# 시도에서 x2->x1.5로 이미 완화됨, 방어 보정 +1은 4차 시도로 완전히 제거 — R1
+	# 시도에서 x2->x1.5, 5차 시도로 x1.5->x1.2, 7차 시도로 x1.2->x1.0(보스 전용 HP
+	# 가산 완전 제거)까지 추가 완화, 방어 보정 +1은 4차 시도로 완전히 제거 — R1
 	# 보스가 EV상 평균적으로 보스에게 피해를 못 주는 구조였던 문제를 고치기 위함,
 	# docs/BALANCE_TUNING_LOG.md 참고)이 추가로 붙으므로 그 방만 별도로 기대값을
 	# 조정한다. D8 면 승급 임계도 3차 시도로 idx>=4 -> idx>=5로 한 칸 늦췄다(R1
@@ -697,7 +698,7 @@ func _check_monster_config_scaling(lines: PackedStringArray) -> bool:
 		var expected_sides := 8 if idx >= 5 else (6 if idx >= 2 else 4)
 		if idx == RunState.TOTAL_ROOMS - 1:
 			expected_attack += 1
-			expected_hp = int(round(expected_hp * 1.5))
+			expected_hp = int(round(expected_hp * 1.0))
 		if cfg["attack_count"] != expected_attack or cfg["defense_count"] != expected_defense \
 			or cfg["max_hp"] != expected_hp or cfg["dice_sides"] != expected_sides:
 			formula_ok = false
@@ -4877,13 +4878,14 @@ func _check_g6_monster_plan(lines: PackedStringArray) -> bool:
 	# 라운드2/방4(보스): difficulty = 4+(2-1)*3 = 7 -> 기본 공격=2+3=5, 방어=1+2=3,
 	# hp=round((10+21)*1.4)=43(좀비 hp_mult 1.4 반영), sides=8(>=5, J-2 3차 시도로 임계
 	# 변경됐지만 difficulty=7은 여전히 그 위이므로 영향 없음). 보스 보정(공격+1/
-	# HP x1.5 — [대형 기획 10] J-2(2026-10-08) 2차 시도로 공격+2를 +1로 추가 완화,
-	# round(43*1.5)=65) 추가, 방어 보정 +1은 4차 시도로 제거 -> 공격6 방어3(기존 그대로) hp65.
+	# HP x1.0 — [대형 기획 10] J-2(2026-10-08) 2차 시도로 공격+2를 +1로 추가 완화, 7차
+	# 시도로 보스 전용 HP 가산을 완전히 제거(x1.2->x1.0), round(43*1.0)=43) 추가,
+	# 방어 보정 +1은 4차 시도로 제거 -> 공격6 방어3(기존 그대로) hp43.
 	var r2_room4: Dictionary = combat._monster_config_for_plan(2, 4)
 	var r2_room4_ok: bool = r2_room4["name"] == "좀비 [보스]" and r2_room4["attack_count"] == 6 \
-		and r2_room4["defense_count"] == 3 and r2_room4["max_hp"] == 65 and r2_room4["is_boss"] == true
+		and r2_room4["defense_count"] == 3 and r2_room4["max_hp"] == 43 and r2_room4["is_boss"] == true
 	ok = r2_room4_ok and ok
-	lines.append("  라운드2/방4(보스): name=%s 공격=%d(기대6) 방어=%d(기대3) hp=%d(기대65, 좀비 hp_mult 1.4 + 보스 x1.5 반영) is_boss=%s -> %s" % [
+	lines.append("  라운드2/방4(보스): name=%s 공격=%d(기대6) 방어=%d(기대3) hp=%d(기대43, 좀비 hp_mult 1.4 + 보스 x1.0 반영) is_boss=%s -> %s" % [
 		r2_room4["name"], r2_room4["attack_count"], r2_room4["defense_count"], r2_room4["max_hp"],
 		r2_room4["is_boss"], "OK" if r2_room4_ok else "FAIL"
 	])
@@ -5086,10 +5088,11 @@ func _check_g8_boss(lines: PackedStringArray) -> bool:
 		round_roster_ok, "OK" if round_roster_ok else "FAIL"
 	])
 
-	# (3) 실제 배선: _monster_config_for_plan()이 보스 자리에 "고블린 왕"(armor 2 +
-	# guard_up + counter 2, 3스킬)을 꽂았을 때 is_boss 배율(공격+1/방어+1/HP x1.5 —
-	# [대형 기획 10] J-2(2026-10-08) 2차 시도로 공격+2를 +1로 추가 완화)과 skill_ids
-	# 3개가 전부 계산 결과에 반영되는지.
+	# (3) 실제 배선: _monster_config_for_plan()이 보스 자리에 "고블린 왕"(armor 1 +
+	# guard_up + counter 1, 3스킬 — [대형 기획 10] J-2 6차 시도(2026-10-08)로 armor/
+	# counter를 2에서 1로 완화)을 꽂았을 때 is_boss 배율(공격+1/방어+1/HP x1.2 —
+	# J-2 5차 시도로 HP 배율도 x1.5에서 x1.2로 추가 완화)과 skill_ids 3개가 전부
+	# 계산 결과에 반영되는지.
 	var plan_backup: Array = RunState.monster_plan
 	RunState.monster_plan = [
 		["slime", "goblin", "skeleton", "orc", "goblin_king"],
@@ -5098,22 +5101,24 @@ func _check_g8_boss(lines: PackedStringArray) -> bool:
 	var combat = script.new()
 
 	# 라운드1/방4(보스): difficulty=4+(1-1)*3=4 -> 기본 공격=2+int(4/2.0)=4, 방어=1+int(4/3.0)=2,
-	# hp=10+12=22(hp_mult 1.0). 보스 보정(공격+1/HP x1.5, 방어 보정은 J-2 4차 시도로
-	# 제거됨) 적용 -> 공격5 방어2(기존 그대로) hp33(round(22*1.5)).
+	# hp=10+12=22(hp_mult 1.0). 보스 보정(공격+1/HP x1.0 — J-2 7차 시도로 보스 전용 HP
+	# 가산 완전 제거, 방어 보정은 J-2 4차 시도로 제거됨) 적용 -> 공격5 방어2(기존 그대로)
+	# hp22(round(22*1.0)=22, 보스 HP 가산 없음).
 	var boss_config: Dictionary = combat._monster_config_for_plan(1, 4)
 	var boss_stats_ok: bool = boss_config["name"] == "고블린 왕 [보스]" and boss_config["attack_count"] == 5 \
-		and boss_config["defense_count"] == 2 and boss_config["max_hp"] == 33 and boss_config["is_boss"] == true
+		and boss_config["defense_count"] == 2 and boss_config["max_hp"] == 22 and boss_config["is_boss"] == true
 	ok = boss_stats_ok and ok
-	lines.append("  라운드1/방4(고블린 왕): name=%s 공격=%d(기대5) 방어=%d(기대2) hp=%d(기대33) is_boss=%s -> %s" % [
+	lines.append("  라운드1/방4(고블린 왕): name=%s 공격=%d(기대5) 방어=%d(기대2) hp=%d(기대22) is_boss=%s -> %s" % [
 		boss_config["name"], boss_config["attack_count"], boss_config["defense_count"], boss_config["max_hp"],
 		boss_config["is_boss"], "OK" if boss_stats_ok else "FAIL"
 	])
 
+	# armor/counter.amount 기대값은 J-2 6차 시도(2026-10-08)로 2->1 완화.
 	var boss_skill_ids_ok: bool = boss_config["skill_ids"] == ["armor", "guard_up", "counter"] \
-		and boss_config["skill_params"].get("armor", {}).get("amount", 0) == 2 \
-		and boss_config["skill_params"].get("counter", {}).get("amount", 0) == 2
+		and boss_config["skill_params"].get("armor", {}).get("amount", 0) == 1 \
+		and boss_config["skill_params"].get("counter", {}).get("amount", 0) == 1
 	ok = boss_skill_ids_ok and ok
-	lines.append("  고블린 왕 skill_ids=%s armor/counter.amount=%d/%d (기대 [armor,guard_up,counter], 2, 2) -> %s" % [
+	lines.append("  고블린 왕 skill_ids=%s armor/counter.amount=%d/%d (기대 [armor,guard_up,counter], 1, 1) -> %s" % [
 		boss_config["skill_ids"], boss_config["skill_params"].get("armor", {}).get("amount", 0),
 		boss_config["skill_params"].get("counter", {}).get("amount", 0), "OK" if boss_skill_ids_ok else "FAIL"
 	])

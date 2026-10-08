@@ -641,10 +641,20 @@ func _build_monster_config(profile: Dictionary, name_text_in: String, difficulty
 		# 기대 공격 합계(~10.0, difficulty=4)보다 방어 보정 +1까지 더한 보스 기대
 		# 방어 합계(고블린 왕 12.5/점액 군주 10.5)가 더 높아서, 평균적으로 보스에게
 		# 피해를 못 주는 게 기본값이었다 — 방어 보정을 +1->0으로 제거해 기대 공격
-		# (10.0)이 기대 방어(9.0/7.0)를 웃도는 구간으로 넘긴다. 공격 보정(+1)/HP
-		# 배율(x1.5)은 그대로 둔다.
+		# (10.0)이 기대 방어(9.0/7.0)를 웃도는 구간으로 넘긴다. 공격 보정(+1)은 그대로
+		# 둔다.
+		# 5차 시도(2026-10-08) — 4차 진단에서 "보스 HP가 양수 전환된 마진에 비해
+		# 여전히 두꺼움"을 지적했다(고블린 왕 기준 HP 33 / 턴당 마진 +1.0 -> 33턴
+		# 필요 vs 보스가 플레이어를 죽이는 덴 ~2.7턴 — 비대칭이 HP 쪽에도 있음).
+		# HP 배율을 x1.5->x1.2로 추가 완화(공격 보정/방어 보정은 시도4 그대로).
+		# 6차 시도(2026-10-08, 같은 이터레이션)는 고블린 왕 armor/counter를
+		# monster_catalog.gd에서 2->1로 완화(공통 보정은 그대로) — 보스 전체평균이
+		# 15.5%->17.5%로 더 올랐지만 여전히 목표(35~55%) 미달.
+		# 7차 시도(2026-10-08, 같은 이터레이션) — 보스 HP 배율을 x1.2->x1.0(보스
+		# 전용 HP 가산 완전 제거)으로 추가 완화. 공격 보정(+1)만 보스 전용 차별화로
+		# 남긴다. 결과는 docs/BALANCE_TUNING_LOG.md 참고.
 		attack_count += 1
-		max_hp = int(round(max_hp * 1.5))
+		max_hp = int(round(max_hp * 1.0))
 		name_text += " [보스]"
 	# G-3(MonsterSkills 파라미터) — skills 배열(각 원소 {"id":..., 파라미터...})을
 	# id로 인덱싱한 Dictionary. 기존 5종은 전부 파라미터 없음(skills[i]가 {"id":...}뿐),
@@ -706,7 +716,10 @@ func _monster_debug_info_text(config: Dictionary) -> String:
 	if config.get("is_elite", false):
 		text += "\n[정예] 스킬 2개 + 공격 다이스 +1 + HP x1.5 강화됨"
 	if config.get("is_boss", false):
-		text += "\n[보스] 공격+1 / HP x1.5 강화됨"
+		# [대형 기획 10] J-2 7차 시도(2026-10-08)로 보스 전용 HP 가산을 완전히
+		# 제거(x1.0)해 디버그 문구에서도 "HP 배율" 부분을 뺐다 — 방어 보정은
+		# 4차 시도로 이미 제거됨, 지금 남은 보스 전용 차별화는 공격+1뿐.
+		text += "\n[보스] 공격+1 강화됨"
 	if config.get("phase2_active", false):
 		text += "\n[2페이즈] 보스가 격노했다! 추가 스킬 발동 중"
 	return text

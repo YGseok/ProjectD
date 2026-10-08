@@ -8,6 +8,63 @@
 
 ---
 
+- **2026-10-08 (172)**: INBOX.md "남은 이슈"의 [대형 기획 9] 해적 **I-1(캐릭터 +
+  기믹 플러밍)** — H-4 완료로 실행 순서상 다음 조각.
+  **캐릭터**: `code/systems/character_profiles.gd`의 `PROFILES`에 8번째
+  캐릭터 "해적"(id `pirate`, `gimmick: "cannon_volley"`, 공격 D4x2/방어
+  D4x3, `event_die_sides: 6`, 머리색/코트색 청록 #0E4A4F/#1FA5A0 —
+  2026-10-08 아트 스레드 퍼스널 컬러 결정 그대로)을 추가하고 `GIMMICK_
+  LABELS`에 "함포 (3번째 공격턴마다 고정 피해)" 항목을 더했다.
+  **기믹 로직**: `combat_test.gd`에 순수 함수 `_cannon_volley_damage(
+  attack_sum, turn_count, cycle)`(cycle 배수 턴에만 `ceili(attack_sum/2.0)`,
+  그 외엔 0 — 방어 값을 아예 매개변수로 안 받아 "방어 무관 고정 피해"가
+  함수 서명으로 보장됨)을 신설하고, 전투 중 상태
+  `player_attack_turn_count`(`CANNON_VOLLEY_CYCLE=3`과 함께, 매 전투
+  `_reset_player_battle_state()`에서 0으로 리셋)를 추가했다.
+  `_resolve_exchange()`의 "플레이어 공격턴 평소 데미지 적용" 직후(= counter/
+  revive on_damage 판정 "전")에 `player_dice_gimmick == "cannon_volley"`면
+  턴 카운트를 올리고 고정 피해를 몬스터 HP에 바로 적용하도록 배선 — 이
+  위치 덕분에 revive 판정이 함포 피해까지 포함된 monster_hp를 보게 되어
+  "revive 판정은 HP 0 시점 기존 규칙을 그대로 쓴다"(INBOX.md 원문)가
+  자연스럽게 만족된다(counter는 평소 dmg==0만 보므로 함포와 무관하게 그대로
+  동작 — 둘 다 새 코드 없이 기존 MonsterSkills.on_damage 호출 순서만
+  활용). 로그는 "함포 일제사격! (고정 N 피해, 몬스터 HP N)" / 발동 전
+  턴마다 "함포 장전 (남은 K턴)" — 다른 스택형 기믹들(광기/수호 심화 등)도
+  전용 UI 위젯 없이 로그만 쓰는 기존 관례를 그대로 따름.
+  **아이콘**: `skill_icon.gd`의 `SkillIcon`에 "cannon_volley" 카테고리
+  (비스듬한 포신 사각형 + 포탄 원 + 발사 궤적 점 — 캐릭터 퍼스널 컬러와
+  같은 터콰이즈) 추가, `CATEGORIES`에 등록(`_check_skill_icons`가 모든
+  gimmick 값의 아이콘 존재를 자동 검증하므로 누락 시 기존 테스트가 바로
+  FAIL로 잡아냄 — 실제로 PASS 확인).
+  **검증(F-3 원칙 — 계산 결과 직접 확인)**: `dice_test.gd`에 `_check_i1_
+  pirate_cannon_volley()` 신설 — `_cannon_volley_damage()`를 턴 1~9(cycle=3)
+  전부 돌려 0,0,9,0,0,9,0,0,9 패턴 확인, 홀/짝 attack_sum의 ceil 반올림
+  (7→4, 8→4) 확인, `get_profile(pirate)`의 gimmick/공격/방어 수치 확인,
+  `_reset_player_battle_state()` 후 카운터가 실제로 0으로 돌아오는지(5로
+  세팅한 뒤 호출해 확인) 확인, `SkillIcon.CATEGORIES`에 등록 확인.
+  `bash scripts/qa_shot.sh dice_test` 전체 PASS(신규 체크 포함).
+  **시각 QA**: `character_select.gd`에 QA 전용 `_debug_select_pirate()`
+  (카드 선택 + `call_deferred`로 목록 스크롤을 맨 아래로 내리는 `_debug_
+  scroll_to_bottom()` 호출, achievement_panel.gd의 같은 이름 패턴을
+  캐릭터 목록 ScrollContainer에 재사용)를 추가해 `qa_out/character_
+  select_pirate.png`로 확인 — 8번째(목록 맨 아래) 카드가 겹침/잘림 없이
+  스크롤되고, 선택 시 상세 패널에 터콰이즈 실루엣 + "보유 스킬: 함포
+  (3번째 공격턴마다 고정 피해)" 줄 + 아이콘이 정상 표시됨(시작 스킬
+  슬롯은 아직 비어있음 — `STARTING_SKILLS`에 pirate를 배정하는 건 I-2
+  범위라 의도적으로 그대로 둠).
+  **알려진 환경 이슈 재발**: `qa_shot.sh` 1차 호출 때 `out` 인자에
+  `qa_out/` 접두어를 빠뜨려 루트에 `character_select_pirate.png`(+
+  `.import`)가 잘못 저장됐고, 기존에 문서화된 환경 제약(아래 "알려진
+  이슈" 참고)대로 `mv`/`Remove-Item`이 전부 거부되어 삭제하지 못했다 —
+  `qa_out/` 접두어를 붙여 다시 찍어 올바른 스크린샷은 확보했고(위 경로),
+  git add에서 루트의 두 잘못된 파일은 제외했다. **다음에 사람이 PC를 볼
+  때 루트의 `character_select_pirate.png`/`.png.import`를 수동으로
+  지워주면 됨**(기존에 남아있던 `character_select_skill_icon.png`류와
+  같은 처리).
+  **[대형 기획 9] 부분 처리 — I-1 완료.** 다음은 **I-2**(업적 `r1_pirate`/
+  `clear_pirate` + 캐릭터별 unlock 목록 + `STARTING_SKILLS`에 pirate
+  배정(슬롯0 선제→슬롯1 황금손→슬롯2 수집가)).
+
 - **2026-10-08 (171)**: INBOX.md "부분 처리됨"의 [대형 기획 8] **H-4(진입점 +
   마무리)** — 이 대형 항목의 마지막 조각, H-3(완료) 다음.
   **진입 버튼**: `character_select.tscn`의 "업적" 버튼 바로 아래(우상단)에
