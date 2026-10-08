@@ -5,35 +5,32 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-10-08 (172)
-- 작성자: AI 에이전트. INBOX.md "남은 이슈" [대형 기획 9] 해적의 첫 조각
-  **I-1(캐릭터 + 기믹 플러밍)**을 완료했다. `character_profiles.gd`에
-  8번째 캐릭터 "해적"(id `pirate`, 공격 D4x2/방어 D4x3, 기믹
-  `cannon_volley`)을 추가하고, `combat_test.gd`에 순수 함수
-  `_cannon_volley_damage(attack_sum, turn_count, cycle)` + 전투 중 카운터
-  `player_attack_turn_count`를 신설해 "3번째 공격턴마다 방어 무시 고정
-  피해"를 `_resolve_exchange()`에 배선했다. `skill_icon.gd`에
-  "cannon_volley" 아이콘(포신+포탄)을 추가해 `_check_skill_icons` 자동
-  검증을 통과시켰다. `dice_test.gd`에 `_check_i1_pirate_cannon_volley()`
-  신설(턴별 발동 패턴/반올림/프로필 수치/카운터 리셋/아이콘 등록 전부
-  계산 결과로 검증) — 전체 PASS. `character_select.gd`에 QA 전용
-  `_debug_select_pirate()`를 추가해 8번째(목록 맨 아래) 카드가 겹침/잘림
-  없이 스크롤·선택되는지 `qa_out/character_select_pirate.png`로 확인.
-  (환경 이슈: 1차 캡처가 `qa_out/` 접두어 누락으로 루트에 저장돼 삭제
-  불가 상태로 남음 — 기존에 문서화된 환경 제약 재발, 상세는 "알려진
-  이슈" 참고. 재촬영으로 올바른 스크린샷은 확보함.)
-  자세한 내용은 아래 "완료 기록 (172)" 참고. **[대형 기획 9] 부분
-  처리됨 — 다음은 I-2**(업적 `r1_pirate`/`clear_pirate` + 캐릭터별
-  unlock 목록 + `STARTING_SKILLS`에 pirate 배정).
+- 일시: 2026-10-08 (173)
+- 작성자: AI 에이전트. INBOX.md "부분 처리됨" [대형 기획 9] 해적의 두 번째
+  조각 **I-2(업적 + 시작 스킬)**를 완료했다. `achievement_manager.gd`에
+  `clear_pirate`/`r1_pirate` 업적 정의를 추가했고(해금 트리거는 이미 범용
+  함수라 코드 변경 불필요). `skill_pool.gd`의 `STARTING_SKILLS`에 해적용
+  선제→황금손→수집가 슬롯을 배정하려다, 전역 배열 등장 순서로 슬롯을
+  정하는 구조와 berserker의 기존 상대 순서(수집가→선제)가 해적이 원하는
+  순서(선제→수집가)와 정면으로 충돌하는 걸 발견해, berserker/novice 엔트리는
+  그대로 두고 해적 전용 dict row 3개(같은 id, `character_ids: ["pirate"]`만
+  다름)를 새로 추가하는 방식으로 풀었다. `dice_test.gd`에 해적으로 실제
+  라운드1/최종 보스를 이겨 `r1_pirate`/`clear_pirate`가 실제로
+  해금되는지(계산 결과 직접 확인), `starting_skills_for_character("pirate")`가
+  실제로 선제→황금손→수집가 순서를 반환하는지 검증 추가 — 전체 PASS.
+  캐릭터 선택 화면에서 해적을 고르면 슬롯이 겹침 없이 올바른 순서로 뜨는지
+  `qa_out/character_select_pirate_skills.png`로 확인.
+  자세한 내용은 아래 "완료 기록 (173)" 참고. **[대형 기획 9] 부분
+  처리됨 — 다음은 I-3**(고유 스킬 `broadside`/`broadside_plus`).
 
 ## 지금 위치
 
 캐릭터 선택(**8종 — 견습 모험가/광전사/수호자/폭발병/
 주술사(id는 `shieldbearer` 그대로, 2026-09-24 "방패병"에서 리스킨)/
 매혹사(2026-09-24 신규, id: `enchantress`)/곡예사(2026-09-24 신규,
-id: `juggler`)/해적(2026-10-08 [대형 기획 9] I-1 신규, id: `pirate`,
-기믹 `cannon_volley` — I-1만 완료, 업적/시작 스킬/고유 스킬은 I-2~I-3이
-아직 안 끝나 캐릭터 선택 화면의 "시작 스킬" 슬롯은 비어있음)**) →
+id: `juggler`)/해적(2026-10-08 [대형 기획 9] 신규, id: `pirate`,
+기믹 `cannon_volley` — I-1(캐릭터+기믹)/I-2(업적+시작 스킬: 선제→황금손→
+수집가) 완료, 아직 캐릭터 전용 고유 스킬(`broadside`, I-3)은 없음)**) →
 던전 맵(런 5방 × 3라운드) → 전투/상점/특수 이벤트/
 스토리 이벤트/**정예 전투**까지 한 바퀴 플레이 가능. 전투는 항상 노출,
 상점은 2번째/4번째 방 고정(`SHOP_FIXED_ROOM_INDICES`), 특수 이벤트/스토리
@@ -80,9 +77,9 @@ TEST_BATTLE_ENABLED`로 on/off)으로 들어가면 `test_battle_setup.tscn`
 업적/런 진행을 전혀 건드리지 않고 "다시 하기"/"설정으로 돌아가기"로 이어진다.
 상세는 `docs/STATUS_ARCHIVE.md`의 완료 기록 (168)~(171) 참고.
 **[대형 기획 9] 해적(id `pirate`, 8번째 캐릭터) I-1(캐릭터+기믹
-`cannon_volley` "함포 일제사격" 플러밍) 완료**(상세는 위 "완료 기록
-(172)"). **다음은 I-2**(업적 `r1_pirate`/`clear_pirate` + `STARTING_SKILLS`에
-pirate 배정) → I-3(고유 스킬 `broadside`/`broadside_plus`) → I-4(마무리),
+`cannon_volley` "함포 일제사격" 플러밍)/I-2(업적 `r1_pirate`/`clear_pirate` +
+`STARTING_SKILLS`에 선제→황금손→수집가 배정) 완료**(상세는 위 "완료 기록
+(173)"). **다음은 I-3**(고유 스킬 `broadside`/`broadside_plus`) → I-4(마무리),
 전부 끝나면 **[대형 기획 7] F-5(성장 정책 시뮬, a→b→c)**.
 **ART-1a(아트 스레드 전달) 완료** — 캐릭터 선택 카드 목록 ScrollContainer
 전환(상세는 `docs/STATUS_ARCHIVE.md`의 완료 기록 (152)). ART-1b/1c는 원화
@@ -211,11 +208,11 @@ pirate 배정) → I-3(고유 스킬 `broadside`/`broadside_plus`) → I-4(마�
 진행하는 것을 권장한다. 한 이터레이션에 한두 개만 진행할 것.
 
 **최우선 (INBOX.md 지시 — 아래 번호 매긴 큐보다 먼저):**
-- **[대형 기획 9] 해적(id `pirate`, 8번째 캐릭터) I-1(캐릭터+기믹 플러밍) 완료.**
-  다음은 **I-2 → I-3 → I-4** 순서로(INBOX.md "남은 이슈" 2026-10-08 원문 — 업적
-  (`r1_pirate`/`clear_pirate`)+시작 스킬(`STARTING_SKILLS`에 선제→황금손→수집가
-  순으로 배정) → 고유 스킬(`broadside`/`broadside_plus`) → DESIGN.md/밸런스 시뮬
-  마무리, 한 이터레이션에 한 조각). I-2부터 시작할 것.
+- **[대형 기획 9] 해적(id `pirate`, 8번째 캐릭터) I-1(캐릭터+기믹 플러밍)/
+  I-2(업적+시작 스킬) 완료.**
+  다음은 **I-3 → I-4** 순서로(INBOX.md "남은 이슈" 2026-10-08 원문 — 고유 스킬
+  (`broadside`/`broadside_plus`) → DESIGN.md/밸런스 시뮬 마무리, 한 이터레이션에
+  한 조각). I-3부터 시작할 것.
   전부 끝나면 마지막으로 **[대형 기획 7] F-5(a→b→c, 성장 정책 밸런스 시뮬)**로.
 
 0. **(INBOX.md 신규 2026-09-03) UI 접근성/가시성 4종 — 1/4 부분 착수.** 전부 "전투/
@@ -823,6 +820,45 @@ pirate 배정) → I-3(고유 스킬 `broadside`/`broadside_plus`) → I-4(마�
 
 ## 완료 기록
 
+- **2026-10-08 (173)**: INBOX.md "부분 처리됨"의 [대형 기획 9] 해적 **I-2(업적 +
+  시작 스킬)** — I-1 완료로 실행 순서상 다음 조각.
+  **업적**: `achievement_manager.gd`의 `DEFINITIONS`에 `clear_pirate`("해적으로
+  첫 클리어")/`r1_pirate`("해적으로 첫 던전 클리어") 2종을 다른 7캐릭터와
+  동일한 패턴으로 추가했다. `combat_test.gd`의 `_unlock_round_clear_
+  achievements()`가 이미 `_character_round1_achievement_id()`/`_character_
+  clear_achievement_id()`(둘 다 `"r1_%s"/"clear_%s" % char_id` 포맷팅만 하는
+  범용 함수)로 캐릭터 무관하게 동작하고 있어서, 해적용 분기를 따로 만들
+  필요 없이 DEFINITIONS 추가만으로 끝났다.
+  **시작 스킬**: `skill_pool.gd`의 `STARTING_SKILLS`에 해적용 슬롯0 선제
+  (`start_vanguard`)→슬롯1 황금손(`start_wealth`)→슬롯2 수집가(`start_hoard`)
+  순서를 배정하려 했는데, `starting_skills_for_character()`가 전역 배열
+  **등장 순서**로 슬롯 순서를 정하는 구조라 문제가 생겼다 — 기존 berserker가
+  이미 이 세 id 중 두 개(`start_hoard`→`start_vanguard`, 수집가가 선제보다
+  앞)를 공유하며 그 상대 순서로 고정돼 있어서, 같은 dict row의
+  `character_ids`에 "pirate"만 추가하면 해적도 똑같이 "수집가→선제" 순서를
+  물려받아 원하는 "선제→황금손→수집가"와 충돌했다(해적과 광전사가 요구하는
+  `start_hoard`/`start_vanguard`의 상대 순서가 정반대라, 단일 전역 배열
+  순서로는 둘 다 만족 불가능 — 수학적으로 불가능한 제약이었다). berserker/
+  novice 쪽 기존 엔트리는 그대로 두고, 해적 전용으로 id/name/description이
+  동일한 새 dict row 3개(`character_ids: ["pirate"]`만 다름)를 배열 끝에
+  추가해, 그 세 줄끼리의 상대 순서만으로 해적의 슬롯 순서를 만들었다 —
+  `find_skill(id)`는 첫 매치를 반환하지만 두 row의 name/description이
+  동일해 결과는 같다.
+  **검증(F-3 원칙 — 계산 결과 직접 확인)**: `dice_test.gd`의 `_check_round_
+  clear_achievements()`에 해적으로 라운드1 보스/최종 보스를 실제로 이기게
+  해 `r1_pirate`/`clear_pirate`가 실제로 `is_unlocked()`가 되는지 확인하는
+  블록을 추가(기존 guardian/berserker 검증과 같은 패턴 — DEFINITIONS 존재
+  여부만 보던 기존 `all_clear_ids`/`all_r1_ids` 리스트에도 `pirate` 추가).
+  `_check_starting_skills()`의 `expected` 표에 `"pirate": ["start_vanguard",
+  "start_wealth", "start_hoard"]`를 추가해 `starting_skills_for_character
+  ("pirate")`가 실제로 이 순서를 반환하는지 확인. `bash scripts/qa_shot.sh
+  dice_test` 전체 PASS(신규 체크 포함).
+  **시각 QA**: `character_select.gd`의 기존 `_debug_select_pirate()`로
+  캐릭터 선택 화면에서 해적을 고르고 `qa_out/character_select_pirate_
+  skills.png`로 확인 — 시작 스킬 슬롯이 "선제"(해금, 선택됨)/"황금손"(잠김)/
+  "수집가"(잠김) 순서로 겹침 없이 표시됨.
+  **I-2 완료.** 다음은 **I-3**(고유 스킬 `broadside`/`broadside_plus`).
+
 - **2026-10-08 (172)**: INBOX.md "남은 이슈"의 [대형 기획 9] 해적 **I-1(캐릭터 +
   기믹 플러밍)** — H-4 완료로 실행 순서상 다음 조각.
   **캐릭터**: `code/systems/character_profiles.gd`의 `PROFILES`에 8번째
@@ -1314,65 +1350,9 @@ pirate 배정) → I-3(고유 스킬 `broadside`/`broadside_plus`) → I-4(마�
   아래 "다음 할 일 큐" 참고. "완료 기록" 10개 유지를 위해 (154)를
   `docs/STATUS_ARCHIVE.md`로 옮겼다.
 
-- **2026-10-07 (163)**: G-7 완료로 실행 순서(F-2→F-3→G-1~G-9→F-4)상 다음인
-  INBOX.md "부분 처리됨"의 [대형 기획 6](몬스터 대개편) **G-8(보스 6종 전용
-  풀)**을 진행했다. `MonsterCatalog.MONSTERS`에 `tier="boss"` 6종(라운드당
-  2종 — 라운드1: 고블린 왕/점액 군주, 라운드2: 해골 장군/광란의 마수,
-  라운드3: 타락한 기사단장/공허의 눈)을 추가하고, 신규
-  `BOSS_ROSTER_BY_ROUND`(라운드별 후보 2종)와 `boss_roster_ids()`를 더했다.
-  `build_monster_plan()`의 "보스 자리(마지막 방)" 선택 로직을 기존
-  "일반 20종 풀에서 무작위"에서 "그 라운드의 보스 후보 2종 중
-  `run_seed`로 하나 고정"으로 바꿨다(INBOX.md 원문 "보스 2종 중 등장은
-  랜덤" — 전용 풀이 생겼으니 더는 일반 풀에서 뽑을 이유가 없어짐). 기존
-  보스 배율(공격+2/방어+1/HP×2)은 `_build_monster_config()`의 `is_boss`
-  분기가 tier와 무관하게 그대로 적용하므로 손대지 않았다.
-  **2페이즈**는 각 보스 데이터의 `phase2_skills`(스킬 1개짜리 배열 —
-  고블린 왕만 "이미 가진 armor를 2→4로 강화", 나머지 5종은 "새 스킬 1개
-  추가")로 표현하고, 순수 함수 `combat_test._boss_phase2_activation(is_boss,
-  already_active, hp, max_hp, phase2_skills, skill_ids, skill_params)`가
-  "활성화해야 하는지 + 활성화되면 skill_ids/skill_params가 어떻게 바뀌는지"를
-  계산한다(F-3 원칙 — UI/물리 없이 dice_test.gd가 직접 검증). "이미 보유한
-  스킬 id면 파라미터만 덮어쓰고, 없으면 새로 추가한다"는 규칙 하나로 6종
-  전부(강화형 1종 + 신규 추가형 5종)를 처리했다. `min_max_only`가 phase2로
-  들어오는 경우(광란의 마수)만 예외 — 이 스킬은 `modify_monster_roll` 훅이
-  아니라 주머니 면 값 자체를 영구히 바꾸는 종류(`on_combat_start`에서만
-  쓰이던 `force_min_max_faces()`)라, 순수 함수는 `"force_min_max": true`
-  신호만 돌려주고 `_maybe_activate_boss_phase2()`(인스턴스 메서드, 실제
-  주머니/로그/초상화 표정/디버그 라벨 적용 담당)가 그 신호를 보고 전투
-  중간에 한 번 호출한다. `_monster_debug_info_text()`에 `phase2_active`
-  플래그가 있으면 "[2페이즈] 보스가 격노했다!" 줄을 추가했다. 보스 전용
-  "초상화 1.25배" 연출(G-8 원문)은 `_ready()`에서
-  `monster_portrait.scale = Vector2(1.25,1.25) if monster_is_boss else
-  Vector2(1,1)`로 구현(계열 아이콘 왕관 오버레이는 G-1에서 이미 `is_boss`에
-  연동해 둔 상태라 추가 작업 불필요했다).
-  `dice_test.gd`에 신규 `_check_g8_boss()`(boss_roster_ids 크기 6,
-  BOSS_ROSTER_BY_ROUND 모양/겹침 없음, `_monster_config_for_plan()`의 보스
-  자리 실제 계산 결과(공격/방어/HP 배율 + skill_ids 3개), `_boss_phase2_
-  activation()`의 게이트 조건(보스 아님/HP 절반 초과/이미 활성화면 불발동)
-  + "기존 스킬 강화"/"신규 스킬 추가"/"min_max_only 특수 처리" 세 패턴
-  + 디버그 텍스트 반영)를 추가하고, 기존 `_check_g6_monster_plan()`의
-  "보스 자리는 20종 풀 안" 검증을 "그 라운드의 보스 후보 2종 안"으로,
-  `_check_g5_monster_catalog()`의 카탈로그 규모/계열별 개수 기대값을
-  35종(기존 29 + 보스 6)·인간형10/부정형9/야수형8/언데드8로 갱신했다
-  (`bash scripts/qa_shot.sh dice_test` 전체 PASS). **시각 QA**로
-  `GAME_QA_MONSTER_ID=goblin_king` + `GAME_QA_ROOM_OVERRIDE=4`로 보스
-  전투를 실제로 띄워 크래시 없음, 왕관 오버레이/확대된 초상화/3스킬
-  디버그 텍스트("방어구"/"궁지의 방어"/"반격" 전부 표시)가 화면에 정상
-  노출되는지, `armor`/`counter` 두 스킬이 실제 교환에서 몬스터 방어
-  합계·반격 데미지에 반영되는지(로그 "반격! 공격이 완전히 막혀...")까지
-  확인했다(`qa_out/combat_test_boss_g8.png`) — 다만 이 특정 매치업에서는
-  플레이어가 초반에 패배해 2페이즈(HP 절반 이하) 전환 자체는 화면으로
-  보지 못했고, 그 경로는 `_check_g8_boss()`의 순수 함수 검증으로만
-  확인됨(전투 템포상 다음 세션에서 사람이 실제로 보스 HP를 절반 밑으로
-  깎아보고 "[2페이즈]" 로그/디버그 줄이 실제로 뜨는지 플레이 확인해보면
-  좋음).
-  **G-8 완료.** 다음 할 일은 **G-9**(맵 미리보기 + DESIGN.md 몬스터 절
-  카탈로그 표 갱신 — 아래 "지금 위치"/"다음 할 일 큐" 참고). "완료 기록"
-  10개 유지를 위해 (153)을 `docs/STATUS_ARCHIVE.md`로 옮겼다.
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(172)에서 (162)를 그리로 옮겼다.)*
+이번 이터레이션(173)에서 (163)을 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 

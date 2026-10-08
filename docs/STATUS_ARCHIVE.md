@@ -8,6 +8,62 @@
 
 ---
 
+- **2026-10-07 (163)**: G-7 완료로 실행 순서(F-2→F-3→G-1~G-9→F-4)상 다음인
+  INBOX.md "부분 처리됨"의 [대형 기획 6](몬스터 대개편) **G-8(보스 6종 전용
+  풀)**을 진행했다. `MonsterCatalog.MONSTERS`에 `tier="boss"` 6종(라운드당
+  2종 — 라운드1: 고블린 왕/점액 군주, 라운드2: 해골 장군/광란의 마수,
+  라운드3: 타락한 기사단장/공허의 눈)을 추가하고, 신규
+  `BOSS_ROSTER_BY_ROUND`(라운드별 후보 2종)와 `boss_roster_ids()`를 더했다.
+  `build_monster_plan()`의 "보스 자리(마지막 방)" 선택 로직을 기존
+  "일반 20종 풀에서 무작위"에서 "그 라운드의 보스 후보 2종 중
+  `run_seed`로 하나 고정"으로 바꿨다(INBOX.md 원문 "보스 2종 중 등장은
+  랜덤" — 전용 풀이 생겼으니 더는 일반 풀에서 뽑을 이유가 없어짐). 기존
+  보스 배율(공격+2/방어+1/HP×2)은 `_build_monster_config()`의 `is_boss`
+  분기가 tier와 무관하게 그대로 적용하므로 손대지 않았다.
+  **2페이즈**는 각 보스 데이터의 `phase2_skills`(스킬 1개짜리 배열 —
+  고블린 왕만 "이미 가진 armor를 2→4로 강화", 나머지 5종은 "새 스킬 1개
+  추가")로 표현하고, 순수 함수 `combat_test._boss_phase2_activation(is_boss,
+  already_active, hp, max_hp, phase2_skills, skill_ids, skill_params)`가
+  "활성화해야 하는지 + 활성화되면 skill_ids/skill_params가 어떻게 바뀌는지"를
+  계산한다(F-3 원칙 — UI/물리 없이 dice_test.gd가 직접 검증). "이미 보유한
+  스킬 id면 파라미터만 덮어쓰고, 없으면 새로 추가한다"는 규칙 하나로 6종
+  전부(강화형 1종 + 신규 추가형 5종)를 처리했다. `min_max_only`가 phase2로
+  들어오는 경우(광란의 마수)만 예외 — 이 스킬은 `modify_monster_roll` 훅이
+  아니라 주머니 면 값 자체를 영구히 바꾸는 종류(`on_combat_start`에서만
+  쓰이던 `force_min_max_faces()`)라, 순수 함수는 `"force_min_max": true`
+  신호만 돌려주고 `_maybe_activate_boss_phase2()`(인스턴스 메서드, 실제
+  주머니/로그/초상화 표정/디버그 라벨 적용 담당)가 그 신호를 보고 전투
+  중간에 한 번 호출한다. `_monster_debug_info_text()`에 `phase2_active`
+  플래그가 있으면 "[2페이즈] 보스가 격노했다!" 줄을 추가했다. 보스 전용
+  "초상화 1.25배" 연출(G-8 원문)은 `_ready()`에서
+  `monster_portrait.scale = Vector2(1.25,1.25) if monster_is_boss else
+  Vector2(1,1)`로 구현(계열 아이콘 왕관 오버레이는 G-1에서 이미 `is_boss`에
+  연동해 둔 상태라 추가 작업 불필요했다).
+  `dice_test.gd`에 신규 `_check_g8_boss()`(boss_roster_ids 크기 6,
+  BOSS_ROSTER_BY_ROUND 모양/겹침 없음, `_monster_config_for_plan()`의 보스
+  자리 실제 계산 결과(공격/방어/HP 배율 + skill_ids 3개), `_boss_phase2_
+  activation()`의 게이트 조건(보스 아님/HP 절반 초과/이미 활성화면 불발동)
+  + "기존 스킬 강화"/"신규 스킬 추가"/"min_max_only 특수 처리" 세 패턴
+  + 디버그 텍스트 반영)를 추가하고, 기존 `_check_g6_monster_plan()`의
+  "보스 자리는 20종 풀 안" 검증을 "그 라운드의 보스 후보 2종 안"으로,
+  `_check_g5_monster_catalog()`의 카탈로그 규모/계열별 개수 기대값을
+  35종(기존 29 + 보스 6)·인간형10/부정형9/야수형8/언데드8로 갱신했다
+  (`bash scripts/qa_shot.sh dice_test` 전체 PASS). **시각 QA**로
+  `GAME_QA_MONSTER_ID=goblin_king` + `GAME_QA_ROOM_OVERRIDE=4`로 보스
+  전투를 실제로 띄워 크래시 없음, 왕관 오버레이/확대된 초상화/3스킬
+  디버그 텍스트("방어구"/"궁지의 방어"/"반격" 전부 표시)가 화면에 정상
+  노출되는지, `armor`/`counter` 두 스킬이 실제 교환에서 몬스터 방어
+  합계·반격 데미지에 반영되는지(로그 "반격! 공격이 완전히 막혀...")까지
+  확인했다(`qa_out/combat_test_boss_g8.png`) — 다만 이 특정 매치업에서는
+  플레이어가 초반에 패배해 2페이즈(HP 절반 이하) 전환 자체는 화면으로
+  보지 못했고, 그 경로는 `_check_g8_boss()`의 순수 함수 검증으로만
+  확인됨(전투 템포상 다음 세션에서 사람이 실제로 보스 HP를 절반 밑으로
+  깎아보고 "[2페이즈]" 로그/디버그 줄이 실제로 뜨는지 플레이 확인해보면
+  좋음).
+  **G-8 완료.** 다음 할 일은 **G-9**(맵 미리보기 + DESIGN.md 몬스터 절
+  카탈로그 표 갱신 — 아래 "지금 위치"/"다음 할 일 큐" 참고). "완료 기록"
+  10개 유지를 위해 (153)을 `docs/STATUS_ARCHIVE.md`로 옮겼다.
+
 - **2026-10-07 (162)**: INBOX.md "부분 처리됨"의 [대형 기획 6](몬스터 대개편)
   **G-7(정예 전투 방 + 정예 풀 8종)**을 진행했다 — G-6 완료로 실행 순서상
   다음 조각. `code/systems/monster_catalog.gd`의 `MONSTERS`에 정예 8종

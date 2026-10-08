@@ -306,6 +306,35 @@ const STARTING_SKILLS: Array[Dictionary] = [
 		"description": "공격+방어 다이스 중 서로 다른 면 개수의 종류가 3종 이상이면, 공격/방어 다이스 결과값 전체가 +1 된다 (상한: 각 다이스 면 개수).",
 		"character_ids": ["juggler"],
 	},
+	# 해적([대형 기획 9] I-2, INBOX.md 2026-10-08 기획자 결정)은 슬롯 순서가
+	# 선제->황금손->수집가인데, 이 세 id는 이미 berserker(수집가->선제 순)/novice(황금손이
+	# 세 번째) 쪽 상대 순서로 전역 배열에 고정돼 있어 같은 dict row를 그대로 공유하면
+	# 순서를 둘 다 만족시킬 수 없다(berserker는 start_hoard가 start_vanguard보다 앞에
+	# 와야 하는데 해적은 반대 — starting_skills_for_character()가 전역 배열 등장 순서로
+	# 슬롯을 매기므로 같은 두 엔트리로는 두 순서를 동시에 만족 불가). 그래서 berserker/
+	# novice 쪽 엔트리는 그대로 두고, 해적 전용으로 id/name/description이 동일한 별도
+	# row 3개를 새로 추가해 이 세 줄끼리의 상대 순서만으로 해적의 슬롯 순서를 만든다
+	# (character_ids가 다른 엔트리라 berserker/novice 필터링에는 전혀 섞이지 않음,
+	# find_skill()은 id로만 찾아 name/description이 같은 두 row 중 아무거나 찾아도
+	# 결과가 같음).
+	{
+		"id": "start_vanguard",
+		"name": "선제",
+		"description": "전투의 첫 공격턴 한 번만, 공격 다이스 결과값 전체가 +2 된다 (상한: 각 다이스 면 개수).",
+		"character_ids": ["pirate"],
+	},
+	{
+		"id": "start_wealth",
+		"name": "황금손",
+		"description": "보유한 골드 30마다 공격 다이스 결과값 전체가 +1 된다 (최대 +2, 상한: 각 다이스 면 개수).",
+		"character_ids": ["pirate"],
+	},
+	{
+		"id": "start_hoard",
+		"name": "수집가",
+		"description": "보유한 눈금 인벤토리가 5개 이상이면, 공격 다이스 결과값 전체가 +1 된다 (상한: 각 다이스 면 개수).",
+		"character_ids": ["pirate"],
+	},
 ]
 
 

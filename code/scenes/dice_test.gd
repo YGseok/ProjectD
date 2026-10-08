@@ -1706,22 +1706,55 @@ func _check_round_clear_achievements(lines: PackedStringArray) -> bool:
 	])
 	combat4.free()
 
-	var all_clear_ids := ["clear_novice", "clear_berserker", "clear_guardian", "clear_explosive", "clear_shieldbearer", "clear_enchantress", "clear_juggler"]
+	# [대형 기획 9] I-2: 해적도 r1_pirate(라운드1 보스 클리어)/clear_pirate(최종 클리어)가
+	# 실제로 해금되는지 직접 확인(DEFINITIONS에 키만 있고 unlock() 호출 경로가 캐릭터
+	# id를 못 타는 버그를 놓치지 않기 위함 — _character_round1_achievement_id()/
+	# _character_clear_achievement_id()는 이미 일반화돼 있지만, 새 캐릭터를 추가할
+	# 때마다 실제 호출 결과로 재확인).
+	AchievementManager._debug_reset_for_qa()
+	RunState.character_id = "pirate"
+	RunState.round_index = 1
+	RunState.rooms_cleared = RunState.TOTAL_ROOMS - 1
+	var combat5 = combat_script.new()
+	combat5.player_won = true
+	combat5.monster_is_boss = true
+	combat5._apply_room_advance()
+	var r1_pirate_ok := AchievementManager.is_unlocked("r1_pirate")
+	ok = r1_pirate_ok and ok
+	lines.append("  라운드 1 보스 클리어(해적): r1_pirate=%s(기대 true) -> %s" % [
+		r1_pirate_ok, "OK" if r1_pirate_ok else "FAIL"
+	])
+	combat5.free()
+
+	RunState.round_index = RunState.TOTAL_ROUNDS
+	RunState.rooms_cleared = RunState.TOTAL_ROOMS - 1
+	var combat6 = combat_script.new()
+	combat6.player_won = true
+	combat6.monster_is_boss = true
+	combat6._apply_room_advance()
+	var clear_pirate_ok := AchievementManager.is_unlocked("clear_pirate")
+	ok = clear_pirate_ok and ok
+	lines.append("  마지막 라운드 보스 클리어(해적): clear_pirate=%s(기대 true) -> %s" % [
+		clear_pirate_ok, "OK" if clear_pirate_ok else "FAIL"
+	])
+	combat6.free()
+
+	var all_clear_ids := ["clear_novice", "clear_berserker", "clear_guardian", "clear_explosive", "clear_shieldbearer", "clear_enchantress", "clear_juggler", "clear_pirate"]
 	var all_ids_defined_ok := true
 	for id in all_clear_ids:
 		all_ids_defined_ok = all_ids_defined_ok and AchievementManager.DEFINITIONS.has(id)
 	ok = all_ids_defined_ok and ok
-	lines.append("  캐릭터 7종 전부 \"clear_<id>\" 업적 정의 존재: %s -> %s" % [
+	lines.append("  캐릭터 8종 전부 \"clear_<id>\" 업적 정의 존재: %s -> %s" % [
 		all_ids_defined_ok, "OK" if all_ids_defined_ok else "FAIL"
 	])
 
-	# [대형 기획 5] F-2(a) 신설: 시작 스킬 슬롯 1의 새 조건 "r1_<id>"도 7종 전부 정의돼야 한다.
-	var all_r1_ids := ["r1_novice", "r1_berserker", "r1_guardian", "r1_explosive", "r1_shieldbearer", "r1_enchantress", "r1_juggler"]
+	# [대형 기획 5] F-2(a) 신설: 시작 스킬 슬롯 1의 새 조건 "r1_<id>"도 8종 전부 정의돼야 한다.
+	var all_r1_ids := ["r1_novice", "r1_berserker", "r1_guardian", "r1_explosive", "r1_shieldbearer", "r1_enchantress", "r1_juggler", "r1_pirate"]
 	var all_r1_ids_defined_ok := true
 	for id in all_r1_ids:
 		all_r1_ids_defined_ok = all_r1_ids_defined_ok and AchievementManager.DEFINITIONS.has(id)
 	ok = all_r1_ids_defined_ok and ok
-	lines.append("  캐릭터 7종 전부 \"r1_<id>\" 업적 정의 존재: %s -> %s" % [
+	lines.append("  캐릭터 8종 전부 \"r1_<id>\" 업적 정의 존재: %s -> %s" % [
 		all_r1_ids_defined_ok, "OK" if all_r1_ids_defined_ok else "FAIL"
 	])
 
@@ -3387,6 +3420,7 @@ func _check_starting_skills(lines: PackedStringArray) -> bool:
 		"shieldbearer": ["start_wall", "start_lean", "start_second_wind"],
 		"enchantress": ["start_expand", "start_lean", "start_gambler"],
 		"juggler": ["start_aggro", "start_hoard", "start_diverse"],
+		"pirate": ["start_vanguard", "start_wealth", "start_hoard"],
 	}
 	for character_id in expected.keys():
 		var choices := SkillPool.starting_skills_for_character(character_id)
