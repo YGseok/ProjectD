@@ -48,6 +48,88 @@ const ELITE_SEED_OFFSET := 104729
 var _combat_script := load("res://code/scenes/combat_test.gd")
 
 
+## [대형 기획 7] F-5(a)(2026-10-08) — "성장 정책" 3종. INBOX.md 2026-10-08 지시: F-4
+## 기준선(아이템 없이 시작 구성 그대로)은 후반 난이도 절벽이 "기대된 결과"인지 판단할
+## 근거가 없다 — "런 중 실제로 강해지면 절벽이 완화되는가"를 보려고 전투 직전
+## RunState 주머니를 "지금까지 몇 번째 전투인가"(global index)에 따라 단순 규칙으로
+## 키운 뒤 같은 _resolve_exchange() 경로로 돌린다. F-4b의 기준선 루프(_ready()/
+## _simulate_combo(), 위)는 손대지 않고 그대로 유지 — 비교 기준이 바뀌면 안 되므로
+## "none" 정책은 항상 성장 없음(기존 기준선과 동일)을 뜻한다. 시뮬 실행/TSV 저장(b),
+## 리포트 생성기(c)는 다음 조각 — 여기서는 정책 계산 함수와 RunState 적용만 갖춘다.
+const GROWTH_POLICY_NONE := "none"
+const GROWTH_POLICY_BALANCED := "balanced"
+const GROWTH_POLICY_ATTACK_HEAVY := "attack_heavy"
+const GROWTH_POLICY_DEFENSE_HEAVY := "defense_heavy"
+const GROWTH_POLICIES: Array[String] = [
+	GROWTH_POLICY_NONE, GROWTH_POLICY_BALANCED, GROWTH_POLICY_ATTACK_HEAVY, GROWTH_POLICY_DEFENSE_HEAVY,
+]
+
+
+## global index = 지금까지 치른 전투 수(0부터 시작) = (round_index-1)*TOTAL_ROOMS +
+## room_index. F-4b와 같은 라운드/방 범위(라운드 1~3 x 방 0~4)를 그대로 쓰므로 0~14.
+static func global_index_for(round_index: int, room_index: int) -> int:
+	return (round_index - 1) * RunState.TOTAL_ROOMS + room_index
+
+
+## 세 정책 공통: global index 5 이후 D4->D6, 10 이후 D8("한 라운드에 아이템 3~4개
+## 얻는 정도의 성장" 가정, INBOX.md 원문 — 실제 상점/보상 픽과 완전히 같을 필요는
+## 없음). "none"(기존 기준선)은 성장 자체가 없으므로 항상 캐릭터 기본 면 개수(4)를
+## 반환한다.
+static func growth_sides_for(policy: String, global_index: int) -> int:
+	if policy == GROWTH_POLICY_NONE:
+		return 4
+	if global_index >= 10:
+		return 8
+	if global_index >= 5:
+		return 6
+	return 4
+
+
+## 공격/방어 다이스 "개수" 성장 — 세 정책 모두 같은 속도(전투 2번마다 1개)로 늘지만
+## 배분 방향이 다르다: balanced=공격/방어 번갈아 / attack_heavy=공격만 / defense_heavy=
+## 방어만. DiceBag.MAX_DICE로 상한(그 이상은 더 안 늘어남 — 캡 도달을 "성장 끝"으로
+## 취급, 새 상한 체계를 만들지 않음).
+static func growth_counts_for(policy: String, base_attack: int, base_defense: int, global_index: int) -> Dictionary:
+	var attack_count := base_attack
+	var defense_count := base_defense
+	if policy != GROWTH_POLICY_NONE:
+		var additions := int(global_index / 2.0)
+		for i in additions:
+			match policy:
+				GROWTH_POLICY_BALANCED:
+					if i % 2 == 0:
+						attack_count += 1
+					else:
+						defense_count += 1
+				GROWTH_POLICY_ATTACK_HEAVY:
+					attack_count += 1
+				GROWTH_POLICY_DEFENSE_HEAVY:
+					defense_count += 1
+	return {
+		"attack_count": clampi(attack_count, 1, DiceBag.MAX_DICE),
+		"defense_count": clampi(defense_count, 1, DiceBag.MAX_DICE),
+	}
+
+
+## growth_sides_for()/growth_counts_for()를 합쳐 그 캐릭터·정책·global_index에서
+## 적용할 전체 구성을 돌려준다(test_battle_setup.gd._apply_growth()가 받는 것과 같은
+## 모양의 Dictionary — "attack_count"/"defense_count"/"sides").
+static func growth_config_for(policy: String, character_id: String, global_index: int) -> Dictionary:
+	var profile := CharacterProfiles.get_profile(character_id)
+	var counts := growth_counts_for(policy, profile.get("attack_count", 3), profile.get("defense_count", 3), global_index)
+	counts["sides"] = growth_sides_for(policy, global_index)
+	return counts
+
+
+## growth_config_for()의 결과를 실제 RunState 주머니에 적용한다
+## (test_battle_setup.gd._apply_growth()와 같은 재구성 방식 — 다이스를 새로 만들고
+## 캐릭터 기믹을 재적용). (b)(시뮬 실행)가 매 전투 직전에 이 함수를 부른다.
+static func apply_growth(growth: Dictionary) -> void:
+	RunState.player_attack_bag = DiceBag.new(growth["sides"], growth["attack_count"])
+	RunState.player_defense_bag = DiceBag.new(growth["sides"], growth["defense_count"])
+	RunState._apply_character_gimmick()
+
+
 func _ready() -> void:
 	var lines: PackedStringArray = []
 	lines.append("[F-4b 밸런스 시뮬] 조합당 %d판, 몬스터 배정 시드=%d (고정, 조합 간 공정 비교용)" % [TRIALS_PER_COMBO, FIXED_PLAN_SEED])

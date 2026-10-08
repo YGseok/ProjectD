@@ -277,6 +277,10 @@ func _ready() -> void:
 	all_pass = _check_i3_pirate_broadside(lines) and all_pass
 
 	lines.append("")
+	lines.append("[F-5(a): 성장 정책 3종 검증: balance_sim.gd growth_sides_for/growth_counts_for/growth_config_for/apply_growth]")
+	all_pass = _check_f5a_growth_policies(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -5640,5 +5644,109 @@ func _check_i3_pirate_broadside(lines: PackedStringArray) -> bool:
 	lines.append("  TestBattleSetup.skill_flag_rows_for_character(pirate)에 {base:broadside, plus:broadside_plus} 행 포함=%s -> %s" % [
 		broadside_row_found, "OK" if broadside_row_found else "FAIL"
 	])
+
+	return ok
+
+
+## [대형 기획 7] F-5(a)(2026-10-08) — "성장 정책이 들어갔는가"가 아니라 "주머니
+## 크기/면 수가 기대대로 바뀌는가"를 직접 검증한다(F-3 원칙 재적용). balance_sim.gd의
+## 정책 계산 함수들은 전부 static이라 인스턴스 없이 바로 호출 가능.
+func _check_f5a_growth_policies(lines: PackedStringArray) -> bool:
+	var ok := true
+	var sim_script := load("res://code/qa/balance_sim.gd")
+
+	# (1) global_index_for(): 라운드1 방0 -> 0, 라운드1 방4 -> 4, 라운드2 방0 -> 5, 라운드3 방4 -> 14.
+	var idx_r1_room0: int = sim_script.global_index_for(1, 0)
+	var idx_r1_room4: int = sim_script.global_index_for(1, 4)
+	var idx_r2_room0: int = sim_script.global_index_for(2, 0)
+	var idx_r3_room4: int = sim_script.global_index_for(3, 4)
+	var index_ok: bool = idx_r1_room0 == 0 and idx_r1_room4 == 4 and idx_r2_room0 == 5 and idx_r3_room4 == 14
+	ok = index_ok and ok
+	lines.append("  global_index_for(r1/방0,r1/방4,r2/방0,r3/방4) = %d,%d,%d,%d(기대 0,4,5,14) -> %s" % [
+		idx_r1_room0, idx_r1_room4, idx_r2_room0, idx_r3_room4, "OK" if index_ok else "FAIL"
+	])
+
+	# (2) growth_sides_for(): "none"은 global_index와 무관하게 항상 4(성장 없음=기존
+	# 기준선 유지). 성장 정책 3종은 전부 같은 임계값(5/10)을 공유.
+	var sides_none_late: int = sim_script.growth_sides_for("none", 14)
+	var sides_before5: int = sim_script.growth_sides_for("balanced", 4)
+	var sides_at5: int = sim_script.growth_sides_for("attack_heavy", 5)
+	var sides_before10: int = sim_script.growth_sides_for("defense_heavy", 9)
+	var sides_at10: int = sim_script.growth_sides_for("balanced", 10)
+	var sides_ok: bool = sides_none_late == 4 and sides_before5 == 4 and sides_at5 == 6 \
+		and sides_before10 == 6 and sides_at10 == 8
+	ok = sides_ok and ok
+	lines.append("  growth_sides_for: none@14=%d(기대4) idx4=%d(기대4) idx5=%d(기대6) idx9=%d(기대6) idx10=%d(기대8) -> %s" % [
+		sides_none_late, sides_before5, sides_at5, sides_before10, sides_at10, "OK" if sides_ok else "FAIL"
+	])
+
+	# (3) growth_counts_for(): "none"은 global_index와 무관하게 base 그대로.
+	var counts_none: Dictionary = sim_script.growth_counts_for("none", 3, 3, 14)
+	var none_counts_ok: bool = counts_none["attack_count"] == 3 and counts_none["defense_count"] == 3
+	ok = none_counts_ok and ok
+	lines.append("  growth_counts_for(none, base=3/3, idx=14) = %d/%d(기대 3/3, 성장 없음) -> %s" % [
+		counts_none["attack_count"], counts_none["defense_count"], "OK" if none_counts_ok else "FAIL"
+	])
+
+	# balanced: 전투 2번마다 번갈아 +1개. idx=0,1 -> 추가 0회(3/3) / idx=2,3 -> 추가 1회,
+	# 공격 먼저(4/3) / idx=4 -> 추가 2회, 공격+방어(4/4) / idx=14 -> 추가 7회(공격4회+방어3회
+	# -> 7/6, 공격은 MAX_DICE=6을 안 넘지만 방어도 6을 안 넘음 — 둘 다 그대로).
+	var balanced_idx1: Dictionary = sim_script.growth_counts_for("balanced", 3, 3, 1)
+	var balanced_idx2: Dictionary = sim_script.growth_counts_for("balanced", 3, 3, 2)
+	var balanced_idx4: Dictionary = sim_script.growth_counts_for("balanced", 3, 3, 4)
+	var balanced_idx14: Dictionary = sim_script.growth_counts_for("balanced", 3, 3, 14)
+	var balanced_ok: bool = balanced_idx1["attack_count"] == 3 and balanced_idx1["defense_count"] == 3 \
+		and balanced_idx2["attack_count"] == 4 and balanced_idx2["defense_count"] == 3 \
+		and balanced_idx4["attack_count"] == 4 and balanced_idx4["defense_count"] == 4 \
+		and balanced_idx14["attack_count"] == 6 and balanced_idx14["defense_count"] == 6
+	ok = balanced_ok and ok
+	lines.append("  growth_counts_for(balanced, base=3/3): idx1=%d/%d(기대3/3) idx2=%d/%d(기대4/3) idx4=%d/%d(기대4/4) idx14=%d/%d(기대6/6, MAX_DICE 캡) -> %s" % [
+		balanced_idx1["attack_count"], balanced_idx1["defense_count"], balanced_idx2["attack_count"], balanced_idx2["defense_count"],
+		balanced_idx4["attack_count"], balanced_idx4["defense_count"], balanced_idx14["attack_count"], balanced_idx14["defense_count"],
+		"OK" if balanced_ok else "FAIL"
+	])
+
+	# attack_heavy / defense_heavy: idx=14(추가 7회)에서 한쪽만 전부 몰려 MAX_DICE(6)에서
+	# 막히고 반대쪽은 base 그대로 유지되는지.
+	var attack_heavy_idx14: Dictionary = sim_script.growth_counts_for("attack_heavy", 3, 3, 14)
+	var defense_heavy_idx14: Dictionary = sim_script.growth_counts_for("defense_heavy", 3, 3, 14)
+	var heavy_ok: bool = attack_heavy_idx14["attack_count"] == DiceBag.MAX_DICE and attack_heavy_idx14["defense_count"] == 3 \
+		and defense_heavy_idx14["defense_count"] == DiceBag.MAX_DICE and defense_heavy_idx14["attack_count"] == 3
+	ok = heavy_ok and ok
+	lines.append("  growth_counts_for(idx=14): attack_heavy=%d/%d(기대6/3) defense_heavy=%d/%d(기대3/6) -> %s" % [
+		attack_heavy_idx14["attack_count"], attack_heavy_idx14["defense_count"],
+		defense_heavy_idx14["attack_count"], defense_heavy_idx14["defense_count"],
+		"OK" if heavy_ok else "FAIL"
+	])
+
+	# (4) growth_config_for(): CharacterProfiles 기본 공격/방어 개수를 실제로 읽어오는지
+	# (해적 attack_count=2/defense_count=3) + sides 필드까지 한 Dictionary에 합쳐지는지.
+	var pirate_config_idx0: Dictionary = sim_script.growth_config_for("balanced", "pirate", 0)
+	var pirate_config_ok: bool = pirate_config_idx0["attack_count"] == 2 and pirate_config_idx0["defense_count"] == 3 \
+		and pirate_config_idx0["sides"] == 4
+	ok = pirate_config_ok and ok
+	lines.append("  growth_config_for(balanced, pirate, idx=0) = 공격%d/방어%d/면%d(기대 2/3/4, CharacterProfiles 기본값) -> %s" % [
+		pirate_config_idx0["attack_count"], pirate_config_idx0["defense_count"], pirate_config_idx0["sides"],
+		"OK" if pirate_config_ok else "FAIL"
+	])
+
+	# (5) apply_growth(): 실제 RunState 주머니 개수/면 개수가 바뀌는지(플래그가 아니라
+	# 다이스 배열 크기를 직접 확인). 검증 후 원래 RunState로 되돌린다.
+	var attack_backup: DiceBag = RunState.player_attack_bag
+	var defense_backup: DiceBag = RunState.player_defense_bag
+	var character_backup := RunState.character_id
+	RunState.character_id = "novice"
+	sim_script.apply_growth({"attack_count": 5, "defense_count": 4, "sides": 6})
+	var apply_ok: bool = RunState.player_attack_bag.count == 5 and RunState.player_defense_bag.count == 4 \
+		and RunState.player_attack_bag.dice[0].size() == 6 and RunState.player_defense_bag.dice[0].size() == 6
+	ok = apply_ok and ok
+	lines.append("  apply_growth({공격5,방어4,면6}) 후 실제 RunState 주머니: 공격개수=%d(기대5) 방어개수=%d(기대4) 공격면수=%d 방어면수=%d(기대 둘 다 6) -> %s" % [
+		RunState.player_attack_bag.count, RunState.player_defense_bag.count,
+		RunState.player_attack_bag.dice[0].size(), RunState.player_defense_bag.dice[0].size(),
+		"OK" if apply_ok else "FAIL"
+	])
+	RunState.player_attack_bag = attack_backup
+	RunState.player_defense_bag = defense_backup
+	RunState.character_id = character_backup
 
 	return ok

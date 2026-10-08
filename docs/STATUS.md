@@ -5,18 +5,29 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-10-08 (175)
-- 작성자: AI 에이전트. INBOX.md "부분 처리됨" [대형 기획 9] 해적의 마지막
-  조각 **I-4(마무리)**를 완료해 **[대형 기획 9] 전체 완료**로 "처리됨"
-  이관했다. `docs/DESIGN.md` 캐릭터 표/시작 스킬 표를 8종(8×3)으로
-  갱신하고, 밸런스 시뮬(`balance_sim.gd`)/리포트(`balance_report.gd`)가
-  둘 다 `CharacterProfiles.PROFILES`를 동적 순회해 해적을 자동 반영함을
-  코드로 확인(재실행 불필요), `test_battle_setup` 화면 QA 캡처로 해적이
-  8번째로 겹침 없이 뜨고 선택 시 "일제 사격"/"일제 사격+" 보유 스킬
-  체크박스도 정상 노출됨을 재확인했다. `bash scripts/qa_shot.sh dice_test`
-  전체 PASS. 아트 스레드 인계 메모를 완료 기록에 남겼다.
-  자세한 내용은 아래 "완료 기록 (175)" 참고. **다음은 [대형 기획 7]
-  F-5(a)**(성장 정책 3종 구현 + 단위 검증).
+- 일시: 2026-10-08 (176)
+- 작성자: AI 에이전트. INBOX.md "남은 이슈" **[대형 기획 7] F-5(a)**(성장
+  정책 3종 구현 + 단위 검증)를 완료했다. `code/qa/balance_sim.gd`에
+  "none"(기존 F-4b 기준선, 성장 없음)/"balanced"(전투 2번마다 공격·방어
+  번갈아 +1개)/"attack_heavy"(공격만 +1개씩)/"defense_heavy"(방어만
+  +1개씩) 4개 정책의 순수 계산 함수(`global_index_for`/`growth_sides_for`
+  /`growth_counts_for`/`growth_config_for`)와 실제 `RunState` 주머니에
+  반영하는 `apply_growth()`를 추가했다(전부 static, `test_battle_setup.gd
+  ._apply_growth()`와 같은 재구성 방식 재사용). 세 정책 모두 공통으로
+  global index(지금까지 치른 전투 수, (라운드-1)×5+방) 5 이후 D4→D6,
+  10 이후 D8로 승급, 다이스 개수는 `DiceBag.MAX_DICE`(6)가 상한. 기존
+  `_ready()`/`_simulate_combo()` 기준선 루프는 손대지 않고 그대로
+  유지(비교 기준 불변). `dice_test.gd`에 `_check_f5a_growth_policies()`를
+  추가해 "플래그가 아니라 실제 주머니 개수/면 수"를 직접 검증(F-3
+  원칙) — global_index 경계값(0/4/5/9/10/14)에서의 면 승급, balanced의
+  "번갈아" 배분(idx2=4/3, idx4=4/4), attack_heavy/defense_heavy의 MAX_DICE
+  캡 도달(idx14=6/3, 3/6), `growth_config_for`가 캐릭터 기본값(해적
+  2/3/4)을 실제로 읽는지, `apply_growth()` 후 `RunState.player_attack_bag
+  .dice[0].size()` 등 다이스 배열 자체가 바뀌는지까지 확인. `bash
+  scripts/qa_shot.sh dice_test` 전체 PASS(신규 섹션 포함). 시뮬 실행/TSV
+  저장은 **다음 F-5(b)**, 리포트 생성기는 **F-5(c)**로 남음 — 이번
+  이터레이션은 계산 함수와 단위 검증까지만(실제 100판 시뮬은 아직 안 돌림).
+  자세한 내용은 아래 "완료 기록 (176)" 참고.
 
 ## 지금 위치
 
@@ -82,7 +93,8 @@ I-3(고유 스킬 "일제 사격" `broadside`/"일제 사격+" `broadside_plus`,
 위 "완료 기록 (175)", I-1~I-3은 "완료 기록 (172)~(174)"). **아트 스레드
 인계 필요**: 캐릭터 `pirate`(해적) 신규 — full + 표정 5종(청록빛 흑발
 #0E4A4F / 터콰이즈 코트 #1FA5A0, 약탈과 함포 사격의 호쾌한 해적 선장).
-다음은 **[대형 기획 7] F-5(성장 정책 시뮬, a→b→c)**.
+**[대형 기획 7] F-5(a)(성장 정책 3종 계산 함수 + 단위 검증) 완료** — 상세는
+아래 "완료 기록 (176)". 다음은 **F-5(b)(시뮬 실행/TSV 저장)**.
 **ART-1a(아트 스레드 전달) 완료** — 캐릭터 선택 카드 목록 ScrollContainer
 전환(상세는 `docs/STATUS_ARCHIVE.md`의 완료 기록 (152)). ART-1b/1c는 원화
 파일 도착 전 상태라 여전히 대기.
@@ -214,10 +226,13 @@ I-3(고유 스킬 "일제 사격" `broadside`/"일제 사격+" `broadside_plus`,
 진행하는 것을 권장한다. 한 이터레이션에 한두 개만 진행할 것.
 
 **최우선 (INBOX.md 지시 — 아래 번호 매긴 큐보다 먼저):**
-- **[대형 기획 9] 해적(id `pirate`, 8번째 캐릭터) I-1~I-4 전체 완료, INBOX.md
-  "처리됨" 이관.** 다음은 **[대형 기획 7] F-5(a→b→c, 성장 정책 밸런스 시뮬 —
-  INBOX.md "남은 이슈" 2026-10-08 원문 참고)**. (a) 성장 정책 3종 구현 + 단위
-  검증부터 시작.
+- **[대형 기획 7] F-5(a→b→c, 성장 정책 밸런스 시뮬 — INBOX.md "남은 이슈"
+  2026-10-08 원문 참고). F-5(a)(성장 정책 3종 계산 함수 + 단위 검증) 완료**
+  (`code/qa/balance_sim.gd`의 `growth_sides_for`/`growth_counts_for`/
+  `growth_config_for`/`apply_growth`, `dice_test.gd`의
+  `_check_f5a_growth_policies()`, 완료 기록(176) 참고). 다음은 **F-5(b)**
+  (시뮬 실행/TSV 저장 — 캐릭터 7종 × 시작 스킬 슬롯 0만 × 정책 3종 × 라운드
+  1~3 × 방 0~4(보스 포함) + 방 1~3 정예 × 100판).
 
 0. **(INBOX.md 신규 2026-09-03) UI 접근성/가시성 4종 — 1/4 부분 착수.** 전부 "전투/
    선택지 화면 어디서든 정보가 상시 보이거나, 조작이 더 직관적이어야 한다"는 계열의
@@ -824,6 +839,47 @@ I-3(고유 스킬 "일제 사격" `broadside`/"일제 사격+" `broadside_plus`,
 
 ## 완료 기록
 
+- **2026-10-08 (176)**: INBOX.md "남은 이슈"의 [대형 기획 7] **F-5(a)(성장 정책
+  구현 + 단위 검증)** — F-5는 (a)성장 정책 구현→(b)시뮬 실행/TSV 저장→(c)리포트
+  생성기 3개 이터레이션으로 쪼개라는 지시였고, 이번은 첫 조각.
+  **배경**: F-4 리포트(`docs/BALANCE_REPORT.md`)는 "아이템 없이 시작 구성
+  그대로"만 측정해 후반(라운드2 방1부터 ~0%) 난이도 절벽이 보이는데, 이게
+  "런 중 실제로 강해지면 완화되는 정상적 절벽"인지 판단할 근거가 없었다 —
+  그래서 "전투 직전 주머니를 지금까지 몇 번째 전투인가에 따라 키운 뒤 같은
+  경로로 돌린다"는 성장 정책이 필요했다.
+  **구현**: `code/qa/balance_sim.gd`에 static 함수 6개를 추가했다 —
+  `global_index_for(round_index, room_index)`(지금까지 치른 전투 수,
+  `(라운드-1)×TOTAL_ROOMS+방`), `growth_sides_for(policy, global_index)`
+  (성장 정책 공통으로 global index 5 이후 D4→D6, 10 이후 D8 — "none"(기존
+  F-4b 기준선)은 항상 4), `growth_counts_for(policy, base_attack, base_defense,
+  global_index)`(전투 2번마다 다이스 1개 추가, 배분 방향만 정책별로 다름 —
+  "balanced"=공격/방어 번갈아, "attack_heavy"=공격만, "defense_heavy"=방어만,
+  전부 `DiceBag.MAX_DICE`(6) 상한), `growth_config_for(policy, character_id,
+  global_index)`(앞 둘을 `CharacterProfiles` 기본값과 합쳐 "attack_count"/
+  "defense_count"/"sides" Dictionary로), `apply_growth(growth)`(이 Dictionary를
+  실제 `RunState.player_attack_bag`/`player_defense_bag`에 반영하고
+  `RunState._apply_character_gimmick()` 재호출 — `test_battle_setup.gd
+  ._apply_growth()`와 같은 재구성 방식 재사용, 새 패턴 안 만듦). 기존
+  `_ready()`/`_simulate_combo()`(F-4b 기준선 루프)는 전혀 건드리지 않았다 —
+  "none" 정책이 곧 그 기준선과 동일해야 비교가 공정하므로.
+  **검증(F-3 원칙 — 플래그가 아니라 계산 결과)**: `dice_test.gd`에
+  `_check_f5a_growth_policies()`를 신설해, global_index 경계값(0/4/5/9/10/14)
+  에서 면 개수가 기대대로 승급하는지(`none`은 14에서도 4 그대로), "balanced"가
+  실제로 번갈아 배분되는지(idx2→공격4/방어3, idx4→4/4), "attack_heavy"/
+  "defense_heavy"가 idx14(추가 7회)에서 한쪽만 `MAX_DICE`(6)에 막히고 반대쪽은
+  base 그대로인지(6/3, 3/6), `growth_config_for`가 실제 캐릭터 기본값(해적
+  공격2/방어3)을 읽어오는지, 마지막으로 `apply_growth()` 호출 후
+  `RunState.player_attack_bag.dice[0].size()` 등 **다이스 배열 자체**가
+  바뀌는지(개수/면 수 둘 다)까지 직접 확인했다(검증 후 RunState 원복).
+  **QA**: `bash scripts/qa_shot.sh dice_test` 전체 PASS(신규 섹션 포함, 다른
+  섹션 회귀 없음).
+  **F-5(a) 완료.** 실행 로직만 갖췄을 뿐 아직 100판 시뮬은 돌리지 않았다 —
+  다음은 **F-5(b)**(위 함수들을 매 조합 전투 직전에 호출해 실제로 시뮬을
+  실행하고 `qa_out/`에 원자료 TSV로 저장, INBOX.md 지시 범위: 캐릭터 7종 ×
+  시작 스킬 슬롯 0만 × 정책 3종(balanced/attack_heavy/defense_heavy) × 라운드
+  1~3 × 방 0~4(보스 포함) + 방 1~3 정예 × 100판). "완료 기록" 10개 유지를
+  위해 (166)을 `docs/STATUS_ARCHIVE.md`로 옮겼다.
+
 - **2026-10-08 (175)**: INBOX.md "부분 처리됨"의 [대형 기획 9] 해적 **I-4(마무리)**
   — I-3 완료로 실행 순서상 마지막 조각, **[대형 기획 9] 전체 완료**.
   **DESIGN.md**: "플레이어블 캐릭터 (7종)" 절을 8종으로 갱신하고 해적 행(컨셉/
@@ -1271,73 +1327,9 @@ I-3(고유 스킬 "일제 사격" `broadside`/"일제 사격+" `broadside_plus`,
   피드백/설계 결정 대기 항목이 대부분). "완료 기록" 10개 유지를 위해
   (157)을 `docs/STATUS_ARCHIVE.md`로 옮겼다.
 
-- **2026-10-08 (166)**: INBOX.md "부분 처리됨"의 [대형 기획 5] **F-4b(시뮬
-  러너)**를 진행했다 — F-4a 완료로 실행 순서상 다음이었다.
-  신규 `code/qa/balance_sim.gd`(+ `code/scenes/balance_sim.tscn`, GAME_START
-  해석 관례를 따르려 .tscn은 `code/scenes/`에, 스크립트는 지시대로
-  `code/qa/`에 둠)가 `combat_test.gd`(`_combat_script.new()`, `add_child`
-  안 함 — `code/scenes/dice_test.gd`가 이미 쓰는 패턴)를 인스턴스만 만들어
-  `_select_exchange_bags()`/`_resolve_exchange()`(F-4a가 연 헤드리스 경로)를
-  그대로 호출해 전투 한 판을 물리/UI 없이 계산한다.
-  **범위는 INBOX.md가 [대형 기획 6] G 완료 후 넓히라고 지시한 그대로** —
-  캐릭터 7종 × 시작 스킬 슬롯 3개(`SkillPool.starting_skills_for_character()`,
-  전부 해금됐다고 가정) × {라운드 1~3 × 방 0~4(일반, 방4=보스가 자동으로
-  섞임) + 라운드 1~3 × 방 1~3(정예, G-7과 같은 범위)} = 504개 조합 × 100판
-  (`TRIALS_PER_COMBO`, 최소 100판 지시 충족). 캐릭터/스킬 조합 간 비교가
-  "같은 몬스터를 상대했는가"로 공정하도록, `RunState.reset_run()`이 매번
-  새로 굴리는 `run_seed` 대신 `MonsterCatalog.build_monster_plan()`/
-  `build_elite_plan()`을 `FIXED_PLAN_SEED=20261007` 하나로 고정해 모든
-  조합이 라운드×방마다 동일한 몬스터를 상대하게 했다(다이스 굴림 RNG
-  자체는 trial마다 독립적으로 다시 굴러야 하므로 고정하지 않음 — "시뮬
-  재현 가능하게 시드를 고정/기록"하라는 F-4c 지시를 몬스터 선택 쪽에
-  적용). 아이템/상점 효과를 배제한 "시작 구성 그대로" 기준선을 보려고
-  매 trial마다 `RunState.gold=0`/`pip_inventory=[]`로 되돌려 "황금손"/
-  "수집가" 같은 경제 의존 시작 스킬이 유리해지지 않게 했다. 교착(방어가
-  공격을 계속 완전히 막는 등) 전투가 무한 루프에 빠지지 않도록 교환
-  1회=1카운트로 `MAX_EXCHANGES=120` 안전장치를 두고, 못 끝나면 "타임아웃"
-  으로 따로 집계한다(실제로 guardian 계열 4개 조합에서 타임아웃 몇 건
-  관측 — 정상 동작, 크래시 아님).
-  **구현 중 "F-4a 원칙(시뮬 전용으로 규칙을 복붙하지 않는다)"이 실제로
-  깨져 있던 숨은 결함 2건을 발견해 고쳤다**: (1) `_resolve_exchange()`
-  안의 "대비"(`start_bulwark`)/"오뚝이"(`start_second_wind`)/"과적"
-  (`start_overflow`, 방어턴)/"잡화점"(`start_diverse`, 방어턴) 네 블록이
-  다른 15개 비슷한 블록과 달리 `logs.append(...)` 대신 `_append_log()`를
-  직접 호출해 `log_label`(UI 노드, `@onready`)을 건드리고 있었다 —
-  `.new()`로만 만든 인스턴스는 `_ready()`를 안 거쳐 `log_label`이 null이라,
-  그대로 뒀으면 이 네 스킬 중 하나라도 조건이 맞는 trial마다 크래시했을
-  것(F-2(c)에서 네 스킬을 추가할 때부터 있던 기존 버그 — 실제 게임에서는
-  `log_label`이 항상 존재해 증상이 없었다). 전부 `logs.append(...)`로
-  통일. (2) `_apply_spare_die()`("여분"/"여분+" 스킬)도 같은 이유로
-  `_append_log()`를 직접 불렀는데, 자매 함수 `_apply_bonus_reroll()`은
-  처음부터 "로그는 호출부 책임"으로 설계돼 있었다(주석에 명시) — 그
-  관례를 안 지킨 게 원인. `logs: Array = []`(GDScript는 함수 호출마다
-  새 배열을 만들어 기본값을 공유하지 않으므로 안전) 옵션 매개변수를
-  추가해 넘기면 거기 적재, 안 넘기면(기존 `dice_test.gd` 단위 검증
-  호출들) 조용히 계산만 하게 바꿨다 — 기존 호출부는 수정 불필요.
-  마지막으로 `_ready()`의 "몬스터/플레이어 전투 상태 초기화" 중 UI
-  의존이 전혀 없는 부분을 `_apply_monster_config(config)`/
-  `_reset_player_battle_state()` 두 함수로 뽑아내(그 외 가족 아이콘/
-  초상화/디버그 라벨 같은 UI 줄은 `_ready()`에 그대로 남김), balance_sim이
-  `_ready()`를 호출하지 않고도 매 trial 같은 함수로 전투 상태를
-  구성하게 했다 — 이게 없었으면 balance_sim이 `_ready()` 본문 일부를
-  복붙해야 했을 것(F-4a 원칙 위반).
-  **검증**: `bash scripts/qa_shot.sh dice_test` 전체 PASS(함수 분리/시그니처
-  변경만 있을 뿐 계산 순서·조건·값은 그대로라 기존 회귀 그대로 통과).
-  `bash scripts/qa_shot.sh balance_sim 60 qa_out/balance_sim.png`로 504개
-  조합(전투 50,400판)을 끝까지 돌려 크래시 없이 완주, 스크린샷에 조합별
-  결과 줄이 정상 렌더링됨을 확인(`qa_out/balance_sim.png`), 원자료
-  `qa_out/balance_sim_raw.tsv`(헤더 + 504행)도 정상 저장 확인. 수치
-  자체는 승률이 방 2~3부터 대부분 0%로 급락하는 경향이 눈에 띄지만
-  (예: `novice/start_expand r1방3 vs 안개: 승률 2%`), 그 해석·조정은
-  F-4c/사람 몫 — 이 이터레이션은 측정 경로만 완성한다.
-  **F-4b 완료.** 다음은 **F-4c**(`docs/BALANCE_REPORT.md` 작성 — 원자료는
-  이미 `qa_out/balance_sim_raw.tsv`에 있으므로 balance_sim을 다시 돌릴
-  필요 없이 표로 정리하면 됨). "완료 기록" 10개 유지를 위해 (156)을
-  `docs/STATUS_ARCHIVE.md`로 옮겼다.
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(175)에서 (165)를 그리로 옮겼다.)*
+이번 이터레이션(176)에서 (166)을 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 

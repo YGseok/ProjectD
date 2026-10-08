@@ -8,6 +8,70 @@
 
 ---
 
+- **2026-10-08 (166)**: INBOX.md "부분 처리됨"의 [대형 기획 5] **F-4b(시뮬
+  러너)**를 진행했다 — F-4a 완료로 실행 순서상 다음이었다.
+  신규 `code/qa/balance_sim.gd`(+ `code/scenes/balance_sim.tscn`, GAME_START
+  해석 관례를 따르려 .tscn은 `code/scenes/`에, 스크립트는 지시대로
+  `code/qa/`에 둠)가 `combat_test.gd`(`_combat_script.new()`, `add_child`
+  안 함 — `code/scenes/dice_test.gd`가 이미 쓰는 패턴)를 인스턴스만 만들어
+  `_select_exchange_bags()`/`_resolve_exchange()`(F-4a가 연 헤드리스 경로)를
+  그대로 호출해 전투 한 판을 물리/UI 없이 계산한다.
+  **범위는 INBOX.md가 [대형 기획 6] G 완료 후 넓히라고 지시한 그대로** —
+  캐릭터 7종 × 시작 스킬 슬롯 3개(`SkillPool.starting_skills_for_character()`,
+  전부 해금됐다고 가정) × {라운드 1~3 × 방 0~4(일반, 방4=보스가 자동으로
+  섞임) + 라운드 1~3 × 방 1~3(정예, G-7과 같은 범위)} = 504개 조합 × 100판
+  (`TRIALS_PER_COMBO`, 최소 100판 지시 충족). 캐릭터/스킬 조합 간 비교가
+  "같은 몬스터를 상대했는가"로 공정하도록, `RunState.reset_run()`이 매번
+  새로 굴리는 `run_seed` 대신 `MonsterCatalog.build_monster_plan()`/
+  `build_elite_plan()`을 `FIXED_PLAN_SEED=20261007` 하나로 고정해 모든
+  조합이 라운드×방마다 동일한 몬스터를 상대하게 했다(다이스 굴림 RNG
+  자체는 trial마다 독립적으로 다시 굴러야 하므로 고정하지 않음 — "시뮬
+  재현 가능하게 시드를 고정/기록"하라는 F-4c 지시를 몬스터 선택 쪽에
+  적용). 아이템/상점 효과를 배제한 "시작 구성 그대로" 기준선을 보려고
+  매 trial마다 `RunState.gold=0`/`pip_inventory=[]`로 되돌려 "황금손"/
+  "수집가" 같은 경제 의존 시작 스킬이 유리해지지 않게 했다. 교착(방어가
+  공격을 계속 완전히 막는 등) 전투가 무한 루프에 빠지지 않도록 교환
+  1회=1카운트로 `MAX_EXCHANGES=120` 안전장치를 두고, 못 끝나면 "타임아웃"
+  으로 따로 집계한다(실제로 guardian 계열 4개 조합에서 타임아웃 몇 건
+  관측 — 정상 동작, 크래시 아님).
+  **구현 중 "F-4a 원칙(시뮬 전용으로 규칙을 복붙하지 않는다)"이 실제로
+  깨져 있던 숨은 결함 2건을 발견해 고쳤다**: (1) `_resolve_exchange()`
+  안의 "대비"(`start_bulwark`)/"오뚝이"(`start_second_wind`)/"과적"
+  (`start_overflow`, 방어턴)/"잡화점"(`start_diverse`, 방어턴) 네 블록이
+  다른 15개 비슷한 블록과 달리 `logs.append(...)` 대신 `_append_log()`를
+  직접 호출해 `log_label`(UI 노드, `@onready`)을 건드리고 있었다 —
+  `.new()`로만 만든 인스턴스는 `_ready()`를 안 거쳐 `log_label`이 null이라,
+  그대로 뒀으면 이 네 스킬 중 하나라도 조건이 맞는 trial마다 크래시했을
+  것(F-2(c)에서 네 스킬을 추가할 때부터 있던 기존 버그 — 실제 게임에서는
+  `log_label`이 항상 존재해 증상이 없었다). 전부 `logs.append(...)`로
+  통일. (2) `_apply_spare_die()`("여분"/"여분+" 스킬)도 같은 이유로
+  `_append_log()`를 직접 불렀는데, 자매 함수 `_apply_bonus_reroll()`은
+  처음부터 "로그는 호출부 책임"으로 설계돼 있었다(주석에 명시) — 그
+  관례를 안 지킨 게 원인. `logs: Array = []`(GDScript는 함수 호출마다
+  새 배열을 만들어 기본값을 공유하지 않으므로 안전) 옵션 매개변수를
+  추가해 넘기면 거기 적재, 안 넘기면(기존 `dice_test.gd` 단위 검증
+  호출들) 조용히 계산만 하게 바꿨다 — 기존 호출부는 수정 불필요.
+  마지막으로 `_ready()`의 "몬스터/플레이어 전투 상태 초기화" 중 UI
+  의존이 전혀 없는 부분을 `_apply_monster_config(config)`/
+  `_reset_player_battle_state()` 두 함수로 뽑아내(그 외 가족 아이콘/
+  초상화/디버그 라벨 같은 UI 줄은 `_ready()`에 그대로 남김), balance_sim이
+  `_ready()`를 호출하지 않고도 매 trial 같은 함수로 전투 상태를
+  구성하게 했다 — 이게 없었으면 balance_sim이 `_ready()` 본문 일부를
+  복붙해야 했을 것(F-4a 원칙 위반).
+  **검증**: `bash scripts/qa_shot.sh dice_test` 전체 PASS(함수 분리/시그니처
+  변경만 있을 뿐 계산 순서·조건·값은 그대로라 기존 회귀 그대로 통과).
+  `bash scripts/qa_shot.sh balance_sim 60 qa_out/balance_sim.png`로 504개
+  조합(전투 50,400판)을 끝까지 돌려 크래시 없이 완주, 스크린샷에 조합별
+  결과 줄이 정상 렌더링됨을 확인(`qa_out/balance_sim.png`), 원자료
+  `qa_out/balance_sim_raw.tsv`(헤더 + 504행)도 정상 저장 확인. 수치
+  자체는 승률이 방 2~3부터 대부분 0%로 급락하는 경향이 눈에 띄지만
+  (예: `novice/start_expand r1방3 vs 안개: 승률 2%`), 그 해석·조정은
+  F-4c/사람 몫 — 이 이터레이션은 측정 경로만 완성한다.
+  **F-4b 완료.** 다음은 **F-4c**(`docs/BALANCE_REPORT.md` 작성 — 원자료는
+  이미 `qa_out/balance_sim_raw.tsv`에 있으므로 balance_sim을 다시 돌릴
+  필요 없이 표로 정리하면 됨). "완료 기록" 10개 유지를 위해 (156)을
+  `docs/STATUS_ARCHIVE.md`로 옮겼다.
+
 - **2026-10-07 (165)**: 세션 시작 시 `git status`/`git diff`로 직전
   이터레이션이 사용량 한도로 끊기며 남긴 `code/scenes/combat_test.gd`의
   미커밋 변경을 발견했다 — [대형 기획 5] **F-4a**(헤드리스 밸런스 시뮬
