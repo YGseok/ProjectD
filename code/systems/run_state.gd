@@ -161,6 +161,11 @@ var test_skill_flags: Array[String] = []
 const TOTAL_ROOMS := 5
 const TOTAL_ROUNDS := 3
 
+## [대형 기획 8] H-4: 캐릭터 선택 화면의 "테스트 전투" 진입 버튼을 켜고 끄는 단일
+## 스위치. false로 바꾸면 character_select.gd가 버튼 자체를 숨긴다(정식 빌드에서
+## 테스트 기능을 노출하지 않고 싶을 때를 대비 — 코드 삭제 없이 상수 하나만 바꾸면 됨).
+const TEST_BATTLE_ENABLED := true
+
 var rooms_cleared := 0
 var round_index := 1
 var gold := 0

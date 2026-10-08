@@ -52,5 +52,12 @@ offset_right = 1240.0
 offset_bottom = 60.0
 text = "업적"
 
+[node name="TestBattleButton" type="Button" parent="."]
+offset_left = 1080.0
+offset_top = 64.0
+offset_right = 1240.0
+offset_bottom = 92.0
+text = "테스트 전투"
+
 [node name="AchievementPanel" type="Control" parent="."]
 script = ExtResource("3_achievements")

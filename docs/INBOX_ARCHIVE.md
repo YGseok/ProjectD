@@ -7,6 +7,30 @@
 
 ---
 
+- [처리됨 - 2026-09-15] 2026-09-14 캐릭터 스킬에 아이콘을 추가한다.
+  → 신규 `code/scenes/skill_icon.gd`(`SkillIcon`)가 `achievement_icon.gd`/
+  `reward_icon.gd`와 같은 절차적 `_draw()` 패턴으로 캐릭터의 "보유 스킬"
+  (`character_profiles.gd`의 gimmick 필드 — 지금 유일한 캐릭터별 능력)을
+  유형별 도형으로 그린다: 없음=빈 원, 극단(min_max_only)=빨간 다이아몬드,
+  고정 방어(fixed_defense_die)=파란 방패, 폭발 스택(explosive_stack)=주황
+  별, 수호 스택(guard_stack)=회색 겹방패. category는 gimmick 문자열을 그대로
+  받아 재매핑 테이블 없이 1:1 대응시켰다. `character_select.gd`의 상세
+  패널("보유 스킬" 줄 왼쪽)과 `deck_panel.gd`의 캐릭터 정보 섹션("캐릭터:
+  이름" 줄 왼쪽) 둘 다에 붙여, 이전에 업적 아이콘(97)에서 "붙일 대상부터
+  설계 필요"로 미뤄뒀던 지점을 기존 UI 두 곳(추가 화면 없이) 재사용으로
+  해결했다. `dice_test.gd`에 신규 `_check_skill_icons`(PROFILES의 모든
+  gimmick 값이 `SkillIcon.CATEGORIES`에 실제로 존재하는지 대조, "업적 아이콘
+  검증"과 같은 패턴)를 추가해 회귀 스위트 전체 PASS.
+  `qa_out/character_select_skill_icon.png`(견습 모험가, 빈 원)/
+  `qa_out/character_select_skill_icon_berserker.png`(광전사, 빨간 다이아몬드)/
+  `_guardian.png`(파란 방패)/`_explosive.png`(주황 별)/`_shieldbearer.png`
+  (회색 겹방패)로 5종 전부 겹침 없이 다르게 표시됨을 확인, `qa_out/
+  dungeon_map_skill_icon.png`(광전사, DeckPanel 캐릭터 정보 섹션)로 두 번째
+  사용처도 확인. 텍스트 설명이 유일한 "스킬"이라 아이콘도 그 다섯 가지
+  기믹 계열만 표현 — 이벤트로 얻는 별도 "고유 스킬"이 생기면 새 category를
+  추가해야 함(다음 할 일 큐 "캐릭터 스킬 이벤트 신설"과 연결). docs/STATUS.md
+  완료 기록(112) 참고.
+
 - [처리됨 - 2026-09-15] 2026-09-14 커스터마이징을 어떻게 하는지 모르겠다. ux가
   헷갈림. 정리하자면, 인벤토리 및 덱 구성이 우선적으로 보여야 한다. 내 덱에
   세팅된 주사위, 내가 보유한 여분 주사위, 내가 보유한 주사위 눈금이 있어야

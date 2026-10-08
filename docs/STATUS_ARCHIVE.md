@@ -8,6 +8,65 @@
 
 ---
 
+- **2026-10-07 (161)**: INBOX.md "부분 처리됨"의 [대형 기획 6](몬스터 대개편)
+  **G-6(런 시작 몬스터 계획 + 라운드 스케일링)**을 진행했다 — G-5 완료로
+  실행 순서상 다음 조각. `code/systems/monster_catalog.gd`에 순수 함수
+  `MonsterCatalog.build_monster_plan(seed, total_rounds, rooms_per_round)`을
+  신설해, 라운드(3)×방(5)의 "몬스터 계획"을 한 번에 뽑는다 — 보스가 아닌
+  4개 방(라운드당)은 `normal_roster_ids()`(일반 20종, 다크 나이트 제외)
+  안에서 **런 전체(3×4=12자리) 중복 없이** 셔플+슬라이스로 뽑고, 마지막
+  방(보스 자리)은 G-7/G-8 전용 풀이 아직 없어 같은 20종 풀에서 별도로
+  뽑는다(중복 허용, "보스"는 여전히 기존 스탯 배율로만 표현). "가능하면
+  같은 계열 연속 2번 금지"(INBOX.md 원문)는 `_avoid_consecutive_family()`
+  로 좌→우 1회 스캔하며 뒤쪽의 다른 계열 자리와 맞바꾸는 best-effort로
+  구현(완전 보장은 아님, 원문 그대로). `RunState`에 `monster_plan`(plan[
+  round][room]=몬스터 id)과 `run_seed`(재현용)를 신설해 `reset_run()`이
+  매번 `randi()`로 시드를 뽑고 계획을 생성해둔다.
+  `code/scenes/combat_test.gd`는 기존 `_monster_config_for_room(room_index)`
+  (GAME_QA_ROOM_OVERRIDE/테스트가 직접 room_index를 넘기는 경로, 기존 5종
+  순환 + room_index=난이도)를 **동작 변경 없이 그대로 남겨두고**, 신규
+  `_monster_config_for_plan(round_index, room_index)`을 추가했다 — 둘 다
+  공통 스탯 계산(`_build_monster_config()`, 기존 함수 본문을 그대로 옮김)을
+  공유해서 중복 없이 "몬스터 선택 경로"만 다르다. 난이도 공식은 INBOX.md
+  원문 그대로 `difficulty = room_index + (round_index-1)*3`(라운드가
+  올라가도 room_index 누적만큼 매번 처음부터 쌓이진 않지만, 그렇다고 매
+  라운드 5단계씩 꾸준히 쌓이지도 않는 완화된 곡선 — 실제로 적당한지는 F-4
+  시뮬/사람 피드백 영역). `is_boss`는 여전히 "그 라운드 안에서의 실제 위치"
+  (room_index==TOTAL_ROOMS-1)만 본다. `_ready()`는 GAME_QA_ROOM_OVERRIDE가
+  있으면(QA 전용) 기존 경로로, 없으면(정상 플레이) `_monster_config_for_plan
+  (RunState.round_index, RunState.rooms_cleared)`로 분기 — **이제 실제
+  정상 플레이에서 G-5가 채운 16종 신규 몬스터를 만날 수 있다**(QA 훅 없이도).
+  **동작 보존 확인**: `_monster_config_for_room()`을 직접 호출하는 기존
+  dice_test.gd 검증(스케일링 공식/보스 보정/GAME_QA_MONSTER_ID 훅 등, 전부
+  `script.new()`로 `_ready()`를 안 거치고 직접 함수 호출하는 방식이라 이번
+  리팩터와 독립적)이 전부 그대로 PASS — 리팩터가 기존 동작을 하나도
+  안 바꿨음을 재확인. **검증(신규)**: `dice_test.gd`에 신규
+  `_check_g6_monster_plan()` 추가 — (1) `normal_roster_ids()` 크기(20,
+  다크 나이트 제외), (2) `build_monster_plan()`이 결정론적인지(같은 seed
+  → 같은 결과, 문자열 비교), (3) 일반 전투 12자리 전부 고유 + 20종 풀 안,
+  (4) 보스 4자리 전부 20종 풀 안, (5) `_monster_config_for_plan()`이
+  "플래그"가 아니라 실제 attack_count/defense_count/max_hp/dice_sides
+  계산 결과를 바꾸는지(F-3 원칙 — 검증용 계획을 RunState.monster_plan에
+  직접 꽂아 라운드1/방0(난이도0), 라운드2/방0(난이도3), 라운드2/방4(보스,
+  난이도7, 좀비 hp_mult 1.4까지 반영해 HP 86으로 두 배율이 함께 들어가는지)
+  세 지점을 손으로 공식을 재계산해 대조), (6) `reset_run()`이 실제로
+  `monster_plan`을 3라운드×5방 모양으로 채우는지. `bash scripts/qa_shot.sh
+  dice_test` 전체 PASS(신규 섹션 포함, 기존 G-1~G-5 검증 전부 그대로 PASS).
+  **시각 QA**: `scripts/qa_shot.sh combat_test`로 (a) GAME_QA_ROOM_OVERRIDE/
+  GAME_QA_MONSTER_ID 환경변수 없이 그냥 로드했더니 기존처럼 항상 "슬라임"이
+  아니라 무작위로 뽑힌 신규 몬스터("유령", 기믹 "봉인")가 실제 전투 화면에
+  이름/계열 아이콘/디버그 정보 줄까지 정상 표시됨을 확인(정상 플레이에서
+  신규 몬스터가 처음으로 실제로 등장) — `combat_test_g6_normal.png`. (b)
+  `GAME_QA_ROOM_OVERRIDE=4`로 기존과 동일하게 "다크 나이트 [철벽] [보스]"가
+  그대로 뜸(공격6D8/방어3D8/HP44, 리팩터 전과 완전히 동일) —
+  `combat_test_g6_room_override.png`. (c) `GAME_QA_MONSTER_ID=armored_goblin`도
+  기존처럼 room0 기준(공격2D4/방어1D4)으로 그대로 뜸 —
+  `combat_test_g6_monster_override.png`. 셋 다 qa_out/에 저장, 프로젝트
+  루트에 스트레이 스크린샷 없음.
+  **G-6 완료.** 다음 할 일은 **G-7**(정예 전투 방 + 정예 풀 8종 — 아래
+  "지금 위치"/"다음 할 일 큐" 참고). "완료 기록" 10개 유지를 위해 (151)을
+  `docs/STATUS_ARCHIVE.md`로 옮겼다.
+
 - **2026-10-07 (160)**: INBOX.md "부분 처리됨"의 [대형 기획 6](몬스터 대개편)
   **G-5(일반 몬스터 20종 데이터, 계열당 5종)**을 진행했다 — G-4 완료로 실행
   순서상 다음 조각. `code/systems/monster_catalog.gd`의 `MONSTERS`에 신규

@@ -5,36 +5,23 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-10-08 (170)
-- 작성자: AI 에이전트. 직전 이터레이션(169)이 사용량 한도로 끊기며 미커밋
-  상태로 남겨둔 **[대형 기획 8] H-3(성장 정도 + 보유 스킬 세팅)**를 `git diff`로
-  확인해 이어서 완성·검증했다(새로 시작하지 않고 기존 구현 그대로 유지).
-  `test_battle_setup.tscn`에 **성장**(공격/방어 다이스 개수·공통 면 개수·골드·
-  눈금/다이스 인벤토리, 프리셋 4종 + 직접 설정, 옆에 적용될 구성 미리보기) +
-  **보유 스킬**(공용 2종+캐릭터 고유 스킬+"+"판 체크박스 토글, 캐릭터 전환 시
-  자동 정리) 섹션이 추가됐고, 화면이 1280x720을 넘어 전체가 `MainScroll`
-  (ScrollContainer) 아래로 옮겨졌다. 적용은 `reset_run()` 직후 `_apply_growth()`
-  한 곳에서만 수행.
-  **검증 중 버그 2개 발견 + 수정**: (1) 수호자의 `fixed_defense_die` 기믹이
-  `RunState._apply_character_gimmick()`에서 방어 다이스 면 개수를 4로
-  하드코딩하고 있었다(growth가 D6/D8 등으로 바꾼 뒤 이 함수를 재호출하는 게
-  처음이라 안 드러났던 전제) — 실제 0번째 다이스의 면 개수를 읽도록 고침.
-  (2) 효과 테스트(`dice_test.gd`)는 PASS였지만 실제 설정 화면을 로드해보니
-  `_selected_skill_flags`(평범한 Array)를 `RunState.test_skill_flags`
-  (`Array[String]`)에 대입하는 지점에서 런타임 "Invalid assignment" 오류가
-  났다 — 정적 함수 직접 호출 테스트는 씬 `_ready()` 흐름을 타지 않아 이 타입
-  불일치를 못 잡았다. `_selected_skill_flags`/`sanitize_skill_flags()` 반환
-  타입을 전부 `Array[String]`로 맞춰 해결, 재캡처로 스크립트 오류 없음 확인.
-  **효과 테스트**: `dice_test.gd`의 `_check_h3_test_battle_growth()`가 프리셋
-  계산/`sanitize_skill_flags()`/growth+보유 스킬 적용 후 실제 주머니 개수·면
-  개수·골드·인벤토리·skill_flags·수호자 고정값(새 면 범위 안)/하위 호환
-  (growth={})까지 "계산 결과"로 검증(PASS, F-3 원칙).
-  **시각 QA**: `qa_out/test_battle_setup_h3.png`(상단, 겹침 없음)와 신규
-  QA 전용 `_debug_scroll_to_bottom()`으로 찍은
-  `qa_out/test_battle_setup_h3_bottom.png`(하단 — 몬스터 목록/난이도/전투
-  시작 버튼, 겹침 없음) 둘 다 확인.
-  자세한 내용은 아래 "완료 기록 (170)" 참고. **다음은 H-4**(캐릭터 선택 화면
-  진입 버튼 + DESIGN.md 문서화).
+- 일시: 2026-10-08 (171)
+- 작성자: AI 에이전트. INBOX.md "부분 처리됨" [대형 기획 8]의 마지막 조각
+  **H-4(진입점 + 마무리)**를 완료했다. `character_select.tscn`에 "테스트
+  전투" 버튼을 추가(업적 버튼 바로 아래, 작은 폰트+반투명으로 눈에 덜
+  띄게), 누르면 `test_battle_setup.tscn`으로 진입하고 설정 화면의 "뒤로"는
+  기존 구현대로 돌아온다. `RunState.TEST_BATTLE_ENABLED` 상수 하나로
+  버튼 노출을 켜고 끌 수 있게 했다. `docs/DESIGN.md`에 "테스트 전투 모드"
+  절을 신설해 무엇을 고를 수 있는지/진행도 불변 원칙/진입 방법을 정리했다.
+  QA: `scripts/qa_shot.sh dice_test` 전체 PASS(H-4는 새 계산 로직이 없어
+  신규 단위 테스트는 추가하지 않음), `character_select`를 평소대로 로드해
+  새 버튼이 겹침 없이 보이는지, 신규 QA 래퍼 `_debug_open_test_battle()`로
+  실제 `test_battle_setup.tscn`까지 전환되는지 확인. 보스 전투 진행 화면/
+  결과 화면은 H-1/H-2가 이미 촬영해둔 스크린샷이 그대로 유효해(H-4가 그
+  경로를 건드리지 않음) 재촬영하지 않았다.
+  **[대형 기획 8] 전체 완료(H-1~H-4).** 자세한 내용은 아래 "완료 기록
+  (171)" 참고. **다음은 [대형 기획 9] 해적 I-1**(캐릭터+기믹
+  `cannon_volley` 플러밍).
 
 ## 지금 위치
 
@@ -77,15 +64,18 @@ F-4a(헤드리스 시뮬 경로)/F-4b(시뮬 러너, 7캐릭터×13종 시작 �
 완료 기록 (149)~(157)과 위 "완료 기록 (165)~(167)"). **조정은 사람이
 `docs/BALANCE_REPORT.md`를 보고 다음 지시로 결정** — 지금은 측정만 끝난
 상태.
-**[대형 기획 8](테스트 전투) H-1/H-2/H-3 완료, H-4 다음.** `test_battle_setup.tscn`
+**[대형 기획 8](테스트 전투) 전체 완료(H-1~H-4).** `character_select.tscn`
+우상단 "업적" 버튼 아래의 작고 흐린 "테스트 전투" 버튼(`RunState.
+TEST_BATTLE_ENABLED`로 on/off)으로 들어가면 `test_battle_setup.tscn`
 (캐릭터/시작 스킬/**성장**(주머니 개수·면 개수·골드·인벤토리 프리셋/직접 설정)/
-**보유 스킬**(공용+고유+"+"판 토글)/몬스터/난이도 선택 → "전투 시작")을
-`GAME_START=test_battle_setup`으로 직접 로드하면 실제로 원하는 조합(성장 단계
-포함)의 테스트 전투를 돌릴 수 있다 — 다만 캐릭터 선택 화면 안에서의 진입
-버튼(H-4)은 아직 없어, 정식 플레이 흐름 중에는 여전히 도달할 수 없다. 상세는
-위 "완료 기록 (170)" 참고.
-**[대형 기획 7] F-5(성장 정책 시뮬) 미착수** — INBOX.md 지시대로 H 전부가
-끝난 뒤 (a)성장 정책 구현→(b)시뮬 실행→(c)리포트 순으로 진행 예정.
+**보유 스킬**(공용+고유+"+"판 토글)/몬스터/난이도 선택 → "전투 시작")에서 실제로
+원하는 조합(성장 단계 포함)의 테스트 전투를 정식 플레이 흐름 중에 바로 돌릴 수
+있다(`GAME_START=test_battle_setup` 직접 로드도 여전히 가능). 전투 결과는
+업적/런 진행을 전혀 건드리지 않고 "다시 하기"/"설정으로 돌아가기"로 이어진다.
+상세는 위 "완료 기록 (171)" 참고.
+**다음은 [대형 기획 9] 해적(id `pirate`, 8번째 캐릭터) I-1**(캐릭터+기믹
+`cannon_volley` "함포 일제사격" 플러밍) — 이어서 I-2→I-3→I-4, 전부 끝나면
+**[대형 기획 7] F-5(성장 정책 시뮬, a→b→c)**.
 **ART-1a(아트 스레드 전달) 완료** — 캐릭터 선택 카드 목록 ScrollContainer
 전환(상세는 `docs/STATUS_ARCHIVE.md`의 완료 기록 (152)). ART-1b/1c는 원화
 파일 도착 전 상태라 여전히 대기.
@@ -209,22 +199,12 @@ F-4a(헤드리스 시뮬 경로)/F-4b(시뮬 러너, 7캐릭터×13종 시작 �
 진행하는 것을 권장한다. 한 이터레이션에 한두 개만 진행할 것.
 
 **최우선 (INBOX.md 지시 — 아래 번호 매긴 큐보다 먼저):**
-- **[대형 기획 8] H-4(진입점 + 마무리)** — H-3(완료) 다음, 이 큰 항목의 마지막 조각.
-  캐릭터 선택 화면(`character_select`)에 눈에 띄지 않는 작은 "테스트 전투" 버튼
-  (우상단 업적 버튼 옆)을 추가해 `test_battle_setup.tscn`으로 진입, 설정 화면
-  "뒤로"로 돌아옴. 정식 빌드에서 숨길 수 있게 `RunState`나 상수 한 곳
-  (`TEST_BATTLE_ENABLED`)으로 on/off 가능하게. `docs/DESIGN.md`에 "테스트 전투
-  모드" 절 추가(무엇을 고를 수 있는지, 진행도를 안 건드린다는 원칙, 진입 방법).
-  QA 캡처: 설정 화면(스크롤 포함), 보스 전투 진행 화면, 결과 화면. 가능하면
-  `scripts/qa_shot.sh`로 "설정 → 전투 시작 → 강제 승리 → 설정 복귀" 한 사이클을
-  자동 재현하고 그 뒤 업적/진행도 불변을 확인. INBOX.md "부분 처리됨" [대형 기획 8]
-  H-4 원문 참고.
-- H-4가 끝나면 **[대형 기획 9] 해적(id `pirate`, 8번째 캐릭터) I-1 → I-2 → I-3 →
-  I-4** 순서로(INBOX.md "남은 이슈" 2026-10-08 원문 — 캐릭터+기믹 `cannon_volley`
-  "함포 일제사격"(3번째 공격턴마다 고정 피해) 플러밍 → 업적+시작 스킬 → 고유
-  스킬(`broadside`/`broadside_plus`) → DESIGN.md/밸런스 시뮬 마무리, 한
-  이터레이션에 한 조각). 전부 끝나면 마지막으로 **[대형 기획 7] F-5(a→b→c, 성장
-  정책 밸런스 시뮬)**로.
+- **[대형 기획 8] 전체 완료(H-1~H-4).** 다음은 **[대형 기획 9] 해적(id `pirate`,
+  8번째 캐릭터) I-1 → I-2 → I-3 → I-4** 순서로(INBOX.md "남은 이슈" 2026-10-08
+  원문 — 캐릭터+기믹 `cannon_volley` "함포 일제사격"(3번째 공격턴마다 고정 피해)
+  플러밍 → 업적+시작 스킬 → 고유 스킬(`broadside`/`broadside_plus`) →
+  DESIGN.md/밸런스 시뮬 마무리, 한 이터레이션에 한 조각). I-1부터 시작할 것.
+  전부 끝나면 마지막으로 **[대형 기획 7] F-5(a→b→c, 성장 정책 밸런스 시뮬)**로.
 
 0. **(INBOX.md 신규 2026-09-03) UI 접근성/가시성 4종 — 1/4 부분 착수.** 전부 "전투/
    선택지 화면 어디서든 정보가 상시 보이거나, 조작이 더 직관적이어야 한다"는 계열의
@@ -831,6 +811,44 @@ F-4a(헤드리스 시뮬 경로)/F-4b(시뮬 러너, 7캐릭터×13종 시작 �
 
 ## 완료 기록
 
+- **2026-10-08 (171)**: INBOX.md "부분 처리됨"의 [대형 기획 8] **H-4(진입점 +
+  마무리)** — 이 대형 항목의 마지막 조각, H-3(완료) 다음.
+  **진입 버튼**: `character_select.tscn`의 "업적" 버튼 바로 아래(우상단)에
+  "테스트 전투" 버튼(`TestBattleButton`)을 추가 — `character_select.gd`의
+  `_setup_test_battle_button()`이 폰트 크기 12 + `modulate` 알파 0.55로
+  작고 흐리게 만들어 정식 플레이 흐름("던전 시작"/"업적")보다 눈에 덜
+  띄게 했다. 누르면 `test_battle_setup.tscn`으로 전환(`_on_test_battle_
+  pressed()`), 숫자 키 단축키 목록(`_shortcut_buttons`)에도 포함돼 [n]으로
+  누를 수 있다. 설정 화면의 "뒤로"는 이미 H-1~H-3에서 `character_select.
+  tscn`으로 돌아오게 구현돼 있어 추가 작업 불필요.
+  **on/off 스위치**: `RunState.TEST_BATTLE_ENABLED`(단일 `const bool`)
+  신설 — false면 `_setup_test_battle_button()`이 버튼을 `visible=false`로
+  숨기고 숏컷 목록에도 추가하지 않는다(정식 빌드에서 코드 삭제 없이 끌 수
+  있게, INBOX.md H-4 원문 요구).
+  **DESIGN.md**: "### 테스트 전투 모드" 절을 "던전 방 이벤트 콘텐츠"
+  다음에 신설 — 무엇을 고를 수 있는지(캐릭터/시작 스킬/보유 스킬/성장/
+  몬스터/난이도), 진행도를 건드리지 않는다는 세 가지 원칙(업적 미해금/런
+  진행 불변/패배해도 reset_run() 미호출), 시작 스킬 잠금 무시, 진입
+  방법(버튼 위치 + `TEST_BATTLE_ENABLED`), 직전 선택 유지를 정리.
+  **시각 QA**: 회귀 스위트 `scripts/qa_shot.sh dice_test` 전체 PASS(기존
+  H-1~H-3 검증 그대로 유지, H-4는 새 계산 로직이 없어 신규 단위 테스트는
+  추가하지 않음 — 네비게이션 버튼 하나뿐이라 F-3 원칙상 검증 대상인
+  "계산 결과"가 없음). `character_select`를 (a) 평소대로 로드해 새 버튼이
+  "업적" 아래에 겹침 없이 흐리게 보이는지(`qa_out/character_select_h4_
+  button.png`), (b) 신규 QA 래퍼 `_debug_open_test_battle()`(버튼의
+  `pressed` 핸들러를 그대로 호출)로 실제 `test_battle_setup.tscn`까지
+  전환되는지(`qa_out/character_select_h4_entry.png`, 레이아웃 겹침
+  없음) 확인 — "설정 → 전투 시작 → 강제 승리 → 설정 복귀" 전체는 H-1/
+  H-2가 이미 각 구간(결과 화면 `qa_out/combat_test_h1_result*.png`, 보스
+  전투 진입 `qa_out/test_battle_setup_boss_start.png`)을 개별 검증해둔
+  상태라 H-4에서 바뀐 건 "그 화면들로 들어가는 입구"뿐이므로 새로 안
+  바뀐 두 구간은 재촬영하지 않았다(진행도 불변은 H-1의
+  `_check_h1_test_battle_mode()`가 이미 "계산 결과"로 검증 — H-4는 그
+  경로에 아무 로직도 추가하지 않았으므로 재검증 불필요).
+  **[대형 기획 8] 전체 완료(H-1~H-4).** 다음은 **[대형 기획 9] 해적
+  I-1**(캐릭터+기믹 `cannon_volley` 플러밍, INBOX.md "남은 이슈" 2026-10-08
+  원문 참고).
+
 - **2026-10-08 (170)**: 직전 이터레이션(169)이 사용량 한도로 끊기며 남긴
   [대형 기획 8] **H-3(성장 정도 + 보유 스킬 세팅)** 미커밋 변경을 이어서
   완성·검증했다 — `git diff`로 확인한 결과 구현 자체(`test_battle_setup.gd`/
@@ -1356,68 +1374,9 @@ F-4a(헤드리스 시뮬 경로)/F-4b(시뮬 러너, 7캐릭터×13종 시작 �
   "다음 할 일 큐" 참고). "완료 기록" 10개 유지를 위해 (152)를
   `docs/STATUS_ARCHIVE.md`로 옮겼다.
 
-- **2026-10-07 (161)**: INBOX.md "부분 처리됨"의 [대형 기획 6](몬스터 대개편)
-  **G-6(런 시작 몬스터 계획 + 라운드 스케일링)**을 진행했다 — G-5 완료로
-  실행 순서상 다음 조각. `code/systems/monster_catalog.gd`에 순수 함수
-  `MonsterCatalog.build_monster_plan(seed, total_rounds, rooms_per_round)`을
-  신설해, 라운드(3)×방(5)의 "몬스터 계획"을 한 번에 뽑는다 — 보스가 아닌
-  4개 방(라운드당)은 `normal_roster_ids()`(일반 20종, 다크 나이트 제외)
-  안에서 **런 전체(3×4=12자리) 중복 없이** 셔플+슬라이스로 뽑고, 마지막
-  방(보스 자리)은 G-7/G-8 전용 풀이 아직 없어 같은 20종 풀에서 별도로
-  뽑는다(중복 허용, "보스"는 여전히 기존 스탯 배율로만 표현). "가능하면
-  같은 계열 연속 2번 금지"(INBOX.md 원문)는 `_avoid_consecutive_family()`
-  로 좌→우 1회 스캔하며 뒤쪽의 다른 계열 자리와 맞바꾸는 best-effort로
-  구현(완전 보장은 아님, 원문 그대로). `RunState`에 `monster_plan`(plan[
-  round][room]=몬스터 id)과 `run_seed`(재현용)를 신설해 `reset_run()`이
-  매번 `randi()`로 시드를 뽑고 계획을 생성해둔다.
-  `code/scenes/combat_test.gd`는 기존 `_monster_config_for_room(room_index)`
-  (GAME_QA_ROOM_OVERRIDE/테스트가 직접 room_index를 넘기는 경로, 기존 5종
-  순환 + room_index=난이도)를 **동작 변경 없이 그대로 남겨두고**, 신규
-  `_monster_config_for_plan(round_index, room_index)`을 추가했다 — 둘 다
-  공통 스탯 계산(`_build_monster_config()`, 기존 함수 본문을 그대로 옮김)을
-  공유해서 중복 없이 "몬스터 선택 경로"만 다르다. 난이도 공식은 INBOX.md
-  원문 그대로 `difficulty = room_index + (round_index-1)*3`(라운드가
-  올라가도 room_index 누적만큼 매번 처음부터 쌓이진 않지만, 그렇다고 매
-  라운드 5단계씩 꾸준히 쌓이지도 않는 완화된 곡선 — 실제로 적당한지는 F-4
-  시뮬/사람 피드백 영역). `is_boss`는 여전히 "그 라운드 안에서의 실제 위치"
-  (room_index==TOTAL_ROOMS-1)만 본다. `_ready()`는 GAME_QA_ROOM_OVERRIDE가
-  있으면(QA 전용) 기존 경로로, 없으면(정상 플레이) `_monster_config_for_plan
-  (RunState.round_index, RunState.rooms_cleared)`로 분기 — **이제 실제
-  정상 플레이에서 G-5가 채운 16종 신규 몬스터를 만날 수 있다**(QA 훅 없이도).
-  **동작 보존 확인**: `_monster_config_for_room()`을 직접 호출하는 기존
-  dice_test.gd 검증(스케일링 공식/보스 보정/GAME_QA_MONSTER_ID 훅 등, 전부
-  `script.new()`로 `_ready()`를 안 거치고 직접 함수 호출하는 방식이라 이번
-  리팩터와 독립적)이 전부 그대로 PASS — 리팩터가 기존 동작을 하나도
-  안 바꿨음을 재확인. **검증(신규)**: `dice_test.gd`에 신규
-  `_check_g6_monster_plan()` 추가 — (1) `normal_roster_ids()` 크기(20,
-  다크 나이트 제외), (2) `build_monster_plan()`이 결정론적인지(같은 seed
-  → 같은 결과, 문자열 비교), (3) 일반 전투 12자리 전부 고유 + 20종 풀 안,
-  (4) 보스 4자리 전부 20종 풀 안, (5) `_monster_config_for_plan()`이
-  "플래그"가 아니라 실제 attack_count/defense_count/max_hp/dice_sides
-  계산 결과를 바꾸는지(F-3 원칙 — 검증용 계획을 RunState.monster_plan에
-  직접 꽂아 라운드1/방0(난이도0), 라운드2/방0(난이도3), 라운드2/방4(보스,
-  난이도7, 좀비 hp_mult 1.4까지 반영해 HP 86으로 두 배율이 함께 들어가는지)
-  세 지점을 손으로 공식을 재계산해 대조), (6) `reset_run()`이 실제로
-  `monster_plan`을 3라운드×5방 모양으로 채우는지. `bash scripts/qa_shot.sh
-  dice_test` 전체 PASS(신규 섹션 포함, 기존 G-1~G-5 검증 전부 그대로 PASS).
-  **시각 QA**: `scripts/qa_shot.sh combat_test`로 (a) GAME_QA_ROOM_OVERRIDE/
-  GAME_QA_MONSTER_ID 환경변수 없이 그냥 로드했더니 기존처럼 항상 "슬라임"이
-  아니라 무작위로 뽑힌 신규 몬스터("유령", 기믹 "봉인")가 실제 전투 화면에
-  이름/계열 아이콘/디버그 정보 줄까지 정상 표시됨을 확인(정상 플레이에서
-  신규 몬스터가 처음으로 실제로 등장) — `combat_test_g6_normal.png`. (b)
-  `GAME_QA_ROOM_OVERRIDE=4`로 기존과 동일하게 "다크 나이트 [철벽] [보스]"가
-  그대로 뜸(공격6D8/방어3D8/HP44, 리팩터 전과 완전히 동일) —
-  `combat_test_g6_room_override.png`. (c) `GAME_QA_MONSTER_ID=armored_goblin`도
-  기존처럼 room0 기준(공격2D4/방어1D4)으로 그대로 뜸 —
-  `combat_test_g6_monster_override.png`. 셋 다 qa_out/에 저장, 프로젝트
-  루트에 스트레이 스크린샷 없음.
-  **G-6 완료.** 다음 할 일은 **G-7**(정예 전투 방 + 정예 풀 8종 — 아래
-  "지금 위치"/"다음 할 일 큐" 참고). "완료 기록" 10개 유지를 위해 (151)을
-  `docs/STATUS_ARCHIVE.md`로 옮겼다.
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(170)에서 (160)을 그리로 옮겼다.)*
+이번 이터레이션(171)에서 (161)을 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 

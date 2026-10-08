@@ -42,6 +42,7 @@ const DETAIL_ART_SIZE := Vector2(260, 293)
 @onready var start_button: Button = $StartButton
 @onready var achievement_button: Button = $AchievementButton
 @onready var achievement_panel: AchievementPanel = $AchievementPanel
+@onready var test_battle_button: Button = $TestBattleButton
 
 var _selected_id: String = CharacterProfiles.PROFILES[0]["id"]
 var _card_panels: Dictionary = {} # id -> PanelContainer (선택 강조 갱신용)
@@ -89,8 +90,21 @@ var _shortcut_buttons: Array[Button] = []
 func _ready() -> void:
 	start_button.pressed.connect(_on_start_pressed)
 	achievement_button.pressed.connect(_on_achievement_pressed)
+	_setup_test_battle_button()
 	_build_detail_panel()
 	_build_cards()
+
+
+## [대형 기획 8] H-4: "테스트 전투" 진입 버튼 — RunState.TEST_BATTLE_ENABLED가 false면
+## 아예 숨겨서 정식 빌드에서 노출되지 않게 한다. 정식 플레이 흐름(던전 시작/업적)을
+## 방해하지 않도록 업적 버튼 바로 아래 작은 크기 + 흐린 색으로 둬 눈에 띄지 않게 한다.
+func _setup_test_battle_button() -> void:
+	test_battle_button.visible = RunState.TEST_BATTLE_ENABLED
+	if not RunState.TEST_BATTLE_ENABLED:
+		return
+	test_battle_button.add_theme_font_size_override("font_size", 12)
+	test_battle_button.modulate = Color(1, 1, 1, 0.55)
+	test_battle_button.pressed.connect(_on_test_battle_pressed)
 
 
 func _build_cards() -> void:
@@ -121,6 +135,8 @@ func _build_cards() -> void:
 	_shortcut_buttons = select_buttons
 	_shortcut_buttons.append(start_button)
 	_shortcut_buttons.append(achievement_button)
+	if RunState.TEST_BATTLE_ENABLED:
+		_shortcut_buttons.append(test_battle_button)
 	KeyboardShortcuts.apply_hints(_shortcut_buttons)
 
 
@@ -555,6 +571,10 @@ func _on_start_pressed() -> void:
 	get_tree().change_scene_to_file("res://code/scenes/dungeon_map.tscn")
 
 
+func _on_test_battle_pressed() -> void:
+	get_tree().change_scene_to_file("res://code/scenes/test_battle_setup.tscn")
+
+
 func _on_achievement_pressed() -> void:
 	if achievement_panel.visible:
 		achievement_panel.close()
@@ -630,6 +650,13 @@ func _debug_start_run_as_shieldbearer() -> void:
 ## 스크롤/상세 패널 겹침 여부까지 함께 확인할 수 있다.
 func _debug_select_juggler() -> void:
 	_on_card_selected("juggler")
+
+
+## QA 전용: [대형 기획 8] H-4 — "테스트 전투" 버튼을 눌러 test_battle_setup.tscn으로
+## 실제로 전환되는지 확인(다른 _debug_start_run_as_*()와 같은 이유, 씬 전환을 포함하므로
+## get_viewport() 선취득 패턴은 필요 없음 — 이 메서드 자신은 더 이상 아무 것도 하지 않음).
+func _debug_open_test_battle() -> void:
+	_on_test_battle_pressed()
 
 
 ## QA 전용: 이전 QA 실행에서 남은 해금 상태가 섞이지 않도록 초기화한 뒤, 업적 하나를
