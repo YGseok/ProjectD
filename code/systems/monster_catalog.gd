@@ -258,9 +258,20 @@ const MONSTERS := [
 		"personality": "끈적한 본체로 모든 움직임을 둔하게 만드는 군주",
 	},
 	{
+		# [대형 기획 10] J-2 9차 시도(2026-10-08) — 측정 범위 확장(라운드당 후보 2종
+		# 전부 측정) 후 보스 6종 개별 승률에서 해골 장군이 2.9%로 가장 크게(-32.1%p)
+		# 목표(35~55%) 밑으로 벗어남을 확인(BALANCE_TUNING_LOG.md "J-2 측정 범위
+		# 확장" 참고). fixed_value(공격/방어 둘 다 항상 평균값 — 운 나쁜 낮은 굴림이
+		# 없음)+drain(공격턴마다 입힌 피해의 절반 회복)+chill(플레이어 공격 최댓값
+		# -1) 세 스킬이 전부 "꾸준함"을 강화하는 방향이라 다른 보스보다 변동성이
+		# 적고 끝까지 버티는 쪽으로 쏠려 있었다. amount 파라미터가 없는 스킬들이라
+		# (고블린 왕 armor/counter처럼 직접 깎을 수 없음) 대신 atk_dice_delta를
+		# 0->-1로 낮춰 공격 다이스 개수를 1개 줄인다 — 공격력 자체가 줄면 drain이
+		# 회복하는 절대량도 같이 줄어 두 스킬을 동시에 완화하는 효과가 있다.
 		"id": "skeleton_general", "name": "해골 장군", "family": "undead", "tier": "boss",
 		"color": Color(0.65, 0.62, 0.5),
-		"skills": [{"id": "fixed_value"}, {"id": "drain"}, {"id": "chill"}], "hp_mult": 1.0,
+		"skills": [{"id": "fixed_value"}, {"id": "drain"}, {"id": "chill"}],
+		"atk_dice_delta": -1, "hp_mult": 1.0,
 		"phase2_skills": [{"id": "revive"}],
 		"personality": "죽어서도 군대를 지휘하는 차가운 장군",
 	},

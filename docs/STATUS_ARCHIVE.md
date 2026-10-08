@@ -8,6 +8,45 @@
 
 ---
 
+- **2026-10-08 (173)**: INBOX.md "부분 처리됨"의 [대형 기획 9] 해적 **I-2(업적 +
+  시작 스킬)** — I-1 완료로 실행 순서상 다음 조각.
+  **업적**: `achievement_manager.gd`의 `DEFINITIONS`에 `clear_pirate`("해적으로
+  첫 클리어")/`r1_pirate`("해적으로 첫 던전 클리어") 2종을 다른 7캐릭터와
+  동일한 패턴으로 추가했다. `combat_test.gd`의 `_unlock_round_clear_
+  achievements()`가 이미 `_character_round1_achievement_id()`/`_character_
+  clear_achievement_id()`(둘 다 `"r1_%s"/"clear_%s" % char_id` 포맷팅만 하는
+  범용 함수)로 캐릭터 무관하게 동작하고 있어서, 해적용 분기를 따로 만들
+  필요 없이 DEFINITIONS 추가만으로 끝났다.
+  **시작 스킬**: `skill_pool.gd`의 `STARTING_SKILLS`에 해적용 슬롯0 선제
+  (`start_vanguard`)→슬롯1 황금손(`start_wealth`)→슬롯2 수집가(`start_hoard`)
+  순서를 배정하려 했는데, `starting_skills_for_character()`가 전역 배열
+  **등장 순서**로 슬롯 순서를 정하는 구조라 문제가 생겼다 — 기존 berserker가
+  이미 이 세 id 중 두 개(`start_hoard`→`start_vanguard`, 수집가가 선제보다
+  앞)를 공유하며 그 상대 순서로 고정돼 있어서, 같은 dict row의
+  `character_ids`에 "pirate"만 추가하면 해적도 똑같이 "수집가→선제" 순서를
+  물려받아 원하는 "선제→황금손→수집가"와 충돌했다(해적과 광전사가 요구하는
+  `start_hoard`/`start_vanguard`의 상대 순서가 정반대라, 단일 전역 배열
+  순서로는 둘 다 만족 불가능 — 수학적으로 불가능한 제약이었다). berserker/
+  novice 쪽 기존 엔트리는 그대로 두고, 해적 전용으로 id/name/description이
+  동일한 새 dict row 3개(`character_ids: ["pirate"]`만 다름)를 배열 끝에
+  추가해, 그 세 줄끼리의 상대 순서만으로 해적의 슬롯 순서를 만들었다 —
+  `find_skill(id)`는 첫 매치를 반환하지만 두 row의 name/description이
+  동일해 결과는 같다.
+  **검증(F-3 원칙 — 계산 결과 직접 확인)**: `dice_test.gd`의 `_check_round_
+  clear_achievements()`에 해적으로 라운드1 보스/최종 보스를 실제로 이기게
+  해 `r1_pirate`/`clear_pirate`가 실제로 `is_unlocked()`가 되는지 확인하는
+  블록을 추가(기존 guardian/berserker 검증과 같은 패턴 — DEFINITIONS 존재
+  여부만 보던 기존 `all_clear_ids`/`all_r1_ids` 리스트에도 `pirate` 추가).
+  `_check_starting_skills()`의 `expected` 표에 `"pirate": ["start_vanguard",
+  "start_wealth", "start_hoard"]`를 추가해 `starting_skills_for_character
+  ("pirate")`가 실제로 이 순서를 반환하는지 확인. `bash scripts/qa_shot.sh
+  dice_test` 전체 PASS(신규 체크 포함).
+  **시각 QA**: `character_select.gd`의 기존 `_debug_select_pirate()`로
+  캐릭터 선택 화면에서 해적을 고르고 `qa_out/character_select_pirate_
+  skills.png`로 확인 — 시작 스킬 슬롯이 "선제"(해금, 선택됨)/"황금손"(잠김)/
+  "수집가"(잠김) 순서로 겹침 없이 표시됨.
+  **I-2 완료.** 다음은 **I-3**(고유 스킬 `broadside`/`broadside_plus`).
+
 - **2026-10-08 (172)**: INBOX.md "남은 이슈"의 [대형 기획 9] 해적 **I-1(캐릭터 +
   기믹 플러밍)** — H-4 완료로 실행 순서상 다음 조각.
   **캐릭터**: `code/systems/character_profiles.gd`의 `PROFILES`에 8번째
