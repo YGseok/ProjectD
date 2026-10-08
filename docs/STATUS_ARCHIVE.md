@@ -8,6 +8,75 @@
 
 ---
 
+- **2026-10-08 (168)**: INBOX.md "남은 이슈"의 [대형 기획 8] **H-1(테스트 전투
+  모드 플러밍, UI 없음)**을 진행했다 — 같은 날 올라온 [대형 기획 8]/[대형 기획
+  7] F-5 중 지시된 실행 순서(H 먼저)상 첫 조각.
+  `code/systems/run_state.gd`에 `test_battle: bool`/`test_monster_id: String`/
+  `test_difficulty: int`/`test_round_index: int` 4개 필드 신설 — `reset_run()`은
+  `test_battle`만 항상 false로 초기화한다(나머지 test_* 필드는 H-2 설정 화면이
+  reset_run() 호출 **이후**에 이어서 세팅해야 "직전 선택 유지"가 됨).
+  `code/scenes/combat_test.gd`:
+  - 신규 `_monster_config_for_test(difficulty: int) -> Dictionary` — 기존
+    `_monster_config_for_plan()`/`_monster_config_for_elite()`와 같은 패턴으로
+    `_build_monster_config()`를 재사용한다. `RunState.test_monster_id`로
+    `MonsterCatalog` 35종(일반/정예/보스 전부) 중 아무거나 직접 구성하고,
+    `is_boss`는 room 위치가 아니라 프로필의 `tier=="boss"`로 판정(보스를 고르면
+    2페이즈/왕관/확대 연출이 그대로 나옴). id가 비었거나 없으면 일반 로스터
+    첫 몬스터로 폴백해 설정 화면(H-2) 없이도 크래시 안 남.
+  - `_ready()`가 `RunState.test_battle`을 `pending_elite_fight`/
+    `GAME_QA_ROOM_OVERRIDE`보다도 먼저 확인하도록 분기 추가.
+  - `_resolve_exchange()`의 승리/패배 분기에 `if RunState.test_battle: ...`
+    가드 추가 — 업적 unlock(`win_with_d20`/`flawless_win`/`comeback_win`/
+    `overkill_win`/`gold_100`/`first_defeat`) 전부와 골드/눈금 보상을 스킵하고
+    로그에 "[테스트 전투] ... 진행도 불변" 문구만 남긴다. `battle_over`/
+    `player_won`은 그대로 세팅(결과 화면 분기에 필요).
+  - `_apply_room_advance()`도 같은 가드 — `test_battle`이면 이중 실행 방지
+    플래그(`_room_advanced`)만 소비하고 `rooms_cleared`/`round_index` 증가,
+    `_unlock_round_clear_achievements()`, `advance_round()`, 패배 시
+    `reset_run()`을 전부 스킵한다.
+  - 결과 화면: 신규 `TestRetryButton`("다시 하기" — `_room_advanced` 가드 거쳐
+    `get_tree().reload_current_scene()`, test_* 필드를 안 건드리므로 `_ready()`가
+    같은 몬스터/난이도로 다시 구성)/`TestBackButton`("설정으로 돌아가기" —
+    `test_battle_setup.tscn`은 H-2가 만들 예정이라 아직 없음, `ResourceLoader.
+    exists()`로 확인 후 없으면 `character_select.tscn`으로 안전하게 폴백) 2개를
+    `_maybe_finish_battle()`이 `RunState.test_battle`일 때 기존 "다음"/"처음부터
+    다시" 버튼 대신 보여준다. `_rebuild_shortcuts()`에도 두 버튼을 추가해 숫자
+    단축키([1]/[2])가 정상 배정되게 함.
+  - QA 전용 동기 래퍼 `_debug_show_test_battle_win()`/`_debug_show_test_battle_
+    lose()` 추가 — `_maybe_finish_battle()`의 test_battle 분기를 await 없이
+    재현해 GAME_QA_CALL로 결과 화면을 스크린샷으로 확인할 수 있게 함(진입점이
+    아직 없어 실제 전투를 끝까지 돌릴 방법이 없으므로 필요).
+  `code/scenes/combat_test.tscn`에 두 버튼 노드(`TestRetryButton`/
+  `TestBackButton`, 둘 다 `visible=false` 기본, NextButton 옆 540~880px 영역에
+  배치, 겹침 없음) 추가.
+  **효과 단위 테스트**: `code/scenes/dice_test.gd`에 신규
+  `_check_h1_test_battle_mode()` 추가 — `code/qa/balance_sim.gd`가 쓰는 패턴
+  (`combat_test.gd`를 `.new()`만 해서 production 함수 직접 호출, 물리/UI 노드
+  없음)을 그대로 재사용하고, `DiceBag.force_fixed_value()`로 공격/방어 다이스
+  값을 고정해 승리/패배를 결정론적으로 재현했다(F-3 원칙 — "플래그가 들어갔는가"
+  대신 "계산/상태 결과가 실제로 바뀌는가"를 검증). 확인한 것: (1) `test_battle=
+  true`로 보스("고블린 왕")를 강제 승리시켜도 `AchievementManager._unlocked`가
+  빈 채 유지되고 `RunState.gold`/`pip_inventory`/`rooms_cleared`/`round_index`
+  전부 불변, (2) 같은 설정으로 강제 패배시켜도 업적 0개 유지 + (표식으로 미리
+  추가해둔 D20 다이스가 그대로 남아있는 것으로) `reset_run()`이 호출되지
+  않았음을 확인, (3) `test_battle=false`(일반 모드)에서는 같은 강제 승리
+  시나리오가 골드>0/눈금>0/`rooms_cleared==1`로 정상 진행되는지(이 가드 추가가
+  기존 동작을 깨지 않았는지 — 동작 보존), (4) `reset_run()` 호출 후
+  `test_battle`이 항상 false로 돌아오는지. `AchievementManager._unlocked`/
+  `RunState`의 관련 필드는 전부 백업 후 복원(F-3 E2E 테스트와 같은 패턴,
+  실제 진행도 비오염). `bash scripts/qa_shot.sh dice_test` 전체 PASS(신규
+  섹션 포함).
+  **시각 QA**: `scripts/qa_shot.sh combat_test`로 (a) 일반 전투 진행 화면이
+  새 버튼 2개 추가 후에도 레이아웃이 안 깨지는지(`qa_out/
+  combat_test_h1_check.png`), (b) 위 QA 래퍼로 승리/패배 결과 화면에서
+  "[1] 다시 하기"/"[2] 설정으로 돌아가기" 버튼이 겹침 없이 올바른 단축키로
+  보이는지(`qa_out/combat_test_h1_result.png`, `qa_out/
+  combat_test_h1_result_lose.png`) 둘 다 확인. `git status`로 루트에 의도치
+  않은 파일 없음도 확인(스크린샷 전부 `qa_out/` 아래).
+  **H-1 완료.** 다음은 **H-2**(테스트 전투 설정 화면 — 지금은 진입점 자체가
+  없어 실제 플레이에서는 전혀 도달 불가능한 플러밍 단계였음). "완료 기록" 10개
+  유지를 위해 (158)을 `docs/STATUS_ARCHIVE.md`로 옮겼다.
+
 - **2026-10-08 (167)**: INBOX.md "부분 처리됨"의 [대형 기획 5] **F-4c(밸런스
   리포트 작성)**을 진행했다 — F-4b 완료로 실행 순서상 마지막 조각이었다.
   **[대형 기획 5] F-1~F-4 전체 완료.**

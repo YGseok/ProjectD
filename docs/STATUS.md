@@ -5,24 +5,30 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-10-08 (177)
-- 작성자: AI 에이전트. INBOX.md "부분 처리됨" **[대형 기획 7] F-5(b)**(성장
-  정책 시뮬 실행 + TSV 저장)를 완료했다. 이번 이터레이션 시작 시
-  `code/qa/balance_sim.gd`에 F-5(b) 구현과 실행 결과(`qa_out/
-  balance_sim_growth_raw.tsv`)가 이미 **미커밋 상태로 존재**했다(직전
-  이터레이션이 사용량 한도로 끊긴 것) — `git diff`로 내용을 확인하고 새로
-  시작하지 않고 그대로 이어받아 검증만 했다. 캐릭터 8종 × 시작 스킬 슬롯
-  0만 × 정책 3종(balanced/attack_heavy/defense_heavy) × {라운드1~3×방0~4
-  (일반, 방4=보스) + 라운드1~3×방1~3(정예)} = 576개 조합 × 100판을 돌려
-  `qa_out/balance_sim_growth_raw.tsv`(577줄=헤더+576행, 행 수 기대값과 정확히
-  일치)에 저장했다. **검증(F-3 원칙)**: pirate/start_vanguard/balanced 정책의
-  라운드3 방0~3 승률(94%/96%/97%/66%)을 INBOX.md가 인용한 F-4 기준선
-  (라운드2 방1부터 ~0%, 라운드3 전부 0%)과 비교해, 성장 적용 후 같은 후반
-  구간 승률이 극적으로 올라간 것을 TSV 원자료로 직접 확인(플래그가 아니라
-  실제 전투 결과가 바뀜). 기존 F-4b 기준선 루프/TSV는 전혀 건드리지 않음.
-  `qa_out/`는 `.gitignore` 대상이라 TSV/PNG는 커밋 안 함 — `code/qa/
-  balance_sim.gd`만 커밋. 다음은 **F-5(c)**(`docs/BALANCE_GROWTH_REPORT.md`
-  생성기). 자세한 내용은 아래 "완료 기록 (177)" 참고.
+- 일시: 2026-10-08 (178)
+- 작성자: AI 에이전트. INBOX.md 최우선 지시 **[대형 기획 7] F-5(c)**(성장 정책
+  밸런스 리포트 생성기)를 완료해 **[대형 기획 7] 전체 완료**(F-5(a)/(b)는
+  이전 이터레이션에서 이미 끝나 있었음). 신규 `code/qa/balance_growth_report.gd`
+  (+ `code/scenes/balance_growth_report.tscn`, `balance_report.gd`와 같은
+  Node2D+ResultLabel 패턴)가 F-5(b)의 `qa_out/balance_sim_growth_raw.tsv`
+  (576행)를 읽어 `docs/BALANCE_GROWTH_REPORT.md`를 생성한다 — 맨 위 "성장
+  가정" 한 문단, 정책별 평균 곡선(글로벌 인덱스 0~14, 캐릭터 8종 평균) 3개
+  표, 정책×캐릭터별 24개 상세 승률 곡선 표(일반/정예), 라운드 경계/보스
+  직전·직후 구간의 낙폭 표(정책별 평균 곡선 기준) — 해석·조정 제안은 전혀
+  쓰지 않고 숫자만(INBOX.md F-5c 지시). `bash scripts/qa_shot.sh
+  balance_growth_report`로 실행해 크래시 없이 리포트가 저장되는 것을
+  확인했고(`qa_out/balance_growth_report.png`), 생성된 `BALANCE_GROWTH_
+  REPORT.md` 본문을 직접 열어 캐릭터·정책마다 승률 수치가 실제로 다르게
+  나오는 것(예: 균형 정책 R1방3 72.8% vs 공격 몰빵 77.3% vs 방어 몰빵
+  59.2%)을 확인해 플래그가 아니라 실제 집계 결과임을 검증했다. 낙폭 표에서
+  "보스 직후(다음 라운드 방0) 승률이 보스 직전보다 오히려 급등"하는 패턴이
+  보였는데, 이는 리포트 버그가 아니라 게임의 난이도 공식(`room_index +
+  (round_index-1)*3`)이 "라운드 전환 시 방 번호가 0으로 리셋"되는 데서 오는
+  기존 설계 특성임을 `_monster_config_for_plan()` 공식과 대조해 확인했다
+  (단순한 "growth 성장만 보는 global index"와 "실제 난이도"가 다른 공식을
+  쓰기 때문 — 리포트는 global index 축으로만 집계하므로 이 특성이 숫자에
+  그대로 드러난다). INBOX.md "부분 처리됨"의 F-5 항목은 (a)(b)(c) 전부 끝나
+  "처리됨"으로 이관했다. 자세한 내용은 아래 "완료 기록 (178)" 참고.
 
 ## 지금 위치
 
@@ -88,10 +94,12 @@ I-3(고유 스킬 "일제 사격" `broadside`/"일제 사격+" `broadside_plus`,
 위 "완료 기록 (175)", I-1~I-3은 "완료 기록 (172)~(174)"). **아트 스레드
 인계 필요**: 캐릭터 `pirate`(해적) 신규 — full + 표정 5종(청록빛 흑발
 #0E4A4F / 터콰이즈 코트 #1FA5A0, 약탈과 함포 사격의 호쾌한 해적 선장).
-**[대형 기획 7] F-5(a)(성장 정책 3종 계산 함수 + 단위 검증)/F-5(b)(시뮬 실행
-+ TSV 저장, `qa_out/balance_sim_growth_raw.tsv` 576행) 완료** — 상세는 아래
-"완료 기록 (176)"/"(177)". 다음은 **F-5(c)(`docs/BALANCE_GROWTH_REPORT.md`
-생성기)**.
+**[대형 기획 7] F-5(성장 정책 밸런스 시뮬) 전체 완료(a~c)** — a(계산 함수+
+단위 검증)/b(시뮬 실행+TSV 저장, `qa_out/balance_sim_growth_raw.tsv` 576행)에
+이어 c(`docs/BALANCE_GROWTH_REPORT.md` 자동 생성 리포트 — 성장 가정 1문단 +
+정책별 평균 곡선 + 정책×캐릭터별 24개 상세 곡선 + 라운드 경계/보스 전후 낙폭,
+해석·조정 제안 없이 숫자만)까지 완료. 상세는 아래 "완료 기록 (176)~(178)".
+조정은 사람이 이 리포트를 보고 다음 지시로 결정.
 **ART-1a(아트 스레드 전달) 완료** — 캐릭터 선택 카드 목록 ScrollContainer
 전환(상세는 `docs/STATUS_ARCHIVE.md`의 완료 기록 (152)). ART-1b/1c는 원화
 파일 도착 전 상태라 여전히 대기.
@@ -222,17 +230,12 @@ I-3(고유 스킬 "일제 사격" `broadside`/"일제 사격+" `broadside_plus`,
 이 순서를 반드시 지킬 필요는 없지만, 앞 단계가 뒤 단계의 전제가 되므로 대체로 순서대로
 진행하는 것을 권장한다. 한 이터레이션에 한두 개만 진행할 것.
 
-**최우선 (INBOX.md 지시 — 아래 번호 매긴 큐보다 먼저):**
-- **[대형 기획 7] F-5(a→b→c, 성장 정책 밸런스 시뮬 — INBOX.md "남은 이슈"
-  2026-10-08 원문 참고). F-5(a)(계산 함수+단위 검증)/F-5(b)(시뮬 실행+TSV
-  저장) 완료** (`code/qa/balance_sim.gd`의 `growth_sides_for`/
-  `growth_counts_for`/`growth_config_for`/`apply_growth`/
-  `_run_growth_simulation`/`_simulate_growth_combo`, `dice_test.gd`의
-  `_check_f5a_growth_policies()`, `qa_out/balance_sim_growth_raw.tsv`(576행),
-  완료 기록(176)/(177) 참고). 다음은 **F-5(c)**(리포트 생성기 —
-  `docs/BALANCE_GROWTH_REPORT.md`, `code/qa/balance_report.gd`와 같은 패턴으로
-  TSV를 읽어 정책×캐릭터별 global index 0~14 승률 곡선 표 + 정책별 평균 곡선
-  + 라운드 경계/보스 직전·직후 낙폭, 해석·조정 제안 없이 숫자만).
+**최우선 (INBOX.md 지시 — 아래 번호 매긴 큐보다 먼저):** 없음 — [대형 기획 7]
+F-5(a→b→c)가 2026-10-08 (178)로 전체 완료되면서 INBOX.md "남은 이슈"/"부분
+처리됨"에 처리 대기 중인 대형 항목이 없어졌다(현재 INBOX.md "남은 이슈"는 빈
+섹션). 다음 이터레이션은 아래 번호 매긴 큐에서 고를 것 — 다만 큐의 대부분이
+"사람 플레이테스트/설계 결정 필요"로 묶여 있으므로(아래 "알려진 이슈" 참고),
+코드를 다시 읽어도 진행 가능한 독립 작업이 없다면 커밋 없이 세션을 끝낼 것.
 
 0. **(INBOX.md 신규 2026-09-03) UI 접근성/가시성 4종 — 1/4 부분 착수.** 전부 "전투/
    선택지 화면 어디서든 정보가 상시 보이거나, 조작이 더 직관적이어야 한다"는 계열의
@@ -839,6 +842,54 @@ I-3(고유 스킬 "일제 사격" `broadside`/"일제 사격+" `broadside_plus`,
 
 ## 완료 기록
 
+- **2026-10-08 (178)**: INBOX.md 최우선 지시 [대형 기획 7] **F-5(c)(성장 정책
+  밸런스 리포트 생성기)** — F-5(a)/(b) 완료로 실행 순서상 마지막 조각,
+  **[대형 기획 7] F-5 전체 완료**.
+  **구현**: 신규 `code/qa/balance_growth_report.gd`(+ `code/scenes/
+  balance_growth_report.tscn`)를 `code/qa/balance_report.gd`(F-4c)와 같은
+  Node2D+ResultLabel 패턴으로 작성 — `qa_out/balance_sim_growth_raw.tsv`
+  (F-5b, 576행, 캐릭터 8종×시작 스킬 슬롯0×정책 3종×{라운드1~3×방0~4+방1~3
+  정예})을 읽어 `docs/BALANCE_GROWTH_REPORT.md`를 생성한다. 구성: (1) 맨 위
+  "성장 가정" 한 문단(정책 3종 정의, 전투 2회마다 다이스+1개, global index
+  5/10에서 D4→D6→D8 승급, 시작 스킬 슬롯0 고정 등 F-5a/b가 이미 확정한
+  가정을 그대로 서술), (2) "시뮬 조건(재현용)" 불릿, (3) **정책별 평균
+  곡선** — 정책 3종 각각 global index 0~14를 열로 삼은 표(일반/정예 평균
+  승률 2줄, 캐릭터 8종 평균), (4) **정책×캐릭터별 상세 곡선** — 정책×캐릭터
+  8종 = 24개 같은 포맷 표(일반/정예 승률), (5) **라운드 경계/보스 직전·직후
+  낙폭** — 정책별 평균 곡선 기준으로 R1~R3 보스 전/후 5개 구간의 승률
+  변화(%p)를 표로. `_elite_global_indices()`/`_index_label()`은
+  `RunState.TOTAL_ROOMS`/`TOTAL_ROUNDS`에서 계산해 하드코딩 없음. 전부
+  "측정/집계만, 해석·조정 제안 없음"(INBOX.md F-5c 지시) 원칙을 지켰다 —
+  숫자 계산 함수(`_average_win_rate`/`_find_row`/`_curve_table`) 외의 서술은
+  없음.
+  **검증**: `bash scripts/qa_shot.sh balance_growth_report 10 qa_out/
+  balance_growth_report.png`로 실행 — 크래시 없이 `[balance_growth_report]
+  완료 — docs/BALANCE_GROWTH_REPORT.md 저장 (576행, 정책 3종)` 로그와
+  스크린샷이 정상 저장됐다. 생성된 `docs/BALANCE_GROWTH_REPORT.md`(254줄)를
+  직접 열어 (1) 정책별 평균 곡선에서 균형/공격 몰빵/방어 몰빵 3개 표의
+  숫자가 실제로 서로 다른지(예: R1방3 일반 평균승률 72.8%/77.3%/59.2% —
+  정책마다 다름, 플래그가 아니라 실제 집계), (2) 캐릭터 8종(해적 포함)이
+  빠짐없이 24개 표에 전부 등장하는지, (3) 정예 global index(1,2,3,6,7,8,
+  11,12,13)가 아닌 칸은 "-"로 올바르게 비어있는지, (4) 낙폭 표의 5개
+  구간이 "R1방3→R1보스"/"R1보스→R2방0" 등 설계대로 계산됐는지(예: 균형
+  정책 R1방3(72.8%)→R1보스(0%) = -72.8%p) 직접 대조해 확인했다.
+  **발견**: 낙폭 표에서 "보스 직후(다음 라운드 방0)" 승률이 "보스 직전"보다
+  오히려 급등하는 패턴(예: 균형 정책 R1보스 0% → R2방0 100%)을 발견했는데,
+  코드 버그가 아니라 게임의 실제 난이도 공식(`room_index +
+  (round_index-1)*3`, `combat_test.gd`)이 라운드 전환 시 방 번호가 0으로
+  리셋되는 데서 오는 기존 설계 특성임을 공식과 대조해 확인했다(이 리포트의
+  "global index"는 성장 축일 뿐 난이도 공식과는 다른 축이라 그대로 드러남).
+  해석·조정 제안 없이 숫자만 적는 게 원칙이라 리포트 본문에는 반영하지
+  않고 여기 완료 기록에만 남긴다.
+  `git status`로 루트에 의도치 않은 파일 없음 확인(스크린샷은
+  `qa_out/balance_growth_report.png`, `qa_out/`는 `.gitignore` 대상이라
+  TSV/PNG는 커밋 제외 — `code/qa/balance_growth_report.gd`+`.tscn`과
+  `docs/BALANCE_GROWTH_REPORT.md`만 커밋).
+  **[대형 기획 7] F-5 전체 완료.** INBOX.md "부분 처리됨" → "처리됨"으로
+  이관. 조정은 사람이 `docs/BALANCE_GROWTH_REPORT.md`를 보고 다음 지시로
+  결정 — 지금은 측정만 끝난 상태. "완료 기록" 10개 유지를 위해 (168)을
+  `docs/STATUS_ARCHIVE.md`로 옮겼다.
+
 - **2026-10-08 (177)**: INBOX.md "부분 처리됨"의 [대형 기획 7] **F-5(b)(시뮬
   실행/TSV 저장)** — F-5(a) 완료로 실행 순서상 다음 조각. 이번 이터레이션
   시작 시 `code/qa/balance_sim.gd`에 이미 F-5(b) 구현(`_run_growth_simulation()`/
@@ -1254,78 +1305,9 @@ I-3(고유 스킬 "일제 사격" `broadside`/"일제 사격+" `broadside_plus`,
   주머니 크기/면 개수/골드/인벤토리 프리셋과 스킬 체크박스 추가). "완료
   기록" 10개 유지를 위해 (159)를 `docs/STATUS_ARCHIVE.md`로 옮겼다.
 
-- **2026-10-08 (168)**: INBOX.md "남은 이슈"의 [대형 기획 8] **H-1(테스트 전투
-  모드 플러밍, UI 없음)**을 진행했다 — 같은 날 올라온 [대형 기획 8]/[대형 기획
-  7] F-5 중 지시된 실행 순서(H 먼저)상 첫 조각.
-  `code/systems/run_state.gd`에 `test_battle: bool`/`test_monster_id: String`/
-  `test_difficulty: int`/`test_round_index: int` 4개 필드 신설 — `reset_run()`은
-  `test_battle`만 항상 false로 초기화한다(나머지 test_* 필드는 H-2 설정 화면이
-  reset_run() 호출 **이후**에 이어서 세팅해야 "직전 선택 유지"가 됨).
-  `code/scenes/combat_test.gd`:
-  - 신규 `_monster_config_for_test(difficulty: int) -> Dictionary` — 기존
-    `_monster_config_for_plan()`/`_monster_config_for_elite()`와 같은 패턴으로
-    `_build_monster_config()`를 재사용한다. `RunState.test_monster_id`로
-    `MonsterCatalog` 35종(일반/정예/보스 전부) 중 아무거나 직접 구성하고,
-    `is_boss`는 room 위치가 아니라 프로필의 `tier=="boss"`로 판정(보스를 고르면
-    2페이즈/왕관/확대 연출이 그대로 나옴). id가 비었거나 없으면 일반 로스터
-    첫 몬스터로 폴백해 설정 화면(H-2) 없이도 크래시 안 남.
-  - `_ready()`가 `RunState.test_battle`을 `pending_elite_fight`/
-    `GAME_QA_ROOM_OVERRIDE`보다도 먼저 확인하도록 분기 추가.
-  - `_resolve_exchange()`의 승리/패배 분기에 `if RunState.test_battle: ...`
-    가드 추가 — 업적 unlock(`win_with_d20`/`flawless_win`/`comeback_win`/
-    `overkill_win`/`gold_100`/`first_defeat`) 전부와 골드/눈금 보상을 스킵하고
-    로그에 "[테스트 전투] ... 진행도 불변" 문구만 남긴다. `battle_over`/
-    `player_won`은 그대로 세팅(결과 화면 분기에 필요).
-  - `_apply_room_advance()`도 같은 가드 — `test_battle`이면 이중 실행 방지
-    플래그(`_room_advanced`)만 소비하고 `rooms_cleared`/`round_index` 증가,
-    `_unlock_round_clear_achievements()`, `advance_round()`, 패배 시
-    `reset_run()`을 전부 스킵한다.
-  - 결과 화면: 신규 `TestRetryButton`("다시 하기" — `_room_advanced` 가드 거쳐
-    `get_tree().reload_current_scene()`, test_* 필드를 안 건드리므로 `_ready()`가
-    같은 몬스터/난이도로 다시 구성)/`TestBackButton`("설정으로 돌아가기" —
-    `test_battle_setup.tscn`은 H-2가 만들 예정이라 아직 없음, `ResourceLoader.
-    exists()`로 확인 후 없으면 `character_select.tscn`으로 안전하게 폴백) 2개를
-    `_maybe_finish_battle()`이 `RunState.test_battle`일 때 기존 "다음"/"처음부터
-    다시" 버튼 대신 보여준다. `_rebuild_shortcuts()`에도 두 버튼을 추가해 숫자
-    단축키([1]/[2])가 정상 배정되게 함.
-  - QA 전용 동기 래퍼 `_debug_show_test_battle_win()`/`_debug_show_test_battle_
-    lose()` 추가 — `_maybe_finish_battle()`의 test_battle 분기를 await 없이
-    재현해 GAME_QA_CALL로 결과 화면을 스크린샷으로 확인할 수 있게 함(진입점이
-    아직 없어 실제 전투를 끝까지 돌릴 방법이 없으므로 필요).
-  `code/scenes/combat_test.tscn`에 두 버튼 노드(`TestRetryButton`/
-  `TestBackButton`, 둘 다 `visible=false` 기본, NextButton 옆 540~880px 영역에
-  배치, 겹침 없음) 추가.
-  **효과 단위 테스트**: `code/scenes/dice_test.gd`에 신규
-  `_check_h1_test_battle_mode()` 추가 — `code/qa/balance_sim.gd`가 쓰는 패턴
-  (`combat_test.gd`를 `.new()`만 해서 production 함수 직접 호출, 물리/UI 노드
-  없음)을 그대로 재사용하고, `DiceBag.force_fixed_value()`로 공격/방어 다이스
-  값을 고정해 승리/패배를 결정론적으로 재현했다(F-3 원칙 — "플래그가 들어갔는가"
-  대신 "계산/상태 결과가 실제로 바뀌는가"를 검증). 확인한 것: (1) `test_battle=
-  true`로 보스("고블린 왕")를 강제 승리시켜도 `AchievementManager._unlocked`가
-  빈 채 유지되고 `RunState.gold`/`pip_inventory`/`rooms_cleared`/`round_index`
-  전부 불변, (2) 같은 설정으로 강제 패배시켜도 업적 0개 유지 + (표식으로 미리
-  추가해둔 D20 다이스가 그대로 남아있는 것으로) `reset_run()`이 호출되지
-  않았음을 확인, (3) `test_battle=false`(일반 모드)에서는 같은 강제 승리
-  시나리오가 골드>0/눈금>0/`rooms_cleared==1`로 정상 진행되는지(이 가드 추가가
-  기존 동작을 깨지 않았는지 — 동작 보존), (4) `reset_run()` 호출 후
-  `test_battle`이 항상 false로 돌아오는지. `AchievementManager._unlocked`/
-  `RunState`의 관련 필드는 전부 백업 후 복원(F-3 E2E 테스트와 같은 패턴,
-  실제 진행도 비오염). `bash scripts/qa_shot.sh dice_test` 전체 PASS(신규
-  섹션 포함).
-  **시각 QA**: `scripts/qa_shot.sh combat_test`로 (a) 일반 전투 진행 화면이
-  새 버튼 2개 추가 후에도 레이아웃이 안 깨지는지(`qa_out/
-  combat_test_h1_check.png`), (b) 위 QA 래퍼로 승리/패배 결과 화면에서
-  "[1] 다시 하기"/"[2] 설정으로 돌아가기" 버튼이 겹침 없이 올바른 단축키로
-  보이는지(`qa_out/combat_test_h1_result.png`, `qa_out/
-  combat_test_h1_result_lose.png`) 둘 다 확인. `git status`로 루트에 의도치
-  않은 파일 없음도 확인(스크린샷 전부 `qa_out/` 아래).
-  **H-1 완료.** 다음은 **H-2**(테스트 전투 설정 화면 — 지금은 진입점 자체가
-  없어 실제 플레이에서는 전혀 도달 불가능한 플러밍 단계였음). "완료 기록" 10개
-  유지를 위해 (158)을 `docs/STATUS_ARCHIVE.md`로 옮겼다.
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(177)에서 (167)을 그리로 옮겼다.)*
+이번 이터레이션(178)에서 (168)을 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 
