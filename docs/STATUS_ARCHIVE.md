@@ -8,6 +8,43 @@
 
 ---
 
+- **2026-10-07 (156)**: INBOX.md "남은 이슈"의 [대형 기획 6](몬스터 대개편)
+  **G-1(계열 + 몬스터 카탈로그 + 계열 아이콘)**을 진행했다. F-3 완료로 실행
+  순서상 다음은 G-1이었고, 지시문대로 **이 단계는 전투 동작을 바꾸지
+  않는다** — 기존 5종(슬라임/고블린/해골 전사/오크/다크 나이트)의 dice_gimmick
+  적용 로직은 전혀 안 건드리고 데이터 위치만 옮겼다.
+  신규 `code/systems/monster_catalog.gd`(`MonsterCatalog`)에 `FAMILIES`
+  (인간형/부정형/야수형/언데드형 4종, id/이름/설명)와 `MONSTERS`(5종, id/name/
+  family/tier/color/skills/hp_mult/personality)를 정의하고, `combat_test.gd`의
+  기존 `MONSTER_PROFILES` 상수를 삭제해 `_monster_config_for_room()`이
+  `MonsterCatalog.MONSTERS`를 직접 읽게 바꿨다. "skills" 필드(미래형 — G-2
+  몬스터 스킬 프레임워크가 읽을 자리)는 지금은 `[{"id": <기존 dice_gimmick
+  문자열>}]` 하나뿐이고, 신규 `MonsterCatalog.gimmick_of()`가 skills[0].id를
+  뽑아 기존 "dice_gimmick" 코드 경로에 그대로 넘기는 호환 다리 역할만 한다.
+  계열 배정은 지시문 그대로: 슬라임=부정형, 고블린=인간형, 해골 전사=언데드형,
+  오크=야수형, 다크 나이트=인간형.
+  신규 `code/scenes/family_icon.gd`(`FamilyIcon`, `skill_icon.gd`/
+  `reward_icon.gd`와 같은 절차적 `_draw()` 패턴)로 계열별 도형(인간형=방패,
+  부정형=물방울, 야수형=발톱 자국 3개, 언데드형=해골)을 그리고, `is_boss`가
+  true면 작은 왕관을 덧그린다(G-8 보스 6종이 쓸 자리를 미리 열어둠 — 지금은
+  기존 "마지막 방 보스 강화"의 `is_boss` 플래그에 그대로 연동). `combat_test.
+  tscn`에 `MonsterFamilyIcon` 노드를 `MonsterHPLabel`(몬스터 이름이 들어간
+  HP 라벨) 바로 왼쪽에 추가하고, `_ready()`/`_debug_show_anger_dice()`에서
+  `monster_family_icon.category`를 몬스터 family로 세팅한다.
+  `dice_test.gd`에 `_check_monster_catalog_family_icons()`를 추가해 (1)
+  MONSTERS 5종의 family가 전부 `MonsterCatalog.FAMILIES`와
+  `FamilyIcon.CATEGORIES`에 실제로 존재하는지, (2) G-1이 "동작 변경 없음"을
+  지켰는지(`MonsterCatalog.gimmick_of()`가 room 0~4 각각에서 기존
+  `_monster_config_for_room()["dice_gimmick"]`과 정확히 일치하는지)를
+  검증한다. `bash scripts/qa_shot.sh dice_test` 전체 PASS(신규 섹션 포함),
+  `scripts/qa_shot.sh combat_test`로 전투 화면 크래시 없음 + 몬스터 HP 라벨
+  왼쪽에 계열 아이콘(슬라임=물방울)이 겹침 없이 표시됨을 스크린샷으로 확인
+  (`qa_out/combat_test.png`). `docs/DESIGN.md`의 "던전 몬스터" 절 정의 위치
+  설명도 `MonsterCatalog`를 가리키도록 갱신(표 자체는 G-9에서 전면 개편
+  예정이라 아직 안 건드림). 다음 할 일은 **G-2**(몬스터 스킬 프레임워크
+  신설 + 기존 4종 이식, 동작 보존) — 아래 "다음 할 일 큐" 참고. "완료 기록"
+  10개 유지를 위해 (146)을 `docs/STATUS_ARCHIVE.md`로 옮겼다.
+
 - **2026-10-07 (155)**: INBOX.md "부분 처리됨"의 [대형 기획 5] **F-3(테스트
   보강)의 3번째이자 마지막 조각**을 진행했다 — (154)가 "남은 F-3 범위"로
   지목한 항목 중 (1) 재굴림형 스택(frenzy_deepen/guard_deepen/chain_explosion/

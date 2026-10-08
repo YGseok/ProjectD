@@ -5,38 +5,42 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-10-07 (165)
-- 작성자: AI 에이전트. 이번 이터레이션 시작 시 `code/scenes/combat_test.gd`에
-  직전 세션이 사용량 한도로 끊기며 남긴 **미완성 미커밋 변경**을 발견했다 —
-  [대형 기획 5] **F-4a**(헤드리스 밸런스 시뮬 경로 확보)의 일부로
-  `_do_exchange()`를 `_select_exchange_bags()`/`_resolve_exchange()`로
-  쪼개려던 리팩터였는데, `_resolve_exchange()`가 `Dictionary`를 반환하는
-  시그니처인데도 본문은 옛 `_do_exchange()`의 UI/`await` 코드(다이스 칩
-  표시, 포트레이트 표정, 라벨, 보상 화면 전환 타이머)를 그대로 가진 채
-  **한 번도 실제로 Dictionary를 반환하지 않았고**, `_maybe_activate_
-  boss_phase2()`도 새 시그니처(`logs: Array`를 받아 `bool`을 반환)로
-  바뀌었는데 호출부는 옛 무인자 호출 그대로 남아있었다 — 즉 그대로 두면
-  게임이 크래시하거나(인자 불일치) 전투 결과가 전혀 안 뜨는 상태였다.
-  새로 시작하지 않고 그 diff를 끝까지 완성했다: `_resolve_exchange()`를
-  정말로 "물리/UI에 의존하지 않는" 순수 계산으로 만들어(기믹/스킬 보정 →
-  데미지 계산 → HP/스택/업적/골드·눈금 보상 반영까지 전부 포함, `logs`
-  배열 + `atk_values`/`def_values`/`dmg`/`reflect_damage`/`revive_to`/
-  `boss_phase2_activated`를 담은 `Dictionary`를 반환하도록 정리), 신규
-  `_maybe_finish_battle(dmg)` 함수를 만들어 화면 전환(승리/패배 문구·
-  포트레이트, 커스터마이징 토글, 교환 사이 pause 타이머, 덱 패널 닫기,
-  다음 버튼/보상 UI)만 거기로 모았다. `_do_exchange()`는 이제 물리 스폰/
-  정지 대기 → `_resolve_exchange()` 호출 → 결과로 칩/포트레이트 갱신 →
-  `await _maybe_finish_battle(dmg)` 순서로만 남는다(`_run_battle()`이
-  `await _do_exchange()` 직후 `battle_over`를 확인하므로 이 await 체인이
-  끊기면 안 됨 — 기존에 빠져 있던 await도 추가).
-  `bash scripts/qa_shot.sh dice_test` 전체 PASS(함수 분리 전과 동일한
-  로직이라 기존 회귀 그대로 통과), `scripts/qa_shot.sh combat_test 180
-  qa_out/combat_test_f4a.png "" 1`로 실제 전투 화면을 정지 감지까지 띄워
-  HP 막대/다이스 칩/로그/몬스터 계열 아이콘이 리팩터 전과 동일하게 보이는지
-  확인(`qa_out/combat_test_f4a.png`). 이걸로 **F-4a 완료** — 다음은
-  **F-4b**(시뮬 러너: `code/qa/balance_sim.gd` 신설, 7캐릭터×시작 스킬
-  슬롯×방 0~4 각 200판). 자세한 내용은 아래 "완료 기록 (165)" 참고.
-  "완료 기록" 10개 유지를 위해 (155)를 `docs/STATUS_ARCHIVE.md`로 옮겼다.
+- 일시: 2026-10-08 (166)
+- 작성자: AI 에이전트. [대형 기획 5] **F-4b(밸런스 시뮬 러너)**를 진행했다.
+  신규 `code/qa/balance_sim.gd`(+ `code/scenes/balance_sim.tscn`)가 F-4a가
+  연 헤드리스 경로(`_select_exchange_bags()`/`_resolve_exchange()`)를
+  `combat_test.gd`를 `.new()`만 해서(트리에 add_child 안 함, `dice_test.gd`가
+  이미 쓰는 패턴) 그대로 호출해 전투 한 판을 물리/UI 없이 계산한다.
+  [대형 기획 6] G 완료 후 확정된 지시대로 범위를 "기본 몬스터 5종 × 방 0~4"
+  에서 **"계획된 몬스터 + 정예 + 보스, 라운드 1~3"**으로 넓혔다 — 캐릭터
+  7종 × 시작 스킬 슬롯 3개(해금 가정) × {라운드 1~3 × 방 0~4(일반, 방4=
+  보스) + 라운드 1~3 × 방 1~3(정예, G-7과 같은 범위)} = 504개 조합 × 100판
+  (조합마다 동일 몬스터를 상대하도록 `FIXED_PLAN_SEED`로 몬스터 뽑기를
+  고정 — 다이스 RNG만 매 trial 독립적으로 다시 굴림).
+  구현 중 **헤드리스 재사용을 막던 숨은 결함 2건을 발견해 고쳤다**:
+  (1) `_resolve_exchange()` 안의 "대비"/"오뚝이"/"과적(방어)"/"잡화점(방어)"
+  네 블록이 F-4a의 "logs 배열에 적재" 관례를 안 지키고 `_append_log()`를
+  직접 호출해 `log_label`(UI 노드)을 건드리고 있었다 — `.new()`로만 만든
+  인스턴스는 `log_label`이 null이라 그대로 뒀으면 그 네 스킬이 걸릴 때마다
+  크래시했을 것. `logs.append(...)`로 통일. (2) `_apply_spare_die()`도
+  같은 이유로 `_append_log()`를 직접 불렀는데, `_apply_bonus_reroll()`과
+  달리 "로그는 호출부 책임" 관례를 안 지킨 것 — `logs: Array = []` 옵션
+  매개변수를 추가해 호출부(`_resolve_exchange()`)가 넘기면 거기 적재하고
+  안 넘기면(기존 `dice_test.gd` 단위 검증 호출들) 조용히 값만 계산하게
+  바꿨다. 또한 `_ready()`의 "몬스터/플레이어 전투 상태 초기화" 중 UI 의존이
+  없는 부분을 `_apply_monster_config(config)`/`_reset_player_battle_state()`
+  로 뽑아내 `_ready()`와 `balance_sim.gd`가 같은 함수를 공유하게 했다(F-4a
+  원칙을 "전투 해석"에서 "전투 시작"까지 확장 — 시뮬 전용 복붙 금지).
+  `bash scripts/qa_shot.sh dice_test` 전체 PASS(리팩터 전과 동일한 로직이라
+  기존 회귀 그대로 통과), `bash scripts/qa_shot.sh balance_sim 60 qa_out/
+  balance_sim.png`로 504개 조합 × 100판(전투 50,400판)을 크래시 없이 완주
+  (몇몇 교착 조합은 `MAX_EXCHANGES=120` 안전장치로 타임아웃 처리됨 — 정상
+  동작), 스크린샷(`qa_out/balance_sim.png`)과 원자료
+  `qa_out/balance_sim_raw.tsv`(504행, 다음 조각이 바로 읽을 수 있음) 둘 다
+  정상 저장 확인. **F-4b 완료** — 다음은 **F-4c**(`docs/BALANCE_REPORT.md`
+  작성: 원자료를 표로 정리 + 전체 평균 대비 ±15%p 이상치만 표시, 해석/조정
+  제안은 안 씀). 자세한 내용은 아래 "완료 기록 (166)" 참고. "완료 기록"
+  10개 유지를 위해 (156)을 `docs/STATUS_ARCHIVE.md`로 옮겼다.
 
 ## 지금 위치
 
@@ -46,99 +50,43 @@
 id: `juggler`)**) → 던전 맵(런 5방 × 3라운드) → 전투/상점/특수 이벤트/
 스토리 이벤트/**정예 전투**까지 한 바퀴 플레이 가능. 전투는 항상 노출,
 상점은 2번째/4번째 방 고정(`SHOP_FIXED_ROOM_INDICES`), 특수 이벤트/스토리
-이벤트는 방마다 확률 노출 + 결정적 순서 섞기, **정예 전투는 방 1~3에서만
-35%(`ELITE_CHANCE`) 확률로 추가 노출**(G-7, 2026-10-07 신규). 마지막
-방(보스 방)은 전투만 강제(`dungeon_map.gd`의 `_room_options_for_index()`).
-특수 이벤트 방은 세 갈래로 분기한다 — 20%(`SKILL_UPGRADE_EVENT_CHANCE`)
-확률로 스킬 강화(보유한 스킬 중 하나를 "+"판으로), 그 다음
-30%(`SKILL_EVENT_CHANCE`) 확률로 새 스킬 획득, 나머지는 기존 안전/위험
-아이템 이벤트 — 두 확률 모두 해당 후보가 없으면 항상 다음 분기로
-폴백한다. **[미니 기획 D](스킬 강화 이벤트)/[미니 기획 E](캐릭터별 시작
-스킬 선택) 둘 다 전체 완료.**
-**[대형 기획 4] 캐릭터 로스터 개편 전체(A/B/C/D 1~7번) 완료** — 방패병→
-"주술사" 리스킨, 신규 매혹사(`enchantress`)/곡예사(`juggler`) 추가.
-매혹사/곡예사는 "캐릭터 스킬 부여 이벤트"를 만나면 공용 스킬(심호흡/여분)에
-더해 각자의 고유 스킬(매혹 심화/곡예 앙코르)도 후보로 뜬다. `DeckPanel`
-(전투 제외 4개 화면 상시 표시 + 전투 화면 토글)에는 "보유 스킬" 섹션이 있어
+이벤트는 방마다 확률 노출 + 결정적 순서 섞기, 정예 전투는 방 1~3에서만
+35%(`ELITE_CHANCE`) 확률로 추가 노출. 마지막 방(보스 방)은 전투만 강제
+(`dungeon_map.gd`의 `_room_options_for_index()`). 특수 이벤트 방은 세
+갈래로 분기한다 — 20%(`SKILL_UPGRADE_EVENT_CHANCE`) 확률로 스킬 강화
+(보유한 스킬 중 하나를 "+"판으로), 그 다음 30%(`SKILL_EVENT_CHANCE`)
+확률로 새 스킬 획득, 나머지는 기존 안전/위험 아이템 이벤트 — 두 확률
+모두 해당 후보가 없으면 항상 다음 분기로 폴백한다.
+**[대형 기획 4](캐릭터 로스터 개편) 전체 완료** — 방패병→"주술사" 리스킨,
+신규 매혹사(`enchantress`)/곡예사(`juggler`) 추가. `DeckPanel`(전투 제외
+4개 화면 상시 표시 + 전투 화면 토글)에 "보유 스킬" 섹션이 있어
 `RunState.skill_flags`(시작 스킬 + 이벤트로 얻은 스킬 + "+" 강화판)를
 이름으로 풀어 캐릭터 정보 바로 아래에 나열한다.
-**[대형 기획 5] F-1·F-2·F-3 전체 완료, F-4a도 완료(2026-10-07 (165)) —
-F-4b/c만 남음(INBOX.md 2026-10-06 기획자 결정, 실행 순서
-F-2→F-3→G-1~G-9→F-4 — F-4는 G-9 완료 후 진행).**
-캐릭터 선택 화면에서 잠긴 시작 스킬 슬롯을 클릭하면(`disabled=false`)
-`RunState.chosen_starting_skill_id`는 바뀌지 않은 채 "미리보기"로 전환돼,
-설명란에 자물쇠 배지 + 효과 설명 + 노란 해금 조건 문구(`SkillPool.
-unlock_requirement()`)가 함께 보인다(F-1). 시작 스킬은 캐릭터당 3개의 3단
-해금 사다리(슬롯0=항상 해금/슬롯1=`r1_<id>`(첫 던전 클리어)/슬롯2=
-`clear_<id>`(최종 클리어))이고, 13종 원형(기존 6 + F-2 신규 7: 선제/대비/
-황금손/과적/오뚝이/승부사/잡화점) 전부 실제 전투/이벤트 효과가 배선돼
-있다(`combat_test.gd`의 `_do_exchange()` 12종 + `event.gd`의 `_ready()`
-1종("승부사", DC 보정) — 상세 수식은 `docs/DESIGN.md` "시작 스킬 선택" 절
-표 참고). **F-3(테스트 보강, 3조각)이 전부 끝나 시작 스킬 13종 전부의
-보너스 계산이 정적 함수로 분리돼 물리 없이 직접 검증되고, 재굴림형 스택
-적립→보너스 턴 전환 로직도 순수 함수화됐으며, 캐릭터 선택→라운드1
-클리어→최종 클리어→해금된 시작 스킬로 새 런 시작까지 이어지는 전체
-흐름(E2E)도 견습 모험가+곡예사 2종으로 검증됐다**(상세는
-`docs/STATUS_ARCHIVE.md`의 완료 기록 (153)~(155)).
-**F-4(밸런스 시뮬, 3개 이터레이션: F-4a 헤드리스 시뮬 경로 → F-4b 시뮬
-러너 → F-4c 보고서) 중 F-4a 완료(2026-10-07 (165))** — `combat_test.gd`의
-`_do_exchange()`를 `_select_exchange_bags()`(주머니 선택, 순수)/
-`_resolve_exchange()`(굴림+보정+데미지+HP/스택/업적/보상 전부, 물리/UI
-의존 없음, `Dictionary` 반환)/`_maybe_finish_battle()`(화면 전환만)로
-분리해 `code/qa/balance_sim.gd`(F-4b)가 물리 다이스 스폰 없이 `_resolve_
-exchange()`를 그대로 호출해 전투 한 판을 계산할 수 있는 경로가 열렸다.
-**다음은 F-4b**(시뮬 러너 신설) — [대형 기획 6](G-1~G-9)은 2026-10-07에
-전체 완료돼 착수 조건은 이미 갖춰져 있었다.
-**[대형 기획 6] G-1~G-9 전체 완료(2026-10-07)** — 몬스터를 계열(인간형/
-부정형/야수형/언데드형) + 일반 20종/정예 8종/보스 6종의 대형 풀로 개편하고
-정예 전투 방을 추가하는 설계가 전부 반영됐다. G-1로 계열 4종 + 기존 몬스터
-5종 데이터를 `MonsterCatalog`로 옮기고 전투 화면에 계열 아이콘을 붙였다.
-G-2로 `MonsterSkills`(훅 4개: on_combat_start/modify_monster_roll/
-modify_player_roll/on_damage)를 만들고 기존 4종 기믹을 그 구조로
-이식했다(동작 보존). G-3으로 인간형 프리미티브 armor(n)/guard_up/
-counter(n) + 부정형 sticky/seal/dull/numb 7종을, G-4로 야수형
-pounce(n)/bloodlust + 언데드형 drain/revive/chill 5종을 구현했다(수치는
-전부 잠정값, F-4 시뮬로 조정 예정). G-5로 이 12종 프리미티브를 일반
-몬스터 신규 16종(계열당 5종 로스터 완성)에 배정했다. G-6으로 던전 순환
-로직을 `RunState.monster_plan`(런 시작마다 라운드×방 몬스터를 미리 뽑아
-저장, 난이도 공식 `room_index + (round_index-1)*3`)으로 교체해 **정상
-플레이(QA 환경변수 없이)에서 일반 20종 로스터 전체를 실제로 만날 수
-있게** 됐다. G-7로 정예 8종 + "정예 전투" 방을 추가해, 정상 플레이에서
-정예도 실제로 만날 수 있게 됐다. G-8로 보스 6종(라운드당 2종,
-`tier="boss"`)을 추가해 `build_monster_plan()`의 마지막 방(보스) 자리가
-그 라운드의 보스 후보 2종 중 `run_seed`로 고정된 하나를 쓰고, 보스마다
-전용 스킬 2~3개 + HP 절반 이하에서 1회 발동하는 2페이즈 + 초상화 1.25배
-확대를 갖춘다. **G-9(2026-10-07, 이번 이터레이션)로 던전 맵의
-"전투"/"정예 전투" 선택지(버튼 + MapStrip 칩 둘 다)에 다음 몬스터의
-계열 아이콘을 미리 보여주고**(`dungeon_map.gd`의 `_monster_profile_for_
-room()`/`_elite_profile_for_room()`이 `combat_test.gd`와 같은
-`RunState.monster_plan`/`elite_plan`을 읽어 미리보기와 실제 결과가
-어긋나지 않음), **`docs/DESIGN.md` 몬스터 절을 계열×등급 카탈로그 표로
-갱신**했다(상세는 완료 기록 (157)~(164), 오래된 것은
-`docs/STATUS_ARCHIVE.md`).
-
-**F-4가 참조할 풀 규모/잠정 수치 요약** (상세 수치는 `code/systems/
-monster_catalog.gd`/`combat_test.gd`가 원천):
-- 몬스터 카탈로그 총 35종 = 일반 20종(계열당 5종, 풀 뽑기 대상) + 레거시
-  전용 1종("다크 나이트" `dark_knight`, `legacy_cycle_monster()`/QA 전용
-  — 정상 플레이에는 안 나옴) + 정예 8종(계열당 2종) + 보스 6종(라운드당
-  2종).
-- 난이도: `effective_difficulty = room_index + (round_index-1)*3`
-  (`_monster_config_for_plan()`), 몬스터 다이스 면 수는 `_monster_dice_
-  sides_for_room(difficulty)`로 D4(0~1)→D6(2~3)→D8(4+).
-- 보스 배율: 공격 다이스 +2개/방어 +1개/HP×2(`_build_monster_config()`의
-  `is_boss` 분기, tier와 무관하게 전부 공통) + 전용 스킬 2~3개 + 2페이즈
-  (HP 50% 이하 1회, 스킬 1개 추가 또는 기존 스킬 강화).
-- 정예 배율: 스킬 2개 + `hp_mult 1.5` + 공격 다이스 +1개(8종 공통 공식),
-  보상 골드 ×2 + `EliteRewardPool`(A급 이상 카드 중심).
-- 등장 확률: "정예 전투"는 방 1~3에서 35%(`ELITE_CHANCE`)로 일반 전투
-  옆 추가 선택지. "보스"는 라운드의 마지막 방(5번째)에 그 라운드 후보
-  2종 중 `run_seed` 기반으로 등장(런 안에서는 고정, 라운드마다 다시
-  결정).
-**ART-1a(아트 스레드 전달, 2026-10-06) 완료** — 캐릭터 선택 카드 목록이
-7종으로 늘어나며 7번째(곡예사) 카드가 화면 밖으로 밀려 마우스로 선택 불가하던
-버그를 ScrollContainer로 해결(상세는 `docs/STATUS_ARCHIVE.md`의 완료
-기록 (152)). ART-1b/1c는 원화 파일 도착 전 상태라 여전히 대기.
+**[대형 기획 6](몬스터 대개편) 전체 완료** — 몬스터를 계열(인간형/부정형/
+야수형/언데드형) + 일반 20종/정예 8종/보스 6종의 대형 풀로 개편했다.
+`MonsterSkills`(훅 4개)가 "스킬 프리미티브" 12종(armor/guard_up/counter/
+sticky/seal/dull/numb/pounce/bloodlust/drain/revive/chill)을 재사용 가능한
+순수 함수로 제공하고, `RunState.monster_plan`/`elite_plan`(런 시작 시
+`run_seed`로 미리 뽑아둠)을 던전 맵/전투 화면이 공유해 정상 플레이에서
+일반 20종+정예 8종+보스 6종 전부를 만날 수 있다. 난이도 공식
+`room_index + (round_index-1)*3`로 다이스 개수/면 수/HP가 스케일링된다.
+상세 수치는 `docs/DESIGN.md` 몬스터 절 참고(상세 구현 이력은
+`docs/STATUS_ARCHIVE.md`의 완료 기록 (156)~(164)).
+**[대형 기획 5](QA 보강 + 시작 스킬 다양화) — F-1~F-4b 완료, F-4c만 남음.**
+F-1(잠긴 시작 스킬 미리보기)/F-2(캐릭터당 3종 + 3단 해금 사다리, 13종 원형
+전부 실제 전투/이벤트 배선)/F-3(시작 스킬 13종 전부 + 재굴림형 스택 로직이
+정적 함수로 분리돼 물리 없이 직접 검증, 전체 흐름 E2E 테스트도 추가)까지
+전체 완료(상세는 `docs/STATUS_ARCHIVE.md`의 완료 기록 (149)~(155)).
+**F-4(밸런스 자동 시뮬레이션, 3개 이터레이션)는 a(헤드리스 시뮬 경로)/
+b(시뮬 러너) 완료, c(`docs/BALANCE_REPORT.md` 작성)만 남음** — 7캐릭터×
+13종 시작 스킬×라운드1~3(일반+정예+보스) 504개 조합×100판의 원자료가
+`qa_out/balance_sim_raw.tsv`에 있다(재실행하려면 `bash scripts/qa_shot.sh
+balance_sim`, 몬스터 뽑기는 `FIXED_PLAN_SEED=20261007`로 고정돼 캐릭터간
+공정 비교 가능, 다이스 RNG는 매번 다시 굴러 승률 등 수치는 재실행마다
+소폭 달라질 수 있음). 상세는 아래 "완료 기록 (166)" 참고.
+**ART-1a(아트 스레드 전달) 완료** — 캐릭터 선택 카드 목록 ScrollContainer
+전환(상세는 `docs/STATUS_ARCHIVE.md`의 완료 기록 (152)). ART-1b/1c는 원화
+파일 도착 전 상태라 여전히 대기.
 **큐의 나머지 항목은 대부분 사람 플레이테스트/피드백 또는 설계 결정이
 필요한 상태** — 자세한 내용은 "알려진 이슈 / 막힌 것" 섹션 참고.
 
@@ -852,10 +800,10 @@ monster_catalog.gd`/`combat_test.gd`가 원천):
     (134)~(138) 참고. **알려진 이슈였던 "정예" 죽은 선택지는 2026-09-29에
     임계값 6→7 완화로 해결됨** — 아래 "완료 기록" 최신 항목 참고.
 
-20. **(INBOX.md 2026-10-06, [대형 기획 5] F-1~F-4 — F-1/F-2/F-3/F-4a 완료,
-    F-4b/c 남음) QA 보강 + 직업별 스킬 다양화 + 잠금 정보 공개.** [대형
+20. **(INBOX.md 2026-10-06, [대형 기획 5] F-1~F-4 — F-1/F-2/F-3/F-4a/F-4b
+    완료, F-4c만 남음) QA 보강 + 직업별 스킬 다양화 + 잠금 정보 공개.** [대형
     기획 6](G-1~G-9)은 2026-10-07에 전체 완료됐으므로 실행 순서상 남은 건
-    F-4뿐이다.
+    F-4c뿐이다.
     - ~~**F-1. 잠긴 시작 스킬도 정체와 해금 조건이 보여야 한다**~~ → **완료됨**
       (2026-10-06 (149), `docs/STATUS_ARCHIVE.md` 참고). `SkillPool.
       unlock_requirement()` 신설 + `character_select.gd`가 잠긴 슬롯도 클릭
@@ -886,21 +834,94 @@ monster_catalog.gd`/`combat_test.gd`가 원천):
         `_resolve_exchange()`/`_maybe_finish_battle()`로 분리 — 굴림/기믹·
         스킬 보정/데미지/HP/스택/업적/보상까지 전부 `_resolve_exchange()`
         하나가 물리·UI 노드 없이 계산해 `Dictionary`로 돌려준다.
-      - **F-4b. 시뮬 러너** — 신규 `code/qa/balance_sim.gd`(+
-        `scripts/qa_shot.sh balance_sim`으로 실행 가능하게). 캐릭터 7종 ×
-        시작 스킬 슬롯 전부(해금 가정) × 방 인덱스 0~4(라운드1, 기본 몬스터
-        5종 순서) × 각 200판(느리면 최소 100판까지 줄이되 보고서에 명시) —
-        시작 구성 그대로의 기준선. 출력: 승률/평균 남은 HP/평균 턴 수.
-        `_resolve_exchange()`가 `AchievementManager.unlock()`을 호출하므로
-        **시뮬 실행 전후로 `user://achievements.json`을 백업/복원**해 실제
-        진행도를 건드리지 않을 것(F-3 E2E 테스트가 쓴 패턴과 동일).
+      - ~~**F-4b. 시뮬 러너**~~ → **완료됨(2026-10-08 (166), 위 "완료 기록"
+        참고).** 신규 `code/qa/balance_sim.gd`(+ `code/scenes/balance_sim.tscn`,
+        `scripts/qa_shot.sh balance_sim`으로 실행 가능). [대형 기획 6] G
+        완료 후 지시대로 범위를 넓혀 캐릭터 7종 × 시작 스킬 슬롯 3개(해금
+        가정) × {라운드 1~3 × 방 0~4(일반, 방4=보스) + 라운드 1~3 × 방
+        1~3(정예)} = 504개 조합 × 100판(몬스터 뽑기는 `FIXED_PLAN_SEED`로
+        고정해 캐릭터 간 공정 비교 보장) — 아이템/상점 없이 시작 구성
+        그대로의 기준선. 출력(승률/평균 턴 수/승리 시 평균 남은 HP)은
+        `qa_out/balance_sim_raw.tsv`(504행)에 저장됨. `_resolve_exchange()`가
+        `AchievementManager.unlock()`을 호출하므로 시뮬 실행 전후
+        `user://achievements.json`을 백업/복원한다(F-3 E2E 테스트와 동일
+        패턴). 구현 중 헤드리스 재사용을 막던 숨은 UI 의존 버그 2건(로그
+        출력이 `_append_log()`로 `log_label`을 직접 건드리던 스킬 4종 +
+        `_apply_spare_die()`)도 함께 고쳤다.
       - **F-4c. 보고서** — `docs/BALANCE_REPORT.md`에 표로 정리(캐릭터×
         스킬×방), 전체 평균 대비 ±15%p 이상 이상치 표시, 해석/조정 제안은
-        쓰지 않고 숫자만. 난수 시드 고정/기록.
+        쓰지 않고 숫자만. 원자료는 `qa_out/balance_sim_raw.tsv`(F-4b가 이미
+        만들어둠, 다시 돌리지 않아도 됨)를 그대로 쓰면 된다. 난수 시드
+        고정/기록은 F-4b의 `FIXED_PLAN_SEED=20261007`(몬스터 뽑기 한정,
+        다이스 RNG는 trial마다 다시 굴림)을 그대로 보고서에 적으면 됨.
     F-1~F-4 전부 끝나면 INBOX.md에서 "처리됨"으로 옮길 것 — 지금은 "부분
-    처리됨"(F-1/F-2/F-3/F-4a 완료, F-4b/c 남음)으로 있음.
+    처리됨"(F-1/F-2/F-3/F-4a/F-4b 완료, F-4c만 남음)으로 있음.
 
 ## 완료 기록
+
+- **2026-10-08 (166)**: INBOX.md "부분 처리됨"의 [대형 기획 5] **F-4b(시뮬
+  러너)**를 진행했다 — F-4a 완료로 실행 순서상 다음이었다.
+  신규 `code/qa/balance_sim.gd`(+ `code/scenes/balance_sim.tscn`, GAME_START
+  해석 관례를 따르려 .tscn은 `code/scenes/`에, 스크립트는 지시대로
+  `code/qa/`에 둠)가 `combat_test.gd`(`_combat_script.new()`, `add_child`
+  안 함 — `code/scenes/dice_test.gd`가 이미 쓰는 패턴)를 인스턴스만 만들어
+  `_select_exchange_bags()`/`_resolve_exchange()`(F-4a가 연 헤드리스 경로)를
+  그대로 호출해 전투 한 판을 물리/UI 없이 계산한다.
+  **범위는 INBOX.md가 [대형 기획 6] G 완료 후 넓히라고 지시한 그대로** —
+  캐릭터 7종 × 시작 스킬 슬롯 3개(`SkillPool.starting_skills_for_character()`,
+  전부 해금됐다고 가정) × {라운드 1~3 × 방 0~4(일반, 방4=보스가 자동으로
+  섞임) + 라운드 1~3 × 방 1~3(정예, G-7과 같은 범위)} = 504개 조합 × 100판
+  (`TRIALS_PER_COMBO`, 최소 100판 지시 충족). 캐릭터/스킬 조합 간 비교가
+  "같은 몬스터를 상대했는가"로 공정하도록, `RunState.reset_run()`이 매번
+  새로 굴리는 `run_seed` 대신 `MonsterCatalog.build_monster_plan()`/
+  `build_elite_plan()`을 `FIXED_PLAN_SEED=20261007` 하나로 고정해 모든
+  조합이 라운드×방마다 동일한 몬스터를 상대하게 했다(다이스 굴림 RNG
+  자체는 trial마다 독립적으로 다시 굴러야 하므로 고정하지 않음 — "시뮬
+  재현 가능하게 시드를 고정/기록"하라는 F-4c 지시를 몬스터 선택 쪽에
+  적용). 아이템/상점 효과를 배제한 "시작 구성 그대로" 기준선을 보려고
+  매 trial마다 `RunState.gold=0`/`pip_inventory=[]`로 되돌려 "황금손"/
+  "수집가" 같은 경제 의존 시작 스킬이 유리해지지 않게 했다. 교착(방어가
+  공격을 계속 완전히 막는 등) 전투가 무한 루프에 빠지지 않도록 교환
+  1회=1카운트로 `MAX_EXCHANGES=120` 안전장치를 두고, 못 끝나면 "타임아웃"
+  으로 따로 집계한다(실제로 guardian 계열 4개 조합에서 타임아웃 몇 건
+  관측 — 정상 동작, 크래시 아님).
+  **구현 중 "F-4a 원칙(시뮬 전용으로 규칙을 복붙하지 않는다)"이 실제로
+  깨져 있던 숨은 결함 2건을 발견해 고쳤다**: (1) `_resolve_exchange()`
+  안의 "대비"(`start_bulwark`)/"오뚝이"(`start_second_wind`)/"과적"
+  (`start_overflow`, 방어턴)/"잡화점"(`start_diverse`, 방어턴) 네 블록이
+  다른 15개 비슷한 블록과 달리 `logs.append(...)` 대신 `_append_log()`를
+  직접 호출해 `log_label`(UI 노드, `@onready`)을 건드리고 있었다 —
+  `.new()`로만 만든 인스턴스는 `_ready()`를 안 거쳐 `log_label`이 null이라,
+  그대로 뒀으면 이 네 스킬 중 하나라도 조건이 맞는 trial마다 크래시했을
+  것(F-2(c)에서 네 스킬을 추가할 때부터 있던 기존 버그 — 실제 게임에서는
+  `log_label`이 항상 존재해 증상이 없었다). 전부 `logs.append(...)`로
+  통일. (2) `_apply_spare_die()`("여분"/"여분+" 스킬)도 같은 이유로
+  `_append_log()`를 직접 불렀는데, 자매 함수 `_apply_bonus_reroll()`은
+  처음부터 "로그는 호출부 책임"으로 설계돼 있었다(주석에 명시) — 그
+  관례를 안 지킨 게 원인. `logs: Array = []`(GDScript는 함수 호출마다
+  새 배열을 만들어 기본값을 공유하지 않으므로 안전) 옵션 매개변수를
+  추가해 넘기면 거기 적재, 안 넘기면(기존 `dice_test.gd` 단위 검증
+  호출들) 조용히 계산만 하게 바꿨다 — 기존 호출부는 수정 불필요.
+  마지막으로 `_ready()`의 "몬스터/플레이어 전투 상태 초기화" 중 UI
+  의존이 전혀 없는 부분을 `_apply_monster_config(config)`/
+  `_reset_player_battle_state()` 두 함수로 뽑아내(그 외 가족 아이콘/
+  초상화/디버그 라벨 같은 UI 줄은 `_ready()`에 그대로 남김), balance_sim이
+  `_ready()`를 호출하지 않고도 매 trial 같은 함수로 전투 상태를
+  구성하게 했다 — 이게 없었으면 balance_sim이 `_ready()` 본문 일부를
+  복붙해야 했을 것(F-4a 원칙 위반).
+  **검증**: `bash scripts/qa_shot.sh dice_test` 전체 PASS(함수 분리/시그니처
+  변경만 있을 뿐 계산 순서·조건·값은 그대로라 기존 회귀 그대로 통과).
+  `bash scripts/qa_shot.sh balance_sim 60 qa_out/balance_sim.png`로 504개
+  조합(전투 50,400판)을 끝까지 돌려 크래시 없이 완주, 스크린샷에 조합별
+  결과 줄이 정상 렌더링됨을 확인(`qa_out/balance_sim.png`), 원자료
+  `qa_out/balance_sim_raw.tsv`(헤더 + 504행)도 정상 저장 확인. 수치
+  자체는 승률이 방 2~3부터 대부분 0%로 급락하는 경향이 눈에 띄지만
+  (예: `novice/start_expand r1방3 vs 안개: 승률 2%`), 그 해석·조정은
+  F-4c/사람 몫 — 이 이터레이션은 측정 경로만 완성한다.
+  **F-4b 완료.** 다음은 **F-4c**(`docs/BALANCE_REPORT.md` 작성 — 원자료는
+  이미 `qa_out/balance_sim_raw.tsv`에 있으므로 balance_sim을 다시 돌릴
+  필요 없이 표로 정리하면 됨). "완료 기록" 10개 유지를 위해 (156)을
+  `docs/STATUS_ARCHIVE.md`로 옮겼다.
 
 - **2026-10-07 (165)**: 세션 시작 시 `git status`/`git diff`로 직전
   이터레이션이 사용량 한도로 끊기며 남긴 `code/scenes/combat_test.gd`의
@@ -1385,46 +1406,9 @@ monster_catalog.gd`/`combat_test.gd`가 원천):
   counter + sticky/seal/dull/numb — 수치는 전부 잠정값, F-4 시뮬이 조정).
   "완료 기록" 10개 유지를 위해 (147)을 `docs/STATUS_ARCHIVE.md`로 옮겼다.
 
-- **2026-10-07 (156)**: INBOX.md "남은 이슈"의 [대형 기획 6](몬스터 대개편)
-  **G-1(계열 + 몬스터 카탈로그 + 계열 아이콘)**을 진행했다. F-3 완료로 실행
-  순서상 다음은 G-1이었고, 지시문대로 **이 단계는 전투 동작을 바꾸지
-  않는다** — 기존 5종(슬라임/고블린/해골 전사/오크/다크 나이트)의 dice_gimmick
-  적용 로직은 전혀 안 건드리고 데이터 위치만 옮겼다.
-  신규 `code/systems/monster_catalog.gd`(`MonsterCatalog`)에 `FAMILIES`
-  (인간형/부정형/야수형/언데드형 4종, id/이름/설명)와 `MONSTERS`(5종, id/name/
-  family/tier/color/skills/hp_mult/personality)를 정의하고, `combat_test.gd`의
-  기존 `MONSTER_PROFILES` 상수를 삭제해 `_monster_config_for_room()`이
-  `MonsterCatalog.MONSTERS`를 직접 읽게 바꿨다. "skills" 필드(미래형 — G-2
-  몬스터 스킬 프레임워크가 읽을 자리)는 지금은 `[{"id": <기존 dice_gimmick
-  문자열>}]` 하나뿐이고, 신규 `MonsterCatalog.gimmick_of()`가 skills[0].id를
-  뽑아 기존 "dice_gimmick" 코드 경로에 그대로 넘기는 호환 다리 역할만 한다.
-  계열 배정은 지시문 그대로: 슬라임=부정형, 고블린=인간형, 해골 전사=언데드형,
-  오크=야수형, 다크 나이트=인간형.
-  신규 `code/scenes/family_icon.gd`(`FamilyIcon`, `skill_icon.gd`/
-  `reward_icon.gd`와 같은 절차적 `_draw()` 패턴)로 계열별 도형(인간형=방패,
-  부정형=물방울, 야수형=발톱 자국 3개, 언데드형=해골)을 그리고, `is_boss`가
-  true면 작은 왕관을 덧그린다(G-8 보스 6종이 쓸 자리를 미리 열어둠 — 지금은
-  기존 "마지막 방 보스 강화"의 `is_boss` 플래그에 그대로 연동). `combat_test.
-  tscn`에 `MonsterFamilyIcon` 노드를 `MonsterHPLabel`(몬스터 이름이 들어간
-  HP 라벨) 바로 왼쪽에 추가하고, `_ready()`/`_debug_show_anger_dice()`에서
-  `monster_family_icon.category`를 몬스터 family로 세팅한다.
-  `dice_test.gd`에 `_check_monster_catalog_family_icons()`를 추가해 (1)
-  MONSTERS 5종의 family가 전부 `MonsterCatalog.FAMILIES`와
-  `FamilyIcon.CATEGORIES`에 실제로 존재하는지, (2) G-1이 "동작 변경 없음"을
-  지켰는지(`MonsterCatalog.gimmick_of()`가 room 0~4 각각에서 기존
-  `_monster_config_for_room()["dice_gimmick"]`과 정확히 일치하는지)를
-  검증한다. `bash scripts/qa_shot.sh dice_test` 전체 PASS(신규 섹션 포함),
-  `scripts/qa_shot.sh combat_test`로 전투 화면 크래시 없음 + 몬스터 HP 라벨
-  왼쪽에 계열 아이콘(슬라임=물방울)이 겹침 없이 표시됨을 스크린샷으로 확인
-  (`qa_out/combat_test.png`). `docs/DESIGN.md`의 "던전 몬스터" 절 정의 위치
-  설명도 `MonsterCatalog`를 가리키도록 갱신(표 자체는 G-9에서 전면 개편
-  예정이라 아직 안 건드림). 다음 할 일은 **G-2**(몬스터 스킬 프레임워크
-  신설 + 기존 4종 이식, 동작 보존) — 아래 "다음 할 일 큐" 참고. "완료 기록"
-  10개 유지를 위해 (146)을 `docs/STATUS_ARCHIVE.md`로 옮겼다.
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(165)에서 (155)를 그리로 옮겼다.)*
+이번 이터레이션(166)에서 (156)을 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 

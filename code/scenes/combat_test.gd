@@ -755,21 +755,14 @@ func _monster_config_for_room_override() -> Dictionary:
 	return _monster_config_for_room(override_env.to_int())
 
 
-func _ready() -> void:
-	var room_override := OS.get_environment("GAME_QA_ROOM_OVERRIDE")
-	var config: Dictionary
-	# G-7(2026-10-07): RunState.pending_elite_fight가 세팅돼 있으면(dungeon_map.gd의
-	# "정예 전투" 버튼) GAME_QA_ROOM_OVERRIDE보다도 먼저 우선한다 — 둘 다 QA/실제 플레이
-	# 각자의 명시적 의도이지만, 실제 플레이에서 정예 버튼을 누른 경우 환경변수가 설정돼
-	# 있을 일이 없으므로 우선순위 충돌은 실질적으로 발생하지 않는다. 승패와 무관하게
-	# 즉시 소비(false로 되돌림) — 다음 전투 입장은 항상 일반 전투가 기본이어야 한다.
-	if RunState.pending_elite_fight:
-		RunState.pending_elite_fight = false
-		config = _monster_config_for_elite(RunState.round_index, RunState.rooms_cleared)
-	elif room_override.is_valid_int():
-		config = _monster_config_for_room_override()
-	else:
-		config = _monster_config_for_plan(RunState.round_index, RunState.rooms_cleared)
+## [대형 기획 5] F-4b(2026-10-07) 신규 — _ready()의 "몬스터 전투 상태 초기화" 중
+## UI 노드(monster_family_icon/monster_portrait/monster_debug_info_label)에 전혀
+## 의존하지 않는 부분만 뽑았다. _ready()가 그대로 이어서 UI를 입히고,
+## code/qa/balance_sim.gd(헤드리스 밸런스 시뮬)는 combat_test.gd를 .new()만 해서
+## (트리에 add_child 안 함 — dice_test.gd가 이미 쓰는 패턴) 이 함수만 호출해 UI 노드를
+## 건드리지 않고 몬스터 상태를 구성한다(F-4a가 "전투 해석"에 적용한 원칙을 "전투 시작"
+## 시점까지 확장 — 시뮬 전용으로 규칙을 복붙하지 않는다).
+func _apply_monster_config(config: Dictionary) -> void:
 	var monster_sides: int = config["dice_sides"]
 	monster_attack_bag = DiceBag.new(monster_sides, config["attack_count"])
 	monster_defense_bag = DiceBag.new(monster_sides, config["defense_count"])
@@ -787,15 +780,12 @@ func _ready() -> void:
 	monster_id = config.get("id", "")
 	monster_config = config
 	monster_boss_phase2_active = false
-	monster_family_icon.category = config.get("family", "")
-	monster_family_icon.is_boss = monster_is_boss
-	monster_family_icon.is_elite = monster_is_elite
-	monster_portrait.set_body_color(monster_color if monster_color.a > 0 else Color(0.5, 0.5, 0.5))
-	monster_portrait.set_family(config.get("family", ""))
-	# G-8(2026-10-07): "전용 초상화 크기(일반의 1.25배)" — 보스만 조금 크게 그린다.
-	monster_portrait.scale = Vector2(1.25, 1.25) if monster_is_boss else Vector2(1, 1)
-	monster_debug_info_label.text = _monster_debug_info_text(config)
 
+
+## [대형 기획 5] F-4b 신규 — _ready()의 "플레이어 스킬 플래그 읽기(전투 중 상태 초기화)"
+## 부분만 뽑았다. UI 의존이 전혀 없어(RunState/CharacterProfiles만 읽음) _apply_monster_
+## config()와 같은 이유로 balance_sim.gd가 그대로 재사용한다.
+func _reset_player_battle_state() -> void:
 	player_dice_gimmick = CharacterProfiles.get_profile(RunState.character_id).get("gimmick", "")
 	player_explosive_stacks = 0
 	player_explosive_pending = false
@@ -814,6 +804,37 @@ func _ready() -> void:
 	player_chain_guard_plus_active = RunState.skill_flags.has("chain_guard_plus")
 	player_versatile_active = RunState.skill_flags.has("versatile_surge")
 	player_versatile_plus_active = RunState.skill_flags.has("versatile_surge_plus")
+	player_hp = PLAYER_MAX_HP
+	battle_over = false
+	player_won = false
+
+
+func _ready() -> void:
+	var room_override := OS.get_environment("GAME_QA_ROOM_OVERRIDE")
+	var config: Dictionary
+	# G-7(2026-10-07): RunState.pending_elite_fight가 세팅돼 있으면(dungeon_map.gd의
+	# "정예 전투" 버튼) GAME_QA_ROOM_OVERRIDE보다도 먼저 우선한다 — 둘 다 QA/실제 플레이
+	# 각자의 명시적 의도이지만, 실제 플레이에서 정예 버튼을 누른 경우 환경변수가 설정돼
+	# 있을 일이 없으므로 우선순위 충돌은 실질적으로 발생하지 않는다. 승패와 무관하게
+	# 즉시 소비(false로 되돌림) — 다음 전투 입장은 항상 일반 전투가 기본이어야 한다.
+	if RunState.pending_elite_fight:
+		RunState.pending_elite_fight = false
+		config = _monster_config_for_elite(RunState.round_index, RunState.rooms_cleared)
+	elif room_override.is_valid_int():
+		config = _monster_config_for_room_override()
+	else:
+		config = _monster_config_for_plan(RunState.round_index, RunState.rooms_cleared)
+	_apply_monster_config(config)
+	monster_family_icon.category = config.get("family", "")
+	monster_family_icon.is_boss = monster_is_boss
+	monster_family_icon.is_elite = monster_is_elite
+	monster_portrait.set_body_color(monster_color if monster_color.a > 0 else Color(0.5, 0.5, 0.5))
+	monster_portrait.set_family(config.get("family", ""))
+	# G-8(2026-10-07): "전용 초상화 크기(일반의 1.25배)" — 보스만 조금 크게 그린다.
+	monster_portrait.scale = Vector2(1.25, 1.25) if monster_is_boss else Vector2(1, 1)
+	monster_debug_info_label.text = _monster_debug_info_text(config)
+
+	_reset_player_battle_state()
 
 	next_button.pressed.connect(_on_next_button_pressed)
 	deck_toggle_button.pressed.connect(_on_deck_toggle_pressed)
@@ -1147,9 +1168,9 @@ func _resolve_exchange(is_player_attacking: bool, atk_bag: DiceBag, def_bag: Dic
 	# spare_die 자체는 확인하지 않는다(둘 다 skill_flags에 있어도 상위 효과만 적용).
 	if is_player_attacking and not used_explosive_dice:
 		if RunState.skill_flags.has("spare_die_plus"):
-			atk_values = _apply_spare_die(atk_bag, atk_values, 2)
+			atk_values = _apply_spare_die(atk_bag, atk_values, 2, logs)
 		elif RunState.skill_flags.has("spare_die"):
-			atk_values = _apply_spare_die(atk_bag, atk_values, 1)
+			atk_values = _apply_spare_die(atk_bag, atk_values, 1, logs)
 	# "맹공"([미니 기획 E]-4, 시작 스킬): 공격 다이스 개수가 방어 다이스 개수보다 많으면
 	# 공격 다이스 결과값 전체 +1. 주머니 구성(개수)만 보는 정적 조건이라 전투 중 바뀌지
 	# 않음 — 매 공격턴(폭발 보너스 턴 포함)마다 다시 확인해 적용한다.
@@ -1279,7 +1300,7 @@ func _resolve_exchange(is_player_attacking: bool, atk_bag: DiceBag, def_bag: Dic
 		if bulwark_bonus > 0:
 			def_values = def_bag.apply_flat_bonus(def_values, bulwark_bonus)
 			player_bulwark_used = true
-			_append_log("대비 효과: 방어 다이스 결과값 +%d (이번 전투 최초 방어 1회)" % bulwark_bonus)
+			logs.append("대비 효과: 방어 다이스 결과값 +%d (이번 전투 최초 방어 1회)" % bulwark_bonus)
 	# "오뚝이"([대형 기획 5] F-2(c), 주술사 시작 스킬): 플레이어 HP가 최대 HP의
 	# 절반 이하이면 방어 다이스 결과값 전체 +1. player_hp는 이 교환의 데미지 적용
 	# 전 값(공격턴에서 몬스터가 때리기 전 HP)이므로 "버틸수록 발동" 조건이 정확히
@@ -1288,14 +1309,14 @@ func _resolve_exchange(is_player_attacking: bool, atk_bag: DiceBag, def_bag: Dic
 		var second_wind_bonus := _second_wind_bonus(player_hp, PLAYER_MAX_HP)
 		if second_wind_bonus > 0:
 			def_values = def_bag.apply_flat_bonus(def_values, second_wind_bonus)
-			_append_log("오뚝이 효과: 방어 다이스 결과값 +%d (HP 절반 이하)" % second_wind_bonus)
+			logs.append("오뚝이 효과: 방어 다이스 결과값 +%d (HP 절반 이하)" % second_wind_bonus)
 	# "과적"(방어턴, 공격턴 쪽과 대칭): 방어 주머니가 MAX_DICE(6)에 꽉 찬 경우에만
 	# 방어 다이스 결과값 전체 +1.
 	if not is_player_attacking and RunState.skill_flags.has("start_overflow"):
 		var overflow_bonus_def := _overflow_bonus(RunState.player_defense_bag.is_full())
 		if overflow_bonus_def > 0:
 			def_values = def_bag.apply_flat_bonus(def_values, overflow_bonus_def)
-			_append_log("과적 효과: 방어 다이스 결과값 +%d (방어 주머니가 가득 찼음)" % overflow_bonus_def)
+			logs.append("과적 효과: 방어 다이스 결과값 +%d (방어 주머니가 가득 찼음)" % overflow_bonus_def)
 	# "잡화점"(방어턴, 공격턴 쪽과 대칭): 공격+방어 다이스를 합쳐 서로 다른 면
 	# 개수 종류가 3종 이상이면 방어 다이스 결과값 전체 +1.
 	if not is_player_attacking and RunState.skill_flags.has("start_diverse"):
@@ -1303,7 +1324,7 @@ func _resolve_exchange(is_player_attacking: bool, atk_bag: DiceBag, def_bag: Dic
 		var diverse_bonus_def := _diverse_bonus(diverse_count_def)
 		if diverse_bonus_def > 0:
 			def_values = def_bag.apply_flat_bonus(def_values, diverse_bonus_def)
-			_append_log("잡화점 효과: 방어 다이스 결과값 +%d (다이스 종류 %d종)" % [diverse_bonus_def, diverse_count_def])
+			logs.append("잡화점 효과: 방어 다이스 결과값 +%d (다이스 종류 %d종)" % [diverse_bonus_def, diverse_count_def])
 	var atk_total := 0
 	for v in atk_values:
 		atk_total += v
@@ -1617,7 +1638,12 @@ func _update_hp_bar(fill: ColorRect, full_width: float, hp: int, max_hp: int) ->
 ## "여분"은 count=1(굴림 1회, advantage 없음), "여분+"는 count=2(두 번 굴려 최댓값
 ## 채택)로 호출한다 — 굴리는 다이스 개수만 다르고 나머지 로직은 완전히 공유. bag이
 ## 비어있으면(이론상 발생하지 않지만 방어적으로) D4를 기본값으로 쓴다.
-func _apply_spare_die(bag: DiceBag, values: Array, count: int = 1) -> Array:
+## logs: 전달되면(옵션) 대체가 실제로 일어났을 때 그 배열에 로그 한 줄을 적재한다 —
+## 예전에는 이 함수가 _append_log()를 직접 호출해 log_label(UI 노드)을 건드렸는데,
+## _apply_bonus_reroll()과 달리 "로그 출력은 호출부 책임"이라는 공용 관례를 안 지켜
+## code/qa/balance_sim.gd처럼 인스턴스를 .new()만 해서(트리에 안 넣어 log_label이
+## null인 상태로) 호출하면 크래시하는 숨은 결함이었다([대형 기획 5] F-4b가 발견).
+func _apply_spare_die(bag: DiceBag, values: Array, count: int = 1, logs: Array = []) -> Array:
 	if values.is_empty():
 		return values
 	var spare_sides := 4
@@ -1635,7 +1661,7 @@ func _apply_spare_die(bag: DiceBag, values: Array, count: int = 1) -> Array:
 		if adjusted[i] < adjusted[min_index]:
 			min_index = i
 	if spare_value > adjusted[min_index]:
-		_append_log("여분 다이스 결과 %d로 최저 공격 다이스 값 %d 대체" % [spare_value, adjusted[min_index]])
+		logs.append("여분 다이스 결과 %d로 최저 공격 다이스 값 %d 대체" % [spare_value, adjusted[min_index]])
 		adjusted[min_index] = spare_value
 	return adjusted
 
