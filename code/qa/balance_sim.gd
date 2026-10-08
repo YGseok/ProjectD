@@ -47,6 +47,15 @@ const ELITE_SEED_OFFSET := 104729
 
 var _combat_script := load("res://code/scenes/combat_test.gd")
 
+## [대형 기획 10] J-2(2026-10-08, 측정 범위 확장) — 보스 자리(room_index == TOTAL_ROOMS-1)는
+## `_monster_config_for_plan()`을 그대로 쓰면 RunState.monster_plan이 FIXED_PLAN_SEED로 미리
+## 고정해둔 "그 라운드 보스 후보 2종 중 하나"만 측정된다(run_seed가 조합마다 전혀 안 바뀌므로
+## 늘 같은 쪽만 뽑힘 — (182)가 TSV 원자료에서 발견한 측정 사각지대). 공정 비교를 위해 몬스터
+## 뽑기 자체는 고정해야 하는 일반/정예 자리와 달리, 보스는 "그 라운드에 등장 가능한 몬스터
+## 전부"를 알아야 하므로 이 자리만 예외적으로 두 후보 전부를 각각 TRIALS_PER_COMBO판씩 돌린다
+## (시뮬 규칙을 바꾸는 게 아니라 측정 범위를 넓히는 것 — INBOX.md 지시). 이 세 함수
+## (_simulate_combo_boss/_format_row는 재사용/_simulate_growth_combo_boss)가 그 측정을 맡는다.
+
 
 ## [대형 기획 7] F-5(a)(2026-10-08) — "성장 정책" 3종. INBOX.md 2026-10-08 지시: F-4
 ## 기준선(아이템 없이 시작 구성 그대로)은 후반 난이도 절벽이 "기대된 결과"인지 판단할
@@ -167,12 +176,20 @@ func _ready() -> void:
 			RunState.monster_plan = fixed_monster_plan
 			RunState.elite_plan = fixed_elite_plan
 			for round_index in range(1, RunState.TOTAL_ROUNDS + 1):
-				for room_index in range(RunState.TOTAL_ROOMS):
+				# 방 0~3(일반)은 그대로, 보스 자리(방4)는 아래에서 후보 2종을 따로 측정한다.
+				for room_index in range(RunState.TOTAL_ROOMS - 1):
 					var stats := _simulate_combo(character_id, skill_id, round_index, room_index, false)
 					rows.append(stats)
 					var row_line := _format_row(stats)
 					lines.append(row_line)
 					print(row_line)
+				var boss_candidates: Array = MonsterCatalog.BOSS_ROSTER_BY_ROUND[(round_index - 1) % MonsterCatalog.BOSS_ROSTER_BY_ROUND.size()]
+				for boss_id in boss_candidates:
+					var boss_stats := _simulate_combo_boss(character_id, skill_id, round_index, boss_id)
+					rows.append(boss_stats)
+					var boss_row_line := _format_row(boss_stats)
+					lines.append(boss_row_line)
+					print(boss_row_line)
 				# 정예는 방 1~3(첫/마지막 방 제외, G-7과 같은 범위)에서만 추가 선택지로 노출.
 				for room_index in range(1, RunState.TOTAL_ROOMS - 1):
 					var elite_stats := _simulate_combo(character_id, skill_id, round_index, room_index, true)
@@ -265,6 +282,65 @@ func _simulate_combo(character_id: String, skill_id: String, round_index: int, r
 	}
 
 
+## _simulate_combo()와 같은 구조이지만 RunState.monster_plan(고정 시드 뽑기)을 거치지 않고
+## boss_id를 직접 `_build_monster_config()`에 넣어 "그 라운드 보스 후보 중 이 몬스터"를
+## 강제로 측정한다 — 보스 자리는 측정 범위 확장(위 클래스 주석)으로 두 후보 전부를
+## 각각 이 함수로 돌린다(한 후보당 TRIALS_PER_COMBO판, 다른 방 카테고리와 동일한 판 수).
+func _simulate_combo_boss(character_id: String, skill_id: String, round_index: int, boss_id: String) -> Dictionary:
+	var room_index := RunState.TOTAL_ROOMS - 1
+	var difficulty := room_index + (round_index - 1) * 3
+	var profile: Dictionary = MonsterCatalog.get_by_id(boss_id)
+	var monster_name: String = profile.get("name", boss_id)
+
+	var wins := 0
+	var timeouts := 0
+	var total_turns := 0
+	var hp_sum_on_win := 0
+
+	for _trial in TRIALS_PER_COMBO:
+		RunState.gold = 0
+		RunState.pip_inventory = []
+
+		var instance = _combat_script.new()
+		var config: Dictionary = instance._build_monster_config(profile, monster_name, difficulty, true)
+		instance._apply_monster_config(config)
+		instance._reset_player_battle_state()
+
+		var exchanges := 0
+		var is_player_attacking := true
+		while not instance.battle_over and exchanges < MAX_EXCHANGES:
+			var selection: Dictionary = instance._select_exchange_bags(is_player_attacking)
+			instance._resolve_exchange(
+				is_player_attacking, selection["atk_bag"], selection["def_bag"],
+				selection["used_explosive_dice"], selection["used_guard_dice"], selection["used_anger_dice"]
+			)
+			exchanges += 1
+			is_player_attacking = not is_player_attacking
+
+		if not instance.battle_over:
+			timeouts += 1
+		elif instance.player_won:
+			wins += 1
+			hp_sum_on_win += instance.player_hp
+		total_turns += exchanges
+		instance.free()
+
+	return {
+		"character_id": character_id,
+		"skill_id": skill_id,
+		"round_index": round_index,
+		"room_index": room_index,
+		"is_elite": false,
+		"monster_name": monster_name,
+		"trials": TRIALS_PER_COMBO,
+		"wins": wins,
+		"timeouts": timeouts,
+		"win_rate": float(wins) / TRIALS_PER_COMBO,
+		"avg_turns": float(total_turns) / TRIALS_PER_COMBO,
+		"avg_hp_on_win": (float(hp_sum_on_win) / wins) if wins > 0 else 0.0,
+	}
+
+
 func _format_row(stats: Dictionary) -> String:
 	var elite_tag := " [정예]" if stats["is_elite"] else ""
 	var timeout_tag := " (타임아웃 %d)" % stats["timeouts"] if stats["timeouts"] > 0 else ""
@@ -305,10 +381,17 @@ func _run_growth_simulation(fixed_monster_plan: Array, fixed_elite_plan: Array) 
 			RunState.monster_plan = fixed_monster_plan
 			RunState.elite_plan = fixed_elite_plan
 			for round_index in range(1, RunState.TOTAL_ROUNDS + 1):
-				for room_index in range(RunState.TOTAL_ROOMS):
+				# 방 0~3(일반)은 그대로, 보스 자리(방4)는 아래에서 후보 2종을 따로 측정한다
+				# (측정 범위 확장, 위 클래스 주석 참고).
+				for room_index in range(RunState.TOTAL_ROOMS - 1):
 					var stats := _simulate_growth_combo(character_id, skill_id, policy, round_index, room_index, false)
 					rows.append(stats)
 					print(_format_growth_row(stats))
+				var boss_candidates: Array = MonsterCatalog.BOSS_ROSTER_BY_ROUND[(round_index - 1) % MonsterCatalog.BOSS_ROSTER_BY_ROUND.size()]
+				for boss_id in boss_candidates:
+					var boss_stats := _simulate_growth_combo_boss(character_id, skill_id, policy, round_index, boss_id)
+					rows.append(boss_stats)
+					print(_format_growth_row(boss_stats))
 				for room_index in range(1, RunState.TOTAL_ROOMS - 1):
 					var elite_stats := _simulate_growth_combo(character_id, skill_id, policy, round_index, room_index, true)
 					rows.append(elite_stats)
@@ -387,6 +470,70 @@ func _simulate_growth_combo(character_id: String, skill_id: String, policy: Stri
 		"round_index": round_index,
 		"room_index": room_index,
 		"is_elite": is_elite,
+		"monster_name": monster_name,
+		"trials": TRIALS_PER_COMBO,
+		"wins": wins,
+		"timeouts": timeouts,
+		"win_rate": float(wins) / TRIALS_PER_COMBO,
+		"avg_turns": float(total_turns) / TRIALS_PER_COMBO,
+		"avg_hp_on_win": (float(hp_sum_on_win) / wins) if wins > 0 else 0.0,
+	}
+
+
+## _simulate_growth_combo()와 같은 구조(성장 적용 + 같은 전투 경로)에 _simulate_combo_boss()의
+## "boss_id를 직접 지정" 패턴을 합친 버전 — 성장 정책 모드에서도 보스 후보 2종을 전부 측정하기
+## 위한 함수(측정 범위 확장, 위 클래스 주석 참고).
+func _simulate_growth_combo_boss(character_id: String, skill_id: String, policy: String, round_index: int, boss_id: String) -> Dictionary:
+	var room_index := RunState.TOTAL_ROOMS - 1
+	var global_index := global_index_for(round_index, room_index)
+	var growth := growth_config_for(policy, character_id, global_index)
+	apply_growth(growth)
+
+	var difficulty := room_index + (round_index - 1) * 3
+	var profile: Dictionary = MonsterCatalog.get_by_id(boss_id)
+	var monster_name: String = profile.get("name", boss_id)
+
+	var wins := 0
+	var timeouts := 0
+	var total_turns := 0
+	var hp_sum_on_win := 0
+
+	for _trial in TRIALS_PER_COMBO:
+		RunState.gold = 0
+		RunState.pip_inventory = []
+
+		var instance = _combat_script.new()
+		var config: Dictionary = instance._build_monster_config(profile, monster_name, difficulty, true)
+		instance._apply_monster_config(config)
+		instance._reset_player_battle_state()
+
+		var exchanges := 0
+		var is_player_attacking := true
+		while not instance.battle_over and exchanges < MAX_EXCHANGES:
+			var selection: Dictionary = instance._select_exchange_bags(is_player_attacking)
+			instance._resolve_exchange(
+				is_player_attacking, selection["atk_bag"], selection["def_bag"],
+				selection["used_explosive_dice"], selection["used_guard_dice"], selection["used_anger_dice"]
+			)
+			exchanges += 1
+			is_player_attacking = not is_player_attacking
+
+		if not instance.battle_over:
+			timeouts += 1
+		elif instance.player_won:
+			wins += 1
+			hp_sum_on_win += instance.player_hp
+		total_turns += exchanges
+		instance.free()
+
+	return {
+		"character_id": character_id,
+		"skill_id": skill_id,
+		"policy": policy,
+		"global_index": global_index,
+		"round_index": round_index,
+		"room_index": room_index,
+		"is_elite": false,
 		"monster_name": monster_name,
 		"trials": TRIALS_PER_COMBO,
 		"wins": wins,

@@ -9,6 +9,12 @@ extends Node2D
 ## 비교할 수 있도록 목표 밴드는 상수로 고정한다. 해석/조정은 하지 않고(이 스크립트는
 ## 숫자만 낸다) J-2/J-3/J-4가 이 표를 보고 실제로 손잡이를 움직인다.
 ##
+## [대형 기획 10] J-2(2026-10-08, 측정 범위 확장) — balance_sim.gd가 보스 자리(방4)에서
+## 라운드당 후보 2종을 전부 측정하도록 바뀌었으므로(이전엔 run_seed 고정 때문에 한쪽만
+## 측정됐음), 이 도구의 "보스" 카테고리 평균(_average_win_rate())은 이제 저절로 "그 라운드
+## 2종 평균"(round_index 지정 시) 또는 "전체 6종 평균"(round_index=0)이 된다 — 집계 공식은
+## 그대로 두고 입력 TSV의 행 수만 늘었다. 다만 "보스 평균"이 개별 몬스터를 가린다는 지적에
+## 맞춰 _boss_species_breakdown()으로 몬스터 이름 단위 승률도 별도 표로 보여준다.
 ## [대형 기획 10] J-2(2026-10-08) 수정 — 원래 이 도구가 쓰는 섹션 이름이 "튜닝 전
 ## 기준선"이었는데, J-2가 손잡이를 바꾸고 시뮬을 재실행한 뒤 이 도구를 다시 돌리면
 ## "튜닝 전" 기준선이 매번 "지금(튜닝 후) 상태"로 조용히 덮어써지는 문제가 있었다
@@ -121,6 +127,45 @@ static func _average_win_rate(rows: Array[Dictionary], policy: String, category:
 	return sum / count
 
 
+## 보스 카테고리 행을 (round_index, monster_name) 단위로 묶어 평균 승률을 낸다 — "보스
+## 평균"이 6종을 뭉뚱그려 개별 몬스터 상태를 가리지 않도록, 라운드별 후보 몬스터 각각의
+## 승률을 그대로 보여주기 위한 집계(균형 정책만, JUDGED_POLICY 고정).
+static func _boss_species_breakdown(rows: Array[Dictionary]) -> Array[Dictionary]:
+	var keys: Array[String] = []
+	var sums: Dictionary = {}
+	var counts: Dictionary = {}
+	var round_of: Dictionary = {}
+	var name_of: Dictionary = {}
+	for r in rows:
+		if r["policy"] != JUDGED_POLICY:
+			continue
+		if _category_for(r) != "boss":
+			continue
+		var key := "%d|%s" % [r["round_index"], r["monster_name"]]
+		if not keys.has(key):
+			keys.append(key)
+			sums[key] = 0.0
+			counts[key] = 0
+			round_of[key] = r["round_index"]
+			name_of[key] = r["monster_name"]
+		sums[key] += r["win_rate"]
+		counts[key] += 1
+	var result: Array[Dictionary] = []
+	for key in keys:
+		result.append({
+			"round_index": round_of[key],
+			"monster_name": name_of[key],
+			"avg_win_rate": sums[key] / counts[key],
+			"count": counts[key],
+		})
+	result.sort_custom(func(a, b):
+		if a["round_index"] != b["round_index"]:
+			return a["round_index"] < b["round_index"]
+		return a["monster_name"] < b["monster_name"]
+	)
+	return result
+
+
 static func _status_for(value: Variant, band: Dictionary) -> String:
 	if value == null:
 		return "-"
@@ -167,6 +212,17 @@ func _build_markdown(rows: Array[Dictionary]) -> String:
 			band["label"], band_text, _format_cell(r1), _format_cell(r2), _format_cell(r3),
 			_format_cell(overall), _status_for(overall, band),
 		])
+	lines.append("")
+
+	lines.append("### 보스 개별(몬스터별) 승률 (균형 정책, 측정 범위 확장 — 라운드당 후보 2종 전부)")
+	lines.append("")
+	lines.append("> 위 \"보스\" 행의 평균은 이 6종(라운드당 2종)을 전부 합쳐 낸 것이다 — 개별")
+	lines.append("> 몬스터가 목표 밴드에서 얼마나 벗어났는지는 이 표로 확인할 것.")
+	lines.append("")
+	lines.append("| 라운드 | 몬스터 | 승률 |")
+	lines.append("|---|---|---|")
+	for entry in _boss_species_breakdown(rows):
+		lines.append("| R%d | %s | %s |" % [entry["round_index"], entry["monster_name"], _format_cell(entry["avg_win_rate"])])
 	lines.append("")
 
 	lines.append("### 참고용 — 몰빵 정책 열 (판정 대상 아님)")

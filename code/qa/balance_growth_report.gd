@@ -100,13 +100,20 @@ func _policy_name(policy: String) -> String:
 			return policy
 
 
-## (policy, character_id, global_index, is_elite) 정확히 일치하는 행 하나를 찾는다.
-## 없으면 빈 Dictionary.
-func _find_row(rows: Array[Dictionary], policy: String, character_id: String, global_index: int, is_elite: bool) -> Dictionary:
+## (policy, character_id, global_index, is_elite)에 일치하는 행의 win_rate 평균을 낸다.
+## 보통은 행이 하나뿐이지만, 보스 자리([대형 기획 10] J-2 측정 범위 확장, 2026-10-08)는
+## 같은 global_index에 라운드당 보스 후보 2종의 행이 함께 들어있어 평균을 내야
+## "그 지점의 승률"을 대표할 수 있다. 일치하는 행이 없으면 null.
+func _find_row(rows: Array[Dictionary], policy: String, character_id: String, global_index: int, is_elite: bool) -> Variant:
+	var sum := 0.0
+	var count := 0
 	for r in rows:
 		if r["policy"] == policy and r["character_id"] == character_id and r["global_index"] == global_index and r["is_elite"] == is_elite:
-			return r
-	return {}
+			sum += r["win_rate"]
+			count += 1
+	if count == 0:
+		return null
+	return sum / count
 
 
 ## 정책 평균 곡선: 같은 (policy, global_index, is_elite)에서 캐릭터 전원의
@@ -211,11 +218,9 @@ func _build_markdown(rows: Array[Dictionary], policies: Array[String]) -> String
 			lines.append("**%s** (`%s`)" % [_character_name(character_id), character_id])
 			lines.append("")
 			var normal_fn := func(gi: int):
-				var r := _find_row(rows, policy, character_id, gi, false)
-				return r["win_rate"] if not r.is_empty() else null
+				return _find_row(rows, policy, character_id, gi, false)
 			var elite_fn := func(gi: int):
-				var r := _find_row(rows, policy, character_id, gi, true)
-				return r["win_rate"] if not r.is_empty() else null
+				return _find_row(rows, policy, character_id, gi, true)
 			for line in _curve_table(["일반 승률", "정예 승률"], [normal_fn, elite_fn]):
 				lines.append(line)
 			lines.append("")
