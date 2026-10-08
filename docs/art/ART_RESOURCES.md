@@ -411,7 +411,7 @@ M1과 M2는 병행 가능 — 같은 계열 보스와 대표작(예: 고블린 �
 |---|---|---|---|---|
 | ART-CH001~004-FULL | 견습 모험가 / 광전사 / 수호자 / 폭발병 전신 + 설정 시트 (발주 전 사전 입고) | — | ✅ 적용 | `characters/{novice,berserker,guardian,explosive}/full.png`, `_reference/` |
 | ART-CH005-FULL | 주술사 전신 | 2026-10-06 | ✅ 적용 | `characters/shieldbearer/full.png` |
-| ART-CH006~007-FULL | 매혹사 / 곡예사 전신 | 2026-10-06 | ✅ 적용 | `characters/{enchantress,juggler}/full.png` (원본 합본은 `_reference/characters/enchantress_juggler_combined.png`) |
+| ART-CH006~007-FULL | 매혹사 / 곡예사 전신 | 2026-10-06 | ✅ 적용 | `characters/{enchantress,juggler}/full.png` (2026-10-08 분리본으로 교체, 첫 합본은 `_reference/characters/enchantress_juggler_combined.png`) |
 | ART-CH001~004-FACE | 기존 4종 표정 세트 | 2026-10-06 | 📝 발주 | |
 | ART-CH005~007-FACE | 신규 3종 표정 세트 | 2026-10-06 | 📝 발주 (전신 입고 완료 — 착수 가능) | |
 | ART-MO001~004-FULL, ART-MO600-FULL | 몬스터 계열 대표 4종 + 다크 나이트(MO005→MO600 이관) 전신 | 2026-10-06 | 📝 발주 | |
@@ -447,6 +447,7 @@ M1과 M2는 병행 가능 — 같은 계열 보스와 대표작(예: 고블린 �
 | 2026-10-06 | ART-CH001~004-FULL (견습 모험가/광전사/수호자/폭발병 전신) | 캐릭터 선택 화면 — 목록 카드 썸네일(상반신 크롭) + 상세 패널 전신. 원화 없는 캐릭터는 플레이스홀더 유지 (`code/scenes/character_art.gd`) | `qa_out/art_character_select.png`, `qa_out/art_character_select_juggler.png` |
 | 2026-10-07 | ART-CH005-FULL (주술사 전신, 파일명 `enchantress.png`로 입고 → 사용자 확인 후 `shieldbearer/full.png`로 정리) | 캐릭터 선택 화면 (코드 수정 없이 자동 적용) | `qa_out/art_character_select_shieldbearer.png` |
 | 2026-10-07 | ART-CH006~007-FULL (매혹사·곡예사 전신 — 한 장(1275×1234)에 둘이 함께 입고 → 두 캐릭터 사이 투명 경로를 따라 분리해 1181×1332 캔버스 중앙 배치) | 캐릭터 선택 화면 (코드 수정 없이 자동 적용) | `qa_out/art_character_select_juggler.png` |
+| 2026-10-08 | ART-CH006~007-FULL 교체 (분리본 재입고: `enchantress_cleaned.png` / `acrobat_cleaned.png`). 매혹사 오른쪽에 남은 곡예사 잔해(x 925~1000, y 684~980)를 지움. 원본은 `_reference/characters/{enchantress,juggler}/delivered_*.png` | 캐릭터 선택 화면 | `qa_out/art_character_select_juggler.png` |
 
 ---
 
