@@ -5,25 +5,18 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-10-08 (174)
-- 작성자: AI 에이전트. INBOX.md "부분 처리됨" [대형 기획 9] 해적의 세 번째
-  조각 **I-3(고유 스킬 `broadside`/`broadside_plus`)**를 완료했다.
-  `skill_pool.gd`의 `UNIQUE_SKILLS`/`UPGRADE_SKILLS`에 "일제 사격"(함포
-  주기 3→2턴 단축)/"일제 사격+"(고정 피해를 공격 합계 전부로 강화)를
-  추가하고, `combat_test.gd`의 `_cannon_volley_damage()`에 `full_damage`
-  매개변수(기본값 false, 기존 3-인자 호출 하위 호환 유지)를 더했으며, 주기
-  계산을 다른 스택형 스킬들과 같은 패턴(`_player_explosive_threshold()` 등)
-  의 `_cannon_volley_cycle()`로 분리했다. `dice_test.gd`에
-  `_check_i3_pirate_broadside()`를 신설해 SkillPool 등록/주기 단축/고정
-  피해 강화/하위 호환/테스트 전투 설정 보유 스킬 토글 자동 반영까지 계산
-  결과로 직접 검증 — 그 과정에서 기존 `_check_upgrade_skill_pool()`이
-  `UPGRADE_SKILLS.size() == 9`를 하드코딩해 FAIL이 난 것을 10으로 고쳤다.
-  전체 PASS. 테스트 전투 설정 화면에서 해적을 고르면 "일제 사격"/"일제
-  사격+" 체크박스가 겹침 없이 자동으로 뜨는지
-  `qa_out/test_battle_setup_pirate_broadside.png`로 확인.
-  자세한 내용은 아래 "완료 기록 (174)" 참고. **[대형 기획 9] 부분
-  처리됨 — 다음은 I-4**(마무리: DESIGN.md 캐릭터 표 갱신 + 아트 스레드
-  인계 문구).
+- 일시: 2026-10-08 (175)
+- 작성자: AI 에이전트. INBOX.md "부분 처리됨" [대형 기획 9] 해적의 마지막
+  조각 **I-4(마무리)**를 완료해 **[대형 기획 9] 전체 완료**로 "처리됨"
+  이관했다. `docs/DESIGN.md` 캐릭터 표/시작 스킬 표를 8종(8×3)으로
+  갱신하고, 밸런스 시뮬(`balance_sim.gd`)/리포트(`balance_report.gd`)가
+  둘 다 `CharacterProfiles.PROFILES`를 동적 순회해 해적을 자동 반영함을
+  코드로 확인(재실행 불필요), `test_battle_setup` 화면 QA 캡처로 해적이
+  8번째로 겹침 없이 뜨고 선택 시 "일제 사격"/"일제 사격+" 보유 스킬
+  체크박스도 정상 노출됨을 재확인했다. `bash scripts/qa_shot.sh dice_test`
+  전체 PASS. 아트 스레드 인계 메모를 완료 기록에 남겼다.
+  자세한 내용은 아래 "완료 기록 (175)" 참고. **다음은 [대형 기획 7]
+  F-5(a)**(성장 정책 3종 구현 + 단위 검증).
 
 ## 지금 위치
 
@@ -79,13 +72,17 @@ TEST_BATTLE_ENABLED`로 on/off)으로 들어가면 `test_battle_setup.tscn`
 있다(`GAME_START=test_battle_setup` 직접 로드도 여전히 가능). 전투 결과는
 업적/런 진행을 전혀 건드리지 않고 "다시 하기"/"설정으로 돌아가기"로 이어진다.
 상세는 `docs/STATUS_ARCHIVE.md`의 완료 기록 (168)~(171) 참고.
-**[대형 기획 9] 해적(id `pirate`, 8번째 캐릭터) I-1(캐릭터+기믹
-`cannon_volley` "함포 일제사격" 플러밍)/I-2(업적 `r1_pirate`/`clear_pirate` +
-`STARTING_SKILLS`에 선제→황금손→수집가 배정)/I-3(고유 스킬 "일제 사격"
-`broadside`/"일제 사격+" `broadside_plus`, 함포 주기 3→2턴 단축 + 고정
-피해 전부 강화) 완료**(상세는 위 "완료 기록 (174)"). **다음은 I-4**(마무리:
-DESIGN.md 캐릭터 표 갱신 + 밸런스 시뮬/테스트 전투 설정 8캐릭터 확인 + 아트
-스레드 인계 문구), 끝나면 **[대형 기획 7] F-5(성장 정책 시뮬, a→b→c)**.
+**[대형 기획 9] 전체 완료(I-1~I-4)** — 해적(id `pirate`, 8번째 캐릭터) 추가.
+I-1(캐릭터+기믹 `cannon_volley` "함포 일제사격" 플러밍)/I-2(업적
+`r1_pirate`/`clear_pirate` + `STARTING_SKILLS`에 선제→황금손→수집가 배정)/
+I-3(고유 스킬 "일제 사격" `broadside`/"일제 사격+" `broadside_plus`, 함포
+주기 3→2턴 단축 + 고정 피해 전부 강화)/I-4(마무리: DESIGN.md 캐릭터 표·
+시작 스킬 표 8종 갱신, 밸런스 시뮬/리포트가 `CharacterProfiles.PROFILES`
+동적 순회라 자동 반영 확인, 테스트 전투 설정 8캐릭터 QA)까지 완료(상세는
+위 "완료 기록 (175)", I-1~I-3은 "완료 기록 (172)~(174)"). **아트 스레드
+인계 필요**: 캐릭터 `pirate`(해적) 신규 — full + 표정 5종(청록빛 흑발
+#0E4A4F / 터콰이즈 코트 #1FA5A0, 약탈과 함포 사격의 호쾌한 해적 선장).
+다음은 **[대형 기획 7] F-5(성장 정책 시뮬, a→b→c)**.
 **ART-1a(아트 스레드 전달) 완료** — 캐릭터 선택 카드 목록 ScrollContainer
 전환(상세는 `docs/STATUS_ARCHIVE.md`의 완료 기록 (152)). ART-1b/1c는 원화
 파일 도착 전 상태라 여전히 대기.
@@ -217,13 +214,10 @@ DESIGN.md 캐릭터 표 갱신 + 밸런스 시뮬/테스트 전투 설정 8캐�
 진행하는 것을 권장한다. 한 이터레이션에 한두 개만 진행할 것.
 
 **최우선 (INBOX.md 지시 — 아래 번호 매긴 큐보다 먼저):**
-- **[대형 기획 9] 해적(id `pirate`, 8번째 캐릭터) I-1(캐릭터+기믹 플러밍)/
-  I-2(업적+시작 스킬)/I-3(고유 스킬 `broadside`/`broadside_plus`) 완료.**
-  다음은 **I-4**(INBOX.md "남은 이슈" 2026-10-08 원문 — DESIGN.md 캐릭터 표 8종
-  갱신 + 밸런스 시뮬/리포트 생성기·테스트 전투 설정 화면이 8캐릭터를 처리하는지
-  확인 + 완료되면 아트 스레드 인계 문구 한 줄). I-4를 마치면 [대형 기획 9] 전체
-  완료로 INBOX.md "처리됨" 이관.
-  전부 끝나면 마지막으로 **[대형 기획 7] F-5(a→b→c, 성장 정책 밸런스 시뮬)**로.
+- **[대형 기획 9] 해적(id `pirate`, 8번째 캐릭터) I-1~I-4 전체 완료, INBOX.md
+  "처리됨" 이관.** 다음은 **[대형 기획 7] F-5(a→b→c, 성장 정책 밸런스 시뮬 —
+  INBOX.md "남은 이슈" 2026-10-08 원문 참고)**. (a) 성장 정책 3종 구현 + 단위
+  검증부터 시작.
 
 0. **(INBOX.md 신규 2026-09-03) UI 접근성/가시성 4종 — 1/4 부분 착수.** 전부 "전투/
    선택지 화면 어디서든 정보가 상시 보이거나, 조작이 더 직관적이어야 한다"는 계열의
@@ -830,6 +824,31 @@ DESIGN.md 캐릭터 표 갱신 + 밸런스 시뮬/테스트 전투 설정 8캐�
 
 ## 완료 기록
 
+- **2026-10-08 (175)**: INBOX.md "부분 처리됨"의 [대형 기획 9] 해적 **I-4(마무리)**
+  — I-3 완료로 실행 순서상 마지막 조각, **[대형 기획 9] 전체 완료**.
+  **DESIGN.md**: "플레이어블 캐릭터 (7종)" 절을 8종으로 갱신하고 해적 행(컨셉/
+  시작 다이스 D4x2·D4x3/기믹 `cannon_volley` 설명)을 캐릭터 표에 추가했다.
+  시작 스킬 3단 사다리 표(캐릭터×슬롯)에도 "해적 | 선제 | 황금손 | 수집가"
+  행을 추가해 7×3=21개 → 8×3=24개로 갱신(절 머리말의 "7종"/"21개" 숫자도
+  함께 고침).
+  **밸런스 시뮬/리포트 자동 반영 확인**: `code/qa/balance_sim.gd`(F-4b 시뮬
+  러너)와 `code/qa/balance_report.gd`(F-4c 리포트 생성기) 둘 다 캐릭터 목록을
+  `for profile in CharacterProfiles.PROFILES`로 동적으로 순회하는 구조라 하드코딩된
+  캐릭터 수/목록이 없음을 코드로 확인 — 해적 추가로 자동 반영되므로 **재실행
+  불필요**(INBOX.md I-4 지시의 "자동이면 재실행은 불필요" 조건 충족).
+  **QA**: `bash scripts/qa_shot.sh dice_test`(전체 회귀 스위트, I-1~I-3 검증
+  포함) PASS 재확인. `scripts/qa_shot.sh test_battle_setup 10 ... ""`로 캐릭터
+  목록에 해적이 8번째로 겹침 없이 나오는 것을, 기존 `_debug_select_pirate_
+  scroll_bottom()` QA 래퍼(I-3에서 이미 만들어둠)로 해적을 선택한 뒤 "보유
+  스킬" 섹션에 "일제 사격"/"일제 사격+" 체크박스가 심호흡/여분 아래에 겹침
+  없이 뜨는 것을 재확인(`qa_out/test_battle_setup_i4_pirate.png`,
+  `qa_out/test_battle_setup_i4_pirate_selected.png`).
+  **아트 스레드 인계 필요**: 캐릭터 `pirate`(해적) 신규 — full + 표정 5종,
+  컨셉/색 키워드는 위 "진행 상황" 절 프로필 참고(청록빛 흑발 #0E4A4F /
+  터콰이즈 코트 #1FA5A0, 약탈과 함포 사격의 호쾌한 해적 선장).
+  **I-4 완료, [대형 기획 9] 전체 완료.** INBOX.md "부분 처리됨" → "처리됨"으로
+  이관. 다음은 **[대형 기획 7] F-5(a)**(성장 정책 3종 구현 + 단위 검증).
+
 - **2026-10-08 (174)**: INBOX.md "부분 처리됨"의 [대형 기획 9] 해적 **I-3(고유
   스킬 `broadside`/`broadside_plus`)** — I-2 완료로 실행 순서상 다음 조각.
   **SkillPool**: `skill_pool.gd`의 `UNIQUE_SKILLS`에 `broadside`("일제 사격",
@@ -1316,55 +1335,9 @@ DESIGN.md 캐릭터 표 갱신 + 밸런스 시뮬/테스트 전투 설정 8캐�
   필요 없이 표로 정리하면 됨). "완료 기록" 10개 유지를 위해 (156)을
   `docs/STATUS_ARCHIVE.md`로 옮겼다.
 
-- **2026-10-07 (165)**: 세션 시작 시 `git status`/`git diff`로 직전
-  이터레이션이 사용량 한도로 끊기며 남긴 `code/scenes/combat_test.gd`의
-  미커밋 변경을 발견했다 — [대형 기획 5] **F-4a**(헤드리스 밸런스 시뮬
-  경로 확보)의 일부로 `_do_exchange()`를 `_select_exchange_bags()`/
-  `_resolve_exchange()`로 쪼개려던 리팩터였는데 미완성 상태였다. 새로
-  시작하지 않고 diff를 읽어 이어서 완성했다.
-  **발견한 문제**: `_resolve_exchange(...) -> Dictionary` 시그니처로
-  바뀌었는데도 함수 본문은 옛 `_do_exchange()`의 UI/`await` 코드(다이스 칩
-  표시, 포트레이트 표정, 라벨, 전투 종료 후 pause 타이머, 보상 화면
-  전환)를 그대로 가진 채 끝까지 실행되고 **한 번도 `return`하지 않았다**
-  (암묵적으로 `null` 반환). 또 `_maybe_activate_boss_phase2()`는 이미
-  `logs: Array`를 받아 `bool`을 반환하는 새 시그니처로 바뀌어 있었는데,
-  `_resolve_exchange()` 안의 호출부는 옛 무인자 호출(`_maybe_activate_
-  boss_phase2()`) 그대로 남아있어 인자 개수 불일치였다. 그대로 뒀다면
-  첫 공격턴부터 타입 에러로 크래시했을 상태.
-  **고친 내용**: `_resolve_exchange()`를 실제로 물리/UI 노드에 전혀
-  의존하지 않는 계산 함수로 완성했다 — 롤→기믹/스킬 보정(`_append_log`
-  대신 지역 `logs: Array[String]`에 적재)→데미지 계산→HP/카운터·부활·
-  흡수 반영→폭발/수호 스택 적립→`_maybe_activate_boss_phase2(logs)`
-  (새 시그니처로 호출 수정)→승패 판정·업적 unlock·골드/눈금 보상까지
-  전부 이 함수 하나에 모으고, UI 호출(초상화 표정, 다이스 칩, 라벨,
-  pause 타이머, 보상 화면)은 전부 제거해 `{"logs", "atk_values",
-  "def_values", "dmg", "reflect_damage", "revive_to",
-  "boss_phase2_activated"}` `Dictionary`를 반환하도록 정리했다. 신규
-  `_maybe_finish_battle(_dmg)` 함수를 만들어 제거한 UI 호출들(승리/패배
-  문구·포트레이트, 커스터마이징 토글, pause 타이머, 덱 패널 닫기, 다음
-  버튼/보상 UI)을 그대로 옮겼다 — `battle_over`/`player_won`은
-  `_resolve_exchange()`가 이미 인스턴스 상태로 반영해둔 값을 그대로
-  읽는다. `_do_exchange()`는 이제 물리 스폰/정지 대기 →
-  `_resolve_exchange()` 호출 → 반환값으로 칩/포트레이트 갱신 →
-  `await _maybe_finish_battle(dmg)` 순서로만 남는다(`_run_battle()`이
-  `await _do_exchange(...)` 직후 `battle_over`를 확인해 다음 턴 진행
-  여부를 정하므로, 기존에 빠져 있던 `await`를 추가하지 않으면 전투가
-  끝났는데도 다음 턴이 바로 시작되는 타이밍 버그가 생겼을 것).
-  **검증**: `bash scripts/qa_shot.sh dice_test` 전체 PASS(함수를 쪼갠
-  것일 뿐 계산 순서/조건/값은 전혀 안 바꿔 기존 회귀 그대로 통과).
-  `scripts/qa_shot.sh combat_test 180 qa_out/combat_test_f4a.png "" 1`로
-  실제 전투 화면을 정지 감지까지 띄워 확인 — HP 막대/다이스 칩/로그/몬스터
-  계열 아이콘이 리팩터 전과 동일하게 보임, 크래시 없음
-  (`qa_out/combat_test_f4a.png`).
-  **F-4a 완료.** 다음은 **F-4b**(시뮬 러너 — 신규 `code/qa/balance_sim.gd`,
-  캐릭터 7종×시작 스킬 슬롯×방 0~4 각 200판. `_resolve_exchange()`가
-  `AchievementManager.unlock()`을 직접 호출하므로 시뮬 실행 전후
-  `user://achievements.json` 백업/복원 필요 — F-3 E2E가 쓴 패턴과 동일).
-  "완료 기록" 10개 유지를 위해 (155)를 `docs/STATUS_ARCHIVE.md`로 옮겼다.
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(174)에서 (164)를 그리로 옮겼다.)*
+이번 이터레이션(175)에서 (165)를 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 

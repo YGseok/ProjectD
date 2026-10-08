@@ -8,6 +8,52 @@
 
 ---
 
+- **2026-10-07 (165)**: 세션 시작 시 `git status`/`git diff`로 직전
+  이터레이션이 사용량 한도로 끊기며 남긴 `code/scenes/combat_test.gd`의
+  미커밋 변경을 발견했다 — [대형 기획 5] **F-4a**(헤드리스 밸런스 시뮬
+  경로 확보)의 일부로 `_do_exchange()`를 `_select_exchange_bags()`/
+  `_resolve_exchange()`로 쪼개려던 리팩터였는데 미완성 상태였다. 새로
+  시작하지 않고 diff를 읽어 이어서 완성했다.
+  **발견한 문제**: `_resolve_exchange(...) -> Dictionary` 시그니처로
+  바뀌었는데도 함수 본문은 옛 `_do_exchange()`의 UI/`await` 코드(다이스 칩
+  표시, 포트레이트 표정, 라벨, 전투 종료 후 pause 타이머, 보상 화면
+  전환)를 그대로 가진 채 끝까지 실행되고 **한 번도 `return`하지 않았다**
+  (암묵적으로 `null` 반환). 또 `_maybe_activate_boss_phase2()`는 이미
+  `logs: Array`를 받아 `bool`을 반환하는 새 시그니처로 바뀌어 있었는데,
+  `_resolve_exchange()` 안의 호출부는 옛 무인자 호출(`_maybe_activate_
+  boss_phase2()`) 그대로 남아있어 인자 개수 불일치였다. 그대로 뒀다면
+  첫 공격턴부터 타입 에러로 크래시했을 상태.
+  **고친 내용**: `_resolve_exchange()`를 실제로 물리/UI 노드에 전혀
+  의존하지 않는 계산 함수로 완성했다 — 롤→기믹/스킬 보정(`_append_log`
+  대신 지역 `logs: Array[String]`에 적재)→데미지 계산→HP/카운터·부활·
+  흡수 반영→폭발/수호 스택 적립→`_maybe_activate_boss_phase2(logs)`
+  (새 시그니처로 호출 수정)→승패 판정·업적 unlock·골드/눈금 보상까지
+  전부 이 함수 하나에 모으고, UI 호출(초상화 표정, 다이스 칩, 라벨,
+  pause 타이머, 보상 화면)은 전부 제거해 `{"logs", "atk_values",
+  "def_values", "dmg", "reflect_damage", "revive_to",
+  "boss_phase2_activated"}` `Dictionary`를 반환하도록 정리했다. 신규
+  `_maybe_finish_battle(_dmg)` 함수를 만들어 제거한 UI 호출들(승리/패배
+  문구·포트레이트, 커스터마이징 토글, pause 타이머, 덱 패널 닫기, 다음
+  버튼/보상 UI)을 그대로 옮겼다 — `battle_over`/`player_won`은
+  `_resolve_exchange()`가 이미 인스턴스 상태로 반영해둔 값을 그대로
+  읽는다. `_do_exchange()`는 이제 물리 스폰/정지 대기 →
+  `_resolve_exchange()` 호출 → 반환값으로 칩/포트레이트 갱신 →
+  `await _maybe_finish_battle(dmg)` 순서로만 남는다(`_run_battle()`이
+  `await _do_exchange(...)` 직후 `battle_over`를 확인해 다음 턴 진행
+  여부를 정하므로, 기존에 빠져 있던 `await`를 추가하지 않으면 전투가
+  끝났는데도 다음 턴이 바로 시작되는 타이밍 버그가 생겼을 것).
+  **검증**: `bash scripts/qa_shot.sh dice_test` 전체 PASS(함수를 쪼갠
+  것일 뿐 계산 순서/조건/값은 전혀 안 바꿔 기존 회귀 그대로 통과).
+  `scripts/qa_shot.sh combat_test 180 qa_out/combat_test_f4a.png "" 1`로
+  실제 전투 화면을 정지 감지까지 띄워 확인 — HP 막대/다이스 칩/로그/몬스터
+  계열 아이콘이 리팩터 전과 동일하게 보임, 크래시 없음
+  (`qa_out/combat_test_f4a.png`).
+  **F-4a 완료.** 다음은 **F-4b**(시뮬 러너 — 신규 `code/qa/balance_sim.gd`,
+  캐릭터 7종×시작 스킬 슬롯×방 0~4 각 200판. `_resolve_exchange()`가
+  `AchievementManager.unlock()`을 직접 호출하므로 시뮬 실행 전후
+  `user://achievements.json` 백업/복원 필요 — F-3 E2E가 쓴 패턴과 동일).
+  "완료 기록" 10개 유지를 위해 (155)를 `docs/STATUS_ARCHIVE.md`로 옮겼다.
+
 - **2026-10-07 (164)**: G-8 완료로 실행 순서(F-2→F-3→G-1~G-9→F-4)상 마지막
   조각인 INBOX.md "부분 처리됨"의 [대형 기획 6](몬스터 대개편) **G-9(마무리:
   맵 미리보기 + 문서)**를 진행했다 — **[대형 기획 6] G-1~G-9 전체 완료**,

@@ -7,6 +7,32 @@
 
 ---
 
+- [처리됨 - 2026-09-16] [미니 기획 B] 특수 이벤트 개편 — 전체 완료 (원본:
+  2026-09-14 "특수 이벤트에서 얻어지는 보상이 너무 단순", "임의의 스토리를
+  부여하고 리스크/리턴을 선택하도록", "D&D 난이도 체크처럼", "직업마다 이벤트
+  주사위 1개", "이벤트 주사위는 커스터마이징되면 안 될 것 같다, 로마 숫자로").
+  → 2026-09-15에 확정한 권장 순서(4 -> 1 -> 2+3)를 세 이터레이션에 걸쳐
+  전부 구현했다. (113) `character_profiles.gd`/`run_state.gd`에
+  `event_die_sides`(전부 D6) 필드, 신규 `code/scenes/event_die_visual.gd`
+  (`EventDieVisual`)로 로마 숫자 육각 칩 시각화, 캐릭터 선택 상세 패널에
+  샘플 표시. (114) `event_item_pool.gd`의 `ITEMS` 5종에 1문장짜리 "flavor"
+  필드를 추가하고 `item_card_style.gd`가 카드 제목 아래에 표시(다른 화면의
+  DiceItemPool 카드는 영향 없음). (115) `event.gd`를 "무작위 2개 중 1개
+  무료 획득"에서 "안전하게 넘어가기(확정 C급)/위험을 감수하기(이벤트
+  주사위 1회 굴려 `DC = min(5, 3 + room_index/2)`와 비교, 성공 시 A/S급
+  무작위 획득·실패 시 보상 없음)" 2택으로 재구성, `EventItemPool`에 등급
+  필터(`items_of_grade`/`random_safe_item`/`random_risky_item`) 추가.
+  기존 아이템 적용 함수(`_apply_pick`/`_apply_pips`/`_apply_upgrade`)는
+  시그니처를 바꾸지 않아 `dice_test.gd`의 기존 회귀 테스트가 그대로 통과.
+  `dice_test.gd`에 `_check_event_die_sides`/`_check_event_item_flavor`/
+  `_check_event_safe_risky_choice` 신규 검증 추가, 회귀 스위트 전체 PASS.
+  구현 중 발견한 간극: 등급 배정상 B급 아이템("다면체 주사위 획득 (D8)")이
+  안전(C만)/위험 성공(A/S만) 어느 풀에도 안 걸려 이 방에서는 다시 안 나오는
+  사각지대가 됨 — `docs/STATUS.md` "알려진 이슈"에 기록, 사람 결정 필요.
+  [미니 기획 A](몬스터 성격)/[미니 기획 C](캐릭터 스킬 이벤트)는 이번에도
+  손대지 않음 — 위 "남은 이슈"에 그대로 남아있음. `docs/STATUS.md` 완료
+  기록(113, 114, 115) 참고.
+
 - [처리됨 - 2026-09-15] 2026-09-14 캐릭터 스킬에 아이콘을 추가한다.
   → 신규 `code/scenes/skill_icon.gd`(`SkillIcon`)가 `achievement_icon.gd`/
   `reward_icon.gd`와 같은 절차적 `_draw()` 패턴으로 캐릭터의 "보유 스킬"
