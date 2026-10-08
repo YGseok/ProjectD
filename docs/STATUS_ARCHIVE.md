@@ -8,6 +8,53 @@
 
 ---
 
+- **2026-10-07 (155)**: INBOX.md "부분 처리됨"의 [대형 기획 5] **F-3(테스트
+  보강)의 3번째이자 마지막 조각**을 진행했다 — (154)가 "남은 F-3 범위"로
+  지목한 항목 중 (1) 재굴림형 스택(frenzy_deepen/guard_deepen/chain_explosion/
+  chain_guard)의 "스택 적립→보너스 턴 전환" 로직 검증과 (2) 전체 흐름(E2E)
+  테스트를 끝냈다. 먼저 (154)가 나열한 "spare_die(+)/charm_flip/juggle_swap
+  효과 검증"을 실제로 다시 찾아봤더니, `dice_test.gd`의 `_check_skill_effects()`
+  (매혹사/곡예사 고유 스킬을 추가한 (142)~(145) 등 더 이전 커밋에서 이미
+  작성됨)에 이 셋 전부(`_apply_spare_die(count=1/2)`/`_apply_bonus_reroll
+  (extra_rolls=1/2)`/`apply_charm_flip(count=1/2/3)`/`swap_random_dice()`)가
+  "최저값 자리만 변경되는지"/"절대 감소하지 않는지"/"count가 커지면 대체
+  확률이 떨어지지 않는지" 같은 실제 계산 결과 비교로 이미 커버돼 있었다 —
+  (154)의 "남은 범위" 서술이 조금 보수적이었던 것으로, 진짜 미검증 지점은
+  그 넷이 아니라 "**스택이 쌓여 임계치에 도달하면 pending(보너스 턴)으로
+  전환되는지**" 자체였다(기존엔 `_player_explosive_threshold()`/
+  `_player_guard_threshold()`로 "임계치 값"만 검증 가능했고, `_do_exchange()`
+  하단에 인라인된 실제 적립/리셋 블록은 물리 시뮬레이션 없이 부를 수
+  없었음).
+  `combat_test.gd`에 `_update_stack_progress(current_stacks, used_bonus_dice,
+  max_hits, threshold) -> Dictionary`를 신설해(반환: stacks/pending/reset/
+  gained/activated) "보너스 다이스를 소모했으면 리셋, 아니면 max_hits만큼
+  쌓고 임계치 도달 시 pending" 로직을 순수 함수로 뽑아내고, `_do_exchange()`
+  안의 공격(explosive)/방어(guard) 두 스택 블록(몬스터 anger_stack은 이번
+  범위 밖이라 그대로 둠, G-2에서 몬스터 스킬 프레임워크로 이식될 예정)을
+  이 함수 호출로 교체했다(로그 문구/동작은 동일, 반환 Dictionary의
+  "gained"/"activated"로 로그 분기만 재구성). `dice_test.gd`에 (적립/도달/
+  무변화/소모 리셋) 4가지 입력 조합을 직접 호출해 검증하는 섹션을 추가.
+  **E2E 테스트**는 `_apply_room_advance()`(순수 상태 전환 + 업적 unlock,
+  이미 `_check_round_clear_achievements()`가 쓰는 패턴, 물리 의존 없음)로
+  "보스를 이겼다"를 흉내 내 견습 모험가+곡예사 2종을 "라운드1 보스 격파
+  (r1 업적+슬롯1 해금 확인) → 최종 클리어(clear 업적+슬롯2 해금 확인) →
+  해금된 슬롯2 스킬 선택 후 새 런 시작 → `RunState.skill_flags`에 실제로
+  들어갔는지 → `_do_exchange()`가 쓰는 것과 똑같은 조건식+보너스 함수
+  (`_wealth_bonus()`/`_diverse_bonus()`)로 실제 양수 효과가 나오는지"까지
+  이어서 확인한다(곡예사는 기본 다이스가 전부 D4라 "잡화점" 조건을 만족시키려
+  `RunState.player_attack_bag.add_die(6/8)`으로 아이템 습득을 흉내 냄). 업적
+  저장 파일은 실제 플레이 진행도를 건드리지 않도록 `AchievementManager.
+  _debug_reset_for_qa()`(파일을 통째로 지움, 기존 테스트 다수가 이렇게 함)
+  대신 `_unlocked` Dictionary 자체를 백업해두고 끝에 그대로 복원 + `_save()`로
+  다시 기록했다(F-3 지시문이 이 E2E 테스트에 명시적으로 요구한 방식).
+  `bash scripts/qa_shot.sh dice_test` 전체 PASS(신규 두 섹션 포함),
+  `scripts/qa_shot.sh combat_test`로 전투 화면 크래시 없음 확인(순수 로직
+  리팩터라 레이아웃 영향 없음).
+  **F-3(전체 3조각) 완료.** 다음 할 일은 실행 순서(F-2→F-3→G-1~G-9→F-4)에
+  따라 INBOX.md [대형 기획 6]의 **G-1**(계열+몬스터 카탈로그, STATUS.md 큐
+  21번 참고) — 아직 미착수.
+  "완료 기록" 10개 유지를 위해 (145)를 `docs/STATUS_ARCHIVE.md`로 옮겼다.
+
 - **2026-10-07 (154)**: INBOX.md "부분 처리됨"의 [대형 기획 5] **F-3(테스트
   보강)의 2번째 조각**을 진행했다 — (153)이 "남은 F-3 범위"에 명시적으로
   지목했던 "아직 '조건만 손으로 재현'하는 수준에 머물러 있는 나머지
