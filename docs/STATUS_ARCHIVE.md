@@ -8,6 +8,44 @@
 
 ---
 
+- **2026-10-08 (171)**: INBOX.md "부분 처리됨"의 [대형 기획 8] **H-4(진입점 +
+  마무리)** — 이 대형 항목의 마지막 조각, H-3(완료) 다음.
+  **진입 버튼**: `character_select.tscn`의 "업적" 버튼 바로 아래(우상단)에
+  "테스트 전투" 버튼(`TestBattleButton`)을 추가 — `character_select.gd`의
+  `_setup_test_battle_button()`이 폰트 크기 12 + `modulate` 알파 0.55로
+  작고 흐리게 만들어 정식 플레이 흐름("던전 시작"/"업적")보다 눈에 덜
+  띄게 했다. 누르면 `test_battle_setup.tscn`으로 전환(`_on_test_battle_
+  pressed()`), 숫자 키 단축키 목록(`_shortcut_buttons`)에도 포함돼 [n]으로
+  누를 수 있다. 설정 화면의 "뒤로"는 이미 H-1~H-3에서 `character_select.
+  tscn`으로 돌아오게 구현돼 있어 추가 작업 불필요.
+  **on/off 스위치**: `RunState.TEST_BATTLE_ENABLED`(단일 `const bool`)
+  신설 — false면 `_setup_test_battle_button()`이 버튼을 `visible=false`로
+  숨기고 숏컷 목록에도 추가하지 않는다(정식 빌드에서 코드 삭제 없이 끌 수
+  있게, INBOX.md H-4 원문 요구).
+  **DESIGN.md**: "### 테스트 전투 모드" 절을 "던전 방 이벤트 콘텐츠"
+  다음에 신설 — 무엇을 고를 수 있는지(캐릭터/시작 스킬/보유 스킬/성장/
+  몬스터/난이도), 진행도를 건드리지 않는다는 세 가지 원칙(업적 미해금/런
+  진행 불변/패배해도 reset_run() 미호출), 시작 스킬 잠금 무시, 진입
+  방법(버튼 위치 + `TEST_BATTLE_ENABLED`), 직전 선택 유지를 정리.
+  **시각 QA**: 회귀 스위트 `scripts/qa_shot.sh dice_test` 전체 PASS(기존
+  H-1~H-3 검증 그대로 유지, H-4는 새 계산 로직이 없어 신규 단위 테스트는
+  추가하지 않음 — 네비게이션 버튼 하나뿐이라 F-3 원칙상 검증 대상인
+  "계산 결과"가 없음). `character_select`를 (a) 평소대로 로드해 새 버튼이
+  "업적" 아래에 겹침 없이 흐리게 보이는지(`qa_out/character_select_h4_
+  button.png`), (b) 신규 QA 래퍼 `_debug_open_test_battle()`(버튼의
+  `pressed` 핸들러를 그대로 호출)로 실제 `test_battle_setup.tscn`까지
+  전환되는지(`qa_out/character_select_h4_entry.png`, 레이아웃 겹침
+  없음) 확인 — "설정 → 전투 시작 → 강제 승리 → 설정 복귀" 전체는 H-1/
+  H-2가 이미 각 구간(결과 화면 `qa_out/combat_test_h1_result*.png`, 보스
+  전투 진입 `qa_out/test_battle_setup_boss_start.png`)을 개별 검증해둔
+  상태라 H-4에서 바뀐 건 "그 화면들로 들어가는 입구"뿐이므로 새로 안
+  바뀐 두 구간은 재촬영하지 않았다(진행도 불변은 H-1의
+  `_check_h1_test_battle_mode()`가 이미 "계산 결과"로 검증 — H-4는 그
+  경로에 아무 로직도 추가하지 않았으므로 재검증 불필요).
+  **[대형 기획 8] 전체 완료(H-1~H-4).** 다음은 **[대형 기획 9] 해적
+  I-1**(캐릭터+기믹 `cannon_volley` 플러밍, INBOX.md "남은 이슈" 2026-10-08
+  원문 참고).
+
 - **2026-10-08 (170)**: 직전 이터레이션(169)이 사용량 한도로 끊기며 남긴
   [대형 기획 8] **H-3(성장 정도 + 보유 스킬 세팅)** 미커밋 변경을 이어서
   완성·검증했다 — `git diff`로 확인한 결과 구현 자체(`test_battle_setup.gd`/

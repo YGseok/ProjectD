@@ -448,8 +448,20 @@ const PIP_REWARD_MAX_PER_ROOM := 1
 ## 다이스 모양(과 그에 딸린 재질/색, _material_for_sides() 참고)으로도 드러낸다.
 ## 값 자체는 감으로 잡은 잠정값 — 이 스케일링이 기존 개수/HP 스케일링과 겹쳐 후반
 ## 난이도가 과도해지는 건 아닌지 사람 피드백 필요.
+## [대형 기획 10] J-2(2026-10-08) 3차 시도 — R1 보스(고블린 왕/점액 군주)가 시도
+## 0~2 내내 0.0%로 전혀 안 움직인 원인을 진단한 결과(docs/BALANCE_TUNING_LOG.md
+## "J-2 R1 보스 0% 원인 진단" 참고), difficulty>=4 임계가 정확히 R1 보스가 서는 방
+## (effective_difficulty=4)과 겹쳐 "몬스터는 이미 D8인데 균형 성장 플레이어는 아직
+## D4"(global_index=4 < growth_sides_for의 D6 임계 5)인 2단계 면 격차가 생기는 게
+## 진짜 원인이었다 — 공격/방어 다이스 "개수"나 HP 배율(시도 1~2)보다 이 면 개수
+## 격차가 기대 공격/방어 합계 차이의 대부분을 설명한다. 임계를 4->5로 한 칸
+## 늦춰 R1 보스(difficulty=4)만 D6으로 내리고(R2 보스 difficulty=7, R3 보스
+## difficulty=10은 영향 없음 — 그대로 D8), 동시에 difficulty=4인 일반 몬스터
+## (R2 방1)도 같은 이유로 덩달아 완화된다(의도된 부수 효과, J-3 "방3 절벽"과는
+## 다른 방임에 주의). dice_test.gd의 _check_monster_config_scaling() 기대값도
+## 이 변경에 맞춰 같이 갱신했다.
 func _monster_dice_sides_for_room(room_index: int) -> int:
-	if room_index >= 4:
+	if room_index >= 5:
 		return 8
 	if room_index >= 2:
 		return 6
@@ -623,8 +635,15 @@ func _build_monster_config(profile: Dictionary, name_text_in: String, difficulty
 		# 깎을 기회도 없이 죽는 것이 진짜 원인으로 보임). 2차 시도로 공격 다이스 보정을
 		# +2에서 +1로 완화(방어 보정은 그대로 둠, INBOX.md 지시: 한 번에 한 손잡이씩).
 		# 결과는 docs/BALANCE_TUNING_LOG.md 참고.
+		# 4차 시도(2026-10-08) — R1 보스(고블린 왕/점액 군주)가 1~3차 시도(다이스 면
+		# 승급 임계 완화 포함) 내내 0.0%로 안 움직여 EV를 계산해봤다(docs/
+		# BALANCE_TUNING_LOG.md "J-2 R1 보스 0% 원인 진단" 참고): 균형 성장 플레이어
+		# 기대 공격 합계(~10.0, difficulty=4)보다 방어 보정 +1까지 더한 보스 기대
+		# 방어 합계(고블린 왕 12.5/점액 군주 10.5)가 더 높아서, 평균적으로 보스에게
+		# 피해를 못 주는 게 기본값이었다 — 방어 보정을 +1->0으로 제거해 기대 공격
+		# (10.0)이 기대 방어(9.0/7.0)를 웃도는 구간으로 넘긴다. 공격 보정(+1)/HP
+		# 배율(x1.5)은 그대로 둔다.
 		attack_count += 1
-		defense_count += 1
 		max_hp = int(round(max_hp * 1.5))
 		name_text += " [보스]"
 	# G-3(MonsterSkills 파라미터) — skills 배열(각 원소 {"id":..., 파라미터...})을
@@ -687,7 +706,7 @@ func _monster_debug_info_text(config: Dictionary) -> String:
 	if config.get("is_elite", false):
 		text += "\n[정예] 스킬 2개 + 공격 다이스 +1 + HP x1.5 강화됨"
 	if config.get("is_boss", false):
-		text += "\n[보스] 공격+1 / 방어+1 / HP x1.5 강화됨"
+		text += "\n[보스] 공격+1 / HP x1.5 강화됨"
 	if config.get("phase2_active", false):
 		text += "\n[2페이즈] 보스가 격노했다! 추가 스킬 발동 중"
 	return text
