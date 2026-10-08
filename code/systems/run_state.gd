@@ -93,6 +93,28 @@ extends Node
 ## _ready()가 이 플래그를 읽어 "이번 전투는 elite_plan에서 몬스터를 고른다"를 판단한 뒤
 ## 승패와 무관하게 즉시 false로 되돌린다(다음 전투 입장은 항상 일반 전투가 기본).
 ##
+## test_battle / test_monster_id / test_difficulty / test_round_index: INBOX.md
+## [대형 기획 8] H-1(2026-10-08) — "테스트 전투" 모드. 런 무작위 진행과 별개로 캐릭터/
+## 몬스터/난이도를 직접 골라 즉시 붙어볼 수 있게 하는 플러밍이다. combat_test.gd의
+## _ready()가 test_battle이 true면 monster_plan 대신 test_monster_id(MonsterCatalog
+## 35종 전부, 보스/정예 포함)와 test_difficulty(기존 `room_index + (round_index-1)*3`
+## 스케일링 공식에 그대로 넣는 정수)로 몬스터를 구성한다(_monster_config_for_test() 참고).
+## reset_run()은 test_battle만 항상 false로 초기화한다 — 나머지 test_* 필드는 설정
+## 화면([대형 기획 8] H-2)이 reset_run() **이후**에 이어서 세팅하고(원칙: "주머니 구성
+## 적용은 reset_run() 이후 한 곳에서만"), 그래야 "직전 선택 유지"(재전투 편의)가 된다.
+## test_round_index는 지금은 난이도 계산에 직접 쓰이지 않지만(test_difficulty 하나로
+## 충분) H-2 설정 화면이 "라운드 1~3 + 방 0~4" 스피너 UI를 보여줄 때 라운드 쪼가리를
+## 따로 기억해두기 위한 선택 필드다.
+##
+## ②(H-1 원칙) 진행도를 절대 건드리지 않는다: combat_test.gd의 _resolve_exchange()
+## (승리/패배 시 업적 unlock, 골드/눈금 보상)와 _apply_room_advance()(rooms_cleared/
+## round_index 진행, advance_round(), reset_run())가 전부 test_battle을 먼저 확인해
+## 스킵한다 — 테스트 전투는 "결과만 보여주고" 실제 세이브/런 상태는 그대로 둔다.
+var test_battle: bool = false
+var test_monster_id: String = ""
+var test_difficulty: int = 0
+var test_round_index: int = 1
+##
 ## chosen_starting_skill_id: [미니 기획 E]-3 (INBOX.md 2026-09-17 기획자 결정) —
 ## 캐릭터 선택 화면에서 미리 확정하는 "시작 스킬" 로드아웃(SkillPool.STARTING_SKILLS,
 ## skill_flags와는 별개 레이어). character_select.gd가 캐릭터 카드를 고를 때마다 그
@@ -141,6 +163,7 @@ func reset_run(new_character_id: String = "") -> void:
 	round_index = 1
 	gold = 0
 	shop_visits = 0
+	test_battle = false
 	run_seed = randi()
 	monster_plan = MonsterCatalog.build_monster_plan(run_seed, TOTAL_ROUNDS, TOTAL_ROOMS)
 	elite_plan = MonsterCatalog.build_elite_plan(run_seed + ELITE_SEED_OFFSET, TOTAL_ROUNDS, TOTAL_ROOMS)

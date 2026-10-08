@@ -5,31 +5,48 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-10-08 (167)
-- 작성자: AI 에이전트. [대형 기획 5] **F-4c(밸런스 리포트 작성)**를 진행했다
-  — F-4b 완료로 실행 순서상 마지막 조각이었고, 이로써 **[대형 기획 5](F-1~F-4)
-  전체 완료**, INBOX.md에서 "처리됨"으로 옮겼다.
-  신규 `code/qa/balance_report.gd`(+ `code/scenes/balance_report.tscn`,
-  `bash scripts/qa_shot.sh balance_report`로 실행)가 F-4b가 저장해둔
-  `qa_out/balance_sim_raw.tsv`(504행)를 Godot `FileAccess`로 읽어 집계하고
-  `docs/BALANCE_REPORT.md`를 직접 써낸다 — 이 세션 권한 모드에서 Bash로
-  python/awk/node 등 임의 스크립팅 도구를 승인 없이 쓸 수 없어서(허용 목록이
-  `git`/`scripts/qa_shot.sh`/`mkdir`/`ls`/`find`/`cat`뿐), 기존 QA 파이프라인
-  (씬을 띄워 한 프레임에서 계산을 끝내는 패턴)을 그대로 재사용해 집계까지
-  Godot 헤드리스 실행 안에서 끝냈다.
-  INBOX.md 지시대로 **해석/조정 제안 없이 숫자만** 낸다 — 전체 평균(504개
-  조합 평균 승률 22.02%/턴수 6.04/승리 시 HP 3.88), 전체 평균 대비
-  **±15%p 이상** 벗어난 이상치 목록(495개), 캐릭터 7종×시작 스킬 3종×
-  라운드1~3×방(일반+정예) 전체 상세표(504행). 재현 조건(`FIXED_PLAN_SEED=
-  20261007`, 다이스 RNG는 trial마다 재굴림, `TRIALS_PER_COMBO=100`)도 문서
-  상단에 기록. 구현 중 `%%p`가 정적 문자열이라 `%` 포맷 변환 없이 그대로
-  찍히던 사소한 버그 1건을 발견해 `%p`로 고쳤다.
-  `bash scripts/qa_shot.sh balance_report 10 qa_out/balance_report.png`
-  크래시 없이 완주(`qa_out/balance_report.png`), `docs/BALANCE_REPORT.md`
-  (82KB, 1067줄)를 직접 읽어 헤더/이상치 표/캐릭터별 상세표 전부 올바르게
-  생성됐는지 확인. 기존 프로덕션 코드는 건드리지 않아 `dice_test.gd` 회귀
-  영향 없음(재실행 불필요). 자세한 내용은 아래 "완료 기록 (167)" 참고.
-  "완료 기록" 10개 유지를 위해 (157)을 `docs/STATUS_ARCHIVE.md`로 옮겼다.
+- 일시: 2026-10-08 (168)
+- 작성자: AI 에이전트. INBOX.md에 같은 날 새로 올라온 두 대형 항목([대형 기획 8]
+  "테스트 전투" / [대형 기획 7] F-5 "성장 정책 시뮬") 중 지시된 실행 순서(H 먼저,
+  F-5는 그 다음)에 따라 **[대형 기획 8] H-1(테스트 전투 모드 플러밍, UI 없음)**을
+  진행했다.
+  `RunState`에 `test_battle`/`test_monster_id`/`test_difficulty`/`test_round_index`
+  4개 필드를 추가(`reset_run()`은 `test_battle`만 항상 false로 초기화 — 나머지는
+  다음 조각(H-2) 설정 화면이 reset_run() 이후에 이어서 채움). `combat_test.gd`에
+  신규 `_monster_config_for_test(difficulty)`(카탈로그 35종 중 `RunState.
+  test_monster_id`를 직접 구성, is_boss는 room 위치가 아니라 몬스터 프로필의
+  tier로 판정 — 보스를 고르면 2페이즈/왕관/확대 연출이 그대로 나옴)를 추가하고
+  `_ready()`가 `RunState.test_battle`을 `pending_elite_fight`/
+  `GAME_QA_ROOM_OVERRIDE`보다도 먼저 확인하도록 분기했다. `_resolve_exchange()`
+  승/패 분기와 `_apply_room_advance()`에 `if RunState.test_battle: ...` 가드를
+  넣어 업적 unlock·골드/눈금 보상·`rooms_cleared`/`round_index` 진행·
+  `advance_round()`/`reset_run()`을 전부 스킵하게 했다(H-1 원칙② "진행도를 절대
+  건드리지 않는다"). 결과 화면은 기존 "다음"/"처음부터 다시" 버튼 대신 신규
+  `TestRetryButton`("다시 하기", 씬 재로드)/`TestBackButton`("설정으로 돌아가기",
+  `test_battle_setup.tscn`이 아직 없어 — 그건 H-2 몫 — `ResourceLoader.exists()`로
+  확인 후 없으면 `character_select.tscn`으로 안전하게 폴백) 2개를 보여준다.
+  **효과 단위 테스트**: `dice_test.gd`에 `_check_h1_test_battle_mode()`를 추가해
+  `balance_sim.gd`가 쓰는 패턴(combat_test.gd를 `.new()`만 해서 production
+  함수를 직접 호출, 물리/UI 없음)대로 `DiceBag.force_fixed_value()`로 강제
+  승리/패배를 결정론적으로 재현 — `RunState.test_battle=true`일 때 업적
+  0개/골드 불변/눈금 불변/`rooms_cleared`·`round_index` 불변/`reset_run()`
+  미호출(패배해도 플레이어 다이스 주머니 유지)을 전부 "계산 결과"로 확인했고,
+  `test_battle=false`(일반 모드)에서는 같은 시나리오가 정상적으로 골드/눈금/
+  `rooms_cleared`를 바꾸는지(동작 보존)도 같이 검증했다(F-3 원칙 — 플래그가
+  아니라 결과 비교). `dice_test` 전체 PASS.
+  **시각 QA**: `scripts/qa_shot.sh combat_test`로 (a) 일반 전투 진행 화면이
+  새 버튼 2개 추가 후에도 안 깨지는지(`qa_out/combat_test_h1_check.png`),
+  (b) QA 전용 동기 래퍼 `_debug_show_test_battle_win()`/`_debug_show_test_battle_
+  lose()`(GAME_QA_CALL로 호출, `_maybe_finish_battle()`의 test_battle 분기를
+  await 없이 재현)로 승리/패배 결과 화면에서 "[1] 다시 하기"/"[2] 설정으로
+  돌아가기" 버튼이 겹침 없이 보이는지(`qa_out/combat_test_h1_result.png`,
+  `qa_out/combat_test_h1_result_lose.png`) 둘 다 확인했다.
+  **아직 없음(다음 조각 몫)**: 테스트 전투로 들어가는 진입점 자체(H-2 설정 화면,
+  H-4 캐릭터 선택 화면의 "테스트 전투" 버튼) — 지금은 `RunState.test_battle`을
+  코드/테스트가 직접 세팅해야만 재현 가능하고, 실제 플레이에서는 전혀 도달할 수
+  없는 플러밍 단계. `docs/DESIGN.md`의 "테스트 전투 모드" 절 신설도 H-4 몫으로
+  남겨뒀다(H-4 원문이 명시).
+  자세한 내용은 아래 "완료 기록 (168)" 참고.
 
 ## 지금 위치
 
@@ -72,6 +89,12 @@ F-4a(헤드리스 시뮬 경로)/F-4b(시뮬 러너, 7캐릭터×13종 시작 �
 완료 기록 (149)~(157)과 위 "완료 기록 (165)~(167)"). **조정은 사람이
 `docs/BALANCE_REPORT.md`를 보고 다음 지시로 결정** — 지금은 측정만 끝난
 상태.
+**[대형 기획 8](테스트 전투) H-1 완료, H-2 다음.** `RunState.test_battle`로
+던전 무작위 진행과 무관하게 몬스터/난이도를 직접 골라 즉시 붙어볼 수 있는
+플러밍만 갖춰졌다 — 진입점(설정 화면, 캐릭터 선택 화면의 진입 버튼)은 아직
+없어 지금은 코드/테스트만 켤 수 있다. 상세는 위 "완료 기록 (168)" 참고.
+**[대형 기획 7] F-5(성장 정책 시뮬) 미착수** — INBOX.md 지시대로 H 전부가
+끝난 뒤 (a)성장 정책 구현→(b)시뮬 실행→(c)리포트 순으로 진행 예정.
 **ART-1a(아트 스레드 전달) 완료** — 캐릭터 선택 카드 목록 ScrollContainer
 전환(상세는 `docs/STATUS_ARCHIVE.md`의 완료 기록 (152)). ART-1b/1c는 원화
 파일 도착 전 상태라 여전히 대기.
@@ -193,6 +216,15 @@ F-4a(헤드리스 시뮬 경로)/F-4b(시뮬 러너, 7캐릭터×13종 시작 �
 
 이 순서를 반드시 지킬 필요는 없지만, 앞 단계가 뒤 단계의 전제가 되므로 대체로 순서대로
 진행하는 것을 권장한다. 한 이터레이션에 한두 개만 진행할 것.
+
+**최우선 (INBOX.md 지시 — 아래 번호 매긴 큐보다 먼저):**
+- **[대형 기획 8] H-2(테스트 전투 설정 화면)** — H-1(완료, 플러밍만) 다음 조각.
+  신규 `code/scenes/test_battle_setup.tscn/.gd`: 캐릭터(7종)/시작 스킬(3슬롯 전부,
+  잠금 무시)/몬스터(계열+등급 필터, 35종 스크롤 목록)/난이도(라운드+방 스피너) 선택
+  → "전투 시작"으로 `RunState.reset_run(캐릭터)` 후 `test_battle=true` 세팅해
+  combat_test.tscn으로. INBOX.md "남은 이슈" [대형 기획 8] H-2 원문 참고.
+- 이어서 H-3(성장/보유 스킬 세팅) → H-4(캐릭터 선택 화면 진입 버튼 + DESIGN.md 문서화)
+  순서대로, 전부 끝나면 [대형 기획 7] F-5(a→b→c, 성장 정책 밸런스 시뮬)로.
 
 0. **(INBOX.md 신규 2026-09-03) UI 접근성/가시성 4종 — 1/4 부분 착수.** 전부 "전투/
    선택지 화면 어디서든 정보가 상시 보이거나, 조작이 더 직관적이어야 한다"는 계열의
@@ -799,6 +831,75 @@ F-4a(헤드리스 시뮬 경로)/F-4b(시뮬 러너, 7캐릭터×13종 시작 �
 
 ## 완료 기록
 
+- **2026-10-08 (168)**: INBOX.md "남은 이슈"의 [대형 기획 8] **H-1(테스트 전투
+  모드 플러밍, UI 없음)**을 진행했다 — 같은 날 올라온 [대형 기획 8]/[대형 기획
+  7] F-5 중 지시된 실행 순서(H 먼저)상 첫 조각.
+  `code/systems/run_state.gd`에 `test_battle: bool`/`test_monster_id: String`/
+  `test_difficulty: int`/`test_round_index: int` 4개 필드 신설 — `reset_run()`은
+  `test_battle`만 항상 false로 초기화한다(나머지 test_* 필드는 H-2 설정 화면이
+  reset_run() 호출 **이후**에 이어서 세팅해야 "직전 선택 유지"가 됨).
+  `code/scenes/combat_test.gd`:
+  - 신규 `_monster_config_for_test(difficulty: int) -> Dictionary` — 기존
+    `_monster_config_for_plan()`/`_monster_config_for_elite()`와 같은 패턴으로
+    `_build_monster_config()`를 재사용한다. `RunState.test_monster_id`로
+    `MonsterCatalog` 35종(일반/정예/보스 전부) 중 아무거나 직접 구성하고,
+    `is_boss`는 room 위치가 아니라 프로필의 `tier=="boss"`로 판정(보스를 고르면
+    2페이즈/왕관/확대 연출이 그대로 나옴). id가 비었거나 없으면 일반 로스터
+    첫 몬스터로 폴백해 설정 화면(H-2) 없이도 크래시 안 남.
+  - `_ready()`가 `RunState.test_battle`을 `pending_elite_fight`/
+    `GAME_QA_ROOM_OVERRIDE`보다도 먼저 확인하도록 분기 추가.
+  - `_resolve_exchange()`의 승리/패배 분기에 `if RunState.test_battle: ...`
+    가드 추가 — 업적 unlock(`win_with_d20`/`flawless_win`/`comeback_win`/
+    `overkill_win`/`gold_100`/`first_defeat`) 전부와 골드/눈금 보상을 스킵하고
+    로그에 "[테스트 전투] ... 진행도 불변" 문구만 남긴다. `battle_over`/
+    `player_won`은 그대로 세팅(결과 화면 분기에 필요).
+  - `_apply_room_advance()`도 같은 가드 — `test_battle`이면 이중 실행 방지
+    플래그(`_room_advanced`)만 소비하고 `rooms_cleared`/`round_index` 증가,
+    `_unlock_round_clear_achievements()`, `advance_round()`, 패배 시
+    `reset_run()`을 전부 스킵한다.
+  - 결과 화면: 신규 `TestRetryButton`("다시 하기" — `_room_advanced` 가드 거쳐
+    `get_tree().reload_current_scene()`, test_* 필드를 안 건드리므로 `_ready()`가
+    같은 몬스터/난이도로 다시 구성)/`TestBackButton`("설정으로 돌아가기" —
+    `test_battle_setup.tscn`은 H-2가 만들 예정이라 아직 없음, `ResourceLoader.
+    exists()`로 확인 후 없으면 `character_select.tscn`으로 안전하게 폴백) 2개를
+    `_maybe_finish_battle()`이 `RunState.test_battle`일 때 기존 "다음"/"처음부터
+    다시" 버튼 대신 보여준다. `_rebuild_shortcuts()`에도 두 버튼을 추가해 숫자
+    단축키([1]/[2])가 정상 배정되게 함.
+  - QA 전용 동기 래퍼 `_debug_show_test_battle_win()`/`_debug_show_test_battle_
+    lose()` 추가 — `_maybe_finish_battle()`의 test_battle 분기를 await 없이
+    재현해 GAME_QA_CALL로 결과 화면을 스크린샷으로 확인할 수 있게 함(진입점이
+    아직 없어 실제 전투를 끝까지 돌릴 방법이 없으므로 필요).
+  `code/scenes/combat_test.tscn`에 두 버튼 노드(`TestRetryButton`/
+  `TestBackButton`, 둘 다 `visible=false` 기본, NextButton 옆 540~880px 영역에
+  배치, 겹침 없음) 추가.
+  **효과 단위 테스트**: `code/scenes/dice_test.gd`에 신규
+  `_check_h1_test_battle_mode()` 추가 — `code/qa/balance_sim.gd`가 쓰는 패턴
+  (`combat_test.gd`를 `.new()`만 해서 production 함수 직접 호출, 물리/UI 노드
+  없음)을 그대로 재사용하고, `DiceBag.force_fixed_value()`로 공격/방어 다이스
+  값을 고정해 승리/패배를 결정론적으로 재현했다(F-3 원칙 — "플래그가 들어갔는가"
+  대신 "계산/상태 결과가 실제로 바뀌는가"를 검증). 확인한 것: (1) `test_battle=
+  true`로 보스("고블린 왕")를 강제 승리시켜도 `AchievementManager._unlocked`가
+  빈 채 유지되고 `RunState.gold`/`pip_inventory`/`rooms_cleared`/`round_index`
+  전부 불변, (2) 같은 설정으로 강제 패배시켜도 업적 0개 유지 + (표식으로 미리
+  추가해둔 D20 다이스가 그대로 남아있는 것으로) `reset_run()`이 호출되지
+  않았음을 확인, (3) `test_battle=false`(일반 모드)에서는 같은 강제 승리
+  시나리오가 골드>0/눈금>0/`rooms_cleared==1`로 정상 진행되는지(이 가드 추가가
+  기존 동작을 깨지 않았는지 — 동작 보존), (4) `reset_run()` 호출 후
+  `test_battle`이 항상 false로 돌아오는지. `AchievementManager._unlocked`/
+  `RunState`의 관련 필드는 전부 백업 후 복원(F-3 E2E 테스트와 같은 패턴,
+  실제 진행도 비오염). `bash scripts/qa_shot.sh dice_test` 전체 PASS(신규
+  섹션 포함).
+  **시각 QA**: `scripts/qa_shot.sh combat_test`로 (a) 일반 전투 진행 화면이
+  새 버튼 2개 추가 후에도 레이아웃이 안 깨지는지(`qa_out/
+  combat_test_h1_check.png`), (b) 위 QA 래퍼로 승리/패배 결과 화면에서
+  "[1] 다시 하기"/"[2] 설정으로 돌아가기" 버튼이 겹침 없이 올바른 단축키로
+  보이는지(`qa_out/combat_test_h1_result.png`, `qa_out/
+  combat_test_h1_result_lose.png`) 둘 다 확인. `git status`로 루트에 의도치
+  않은 파일 없음도 확인(스크린샷 전부 `qa_out/` 아래).
+  **H-1 완료.** 다음은 **H-2**(테스트 전투 설정 화면 — 지금은 진입점 자체가
+  없어 실제 플레이에서는 전혀 도달 불가능한 플러밍 단계였음). "완료 기록" 10개
+  유지를 위해 (158)을 `docs/STATUS_ARCHIVE.md`로 옮겼다.
+
 - **2026-10-08 (167)**: INBOX.md "부분 처리됨"의 [대형 기획 5] **F-4c(밸런스
   리포트 작성)**을 진행했다 — F-4b 완료로 실행 순서상 마지막 조각이었다.
   **[대형 기획 5] F-1~F-4 전체 완료.**
@@ -1293,53 +1394,9 @@ F-4a(헤드리스 시뮬 경로)/F-4b(시뮬 러너, 7캐릭터×13종 시작 �
   "다음 할 일 큐" 참고). "완료 기록" 10개 유지를 위해 (149)를
   `docs/STATUS_ARCHIVE.md`로 옮겼다.
 
-- **2026-10-07 (158)**: INBOX.md "부분 처리됨"의 [대형 기획 6](몬스터 대개편)
-  **G-3(인간형 armor/guard_up/counter + 부정형 sticky/seal/dull/numb 프리미티브
-  신설)**을 진행했다 — G-2 완료로 실행 순서상 다음 조각.
-  `code/systems/dice_bag.gd`에 재사용 가능한 범용 헬퍼 4개를 추가:
-  `apply_total_bonus(values, amount)`(다이스별이 아니라 "합계" +amount, armor
-  전용), `apply_reduce_highest(values, amount, min_floor)`(가장 높은 값 1개만
-  깎고 하한선 보장, sticky/numb 공용), `apply_zero_lowest(values)`(가장 낮은
-  값 1개를 0으로, seal 전용), `apply_reduce_max_rolls(values, amount)`(자신의
-  최댓값 면을 보인 다이스 전부를 깎음, dull 전용, count_max_rolls()와 같은
-  판정 재사용). `code/systems/monster_skills.gd`를 확장: `modify_monster_roll`
-  의 몬스터 "방어"턴 분기(`is_player_attacking==true`)에 armor(ctx의
-  `armor_amount`)와 guard_up(ctx의 `monster_hp`/`monster_max_hp`로 "HP 절반
-  이하" 판정)을 steady_guard 옆에 추가. `modify_player_roll`을 처음으로 실제
-  구현 — sticky/seal은 플레이어 "공격"턴에만, numb는 "방어"턴에만, dull은
-  공격/방어 양쪽 다(explosive_stack과 guard_stack 둘 다의 "최댓값 스택" 조건을
-  동시에 약화하려는 의도) 적용되도록 게이팅. `on_damage`를 void에서
-  `Dictionary` 반환으로 바꿔 counter(n)을 구현 — "플레이어 공격이 몬스터
-  방어에 완전히 막혀(dmg==0) 데미지가 0"일 때만 `{"reflect_damage": n}`을
-  돌려주고, 실제 player_hp 차감/로그는 player_hp를 모르는 이 파일 대신
-  `combat_test.gd`가 반환값을 받아 처리한다(반환형이 바뀌어도 기존
-  `MonsterSkills.on_damage(...)` 호출부는 반환값을 안 받으므로 안전).
-  `combat_test.gd`는 새 인스턴스 변수 `monster_skill_params: Dictionary`
-  (skill_id -> 파라미터, `_monster_config_for_room()`이 `MonsterCatalog`의
-  `skills` 배열을 id로 인덱싱해 만듦)를 신설하고, `_do_exchange()`의 기존
-  steady_guard 호출 지점에 armor/guard_up용 ctx 키를 추가 + `modify_player_
-  roll` 2곳(공격턴/방어턴) + 데미지 계산 직후 counter용 `on_damage` 호출을
-  새로 배선했다. **지금 몬스터 카탈로그(G-5 이전) 5종은 전부 이 7종 중 아무것도
-  안 쓰므로 모든 신규 경로가 현재는 no-op** — G-2와 같은 "동작 보존" 원칙을
-  지켰다(skill_ids에 새 id가 없으면 ctx를 받아도 아무 것도 안 바뀜).
-  **검증**: `dice_test.gd`에 신규 `_check_g3_monster_skill_primitives()`를
-  추가(F-3 원칙대로 "플래그"가 아니라 "계산 결과" 직접 비교) — DiceBag 헬퍼
-  4개 각각의 출력값, armor/guard_up의 ctx 게이팅(HP 경계값 포함), counter의
-  3가지 게이팅(완전히 막힘/일부만 막힘/몬스터 공격턴), sticky/seal/numb의
-  "공격턴에만"/"방어턴에만" 게이팅(반대 턴엔 no-op인지까지), dull의 "양쪽
-  다 적용", 그리고 `ctx={}`(bag 없음)일 때 새 스킬 id가 있어도 크래시 없이
-  입력을 그대로 돌려주는 안전장치까지 전부 확인. `bash scripts/qa_shot.sh
-  dice_test` 전체 PASS(신규 섹션 포함, 기존 G-1/G-2 검증도 그대로 PASS).
-  `scripts/qa_shot.sh combat_test 900 "" "" 1`로 실제 전투 화면(슬라임, 기믹
-  없음)이 크래시 없이 승리까지 진행되고 로그에 반사/방어 보정 같은 이상 동작이
-  섞이지 않는 것도 확인(`qa_out/combat_test_g3.png`).
-  **G-3 완료.** 다음 할 일은 **G-4**(야수형+언데드형 프리미티브: pounce/
-  bloodlust + drain/revive/chill — 수치는 전부 잠정값, F-4 시뮬이 조정).
-  "완료 기록" 10개 유지를 위해 (148)을 `docs/STATUS_ARCHIVE.md`로 옮겼다.
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(167)에서 (157)을 그리로 옮겼다.)*
+이번 이터레이션(168)에서 (158)을 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 

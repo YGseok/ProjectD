@@ -180,6 +180,10 @@ const DICE_SPAWN_ROW_SPACING := 0.5
 @onready var deck_panel: DeckPanel = $DeckPanel
 @onready var customize_toggle_button: Button = $CustomizeToggleButton
 @onready var customize_panel: CustomizePanel = $CustomizePanel
+## [대형 기획 8] H-1(2026-10-08) — 테스트 전투 결과 화면 전용 버튼 2개(평소 NextButton
+## 자리를 대신함). RunState.test_battle일 때만 보인다.
+@onready var test_retry_button: Button = $TestRetryButton
+@onready var test_back_button: Button = $TestBackButton
 
 var player_hp := 20
 const PLAYER_MAX_HP := 20
@@ -523,6 +527,27 @@ func _monster_config_for_elite(round_index: int, room_index: int) -> Dictionary:
 	return _build_monster_config(profile, profile.get("name", "정예 몬스터"), difficulty, false)
 
 
+## [대형 기획 8] H-1(2026-10-08) 신규 — "테스트 전투" 모드에서 몬스터를 고르는 경로.
+## RunState.monster_plan/elite_plan을 전혀 보지 않고, RunState.test_monster_id로 카탈로그
+## 35종 중 아무거나(보스/정예 포함) 직접 지정하고 RunState.test_difficulty를 "난이도"
+## 자리에 그대로 넣는다(_build_monster_config()가 기존 _monster_config_for_plan()/
+## _monster_config_for_elite()와 공유하는 스탯 계산부를 그대로 재사용 — 테스트 전투도
+## "진짜 전투 규칙을 그대로 쓴다"는 H-1 원칙①). is_boss는 room_index 위치가 아니라
+## 몬스터 프로필 자체의 tier로 판정해야 한다(테스트 전투에는 "몇 번째 방인지"라는 개념이
+## 없음) — tier=="boss"면 2페이즈/왕관/확대 연출이 그대로 나온다. id가 비었거나
+## 카탈로그에 없으면 크래시 대신 일반 로스터 첫 몬스터로 폴백한다(테스트 설정 화면
+## ([대형 기획 8] H-2)이 아직 없어 유효하지 않은 id가 들어올 수 있는 이 중간 단계에서도
+## 안전하게 동작해야 함 — GAME_QA_MONSTER_ID 환경변수는 보지 않는다, 설정 화면이 이미
+## 명시적으로 고른 id이므로 다른 경로처럼 환경변수로 덮어쓸 이유가 없음).
+func _monster_config_for_test(difficulty: int) -> Dictionary:
+	var profile: Dictionary = MonsterCatalog.get_by_id(RunState.test_monster_id)
+	if profile.is_empty():
+		var fallback_ids := MonsterCatalog.normal_roster_ids()
+		profile = MonsterCatalog.get_by_id(fallback_ids[0]) if not fallback_ids.is_empty() else {}
+	var is_boss: bool = profile.get("tier", "normal") == "boss"
+	return _build_monster_config(profile, profile.get("name", "몬스터"), difficulty, is_boss)
+
+
 ## `_monster_config_for_room()`/`_monster_config_for_plan()`이 공유하는 스탯 계산부 —
 ## 몬스터 프로필 + 이름 문자열(접두어 처리 전) + "난이도"(스케일링에 쓰는 정수, 둘 다 전과
 ## 동일하게 "room_index" 자리에 넣던 값) + is_boss만 받으면 나머지(기믹 표시용 접미사,
@@ -812,12 +837,17 @@ func _reset_player_battle_state() -> void:
 func _ready() -> void:
 	var room_override := OS.get_environment("GAME_QA_ROOM_OVERRIDE")
 	var config: Dictionary
+	# [대형 기획 8] H-1(2026-10-08): RunState.test_battle이 가장 먼저 우선한다 — 테스트
+	# 전투는 던전 진행(monster_plan)/정예 버튼(pending_elite_fight)/QA 환경변수 전부와
+	# 무관하게, 설정 화면이 직접 고른 몬스터/난이도로만 구성돼야 한다.
+	if RunState.test_battle:
+		config = _monster_config_for_test(RunState.test_difficulty)
 	# G-7(2026-10-07): RunState.pending_elite_fight가 세팅돼 있으면(dungeon_map.gd의
 	# "정예 전투" 버튼) GAME_QA_ROOM_OVERRIDE보다도 먼저 우선한다 — 둘 다 QA/실제 플레이
 	# 각자의 명시적 의도이지만, 실제 플레이에서 정예 버튼을 누른 경우 환경변수가 설정돼
 	# 있을 일이 없으므로 우선순위 충돌은 실질적으로 발생하지 않는다. 승패와 무관하게
 	# 즉시 소비(false로 되돌림) — 다음 전투 입장은 항상 일반 전투가 기본이어야 한다.
-	if RunState.pending_elite_fight:
+	elif RunState.pending_elite_fight:
 		RunState.pending_elite_fight = false
 		config = _monster_config_for_elite(RunState.round_index, RunState.rooms_cleared)
 	elif room_override.is_valid_int():
@@ -841,6 +871,10 @@ func _ready() -> void:
 	customize_toggle_button.pressed.connect(_on_customize_toggle_pressed)
 	customize_toggle_button.visible = false
 	customize_panel.closed.connect(_on_customize_panel_closed)
+	test_retry_button.pressed.connect(_on_test_retry_button_pressed)
+	test_back_button.pressed.connect(_on_test_back_button_pressed)
+	test_retry_button.visible = false
+	test_back_button.visible = false
 	_update_labels()
 	_rebuild_shortcuts()
 	_run_battle()
@@ -858,6 +892,10 @@ func _rebuild_shortcuts() -> void:
 	buttons.append_array(_reward_action_buttons)
 	if next_button.visible:
 		buttons.append(next_button)
+	if test_retry_button.visible:
+		buttons.append(test_retry_button)
+	if test_back_button.visible:
+		buttons.append(test_back_button)
 	if customize_toggle_button.visible:
 		buttons.append(customize_toggle_button)
 	buttons.append(deck_toggle_button)
@@ -1411,36 +1449,45 @@ func _resolve_exchange(is_player_attacking: bool, atk_bag: DiceBag, def_bag: Dic
 	if monster_hp <= 0:
 		battle_over = true
 		player_won = true
-		# INBOX.md [대형 기획 3] 업적 #6 "D20 다이스를 보유한 채로 전투 승리". D20 다이스는
-		# faces 배열 크기가 20인 다이스로 판별한다(표준 다이스는 add_die(sides)로 만들어져
-		# faces.size() == sides가 항상 성립 — force_fixed_value() 등으로 면 값이 바뀌어도
-		# 면 "개수" 자체는 그대로임).
-		if _bag_has_d20(RunState.player_attack_bag) or _bag_has_d20(RunState.player_defense_bag):
-			AchievementManager.unlock("win_with_d20")
-		if _is_flawless_win(player_hp):
-			AchievementManager.unlock("flawless_win")
-		if _is_comeback_win(player_hp):
-			AchievementManager.unlock("comeback_win")
-		if _is_overkill_win(dmg, monster_max_hp):
-			AchievementManager.unlock("overkill_win")
-		var gold_gain := GOLD_REWARD_BASE + RunState.rooms_cleared * GOLD_REWARD_PER_ROOM
-		# G-7(2026-10-07, INBOX.md [대형 기획 6]): "정예"는 "보상이 일반 전투보다 커야
-		# 함: ... + 골드 x2" — 다른 보상 수치(PIP_REWARD 등)는 원문이 언급하지 않아
-		# 그대로 두고 골드만 배로 준다.
-		if monster_is_elite:
-			gold_gain *= 2
-		RunState.gold += gold_gain
-		logs.append("골드 획득: +%d (보유 %d)" % [gold_gain, RunState.gold])
-		if RunState.gold >= 100:
-			AchievementManager.unlock("gold_100")
-		var pip_max := PIP_REWARD_MAX_BASE + RunState.rooms_cleared * PIP_REWARD_MAX_PER_ROOM
-		var pip_gain := randi_range(PIP_REWARD_MIN, pip_max)
-		RunState.pip_inventory.append(pip_gain)
-		logs.append("눈금 획득: [%d] (커스터마이징에서 다이스 면과 교환 가능)" % pip_gain)
+		# [대형 기획 8] H-1(2026-10-08) 원칙②: 테스트 전투는 진행도(업적/골드/눈금)를
+		# 절대 건드리지 않는다 — 승패 판정(battle_over/player_won)과 로그 문구만 그대로
+		# 두고, 그 아래 전부(업적 unlock + 골드/눈금 보상)를 스킵한다.
+		if RunState.test_battle:
+			logs.append("[테스트 전투] 업적/골드/눈금 보상 없음 (진행도 불변)")
+		else:
+			# INBOX.md [대형 기획 3] 업적 #6 "D20 다이스를 보유한 채로 전투 승리". D20
+			# 다이스는 faces 배열 크기가 20인 다이스로 판별한다(표준 다이스는
+			# add_die(sides)로 만들어져 faces.size() == sides가 항상 성립 —
+			# force_fixed_value() 등으로 면 값이 바뀌어도 면 "개수" 자체는 그대로임).
+			if _bag_has_d20(RunState.player_attack_bag) or _bag_has_d20(RunState.player_defense_bag):
+				AchievementManager.unlock("win_with_d20")
+			if _is_flawless_win(player_hp):
+				AchievementManager.unlock("flawless_win")
+			if _is_comeback_win(player_hp):
+				AchievementManager.unlock("comeback_win")
+			if _is_overkill_win(dmg, monster_max_hp):
+				AchievementManager.unlock("overkill_win")
+			var gold_gain := GOLD_REWARD_BASE + RunState.rooms_cleared * GOLD_REWARD_PER_ROOM
+			# G-7(2026-10-07, INBOX.md [대형 기획 6]): "정예"는 "보상이 일반 전투보다 커야
+			# 함: ... + 골드 x2" — 다른 보상 수치(PIP_REWARD 등)는 원문이 언급하지 않아
+			# 그대로 두고 골드만 배로 준다.
+			if monster_is_elite:
+				gold_gain *= 2
+			RunState.gold += gold_gain
+			logs.append("골드 획득: +%d (보유 %d)" % [gold_gain, RunState.gold])
+			if RunState.gold >= 100:
+				AchievementManager.unlock("gold_100")
+			var pip_max := PIP_REWARD_MAX_BASE + RunState.rooms_cleared * PIP_REWARD_MAX_PER_ROOM
+			var pip_gain := randi_range(PIP_REWARD_MIN, pip_max)
+			RunState.pip_inventory.append(pip_gain)
+			logs.append("눈금 획득: [%d] (커스터마이징에서 다이스 면과 교환 가능)" % pip_gain)
 	elif player_hp <= 0:
 		battle_over = true
 		player_won = false
-		_unlock_defeat_achievement()
+		if RunState.test_battle:
+			logs.append("[테스트 전투] 패배 — 업적 없음 (진행도 불변)")
+		else:
+			_unlock_defeat_achievement()
 
 	return {
 		"logs": logs,
@@ -1483,7 +1530,14 @@ func _maybe_finish_battle(_dmg: int) -> void:
 		if deck_panel.visible:
 			deck_panel.visible = false
 			deck_toggle_button.text = "덱 보기"
-		if player_won:
+		if RunState.test_battle:
+			# [대형 기획 8] H-1(2026-10-08): 보상 카드/"다음"/"처음부터 다시" 대신
+			# "다시 하기"(같은 설정 재전투)/"설정으로 돌아가기" 두 버튼만 제공 — 승패
+			# 문구는 위에서 이미 입혔으므로 그대로 두고 던전 맵으로는 가지 않는다.
+			test_retry_button.show()
+			test_back_button.show()
+			_rebuild_shortcuts()
+		elif player_won:
 			next_button.text = "다음"
 			_show_reward_ui()
 		else:
@@ -1762,6 +1816,12 @@ func _apply_room_advance() -> bool:
 	if _room_advanced:
 		return false
 	_room_advanced = true
+	# [대형 기획 8] H-1(2026-10-08) 원칙②: 테스트 전투는 rooms_cleared/round_index
+	# 진행도, 라운드 클리어 업적, reset_run()(패배 시 런 초기화) 전부를 건드리지 않는다
+	# — 가드는 그대로 소비하되(이중 실행 방지는 테스트 전투에도 똑같이 필요) 그 아래
+	# 상태 변경은 스킵한다.
+	if RunState.test_battle:
+		return true
 	if player_won:
 		RunState.rooms_cleared += 1
 		if monster_is_boss:
@@ -1775,6 +1835,33 @@ func _apply_room_advance() -> bool:
 	else:
 		RunState.reset_run()
 	return true
+
+
+## [대형 기획 8] H-1(2026-10-08) — "다시 하기"(같은 설정으로 재전투). RunState.test_*
+## 필드를 전혀 건드리지 않고 씬만 다시 로드한다 — _ready()가 다시 돌면서 같은
+## test_monster_id/test_difficulty로 몬스터를 새로 구성하고, player_hp/monster_hp도
+## _reset_player_battle_state()/_apply_monster_config()로 매번 새로 초기화된다(플레이어
+## 다이스 주머니 자체는 커스터마이징 등으로 바뀌었다면 그대로 유지됨 — "같은 설정"의
+## 의미는 "주머니 구성"이 아니라 "test_monster_id/test_difficulty"임).
+func _on_test_retry_button_pressed() -> void:
+	if _room_advanced:
+		return
+	_room_advanced = true
+	get_tree().reload_current_scene()
+
+
+## [대형 기획 8] H-1(2026-10-08) — "설정으로 돌아가기". test_battle_setup.tscn은
+## [대형 기획 8] H-2가 만들 예정이라 이 이터레이션에는 아직 없다 — 존재하면 그곳으로,
+## 없으면(이번 이터레이션처럼 중간 단계) character_select.tscn으로 안전하게 폴백해
+## 깨진 경로로 크래시하지 않게 한다.
+func _on_test_back_button_pressed() -> void:
+	if _room_advanced:
+		return
+	_room_advanced = true
+	var target := "res://code/scenes/test_battle_setup.tscn"
+	if not ResourceLoader.exists(target):
+		target = "res://code/scenes/character_select.tscn"
+	get_tree().change_scene_to_file(target)
 
 
 ## 보스를 잡아 cleared_round(라운드 번호)를 막 끝낸 순간 불린다. 큐 13("[대형 기획 1]
@@ -2311,5 +2398,36 @@ func _debug_show_guard_dice() -> void:
 func _debug_show_defeat_expressions() -> void:
 	player_portrait.set_expression("angry")
 	monster_portrait.set_expression("happy")
+
+
+## QA 전용 래퍼 — [대형 기획 8] H-1(2026-10-08) 테스트 전투 결과 화면("다시 하기"/
+## "설정으로 돌아가기" 버튼)을 실제 전투를 끝까지 치르지 않고 스크린샷으로 확인하기
+## 위함. _maybe_finish_battle()의 test_battle 분기가 입히는 UI 상태를 await 없이
+## 그대로 재현한다(GAME_QA_CALL은 인자 없는 동기 함수만 부를 수 있어 승리/패배를
+## 각각 별도 0-arity 래퍼로 나눔).
+func _debug_show_test_battle_result(won: bool) -> void:
+	RunState.test_battle = true
+	battle_over = true
+	player_won = won
+	if won:
+		turn_label.text = "승리! (몬스터 처치)"
+		player_portrait.set_expression("happy")
+		monster_portrait.set_expression("sad")
+	else:
+		turn_label.text = "패배... (플레이어 사망)"
+		player_portrait.set_expression("angry")
+		monster_portrait.set_expression("happy")
+	customize_toggle_button.visible = false
+	test_retry_button.show()
+	test_back_button.show()
+	_rebuild_shortcuts()
+
+
+func _debug_show_test_battle_win() -> void:
+	_debug_show_test_battle_result(true)
+
+
+func _debug_show_test_battle_lose() -> void:
+	_debug_show_test_battle_result(false)
 
 

@@ -8,6 +8,50 @@
 
 ---
 
+- **2026-10-07 (158)**: INBOX.md "부분 처리됨"의 [대형 기획 6](몬스터 대개편)
+  **G-3(인간형 armor/guard_up/counter + 부정형 sticky/seal/dull/numb 프리미티브
+  신설)**을 진행했다 — G-2 완료로 실행 순서상 다음 조각.
+  `code/systems/dice_bag.gd`에 재사용 가능한 범용 헬퍼 4개를 추가:
+  `apply_total_bonus(values, amount)`(다이스별이 아니라 "합계" +amount, armor
+  전용), `apply_reduce_highest(values, amount, min_floor)`(가장 높은 값 1개만
+  깎고 하한선 보장, sticky/numb 공용), `apply_zero_lowest(values)`(가장 낮은
+  값 1개를 0으로, seal 전용), `apply_reduce_max_rolls(values, amount)`(자신의
+  최댓값 면을 보인 다이스 전부를 깎음, dull 전용, count_max_rolls()와 같은
+  판정 재사용). `code/systems/monster_skills.gd`를 확장: `modify_monster_roll`
+  의 몬스터 "방어"턴 분기(`is_player_attacking==true`)에 armor(ctx의
+  `armor_amount`)와 guard_up(ctx의 `monster_hp`/`monster_max_hp`로 "HP 절반
+  이하" 판정)을 steady_guard 옆에 추가. `modify_player_roll`을 처음으로 실제
+  구현 — sticky/seal은 플레이어 "공격"턴에만, numb는 "방어"턴에만, dull은
+  공격/방어 양쪽 다(explosive_stack과 guard_stack 둘 다의 "최댓값 스택" 조건을
+  동시에 약화하려는 의도) 적용되도록 게이팅. `on_damage`를 void에서
+  `Dictionary` 반환으로 바꿔 counter(n)을 구현 — "플레이어 공격이 몬스터
+  방어에 완전히 막혀(dmg==0) 데미지가 0"일 때만 `{"reflect_damage": n}`을
+  돌려주고, 실제 player_hp 차감/로그는 player_hp를 모르는 이 파일 대신
+  `combat_test.gd`가 반환값을 받아 처리한다(반환형이 바뀌어도 기존
+  `MonsterSkills.on_damage(...)` 호출부는 반환값을 안 받으므로 안전).
+  `combat_test.gd`는 새 인스턴스 변수 `monster_skill_params: Dictionary`
+  (skill_id -> 파라미터, `_monster_config_for_room()`이 `MonsterCatalog`의
+  `skills` 배열을 id로 인덱싱해 만듦)를 신설하고, `_do_exchange()`의 기존
+  steady_guard 호출 지점에 armor/guard_up용 ctx 키를 추가 + `modify_player_
+  roll` 2곳(공격턴/방어턴) + 데미지 계산 직후 counter용 `on_damage` 호출을
+  새로 배선했다. **지금 몬스터 카탈로그(G-5 이전) 5종은 전부 이 7종 중 아무것도
+  안 쓰므로 모든 신규 경로가 현재는 no-op** — G-2와 같은 "동작 보존" 원칙을
+  지켰다(skill_ids에 새 id가 없으면 ctx를 받아도 아무 것도 안 바뀜).
+  **검증**: `dice_test.gd`에 신규 `_check_g3_monster_skill_primitives()`를
+  추가(F-3 원칙대로 "플래그"가 아니라 "계산 결과" 직접 비교) — DiceBag 헬퍼
+  4개 각각의 출력값, armor/guard_up의 ctx 게이팅(HP 경계값 포함), counter의
+  3가지 게이팅(완전히 막힘/일부만 막힘/몬스터 공격턴), sticky/seal/numb의
+  "공격턴에만"/"방어턴에만" 게이팅(반대 턴엔 no-op인지까지), dull의 "양쪽
+  다 적용", 그리고 `ctx={}`(bag 없음)일 때 새 스킬 id가 있어도 크래시 없이
+  입력을 그대로 돌려주는 안전장치까지 전부 확인. `bash scripts/qa_shot.sh
+  dice_test` 전체 PASS(신규 섹션 포함, 기존 G-1/G-2 검증도 그대로 PASS).
+  `scripts/qa_shot.sh combat_test 900 "" "" 1`로 실제 전투 화면(슬라임, 기믹
+  없음)이 크래시 없이 승리까지 진행되고 로그에 반사/방어 보정 같은 이상 동작이
+  섞이지 않는 것도 확인(`qa_out/combat_test_g3.png`).
+  **G-3 완료.** 다음 할 일은 **G-4**(야수형+언데드형 프리미티브: pounce/
+  bloodlust + drain/revive/chill — 수치는 전부 잠정값, F-4 시뮬이 조정).
+  "완료 기록" 10개 유지를 위해 (148)을 `docs/STATUS_ARCHIVE.md`로 옮겼다.
+
 - **2026-10-07 (157)**: INBOX.md "부분 처리됨"의 [대형 기획 6](몬스터 대개편)
   **G-2(몬스터 스킬 프레임워크 신설 + 기존 4종 기믹 이식, 동작 보존)**을
   진행했다 — G-1 완료로 실행 순서상 다음 조각.

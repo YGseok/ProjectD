@@ -228,6 +228,22 @@ offset_right = 740.0
 offset_bottom = 548.0
 text = "다음"
 
+[node name="TestRetryButton" type="Button" parent="."]
+visible = false
+offset_left = 440.0
+offset_top = 508.0
+offset_right = 630.0
+offset_bottom = 548.0
+text = "다시 하기"
+
+[node name="TestBackButton" type="Button" parent="."]
+visible = false
+offset_left = 640.0
+offset_top = 508.0
+offset_right = 880.0
+offset_bottom = 548.0
+text = "설정으로 돌아가기"
+
 [node name="LogLabel" type="Label" parent="."]
 offset_left = 140.0
 offset_top = 556.0

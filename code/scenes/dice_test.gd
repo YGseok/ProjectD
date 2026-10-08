@@ -257,6 +257,10 @@ func _ready() -> void:
 	all_pass = _check_g8_boss(lines) and all_pass
 
 	lines.append("")
+	lines.append("[H-1: 테스트 전투 모드 플러밍 검증: RunState.test_battle이 업적/골드/눈금/방진행을 스킵하는지]")
+	all_pass = _check_h1_test_battle_mode(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -5125,4 +5129,147 @@ func _check_g8_boss(lines: PackedStringArray) -> bool:
 
 	combat.free()
 	RunState.monster_plan = plan_backup
+	return ok
+
+
+## [대형 기획 8] H-1(2026-10-08) — "테스트 전투" 플러밍 검증. F-3 원칙(플래그가 아니라
+## 계산/상태 "결과"를 본다)을 그대로 따른다: AchievementManager._unlocked 백업/복원(F-3
+## E2E 패턴), 강제 승리/패배를 force_fixed_value()로 결정론적으로 만들고(balance_sim.gd가
+## 쓰는 "combat_test.gd를 .new()만 해서 production 함수를 직접 호출" 패턴 재사용),
+## RunState.test_battle=true일 때 업적/골드/눈금/rooms_cleared/round_index/reset_run()이
+## 전혀 안 바뀌는지, test_battle=false(일반 모드)에서는 똑같은 시나리오가 정상적으로
+## 진행도를 바꾸는지(동작 보존)를 함께 확인한다.
+func _check_h1_test_battle_mode(lines: PackedStringArray) -> bool:
+	var ok := true
+	var achievements_backup: Dictionary = AchievementManager._unlocked.duplicate(true)
+	var character_backup := RunState.character_id
+	var test_battle_backup := RunState.test_battle
+	var test_monster_backup := RunState.test_monster_id
+	var test_difficulty_backup := RunState.test_difficulty
+	var gold_backup := RunState.gold
+	var pip_backup: Array[int] = RunState.pip_inventory.duplicate()
+	var rooms_backup := RunState.rooms_cleared
+	var round_backup := RunState.round_index
+	var combat_script := load("res://code/scenes/combat_test.gd")
+
+	# (1) 강제 승리(보스 "고블린 왕" 대상) — RunState.test_battle=true면 업적 unlock
+	# 전부 스킵, 골드/눈금 보상 스킵, rooms_cleared/round_index/advance_round() 스킵.
+	AchievementManager._unlocked = {}
+	RunState.reset_run("novice")
+	RunState.gold = 0
+	RunState.pip_inventory = []
+	RunState.rooms_cleared = 0
+	RunState.round_index = 1
+	RunState.test_battle = true
+	RunState.test_monster_id = "goblin_king"
+	RunState.test_difficulty = 0
+
+	var win_instance = combat_script.new()
+	var win_config: Dictionary = win_instance._monster_config_for_test(RunState.test_difficulty)
+	var win_is_boss_ok: bool = win_config["is_boss"] == true
+	win_instance._apply_monster_config(win_config)
+	win_instance._reset_player_battle_state()
+	win_instance.monster_hp = 1
+	var win_atk_bag := DiceBag.new(4, 1)
+	win_atk_bag.force_fixed_value(50)
+	var win_def_bag := DiceBag.new(4, 1)
+	win_def_bag.force_fixed_value(0)
+	win_instance._resolve_exchange(true, win_atk_bag, win_def_bag, false, false, false)
+	var win_player_won: bool = win_instance.player_won
+	var win_room_advanced: bool = win_instance._apply_room_advance()
+	win_instance.free()
+
+	var win_test_ok: bool = (
+		win_is_boss_ok and win_player_won and win_room_advanced
+		and AchievementManager._unlocked.is_empty()
+		and RunState.gold == 0 and RunState.pip_inventory.is_empty()
+		and RunState.rooms_cleared == 0 and RunState.round_index == 1
+	)
+	ok = win_test_ok and ok
+	lines.append("  [테스트 전투] 강제 승리(보스 config.is_boss=%s) 후 업적 %d개/골드 %d/눈금 %d개/rooms_cleared %d/round %d (전부 불변 기대) -> %s" % [
+		win_config["is_boss"], AchievementManager._unlocked.size(), RunState.gold, RunState.pip_inventory.size(),
+		RunState.rooms_cleared, RunState.round_index, "OK" if win_test_ok else "FAIL"
+	])
+
+	# (2) 강제 패배 — reset_run()이 호출되면 지금 주머니(공격 다이스에 D20 1개를 표식으로
+	# 추가해둠)가 캐릭터 기본값으로 리셋될 것이므로, 다이스 개수가 그대로인지로 "reset_run()
+	# 호출 안 됨"을 검증한다.
+	RunState.player_attack_bag.add_die(20)
+	var marker_dice_count: int = RunState.player_attack_bag.dice.size()
+
+	var lose_instance = combat_script.new()
+	var lose_config: Dictionary = lose_instance._monster_config_for_test(RunState.test_difficulty)
+	lose_instance._apply_monster_config(lose_config)
+	lose_instance._reset_player_battle_state()
+	lose_instance.player_hp = 1
+	var lose_atk_bag := DiceBag.new(4, 1)
+	lose_atk_bag.force_fixed_value(50)
+	var lose_def_bag := DiceBag.new(4, 1)
+	lose_def_bag.force_fixed_value(0)
+	lose_instance._resolve_exchange(false, lose_atk_bag, lose_def_bag, false, false, false)
+	var lose_player_lost: bool = not lose_instance.player_won and lose_instance.battle_over
+	var lose_room_advanced: bool = lose_instance._apply_room_advance()
+	lose_instance.free()
+
+	var lose_test_ok: bool = (
+		lose_player_lost and lose_room_advanced
+		and AchievementManager._unlocked.is_empty()
+		and RunState.rooms_cleared == 0 and RunState.round_index == 1
+		and RunState.player_attack_bag.dice.size() == marker_dice_count
+	)
+	ok = lose_test_ok and ok
+	lines.append("  [테스트 전투] 강제 패배 후에도 업적 0개/rooms_cleared/round 불변/reset_run() 미호출(공격 다이스 %d개 유지, 기대 %d) -> %s" % [
+		RunState.player_attack_bag.dice.size(), marker_dice_count, "OK" if lose_test_ok else "FAIL"
+	])
+
+	# (3) 일반 모드(test_battle=false) 동작 보존 — 같은 강제 승리 시나리오에서 업적/골드/
+	# rooms_cleared가 "정상적으로" 바뀌는지(이 가드 추가가 기존 동작을 깨지 않았는지).
+	RunState.test_battle = false
+	AchievementManager._unlocked = {}
+	RunState.reset_run("novice")
+	RunState.gold = 0
+	RunState.pip_inventory = []
+	RunState.rooms_cleared = 0
+	RunState.round_index = 1
+
+	var normal_instance = combat_script.new()
+	var normal_config: Dictionary = normal_instance._monster_config_for_plan(1, 0)
+	normal_instance._apply_monster_config(normal_config)
+	normal_instance._reset_player_battle_state()
+	normal_instance.monster_hp = 1
+	var normal_atk_bag := DiceBag.new(4, 1)
+	normal_atk_bag.force_fixed_value(50)
+	var normal_def_bag := DiceBag.new(4, 1)
+	normal_def_bag.force_fixed_value(0)
+	normal_instance._resolve_exchange(true, normal_atk_bag, normal_def_bag, false, false, false)
+	normal_instance._apply_room_advance()
+	normal_instance.free()
+
+	var normal_mode_ok: bool = (
+		RunState.gold > 0 and not RunState.pip_inventory.is_empty() and RunState.rooms_cleared == 1
+	)
+	ok = normal_mode_ok and ok
+	lines.append("  [일반 모드 보존] test_battle=false면 골드 %d(기대 >0)/눈금 %d개(기대 >0)/rooms_cleared %d(기대 1) -> %s" % [
+		RunState.gold, RunState.pip_inventory.size(), RunState.rooms_cleared, "OK" if normal_mode_ok else "FAIL"
+	])
+
+	# (4) reset_run()은 test_battle을 항상 false로 초기화한다.
+	RunState.test_battle = true
+	RunState.reset_run("novice")
+	var reset_clears_test_battle_ok: bool = RunState.test_battle == false
+	ok = reset_clears_test_battle_ok and ok
+	lines.append("  reset_run() 호출 후 RunState.test_battle=%s (기대 false) -> %s" % [
+		RunState.test_battle, "OK" if reset_clears_test_battle_ok else "FAIL"
+	])
+
+	AchievementManager._unlocked = achievements_backup
+	AchievementManager._save()
+	RunState.test_battle = test_battle_backup
+	RunState.test_monster_id = test_monster_backup
+	RunState.test_difficulty = test_difficulty_backup
+	RunState.gold = gold_backup
+	RunState.pip_inventory = pip_backup
+	RunState.rooms_cleared = rooms_backup
+	RunState.round_index = round_backup
+	RunState.reset_run(character_backup)
 	return ok
