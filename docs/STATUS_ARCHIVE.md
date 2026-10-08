@@ -8,6 +8,52 @@
 
 ---
 
+- **2026-10-08 (167)**: INBOX.md "부분 처리됨"의 [대형 기획 5] **F-4c(밸런스
+  리포트 작성)**을 진행했다 — F-4b 완료로 실행 순서상 마지막 조각이었다.
+  **[대형 기획 5] F-1~F-4 전체 완료.**
+  신규 `code/qa/balance_report.gd`(+ `code/scenes/balance_report.tscn`,
+  `balance_sim.gd`와 같은 Node2D+ResultLabel 패턴, `bash scripts/qa_shot.sh
+  balance_report`로 실행)가 F-4b가 저장해둔 `qa_out/balance_sim_raw.tsv`
+  (504행)를 `FileAccess`로 읽어 집계하고, `docs/BALANCE_REPORT.md`를
+  **직접 파일로 작성**한다 — 별도 데이터 분석 도구(python/awk/node 등) 없이
+  Godot 헤드리스 실행만으로 계산/파일 출력까지 끝내는 구조(이 세션 권한
+  모드에서 `.claude/settings.json`에 허용된 Bash 명령이 `git`/
+  `scripts/qa_shot.sh`/`mkdir`/`ls`/`find`/`cat`뿐이라 임의 스크립팅 도구를
+  승인 없이 못 썼음 — 기존 QA 파이프라인(씬을 띄워 한 프레임에서 계산을
+  끝내는 패턴)을 그대로 재사용해 우회).
+  INBOX.md F-4c 지시대로 **해석/조정 제안 없이 숫자만** 낸다: (1) 전체 평균
+  (504개 조합 기준 평균 승률 22.02%/평균 턴수 6.04/평균 승리 시 HP 3.88),
+  (2) 전체 평균 승률 대비 **±15%p 이상** 벗어난 조합의 이상치 목록(캐릭터/
+  스킬/라운드/방/유형/몬스터/승률/편차 표, 495개 — 전체 조합의 상당수가
+  이상치로 잡혔는데 이는 집계 결과를 있는 그대로 적은 것일 뿐 원인 분석은
+  하지 않았다, 조정은 사람 몫), (3) 캐릭터 7종 × 시작 스킬 3종 × 라운드1~3×
+  방(일반 0~4+정예 1~3) 전체 상세표(캐릭터별 72행 × 7 = 504행, `SkillPool.
+  find_skill()`/`CharacterProfiles.get_profile()`로 id를 한글 이름으로
+  변환). 재현 조건(FIXED_PLAN_SEED=20261007, 다이스 RNG는 trial마다 재굴림,
+  TRIALS_PER_COMBO=100, MAX_EXCHANGES=120 타임아웃 처리)도 문서 상단에
+  그대로 기록.
+  **구현 중 포맷 버그 1건 발견해 수정**: "이상치 기준" 문구에 `%%p`를 써서
+  "±15%%p"로 그대로 찍히는 실수가 있었다 — GDScript의 `%` 연산자는 그
+  문자열이 실제로 `%` 포맷팅을 거칠 때만 `%%`→`%` 변환이 일어나는데, 이
+  한 줄은 `lines.append("...")`로 포맷 연산 없이 바로 추가된 정적 문자열이라
+  `%%`가 치환되지 않고 그대로 남아 있었다. `%p` 한 글자로 고치고 재실행해
+  확인.
+  **검증**: `bash scripts/qa_shot.sh balance_report 10 qa_out/
+  balance_report.png` 크래시 없이 완주, 결과 라벨에 "[balance_report] 완료
+  — docs/BALANCE_REPORT.md 저장 (504개 조합, 전체 평균 승률 22.0%, 이상치
+  495개)" 정상 렌더링(`qa_out/balance_report.png`). `docs/BALANCE_REPORT.md`
+  (82KB, 1067줄) 직접 읽어 헤더/이상치 표/캐릭터별 72행×7종 상세표가
+  전부 올바른 열 수·정렬로 생성됐는지 확인(견습 모험가 구간 534~605행,
+  곡예사 마지막 구간 1044~1067행 샘플 확인). `_find_row()`가 (스킬,
+  라운드, 방, 정예여부) 4중 키로 504행 중 정확히 일치하는 행을 찾으므로
+  행 순서나 중복/누락 걱정 없음. `combat_test.gd`/`balance_sim.gd` 등
+  기존 프로덕션 코드는 전혀 건드리지 않아 `dice_test.gd` 회귀 영향 없음
+  (재실행 불필요 — 신규 독립 파일만 추가).
+  **F-4c 완료로 [대형 기획 5](F-1~F-4) 전체 완료** — INBOX.md에서
+  "처리됨"으로 옮겼다. 다음 할 일은 "다음 할 일 큐" 참고(사람 플레이
+  피드백/설계 결정 대기 항목이 대부분). "완료 기록" 10개 유지를 위해
+  (157)을 `docs/STATUS_ARCHIVE.md`로 옮겼다.
+
 - **2026-10-08 (166)**: INBOX.md "부분 처리됨"의 [대형 기획 5] **F-4b(시뮬
   러너)**를 진행했다 — F-4a 완료로 실행 순서상 다음이었다.
   신규 `code/qa/balance_sim.gd`(+ `code/scenes/balance_sim.tscn`, GAME_START

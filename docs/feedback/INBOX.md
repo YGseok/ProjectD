@@ -60,8 +60,14 @@
   `growth_sides_for`/`growth_counts_for`/`growth_config_for`/`apply_growth`)를
   추가하고 `dice_test.gd`의 `_check_f5a_growth_policies()`로 플래그가 아니라 실제
   주머니 개수/면 수가 기대대로 바뀌는지 검증(전체 PASS). 기존 F-4b 기준선 루프는
-  그대로 유지. 다음은 (b) 시뮬 실행/TSV 저장. 상세는 `docs/STATUS.md` 완료 기록
-  (176) 참고.
+  그대로 유지. 상세는 `docs/STATUS.md` 완료 기록(176) 참고.
+
+  → **(b) 완료(2026-10-08)**: `_run_growth_simulation()`/`_simulate_growth_combo()`로
+  캐릭터 8종(해적 포함) × 시작 스킬 슬롯 0 × 정책 3종 × 576개 조합 × 100판을 돌려
+  `qa_out/balance_sim_growth_raw.tsv`(576행)에 저장. 라운드3 방0~3 승률이 F-4
+  기준선(거의 0%)에서 94~97%/66%로 극적으로 올라간 것을 원자료로 확인해 성장이
+  실제로 전투 결과를 바꿈을 검증. 다음은 (c) 리포트 생성기
+  (`docs/BALANCE_GROWTH_REPORT.md`). 상세는 `docs/STATUS.md` 완료 기록(177) 참고.
 
 - [부분 처리됨 - 2026-10-07] 2026-10-06 [미니 기획 ART-1] 원화 적용에 따른 개선 (아트
   스레드 "ProjectD Art"에서 전달).

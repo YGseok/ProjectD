@@ -5,29 +5,24 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-10-08 (176)
-- 작성자: AI 에이전트. INBOX.md "남은 이슈" **[대형 기획 7] F-5(a)**(성장
-  정책 3종 구현 + 단위 검증)를 완료했다. `code/qa/balance_sim.gd`에
-  "none"(기존 F-4b 기준선, 성장 없음)/"balanced"(전투 2번마다 공격·방어
-  번갈아 +1개)/"attack_heavy"(공격만 +1개씩)/"defense_heavy"(방어만
-  +1개씩) 4개 정책의 순수 계산 함수(`global_index_for`/`growth_sides_for`
-  /`growth_counts_for`/`growth_config_for`)와 실제 `RunState` 주머니에
-  반영하는 `apply_growth()`를 추가했다(전부 static, `test_battle_setup.gd
-  ._apply_growth()`와 같은 재구성 방식 재사용). 세 정책 모두 공통으로
-  global index(지금까지 치른 전투 수, (라운드-1)×5+방) 5 이후 D4→D6,
-  10 이후 D8로 승급, 다이스 개수는 `DiceBag.MAX_DICE`(6)가 상한. 기존
-  `_ready()`/`_simulate_combo()` 기준선 루프는 손대지 않고 그대로
-  유지(비교 기준 불변). `dice_test.gd`에 `_check_f5a_growth_policies()`를
-  추가해 "플래그가 아니라 실제 주머니 개수/면 수"를 직접 검증(F-3
-  원칙) — global_index 경계값(0/4/5/9/10/14)에서의 면 승급, balanced의
-  "번갈아" 배분(idx2=4/3, idx4=4/4), attack_heavy/defense_heavy의 MAX_DICE
-  캡 도달(idx14=6/3, 3/6), `growth_config_for`가 캐릭터 기본값(해적
-  2/3/4)을 실제로 읽는지, `apply_growth()` 후 `RunState.player_attack_bag
-  .dice[0].size()` 등 다이스 배열 자체가 바뀌는지까지 확인. `bash
-  scripts/qa_shot.sh dice_test` 전체 PASS(신규 섹션 포함). 시뮬 실행/TSV
-  저장은 **다음 F-5(b)**, 리포트 생성기는 **F-5(c)**로 남음 — 이번
-  이터레이션은 계산 함수와 단위 검증까지만(실제 100판 시뮬은 아직 안 돌림).
-  자세한 내용은 아래 "완료 기록 (176)" 참고.
+- 일시: 2026-10-08 (177)
+- 작성자: AI 에이전트. INBOX.md "부분 처리됨" **[대형 기획 7] F-5(b)**(성장
+  정책 시뮬 실행 + TSV 저장)를 완료했다. 이번 이터레이션 시작 시
+  `code/qa/balance_sim.gd`에 F-5(b) 구현과 실행 결과(`qa_out/
+  balance_sim_growth_raw.tsv`)가 이미 **미커밋 상태로 존재**했다(직전
+  이터레이션이 사용량 한도로 끊긴 것) — `git diff`로 내용을 확인하고 새로
+  시작하지 않고 그대로 이어받아 검증만 했다. 캐릭터 8종 × 시작 스킬 슬롯
+  0만 × 정책 3종(balanced/attack_heavy/defense_heavy) × {라운드1~3×방0~4
+  (일반, 방4=보스) + 라운드1~3×방1~3(정예)} = 576개 조합 × 100판을 돌려
+  `qa_out/balance_sim_growth_raw.tsv`(577줄=헤더+576행, 행 수 기대값과 정확히
+  일치)에 저장했다. **검증(F-3 원칙)**: pirate/start_vanguard/balanced 정책의
+  라운드3 방0~3 승률(94%/96%/97%/66%)을 INBOX.md가 인용한 F-4 기준선
+  (라운드2 방1부터 ~0%, 라운드3 전부 0%)과 비교해, 성장 적용 후 같은 후반
+  구간 승률이 극적으로 올라간 것을 TSV 원자료로 직접 확인(플래그가 아니라
+  실제 전투 결과가 바뀜). 기존 F-4b 기준선 루프/TSV는 전혀 건드리지 않음.
+  `qa_out/`는 `.gitignore` 대상이라 TSV/PNG는 커밋 안 함 — `code/qa/
+  balance_sim.gd`만 커밋. 다음은 **F-5(c)**(`docs/BALANCE_GROWTH_REPORT.md`
+  생성기). 자세한 내용은 아래 "완료 기록 (177)" 참고.
 
 ## 지금 위치
 
@@ -93,8 +88,10 @@ I-3(고유 스킬 "일제 사격" `broadside`/"일제 사격+" `broadside_plus`,
 위 "완료 기록 (175)", I-1~I-3은 "완료 기록 (172)~(174)"). **아트 스레드
 인계 필요**: 캐릭터 `pirate`(해적) 신규 — full + 표정 5종(청록빛 흑발
 #0E4A4F / 터콰이즈 코트 #1FA5A0, 약탈과 함포 사격의 호쾌한 해적 선장).
-**[대형 기획 7] F-5(a)(성장 정책 3종 계산 함수 + 단위 검증) 완료** — 상세는
-아래 "완료 기록 (176)". 다음은 **F-5(b)(시뮬 실행/TSV 저장)**.
+**[대형 기획 7] F-5(a)(성장 정책 3종 계산 함수 + 단위 검증)/F-5(b)(시뮬 실행
++ TSV 저장, `qa_out/balance_sim_growth_raw.tsv` 576행) 완료** — 상세는 아래
+"완료 기록 (176)"/"(177)". 다음은 **F-5(c)(`docs/BALANCE_GROWTH_REPORT.md`
+생성기)**.
 **ART-1a(아트 스레드 전달) 완료** — 캐릭터 선택 카드 목록 ScrollContainer
 전환(상세는 `docs/STATUS_ARCHIVE.md`의 완료 기록 (152)). ART-1b/1c는 원화
 파일 도착 전 상태라 여전히 대기.
@@ -227,12 +224,15 @@ I-3(고유 스킬 "일제 사격" `broadside`/"일제 사격+" `broadside_plus`,
 
 **최우선 (INBOX.md 지시 — 아래 번호 매긴 큐보다 먼저):**
 - **[대형 기획 7] F-5(a→b→c, 성장 정책 밸런스 시뮬 — INBOX.md "남은 이슈"
-  2026-10-08 원문 참고). F-5(a)(성장 정책 3종 계산 함수 + 단위 검증) 완료**
-  (`code/qa/balance_sim.gd`의 `growth_sides_for`/`growth_counts_for`/
-  `growth_config_for`/`apply_growth`, `dice_test.gd`의
-  `_check_f5a_growth_policies()`, 완료 기록(176) 참고). 다음은 **F-5(b)**
-  (시뮬 실행/TSV 저장 — 캐릭터 7종 × 시작 스킬 슬롯 0만 × 정책 3종 × 라운드
-  1~3 × 방 0~4(보스 포함) + 방 1~3 정예 × 100판).
+  2026-10-08 원문 참고). F-5(a)(계산 함수+단위 검증)/F-5(b)(시뮬 실행+TSV
+  저장) 완료** (`code/qa/balance_sim.gd`의 `growth_sides_for`/
+  `growth_counts_for`/`growth_config_for`/`apply_growth`/
+  `_run_growth_simulation`/`_simulate_growth_combo`, `dice_test.gd`의
+  `_check_f5a_growth_policies()`, `qa_out/balance_sim_growth_raw.tsv`(576행),
+  완료 기록(176)/(177) 참고). 다음은 **F-5(c)**(리포트 생성기 —
+  `docs/BALANCE_GROWTH_REPORT.md`, `code/qa/balance_report.gd`와 같은 패턴으로
+  TSV를 읽어 정책×캐릭터별 global index 0~14 승률 곡선 표 + 정책별 평균 곡선
+  + 라운드 경계/보스 직전·직후 낙폭, 해석·조정 제안 없이 숫자만).
 
 0. **(INBOX.md 신규 2026-09-03) UI 접근성/가시성 4종 — 1/4 부분 착수.** 전부 "전투/
    선택지 화면 어디서든 정보가 상시 보이거나, 조작이 더 직관적이어야 한다"는 계열의
@@ -839,6 +839,48 @@ I-3(고유 스킬 "일제 사격" `broadside`/"일제 사격+" `broadside_plus`,
 
 ## 완료 기록
 
+- **2026-10-08 (177)**: INBOX.md "부분 처리됨"의 [대형 기획 7] **F-5(b)(시뮬
+  실행/TSV 저장)** — F-5(a) 완료로 실행 순서상 다음 조각. 이번 이터레이션
+  시작 시 `code/qa/balance_sim.gd`에 이미 F-5(b) 구현(`_run_growth_simulation()`/
+  `_simulate_growth_combo()`/`_format_growth_row()`/`_save_growth_raw_tsv()`)과
+  실행 결과(`qa_out/balance_sim_growth_raw.tsv`, 577줄=헤더+576행)가 **미커밋
+  상태로 이미 존재**했다(직전 이터레이션이 사용량 한도로 끊긴 것으로 보임) —
+  새로 시작하지 않고 그대로 이어받아 검증만 했다.
+  **구현 요약**: `_run_growth_simulation(fixed_monster_plan, fixed_elite_plan)`이
+  F-4b와 같은 `AchievementManager`/`RunState` 백업·복원 패턴으로, 캐릭터 8종
+  (해적 포함, `CharacterProfiles.PROFILES` 동적 순회) × **시작 스킬 슬롯 0만**
+  × 정책 3종(balanced/attack_heavy/defense_heavy, "none"은 F-4 기준선과
+  동일해 제외) × {라운드1~3 × 방0~4(일반, 방4=보스) + 라운드1~3 × 방1~3(정예)}
+  = 8×3×24 = 576개 조합 × 100판을 `_simulate_growth_combo()`(F-4b의
+  `_simulate_combo()`와 동일한 `_resolve_exchange()` 호출 경로에
+  `global_index_for()`/`growth_config_for()`/`apply_growth()` 축만 추가)로
+  돌리고 `qa_out/balance_sim_growth_raw.tsv`에 저장한다. `_ready()`가 기존
+  F-4b 기준선 루프를 마친 뒤 이 함수를 호출해 요약 한 줄을 result_label에
+  덧붙이도록 바뀌었다(기존 루프/출력은 그대로).
+  **검증(F-3 원칙 — 계산 결과가 실제로 바뀌는지)**: 이미 F-5(a)에서 단위
+  테스트(`_check_f5a_growth_policies()`)로 `apply_growth()` 자체는 검증돼
+  있었으므로, 이번엔 "시뮬 안에서 실제로 적용되는지"를 TSV 결과값으로
+  확인했다. 생성된 `balance_sim_growth_raw.tsv`를 열어 pirate/start_vanguard/
+  balanced 정책의 **라운드3 방0~3 승률(94%/96%/97%/66%)**을 INBOX.md가 인용한
+  F-4 기준선(라운드2 방1부터 ~0%, 라운드3 전부 0%)과 비교 — 같은 후반 구간이
+  성장 적용 후 극적으로 높은 승률을 보여 `apply_growth()`가 시뮬 루프 안에서
+  실제로 다이스 개수/면 수를 키워 전투 결과를 바꾸고 있음을(플래그만 선 게
+  아니라) 직접 확인했다. 행 수도 기대값(8×3×24=576)과 정확히 일치.
+  `git diff`로 코드 변경분도 재검토 — 기존 F-4b 루프/TSV(`balance_sim_raw.tsv`)
+  는 손대지 않았고 성장 시뮬은 완전히 분리된 함수/파일(`balance_sim_growth_
+  raw.tsv`)로만 쓰여 기준선 재현성에 영향 없음을 확인.
+  **QA**: `qa_out/balance_sim.png`(이미 존재하던 스크린샷, F-4b 기준선 결과
+  라벨 상단부가 겹침/깨짐 없이 렌더링된 것 재확인 — 성장 요약 줄은 라벨
+  하단부라 화면 밖으로 넘어가 안 보이지만 F-4b 때도 같은 이유로 "실행됐다"만
+  확인하면 충분하다고 합의된 패턴). `qa_out/`는 `.gitignore` 대상이라 TSV/PNG는
+  커밋에 포함하지 않는다 — 코드(`code/qa/balance_sim.gd`)만 커밋.
+  **F-5(b) 완료.** 다음은 **F-5(c)**(`docs/BALANCE_GROWTH_REPORT.md` 생성기 —
+  `balance_report.gd`와 같은 패턴으로 `balance_sim_growth_raw.tsv`를 읽어
+  정책×캐릭터별 global index 0~14 승률 곡선 표 + 정책별 평균 곡선 + 라운드
+  경계/보스 직전·직후 낙폭, 맨 위에 "성장 가정" 한 문단, 해석·조정 제안 없이
+  숫자만). "완료 기록" 10개 유지를 위해 (167)을 `docs/STATUS_ARCHIVE.md`로
+  옮겼다.
+
 - **2026-10-08 (176)**: INBOX.md "남은 이슈"의 [대형 기획 7] **F-5(a)(성장 정책
   구현 + 단위 검증)** — F-5는 (a)성장 정책 구현→(b)시뮬 실행/TSV 저장→(c)리포트
   생성기 3개 이터레이션으로 쪼개라는 지시였고, 이번은 첫 조각.
@@ -1281,55 +1323,9 @@ I-3(고유 스킬 "일제 사격" `broadside`/"일제 사격+" `broadside_plus`,
   없어 실제 플레이에서는 전혀 도달 불가능한 플러밍 단계였음). "완료 기록" 10개
   유지를 위해 (158)을 `docs/STATUS_ARCHIVE.md`로 옮겼다.
 
-- **2026-10-08 (167)**: INBOX.md "부분 처리됨"의 [대형 기획 5] **F-4c(밸런스
-  리포트 작성)**을 진행했다 — F-4b 완료로 실행 순서상 마지막 조각이었다.
-  **[대형 기획 5] F-1~F-4 전체 완료.**
-  신규 `code/qa/balance_report.gd`(+ `code/scenes/balance_report.tscn`,
-  `balance_sim.gd`와 같은 Node2D+ResultLabel 패턴, `bash scripts/qa_shot.sh
-  balance_report`로 실행)가 F-4b가 저장해둔 `qa_out/balance_sim_raw.tsv`
-  (504행)를 `FileAccess`로 읽어 집계하고, `docs/BALANCE_REPORT.md`를
-  **직접 파일로 작성**한다 — 별도 데이터 분석 도구(python/awk/node 등) 없이
-  Godot 헤드리스 실행만으로 계산/파일 출력까지 끝내는 구조(이 세션 권한
-  모드에서 `.claude/settings.json`에 허용된 Bash 명령이 `git`/
-  `scripts/qa_shot.sh`/`mkdir`/`ls`/`find`/`cat`뿐이라 임의 스크립팅 도구를
-  승인 없이 못 썼음 — 기존 QA 파이프라인(씬을 띄워 한 프레임에서 계산을
-  끝내는 패턴)을 그대로 재사용해 우회).
-  INBOX.md F-4c 지시대로 **해석/조정 제안 없이 숫자만** 낸다: (1) 전체 평균
-  (504개 조합 기준 평균 승률 22.02%/평균 턴수 6.04/평균 승리 시 HP 3.88),
-  (2) 전체 평균 승률 대비 **±15%p 이상** 벗어난 조합의 이상치 목록(캐릭터/
-  스킬/라운드/방/유형/몬스터/승률/편차 표, 495개 — 전체 조합의 상당수가
-  이상치로 잡혔는데 이는 집계 결과를 있는 그대로 적은 것일 뿐 원인 분석은
-  하지 않았다, 조정은 사람 몫), (3) 캐릭터 7종 × 시작 스킬 3종 × 라운드1~3×
-  방(일반 0~4+정예 1~3) 전체 상세표(캐릭터별 72행 × 7 = 504행, `SkillPool.
-  find_skill()`/`CharacterProfiles.get_profile()`로 id를 한글 이름으로
-  변환). 재현 조건(FIXED_PLAN_SEED=20261007, 다이스 RNG는 trial마다 재굴림,
-  TRIALS_PER_COMBO=100, MAX_EXCHANGES=120 타임아웃 처리)도 문서 상단에
-  그대로 기록.
-  **구현 중 포맷 버그 1건 발견해 수정**: "이상치 기준" 문구에 `%%p`를 써서
-  "±15%%p"로 그대로 찍히는 실수가 있었다 — GDScript의 `%` 연산자는 그
-  문자열이 실제로 `%` 포맷팅을 거칠 때만 `%%`→`%` 변환이 일어나는데, 이
-  한 줄은 `lines.append("...")`로 포맷 연산 없이 바로 추가된 정적 문자열이라
-  `%%`가 치환되지 않고 그대로 남아 있었다. `%p` 한 글자로 고치고 재실행해
-  확인.
-  **검증**: `bash scripts/qa_shot.sh balance_report 10 qa_out/
-  balance_report.png` 크래시 없이 완주, 결과 라벨에 "[balance_report] 완료
-  — docs/BALANCE_REPORT.md 저장 (504개 조합, 전체 평균 승률 22.0%, 이상치
-  495개)" 정상 렌더링(`qa_out/balance_report.png`). `docs/BALANCE_REPORT.md`
-  (82KB, 1067줄) 직접 읽어 헤더/이상치 표/캐릭터별 72행×7종 상세표가
-  전부 올바른 열 수·정렬로 생성됐는지 확인(견습 모험가 구간 534~605행,
-  곡예사 마지막 구간 1044~1067행 샘플 확인). `_find_row()`가 (스킬,
-  라운드, 방, 정예여부) 4중 키로 504행 중 정확히 일치하는 행을 찾으므로
-  행 순서나 중복/누락 걱정 없음. `combat_test.gd`/`balance_sim.gd` 등
-  기존 프로덕션 코드는 전혀 건드리지 않아 `dice_test.gd` 회귀 영향 없음
-  (재실행 불필요 — 신규 독립 파일만 추가).
-  **F-4c 완료로 [대형 기획 5](F-1~F-4) 전체 완료** — INBOX.md에서
-  "처리됨"으로 옮겼다. 다음 할 일은 "다음 할 일 큐" 참고(사람 플레이
-  피드백/설계 결정 대기 항목이 대부분). "완료 기록" 10개 유지를 위해
-  (157)을 `docs/STATUS_ARCHIVE.md`로 옮겼다.
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(176)에서 (166)을 그리로 옮겼다.)*
+이번 이터레이션(177)에서 (167)을 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 

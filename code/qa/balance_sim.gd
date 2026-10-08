@@ -54,8 +54,9 @@ var _combat_script := load("res://code/scenes/combat_test.gd")
 ## RunState 주머니를 "지금까지 몇 번째 전투인가"(global index)에 따라 단순 규칙으로
 ## 키운 뒤 같은 _resolve_exchange() 경로로 돌린다. F-4b의 기준선 루프(_ready()/
 ## _simulate_combo(), 위)는 손대지 않고 그대로 유지 — 비교 기준이 바뀌면 안 되므로
-## "none" 정책은 항상 성장 없음(기존 기준선과 동일)을 뜻한다. 시뮬 실행/TSV 저장(b),
-## 리포트 생성기(c)는 다음 조각 — 여기서는 정책 계산 함수와 RunState 적용만 갖춘다.
+## "none" 정책은 항상 성장 없음(기존 기준선과 동일)을 뜻한다. 시뮬 실행/TSV 저장(b)은
+## 아래 _run_growth_simulation()/_simulate_growth_combo()(2026-10-08 추가, qa_out/
+## balance_sim_growth_raw.tsv 산출) — 리포트 생성기(c)는 다음 조각.
 const GROWTH_POLICY_NONE := "none"
 const GROWTH_POLICY_BALANCED := "balanced"
 const GROWTH_POLICY_ATTACK_HEAVY := "attack_heavy"
@@ -130,6 +131,14 @@ static func apply_growth(growth: Dictionary) -> void:
 	RunState._apply_character_gimmick()
 
 
+## [대형 기획 7] F-5(b)(2026-10-08) — 실제로 돌릴 정책은 3종(균형/공격 몰빵/방어
+## 몰빵)뿐이다. "none"(성장 없음)은 이미 F-4 기준선(docs/BALANCE_REPORT.md)으로
+## 측정이 끝나 있어 다시 돌리지 않는다(INBOX.md 대상 범위 원문: "정책 3종").
+const GROWTH_SIM_POLICIES: Array[String] = [
+	GROWTH_POLICY_BALANCED, GROWTH_POLICY_ATTACK_HEAVY, GROWTH_POLICY_DEFENSE_HEAVY,
+]
+
+
 func _ready() -> void:
 	var lines: PackedStringArray = []
 	lines.append("[F-4b 밸런스 시뮬] 조합당 %d판, 몬스터 배정 시드=%d (고정, 조합 간 공정 비교용)" % [TRIALS_PER_COMBO, FIXED_PLAN_SEED])
@@ -188,8 +197,13 @@ func _ready() -> void:
 	lines.append("[조합 수] %d (x %d판 = 전투 %d판)" % [rows.size(), TRIALS_PER_COMBO, rows.size() * TRIALS_PER_COMBO])
 	_save_raw_tsv(rows)
 
-	result_label.text = "\n".join(lines)
 	print("[balance_sim] 완료 — 조합 %d개 x %d판, qa_out/balance_sim_raw.tsv 저장" % [rows.size(), TRIALS_PER_COMBO])
+
+	var growth_summary := _run_growth_simulation(fixed_monster_plan, fixed_elite_plan)
+	lines.append("")
+	lines.append(growth_summary)
+
+	result_label.text = "\n".join(lines)
 
 
 ## 하나의 (캐릭터, 시작 스킬, 라운드, 방, 정예 여부) 조합에 대해 TRIALS_PER_COMBO판을
@@ -259,6 +273,163 @@ func _format_row(stats: Dictionary) -> String:
 		stats["monster_name"], stats["win_rate"] * 100.0, stats["wins"], stats["trials"],
 		stats["avg_turns"], stats["avg_hp_on_win"], timeout_tag,
 	]
+
+
+## [대형 기획 7] F-5(b)(2026-10-08) — 성장 정책 시뮬 실행. 기존 F-4b 기준선 루프
+## (_ready() 위쪽 본문, _simulate_combo())는 전혀 건드리지 않고, 완전히 분리된 이
+## 함수가 독립적으로 자기 백업/복원을 수행한다. 범위(INBOX.md 2026-10-08 원문):
+## 캐릭터 7종 x **시작 스킬 슬롯 0만**(기준선처럼 3슬롯 전부가 아니라 "정책 효과"만
+## 보기 위해 스킬 변수를 고정) x 정책 3종 x {라운드1~3 x 방0~4(일반, 방4=보스) +
+## 라운드1~3 x 방1~3(정예)} x TRIALS_PER_COMBO판. fixed_monster_plan/fixed_elite_plan은
+## 호출부(_ready())가 이미 만들어둔 것을 그대로 받아써서 기준선과 같은 몬스터 배정을
+## 상대하게 한다(공정 비교).
+func _run_growth_simulation(fixed_monster_plan: Array, fixed_elite_plan: Array) -> String:
+	var achievements_backup: Dictionary = AchievementManager._unlocked.duplicate(true)
+	var character_backup := RunState.character_id
+	var chosen_backup := RunState.chosen_starting_skill_id
+	var round_backup := RunState.round_index
+	var rooms_backup := RunState.rooms_cleared
+	var gold_backup := RunState.gold
+	var pip_backup: Array[int] = RunState.pip_inventory.duplicate()
+	var plan_backup: Array = RunState.monster_plan
+	var elite_plan_backup: Array = RunState.elite_plan
+
+	var rows: Array[Dictionary] = []
+	for profile in CharacterProfiles.PROFILES:
+		var character_id: String = profile["id"]
+		var slot0: Dictionary = SkillPool.starting_skills_for_character(character_id)[0]
+		var skill_id: String = slot0["id"]
+		for policy in GROWTH_SIM_POLICIES:
+			RunState.chosen_starting_skill_id = skill_id
+			RunState.reset_run(character_id)
+			RunState.monster_plan = fixed_monster_plan
+			RunState.elite_plan = fixed_elite_plan
+			for round_index in range(1, RunState.TOTAL_ROUNDS + 1):
+				for room_index in range(RunState.TOTAL_ROOMS):
+					var stats := _simulate_growth_combo(character_id, skill_id, policy, round_index, room_index, false)
+					rows.append(stats)
+					print(_format_growth_row(stats))
+				for room_index in range(1, RunState.TOTAL_ROOMS - 1):
+					var elite_stats := _simulate_growth_combo(character_id, skill_id, policy, round_index, room_index, true)
+					rows.append(elite_stats)
+					print(_format_growth_row(elite_stats))
+
+	AchievementManager._unlocked = achievements_backup
+	AchievementManager._save()
+	RunState.character_id = character_backup
+	RunState.chosen_starting_skill_id = chosen_backup
+	RunState.reset_run(character_backup)
+	RunState.round_index = round_backup
+	RunState.rooms_cleared = rooms_backup
+	RunState.gold = gold_backup
+	RunState.pip_inventory = pip_backup
+	RunState.monster_plan = plan_backup
+	RunState.elite_plan = elite_plan_backup
+
+	_save_growth_raw_tsv(rows)
+	var summary := "[F-5b 성장 정책 시뮬] 조합 %d개 x %d판 = 전투 %d판, qa_out/balance_sim_growth_raw.tsv 저장" % [rows.size(), TRIALS_PER_COMBO, rows.size() * TRIALS_PER_COMBO]
+	print("[balance_sim] " + summary)
+	return summary
+
+
+## _simulate_combo()와 같은 구조(공정 비교를 위해 전투 1판 계산 경로는 완전히 동일)에
+## "policy" 축과 global_index 기반 apply_growth() 호출만 추가한 버전. 성장 구성은 이
+## 조합(캐릭터/정책/라운드/방) 안에서 TRIALS_PER_COMBO판 내내 동일하게 유지된다 —
+## _simulate_combo()도 라운드/방 조합마다 플레이어 주머니를 trial별로 다시 만들지
+## 않으므로(최초 reset_run() 결과를 그대로 재사용) 같은 전제를 따른다.
+func _simulate_growth_combo(character_id: String, skill_id: String, policy: String, round_index: int, room_index: int, is_elite: bool) -> Dictionary:
+	var global_index := global_index_for(round_index, room_index)
+	var growth := growth_config_for(policy, character_id, global_index)
+	apply_growth(growth)
+
+	var wins := 0
+	var timeouts := 0
+	var total_turns := 0
+	var hp_sum_on_win := 0
+	var monster_name := ""
+
+	for _trial in TRIALS_PER_COMBO:
+		RunState.gold = 0
+		RunState.pip_inventory = []
+
+		var instance = _combat_script.new()
+		var config: Dictionary = instance._monster_config_for_elite(round_index, room_index) if is_elite \
+			else instance._monster_config_for_plan(round_index, room_index)
+		if monster_name == "":
+			monster_name = config.get("name", "")
+		instance._apply_monster_config(config)
+		instance._reset_player_battle_state()
+
+		var exchanges := 0
+		var is_player_attacking := true
+		while not instance.battle_over and exchanges < MAX_EXCHANGES:
+			var selection: Dictionary = instance._select_exchange_bags(is_player_attacking)
+			instance._resolve_exchange(
+				is_player_attacking, selection["atk_bag"], selection["def_bag"],
+				selection["used_explosive_dice"], selection["used_guard_dice"], selection["used_anger_dice"]
+			)
+			exchanges += 1
+			is_player_attacking = not is_player_attacking
+
+		if not instance.battle_over:
+			timeouts += 1
+		elif instance.player_won:
+			wins += 1
+			hp_sum_on_win += instance.player_hp
+		total_turns += exchanges
+		instance.free()
+
+	return {
+		"character_id": character_id,
+		"skill_id": skill_id,
+		"policy": policy,
+		"global_index": global_index,
+		"round_index": round_index,
+		"room_index": room_index,
+		"is_elite": is_elite,
+		"monster_name": monster_name,
+		"trials": TRIALS_PER_COMBO,
+		"wins": wins,
+		"timeouts": timeouts,
+		"win_rate": float(wins) / TRIALS_PER_COMBO,
+		"avg_turns": float(total_turns) / TRIALS_PER_COMBO,
+		"avg_hp_on_win": (float(hp_sum_on_win) / wins) if wins > 0 else 0.0,
+	}
+
+
+func _format_growth_row(stats: Dictionary) -> String:
+	var elite_tag := " [정예]" if stats["is_elite"] else ""
+	var timeout_tag := " (타임아웃 %d)" % stats["timeouts"] if stats["timeouts"] > 0 else ""
+	return "%s/%s/%s idx%d r%d방%d%s vs %s: 승률 %.0f%% (%d/%d) 평균턴 %.1f 승리시평균HP %.1f%s" % [
+		stats["character_id"], stats["skill_id"], stats["policy"], stats["global_index"],
+		stats["round_index"], stats["room_index"], elite_tag,
+		stats["monster_name"], stats["win_rate"] * 100.0, stats["wins"], stats["trials"],
+		stats["avg_turns"], stats["avg_hp_on_win"], timeout_tag,
+	]
+
+
+## F-5(c)(다음 조각, docs/BALANCE_GROWTH_REPORT.md 작성)가 godot을 다시 돌리지 않고도
+## 숫자를 참고할 수 있도록 원자료를 TSV로 남긴다. 기존 balance_sim_raw.tsv(기준선)와는
+## 별개 파일 — 열이 다르고(policy/global_index 추가) 기준선 값을 덮어쓰면 안 된다.
+func _save_growth_raw_tsv(rows: Array[Dictionary]) -> void:
+	var abs_path := ProjectSettings.globalize_path("res://qa_out/balance_sim_growth_raw.tsv")
+	var dir_err := DirAccess.make_dir_recursive_absolute(abs_path.get_base_dir())
+	if dir_err != OK and dir_err != ERR_ALREADY_EXISTS:
+		push_error("[balance_sim] 출력 디렉토리 생성 실패: %s" % abs_path.get_base_dir())
+		return
+	var file := FileAccess.open(abs_path, FileAccess.WRITE)
+	if file == null:
+		push_error("[balance_sim] growth TSV 저장 실패: %s" % abs_path)
+		return
+	file.store_line("character_id\tskill_id\tpolicy\tglobal_index\tround_index\troom_index\tis_elite\tmonster_name\ttrials\twins\ttimeouts\twin_rate\tavg_turns\tavg_hp_on_win")
+	for row in rows:
+		file.store_line("%s\t%s\t%s\t%d\t%d\t%d\t%s\t%s\t%d\t%d\t%d\t%.4f\t%.2f\t%.2f" % [
+			row["character_id"], row["skill_id"], row["policy"], row["global_index"],
+			row["round_index"], row["room_index"], str(row["is_elite"]), row["monster_name"],
+			row["trials"], row["wins"], row["timeouts"],
+			row["win_rate"], row["avg_turns"], row["avg_hp_on_win"],
+		])
+	file.close()
 
 
 ## F-4c(다음 조각, docs/BALANCE_REPORT.md 작성)가 godot을 다시 돌리지 않고도 숫자를
