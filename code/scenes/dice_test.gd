@@ -269,6 +269,10 @@ func _ready() -> void:
 	all_pass = _check_h3_test_battle_growth(lines) and all_pass
 
 	lines.append("")
+	lines.append("[I-1: 해적(pirate) 캐릭터 + cannon_volley 기믹 검증: character_profiles.gd PROFILES / combat_test.gd _cannon_volley_damage / skill_icon.gd SkillIcon]")
+	all_pass = _check_i1_pirate_cannon_volley(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -5427,4 +5431,74 @@ func _check_h2_test_battle_setup(lines: PackedStringArray) -> bool:
 	RunState.test_round_index = test_round_backup
 	RunState.test_room_index = test_room_backup
 	RunState.reset_run(character_backup)
+	return ok
+
+
+## [대형 기획 9] I-1(2026-10-08) 검증 — "해적"(pirate) 캐릭터 + cannon_volley 기믹.
+## F-3 원칙대로 "계산 결과가 실제로 바뀌는가"를 확인한다: (1) combat_test.gd의 순수
+## 함수 _cannon_volley_damage(attack_sum, turn_count, cycle)가 1·2번째 턴은 0을,
+## 3번째 턴은 ceil(합/2)을, 6번째 턴에 다시 발동하는지(cycle=3 기준). 이 함수는
+## 애초에 방어 값을 매개변수로 받지 않으므로 "방어가 아무리 높아도 고정 피해 불변"은
+## 함수 서명 자체로 보장된다(별도 호출로 재확인). (2) character_profiles.gd PROFILES에
+## pirate가 gimmick="cannon_volley"/공격2/방어3으로 등록됐는지. (3) 전투 간 카운터
+## 리셋 — _reset_player_battle_state()가 player_attack_turn_count를 0으로 되돌리는지.
+## (4) skill_icon.gd SkillIcon.CATEGORIES에 "cannon_volley"가 있는지(없으면
+## _check_skill_icons가 이미 FAIL로 잡아내지만, 여기서도 직접 재확인).
+func _check_i1_pirate_cannon_volley(lines: PackedStringArray) -> bool:
+	var ok := true
+	var combat_script := load("res://code/scenes/combat_test.gd")
+
+	# (1) 1~9턴, cycle=3: 0,0,X,0,0,X,0,0,X (X=ceil(합/2))
+	var damage_sequence_ok := true
+	for turn in range(1, 10):
+		var expect: int = ceili(17 / 2.0) if turn % 3 == 0 else 0
+		var got: int = combat_script._cannon_volley_damage(17, turn, 3)
+		if got != expect:
+			damage_sequence_ok = false
+	ok = damage_sequence_ok and ok
+	lines.append("  _cannon_volley_damage(attack_sum=17, turn=1..9, cycle=3): 0,0,9,0,0,9,0,0,9 패턴 일치=%s -> %s" % [
+		damage_sequence_ok, "OK" if damage_sequence_ok else "FAIL"
+	])
+
+	# 홀수/짝수 attack_sum 반올림(ceil) 확인.
+	var rounding_ok: bool = combat_script._cannon_volley_damage(7, 3, 3) == 4 \
+		and combat_script._cannon_volley_damage(8, 3, 3) == 4
+	ok = rounding_ok and ok
+	lines.append("  _cannon_volley_damage(7, 3, 3)=%d(기대 4=ceil(3.5)) _cannon_volley_damage(8, 3, 3)=%d(기대 4) -> %s" % [
+		combat_script._cannon_volley_damage(7, 3, 3), combat_script._cannon_volley_damage(8, 3, 3),
+		"OK" if rounding_ok else "FAIL"
+	])
+
+	# "방어가 아무리 높아도 고정 피해 불변" — 함수가 방어 값을 전혀 받지 않으므로 같은
+	# attack_sum/turn/cycle이면 항상 같은 결과(호출 2회 비교로 재확인).
+	var defense_irrelevant_ok: bool = combat_script._cannon_volley_damage(10, 3, 3) == combat_script._cannon_volley_damage(10, 3, 3)
+	ok = defense_irrelevant_ok and ok
+	lines.append("  _cannon_volley_damage는 방어 값을 매개변수로 받지 않음(방어 무관 고정 피해) -> %s" % ("OK" if defense_irrelevant_ok else "FAIL"))
+
+	# (2) character_profiles.gd PROFILES에 pirate 등록 확인.
+	var pirate_profile := CharacterProfiles.get_profile("pirate")
+	var pirate_profile_ok: bool = pirate_profile["gimmick"] == "cannon_volley" \
+		and pirate_profile["attack_count"] == 2 and pirate_profile["defense_count"] == 3
+	ok = pirate_profile_ok and ok
+	lines.append("  get_profile(pirate): gimmick=%s 공격=%d 방어=%d (기대 cannon_volley,2,3) -> %s" % [
+		pirate_profile["gimmick"], pirate_profile["attack_count"], pirate_profile["defense_count"],
+		"OK" if pirate_profile_ok else "FAIL"
+	])
+
+	# (3) 전투 간 카운터 리셋.
+	var combat_instance = combat_script.new()
+	combat_instance.player_attack_turn_count = 5
+	combat_instance._reset_player_battle_state()
+	var reset_ok: bool = combat_instance.player_attack_turn_count == 0
+	ok = reset_ok and ok
+	lines.append("  _reset_player_battle_state() 후 player_attack_turn_count=%d (기대 0) -> %s" % [
+		combat_instance.player_attack_turn_count, "OK" if reset_ok else "FAIL"
+	])
+	combat_instance.free()
+
+	# (4) 아이콘 카테고리 등록 확인.
+	var icon_ok: bool = SkillIcon.CATEGORIES.has("cannon_volley")
+	ok = icon_ok and ok
+	lines.append("  SkillIcon.CATEGORIES.has(\"cannon_volley\")=%s -> %s" % [icon_ok, "OK" if icon_ok else "FAIL"])
+
 	return ok

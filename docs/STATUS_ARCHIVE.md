@@ -8,6 +8,79 @@
 
 ---
 
+- **2026-10-07 (162)**: INBOX.md "부분 처리됨"의 [대형 기획 6](몬스터 대개편)
+  **G-7(정예 전투 방 + 정예 풀 8종)**을 진행했다 — G-6 완료로 실행 순서상
+  다음 조각. `code/systems/monster_catalog.gd`의 `MONSTERS`에 정예 8종
+  (인간형 다크 나이트/고블린 족장, 부정형 젤라틴 큐브/망령, 야수형 오크
+  투사/암흑 늑대, 언데드형 해골 기사/리치 견습생, 전부 `tier="elite"`,
+  스킬 2개 + `atk_dice_delta=1` + `hp_mult=1.5` 공통 공식)를 추가하고
+  `elite_roster_ids()`/`build_elite_plan(seed, total_rounds, rooms_per_round)`
+  (`build_monster_plan()`과 같은 순수 함수 패턴, 라운드마다 정예 8종을
+  셔플해 방 1~3 — 0번째/마지막 방 제외 — 에 중복 없이 배정)를 신설했다.
+  **"다크 나이트" 재배정 관련 설계 변경 한 가지**: INBOX.md 원문은 기존
+  일반 몬스터 "다크 나이트"(id=`dark_knight`)를 그대로 정예로 재배정하길
+  원했지만, `dice_test.gd`에 그 id로 `_monster_config_for_room(4)`(QA/테스트
+  전용 레거시 경로)의 결과 이름을 정확히 `"다크 나이트 [철벽] [보스]"`로
+  고정한 회귀 검증이 있어(G-6 "동작 보존" 계약) tier를 "elite"로 바꾸면
+  자동으로 붙는 "[정예]" 이름 태그가 그 문자열을 깨뜨린다 — 기존 id는 전혀
+  손대지 않고 같은 이름("다크 나이트")·같은 1번째 스킬(steady_guard)을 쓰는
+  새 id(`dark_knight_elite`)를 따로 추가해 피했다(상세 이유는
+  `monster_catalog.gd`의 G-7 주석).
+  `RunState`에 `elite_plan`(런 시작 시 `run_seed + ELITE_SEED_OFFSET`을
+  시드로 `build_elite_plan()` 호출)과 `pending_elite_fight`(bool, 정예
+  버튼이 누를 때 세팅하고 `combat_test.gd` `_ready()`가 소비 즉시 false로
+  되돌림 — change_scene_to_file()이 씬 사이에 인자를 못 넘기므로 다른 모든
+  "선택" 상태와 같은 Autoload 경유 패턴)를 신설했다. `combat_test.gd`에
+  신규 `_monster_config_for_elite(round_index, room_index)`을 추가했는데,
+  이 과정에서 **진짜 버그 하나를 발견해 고쳤다** — 기존
+  `"skill_ids": [] if gimmick == "" else [gimmick]`(G-2~G-6 내내 썼던 코드)가
+  `profile["skills"]`의 **0번째 스킬만** 배열에 담고 있었다. 기존 몬스터는
+  전부 스킬이 0~1개뿐이라 문제가 없었지만, 정예(스킬 2개)에 그대로 쓰면
+  2번째 스킬이 `MonsterSkills` 훅에 영영 전달되지 않아(예: 다크 나이트
+  정예의 armor(2)가 통째로 무시) "정예는 스킬 2개"라는 핵심 공식 자체가
+  깨지는 버그였다 — `profile.get("skills", [])` 전체를 순회해 `skill_ids`를
+  만들도록 고쳤다(기존 0~1개 스킬 몬스터는 결과가 완전히 동일해 동작 보존).
+  `_monster_debug_info_text()`도 같은 이유로 "dice_gimmick 1개만 보는 단일
+  match"에서 "skill_ids 배열을 순회하며 한 줄씩 붙이는" 구조로 바꿨다
+  (`_skill_debug_line()` 헬퍼로 분리 — 기존 단일 스킬 몬스터는 루프 1회뿐이라
+  결과 문자열이 전과 완전히 같음, 겸사겸사 그동안 이 디버그 텍스트에 아예
+  없었던 "revive" 설명도 채움). 보상은 INBOX.md 원문대로 "일반 전투보다
+  커야 함" — 골드는 `monster_is_elite`면 `_apply_room_advance()`에서 ×2,
+  카드 후보는 신규 `code/systems/elite_reward_pool.gd`(`EliteRewardPool`,
+  `DiceItemPool.ITEMS`(C/B급뿐) + `EventItemPool.ITEMS`(B/A/S급, `gain_pips`
+  제외 — combat_test.gd의 적용 로직이 다이스 kind만 다루고 gain_pips는
+  못 다뤄서)를 합친 풀에서 A/S급 쪽으로 치우친 가중치로 뽑는다.
+  `dungeon_map.gd`: `ELITE_CHANCE=0.35`로 방 1~3(`idx>=1 and idx<=TOTAL_
+  ROOMS-2`)에서만 "정예 전투" 선택지를 shop/event/story와 같은 결정적
+  RNG 방식으로 확률 노출하고(새 `EnterEliteButton`, 빨간 테두리
+  StyleBoxFlat), 범례/`REWARD_CATEGORIES`/`RewardIcon`(해골+불꽃 느낌의
+  신규 "elite" 카테고리)/`FamilyIcon`(is_elite 빨간 테두리 링 오버레이)도
+  함께 갱신. **검증**: `dice_test.gd`에 신규 `_check_g7_elite_combat()`
+  (elite_roster_ids 크기/tier/스킬 2개, build_elite_plan 모양·결정성·경계
+  슬롯, `_monster_config_for_elite()`의 실제 계산 결과(hp_mult/atk_dice_delta가
+  attack_count/max_hp에 반영되는지, skill_ids에 스킬 2개가 **둘 다** 담기는지
+  — F-3 원칙), EliteRewardPool의 등급 분포/중복 없음)를 추가하고, 기존
+  `_check_dungeon_map_room_options()`(order가 이제 4종 순열)과
+  `_check_g5_monster_catalog()`(MONSTERS 총 개수 21→29, 계열별 개수)도
+  카탈로그가 실제로 커진 만큼 기대값을 갱신했다. `bash scripts/qa_shot.sh
+  dice_test` 전체 PASS. **시각 QA**: `qa_out/dungeon_g7_room2.png`(2번째
+  방에 빨간 테두리 "정예 전투 입장" 버튼 + 범례 확인), 신규 QA 훅
+  `_debug_press_shortcut_elite()`(실제 숫자 키 입력 → 버튼 → 씬 전환 →
+  `RunState.elite_plan`에서 뽑힌 몬스터로 전투 진입까지 전체 파이프라인
+  확인, `qa_out/combat_test_elite_via_button.png`)로 "리치 견습생 [정예]"가
+  스킬 2개(불사/한기) 설명과 함께 정상 표시됨을 확인, `GAME_QA_MONSTER_ID=
+  dark_knight_elite`로 armor(2) 보정이 실제 전투 로그(몬스터 방어 4→6)에
+  반영됨도 확인. 이 과정에서 **부수 버그 하나를 더 발견해 고쳤다** —
+  `MonsterDebugInfoLabel`이 고정 높이(118~188px)라 스킬 2줄 + "[정예]" 태그
+  줄까지 더해지면 텍스트가 `MonsterPortrait`(y=270 중심, 위쪽 끝 ~206) 얼굴과
+  겹쳤다(`qa_out/combat_test_elite_dark_knight.png`에서 발견) — 라벨 자체
+  크기는 그대로 두고 `combat_test.tscn`의 `MonsterPortrait.position.y`를
+  270→312로 내려 여유를 줬다(플레이어 쪽은 디버그 텍스트가 없어 그대로 270
+  유지, 비대칭이지만 의도적).
+  **G-7 완료.** 다음 할 일은 **G-8**(보스 6종 전용 풀 — 아래 "지금 위치"/
+  "다음 할 일 큐" 참고). "완료 기록" 10개 유지를 위해 (152)를
+  `docs/STATUS_ARCHIVE.md`로 옮겼다.
+
 - **2026-10-07 (161)**: INBOX.md "부분 처리됨"의 [대형 기획 6](몬스터 대개편)
   **G-6(런 시작 몬스터 계획 + 라운드 스케일링)**을 진행했다 — G-5 완료로
   실행 순서상 다음 조각. `code/systems/monster_catalog.gd`에 순수 함수

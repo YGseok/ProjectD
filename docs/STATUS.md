@@ -5,30 +5,36 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-10-08 (171)
-- 작성자: AI 에이전트. INBOX.md "부분 처리됨" [대형 기획 8]의 마지막 조각
-  **H-4(진입점 + 마무리)**를 완료했다. `character_select.tscn`에 "테스트
-  전투" 버튼을 추가(업적 버튼 바로 아래, 작은 폰트+반투명으로 눈에 덜
-  띄게), 누르면 `test_battle_setup.tscn`으로 진입하고 설정 화면의 "뒤로"는
-  기존 구현대로 돌아온다. `RunState.TEST_BATTLE_ENABLED` 상수 하나로
-  버튼 노출을 켜고 끌 수 있게 했다. `docs/DESIGN.md`에 "테스트 전투 모드"
-  절을 신설해 무엇을 고를 수 있는지/진행도 불변 원칙/진입 방법을 정리했다.
-  QA: `scripts/qa_shot.sh dice_test` 전체 PASS(H-4는 새 계산 로직이 없어
-  신규 단위 테스트는 추가하지 않음), `character_select`를 평소대로 로드해
-  새 버튼이 겹침 없이 보이는지, 신규 QA 래퍼 `_debug_open_test_battle()`로
-  실제 `test_battle_setup.tscn`까지 전환되는지 확인. 보스 전투 진행 화면/
-  결과 화면은 H-1/H-2가 이미 촬영해둔 스크린샷이 그대로 유효해(H-4가 그
-  경로를 건드리지 않음) 재촬영하지 않았다.
-  **[대형 기획 8] 전체 완료(H-1~H-4).** 자세한 내용은 아래 "완료 기록
-  (171)" 참고. **다음은 [대형 기획 9] 해적 I-1**(캐릭터+기믹
-  `cannon_volley` 플러밍).
+- 일시: 2026-10-08 (172)
+- 작성자: AI 에이전트. INBOX.md "남은 이슈" [대형 기획 9] 해적의 첫 조각
+  **I-1(캐릭터 + 기믹 플러밍)**을 완료했다. `character_profiles.gd`에
+  8번째 캐릭터 "해적"(id `pirate`, 공격 D4x2/방어 D4x3, 기믹
+  `cannon_volley`)을 추가하고, `combat_test.gd`에 순수 함수
+  `_cannon_volley_damage(attack_sum, turn_count, cycle)` + 전투 중 카운터
+  `player_attack_turn_count`를 신설해 "3번째 공격턴마다 방어 무시 고정
+  피해"를 `_resolve_exchange()`에 배선했다. `skill_icon.gd`에
+  "cannon_volley" 아이콘(포신+포탄)을 추가해 `_check_skill_icons` 자동
+  검증을 통과시켰다. `dice_test.gd`에 `_check_i1_pirate_cannon_volley()`
+  신설(턴별 발동 패턴/반올림/프로필 수치/카운터 리셋/아이콘 등록 전부
+  계산 결과로 검증) — 전체 PASS. `character_select.gd`에 QA 전용
+  `_debug_select_pirate()`를 추가해 8번째(목록 맨 아래) 카드가 겹침/잘림
+  없이 스크롤·선택되는지 `qa_out/character_select_pirate.png`로 확인.
+  (환경 이슈: 1차 캡처가 `qa_out/` 접두어 누락으로 루트에 저장돼 삭제
+  불가 상태로 남음 — 기존에 문서화된 환경 제약 재발, 상세는 "알려진
+  이슈" 참고. 재촬영으로 올바른 스크린샷은 확보함.)
+  자세한 내용은 아래 "완료 기록 (172)" 참고. **[대형 기획 9] 부분
+  처리됨 — 다음은 I-2**(업적 `r1_pirate`/`clear_pirate` + 캐릭터별
+  unlock 목록 + `STARTING_SKILLS`에 pirate 배정).
 
 ## 지금 위치
 
-캐릭터 선택(**7종 전부 구현 완료 — 견습 모험가/광전사/수호자/폭발병/
+캐릭터 선택(**8종 — 견습 모험가/광전사/수호자/폭발병/
 주술사(id는 `shieldbearer` 그대로, 2026-09-24 "방패병"에서 리스킨)/
 매혹사(2026-09-24 신규, id: `enchantress`)/곡예사(2026-09-24 신규,
-id: `juggler`)**) → 던전 맵(런 5방 × 3라운드) → 전투/상점/특수 이벤트/
+id: `juggler`)/해적(2026-10-08 [대형 기획 9] I-1 신규, id: `pirate`,
+기믹 `cannon_volley` — I-1만 완료, 업적/시작 스킬/고유 스킬은 I-2~I-3이
+아직 안 끝나 캐릭터 선택 화면의 "시작 스킬" 슬롯은 비어있음)**) →
+던전 맵(런 5방 × 3라운드) → 전투/상점/특수 이벤트/
 스토리 이벤트/**정예 전투**까지 한 바퀴 플레이 가능. 전투는 항상 노출,
 상점은 2번째/4번째 방 고정(`SHOP_FIXED_ROOM_INDICES`), 특수 이벤트/스토리
 이벤트는 방마다 확률 노출 + 결정적 순서 섞기, 정예 전투는 방 1~3에서만
@@ -72,30 +78,36 @@ TEST_BATTLE_ENABLED`로 on/off)으로 들어가면 `test_battle_setup.tscn`
 원하는 조합(성장 단계 포함)의 테스트 전투를 정식 플레이 흐름 중에 바로 돌릴 수
 있다(`GAME_START=test_battle_setup` 직접 로드도 여전히 가능). 전투 결과는
 업적/런 진행을 전혀 건드리지 않고 "다시 하기"/"설정으로 돌아가기"로 이어진다.
-상세는 위 "완료 기록 (171)" 참고.
-**다음은 [대형 기획 9] 해적(id `pirate`, 8번째 캐릭터) I-1**(캐릭터+기믹
-`cannon_volley` "함포 일제사격" 플러밍) — 이어서 I-2→I-3→I-4, 전부 끝나면
-**[대형 기획 7] F-5(성장 정책 시뮬, a→b→c)**.
+상세는 `docs/STATUS_ARCHIVE.md`의 완료 기록 (168)~(171) 참고.
+**[대형 기획 9] 해적(id `pirate`, 8번째 캐릭터) I-1(캐릭터+기믹
+`cannon_volley` "함포 일제사격" 플러밍) 완료**(상세는 위 "완료 기록
+(172)"). **다음은 I-2**(업적 `r1_pirate`/`clear_pirate` + `STARTING_SKILLS`에
+pirate 배정) → I-3(고유 스킬 `broadside`/`broadside_plus`) → I-4(마무리),
+전부 끝나면 **[대형 기획 7] F-5(성장 정책 시뮬, a→b→c)**.
 **ART-1a(아트 스레드 전달) 완료** — 캐릭터 선택 카드 목록 ScrollContainer
 전환(상세는 `docs/STATUS_ARCHIVE.md`의 완료 기록 (152)). ART-1b/1c는 원화
 파일 도착 전 상태라 여전히 대기.
 **큐의 나머지 항목은 대부분 사람 플레이테스트/피드백 또는 설계 결정이
 필요한 상태** — 자세한 내용은 "알려진 이슈 / 막힌 것" 섹션 참고.
 
-- **캐릭터 7종** (`code/systems/character_profiles.gd`의
+- **캐릭터 8종** (`code/systems/character_profiles.gd`의
   `CharacterProfiles.PROFILES`): 견습 모험가(기믹 없음, D4x3/D4x3) / 광전사
   (min_max_only, D4x4/D4x2) / 수호자(fixed_defense_die, D4x2/D4x4) / 폭발병
   (explosive_stack, D4x4/D4x3) / 주술사(guard_stack, D4x3/D4x4) /
   매혹사(charm_flip, D4x3/D4x3, 2026-09-24 신규 — 그 턴 최저값 다이스 1개를
   최댓값으로 매 턴 즉시 전환, 스택/임계치 없음) / 곡예사(juggle_swap,
   D4x3/D4x2, 2026-09-24 신규 — 런 시작 1회만, 공격 다이스 무작위 1개와
-  방어 다이스 무작위 1개를 통째로 맞바꿈, `DiceBag.swap_random_dice()`).
-  각 캐릭터는 공격/방어와 별개인 "이벤트 주사위"(`event_die_sides`, 7종
+  방어 다이스 무작위 1개를 통째로 맞바꿈, `DiceBag.swap_random_dice()`) /
+  해적(cannon_volley, D4x2/D4x3, 2026-10-08 [대형 기획 9] I-1 신규 — 전투 중
+  플레이어 공격턴 수를 세어 3번째 공격턴마다 평소 데미지와 별도로
+  `ceil(공격 합계/2)`의 방어 무시 고정 피해를 추가, `combat_test.gd`의
+  `_cannon_volley_damage()`).
+  각 캐릭터는 공격/방어와 별개인 "이벤트 주사위"(`event_die_sides`, 8종
   전부 D6)도 가짐. `character_select.tscn`은 왼쪽 좁은 목록(초상+이름+선택,
   스크롤 가능) + 오른쪽 상세 패널(설명/시작 다이스/보유 스킬, 기믹 유형별
-  아이콘 `code/scenes/skill_icon.gd`) 2단 레이아웃 — 7종으로 늘어나도
+  아이콘 `code/scenes/skill_icon.gd`) 2단 레이아웃 — 8종으로 늘어나도
   겹침/깨짐 없음 확인됨(`qa_out/character_select.png`/
-  `character_select_juggler.png`).
+  `character_select_juggler.png`/`character_select_pirate.png`).
 - **캐릭터 스킬 이벤트** (`code/scenes/event.gd`): 특수 이벤트 방이 30%
   확률(`SKILL_EVENT_CHANCE`)로 아이템 대신 스킬 카드 2장을 보여준다. 공용
   스킬 2종(심호흡=첫 방어턴 방어값 +1(면 개수 상한)/여분=매 공격턴 최저값을
@@ -199,11 +211,11 @@ TEST_BATTLE_ENABLED`로 on/off)으로 들어가면 `test_battle_setup.tscn`
 진행하는 것을 권장한다. 한 이터레이션에 한두 개만 진행할 것.
 
 **최우선 (INBOX.md 지시 — 아래 번호 매긴 큐보다 먼저):**
-- **[대형 기획 8] 전체 완료(H-1~H-4).** 다음은 **[대형 기획 9] 해적(id `pirate`,
-  8번째 캐릭터) I-1 → I-2 → I-3 → I-4** 순서로(INBOX.md "남은 이슈" 2026-10-08
-  원문 — 캐릭터+기믹 `cannon_volley` "함포 일제사격"(3번째 공격턴마다 고정 피해)
-  플러밍 → 업적+시작 스킬 → 고유 스킬(`broadside`/`broadside_plus`) →
-  DESIGN.md/밸런스 시뮬 마무리, 한 이터레이션에 한 조각). I-1부터 시작할 것.
+- **[대형 기획 9] 해적(id `pirate`, 8번째 캐릭터) I-1(캐릭터+기믹 플러밍) 완료.**
+  다음은 **I-2 → I-3 → I-4** 순서로(INBOX.md "남은 이슈" 2026-10-08 원문 — 업적
+  (`r1_pirate`/`clear_pirate`)+시작 스킬(`STARTING_SKILLS`에 선제→황금손→수집가
+  순으로 배정) → 고유 스킬(`broadside`/`broadside_plus`) → DESIGN.md/밸런스 시뮬
+  마무리, 한 이터레이션에 한 조각). I-2부터 시작할 것.
   전부 끝나면 마지막으로 **[대형 기획 7] F-5(a→b→c, 성장 정책 밸런스 시뮬)**로.
 
 0. **(INBOX.md 신규 2026-09-03) UI 접근성/가시성 4종 — 1/4 부분 착수.** 전부 "전투/
@@ -811,6 +823,63 @@ TEST_BATTLE_ENABLED`로 on/off)으로 들어가면 `test_battle_setup.tscn`
 
 ## 완료 기록
 
+- **2026-10-08 (172)**: INBOX.md "남은 이슈"의 [대형 기획 9] 해적 **I-1(캐릭터 +
+  기믹 플러밍)** — H-4 완료로 실행 순서상 다음 조각.
+  **캐릭터**: `code/systems/character_profiles.gd`의 `PROFILES`에 8번째
+  캐릭터 "해적"(id `pirate`, `gimmick: "cannon_volley"`, 공격 D4x2/방어
+  D4x3, `event_die_sides: 6`, 머리색/코트색 청록 #0E4A4F/#1FA5A0 —
+  2026-10-08 아트 스레드 퍼스널 컬러 결정 그대로)을 추가하고 `GIMMICK_
+  LABELS`에 "함포 (3번째 공격턴마다 고정 피해)" 항목을 더했다.
+  **기믹 로직**: `combat_test.gd`에 순수 함수 `_cannon_volley_damage(
+  attack_sum, turn_count, cycle)`(cycle 배수 턴에만 `ceili(attack_sum/2.0)`,
+  그 외엔 0 — 방어 값을 아예 매개변수로 안 받아 "방어 무관 고정 피해"가
+  함수 서명으로 보장됨)을 신설하고, 전투 중 상태
+  `player_attack_turn_count`(`CANNON_VOLLEY_CYCLE=3`과 함께, 매 전투
+  `_reset_player_battle_state()`에서 0으로 리셋)를 추가했다.
+  `_resolve_exchange()`의 "플레이어 공격턴 평소 데미지 적용" 직후(= counter/
+  revive on_damage 판정 "전")에 `player_dice_gimmick == "cannon_volley"`면
+  턴 카운트를 올리고 고정 피해를 몬스터 HP에 바로 적용하도록 배선 — 이
+  위치 덕분에 revive 판정이 함포 피해까지 포함된 monster_hp를 보게 되어
+  "revive 판정은 HP 0 시점 기존 규칙을 그대로 쓴다"(INBOX.md 원문)가
+  자연스럽게 만족된다(counter는 평소 dmg==0만 보므로 함포와 무관하게 그대로
+  동작 — 둘 다 새 코드 없이 기존 MonsterSkills.on_damage 호출 순서만
+  활용). 로그는 "함포 일제사격! (고정 N 피해, 몬스터 HP N)" / 발동 전
+  턴마다 "함포 장전 (남은 K턴)" — 다른 스택형 기믹들(광기/수호 심화 등)도
+  전용 UI 위젯 없이 로그만 쓰는 기존 관례를 그대로 따름.
+  **아이콘**: `skill_icon.gd`의 `SkillIcon`에 "cannon_volley" 카테고리
+  (비스듬한 포신 사각형 + 포탄 원 + 발사 궤적 점 — 캐릭터 퍼스널 컬러와
+  같은 터콰이즈) 추가, `CATEGORIES`에 등록(`_check_skill_icons`가 모든
+  gimmick 값의 아이콘 존재를 자동 검증하므로 누락 시 기존 테스트가 바로
+  FAIL로 잡아냄 — 실제로 PASS 확인).
+  **검증(F-3 원칙 — 계산 결과 직접 확인)**: `dice_test.gd`에 `_check_i1_
+  pirate_cannon_volley()` 신설 — `_cannon_volley_damage()`를 턴 1~9(cycle=3)
+  전부 돌려 0,0,9,0,0,9,0,0,9 패턴 확인, 홀/짝 attack_sum의 ceil 반올림
+  (7→4, 8→4) 확인, `get_profile(pirate)`의 gimmick/공격/방어 수치 확인,
+  `_reset_player_battle_state()` 후 카운터가 실제로 0으로 돌아오는지(5로
+  세팅한 뒤 호출해 확인) 확인, `SkillIcon.CATEGORIES`에 등록 확인.
+  `bash scripts/qa_shot.sh dice_test` 전체 PASS(신규 체크 포함).
+  **시각 QA**: `character_select.gd`에 QA 전용 `_debug_select_pirate()`
+  (카드 선택 + `call_deferred`로 목록 스크롤을 맨 아래로 내리는 `_debug_
+  scroll_to_bottom()` 호출, achievement_panel.gd의 같은 이름 패턴을
+  캐릭터 목록 ScrollContainer에 재사용)를 추가해 `qa_out/character_
+  select_pirate.png`로 확인 — 8번째(목록 맨 아래) 카드가 겹침/잘림 없이
+  스크롤되고, 선택 시 상세 패널에 터콰이즈 실루엣 + "보유 스킬: 함포
+  (3번째 공격턴마다 고정 피해)" 줄 + 아이콘이 정상 표시됨(시작 스킬
+  슬롯은 아직 비어있음 — `STARTING_SKILLS`에 pirate를 배정하는 건 I-2
+  범위라 의도적으로 그대로 둠).
+  **알려진 환경 이슈 재발**: `qa_shot.sh` 1차 호출 때 `out` 인자에
+  `qa_out/` 접두어를 빠뜨려 루트에 `character_select_pirate.png`(+
+  `.import`)가 잘못 저장됐고, 기존에 문서화된 환경 제약(아래 "알려진
+  이슈" 참고)대로 `mv`/`Remove-Item`이 전부 거부되어 삭제하지 못했다 —
+  `qa_out/` 접두어를 붙여 다시 찍어 올바른 스크린샷은 확보했고(위 경로),
+  git add에서 루트의 두 잘못된 파일은 제외했다. **다음에 사람이 PC를 볼
+  때 루트의 `character_select_pirate.png`/`.png.import`를 수동으로
+  지워주면 됨**(기존에 남아있던 `character_select_skill_icon.png`류와
+  같은 처리).
+  **[대형 기획 9] 부분 처리 — I-1 완료.** 다음은 **I-2**(업적 `r1_pirate`/
+  `clear_pirate` + 캐릭터별 unlock 목록 + `STARTING_SKILLS`에 pirate
+  배정(슬롯0 선제→슬롯1 황금손→슬롯2 수집가)).
+
 - **2026-10-08 (171)**: INBOX.md "부분 처리됨"의 [대형 기획 8] **H-4(진입점 +
   마무리)** — 이 대형 항목의 마지막 조각, H-3(완료) 다음.
   **진입 버튼**: `character_select.tscn`의 "업적" 버튼 바로 아래(우상단)에
@@ -1301,82 +1370,9 @@ TEST_BATTLE_ENABLED`로 on/off)으로 들어가면 `test_battle_setup.tscn`
   카탈로그 표 갱신 — 아래 "지금 위치"/"다음 할 일 큐" 참고). "완료 기록"
   10개 유지를 위해 (153)을 `docs/STATUS_ARCHIVE.md`로 옮겼다.
 
-- **2026-10-07 (162)**: INBOX.md "부분 처리됨"의 [대형 기획 6](몬스터 대개편)
-  **G-7(정예 전투 방 + 정예 풀 8종)**을 진행했다 — G-6 완료로 실행 순서상
-  다음 조각. `code/systems/monster_catalog.gd`의 `MONSTERS`에 정예 8종
-  (인간형 다크 나이트/고블린 족장, 부정형 젤라틴 큐브/망령, 야수형 오크
-  투사/암흑 늑대, 언데드형 해골 기사/리치 견습생, 전부 `tier="elite"`,
-  스킬 2개 + `atk_dice_delta=1` + `hp_mult=1.5` 공통 공식)를 추가하고
-  `elite_roster_ids()`/`build_elite_plan(seed, total_rounds, rooms_per_round)`
-  (`build_monster_plan()`과 같은 순수 함수 패턴, 라운드마다 정예 8종을
-  셔플해 방 1~3 — 0번째/마지막 방 제외 — 에 중복 없이 배정)를 신설했다.
-  **"다크 나이트" 재배정 관련 설계 변경 한 가지**: INBOX.md 원문은 기존
-  일반 몬스터 "다크 나이트"(id=`dark_knight`)를 그대로 정예로 재배정하길
-  원했지만, `dice_test.gd`에 그 id로 `_monster_config_for_room(4)`(QA/테스트
-  전용 레거시 경로)의 결과 이름을 정확히 `"다크 나이트 [철벽] [보스]"`로
-  고정한 회귀 검증이 있어(G-6 "동작 보존" 계약) tier를 "elite"로 바꾸면
-  자동으로 붙는 "[정예]" 이름 태그가 그 문자열을 깨뜨린다 — 기존 id는 전혀
-  손대지 않고 같은 이름("다크 나이트")·같은 1번째 스킬(steady_guard)을 쓰는
-  새 id(`dark_knight_elite`)를 따로 추가해 피했다(상세 이유는
-  `monster_catalog.gd`의 G-7 주석).
-  `RunState`에 `elite_plan`(런 시작 시 `run_seed + ELITE_SEED_OFFSET`을
-  시드로 `build_elite_plan()` 호출)과 `pending_elite_fight`(bool, 정예
-  버튼이 누를 때 세팅하고 `combat_test.gd` `_ready()`가 소비 즉시 false로
-  되돌림 — change_scene_to_file()이 씬 사이에 인자를 못 넘기므로 다른 모든
-  "선택" 상태와 같은 Autoload 경유 패턴)를 신설했다. `combat_test.gd`에
-  신규 `_monster_config_for_elite(round_index, room_index)`을 추가했는데,
-  이 과정에서 **진짜 버그 하나를 발견해 고쳤다** — 기존
-  `"skill_ids": [] if gimmick == "" else [gimmick]`(G-2~G-6 내내 썼던 코드)가
-  `profile["skills"]`의 **0번째 스킬만** 배열에 담고 있었다. 기존 몬스터는
-  전부 스킬이 0~1개뿐이라 문제가 없었지만, 정예(스킬 2개)에 그대로 쓰면
-  2번째 스킬이 `MonsterSkills` 훅에 영영 전달되지 않아(예: 다크 나이트
-  정예의 armor(2)가 통째로 무시) "정예는 스킬 2개"라는 핵심 공식 자체가
-  깨지는 버그였다 — `profile.get("skills", [])` 전체를 순회해 `skill_ids`를
-  만들도록 고쳤다(기존 0~1개 스킬 몬스터는 결과가 완전히 동일해 동작 보존).
-  `_monster_debug_info_text()`도 같은 이유로 "dice_gimmick 1개만 보는 단일
-  match"에서 "skill_ids 배열을 순회하며 한 줄씩 붙이는" 구조로 바꿨다
-  (`_skill_debug_line()` 헬퍼로 분리 — 기존 단일 스킬 몬스터는 루프 1회뿐이라
-  결과 문자열이 전과 완전히 같음, 겸사겸사 그동안 이 디버그 텍스트에 아예
-  없었던 "revive" 설명도 채움). 보상은 INBOX.md 원문대로 "일반 전투보다
-  커야 함" — 골드는 `monster_is_elite`면 `_apply_room_advance()`에서 ×2,
-  카드 후보는 신규 `code/systems/elite_reward_pool.gd`(`EliteRewardPool`,
-  `DiceItemPool.ITEMS`(C/B급뿐) + `EventItemPool.ITEMS`(B/A/S급, `gain_pips`
-  제외 — combat_test.gd의 적용 로직이 다이스 kind만 다루고 gain_pips는
-  못 다뤄서)를 합친 풀에서 A/S급 쪽으로 치우친 가중치로 뽑는다.
-  `dungeon_map.gd`: `ELITE_CHANCE=0.35`로 방 1~3(`idx>=1 and idx<=TOTAL_
-  ROOMS-2`)에서만 "정예 전투" 선택지를 shop/event/story와 같은 결정적
-  RNG 방식으로 확률 노출하고(새 `EnterEliteButton`, 빨간 테두리
-  StyleBoxFlat), 범례/`REWARD_CATEGORIES`/`RewardIcon`(해골+불꽃 느낌의
-  신규 "elite" 카테고리)/`FamilyIcon`(is_elite 빨간 테두리 링 오버레이)도
-  함께 갱신. **검증**: `dice_test.gd`에 신규 `_check_g7_elite_combat()`
-  (elite_roster_ids 크기/tier/스킬 2개, build_elite_plan 모양·결정성·경계
-  슬롯, `_monster_config_for_elite()`의 실제 계산 결과(hp_mult/atk_dice_delta가
-  attack_count/max_hp에 반영되는지, skill_ids에 스킬 2개가 **둘 다** 담기는지
-  — F-3 원칙), EliteRewardPool의 등급 분포/중복 없음)를 추가하고, 기존
-  `_check_dungeon_map_room_options()`(order가 이제 4종 순열)과
-  `_check_g5_monster_catalog()`(MONSTERS 총 개수 21→29, 계열별 개수)도
-  카탈로그가 실제로 커진 만큼 기대값을 갱신했다. `bash scripts/qa_shot.sh
-  dice_test` 전체 PASS. **시각 QA**: `qa_out/dungeon_g7_room2.png`(2번째
-  방에 빨간 테두리 "정예 전투 입장" 버튼 + 범례 확인), 신규 QA 훅
-  `_debug_press_shortcut_elite()`(실제 숫자 키 입력 → 버튼 → 씬 전환 →
-  `RunState.elite_plan`에서 뽑힌 몬스터로 전투 진입까지 전체 파이프라인
-  확인, `qa_out/combat_test_elite_via_button.png`)로 "리치 견습생 [정예]"가
-  스킬 2개(불사/한기) 설명과 함께 정상 표시됨을 확인, `GAME_QA_MONSTER_ID=
-  dark_knight_elite`로 armor(2) 보정이 실제 전투 로그(몬스터 방어 4→6)에
-  반영됨도 확인. 이 과정에서 **부수 버그 하나를 더 발견해 고쳤다** —
-  `MonsterDebugInfoLabel`이 고정 높이(118~188px)라 스킬 2줄 + "[정예]" 태그
-  줄까지 더해지면 텍스트가 `MonsterPortrait`(y=270 중심, 위쪽 끝 ~206) 얼굴과
-  겹쳤다(`qa_out/combat_test_elite_dark_knight.png`에서 발견) — 라벨 자체
-  크기는 그대로 두고 `combat_test.tscn`의 `MonsterPortrait.position.y`를
-  270→312로 내려 여유를 줬다(플레이어 쪽은 디버그 텍스트가 없어 그대로 270
-  유지, 비대칭이지만 의도적).
-  **G-7 완료.** 다음 할 일은 **G-8**(보스 6종 전용 풀 — 아래 "지금 위치"/
-  "다음 할 일 큐" 참고). "완료 기록" 10개 유지를 위해 (152)를
-  `docs/STATUS_ARCHIVE.md`로 옮겼다.
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(171)에서 (161)을 그리로 옮겼다.)*
+이번 이터레이션(172)에서 (162)를 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 
@@ -1424,7 +1420,11 @@ TEST_BATTLE_ENABLED`로 on/off)으로 들어가면 `test_battle_setup.tscn`
   `character_select_skill_icon.png`/`.png.import`를 수동으로 지워주면 됨**
   (qa_out/ 안의 올바른 스크린샷들은 그대로 둘 것). 앞으로 `qa_shot.sh` 호출 시
   출력 경로에 `qa_out/` 접두어를 빠뜨리지 않도록 주의할 것 — 한 번 루트에
-  잘못 저장되면 그 세션 안에서는 지울 방법이 없다.
+  잘못 저장되면 그 세션 안에서는 지울 방법이 없다. **2026-10-08 (172)에 같은
+  유형이 한 번 더 재현됨** — `character_select_pirate.png`/`.png.import`도
+  같은 이유(출력 경로에 `qa_out/` 깜빡함)로 루트에 남았고 역시 삭제 불가,
+  올바른 스크린샷은 `qa_out/character_select_pirate.png`로 별도 재촬영해
+  확보함. **사람이 PC를 볼 때 이 두 파일도 함께 지워주면 됨.**
 - **작은 다이스 면 미리보기 칩(특히 D4/D8/D20처럼 삼각형 모양인 것들)의 숫자
   가독성이 30px에서도 완전히 또렷하진 않음(2026-09-15 (110) 관찰).** 전투
   화면의 44px 결과 칩(`combat_test_...` 스크린샷)에서는 숫자가 뚜렷이

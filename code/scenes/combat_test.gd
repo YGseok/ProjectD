@@ -150,6 +150,17 @@ static func _second_wind_bonus(player_hp: int, max_hp: int) -> int:
 static func _diverse_bonus(diverse_type_count: int) -> int:
 	return 1 if diverse_type_count >= 3 else 0
 
+## "함포 일제사격"(cannon_volley, 해적 전용 기믹, INBOX.md 2026-10-08 [대형 기획 9] I-1)
+## 고정 피해 계산 — turn_count(이번 공격이 전투 중 몇 번째 플레이어 공격턴인지, 1부터
+## 시작)가 cycle의 배수일 때만 ceil(attack_sum / 2.0)을 돌려주고, 그 외에는 0(아직
+## 장전 중). 호출부(_resolve_exchange)가 반환값이 0이면 아무 일도 하지 않는다 —
+## 다른 시작 스킬들과 같은 이유(물리 없이 dice_test.gd가 직접 호출해 "조건별 결과
+## 숫자"를 검증할 수 있게)로 순수 함수 분리.
+static func _cannon_volley_damage(attack_sum: int, turn_count: int, cycle: int) -> int:
+	if cycle <= 0 or turn_count % cycle != 0:
+		return 0
+	return ceili(attack_sum / 2.0)
+
 const SETTLE_LIN_THRESHOLD := 0.08
 const SETTLE_ANG_THRESHOLD := 0.5
 const SETTLE_MIN_FRAMES := 10
@@ -261,6 +272,13 @@ var player_guard_stacks := 0
 var player_guard_pending := false
 const GUARD_STACK_THRESHOLD := 3
 const GUARD_DICE_SIDES := 20
+
+## "cannon_volley" 캐릭터 기믹(플레이어블 캐릭터 "해적") 전용 전투 중 상태 — 스택형
+## (explosive_stack/guard_stack)과 달리 "몇 번째 공격턴인가"만 센다(최댓값/최솟값과
+## 무관). CANNON_VOLLEY_CYCLE(기본 3)번째 공격턴마다 _cannon_volley_damage()가 고정
+## 피해를 계산한다. 전투마다(_reset_player_battle_state()) 0으로 초기화.
+var player_attack_turn_count := 0
+const CANNON_VOLLEY_CYCLE := 3
 
 ## 캐릭터 스킬(RunState.skill_flags) 전투 중 상태 — INBOX.md [미니 기획 C]-3/4
 ## (2026-09-16)가 확정한 공용 스킬 2종 + 광전사 전용 고유 스킬 1종의 실제 효과 배선.
@@ -816,6 +834,7 @@ func _reset_player_battle_state() -> void:
 	player_explosive_pending = false
 	player_guard_stacks = 0
 	player_guard_pending = false
+	player_attack_turn_count = 0
 	player_deep_breath_used = false
 	player_vanguard_used = false
 	player_bulwark_used = false
@@ -1374,6 +1393,19 @@ func _resolve_exchange(is_player_attacking: bool, atk_bag: DiceBag, def_bag: Dic
 	if is_player_attacking:
 		monster_hp = max(0, monster_hp - dmg)
 		logs.append("플레이어 공격 %d vs 몬스터 방어 %d -> 데미지 %d (몬스터 HP %d)" % [atk_total, def_total, dmg, monster_hp])
+		# "함포 일제사격"(cannon_volley, 해적 전용 기믹): 평소 데미지와 별도로 방어 무시
+		# 고정 피해를 추가한다. 몬스터 HP 0 이하가 될 수도 있으므로, 이후 counter/revive
+		# 판정(및 그 아래 "monster_hp <= 0" 승패 판정)이 이 피해까지 포함된 monster_hp를
+		# 보도록 여기(= 승패 판정 "전")에서 적용한다.
+		if player_dice_gimmick == "cannon_volley":
+			player_attack_turn_count += 1
+			var cannon_dmg := _cannon_volley_damage(atk_total, player_attack_turn_count, CANNON_VOLLEY_CYCLE)
+			if cannon_dmg > 0:
+				monster_hp = max(0, monster_hp - cannon_dmg)
+				logs.append("함포 일제사격! (고정 %d 피해, 몬스터 HP %d)" % [cannon_dmg, monster_hp])
+			else:
+				var cannon_remaining := CANNON_VOLLEY_CYCLE - (player_attack_turn_count % CANNON_VOLLEY_CYCLE)
+				logs.append("함포 장전 (남은 %d턴)" % cannon_remaining)
 	else:
 		player_hp = max(0, player_hp - dmg)
 		logs.append("몬스터 공격 %d vs 플레이어 방어 %d -> 데미지 %d (플레이어 HP %d)" % [atk_total, def_total, dmg, player_hp])

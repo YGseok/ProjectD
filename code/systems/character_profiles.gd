@@ -75,6 +75,15 @@ extends RefCounted
 ##                     개조 아이템으로 면 구성이 달라진 뒤에는 "어느 다이스가 어느 역할로
 ##                     굴러갈지 뒤섞여 있다"는 정체성이 체감된다(INBOX.md 2026-09-24
 ##                     [대형 기획 4]-C "곡예사" 전용, 런 시작 1회만 — 매 전투 재적용 아님)
+##   "cannon_volley" : 정적 다이스 개조 없음(explosive_stack/guard_stack/charm_flip과
+##                     동일) — 대신 combat_test.gd가 플레이어 공격턴 수를 전투마다 센다
+##                     (player_attack_turn_count). CANNON_VOLLEY_CYCLE(기본 3)번째
+##                     공격턴마다, 평소 데미지 계산과 별도로 ceil(그 턴 공격 합계 / 2)의
+##                     고정 피해(몬스터 방어/armor/guard_up 무시)를 몬스터 HP에 바로
+##                     적용한다 — 반응 공식은 combat_test.gd의 _cannon_volley_damage()
+##                     순수 함수(INBOX.md 2026-10-08 [대형 기획 9] I-1 "해적" 전용,
+##                     시간 기반 "주기형" 기믹 — 다른 기믹들의 "최댓값 스택형"과 축이
+##                     다름). 전투가 끝나면 카운터가 초기화된다(_reset_player_battle_state()).
 ## GIMMICK_LABELS: 캐릭터 선택 화면의 상세 정보 패널(2026-09-15 신설, INBOX.md
 ## 2026-09-14 "패널 선택시 오른쪽에 상세 정보를 제공, 초기 제공 주사위/보유 스킬 등"
 ## 반영)에서 "보유 스킬" 줄에 쓸 짧은 이름표. gimmick 필드 값(위 주석 참고) ->
@@ -88,6 +97,7 @@ const GIMMICK_LABELS := {
 	"guard_stack": "수호 스택 (방어 최댓값 3회 누적 → 1D20)",
 	"charm_flip": "매혹 (매 턴 최저값 다이스 1개를 최댓값으로 전환)",
 	"juggle_swap": "저글링 (런 시작 시 공격/방어 다이스 1개씩 맞교환)",
+	"cannon_volley": "함포 (3번째 공격턴마다 고정 피해)",
 }
 
 const PROFILES := [
@@ -174,6 +184,18 @@ const PROFILES := [
 		"event_die_sides": 6,
 		"hair_color": Color(0.95, 0.85, 0.25),
 		"dress_color": Color(0.5, 0.15, 0.75),
+	},
+	{
+		"id": "pirate",
+		"name": "해적",
+		"desc": "약탈과 함포의 해적 선장 — 3번째 공격턴마다 함포가 방어를 무시하고 공격 합계의 절반만큼 고정 피해를 준다. 시작 다이스: 공격 D4x2 / 방어 D4x3 (다이스는 적지만 함포가 보완)",
+		"concept": "약탈과 함포의 해적 선장 — 3번째 공격턴마다 함포가 방어를 무시하고 공격 합계의 절반만큼 고정 피해를 준다.",
+		"gimmick": "cannon_volley",
+		"attack_count": 2,
+		"defense_count": 3,
+		"event_die_sides": 6,
+		"hair_color": Color(0.055, 0.29, 0.31),
+		"dress_color": Color(0.12, 0.65, 0.63),
 	},
 ]
 

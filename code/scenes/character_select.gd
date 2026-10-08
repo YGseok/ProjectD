@@ -659,6 +659,25 @@ func _debug_open_test_battle() -> void:
 	_on_test_battle_pressed()
 
 
+## QA 전용: "해적" 카드를 고른 상태 + 왼쪽 목록 스크롤을 맨 아래로 내린 상태를 한 번에
+## 검증한다(INBOX.md 2026-10-08 [대형 기획 9] I-1 신규, _debug_show_achievements_
+## scrolled()와 같은 이유로 call_deferred — ScrollContainer의 스크롤 범위는 레이아웃
+## 정렬이 끝나야 갱신된다). 8번째(목록 맨 아래) 카드라 (1) 왼쪽 목록이 겹침/잘림 없이
+## 스크롤되는지, (2) 상세 패널에 cannon_volley 기믹 아이콘(SkillIcon)이 겹침 없이
+## 그려지는지 둘 다 한 스크린샷으로 확인할 수 있다.
+func _debug_select_pirate() -> void:
+	_on_card_selected("pirate")
+	call_deferred("_debug_scroll_to_bottom")
+
+
+## QA 전용: 왼쪽 캐릭터 목록(ScrollContainer) 스크롤을 맨 아래로 내린다
+## (achievement_panel.gd._debug_scroll_to_bottom()과 같은 패턴).
+func _debug_scroll_to_bottom() -> void:
+	var scroll := $CardsContainer as ScrollContainer
+	if scroll != null:
+		scroll.scroll_vertical = 100000
+
+
 ## QA 전용: 이전 QA 실행에서 남은 해금 상태가 섞이지 않도록 초기화한 뒤, 업적 하나를
 ## 미리 해금해 "잠김/해금" 두 상태가 동시에 보이는 화면을 스크린샷으로 검증한다.
 func _debug_show_achievements() -> void:

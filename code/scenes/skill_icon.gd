@@ -19,8 +19,9 @@ extends Control
 ## - "guard_stack": 수호 스택 (겹겹의 방패)
 ## - "charm_flip": 매혹 (하트 모양, 2026-09-24 [대형 기획 4]-B "매혹사" 신규)
 ## - "juggle_swap": 저글링 (교차하는 화살표 2개, 2026-09-24 [대형 기획 4]-C "곡예사" 신규)
+## - "cannon_volley": 함포 (포탄 모양, 2026-10-08 [대형 기획 9] I-1 "해적" 신규)
 
-const CATEGORIES := ["", "min_max_only", "fixed_defense_die", "explosive_stack", "guard_stack", "charm_flip", "juggle_swap"]
+const CATEGORIES := ["", "min_max_only", "fixed_defense_die", "explosive_stack", "guard_stack", "charm_flip", "juggle_swap", "cannon_volley"]
 
 var category: String = "":
 	set(v):
@@ -34,6 +35,7 @@ const COLOR_EXPLOSIVE := Color(0.95, 0.55, 0.15)
 const COLOR_GUARD := Color(0.55, 0.6, 0.65)
 const COLOR_CHARM := Color(0.85, 0.2, 0.5)
 const COLOR_JUGGLE := Color(0.9, 0.75, 0.15)
+const COLOR_CANNON := Color(0.12, 0.65, 0.63)
 
 
 func _ready() -> void:
@@ -58,6 +60,8 @@ func _draw() -> void:
 			_draw_heart()
 		"juggle_swap":
 			_draw_swap_arrows()
+		"cannon_volley":
+			_draw_cannon()
 		_:
 			pass
 
@@ -151,3 +155,19 @@ func _draw_burst() -> void:
 		var a: float = TAU * i / (spikes * 2.0) - PI / 2
 		points.append(center + Vector2(cos(a), sin(a)) * r)
 	draw_colored_polygon(points, COLOR_EXPLOSIVE)
+
+
+## "cannon_volley"(해적) 전용 아이콘 — 비스듬한 포신(사각형) + 포탄(원) + 발사 궤적
+## 점선 느낌의 작은 원 2개로 "함포 일제사격"을 근사한다(achievement_icon.gd류처럼
+## draw_rect/draw_circle 조합만으로 별도 벡터 에셋 없이 그림).
+func _draw_cannon() -> void:
+	var barrel := PackedVector2Array([
+		Vector2(size.x * 0.18, size.y * 0.78),
+		Vector2(size.x * 0.78, size.y * 0.22),
+		Vector2(size.x * 0.68, size.y * 0.1),
+		Vector2(size.x * 0.08, size.y * 0.66),
+	])
+	draw_colored_polygon(barrel, COLOR_CANNON.darkened(0.25))
+	draw_circle(Vector2(size.x * 0.28, size.y * 0.72), size.x * 0.2, COLOR_CANNON)
+	draw_circle(Vector2(size.x * 0.68, size.y * 0.3), size.x * 0.08, COLOR_CANNON)
+	draw_circle(Vector2(size.x * 0.84, size.y * 0.16), size.x * 0.05, COLOR_CANNON.lightened(0.15))
