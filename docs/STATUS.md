@@ -5,23 +5,25 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-10-08 (173)
-- 작성자: AI 에이전트. INBOX.md "부분 처리됨" [대형 기획 9] 해적의 두 번째
-  조각 **I-2(업적 + 시작 스킬)**를 완료했다. `achievement_manager.gd`에
-  `clear_pirate`/`r1_pirate` 업적 정의를 추가했고(해금 트리거는 이미 범용
-  함수라 코드 변경 불필요). `skill_pool.gd`의 `STARTING_SKILLS`에 해적용
-  선제→황금손→수집가 슬롯을 배정하려다, 전역 배열 등장 순서로 슬롯을
-  정하는 구조와 berserker의 기존 상대 순서(수집가→선제)가 해적이 원하는
-  순서(선제→수집가)와 정면으로 충돌하는 걸 발견해, berserker/novice 엔트리는
-  그대로 두고 해적 전용 dict row 3개(같은 id, `character_ids: ["pirate"]`만
-  다름)를 새로 추가하는 방식으로 풀었다. `dice_test.gd`에 해적으로 실제
-  라운드1/최종 보스를 이겨 `r1_pirate`/`clear_pirate`가 실제로
-  해금되는지(계산 결과 직접 확인), `starting_skills_for_character("pirate")`가
-  실제로 선제→황금손→수집가 순서를 반환하는지 검증 추가 — 전체 PASS.
-  캐릭터 선택 화면에서 해적을 고르면 슬롯이 겹침 없이 올바른 순서로 뜨는지
-  `qa_out/character_select_pirate_skills.png`로 확인.
-  자세한 내용은 아래 "완료 기록 (173)" 참고. **[대형 기획 9] 부분
-  처리됨 — 다음은 I-3**(고유 스킬 `broadside`/`broadside_plus`).
+- 일시: 2026-10-08 (174)
+- 작성자: AI 에이전트. INBOX.md "부분 처리됨" [대형 기획 9] 해적의 세 번째
+  조각 **I-3(고유 스킬 `broadside`/`broadside_plus`)**를 완료했다.
+  `skill_pool.gd`의 `UNIQUE_SKILLS`/`UPGRADE_SKILLS`에 "일제 사격"(함포
+  주기 3→2턴 단축)/"일제 사격+"(고정 피해를 공격 합계 전부로 강화)를
+  추가하고, `combat_test.gd`의 `_cannon_volley_damage()`에 `full_damage`
+  매개변수(기본값 false, 기존 3-인자 호출 하위 호환 유지)를 더했으며, 주기
+  계산을 다른 스택형 스킬들과 같은 패턴(`_player_explosive_threshold()` 등)
+  의 `_cannon_volley_cycle()`로 분리했다. `dice_test.gd`에
+  `_check_i3_pirate_broadside()`를 신설해 SkillPool 등록/주기 단축/고정
+  피해 강화/하위 호환/테스트 전투 설정 보유 스킬 토글 자동 반영까지 계산
+  결과로 직접 검증 — 그 과정에서 기존 `_check_upgrade_skill_pool()`이
+  `UPGRADE_SKILLS.size() == 9`를 하드코딩해 FAIL이 난 것을 10으로 고쳤다.
+  전체 PASS. 테스트 전투 설정 화면에서 해적을 고르면 "일제 사격"/"일제
+  사격+" 체크박스가 겹침 없이 자동으로 뜨는지
+  `qa_out/test_battle_setup_pirate_broadside.png`로 확인.
+  자세한 내용은 아래 "완료 기록 (174)" 참고. **[대형 기획 9] 부분
+  처리됨 — 다음은 I-4**(마무리: DESIGN.md 캐릭터 표 갱신 + 아트 스레드
+  인계 문구).
 
 ## 지금 위치
 
@@ -30,7 +32,8 @@
 매혹사(2026-09-24 신규, id: `enchantress`)/곡예사(2026-09-24 신규,
 id: `juggler`)/해적(2026-10-08 [대형 기획 9] 신규, id: `pirate`,
 기믹 `cannon_volley` — I-1(캐릭터+기믹)/I-2(업적+시작 스킬: 선제→황금손→
-수집가) 완료, 아직 캐릭터 전용 고유 스킬(`broadside`, I-3)은 없음)**) →
+수집가)/I-3(고유 스킬 `broadside`/`broadside_plus`, 함포 주기 3→2턴
+단축/고정 피해 전부 강화) 완료)**) →
 던전 맵(런 5방 × 3라운드) → 전투/상점/특수 이벤트/
 스토리 이벤트/**정예 전투**까지 한 바퀴 플레이 가능. 전투는 항상 노출,
 상점은 2번째/4번째 방 고정(`SHOP_FIXED_ROOM_INDICES`), 특수 이벤트/스토리
@@ -78,9 +81,11 @@ TEST_BATTLE_ENABLED`로 on/off)으로 들어가면 `test_battle_setup.tscn`
 상세는 `docs/STATUS_ARCHIVE.md`의 완료 기록 (168)~(171) 참고.
 **[대형 기획 9] 해적(id `pirate`, 8번째 캐릭터) I-1(캐릭터+기믹
 `cannon_volley` "함포 일제사격" 플러밍)/I-2(업적 `r1_pirate`/`clear_pirate` +
-`STARTING_SKILLS`에 선제→황금손→수집가 배정) 완료**(상세는 위 "완료 기록
-(173)"). **다음은 I-3**(고유 스킬 `broadside`/`broadside_plus`) → I-4(마무리),
-전부 끝나면 **[대형 기획 7] F-5(성장 정책 시뮬, a→b→c)**.
+`STARTING_SKILLS`에 선제→황금손→수집가 배정)/I-3(고유 스킬 "일제 사격"
+`broadside`/"일제 사격+" `broadside_plus`, 함포 주기 3→2턴 단축 + 고정
+피해 전부 강화) 완료**(상세는 위 "완료 기록 (174)"). **다음은 I-4**(마무리:
+DESIGN.md 캐릭터 표 갱신 + 밸런스 시뮬/테스트 전투 설정 8캐릭터 확인 + 아트
+스레드 인계 문구), 끝나면 **[대형 기획 7] F-5(성장 정책 시뮬, a→b→c)**.
 **ART-1a(아트 스레드 전달) 완료** — 캐릭터 선택 카드 목록 ScrollContainer
 전환(상세는 `docs/STATUS_ARCHIVE.md`의 완료 기록 (152)). ART-1b/1c는 원화
 파일 도착 전 상태라 여전히 대기.
@@ -108,9 +113,10 @@ TEST_BATTLE_ENABLED`로 on/off)으로 들어가면 `test_battle_setup.tscn`
 - **캐릭터 스킬 이벤트** (`code/scenes/event.gd`): 특수 이벤트 방이 30%
   확률(`SKILL_EVENT_CHANCE`)로 아이템 대신 스킬 카드 2장을 보여준다. 공용
   스킬 2종(심호흡=첫 방어턴 방어값 +1(면 개수 상한)/여분=매 공격턴 최저값을
-  advantage 방식으로 대체) + 캐릭터 전용 고유 스킬 **7종**(`SkillPool.
+  advantage 방식으로 대체) + 캐릭터 전용 고유 스킬 **8종**(`SkillPool.
   UNIQUE_SKILLS`, `character_id`로 필터, 2026-09-17 (127)로 5종, 2026-09-24
-  (145)로 매혹사/곡예사 2종 추가돼 7/7종 완성):
+  (145)로 매혹사/곡예사 2종 추가, 2026-10-08 (174)로 해적 "일제 사격"
+  (`broadside`) 추가돼 8/8종 완성):
   광기 심화(광전사, explosive_stack 파이프라인을 새로 열고 보너스턴이 1D20
   두 번 굴려 채택) / 수호 심화(수호자, guard_stack 파이프라인을 새로 열고
   동일 강화) / 연쇄 폭발(폭발병, 이미 갖고 있던 explosive_stack의 임계치를
@@ -121,8 +127,11 @@ TEST_BATTLE_ENABLED`로 on/off)으로 들어가면 `test_battle_setup.tscn`
   턴 뒤집는 다이스 개수를 1개→2개로 늘림, `DiceBag.apply_charm_flip()`의
   count 매개변수 재사용)** / **곡예 앙코르(곡예사, 신규 — 자기 기믹
   juggle_swap을 라운드 전환마다 재발동, `RunState.advance_round()`에서
-  `DiceBag.swap_random_dice()` 재호출)**. 7종 전부 "+" 강화판도 있다
-  (`UPGRADE_SKILLS`, 총 9종 — 공용 2 + 고유 7). 획득한 스킬 id는
+  `DiceBag.swap_random_dice()` 재호출)** / **일제 사격(해적, 2026-10-08
+  (174) 신규 — 함포 일제사격 주기를 3턴에서 2턴으로 단축,
+  `combat_test.gd`의 `_cannon_volley_cycle()`)**. 8종 전부 "+" 강화판도
+  있다(`UPGRADE_SKILLS`, 총 10종 — 공용 2 + 고유 8, "일제 사격+"는 주기
+  2 유지 + 고정 피해를 공격 합계 전부로 강화). 획득한 스킬 id는
   `RunState.skill_flags`에 쌓이고 `combat_test.gd`의 `_do_exchange()`/
   `run_state.gd`의 `advance_round()`가 실제 효과를 적용한다.
 - **특수 이벤트(아이템 쪽)**: "안전하게 넘어가기"(C/B급 가중치 무작위 확정
@@ -209,10 +218,11 @@ TEST_BATTLE_ENABLED`로 on/off)으로 들어가면 `test_battle_setup.tscn`
 
 **최우선 (INBOX.md 지시 — 아래 번호 매긴 큐보다 먼저):**
 - **[대형 기획 9] 해적(id `pirate`, 8번째 캐릭터) I-1(캐릭터+기믹 플러밍)/
-  I-2(업적+시작 스킬) 완료.**
-  다음은 **I-3 → I-4** 순서로(INBOX.md "남은 이슈" 2026-10-08 원문 — 고유 스킬
-  (`broadside`/`broadside_plus`) → DESIGN.md/밸런스 시뮬 마무리, 한 이터레이션에
-  한 조각). I-3부터 시작할 것.
+  I-2(업적+시작 스킬)/I-3(고유 스킬 `broadside`/`broadside_plus`) 완료.**
+  다음은 **I-4**(INBOX.md "남은 이슈" 2026-10-08 원문 — DESIGN.md 캐릭터 표 8종
+  갱신 + 밸런스 시뮬/리포트 생성기·테스트 전투 설정 화면이 8캐릭터를 처리하는지
+  확인 + 완료되면 아트 스레드 인계 문구 한 줄). I-4를 마치면 [대형 기획 9] 전체
+  완료로 INBOX.md "처리됨" 이관.
   전부 끝나면 마지막으로 **[대형 기획 7] F-5(a→b→c, 성장 정책 밸런스 시뮬)**로.
 
 0. **(INBOX.md 신규 2026-09-03) UI 접근성/가시성 4종 — 1/4 부분 착수.** 전부 "전투/
@@ -820,6 +830,50 @@ TEST_BATTLE_ENABLED`로 on/off)으로 들어가면 `test_battle_setup.tscn`
 
 ## 완료 기록
 
+- **2026-10-08 (174)**: INBOX.md "부분 처리됨"의 [대형 기획 9] 해적 **I-3(고유
+  스킬 `broadside`/`broadside_plus`)** — I-2 완료로 실행 순서상 다음 조각.
+  **SkillPool**: `skill_pool.gd`의 `UNIQUE_SKILLS`에 `broadside`("일제 사격",
+  `character_id: "pirate"`, 함포 주기 3→2턴 단축)를, `UPGRADE_SKILLS`에
+  `broadside_plus`("일제 사격+", 주기 2 유지 + 고정 피해를 `ceil(합/2)`에서
+  공격 합계 전부로 강화)를 기존 7종/9종과 같은 dict 패턴으로 추가했다(총
+  8종/10종).
+  **계산 로직**: `combat_test.gd`의 `_cannon_volley_damage(attack_sum,
+  turn_count, cycle, full_damage: bool = false)`에 `full_damage` 매개변수를
+  추가(새 인자는 기본값 false라 기존 3-인자 호출은 그대로 동작, 하위 호환
+  유지) — true면 `attack_sum` 전부, false면 기존 `ceil(attack_sum/2.0)`.
+  "주기"는 호출부가 직접 넘기던 상수(`CANNON_VOLLEY_CYCLE=3`) 대신, 다른
+  스택형 스킬들의 `_player_explosive_threshold()`/`_player_guard_threshold()`
+  와 같은 패턴으로 `_cannon_volley_cycle()`(인스턴스 메서드, broadside 또는
+  broadside_plus 보유 시 2, 아니면 3)을 신설해 호출부(`_resolve_exchange()`의
+  "함포 일제사격" 분기)가 이 값을 쓰도록 바꿨다. 상태 변수
+  `player_broadside_active`/`player_broadside_plus_active`를
+  `_reset_player_battle_state()`에서 `RunState.skill_flags`로 채움(다른
+  고유 스킬들과 동일 패턴).
+  **검증(F-3 원칙 — 계산 결과 직접 확인)**: `dice_test.gd`에
+  `_check_i3_pirate_broadside()`를 신설해 (1) SkillPool 등록(character_id/
+  upgrades 필드)과 `grant_upgrade("broadside")`가 "+"를 실제로 더해주는지,
+  (2) `_cannon_volley_cycle()`이 미보유 3/base만 2/plus만 2/둘 다 2를
+  반환하는지, (3) cycle=2로 주기가 실제로 당겨지는지(1턴차 0, 2턴차 발동 —
+  attack_sum=10 기준 0,5,0,5 패턴), (4) "+"가 고정 피해를 ceil(합/2)에서
+  합 전부로 바꾸는지(attack_sum=11 기준 false->6, true->11), (5) 기존
+  3-인자 호출(cycle=3, full_damage 기본값)이 그대로 동작하는지(하위 호환),
+  (6) 테스트 전투 설정(H-3)의 `TestBattleSetup.skill_flag_rows_for_character
+  ("pirate")`가 `{base: broadside, plus: broadside_plus}` 행을 자동으로
+  올리는지(새 코드 없이 UNIQUE_SKILLS/UPGRADE_SKILLS를 순회하는 기존 static
+  함수라 데이터만 추가하면 자동 반영 — 직접 호출로 재확인)까지 전부 확인.
+  부수적으로 발견: `_check_upgrade_skill_pool()`이 `UPGRADE_SKILLS.size() ==
+  9`를 하드코딩하고 있어 broadside_plus 추가로 FAIL이 났던 것을 10으로
+  수정(base_ids는 SKILLS/UNIQUE_SKILLS를 순회해 동적으로 만들어 별도 수정
+  불필요했음). `bash scripts/qa_shot.sh dice_test` 전체 PASS.
+  **시각 QA**: `test_battle_setup.gd`에 QA 전용 0-arity 래퍼
+  `_debug_select_pirate_scroll_bottom()`(해적 선택 + 스크롤 하단 이동)을
+  추가해 `qa_out/test_battle_setup_pirate_broadside.png`로 확인 — "보유
+  스킬" 섹션에 "일제 사격"/"일제 사격+" 체크박스 행이 기존 심호흡/여분
+  아래에 겹침 없이 자동으로 뜸.
+  **I-3 완료.** 다음은 **I-4**(DESIGN.md 캐릭터 표 갱신 + 밸런스 시뮬/테스트
+  전투 설정 화면 8캐릭터 반영 확인 + 아트 스레드 인계 문구), 전부 끝나면
+  **[대형 기획 7] F-5**.
+
 - **2026-10-08 (173)**: INBOX.md "부분 처리됨"의 [대형 기획 9] 해적 **I-2(업적 +
   시작 스킬)** — I-1 완료로 실행 순서상 다음 조각.
   **업적**: `achievement_manager.gd`의 `DEFINITIONS`에 `clear_pirate`("해적으로
@@ -1308,51 +1362,9 @@ TEST_BATTLE_ENABLED`로 on/off)으로 들어가면 `test_battle_setup.tscn`
   `user://achievements.json` 백업/복원 필요 — F-3 E2E가 쓴 패턴과 동일).
   "완료 기록" 10개 유지를 위해 (155)를 `docs/STATUS_ARCHIVE.md`로 옮겼다.
 
-- **2026-10-07 (164)**: G-8 완료로 실행 순서(F-2→F-3→G-1~G-9→F-4)상 마지막
-  조각인 INBOX.md "부분 처리됨"의 [대형 기획 6](몬스터 대개편) **G-9(마무리:
-  맵 미리보기 + 문서)**를 진행했다 — **[대형 기획 6] G-1~G-9 전체 완료**,
-  INBOX.md로 "처리됨" 이관.
-  1. **던전 맵 미리보기**: `dungeon_map.gd`에 `_monster_profile_for_room(idx)`/
-     `_elite_profile_for_room(idx)`를 신설해 `combat_test.gd`의
-     `_monster_config_for_plan()`/`_monster_config_for_elite()`와 **같은
-     소스**(`RunState.monster_plan`/`elite_plan`, `round_index` 기준)를
-     읽게 했다 — 미리보기와 실제 입장 결과가 항상 일치. "전투"/"정예 전투"
-     버튼 옆 보상 아이콘 행(`_reward_icon_rows`) 맨 앞에 `FamilyIcon`을
-     하나씩 끼워 넣고(`_family_icon_by_type`), `_update_family_icons()`가
-     지금 방(`RunState.rooms_cleared`) 기준으로 매번 category/is_boss/
-     is_elite를 갱신한다(런 완료 화면에서는 "다음 방"이 없어 갱신하지
-     않음). `MapStrip`의 "전투"/"정예 전투" 칩(`_make_type_chip()`에
-     family/is_boss/is_elite 매개변수 3개를 추가)도 같은 방식으로 각
-     idx(아직 안 간 방 포함)의 몬스터 계열을 미리 보여준다 — 상점/이벤트는
-     스포일링 문제가 있어 그대로 "미정" 아이콘만 유지(INBOX.md 원문 그대로,
-     건드리지 않음).
-  2. **`docs/DESIGN.md`의 "던전 몬스터" 절**을 예전 "첫 5종" 표에서 **계열×
-     등급 전체 카탈로그**로 갱신했다 — 계열 4종 의미 설명, 스킬 프리미티브
-     16종(armor/guard_up/counter/steady_guard/sticky/seal/dull/numb/
-     anger_stack/min_max_only/pounce/bloodlust/fixed_value/drain/revive/
-     chill) 효과를 계열별로 정리한 범례 표, 일반 20종(계열당 5종) 표,
-     정예 8종 표, 보스 6종(라운드별 2종 + 2페이즈) 표, 그리고 "다크
-     나이트"(id `dark_knight`)가 카탈로그엔 남아있지만 일반 풀에서는
-     제외된 레거시 전용 몬스터임을 명시했다.
-  3. **STATUS.md 수치 정리**: 아래 "지금 위치" 문단에 풀 규모(일반 20/
-     레거시 1/정예 8/보스 6 = 총 35종)와 핵심 잠정 수치(난이도 공식,
-     보스/정예 배율, 등장 확률)를 F-4 밸런스 시뮬이 참조할 수 있도록
-     모아뒀다 — 상세 수치 자체는 이미 (156)~(163)/`monster_catalog.gd`
-     주석에 있으므로 새 숫자를 만들지 않고 위치만 가리킨다.
-  검증: `bash scripts/qa_shot.sh dice_test` 전체 PASS(이번 변경은 테스트
-  대상인 `_monster_config_for_*`/`MonsterCatalog`를 건드리지 않아 기존
-  검증 그대로 통과 — 새 dice_test 섹션은 추가하지 않음, 미리보기는 "화면에
-  보이는가"가 전부라 시각 QA로 충분). `bash scripts/qa_shot.sh dungeon_map`
-  으로 크래시 없음 + 1번째 방(전투 버튼 옆)/2번째 방(정예 전투 버튼과 그
-  버튼의 MapStrip 칩)에 계열 아이콘이 실제로 그려지는지, 보스 방(5번째
-  칸)에도 전투 칩에 아이콘이 붙는지 확인했다(`qa_out/dungeon_map.png`).
-  **[대형 기획 6] 전체가 끝나 다음은 [대형 기획 5] F-4(밸런스 시뮬)** —
-  아래 "다음 할 일 큐" 참고. "완료 기록" 10개 유지를 위해 (154)를
-  `docs/STATUS_ARCHIVE.md`로 옮겼다.
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(173)에서 (163)을 그리로 옮겼다.)*
+이번 이터레이션(174)에서 (164)를 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 

@@ -93,6 +93,13 @@ const SKILLS: Array[Dictionary] = [
 ## 그대로 라운드 전환(RunState.advance_round(), 3라운드 중 1->2/2->3 전환 시점)마다
 ## DiceBag.swap_random_dice()를 한 번 더 호출해 공격/방어 다이스 무작위 1개씩을 다시
 ## 맞바꾼다 — 새 다이스 연산 없이 기존 헬퍼 재사용(run_state.gd의 advance_round() 참고).
+##
+## "broadside"(일제 사격): 해적(pirate) 전용, [대형 기획 9] I-3(2026-10-08). 자기 기믹
+## cannon_volley("함포 일제사격", 3번째 공격턴마다 고정 피해)의 발동 주기를 3턴에서
+## 2턴으로 단축한다 — 새 메커니즘 없이 기존 CANNON_VOLLEY_CYCLE을 스킬 보유 여부로
+## 바꿔 끼우는 패턴(combat_test.gd의 player_broadside_active 분기, _cannon_volley_cycle()
+## 참고). frenzy_deepen/chain_explosion과 달리 "스택"이 아니라 "주기"만 있어 공격/방어
+## 분기 없이 공격 한 쪽만 건드린다.
 const UNIQUE_SKILLS: Array[Dictionary] = [
 	{
 		"id": "frenzy_deepen",
@@ -135,6 +142,12 @@ const UNIQUE_SKILLS: Array[Dictionary] = [
 		"name": "곡예 앙코르",
 		"description": "라운드가 바뀔 때마다 공격 다이스 무작위 1개와 방어 다이스 무작위 1개를 다시 맞바꾼다 (곡예사 전용).",
 		"character_id": "juggler",
+	},
+	{
+		"id": "broadside",
+		"name": "일제 사격",
+		"description": "함포 일제사격 주기가 3턴에서 2턴으로 단축된다 (해적 전용).",
+		"character_id": "pirate",
 	},
 ]
 
@@ -207,6 +220,13 @@ const UPGRADE_SKILLS: Array[Dictionary] = [
 		"description": "라운드 전환 시 다이스 교환이 1번이 아니라 2번(서로 다른 무작위 다이스 쌍) 일어난다 (곡예사 전용).",
 		"upgrades": "juggle_encore",
 		"character_id": "juggler",
+	},
+	{
+		"id": "broadside_plus",
+		"name": "일제 사격+",
+		"description": "함포 일제사격 주기는 2턴 그대로, 고정 피해가 공격 합계의 절반이 아니라 전부로 강화된다 (해적 전용).",
+		"upgrades": "broadside",
+		"character_id": "pirate",
 	},
 ]
 

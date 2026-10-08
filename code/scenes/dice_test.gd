@@ -273,6 +273,10 @@ func _ready() -> void:
 	all_pass = _check_i1_pirate_cannon_volley(lines) and all_pass
 
 	lines.append("")
+	lines.append("[I-3: 해적 고유 스킬 broadside/broadside_plus 검증: skill_pool.gd UNIQUE_SKILLS/UPGRADE_SKILLS / combat_test.gd _cannon_volley_cycle / _cannon_volley_damage]")
+	all_pass = _check_i3_pirate_broadside(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -3191,21 +3195,21 @@ func _check_f3_e2e_flow(lines: PackedStringArray) -> bool:
 	return ok
 
 
-## [미니 기획 D]-1/2 검증: UPGRADE_SKILLS 데이터 형태(9종, "upgrades" 필드가 실제
+## [미니 기획 D]-1/2 검증: UPGRADE_SKILLS 데이터 형태(10종, "upgrades" 필드가 실제
 ## SKILLS/UNIQUE_SKILLS id를 가리키는지)와 available_upgrade_choices()/grant_upgrade()의
 ## 필터링 동작(base 미보유 시 후보 제외, "+" 이미 보유 시 후보 제외, character_id 필터,
 ## grant_upgrade가 올바른 "+"id를 추가하는지)을 검증한다.
 func _check_upgrade_skill_pool(lines: PackedStringArray) -> bool:
 	var ok := true
 
-	# (1) UPGRADE_SKILLS는 9종(SKILLS 2 + UNIQUE_SKILLS 7)이고, 각 "upgrades" 필드가
+	# (1) UPGRADE_SKILLS는 10종(SKILLS 2 + UNIQUE_SKILLS 8)이고, 각 "upgrades" 필드가
 	# 실제 존재하는 base id를 가리키며, 이름은 전부 "<base 이름>+" 형태다.
 	var base_ids: Array = []
 	for s in SkillPool.SKILLS:
 		base_ids.append(s["id"])
 	for s in SkillPool.UNIQUE_SKILLS:
 		base_ids.append(s["id"])
-	var count_ok: bool = SkillPool.UPGRADE_SKILLS.size() == 9
+	var count_ok: bool = SkillPool.UPGRADE_SKILLS.size() == 10
 	var all_upgrades_valid := true
 	var all_names_plus := true
 	for s in SkillPool.UPGRADE_SKILLS:
@@ -3215,7 +3219,7 @@ func _check_upgrade_skill_pool(lines: PackedStringArray) -> bool:
 			all_names_plus = false
 	var data_ok: bool = count_ok and all_upgrades_valid and all_names_plus
 	ok = data_ok and ok
-	lines.append("  UPGRADE_SKILLS 데이터: 개수=%d(기대 9) upgrades 필드 전부 유효=%s 이름 전부 '+'로 끝남=%s -> %s" % [
+	lines.append("  UPGRADE_SKILLS 데이터: 개수=%d(기대 10) upgrades 필드 전부 유효=%s 이름 전부 '+'로 끝남=%s -> %s" % [
 		SkillPool.UPGRADE_SKILLS.size(), all_upgrades_valid, all_names_plus, "OK" if data_ok else "FAIL"
 	])
 
@@ -5534,5 +5538,107 @@ func _check_i1_pirate_cannon_volley(lines: PackedStringArray) -> bool:
 	var icon_ok: bool = SkillIcon.CATEGORIES.has("cannon_volley")
 	ok = icon_ok and ok
 	lines.append("  SkillIcon.CATEGORIES.has(\"cannon_volley\")=%s -> %s" % [icon_ok, "OK" if icon_ok else "FAIL"])
+
+	return ok
+
+
+## [대형 기획 9] I-3(2026-10-08) 검증 — 해적 고유 스킬 "일제 사격"(broadside)/
+## "일제 사격+"(broadside_plus). F-3 원칙대로 플래그 존재가 아니라 "계산 결과(주기,
+## 고정 피해)"가 실제로 바뀌는지 확인한다. (1) SkillPool 등록(character_id=pirate,
+## broadside_plus가 broadside를 upgrades). (2) _cannon_volley_cycle(): 미보유 3,
+## broadside만 2, broadside_plus만(비정상 상황이지만 "+ 단독 보유"도 2여야 함) 2,
+## 둘 다 2. (3) _cannon_volley_damage()에 cycle=2/full_damage 조합을 넣어 "주기가
+## 2로 당겨지는지"(1턴차 0, 2턴차 발동)와 "+가 고정 피해를 attack_sum 전부로 올리는지"
+## (기본/base는 ceil(합/2), +는 합 전부)를 직접 비교. (4) 기존 cycle=3/full_damage=false
+## 호출(인자 3개)이 여전히 동작하는지(하위 호환, I-1 테스트가 이미 쓰고 있음).
+func _check_i3_pirate_broadside(lines: PackedStringArray) -> bool:
+	var ok := true
+	var combat_script := load("res://code/scenes/combat_test.gd")
+
+	# (1) SkillPool 등록 확인.
+	var broadside := SkillPool.find_skill("broadside")
+	var broadside_registered_ok: bool = broadside.get("character_id", "") == "pirate"
+	ok = broadside_registered_ok and ok
+	lines.append("  SkillPool.find_skill(broadside).character_id=%s(기대 pirate) -> %s" % [
+		broadside.get("character_id", "<없음>"), "OK" if broadside_registered_ok else "FAIL"
+	])
+
+	var broadside_plus := SkillPool.find_skill("broadside_plus")
+	var broadside_plus_registered_ok: bool = broadside_plus.get("character_id", "") == "pirate" \
+		and broadside_plus.get("upgrades", "") == "broadside"
+	ok = broadside_plus_registered_ok and ok
+	lines.append("  SkillPool.find_skill(broadside_plus): character_id=%s upgrades=%s(기대 pirate/broadside) -> %s" % [
+		broadside_plus.get("character_id", "<없음>"), broadside_plus.get("upgrades", "<없음>"),
+		"OK" if broadside_plus_registered_ok else "FAIL"
+	])
+
+	# grant_upgrade()로 base -> + 흐름이 chain_explosion 등 기존 패턴과 동일하게 동작하는지.
+	var flags_backup: Array = RunState.skill_flags.duplicate()
+	RunState.skill_flags = ["broadside"]
+	SkillPool.grant_upgrade("broadside")
+	var grant_added_plus: bool = RunState.skill_flags.has("broadside_plus") and RunState.skill_flags.has("broadside")
+	ok = grant_added_plus and ok
+	lines.append("  grant_upgrade(broadside) 후 skill_flags=%s(기대 broadside+broadside_plus 둘 다) -> %s" % [
+		RunState.skill_flags, "OK" if grant_added_plus else "FAIL"
+	])
+	RunState.skill_flags = flags_backup
+
+	# (2) _cannon_volley_cycle(): 인스턴스 상태(player_broadside_active/plus_active)에 따른 주기.
+	var combat_instance = combat_script.new()
+	var cycle_none: int = combat_instance._cannon_volley_cycle()
+	combat_instance.player_broadside_active = true
+	var cycle_base: int = combat_instance._cannon_volley_cycle()
+	combat_instance.player_broadside_active = false
+	combat_instance.player_broadside_plus_active = true
+	var cycle_plus_only: int = combat_instance._cannon_volley_cycle()
+	combat_instance.player_broadside_active = true
+	var cycle_both: int = combat_instance._cannon_volley_cycle()
+	var cycle_ok: bool = cycle_none == 3 and cycle_base == 2 and cycle_plus_only == 2 and cycle_both == 2
+	ok = cycle_ok and ok
+	lines.append("  _cannon_volley_cycle(): 미보유=%d(기대3) base=%d(기대2) plus단독=%d(기대2) 둘다=%d(기대2) -> %s" % [
+		cycle_none, cycle_base, cycle_plus_only, cycle_both, "OK" if cycle_ok else "FAIL"
+	])
+	combat_instance.free()
+
+	# (3) 주기 단축(2턴) 확인 — attack_sum=10, cycle=2: 1턴차 0, 2턴차 발동(기본은 ceil(5)=5).
+	var cycle_sequence_ok: bool = combat_script._cannon_volley_damage(10, 1, 2) == 0 \
+		and combat_script._cannon_volley_damage(10, 2, 2) == 5 \
+		and combat_script._cannon_volley_damage(10, 3, 2) == 0 \
+		and combat_script._cannon_volley_damage(10, 4, 2) == 5
+	ok = cycle_sequence_ok and ok
+	lines.append("  _cannon_volley_damage(attack_sum=10, turn=1..4, cycle=2): 0,5,0,5 패턴 일치 -> %s" % [
+		"OK" if cycle_sequence_ok else "FAIL"
+	])
+
+	# "일제 사격+"가 고정 피해를 ceil(합/2)에서 공격 합계 전부로 올리는지(base/+ 비교).
+	var full_damage_ok: bool = combat_script._cannon_volley_damage(11, 2, 2, false) == ceili(11 / 2.0) \
+		and combat_script._cannon_volley_damage(11, 2, 2, true) == 11
+	ok = full_damage_ok and ok
+	lines.append("  _cannon_volley_damage(attack_sum=11, turn=2, cycle=2): full_damage=false -> %d(기대 6=ceil(5.5)), true -> %d(기대 11) -> %s" % [
+		combat_script._cannon_volley_damage(11, 2, 2, false), combat_script._cannon_volley_damage(11, 2, 2, true),
+		"OK" if full_damage_ok else "FAIL"
+	])
+
+	# (4) 기존 3-인자 호출(cycle=3, full_damage 기본값 false)이 여전히 동작하는지(하위 호환).
+	var legacy_call_ok: bool = combat_script._cannon_volley_damage(17, 3, 3) == ceili(17 / 2.0)
+	ok = legacy_call_ok and ok
+	lines.append("  _cannon_volley_damage(17, 3, 3)(인자 3개, full_damage 기본값) -> %d(기대 9) -> %s" % [
+		combat_script._cannon_volley_damage(17, 3, 3), "OK" if legacy_call_ok else "FAIL"
+	])
+
+	# (5) 테스트 전투 설정(H-3)의 "보유 스킬 토글" 행 목록이 broadside/broadside_plus를
+	# 자동으로 올리는지 — skill_flag_rows_for_character()는 UNIQUE_SKILLS/UPGRADE_SKILLS를
+	# 그대로 순회하는 static 함수라 새 데이터만 추가하면 자동 반영되어야 한다(INBOX.md I-3
+	# 원문 "보유 스킬 토글이 새 스킬을 자동으로 목록에 올리는지 확인").
+	var setup_script := load("res://code/scenes/test_battle_setup.gd")
+	var pirate_rows: Array = setup_script.skill_flag_rows_for_character("pirate")
+	var broadside_row_found := false
+	for row in pirate_rows:
+		if row["base"] == "broadside" and row["plus"] == "broadside_plus":
+			broadside_row_found = true
+	ok = broadside_row_found and ok
+	lines.append("  TestBattleSetup.skill_flag_rows_for_character(pirate)에 {base:broadside, plus:broadside_plus} 행 포함=%s -> %s" % [
+		broadside_row_found, "OK" if broadside_row_found else "FAIL"
+	])
 
 	return ok

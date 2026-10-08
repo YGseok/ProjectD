@@ -8,6 +8,48 @@
 
 ---
 
+- **2026-10-07 (164)**: G-8 완료로 실행 순서(F-2→F-3→G-1~G-9→F-4)상 마지막
+  조각인 INBOX.md "부분 처리됨"의 [대형 기획 6](몬스터 대개편) **G-9(마무리:
+  맵 미리보기 + 문서)**를 진행했다 — **[대형 기획 6] G-1~G-9 전체 완료**,
+  INBOX.md로 "처리됨" 이관.
+  1. **던전 맵 미리보기**: `dungeon_map.gd`에 `_monster_profile_for_room(idx)`/
+     `_elite_profile_for_room(idx)`를 신설해 `combat_test.gd`의
+     `_monster_config_for_plan()`/`_monster_config_for_elite()`와 **같은
+     소스**(`RunState.monster_plan`/`elite_plan`, `round_index` 기준)를
+     읽게 했다 — 미리보기와 실제 입장 결과가 항상 일치. "전투"/"정예 전투"
+     버튼 옆 보상 아이콘 행(`_reward_icon_rows`) 맨 앞에 `FamilyIcon`을
+     하나씩 끼워 넣고(`_family_icon_by_type`), `_update_family_icons()`가
+     지금 방(`RunState.rooms_cleared`) 기준으로 매번 category/is_boss/
+     is_elite를 갱신한다(런 완료 화면에서는 "다음 방"이 없어 갱신하지
+     않음). `MapStrip`의 "전투"/"정예 전투" 칩(`_make_type_chip()`에
+     family/is_boss/is_elite 매개변수 3개를 추가)도 같은 방식으로 각
+     idx(아직 안 간 방 포함)의 몬스터 계열을 미리 보여준다 — 상점/이벤트는
+     스포일링 문제가 있어 그대로 "미정" 아이콘만 유지(INBOX.md 원문 그대로,
+     건드리지 않음).
+  2. **`docs/DESIGN.md`의 "던전 몬스터" 절**을 예전 "첫 5종" 표에서 **계열×
+     등급 전체 카탈로그**로 갱신했다 — 계열 4종 의미 설명, 스킬 프리미티브
+     16종(armor/guard_up/counter/steady_guard/sticky/seal/dull/numb/
+     anger_stack/min_max_only/pounce/bloodlust/fixed_value/drain/revive/
+     chill) 효과를 계열별로 정리한 범례 표, 일반 20종(계열당 5종) 표,
+     정예 8종 표, 보스 6종(라운드별 2종 + 2페이즈) 표, 그리고 "다크
+     나이트"(id `dark_knight`)가 카탈로그엔 남아있지만 일반 풀에서는
+     제외된 레거시 전용 몬스터임을 명시했다.
+  3. **STATUS.md 수치 정리**: 아래 "지금 위치" 문단에 풀 규모(일반 20/
+     레거시 1/정예 8/보스 6 = 총 35종)와 핵심 잠정 수치(난이도 공식,
+     보스/정예 배율, 등장 확률)를 F-4 밸런스 시뮬이 참조할 수 있도록
+     모아뒀다 — 상세 수치 자체는 이미 (156)~(163)/`monster_catalog.gd`
+     주석에 있으므로 새 숫자를 만들지 않고 위치만 가리킨다.
+  검증: `bash scripts/qa_shot.sh dice_test` 전체 PASS(이번 변경은 테스트
+  대상인 `_monster_config_for_*`/`MonsterCatalog`를 건드리지 않아 기존
+  검증 그대로 통과 — 새 dice_test 섹션은 추가하지 않음, 미리보기는 "화면에
+  보이는가"가 전부라 시각 QA로 충분). `bash scripts/qa_shot.sh dungeon_map`
+  으로 크래시 없음 + 1번째 방(전투 버튼 옆)/2번째 방(정예 전투 버튼과 그
+  버튼의 MapStrip 칩)에 계열 아이콘이 실제로 그려지는지, 보스 방(5번째
+  칸)에도 전투 칩에 아이콘이 붙는지 확인했다(`qa_out/dungeon_map.png`).
+  **[대형 기획 6] 전체가 끝나 다음은 [대형 기획 5] F-4(밸런스 시뮬)** —
+  아래 "다음 할 일 큐" 참고. "완료 기록" 10개 유지를 위해 (154)를
+  `docs/STATUS_ARCHIVE.md`로 옮겼다.
+
 - **2026-10-07 (163)**: G-7 완료로 실행 순서(F-2→F-3→G-1~G-9→F-4)상 다음인
   INBOX.md "부분 처리됨"의 [대형 기획 6](몬스터 대개편) **G-8(보스 6종 전용
   풀)**을 진행했다. `MonsterCatalog.MONSTERS`에 `tier="boss"` 6종(라운드당

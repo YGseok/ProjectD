@@ -152,13 +152,17 @@ static func _diverse_bonus(diverse_type_count: int) -> int:
 
 ## "함포 일제사격"(cannon_volley, 해적 전용 기믹, INBOX.md 2026-10-08 [대형 기획 9] I-1)
 ## 고정 피해 계산 — turn_count(이번 공격이 전투 중 몇 번째 플레이어 공격턴인지, 1부터
-## 시작)가 cycle의 배수일 때만 ceil(attack_sum / 2.0)을 돌려주고, 그 외에는 0(아직
-## 장전 중). 호출부(_resolve_exchange)가 반환값이 0이면 아무 일도 하지 않는다 —
-## 다른 시작 스킬들과 같은 이유(물리 없이 dice_test.gd가 직접 호출해 "조건별 결과
-## 숫자"를 검증할 수 있게)로 순수 함수 분리.
-static func _cannon_volley_damage(attack_sum: int, turn_count: int, cycle: int) -> int:
+## 시작)가 cycle의 배수일 때만 고정 피해를 돌려주고, 그 외에는 0(아직 장전 중). 호출부
+## (_resolve_exchange)가 반환값이 0이면 아무 일도 하지 않는다 — 다른 시작 스킬들과 같은
+## 이유(물리 없이 dice_test.gd가 직접 호출해 "조건별 결과 숫자"를 검증할 수 있게)로
+## 순수 함수 분리. full_damage(기본 false)는 "일제 사격+"(broadside_plus, [대형 기획 9]
+## I-3) 전용 — false면 ceil(attack_sum/2.0)(기본/"일제 사격" 공통), true면 attack_sum
+## 전부. cycle 자체(3 기본 -> "일제 사격"/+ 보유 시 2)는 호출부가 결정해서 넘긴다.
+static func _cannon_volley_damage(attack_sum: int, turn_count: int, cycle: int, full_damage: bool = false) -> int:
 	if cycle <= 0 or turn_count % cycle != 0:
 		return 0
+	if full_damage:
+		return attack_sum
 	return ceili(attack_sum / 2.0)
 
 const SETTLE_LIN_THRESHOLD := 0.08
@@ -279,6 +283,13 @@ const GUARD_DICE_SIDES := 20
 ## 피해를 계산한다. 전투마다(_reset_player_battle_state()) 0으로 초기화.
 var player_attack_turn_count := 0
 const CANNON_VOLLEY_CYCLE := 3
+
+## "일제 사격"(broadside, 해적 전용 고유 스킬, [대형 기획 9] I-3) / "일제 사격+"
+## (broadside_plus) 보유 여부 — frenzy_deepen/chain_explosion 계열과 같은 패턴으로
+## _reset_player_battle_state()에서 skill_flags를 읽어 채운다. 둘 다 주기를 2턴으로
+## 단축하고(_cannon_volley_cycle() 참고), plus만 고정 피해를 attack_sum 전부로 올린다.
+var player_broadside_active := false
+var player_broadside_plus_active := false
 
 ## 캐릭터 스킬(RunState.skill_flags) 전투 중 상태 — INBOX.md [미니 기획 C]-3/4
 ## (2026-09-16)가 확정한 공용 스킬 2종 + 광전사 전용 고유 스킬 1종의 실제 효과 배선.
@@ -848,6 +859,8 @@ func _reset_player_battle_state() -> void:
 	player_chain_guard_plus_active = RunState.skill_flags.has("chain_guard_plus")
 	player_versatile_active = RunState.skill_flags.has("versatile_surge")
 	player_versatile_plus_active = RunState.skill_flags.has("versatile_surge_plus")
+	player_broadside_active = RunState.skill_flags.has("broadside")
+	player_broadside_plus_active = RunState.skill_flags.has("broadside_plus")
 	player_hp = PLAYER_MAX_HP
 	battle_over = false
 	player_won = false
@@ -975,6 +988,13 @@ func _player_explosive_threshold() -> int:
 ## 대칭 구조. 미보유(또는 수호 심화로 열린 수호자 쪽)는 기존 GUARD_STACK_THRESHOLD 그대로.
 func _player_guard_threshold() -> int:
 	return 2 if (player_chain_guard_active or player_versatile_plus_active) else GUARD_STACK_THRESHOLD
+
+
+## "일제 사격"(broadside) 또는 "일제 사격+"(broadside_plus) 보유 시 함포 일제사격
+## 발동 주기를 3턴에서 2턴으로 단축한다. _player_explosive_threshold()/_player_guard_
+## threshold()와 같은 패턴(둘 다 보유해도 중복 적용 없이 그냥 2).
+func _cannon_volley_cycle() -> int:
+	return 2 if (player_broadside_active or player_broadside_plus_active) else CANNON_VOLLEY_CYCLE
 
 
 func _run_battle() -> void:
@@ -1399,12 +1419,13 @@ func _resolve_exchange(is_player_attacking: bool, atk_bag: DiceBag, def_bag: Dic
 		# 보도록 여기(= 승패 판정 "전")에서 적용한다.
 		if player_dice_gimmick == "cannon_volley":
 			player_attack_turn_count += 1
-			var cannon_dmg := _cannon_volley_damage(atk_total, player_attack_turn_count, CANNON_VOLLEY_CYCLE)
+			var cannon_cycle := _cannon_volley_cycle()
+			var cannon_dmg := _cannon_volley_damage(atk_total, player_attack_turn_count, cannon_cycle, player_broadside_plus_active)
 			if cannon_dmg > 0:
 				monster_hp = max(0, monster_hp - cannon_dmg)
 				logs.append("함포 일제사격! (고정 %d 피해, 몬스터 HP %d)" % [cannon_dmg, monster_hp])
 			else:
-				var cannon_remaining := CANNON_VOLLEY_CYCLE - (player_attack_turn_count % CANNON_VOLLEY_CYCLE)
+				var cannon_remaining := cannon_cycle - (player_attack_turn_count % cannon_cycle)
 				logs.append("함포 장전 (남은 %d턴)" % cannon_remaining)
 	else:
 		player_hp = max(0, player_hp - dmg)

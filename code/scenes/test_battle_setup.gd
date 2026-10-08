@@ -853,3 +853,11 @@ func _debug_start_boss_test_battle() -> void:
 func _debug_scroll_to_bottom() -> void:
 	var scroll: ScrollContainer = $MainScroll
 	scroll.scroll_vertical = int(scroll.get_v_scroll_bar().max_value)
+
+
+## QA 전용: [대형 기획 9] I-3 — 해적을 선택하고 "보유 스킬" 섹션(새 "일제 사격"/
+## "일제 사격+" 체크박스가 자동으로 뜨는지)이 보이도록 스크롤을 맨 아래로 내린다.
+## _debug_scroll_to_bottom()과 같은 이유로 0-arity QA 래퍼로 분리.
+func _debug_select_pirate_scroll_bottom() -> void:
+	_on_character_selected("pirate")
+	_debug_scroll_to_bottom()
