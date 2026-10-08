@@ -25,103 +25,135 @@ offset_right = 1260.0
 offset_bottom = 40.0
 text = "뒤로"
 
-[node name="CharacterLabel" type="Label" parent="."]
-offset_left = 20.0
+[node name="MainScroll" type="ScrollContainer" parent="."]
+offset_left = 0.0
 offset_top = 48.0
-offset_right = 300.0
-offset_bottom = 68.0
-text = "캐릭터"
-
-[node name="CharacterRow" type="HBoxContainer" parent="."]
-offset_left = 20.0
-offset_top = 70.0
-offset_right = 1260.0
-offset_bottom = 148.0
-theme_override_constants/separation = 8
-
-[node name="SkillLabel" type="Label" parent="."]
-offset_left = 20.0
-offset_top = 154.0
-offset_right = 300.0
-offset_bottom = 174.0
-text = "시작 스킬 (잠금 무시, 3슬롯 전부 선택 가능)"
-
-[node name="SkillRow" type="HBoxContainer" parent="."]
-offset_left = 20.0
-offset_top = 176.0
-offset_right = 700.0
-offset_bottom = 232.0
-theme_override_constants/separation = 10
-
-[node name="SkillDescLabel" type="Label" parent="."]
-offset_left = 20.0
-offset_top = 234.0
-offset_right = 1260.0
-offset_bottom = 254.0
-autowrap_mode = 3
-
-[node name="MonsterLabel" type="Label" parent="."]
-offset_left = 20.0
-offset_top = 260.0
-offset_right = 300.0
-offset_bottom = 280.0
-text = "몬스터 (35종)"
-
-[node name="FamilyFilterRow" type="HBoxContainer" parent="."]
-offset_left = 20.0
-offset_top = 282.0
-offset_right = 640.0
-offset_bottom = 310.0
-theme_override_constants/separation = 6
-
-[node name="TierFilterRow" type="HBoxContainer" parent="."]
-offset_left = 20.0
-offset_top = 312.0
-offset_right = 640.0
-offset_bottom = 340.0
-theme_override_constants/separation = 6
-
-[node name="MonsterScroll" type="ScrollContainer" parent="."]
-offset_left = 20.0
-offset_top = 342.0
-offset_right = 640.0
-offset_bottom = 552.0
+offset_right = 1280.0
+offset_bottom = 720.0
 horizontal_scroll_mode = 0
 
-[node name="MonsterList" type="VBoxContainer" parent="MonsterScroll"]
+[node name="MainList" type="VBoxContainer" parent="MainScroll"]
+custom_minimum_size = Vector2(1240, 0)
+offset_left = 20.0
+offset_top = 2.0
+offset_right = 1260.0
+theme_override_constants/separation = 6
+
+[node name="CharacterLabel" type="Label" parent="MainScroll/MainList"]
+layout_mode = 2
+text = "캐릭터"
+
+[node name="CharacterRow" type="HBoxContainer" parent="MainScroll/MainList"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(0, 78)
+theme_override_constants/separation = 8
+
+[node name="SkillLabel" type="Label" parent="MainScroll/MainList"]
+layout_mode = 2
+text = "시작 스킬 (잠금 무시, 3슬롯 전부 선택 가능)"
+
+[node name="SkillRow" type="HBoxContainer" parent="MainScroll/MainList"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(0, 58)
+theme_override_constants/separation = 10
+
+[node name="SkillDescLabel" type="Label" parent="MainScroll/MainList"]
+unique_name_in_owner = true
+layout_mode = 2
+autowrap_mode = 3
+
+[node name="GrowthLabel" type="Label" parent="MainScroll/MainList"]
+layout_mode = 2
+text = "성장 (주머니 개수/면 개수, 골드, 인벤토리 — 프리셋 또는 직접 설정)"
+
+[node name="GrowthPresetRow" type="HBoxContainer" parent="MainScroll/MainList"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(0, 30)
+theme_override_constants/separation = 8
+
+[node name="GrowthControlsGrid" type="GridContainer" parent="MainScroll/MainList"]
+unique_name_in_owner = true
+layout_mode = 2
+columns = 4
+theme_override_constants/h_separation = 14
+theme_override_constants/v_separation = 6
+
+[node name="GrowthPreviewLabel" type="Label" parent="MainScroll/MainList"]
+unique_name_in_owner = true
+layout_mode = 2
+autowrap_mode = 3
+theme_override_colors/font_color = Color(0.8, 0.85, 0.7, 1)
+
+[node name="SkillFlagsLabel" type="Label" parent="MainScroll/MainList"]
+layout_mode = 2
+text = "보유 스킬 (런 중 획득 가정, 토글 — '+'는 기본판을 켜야 선택 가능)"
+
+[node name="SkillFlagsList" type="VBoxContainer" parent="MainScroll/MainList"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="MonsterLabel" type="Label" parent="MainScroll/MainList"]
+layout_mode = 2
+text = "몬스터 (35종)"
+
+[node name="FamilyFilterRow" type="HBoxContainer" parent="MainScroll/MainList"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(0, 28)
+theme_override_constants/separation = 6
+
+[node name="TierFilterRow" type="HBoxContainer" parent="MainScroll/MainList"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(0, 28)
+theme_override_constants/separation = 6
+
+[node name="MonsterSection" type="HBoxContainer" parent="MainScroll/MainList"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 230)
+theme_override_constants/separation = 20
+
+[node name="MonsterScroll" type="ScrollContainer" parent="MainScroll/MainList/MonsterSection"]
+layout_mode = 2
+custom_minimum_size = Vector2(600, 230)
+horizontal_scroll_mode = 0
+
+[node name="MonsterList" type="VBoxContainer" parent="MainScroll/MainList/MonsterSection/MonsterScroll"]
+unique_name_in_owner = true
+layout_mode = 2
 theme_override_constants/separation = 2
 
-[node name="MonsterDetailLabel" type="Label" parent="."]
-offset_left = 660.0
-offset_top = 282.0
-offset_right = 1260.0
-offset_bottom = 552.0
+[node name="MonsterDetailLabel" type="Label" parent="MainScroll/MainList/MonsterSection"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+custom_minimum_size = Vector2(600, 0)
 autowrap_mode = 3
 theme_override_font_sizes/font_size = 15
 
-[node name="DifficultyLabel" type="Label" parent="."]
-offset_left = 20.0
-offset_top = 558.0
-offset_right = 300.0
-offset_bottom = 578.0
+[node name="DifficultyLabel" type="Label" parent="MainScroll/MainList"]
+layout_mode = 2
 text = "난이도"
 
-[node name="DifficultyRow" type="HBoxContainer" parent="."]
-offset_left = 20.0
-offset_top = 580.0
-offset_right = 700.0
-offset_bottom = 612.0
+[node name="DifficultyRow" type="HBoxContainer" parent="MainScroll/MainList"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(0, 32)
 theme_override_constants/separation = 8
 
-[node name="DifficultyValueLabel" type="Label" parent="."]
-offset_left = 20.0
-offset_top = 614.0
-offset_right = 700.0
-offset_bottom = 634.0
+[node name="DifficultyValueLabel" type="Label" parent="MainScroll/MainList"]
+unique_name_in_owner = true
+layout_mode = 2
 
-[node name="StartButton" type="Button" parent="."]
-offset_left = 540.0
-offset_top = 650.0
-offset_right = 740.0
-offset_bottom = 690.0
+[node name="StartButtonRow" type="CenterContainer" parent="MainScroll/MainList"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 60)
+
+[node name="StartButton" type="Button" parent="MainScroll/MainList/StartButtonRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(200, 40)
 text = "전투 시작"

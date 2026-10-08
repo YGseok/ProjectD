@@ -1,5 +1,7 @@
 extends Node2D
-## 테스트 전투 설정 화면 (INBOX.md [대형 기획 8] H-2, 2026-10-08).
+class_name TestBattleSetup
+## 테스트 전투 설정 화면 (INBOX.md [대형 기획 8] H-2, 2026-10-08. H-3(2026-10-08)로
+## "성장"/"보유 스킬" 섹션 추가).
 ##
 ## H-1(플러밍만)이 만든 RunState.test_battle/test_monster_id/test_difficulty를 실제로
 ## 채워서 combat_test.tscn으로 보내는 진입 화면 — 캐릭터/시작 스킬/몬스터/난이도를
@@ -26,6 +28,24 @@ extends Node2D
 ## 참고) — 테스트 전투를 돌렸다고 해서 실제 캐릭터 선택 화면의 "다음 런 시작 스킬"
 ## 선택이 조용히 바뀌면 안 되기 때문.
 
+## H-3 "성장" 섹션: 공격/방어 다이스 개수·공통 면 개수·골드·눈금/다이스 인벤토리
+## 개수를 직접 조절하거나, 프리셋 버튼 하나로 한 번에 맞출 수 있다. "delta"는
+## 선택한 캐릭터의 기본 공격/방어 다이스 개수(CharacterProfiles)에 더하는 값 —
+## 캐릭터마다 시작 배분이 달라도("확정된 세부 사항" 참고) 같은 프리셋이 "그 캐릭터
+## 기준으로 N개씩 늘어난" 결과를 내도록 절대값이 아니라 상대값으로 잡았다. 정확한
+## delta/sides 수치는 감으로 잡은 잠정값(INBOX.md H-3 원문 "구현자가 잠정값으로
+## 정한다") — 실제로 라운드 중반 체감과 맞는지는 사람 피드백 필요.
+const GROWTH_PRESETS: Array[Dictionary] = [
+	{"name": "시작 그대로", "delta": 0, "sides": 4},
+	{"name": "R1 중반 정도", "delta": 2, "sides": 6},
+	{"name": "R2 중반 정도", "delta": 3, "sides": 8},
+	{"name": "R3 중반 정도", "delta": 4, "sides": 10},
+]
+
+## "면 개수(공통)" 선택지 — DESIGN.md가 구현한 D4~D20 6종 전부(커스텀 일부 면만
+## 바꾸는 세밀 조정은 INBOX.md H-3 원문이 "불필요"라고 명시해 두지 않음).
+const GROWTH_SIDES_OPTIONS: Array[int] = [4, 6, 8, 10, 12, 20]
+
 const TIER_LABELS := {"normal": "일반", "elite": "정예", "boss": "보스"}
 
 ## 몬스터 스킬 프리미티브 id -> 짧은 한글 설명(DESIGN.md "스킬 프리미티브 범례" 표를
@@ -51,17 +71,26 @@ const SKILL_PRIMITIVE_DESCRIPTIONS := {
 	"chill": "플레이어 공격 다이스 중 최고값 1개 -1",
 }
 
+## H-3로 섹션이 늘어나 전체 화면이 1280x720보다 길어졌다 — 루트에 바로 붙던 자식
+## 노드들을 전부 MainScroll/MainList(ScrollContainer+VBoxContainer) 아래로 옮기고,
+## 각 노드에 "unique_name_in_owner"를 켜서 "%이름" 문법으로 찾는다(씬 구조가 더
+## 바뀌어도 아래 @onready 줄들을 고칠 필요가 없게). Background/Title/BackButton만
+## 스크롤 밖(화면 상단 고정)에 남는다.
 @onready var back_button: Button = $BackButton
-@onready var character_row: HBoxContainer = $CharacterRow
-@onready var skill_row: HBoxContainer = $SkillRow
-@onready var skill_desc_label: Label = $SkillDescLabel
-@onready var family_filter_row: HBoxContainer = $FamilyFilterRow
-@onready var tier_filter_row: HBoxContainer = $TierFilterRow
-@onready var monster_list: VBoxContainer = $MonsterScroll/MonsterList
-@onready var monster_detail_label: Label = $MonsterDetailLabel
-@onready var difficulty_row: HBoxContainer = $DifficultyRow
-@onready var difficulty_value_label: Label = $DifficultyValueLabel
-@onready var start_button: Button = $StartButton
+@onready var character_row: HBoxContainer = %CharacterRow
+@onready var skill_row: HBoxContainer = %SkillRow
+@onready var skill_desc_label: Label = %SkillDescLabel
+@onready var growth_preset_row: HBoxContainer = %GrowthPresetRow
+@onready var growth_controls_grid: GridContainer = %GrowthControlsGrid
+@onready var growth_preview_label: Label = %GrowthPreviewLabel
+@onready var skill_flags_list: VBoxContainer = %SkillFlagsList
+@onready var family_filter_row: HBoxContainer = %FamilyFilterRow
+@onready var tier_filter_row: HBoxContainer = %TierFilterRow
+@onready var monster_list: VBoxContainer = %MonsterList
+@onready var monster_detail_label: Label = %MonsterDetailLabel
+@onready var difficulty_row: HBoxContainer = %DifficultyRow
+@onready var difficulty_value_label: Label = %DifficultyValueLabel
+@onready var start_button: Button = %StartButton
 
 ## RoundSpin/RoomSpin은 DifficultyRow 안에 코드로 만든다 — 다른 화면들의 관례대로
 ## Container의 동적 자식은 .tscn에 정적으로 두지 않고 전부 런타임에 구성한다
@@ -69,17 +98,28 @@ const SKILL_PRIMITIVE_DESCRIPTIONS := {
 var round_spin: SpinBox
 var room_spin: SpinBox
 
+## 성장 섹션 스핀/옵션 컨트롤 — RoundSpin/RoomSpin과 같은 이유로 전부 코드에서
+## 동적으로 만든다(_build_growth_controls() 참고).
+var _attack_count_spin: SpinBox
+var _defense_count_spin: SpinBox
+var _sides_option: OptionButton
+var _gold_spin: SpinBox
+var _pip_spin: SpinBox
+var _die_spin: SpinBox
+
 var _selected_character_id: String = ""
 var _selected_skill_id: String = ""
 var _selected_monster_id: String = ""
 var _family_filter: String = ""
 var _tier_filter: String = ""
+var _selected_skill_flags: Array[String] = [] # "보유 스킬" 토글 상태
 
 var _character_buttons: Dictionary = {} # id -> Button
 var _skill_buttons: Dictionary = {} # id -> Button
 var _monster_buttons: Dictionary = {} # id -> Button
 var _family_filter_buttons: Dictionary = {} # id -> Button
 var _tier_filter_buttons: Dictionary = {} # id -> Button
+var _skill_flag_checkboxes: Dictionary = {} # id -> CheckBox
 
 
 func _ready() -> void:
@@ -92,6 +132,15 @@ func _ready() -> void:
 	if _selected_monster_id == "" or MonsterCatalog.get_by_id(_selected_monster_id).is_empty():
 		_selected_monster_id = fallback_monster["id"]
 
+	# 성장 센티널(0) 처리 — "아직 아무것도 선택 안 함"일 때만 선택한 캐릭터의
+	# "시작 그대로" 프리셋으로 한 번 채운다(run_state.gd 필드 주석 참고).
+	if RunState.test_growth_attack_count <= 0 or RunState.test_growth_defense_count <= 0 or RunState.test_growth_sides <= 0:
+		var base_growth := preset_growth(_selected_character_id, 0)
+		RunState.test_growth_attack_count = base_growth["attack_count"]
+		RunState.test_growth_defense_count = base_growth["defense_count"]
+		RunState.test_growth_sides = base_growth["sides"]
+	_selected_skill_flags = RunState.test_skill_flags.duplicate()
+
 	_build_difficulty_row()
 
 	back_button.pressed.connect(_on_back_pressed)
@@ -100,6 +149,9 @@ func _ready() -> void:
 
 	_build_character_row()
 	_rebuild_skill_slots()
+	_build_growth_preset_row()
+	_build_growth_controls()
+	_rebuild_skill_flag_rows()
 	_build_filter_rows()
 	_rebuild_monster_list()
 	_update_difficulty_label()
@@ -209,6 +261,7 @@ func _on_character_selected(id: String) -> void:
 	RunState.test_character_id = id
 	_refresh_character_highlight()
 	_rebuild_skill_slots()
+	_rebuild_skill_flag_rows()
 
 
 ## 시작 스킬 — SkillPool.starting_skills_for_character()의 3슬롯 전부를 잠금 무시로
@@ -278,6 +331,229 @@ func _update_skill_description(candidates: Array[Dictionary]) -> void:
 			skill_desc_label.text = "효과: %s" % skill["description"]
 			return
 	skill_desc_label.text = ""
+
+
+## H-3 "성장" 섹션 ------------------------------------------------------------
+##
+## 프리셋 계산을 @onready 노드 없이도 테스트할 수 있도록 static 함수로 분리했다
+## (F-3 원칙 — "플래그가 들어갔는가"가 아니라 "계산 결과"를 dice_test.gd가 직접
+## 검증한다). character_id 기본 공격/방어 다이스 개수에 preset["delta"]를 더하고
+## DiceBag.MAX_DICE로 상한, 1로 하한을 건다.
+static func preset_growth(character_id: String, preset_index: int) -> Dictionary:
+	var preset: Dictionary = GROWTH_PRESETS[preset_index]
+	var profile := CharacterProfiles.get_profile(character_id)
+	var base_attack: int = profile.get("attack_count", 3)
+	var base_defense: int = profile.get("defense_count", 3)
+	return {
+		"attack_count": clampi(base_attack + int(preset["delta"]), 1, DiceBag.MAX_DICE),
+		"defense_count": clampi(base_defense + int(preset["delta"]), 1, DiceBag.MAX_DICE),
+		"sides": int(preset["sides"]),
+	}
+
+
+func _build_growth_preset_row() -> void:
+	for c in growth_preset_row.get_children():
+		c.queue_free()
+	for i in GROWTH_PRESETS.size():
+		var button := Button.new()
+		button.text = GROWTH_PRESETS[i]["name"]
+		button.pressed.connect(_on_growth_preset_pressed.bind(i))
+		growth_preset_row.add_child(button)
+
+
+func _on_growth_preset_pressed(preset_index: int) -> void:
+	var result := preset_growth(_selected_character_id, preset_index)
+	_attack_count_spin.value = result["attack_count"]
+	_defense_count_spin.value = result["defense_count"]
+	var sides_index: int = GROWTH_SIDES_OPTIONS.find(result["sides"])
+	_sides_option.selected = sides_index if sides_index != -1 else 0
+	_sync_growth_to_run_state()
+	_update_growth_preview()
+
+
+## 공격/방어 개수·면 개수·골드·눈금/다이스 인벤토리 6개 컨트롤을 GrowthControlsGrid
+## (columns=2, "라벨/컨트롤" 쌍이 쌓이는 그리드)에 동적으로 만든다 — RoundSpin/
+## RoomSpin과 같은 이유로 .tscn에 정적으로 두지 않음. 시작값은 RunState.test_growth_*
+## (직전 선택 유지, _ready()의 센티널 처리 참고)에서 읽는다.
+func _build_growth_controls() -> void:
+	for c in growth_controls_grid.get_children():
+		c.queue_free()
+
+	_attack_count_spin = _make_growth_spin(1, DiceBag.MAX_DICE, RunState.test_growth_attack_count)
+	_defense_count_spin = _make_growth_spin(1, DiceBag.MAX_DICE, RunState.test_growth_defense_count)
+	_gold_spin = _make_growth_spin(0, 200, RunState.test_growth_gold)
+	_pip_spin = _make_growth_spin(0, 12, RunState.test_growth_pip_count)
+	_die_spin = _make_growth_spin(0, 6, RunState.test_growth_die_count)
+
+	_sides_option = OptionButton.new()
+	_sides_option.custom_minimum_size = Vector2(90, 0)
+	for sides in GROWTH_SIDES_OPTIONS:
+		_sides_option.add_item("D%d" % sides)
+	var sides_index: int = GROWTH_SIDES_OPTIONS.find(RunState.test_growth_sides)
+	_sides_option.selected = sides_index if sides_index != -1 else 0
+
+	_add_growth_row("공격 다이스 개수", _attack_count_spin)
+	_add_growth_row("방어 다이스 개수", _defense_count_spin)
+	_add_growth_row("면 개수 (공통)", _sides_option)
+	_add_growth_row("골드", _gold_spin)
+	_add_growth_row("눈금 인벤토리", _pip_spin)
+	_add_growth_row("다이스 인벤토리", _die_spin)
+
+	_attack_count_spin.value_changed.connect(_on_growth_changed)
+	_defense_count_spin.value_changed.connect(_on_growth_changed)
+	_sides_option.item_selected.connect(_on_growth_sides_changed)
+	_gold_spin.value_changed.connect(_on_growth_changed)
+	_pip_spin.value_changed.connect(_on_growth_changed)
+	_die_spin.value_changed.connect(_on_growth_changed)
+
+	_update_growth_preview()
+
+
+func _make_growth_spin(min_v: int, max_v: int, val: int) -> SpinBox:
+	var spin := SpinBox.new()
+	spin.min_value = min_v
+	spin.max_value = max_v
+	spin.value = clampi(val, min_v, max_v)
+	spin.custom_minimum_size = Vector2(90, 0)
+	return spin
+
+
+func _add_growth_row(label_text: String, control: Control) -> void:
+	var label := Label.new()
+	label.text = label_text
+	label.add_theme_color_override("font_color", Color(0.85, 0.85, 0.85))
+	growth_controls_grid.add_child(label)
+	growth_controls_grid.add_child(control)
+
+
+func _on_growth_changed(_value: float) -> void:
+	_sync_growth_to_run_state()
+	_update_growth_preview()
+
+
+func _on_growth_sides_changed(_index: int) -> void:
+	_sync_growth_to_run_state()
+	_update_growth_preview()
+
+
+func _sync_growth_to_run_state() -> void:
+	RunState.test_growth_attack_count = int(_attack_count_spin.value)
+	RunState.test_growth_defense_count = int(_defense_count_spin.value)
+	RunState.test_growth_sides = GROWTH_SIDES_OPTIONS[_sides_option.selected]
+	RunState.test_growth_gold = int(_gold_spin.value)
+	RunState.test_growth_pip_count = int(_pip_spin.value)
+	RunState.test_growth_die_count = int(_die_spin.value)
+
+
+func _update_growth_preview() -> void:
+	var sides: int = GROWTH_SIDES_OPTIONS[_sides_option.selected]
+	growth_preview_label.text = "적용될 구성: 공격 D%d x%d개 / 방어 D%d x%d개 / 골드 %d / 눈금 인벤토리 %d개 / 다이스 인벤토리 %d개" % [
+		sides, int(_attack_count_spin.value), sides, int(_defense_count_spin.value),
+		int(_gold_spin.value), int(_pip_spin.value), int(_die_spin.value),
+	]
+
+
+## H-3 "보유 스킬" 섹션 --------------------------------------------------------
+##
+## 토글 가능한 행 목록을 계산하는 부분도 static으로 분리(F-3 원칙) — 공용 2종
+## (deep_breath/spare_die) + 선택한 캐릭터의 고유 스킬 1종(있으면), 각각 "+"
+## 강화판(있으면)을 같은 행에 같이 둔다. plus id가 없으면 "" — 호출부가 빈 문자열을
+## "강화판 없음"으로 처리한다.
+static func skill_flag_rows_for_character(character_id: String) -> Array:
+	var rows: Array = [
+		{"base": "deep_breath", "plus": "deep_breath_plus"},
+		{"base": "spare_die", "plus": "spare_die_plus"},
+	]
+	for skill in SkillPool.UNIQUE_SKILLS:
+		if skill.get("character_id", "") == character_id:
+			var plus_id := ""
+			for up in SkillPool.UPGRADE_SKILLS:
+				if up.get("upgrades", "") == skill["id"]:
+					plus_id = up["id"]
+					break
+			rows.append({"base": skill["id"], "plus": plus_id})
+	return rows
+
+
+## flags 중 "그 캐릭터가 가질 수 있는 id"(위 rows의 base/plus)만 남기고, "+"는 base가
+## 함께 있을 때만 유지한다 — 캐릭터를 바꿔서 더 이상 맞지 않는 고유 스킬/강화판이
+## 조용히 RunState.skill_flags로 새어나가지 않게 하기 위함(INBOX.md H-3 원문
+## "캐릭터를 바꾸면 해당 캐릭터에 맞지 않는 항목은 자동 해제").
+static func sanitize_skill_flags(flags: Array, character_id: String) -> Array[String]:
+	var rows := skill_flag_rows_for_character(character_id)
+	var allowed: Array = []
+	var plus_to_base: Dictionary = {}
+	for row in rows:
+		allowed.append(row["base"])
+		if row["plus"] != "":
+			allowed.append(row["plus"])
+			plus_to_base[row["plus"]] = row["base"]
+	var result: Array[String] = []
+	for f in flags:
+		if allowed.has(f):
+			result.append(f)
+	for plus_id in plus_to_base:
+		if result.has(plus_id) and not result.has(plus_to_base[plus_id]):
+			result.erase(plus_id)
+	return result
+
+
+func _rebuild_skill_flag_rows() -> void:
+	for c in skill_flags_list.get_children():
+		c.queue_free()
+	_skill_flag_checkboxes.clear()
+
+	_selected_skill_flags = sanitize_skill_flags(_selected_skill_flags, _selected_character_id)
+	RunState.test_skill_flags = _selected_skill_flags.duplicate()
+
+	for row in skill_flag_rows_for_character(_selected_character_id):
+		var base_id: String = row["base"]
+		var plus_id: String = row["plus"]
+		var hbox := HBoxContainer.new()
+		hbox.add_theme_constant_override("separation", 12)
+		skill_flags_list.add_child(hbox)
+
+		var base_skill := SkillPool.find_skill(base_id)
+		var base_check := CheckBox.new()
+		base_check.text = base_skill.get("name", base_id)
+		base_check.button_pressed = _selected_skill_flags.has(base_id)
+		base_check.toggled.connect(_on_skill_flag_base_toggled.bind(base_id, plus_id))
+		hbox.add_child(base_check)
+		_skill_flag_checkboxes[base_id] = base_check
+
+		if plus_id != "":
+			var plus_skill := SkillPool.find_skill(plus_id)
+			var plus_check := CheckBox.new()
+			plus_check.text = plus_skill.get("name", plus_id)
+			plus_check.button_pressed = _selected_skill_flags.has(plus_id)
+			plus_check.disabled = not base_check.button_pressed
+			plus_check.toggled.connect(_on_skill_flag_plus_toggled.bind(plus_id))
+			hbox.add_child(plus_check)
+			_skill_flag_checkboxes[plus_id] = plus_check
+
+
+func _on_skill_flag_base_toggled(pressed: bool, base_id: String, plus_id: String) -> void:
+	if pressed:
+		if not _selected_skill_flags.has(base_id):
+			_selected_skill_flags.append(base_id)
+	else:
+		_selected_skill_flags.erase(base_id)
+		if plus_id != "":
+			_selected_skill_flags.erase(plus_id)
+			if _skill_flag_checkboxes.has(plus_id):
+				_skill_flag_checkboxes[plus_id].button_pressed = false
+	if plus_id != "" and _skill_flag_checkboxes.has(plus_id):
+		_skill_flag_checkboxes[plus_id].disabled = not pressed
+	RunState.test_skill_flags = _selected_skill_flags.duplicate()
+
+
+func _on_skill_flag_plus_toggled(pressed: bool, plus_id: String) -> void:
+	if pressed:
+		if not _selected_skill_flags.has(plus_id):
+			_selected_skill_flags.append(plus_id)
+	else:
+		_selected_skill_flags.erase(plus_id)
+	RunState.test_skill_flags = _selected_skill_flags.duplicate()
 
 
 ## 몬스터 필터(계열 4종+전체 / 등급 3종+전체) 버튼 행. 필터 자체는 목록만 좁히고
@@ -486,7 +762,11 @@ func _update_difficulty_label() -> void:
 ## 바뀌는가"를 검증할 수 있다(F-3 원칙). character_id/chosen_starting_skill_id는
 ## reset_run() 호출 전후로 백업/복원해 "실제 플레이의 다음 런 시작 스킬 선택"이 테스트
 ## 전투로 조용히 바뀌지 않게 한다(클래스 주석 참고).
-func _apply_start_selection(character_id: String, skill_id: String, monster_id: String, round_index: int, room_index: int) -> void:
+## growth(비어있으면 적용 안 함 — reset_run()이 만든 캐릭터 기본 구성 그대로 둠,
+## 기존 H-2 테스트와의 하위 호환)와 extra_skill_flags(SkillPool.grant()로 하나씩
+## 부여)는 H-3 신규 매개변수 — 둘 다 기본값이 있어 H-2 시절 호출부(dice_test.gd의
+## _check_h2_test_battle_setup())는 그대로 동작한다.
+func _apply_start_selection(character_id: String, skill_id: String, monster_id: String, round_index: int, room_index: int, growth: Dictionary = {}, extra_skill_flags: Array = []) -> void:
 	var backup_chosen := RunState.chosen_starting_skill_id
 	RunState.chosen_starting_skill_id = skill_id
 	RunState.reset_run(character_id)
@@ -496,12 +776,51 @@ func _apply_start_selection(character_id: String, skill_id: String, monster_id: 
 	RunState.test_round_index = round_index
 	RunState.test_room_index = room_index
 	RunState.test_difficulty = room_index + (round_index - 1) * 3
+	_apply_growth(growth)
+	for flag in extra_skill_flags:
+		SkillPool.grant(flag)
+
+
+## "주머니 구성 적용은 reset_run() 이후 한 곳에서만"(INBOX.md H-3 원문) — 호출부는
+## 항상 _apply_start_selection()을 거치므로 여기 한 곳만 보면 된다. 캐릭터 기믹
+## (min_max_only 등)은 reset_run()이 이미 "기본 구성(D4x기본개수)" 기준으로
+## 적용해뒀는데, growth가 개수/면 개수를 바꾸면 그 적용이 낡은 모양에 묶여버리므로
+## 주머니를 새로 만든 뒤 RunState._apply_character_gimmick()을 다시 불러 새 모양에
+## 맞게 재적용한다.
+func _apply_growth(growth: Dictionary) -> void:
+	if growth.is_empty():
+		return
+	var sides: int = growth.get("sides", 4)
+	var attack_count: int = growth.get("attack_count", RunState.player_attack_bag.count)
+	var defense_count: int = growth.get("defense_count", RunState.player_defense_bag.count)
+	RunState.player_attack_bag = DiceBag.new(sides, attack_count)
+	RunState.player_defense_bag = DiceBag.new(sides, defense_count)
+	RunState._apply_character_gimmick()
+	RunState.gold = growth.get("gold", RunState.gold)
+	var pip_value: int = int(ceil(sides / 2.0))
+	var pips: Array[int] = []
+	for i in int(growth.get("pip_count", 0)):
+		pips.append(pip_value)
+	RunState.pip_inventory = pips
+	var dies: Array[int] = []
+	for i in int(growth.get("die_count", 0)):
+		dies.append(sides)
+	RunState.die_inventory = dies
 
 
 func _on_start_pressed() -> void:
+	_sync_growth_to_run_state()
+	var growth := {
+		"attack_count": int(_attack_count_spin.value),
+		"defense_count": int(_defense_count_spin.value),
+		"sides": GROWTH_SIDES_OPTIONS[_sides_option.selected],
+		"gold": int(_gold_spin.value),
+		"pip_count": int(_pip_spin.value),
+		"die_count": int(_die_spin.value),
+	}
 	_apply_start_selection(
 		_selected_character_id, _selected_skill_id, _selected_monster_id,
-		int(round_spin.value), int(room_spin.value)
+		int(round_spin.value), int(room_spin.value), growth, _selected_skill_flags.duplicate()
 	)
 	get_tree().change_scene_to_file("res://code/scenes/combat_test.tscn")
 
@@ -526,3 +845,11 @@ func _debug_start_boss_test_battle() -> void:
 	round_spin.value = 3
 	room_spin.value = 4
 	_on_start_pressed()
+
+
+## QA 전용: H-3로 화면이 길어져 ScrollContainer가 생겼으므로, 아래쪽(몬스터 목록/
+## 난이도/전투 시작 버튼)이 겹침 없이 보이는지 확인하려면 스크롤을 맨 아래로 내린
+## 상태의 캡처가 필요하다.
+func _debug_scroll_to_bottom() -> void:
+	var scroll: ScrollContainer = $MainScroll
+	scroll.scroll_vertical = int(scroll.get_v_scroll_bar().max_value)

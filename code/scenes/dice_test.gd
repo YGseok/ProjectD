@@ -265,6 +265,10 @@ func _ready() -> void:
 	all_pass = _check_h2_test_battle_setup(lines) and all_pass
 
 	lines.append("")
+	lines.append("[H-3: 성장 + 보유 스킬 세팅 검증: 프리셋/직접 설정이 실제 주머니 개수/면 개수/골드/인벤토리/skill_flags로 반영되는지]")
+	all_pass = _check_h3_test_battle_growth(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -5275,6 +5279,97 @@ func _check_h1_test_battle_mode(lines: PackedStringArray) -> bool:
 	RunState.pip_inventory = pip_backup
 	RunState.rooms_cleared = rooms_backup
 	RunState.round_index = round_backup
+	RunState.reset_run(character_backup)
+	return ok
+
+
+## H-3(2026-10-08) 검증 — F-3 원칙대로 "플래그가 들어갔는가"가 아니라 "계산
+## 결과"(실제 주머니 개수/면 개수/골드/인벤토리/skill_flags)를 직접 확인한다.
+func _check_h3_test_battle_growth(lines: PackedStringArray) -> bool:
+	var ok := true
+
+	# (1) preset_growth() 계산 — 수호자(기본 공격2/방어4) + "R1 중반 정도"(delta+2,
+	# sides6) -> 공격4/방어6(상한 DiceBag.MAX_DICE=6)/D6.
+	var preset_result := TestBattleSetup.preset_growth("guardian", 1)
+	var preset_ok: bool = preset_result["attack_count"] == 4 and preset_result["defense_count"] == 6 and preset_result["sides"] == 6
+	ok = preset_ok and ok
+	lines.append("  preset_growth(guardian, R1 중반): 공격=%d 방어=%d 면=%d (기대 4/6/6) -> %s" % [
+		preset_result["attack_count"], preset_result["defense_count"], preset_result["sides"], "OK" if preset_ok else "FAIL"
+	])
+
+	# (2) sanitize_skill_flags() — 광전사 전용 "광기 심화"(+)를 들고 수호자로 바꾸면
+	# 둘 다 떨어지고, 공용 스킬(spare_die)은 남아야 한다. "+"만 있고 base가 없는
+	# 경우(guard_deepen_plus 단독)도 base 없이는 살아남지 못해야 한다.
+	var sanitized: Array = TestBattleSetup.sanitize_skill_flags(
+		["spare_die", "frenzy_deepen", "frenzy_deepen_plus", "guard_deepen_plus"], "guardian"
+	)
+	var sanitize_ok: bool = sanitized.has("spare_die") and not sanitized.has("frenzy_deepen") \
+		and not sanitized.has("frenzy_deepen_plus") and not sanitized.has("guard_deepen_plus")
+	ok = sanitize_ok and ok
+	lines.append("  sanitize_skill_flags(수호자가 아닌 스킬+단독 plus 제거): 결과=%s -> %s" % [
+		sanitized, "OK" if sanitize_ok else "FAIL"
+	])
+
+	# (3) _apply_start_selection()에 growth dict + extra_skill_flags를 실제로 넣어
+	# RunState 결과값이 그대로 반영되는지 확인 — 수호자 + "대비"(start_bulwark) 시작
+	# 스킬 + growth(공격5/방어6/D8/골드77/눈금4/다이스인벤2) + 보유 스킬(spare_die+그
+	# "+"판 spare_die_plus) 조합.
+	var character_backup := RunState.character_id
+	var chosen_backup := RunState.chosen_starting_skill_id
+	var test_battle_backup := RunState.test_battle
+	var gold_backup := RunState.gold
+
+	var setup_script := load("res://code/scenes/test_battle_setup.gd")
+	var setup_instance = setup_script.new()
+	var growth := {
+		"attack_count": 5, "defense_count": 6, "sides": 8,
+		"gold": 77, "pip_count": 4, "die_count": 2,
+	}
+	setup_instance._apply_start_selection(
+		"guardian", "start_bulwark", "goblin", 1, 2, growth, ["spare_die", "spare_die_plus"]
+	)
+
+	var bag_ok: bool = RunState.player_attack_bag.dice.size() == 5 and RunState.player_attack_bag.dice[0].size() == 8 \
+		and RunState.player_defense_bag.dice.size() == 6 and RunState.player_defense_bag.dice[0].size() == 8
+	var gold_ok: bool = RunState.gold == 77
+	var inventory_ok: bool = RunState.pip_inventory.size() == 4 and RunState.die_inventory.size() == 2
+	var skill_ok: bool = RunState.skill_flags.has("start_bulwark") and RunState.skill_flags.has("spare_die") and RunState.skill_flags.has("spare_die_plus")
+
+	# 수호자의 "fixed_defense_die" 기믹(방어 0번째 다이스가 항상 고정값)이 growth가
+	# 바꾼 새 면 개수(D8)에 맞게 재적용됐는지 — run_state.gd._apply_character_gimmick()이
+	# 예전처럼 "항상 D4 기준"으로 고정값을 계산하면(이 growth 기능이 추가되기 전에는
+	# reset_run() 직후(항상 D4)에만 불려서 드러나지 않던 전제) D8 면 범위를 벗어난 값이
+	# 나온다.
+	var expected_fixed_value := CharacterProfiles.fixed_defense_die_value(8)
+	var fixed_die_ok := true
+	for v in RunState.player_defense_bag.dice[0]:
+		if v != expected_fixed_value:
+			fixed_die_ok = false
+
+	var growth_ok: bool = bag_ok and gold_ok and inventory_ok and skill_ok and fixed_die_ok
+	ok = growth_ok and ok
+	lines.append("  [성장+보유 스킬 적용] 공격 D%dx%d / 방어 D%dx%d(고정값 다이스=%s, 기대 %d) / 골드=%d / 눈금=%d / 다이스인벤=%d / skill_flags에 start_bulwark+spare_die+spare_die_plus=%s -> %s" % [
+		RunState.player_attack_bag.dice[0].size(), RunState.player_attack_bag.dice.size(),
+		RunState.player_defense_bag.dice[0].size(), RunState.player_defense_bag.dice.size(),
+		RunState.player_defense_bag.dice[0], expected_fixed_value,
+		RunState.gold, RunState.pip_inventory.size(), RunState.die_inventory.size(),
+		skill_ok, "OK" if growth_ok else "FAIL"
+	])
+
+	# (4) growth={}(빈 dict)는 기존 H-2 동작(캐릭터 기본 구성 그대로, reset_run()이
+	# 만든 그대로)을 깨지 않아야 한다 — 하위 호환 확인.
+	setup_instance._apply_start_selection("juggler", "start_aggro", "goblin", 1, 0)
+	var backward_compat_ok: bool = RunState.player_attack_bag.dice.size() == 3 and RunState.player_defense_bag.dice.size() == 2 \
+		and RunState.gold == 0 and RunState.pip_inventory.is_empty() and RunState.die_inventory.is_empty()
+	ok = backward_compat_ok and ok
+	lines.append("  [하위 호환] growth={} 호출 시 곡예사 기본 공격3/방어2, 골드0, 인벤토리 빈 배열 유지 -> %s" % [
+		"OK" if backward_compat_ok else "FAIL"
+	])
+
+	setup_instance.free()
+	RunState.chosen_starting_skill_id = chosen_backup
+	RunState.test_battle = test_battle_backup
+	RunState.gold = gold_backup
 	RunState.reset_run(character_backup)
 	return ok
 

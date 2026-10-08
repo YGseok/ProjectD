@@ -55,8 +55,12 @@
     경로라 자동 반영되는지 확인(캐릭터 목록이 `CharacterProfiles.PROFILES`에서 오면 자동).
   - `character_profiles.gd` 항목: `id: "pirate"`, `name: "해적"`, `gimmick: "cannon_volley"`,
     `attack_count: 2`, `defense_count: 3`(다이스가 적은 대신 함포가 보완 — 잠정값),
-    `event_die_sides: 6`, `hair_color: Color(0.1, 0.35, 0.45)`(청록 감도는 검정),
-    `dress_color: Color(0.6, 0.12, 0.15)`(붉은 선장 코트), desc/concept 한글 문구(예: "약탈과
+    `event_die_sides: 6`, `hair_color: Color(0.055, 0.29, 0.31)`(청록빛 흑발 #0E4A4F),
+    `dress_color: Color(0.12, 0.65, 0.63)`(**터콰이즈 코트 #1FA5A0** — 2026-10-08 아트 스레드
+    결정: 캐릭터마다 퍼스널 컬러가 겹치지 않게, 붉은 코트는 광전사(스칼렛)·매혹사(와인)와
+    겹쳐 비어 있던 청록 자리로 변경. 퍼스널 컬러 표는 `docs/art/ART_RESOURCES.md` 1장. 이 위
+    설계에 쓰인 "붉은 선장 코트"/Color(0.6,0.12,0.15)는 폐기. 함포 아이콘도 가능하면 터콰이즈
+    계열, 다른 기믹 아이콘과 겹치면 그쪽에 맞춰도 됨), desc/concept 한글 문구(예: "약탈과
     함포의 해적 선장 — 3번째 공격턴마다 함포가 방어를 무시하고 공격 합계의 절반만큼 고정 피해를
     준다"). `GIMMICK_LABELS`에 항목 추가("함포 (3번째 공격턴마다 고정 피해)").
 
@@ -117,17 +121,23 @@
   [대형 기획 7] F-5보다 우선). 진행 상황은 STATUS.md에 "H-n 완료"로 남기고 전부 끝나면
   "처리됨"으로 옮길 것.
 
-  → **H-1/H-2 완료(2026-10-08), H-3~H-4는 아직.** `RunState.test_battle`/`test_monster_id`/
+  → **H-1/H-2/H-3 완료(2026-10-08), H-4는 아직.** `RunState.test_battle`/`test_monster_id`/
   `test_difficulty`/`test_round_index`(H-1) + `test_character_id`/`test_starting_skill_id`/
   `test_room_index`(H-2) 필드 + `combat_test.gd`의 `_monster_config_for_test()`/승패·방진행
   가드(업적·골드·눈금·rooms_cleared·round_index·reset_run() 전부 스킵)/결과 화면 "다시 하기"·
   "설정으로 돌아가기" 버튼(H-1)에 이어, 신규 `code/scenes/test_battle_setup.gd/.tscn`(캐릭터/
   시작 스킬(잠금 무시)/몬스터 35종(필터+상세)/난이도 선택 → "전투 시작")으로 실제로 테스트
-  전투를 돌릴 수 있게 됐다(H-2). 다만 캐릭터 선택 화면 안의 진입 버튼(H-4)이 아직 없어
-  `GAME_START=test_battle_setup`으로 직접 로드해야만 들어갈 수 있다 — 정식 플레이 흐름
-  중에는 여전히 도달 불가. 검증: `dice_test.gd`의 `_check_h1_test_battle_mode()`/
-  `_check_h2_test_battle_setup()` + QA 디버그 래퍼(`_debug_show_test_battle_win/lose()`,
-  `_debug_start_boss_test_battle()`). 상세는 `docs/STATUS.md` 완료 기록(168)/(169) 참고.
+  전투를 돌릴 수 있게 됐다(H-2). H-3(2026-10-08)로 **성장**(공격/방어 다이스 개수·공통 면
+  개수·골드·눈금/다이스 인벤토리, 프리셋 4종 + 직접 설정) + **보유 스킬**(공용 2종+캐릭터
+  고유 스킬+"+"판 토글, 캐릭터 전환 시 안 맞는 항목 자동 해제) 섹션이 설정 화면에
+  추가됐다 — 둘 다 `reset_run()` 이후 한 곳(`_apply_growth()`)에서만 적용되고, 효과는
+  `dice_test.gd`의 `_check_h3_test_battle_growth()`가 실제 주머니 개수/면 개수/골드/
+  인벤토리/skill_flags 값으로 검증(PASS). 다만 캐릭터 선택 화면 안의 진입 버튼(H-4)이
+  아직 없어 `GAME_START=test_battle_setup`으로 직접 로드해야만 들어갈 수 있다 — 정식 플레이
+  흐름 중에는 여전히 도달 불가. 검증: `dice_test.gd`의 `_check_h1_test_battle_mode()`/
+  `_check_h2_test_battle_setup()`/`_check_h3_test_battle_growth()` + QA 디버그 래퍼
+  (`_debug_show_test_battle_win/lose()`, `_debug_start_boss_test_battle()`,
+  `_debug_scroll_to_bottom()`). 상세는 `docs/STATUS.md` 완료 기록(168)~(170) 참고.
 
   **원칙**: ① 테스트 전투는 **진짜 전투 씬/규칙을 그대로** 쓴다(시뮬/별도 규칙 복제 금지 —
   테스트하려는 대상이 실제 게임이므로). ② **진행도를 절대 건드리지 않는다**: 업적 해금

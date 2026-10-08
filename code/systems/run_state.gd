@@ -130,6 +130,25 @@ var test_character_id: String = ""
 var test_starting_skill_id: String = ""
 var test_room_index: int = 0
 ##
+## test_growth_*/test_skill_flags: [대형 기획 8] H-3(2026-10-08) 신규 — 설정 화면의
+## "성장"/"보유 스킬" 섹션이 "직전 선택 유지"를 위해 담아두는 필드다. test_growth_
+## attack_count/defense_count/sides는 0이 "아직 아무것도 선택 안 함(캐릭터 기본값으로
+## 채워야 함)"을 뜻하는 센티널이고(유효한 개수/면 개수는 항상 1 이상이라 0은 실제
+## 값일 수 없음), test_battle_setup.gd._ready()가 이 센티널일 때만 선택한 캐릭터의
+## 기본 구성("시작 그대로" 프리셋)으로 한 번 채운다. test_growth_gold/pip_count/
+## die_count는 0 자체가 유효한 기본값이라 센티널이 필요 없다. test_skill_flags는
+## 설정 화면에서 토글한 "보유 스킬" id 목록 — 실제 RunState.skill_flags에는 "전투
+## 시작"을 눌렀을 때만(reset_run() 이후) SkillPool.grant()로 반영된다(그 전까지
+## skill_flags를 직접 건드리면 reset_run() 호출 전 상태를 설정 화면 밖에서 오염시킬
+## 수 있어 분리해뒀다). test_monster_id 등과 같은 이유로 reset_run()이 건드리지 않는다.
+var test_growth_attack_count: int = 0
+var test_growth_defense_count: int = 0
+var test_growth_sides: int = 0
+var test_growth_gold: int = 0
+var test_growth_pip_count: int = 0
+var test_growth_die_count: int = 0
+var test_skill_flags: Array[String] = []
+##
 ## chosen_starting_skill_id: [미니 기획 E]-3 (INBOX.md 2026-09-17 기획자 결정) —
 ## 캐릭터 선택 화면에서 미리 확정하는 "시작 스킬" 로드아웃(SkillPool.STARTING_SKILLS,
 ## skill_flags와는 별개 레이어). character_select.gd가 캐릭터 카드를 고를 때마다 그
@@ -209,7 +228,15 @@ func _apply_character_gimmick() -> void:
 			player_attack_bag.force_min_max_faces()
 			player_defense_bag.force_min_max_faces()
 		"fixed_defense_die":
-			player_defense_bag.force_fixed_value_for_die(0, CharacterProfiles.fixed_defense_die_value(4))
+			# 면 개수를 하드코딩(4)하지 않고 실제 0번째 다이스의 면 개수를 읽는다 —
+			# [대형 기획 8] H-3(test_battle_setup.gd._apply_growth())가 reset_run() 이후
+			# 주머니를 다른 면 개수(D6/D8…)로 다시 만들고 이 함수를 재호출할 수 있어서,
+			# "항상 D4"를 가정하면 고정값이 실제 면 범위를 벗어나게 된다(기존에는 이 함수가
+			# reset_run() 직후(항상 D4)에만 불려서 드러나지 않았던 전제).
+			var sides := 4
+			if not player_defense_bag.dice.is_empty():
+				sides = player_defense_bag.dice[0].size()
+			player_defense_bag.force_fixed_value_for_die(0, CharacterProfiles.fixed_defense_die_value(sides))
 		"juggle_swap":
 			DiceBag.swap_random_dice(player_attack_bag, player_defense_bag)
 		_:
