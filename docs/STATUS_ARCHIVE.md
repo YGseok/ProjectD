@@ -8,6 +8,50 @@
 
 ---
 
+- **2026-10-08 (174)**: INBOX.md "부분 처리됨"의 [대형 기획 9] 해적 **I-3(고유
+  스킬 `broadside`/`broadside_plus`)** — I-2 완료로 실행 순서상 다음 조각.
+  **SkillPool**: `skill_pool.gd`의 `UNIQUE_SKILLS`에 `broadside`("일제 사격",
+  `character_id: "pirate"`, 함포 주기 3→2턴 단축)를, `UPGRADE_SKILLS`에
+  `broadside_plus`("일제 사격+", 주기 2 유지 + 고정 피해를 `ceil(합/2)`에서
+  공격 합계 전부로 강화)를 기존 7종/9종과 같은 dict 패턴으로 추가했다(총
+  8종/10종).
+  **계산 로직**: `combat_test.gd`의 `_cannon_volley_damage(attack_sum,
+  turn_count, cycle, full_damage: bool = false)`에 `full_damage` 매개변수를
+  추가(새 인자는 기본값 false라 기존 3-인자 호출은 그대로 동작, 하위 호환
+  유지) — true면 `attack_sum` 전부, false면 기존 `ceil(attack_sum/2.0)`.
+  "주기"는 호출부가 직접 넘기던 상수(`CANNON_VOLLEY_CYCLE=3`) 대신, 다른
+  스택형 스킬들의 `_player_explosive_threshold()`/`_player_guard_threshold()`
+  와 같은 패턴으로 `_cannon_volley_cycle()`(인스턴스 메서드, broadside 또는
+  broadside_plus 보유 시 2, 아니면 3)을 신설해 호출부(`_resolve_exchange()`의
+  "함포 일제사격" 분기)가 이 값을 쓰도록 바꿨다. 상태 변수
+  `player_broadside_active`/`player_broadside_plus_active`를
+  `_reset_player_battle_state()`에서 `RunState.skill_flags`로 채움(다른
+  고유 스킬들과 동일 패턴).
+  **검증(F-3 원칙 — 계산 결과 직접 확인)**: `dice_test.gd`에
+  `_check_i3_pirate_broadside()`를 신설해 (1) SkillPool 등록(character_id/
+  upgrades 필드)과 `grant_upgrade("broadside")`가 "+"를 실제로 더해주는지,
+  (2) `_cannon_volley_cycle()`이 미보유 3/base만 2/plus만 2/둘 다 2를
+  반환하는지, (3) cycle=2로 주기가 실제로 당겨지는지(1턴차 0, 2턴차 발동 —
+  attack_sum=10 기준 0,5,0,5 패턴), (4) "+"가 고정 피해를 ceil(합/2)에서
+  합 전부로 바꾸는지(attack_sum=11 기준 false->6, true->11), (5) 기존
+  3-인자 호출(cycle=3, full_damage 기본값)이 그대로 동작하는지(하위 호환),
+  (6) 테스트 전투 설정(H-3)의 `TestBattleSetup.skill_flag_rows_for_character
+  ("pirate")`가 `{base: broadside, plus: broadside_plus}` 행을 자동으로
+  올리는지(새 코드 없이 UNIQUE_SKILLS/UPGRADE_SKILLS를 순회하는 기존 static
+  함수라 데이터만 추가하면 자동 반영 — 직접 호출로 재확인)까지 전부 확인.
+  부수적으로 발견: `_check_upgrade_skill_pool()`이 `UPGRADE_SKILLS.size() ==
+  9`를 하드코딩하고 있어 broadside_plus 추가로 FAIL이 났던 것을 10으로
+  수정(base_ids는 SKILLS/UNIQUE_SKILLS를 순회해 동적으로 만들어 별도 수정
+  불필요했음). `bash scripts/qa_shot.sh dice_test` 전체 PASS.
+  **시각 QA**: `test_battle_setup.gd`에 QA 전용 0-arity 래퍼
+  `_debug_select_pirate_scroll_bottom()`(해적 선택 + 스크롤 하단 이동)을
+  추가해 `qa_out/test_battle_setup_pirate_broadside.png`로 확인 — "보유
+  스킬" 섹션에 "일제 사격"/"일제 사격+" 체크박스 행이 기존 심호흡/여분
+  아래에 겹침 없이 자동으로 뜸.
+  **I-3 완료.** 다음은 **I-4**(DESIGN.md 캐릭터 표 갱신 + 밸런스 시뮬/테스트
+  전투 설정 화면 8캐릭터 반영 확인 + 아트 스레드 인계 문구), 전부 끝나면
+  **[대형 기획 7] F-5**.
+
 - **2026-10-08 (173)**: INBOX.md "부분 처리됨"의 [대형 기획 9] 해적 **I-2(업적 +
   시작 스킬)** — I-1 완료로 실행 순서상 다음 조각.
   **업적**: `achievement_manager.gd`의 `DEFINITIONS`에 `clear_pirate`("해적으로

@@ -251,9 +251,13 @@ const MONSTERS := [
 		"personality": "고블린 무리를 호령하며 끝까지 버티는 왕",
 	},
 	{
+		# [대형 기획 10] J-2 10차 시도(2026-10-08) — 측정 범위 확장 후 보스 6종 중
+		# 점액 군주가 두 번째로 낮음(11.6%, 다음은 해골 장군 16.4%). atk_dice_delta가
+		# 보스 공통 공격 보정(+1) 위에 추가로 +1이 더 얹혀 다른 보스보다 공격 다이스가
+		# 1개 더 많았던 것이 원인으로 보여 0으로 낮춘다(공통 보정만 남김).
 		"id": "ooze_lord", "name": "점액 군주", "family": "amorphous", "tier": "boss",
 		"color": Color(0.3, 0.55, 0.35),
-		"skills": [{"id": "sticky"}, {"id": "seal"}], "atk_dice_delta": 1, "hp_mult": 1.0,
+		"skills": [{"id": "sticky"}, {"id": "seal"}], "atk_dice_delta": 0, "hp_mult": 1.0,
 		"phase2_skills": [{"id": "dull"}],
 		"personality": "끈적한 본체로 모든 움직임을 둔하게 만드는 군주",
 	},
@@ -283,9 +287,23 @@ const MONSTERS := [
 		"personality": "이성을 잃고 날뛰는 거대한 짐승",
 	},
 	{
+		# [대형 기획 10] J-2 11차 시도(2026-10-08) — 측정 범위 확장 후 보스 6종 중
+		# 가장 낮음(13.5%). armor(3)+counter(2)가 6종 중 가장 센 방어 보정 조합이라
+		# 고블린 왕에 적용했던 완화(armor/counter 각각 1 낮춤)와 같은 폭으로 맞춘다.
+		# 13차 시도(2026-10-08) — 12차(보스 공통 공격 보정 제거)로 나머지 5종은 목표
+		# 밴드에 들어왔지만 이 보스만 27.5%로 여전히 미달. steady_guard(최소 방어
+		# 보장)까지 겹쳐 defense가 여전히 세서 armor 2→1(goblin_king과 같은 값)로
+		# 한 번 더 낮췄으나 27.5%→27.6%로 거의 안 움직임(armor는 병목이 아니었음).
+		# 14차 시도(2026-10-08) — steady_guard(다이스별 최소 방어 보장, amount 없음)가
+		# 다이스 개수가 늘어날수록 효과가 커지는 쪽이라 armor(고정값)보다 영향이 커
+		# 보여 counter(1)를 제거(0)해 재측정했지만 27.6%→27.8%로 역시 거의 안
+		# 움직임(노이즈 범위) — counter도 병목이 아니었음을 확인하고 원래 값(1)로
+		# 되돌린다(아무 이득 없이 스킬 하나를 잃는 건 손해). 진짜 병목은 amount가 없는
+		# steady_guard 자체로 보이나 이번 이터레이션 손잡이 예산(6회) 소진으로 다음에
+		# 계속 — INBOX.md/STATUS.md에 기록.
 		"id": "fallen_commander", "name": "타락한 기사단장", "family": "humanoid", "tier": "boss",
 		"color": Color(0.35, 0.3, 0.45),
-		"skills": [{"id": "steady_guard"}, {"id": "armor", "amount": 3}, {"id": "counter", "amount": 2}],
+		"skills": [{"id": "steady_guard"}, {"id": "armor", "amount": 1}, {"id": "counter", "amount": 1}],
 		"hp_mult": 1.0, "phase2_skills": [{"id": "bloodlust"}],
 		"personality": "신념을 저버리고도 흔들림 없는 방어를 고수하는 기사단장",
 	},

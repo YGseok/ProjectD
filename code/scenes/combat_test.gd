@@ -653,7 +653,10 @@ func _build_monster_config(profile: Dictionary, name_text_in: String, difficulty
 		# 7차 시도(2026-10-08, 같은 이터레이션) — 보스 HP 배율을 x1.2->x1.0(보스
 		# 전용 HP 가산 완전 제거)으로 추가 완화. 공격 보정(+1)만 보스 전용 차별화로
 		# 남긴다. 결과는 docs/BALANCE_TUNING_LOG.md 참고.
-		attack_count += 1
+		# 12차 시도(2026-10-08) — 몬스터 개별 보정(해골 장군/점액 군주/타락한
+		# 기사단장)을 소폭씩 나눠 적용했는데도 6종 전부 여전히 목표(35~55%) 밑이라,
+		# 마지막 남은 보스 공통 차별화인 공격 보정을 +1->+0(완전 제거)으로 낮춘다.
+		attack_count += 0
 		max_hp = int(round(max_hp * 1.0))
 		name_text += " [보스]"
 	# G-3(MonsterSkills 파라미터) — skills 배열(각 원소 {"id":..., 파라미터...})을
