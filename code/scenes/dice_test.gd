@@ -687,16 +687,19 @@ func _check_monster_config_scaling(lines: PackedStringArray) -> bool:
 	# 보정도 12차 시도(이번 이터레이션)로 +1->+0까지 완전히 제거 — R1 보스가 EV상
 	# 평균적으로 보스에게 피해를 못 주는 구조였던 문제를 고치기 위함, docs/
 	# BALANCE_TUNING_LOG.md 참고)이 추가로 붙으므로 그 방만 별도로 기대값을
-	# 조정한다. D8 면 승급 임계도 3차 시도로 idx>=4 -> idx>=5로 한 칸 늦췄다(R1
-	# 보스가 서는 room4가 "몬스터 D8 vs 균형 성장 플레이어 D4"라는 2단계 격차를
-	# 만들던 것도 같은 문제의 일부, 의도된 변경).
+	# 조정한다. D8 면 승급 임계도 3차 시도로 idx>=4 -> idx>=5로 한 칸 늦췄고, J-3
+	# (2026-10-12) 1차 시도로 idx>=2 -> idx>=3 / idx>=5 -> idx>=6, 2차 시도로 D6/D8 둘 다
+	# 한 칸씩 더(idx>=3 -> idx>=4, idx>=6 -> idx>=7) 늦췄다가 일반 방3이 "초과"로
+	# 뒤집혀(R1이 과도하게 쉬워짐), 3차 시도로 D6 임계만 1차 시도 값(idx>=3)으로
+	# 되돌리고 D8 임계는 2차 시도 값(idx>=7)을 유지했다 — 보스가 서는 room4에는 두
+	# 임계 모두 영향 없음, _monster_dice_sides_for_room() 주석 참고).
 	var formula_ok := true
 	for idx in range(7):
 		var cfg = combat._monster_config_for_room(idx)
 		var expected_attack := 2 + int(idx / 2.0)
 		var expected_defense := 1 + int(idx / 3.0)
 		var expected_hp := 10 + idx * 3
-		var expected_sides := 8 if idx >= 5 else (6 if idx >= 2 else 4)
+		var expected_sides := 8 if idx >= 7 else (6 if idx >= 3 else 4)
 		if idx == RunState.TOTAL_ROOMS - 1:
 			expected_hp = int(round(expected_hp * 1.0))
 		if cfg["attack_count"] != expected_attack or cfg["defense_count"] != expected_defense \
@@ -941,15 +944,17 @@ func _check_monster_dice_gimmick(lines: PackedStringArray) -> bool:
 	])
 
 	# combat_test.gd _monster_config_for_room(): 2026-09-16 [미니 기획 A]-1로 fixed_value가
-	# "오크"에서 "해골 전사"(room2)로 옮겨졌다 — room2(해골 전사, D6)만 fixed_value gimmick이
-	# 켜지고 이름에 "[고정값 4]"가 붙어야 한다(D6 -> ceil(7/2)=4). min_max_only(room3)와
-	# 서로 영향 없이 독립적으로 동작해야 함.
+	# "오크"에서 "해골 전사"(room2)로 옮겨졌다 — room2(해골 전사)만 fixed_value gimmick이
+	# 켜지고 min_max_only(room3)와 서로 영향 없이 독립적으로 동작해야 함. 면 개수는
+	# [대형 기획 10] J-3(2026-10-12) 1차 시도(D6 임계 idx>=2 -> idx>=3)로 room2가
+	# D6에서 D4로 내려가 고정값도 4(ceil(7/2))에서 3(ceil(5/2))으로 같이 바뀌었다
+	# (의도된 변경, docs/BALANCE_TUNING_LOG.md 참고).
 	var room2_config = combat._monster_config_for_room(2)
 	var room2_ok: bool = room2_config["dice_gimmick"] == "fixed_value" \
-		and room2_config["dice_gimmick_value"] == 4 \
-		and room2_config["name"] == "해골 전사 [고정값 4]"
+		and room2_config["dice_gimmick_value"] == 3 \
+		and room2_config["name"] == "해골 전사 [고정값 3]"
 	ok = room2_ok and ok
-	lines.append("  room2 config: dice_gimmick=%s value=%d name=%s (기대 fixed_value/4/'해골 전사 [고정값 4]') -> %s" % [
+	lines.append("  room2 config: dice_gimmick=%s value=%d name=%s (기대 fixed_value/3/'해골 전사 [고정값 3]') -> %s" % [
 		room2_config["dice_gimmick"], room2_config["dice_gimmick_value"], room2_config["name"],
 		"OK" if room2_ok else "FAIL"
 	])
@@ -4864,7 +4869,9 @@ func _check_g6_monster_plan(lines: PackedStringArray) -> bool:
 		r1_room0["dice_sides"], r1_room0["is_boss"], "OK" if r1_room0_ok else "FAIL"
 	])
 
-	# 라운드2/방0: difficulty = 0+(2-1)*3 = 3 -> 공격=2+1=3, 방어=1+1=2, hp=10+9=19, sides=6(>=2).
+	# 라운드2/방0: difficulty = 0+(2-1)*3 = 3 -> 공격=2+1=3, 방어=1+1=2, hp=10+9=19,
+	# sides=6([대형 기획 10] J-3 1차 시도 값(D6 임계 idx>=3) 그대로 유지 — 3차 시도로
+	# D6 임계만 1차 시도로 되돌림, docs/BALANCE_TUNING_LOG.md 참고).
 	# "아머 고블린"은 atk/def_dice_delta·hp_mult 전부 기본값(0/0/1.0)이라 공식 그대로 나와야 함.
 	var r2_room0: Dictionary = combat._monster_config_for_plan(2, 0)
 	var r2_room0_ok: bool = r2_room0["name"] == "아머 고블린" and r2_room0["attack_count"] == 3 \

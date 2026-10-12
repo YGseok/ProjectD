@@ -8,6 +8,31 @@
 
 ---
 
+- **2026-10-08 (175)**: INBOX.md "부분 처리됨"의 [대형 기획 9] 해적 **I-4(마무리)**
+  — I-3 완료로 실행 순서상 마지막 조각, **[대형 기획 9] 전체 완료**.
+  **DESIGN.md**: "플레이어블 캐릭터 (7종)" 절을 8종으로 갱신하고 해적 행(컨셉/
+  시작 다이스 D4x2·D4x3/기믹 `cannon_volley` 설명)을 캐릭터 표에 추가했다.
+  시작 스킬 3단 사다리 표(캐릭터×슬롯)에도 "해적 | 선제 | 황금손 | 수집가"
+  행을 추가해 7×3=21개 → 8×3=24개로 갱신(절 머리말의 "7종"/"21개" 숫자도
+  함께 고침).
+  **밸런스 시뮬/리포트 자동 반영 확인**: `code/qa/balance_sim.gd`(F-4b 시뮬
+  러너)와 `code/qa/balance_report.gd`(F-4c 리포트 생성기) 둘 다 캐릭터 목록을
+  `for profile in CharacterProfiles.PROFILES`로 동적으로 순회하는 구조라 하드코딩된
+  캐릭터 수/목록이 없음을 코드로 확인 — 해적 추가로 자동 반영되므로 **재실행
+  불필요**(INBOX.md I-4 지시의 "자동이면 재실행은 불필요" 조건 충족).
+  **QA**: `bash scripts/qa_shot.sh dice_test`(전체 회귀 스위트, I-1~I-3 검증
+  포함) PASS 재확인. `scripts/qa_shot.sh test_battle_setup 10 ... ""`로 캐릭터
+  목록에 해적이 8번째로 겹침 없이 나오는 것을, 기존 `_debug_select_pirate_
+  scroll_bottom()` QA 래퍼(I-3에서 이미 만들어둠)로 해적을 선택한 뒤 "보유
+  스킬" 섹션에 "일제 사격"/"일제 사격+" 체크박스가 심호흡/여분 아래에 겹침
+  없이 뜨는 것을 재확인(`qa_out/test_battle_setup_i4_pirate.png`,
+  `qa_out/test_battle_setup_i4_pirate_selected.png`).
+  **아트 스레드 인계 필요**: 캐릭터 `pirate`(해적) 신규 — full + 표정 5종,
+  컨셉/색 키워드는 위 "진행 상황" 절 프로필 참고(청록빛 흑발 #0E4A4F /
+  터콰이즈 코트 #1FA5A0, 약탈과 함포 사격의 호쾌한 해적 선장).
+  **I-4 완료, [대형 기획 9] 전체 완료.** INBOX.md "부분 처리됨" → "처리됨"으로
+  이관. 다음은 **[대형 기획 7] F-5(a)**(성장 정책 3종 구현 + 단위 검증).
+
 - **2026-10-08 (174)**: INBOX.md "부분 처리됨"의 [대형 기획 9] 해적 **I-3(고유
   스킬 `broadside`/`broadside_plus`)** — I-2 완료로 실행 순서상 다음 조각.
   **SkillPool**: `skill_pool.gd`의 `UNIQUE_SKILLS`에 `broadside`("일제 사격",
