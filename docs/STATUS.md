@@ -5,35 +5,35 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-10-13 (188)
+- 일시: 2026-10-13 (189)
 - 작성자: AI 에이전트. INBOX.md 최우선 지시 [대형 기획 11](조작/UI 개편) 중
-  **K-2(캐릭터 선택 화면 가독성 개편 — 좌: 얼굴 중심 목록 / 우: 구역 나눈 상세
-  패널)를 처음부터 끝까지 완료**했다. 좌측 카드 목록(`character_select.gd`의
-  `_make_card()`)을 92px짜리 "초상+이름+버튼" 행에서 56px짜리 "정사각 얼굴
-  썸네일(48×48)+이름+한 줄 기믹 라벨+선택 버튼" 행으로 줄여 8명 전부가 스크롤
-  없이 한 화면에 들어온다(8행 결합 532px < 가시 영역 540px). 얼굴 이미지는
-  신규 `CharacterArt.load_face_thumb()`가 ① `resources/characters/<id>/
-  face_neutral.png` ② `full.png`를 비율 크롭(`DEFAULT_FACE_CROP_RATIO`,
-  프로필 `face_crop` 필드로 캐릭터별 오버라이드 가능) ③ 도형 플레이스홀더
-  순서로 고른다. 우측 상세 패널은 `_build_detail_panel()`을 전면 재작성해
-  "줄글 한 덩어리" 대신 **섹션 5개**(`_make_section()` 공용 틀 — 제목+테두리
-  패널)로 나눴다 — ①헤더(전신 원화+이름+컨셉 한 줄) ②능력치 칩(공격/방어
-  다이스·이벤트 주사위·HP를 아이콘+숫자 칩으로) ③고유 능력(SkillIcon+짧은
-  이름+최대 2줄 설명, 넘치면 "…") ④시작 스킬 3슬롯(기존 F-1~F-4 구조·변수명
-  그대로 유지해 기존 회귀 테스트가 안 깨지게 함) ⑤안내(원화 미입고 플레이스홀더
-  안내 — 원화가 있으면 섹션 패널 자체를 숨김, 빈 테두리 상자가 보이던 문제를
-  스크린샷으로 발견해 고침). 검증 중 새 K-2 테스트가 autowrap 라벨의 "레이아웃
-  패스 전 size.x=0" 문제로 비정상적인 높이(1600~2600px)를 보고해, 해당 라벨
-  3개에 `.size`를 미리 못박아 해결했다(세션 지침대로 "계산 결과가 실제로
-  바뀌는가"를 보다가 실제로 겪고 고친 버그 — 자세한 경위는 아래 "완료 기록
-  (188)" 참고). `dice_test` 전체 PASS를 3회 연속 재확인(크래시 없음). 기본/
-  해적(원화 없음)/주술사(가장 긴 컨셉 문장)/잠긴 슬롯 미리보기 4개 화면을
-  `qa_shot.sh`로 스크린샷 확인 — 겹침·잘림·빈 상자 없음. `docs/DESIGN.md`
-  "플레이어블 캐릭터" 절에 K-2 레이아웃 변경 서술 추가. INBOX.md의 [대형
-  기획 11]은 "부분 처리됨"에 그대로 두고 K-2 완료 상태로 진행 한 줄만 갱신 —
-  다음은 K-3(캐릭터 퍼스널 컬러). 부수적으로, 직전(187) 이터레이션이 실제
-  "완료 기록 (187)" 항목을 추가하지 않은 누락을 발견해 이번에 보완했다
-  (아래 "완료 기록 (187)" 참고).
+  **K-3(캐릭터 퍼스널 컬러를 UI에 반영)를 처음부터 끝까지 완료**했다. 신규
+  `code/systems/character_theme.gd`(`CharacterTheme`, 씬 상태 없는 순수 함수만)가
+  캐릭터 프로필의 `hair_color`/`dress_color`에서 `ui_palette(id) -> {primary,
+  accent, panel_bg, text}` 4색 팔레트를 계산한다 — `panel_bg`는 원색이 아무리 밝아도
+  항상 HSV value=0.09로 눌러 어둡게 고정하고, `text`는 WCAG 공식(`relative_
+  luminance`/`contrast_ratio`)으로 그 배경 대비 4.5:1 이상을 자동 보장한다(8종 실측
+  12.88~13.47:1). `CharacterTheme.apply(panel, id)`는 "panel" 테마 슬롯의
+  border_color를 한 줄로 덮어쓰는 공용 헬퍼. 적용 지점 3곳: ① `character_select.gd`
+  우측 상세 패널 섹션 5개의 테두리/제목색(카드를 바꿀 때마다 `_apply_detail_section_
+  theme()`가 다시 칠함, 좌측 카드 목록/공용 버튼은 중립색 유지) ② `deck_panel.gd` —
+  dungeon_map/shop/event/story_event 상시 + combat_test 토글로 이미 5개 화면에
+  재사용되는 "주요 패널"이라 이 한 곳만 고쳐 여러 화면에 한 번에 반영 ③ K-1
+  `FocusNav.focus_style()`의 accent 매개변수 자리(dungeon_map/combat_test/event/
+  shop/story_event/customize_panel/achievement_panel 포커스 강조색). 신규
+  `dice_test.gd`의 `_check_k3_character_theme()`가 (a) 8명 전부 실제 계산된
+  대비비 숫자 (b) 캐릭터를 바꾸면 상세 패널 섹션의 실제 border_color가
+  `ui_palette()`값과 정확히 일치하며 달라지는지 (c) `DeckPanel`도 마찬가지인지를
+  "플래그가 아니라 실제 노드 StyleBox 값"으로 검증(PASS, 3회 연속 재확인).
+  구현 중 `max()`/`min()` 반환값을 `:=`로 추론하다 "Variant 추론(경고를 에러로
+  처리)" 컴파일 에러를 겪어 `float` 명시 타입으로 고쳤다(자세한 경위는 아래
+  "완료 기록 (189)" 참고). `qa_shot.sh`로 character_select(견습 모험가/해적/
+  주술사 3명 비교 — 섹션 색이 캐릭터마다 뚜렷이 다르고 겹침 없음)와 dungeon_map
+  (DeckPanel+포커스 테두리가 모두 같은 캐릭터 색으로 통일됨)을 스크린샷 확인.
+  `docs/DESIGN.md` "조작"/"플레이어블 캐릭터" 절에 K-3 서술 추가. INBOX.md의
+  [대형 기획 11]은 "부분 처리됨"에 그대로 두고 K-3 완료 상태로 진행 한 줄만
+  갱신 — 다음은 **K-4(a: 스킬 아이콘 모티프 분류표)**. "완료 기록" 10개 유지를
+  위해 (179)를 `docs/STATUS_ARCHIVE.md`로 옮겼다.
 
 ## 지금 위치
 
@@ -256,13 +256,19 @@ STATUS_ARCHIVE.md`(174 이전)/위 "완료 기록 (184)~(186)" 참고.
 - **조작(2026-10-13 [대형 기획 11] K-1 완료)**: 숫자 단축키(`[1]`~`[9]`)는 완전히
   삭제됐다. 이제 방향키(↑↓←→)로 포커스 이동, 스페이스/Enter로 확정, Esc로
   오버레이(커스터마이징/업적) 닫기 — `code/scenes/focus_nav.gd`(`FocusNav`)가
-  화면마다 "보이는 버튼 목록"을 방향키 체인으로 명시적으로 묶는다. 자세한 키
-  매핑은 `docs/DESIGN.md` "조작" 절 참고. K-3(캐릭터 퍼스널 컬러)/K-4(스킬
-  아이콘)는 아직 미착수.
+  화면마다 "보이는 버튼 목록"을 방향키 체인으로 명시적으로 묶는다. 포커스 강조색은
+  K-3(아래)로 캐릭터 퍼스널 컬러를 따른다. 자세한 키 매핑은 `docs/DESIGN.md`
+  "조작" 절 참고. K-4(스킬 아이콘)는 아직 미착수.
 - **캐릭터 선택 화면(2026-10-13 [대형 기획 11] K-2 완료)**: 좌측 목록은 정사각
   얼굴 썸네일+이름+한 줄 기믹 라벨 행(8명 스크롤 없이 한눈에), 우측 상세
   패널은 섹션 5개(헤더/능력치/고유 능력/시작 스킬/안내)로 구역화됐다. 자세한
   내용은 `docs/DESIGN.md` "플레이어블 캐릭터" 절 참고.
+- **캐릭터 퍼스널 컬러(2026-10-13 [대형 기획 11] K-3 완료)**: `code/systems/
+  character_theme.gd`(`CharacterTheme`)가 프로필의 hair_color/dress_color에서
+  4색 팔레트(primary/accent/panel_bg/text, 대비비 자동 보정)를 계산해 캐릭터 선택
+  상세 패널·`DeckPanel`(dungeon_map/shop/event/story_event/combat_test 공유)·
+  모든 화면의 포커스 강조색(K-1)에 적용한다. 자세한 내용은 `docs/DESIGN.md`
+  "조작"/"플레이어블 캐릭터" 절 참고.
 
 상세 변경 이력은 아래 "완료 기록"(최근 10개)과, 그보다 오래된 것은
 `docs/STATUS_ARCHIVE.md`(매 이터레이션 읽지 않는 아카이브) 참고.
@@ -274,12 +280,11 @@ STATUS_ARCHIVE.md`(174 이전)/위 "완료 기록 (184)~(186)" 참고.
 
 **INBOX.md 최우선 지시 진행 중: [대형 기획 11](조작/UI 개편, K-1 → K-2 → K-3 →
 K-4(a→b→c))** — 2026-10-13(187)에 K-1(방향키+스페이스 조작), (188)에
-K-2(캐릭터 선택 화면 가독성 개편) 완료. **다음은 K-3(캐릭터 퍼스널 컬러를
-UI에 반영)뿐**, 보류하지 말고 바로 착수할 것(INBOX.md "남은 이슈" 원문 참고 —
-K-1이 만든 `FocusNav.focus_style()`의 accent 매개변수에 캐릭터 퍼스널 컬러를
-넘기는 것부터 시작). 아래 번호 매긴 큐는 [대형 기획 11]이
-전부 끝난 뒤에나 다시 볼 것. 남은 구조적 후보(급하지 않음): 보스 개별 6종 중
-타락한 기사단장만 밴드 미달(`MonsterSkills.modify_monster_roll()` 파라미터화가
+K-2(캐릭터 선택 화면 가독성 개편), (189)에 K-3(캐릭터 퍼스널 컬러를 UI에 반영)
+완료. **다음은 K-4(a→b→c)뿐** — (a) 스킬 모티프 분류표(`icon_motif`)부터
+착수할 것(INBOX.md "남은 이슈" 원문 참고, 보류하지 말 것). 아래 번호 매긴 큐는
+[대형 기획 11]이 전부 끝난 뒤에나 다시 볼 것. 남은 구조적 후보(급하지 않음):
+보스 개별 6종 중 타락한 기사단장만 밴드 미달(`MonsterSkills.modify_monster_roll()` 파라미터화가
 전제조건이라 사람 설계 확인 후 착수 권장).
 
 0. **(INBOX.md 신규 2026-09-03) UI 접근성/가시성 4종 — 1/4 부분 착수.** 전부 "전투/
@@ -887,6 +892,57 @@ K-1이 만든 `FocusNav.focus_style()`의 accent 매개변수에 캐릭터 퍼�
 
 ## 완료 기록
 
+- **2026-10-13 (189)**: INBOX.md 최우선 지시 [대형 기획 11] 조작/UI 개편(K-1→K-4) 중
+  **K-3(캐릭터 퍼스널 컬러를 UI에 반영) 완료**. 신규 `code/systems/character_theme.gd`
+  (`CharacterTheme`, `FocusNav`/`CharacterProfiles`와 같은 "씬 상태 없는 순수 함수만"
+  설계)에 `ui_palette(character_id) -> {primary, accent, panel_bg, text}`를 만들었다 —
+  프로필의 `hair_color`/`dress_color` 중 채도×명도가 큰(더 선명한) 쪽을 골라, `accent`는
+  HSV 채도/명도를 끌어올려 어두운 배경 위에서 또렷한 포커스·테두리 색으로, `primary`는
+  중간 명도로 눌러 평상시 테두리색으로, `panel_bg`는 원색이 아무리 밝아도(해적의
+  터콰이즈 등) 항상 HSV value=0.09까지 눌러 어두운 배경으로 고정한다(INBOX.md가 명시한
+  "원색을 그대로 배경에 쓰지 말 것" 우려를 구조적으로 막음). `text`는 near-white
+  고정값이지만 `_ensure_text_contrast()`가 WCAG 2.0 공식(`relative_luminance`/
+  `contrast_ratio`, 둘 다 공개 함수)으로 `panel_bg` 대비 4.5:1 미만이면 자동으로
+  밝혀 보정한다(실측 8종 전부 12.88~13.47:1로 여유 있게 통과, panel_bg를 항상 어둡게
+  고정한 덕에 사실상 항상 한 번에 통과). `CharacterTheme.apply(panel, character_id,
+  use_accent)`는 "panel" 테마 슬롯의 StyleBoxFlat을 복제해 border_color만 덮어쓰는
+  한 줄 헬퍼(INBOX.md 원문 "화면별 하드코딩이 아니라 공용 헬퍼로 — 새 화면이 생겨도
+  한 줄로 적용되게").
+  **적용**: ① `character_select.gd` 우측 상세 패널 — `_make_section()`이 만드는 섹션
+  5개를 `_detail_section_entries`(panel+title_label 쌍)에 쌓아두고, `_refresh_detail_
+  panel()`이 호출하는 신규 `_apply_detail_section_theme()`가 카드를 고를 때마다 그
+  캐릭터의 `primary`(테두리)/`accent`(제목색)로 다시 칠한다. 시작 스킬 슬롯의 포커스
+  체인도 같은 `accent`를 쓰도록 `FocusNav.chain_linear()` 호출에 넘겼다(좌측 카드
+  목록/화면 공용 버튼은 "선택 전 기본은 중립색" 원문대로 FocusNav.ACCENT_DEFAULT 유지 —
+  상세 패널만 캐릭터색을 따름). ② `deck_panel.gd` — dungeon_map/shop/event/
+  story_event에 상시, combat_test에 토글로 뜨는 "주요 패널"이 이미 5개 화면에
+  재사용되고 있어서, 이 패널 하나의 `_rebuild()`에 `CharacterTheme.apply(self,
+  RunState.character_id)` 한 줄만 추가해 "런 시작 이후 모든 화면의 주요 패널 테두리
+  통일" 요구를 화면마다 따로 손대지 않고 충족했다(제목 "캐릭터: OOO" 글자색도 accent로).
+  ③ K-1이 만든 `FocusNav.focus_style()`의 `accent` 매개변수 자리에 `CharacterTheme.
+  ui_palette(RunState.character_id)["accent"]`를 꽂았다 — dungeon_map/combat_test/
+  event/shop/story_event(`FocusNav.chain_linear(_shortcut_buttons, false)` 호출부
+  5곳)와 customize_panel/achievement_panel(오버레이 트랩 체인)까지 전부 포커스
+  강조색이 캐릭터색으로 바뀐다.
+  **검증**: 신규 `dice_test.gd`의 `_check_k3_character_theme()`가 (a) 8명 전부 ui_
+  palette().text/.panel_bg 실제 계산된 대비비가 4.5 이상인지(12.88~13.47 확인) (b)
+  character_select를 "견습 모험가"→"해적"으로 바꾸면 상세 패널 섹션의 실제
+  border_color가 달라지고 `ui_palette("pirate").primary`와 정확히 일치하는지 (c)
+  `DeckPanel.new()`로 캐릭터를 바꿔가며 `_rebuild()`를 직접 불러 패널 자신의
+  border_color가 실제로 바뀌는지 — 셋 다 "플래그가 들어갔나"가 아니라 "실제 노드의
+  StyleBox 색 값"으로 검증. 처음 실행 시 `character_theme.gd`의 `max(l1, l2)`/
+  `min(l1, l2)`를 `var lighter := ...`로 타입 추론해 "Variant로 추론됨(경고를 에러로
+  처리)" 컴파일 에러가 났고, `float` 명시 타입으로 고쳐 해결(세션 권한 설정상 흔한
+  함정 — 이 프로젝트는 경고를 에러로 처리). `bash scripts/qa_shot.sh dice_test` 3회
+  연속 PASS 확인. `qa_shot.sh character_select`로 견습 모험가(연핑크)/해적(청록, 원화
+  있음)/주술사(짙은 보라, 원화 있음) 3명을 스크린샷 비교 — 섹션 테두리·제목·"고유
+  능력" 아이콘 색이 캐릭터마다 뚜렷이 다르고 겹침/번짐 없음 확인, `qa_shot.sh
+  dungeon_map`으로 DeckPanel 테두리+"캐릭터: 견습 모험가" 제목+"전투 방 입장" 버튼
+  포커스 테두리가 전부 같은 핑크 계열로 통일됨을 확인. `docs/DESIGN.md` "조작"/
+  "플레이어블 캐릭터" 절에 K-3 서술 추가. **K-3 완료 — 다음은 K-4(a: 스킬 아이콘
+  모티프 분류표)**. INBOX.md [대형 기획 11]은 "부분 처리됨"에 그대로 두고 진행 한
+  줄만 갱신. "완료 기록" 10개 유지를 위해 (179)를 `docs/STATUS_ARCHIVE.md`로 옮겼다.
+
 - **2026-10-13 (188)**: INBOX.md 최우선 지시 [대형 기획 11] 조작/UI 개편(K-1→K-4) 중
   **K-2(캐릭터 선택 화면 가독성 개편: 좌 얼굴 중심 목록 / 우 구역 나눈 상세 패널)
   완료**. 좌측 카드 목록(`code/scenes/character_select.gd`의 `_make_card()`)을
@@ -1224,57 +1280,9 @@ K-1이 만든 `FocusNav.focus_style()`의 accent 매개변수에 캐릭터 퍼�
   0% 원인 조사) — 여전히 목표(35~55%) 대비 크게 미달이라 J-2가 계속된다.
   "완료 기록" 10개 유지를 위해 (170)을 `docs/STATUS_ARCHIVE.md`로 옮겼다.
 
-- **2026-10-08 (179)**: INBOX.md 최우선 지시 [대형 기획 10] **J-1(몬스터 난이도
-  튜닝 목표 대비 체크 도구)** — J-2~J-4가 손잡이를 움직이기 전에 "항목(일반
-  방0~2/방3/정예/보스) × 라운드별 실제 평균 vs 목표 밴드, 통과/미달/초과"를
-  뽑아낼 재사용 가능한 체크 도구가 먼저 필요하다는 지시.
-  **구현**: 신규 `code/qa/balance_target_check.gd`(+ `code/scenes/
-  balance_target_check.tscn`)를 `balance_growth_report.gd`와 같은
-  Node2D+ResultLabel 패턴으로 작성. `qa_out/balance_sim_growth_raw.tsv`(F-5b,
-  576행)를 읽어 각 행을 네 카테고리(`_category_for()`) — 일반 방0~2(room
-  0~2, 비정예)/일반 방3(room 3)/정예(room 1~3, 정예)/보스(room 4) — 로
-  분류하고, **균형 정책만 판정**(`JUDGED_POLICY`)해 라운드별(R1/R2/R3) +
-  전체 평균 win_rate를 목표 밴드(`TARGET_BANDS` 상수 — 일반0~2 85~100%/
-  일반3 75~85%/정예 55~70%/보스 35~55%, INBOX.md 원문)와 비교해 통과/미달/
-  초과를 매긴다. 공격/방어 몰빵 2종은 같은 표 구조의 "참고용" 표로만
-  곁들인다(판정 대상 아님, INBOX.md 지시). 추가로 J 전체 목표 문구가 언급한
-  "참고 지표"(통과 못 해도 실패 아님) 두 가지도 미리 넣었다 — 라운드 경향
-  (R1>=R2>=R3, 허용오차 ±5%p)과 캐릭터별 평균 ±15%p 이상치
-  (`_character_outliers()`, `balance_report.gd`의 이상치 판정과 같은 방식).
-  결과는 `docs/BALANCE_TUNING_LOG.md`에 "튜닝 전 기준선" 섹션으로 저장
-  (`_append_to_log()`) — 파일이 없으면 새로 만들고, 이미 그 섹션이 있으면
-  (재실행/디버깅 시 중복 누적 방지) 그 섹션만 통째로 교체하되 그 뒤에 이어질
-  다른 섹션(J-2~J-4가 추가할 "시도 N" 기록)은 그대로 보존한다.
-  **검증**: `bash scripts/qa_shot.sh balance_target_check`로 실행 — 처음엔
-  `var r1 := _average_win_rate(...)`(Variant 반환을 `:=`로 추론)에서
-  "경고를 에러로 처리" 파싱 에러가 나 크래시했고(스크린샷은 저장됐지만 실제
-  연산은 실패), `r1: Variant = ...`로 명시적 타입을 줘서 고친 뒤 재실행해
-  `[balance_target_check] 완료 — ... (576행)` 로그와 스크린샷
-  (`qa_out/balance_target_check.png`)이 정상 저장됨을 확인했다. 생성된
-  `docs/BALANCE_TUNING_LOG.md`를 직접 열어 **카테고리/라운드마다 실제로
-  다른 숫자**가 나오는지(플래그가 아니라 계산 결과) 확인 — 일반 방0~2
-  R1 99.8%/R2 96.7%/R3 94.7%(전체 97.1%, 통과) / 일반 방3 R1 72.8%/R2
-  48.5%/R3 71.3%(전체 64.2%, **미달** — 목표 75~85%) / 정예 R1 49.3%/R2
-  24.0%/R3 44.6%(전체 39.3%, **미달** — 목표 55~70%) / 보스 R1 0.0%/R2
-  0.1%/R3 4.5%(전체 1.5%, **미달** — 목표 35~55%). INBOX.md가 서술한
-  "방3 절벽/보스 사실상 불가/정예 들쭉날쭉"이 숫자로 그대로 재현됨을
-  확인했다. 참고 지표: 라운드 경향은 일반 방3/정예에서 "위반"(R2가 R1/R3보다
-  낮게 꺾이는 비단조 패턴 — R1≥R2 조건이 깨짐), 일반 방0~2/보스는 "유지".
-  캐릭터 이상치는 매혹사 1명만(+22.3%p) 걸림. 둘 다 숫자만 기록했고 원인
-  해석/조정 제안은 쓰지 않았다(INBOX.md 지시).
-  `git status`로 루트에 의도치 않은 파일 없음 확인(스크린샷은
-  `qa_out/balance_target_check.png`, `.gitignore` 대상이라 커밋 제외 —
-  `code/qa/balance_target_check.gd`+`.tscn`과 `docs/BALANCE_TUNING_LOG.md`만
-  커밋).
-  **J-1 완료.** INBOX.md "남은 이슈"의 [대형 기획 10] 항목을 "부분 처리됨"으로
-  옮기고 진행 줄(J-1 완료, J-2~J-4 남음)을 추가했다. 다음은 **J-2**(보스
-  튜닝 — 보스 공통 보정을 한 손잡이씩 완화하며 이 체크 도구로 재측정, 목표
-  35~55%). "완료 기록" 10개 유지를 위해 (169)를 `docs/STATUS_ARCHIVE.md`로
-  옮겼다.
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(188)에서 (178)을 그리로 옮겼다.)*
+이번 이터레이션(189)에서 (179)를 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 

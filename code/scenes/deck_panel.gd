@@ -51,6 +51,10 @@ func _ready() -> void:
 	style.content_margin_right = 10
 	style.content_margin_bottom = 10
 	add_theme_stylebox_override("panel", style)
+	# K-3(캐릭터 퍼스널 컬러): 이 패널은 dungeon_map/shop/event/story_event에 상시,
+	# combat_test에 토글로 떠 있어 "런 시작 이후 모든 화면의 주요 패널 테두리"를 한
+	# 지점에서 통일하기에 가장 효율적인 자리다 — 실제 색 적용은 캐릭터가 바뀔 때마다
+	# _rebuild()가 담당(이 _ready() 시점의 border_color는 _rebuild()가 바로 덮어씀).
 
 	_vbox = VBoxContainer.new()
 	_vbox.add_theme_constant_override("separation", 4)
@@ -84,6 +88,10 @@ func _bag_signature(bag: DiceBag) -> String:
 
 
 func _rebuild() -> void:
+	# K-3: 패널 테두리를 현재 캐릭터의 primary 색으로 다시 칠한다(캐릭터가 바뀔 때만
+	# 실제로 값이 변함, _process()가 이미 character_id를 서명에 포함해 이때만 _rebuild()
+	# 호출함).
+	CharacterTheme.apply(self, RunState.character_id, false)
 	for c in _vbox.get_children():
 		c.queue_free()
 	_add_character_section()
@@ -114,7 +122,9 @@ func _add_character_section() -> void:
 	var title := Label.new()
 	title.text = "캐릭터: %s" % profile.get("name", "")
 	title.add_theme_font_size_override("font_size", 15)
-	title.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9))
+	# K-3: 이름 글자색도 테두리와 같은 캐릭터 accent로 — 패널 전체가 "이 캐릭터의 색"
+	# 이라는 인상을 제목에서부터 준다.
+	title.add_theme_color_override("font_color", CharacterTheme.ui_palette(RunState.character_id)["accent"])
 	title_row.add_child(title)
 	_vbox.add_child(title_row)
 

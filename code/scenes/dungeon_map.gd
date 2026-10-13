@@ -641,7 +641,8 @@ func _layout_visible_buttons() -> void:
 			extra_gap = SHOP_GOLD_LABEL_GAP
 		y += BUTTON_SPACING + extra_gap
 	_shortcut_buttons = visible_buttons
-	FocusNav.chain_linear(_shortcut_buttons, false)
+	# K-3: 포커스 강조색도 현재 캐릭터 accent로(K-1의 ACCENT_DEFAULT 대신).
+	FocusNav.chain_linear(_shortcut_buttons, false, false, false, CharacterTheme.ui_palette(RunState.character_id)["accent"])
 	FocusNav.grab_first_focus(_shortcut_buttons)
 
 

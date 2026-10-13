@@ -102,6 +102,12 @@ var _detail_skill_label: Label
 ## 패널 자체를 숨겨 그 자리를 아예 차지하지 않게 한다.
 var _detail_note_section_panel: Control
 
+## K-3(캐릭터 퍼스널 컬러): _make_section()이 만든 섹션마다 {panel, title_label(또는
+## null)}을 쌓아둔다 — 캐릭터를 바꿀 때마다 _refresh_detail_panel()이 이 목록을 돌며
+## CharacterTheme.ui_palette(_selected_id)로 테두리/제목 색을 다시 칠한다(섹션 틀
+## 자체는 다시 안 만듦, 기존 "텍스트만 갱신" 패턴과 동일).
+var _detail_section_entries: Array[Dictionary] = []
+
 ## 시작 스킬 선택([미니 기획 E]-3, INBOX.md 2026-09-17 기획자 결정) — 캐릭터마다
 ## SkillPool.starting_skills_for_character()가 돌려주는 후보(항상 최대 2개, 슬롯
 ## 0/1)를 _starting_skill_container 안에 버튼으로 채운다. 캐릭터를 바꿀 때마다 후보
@@ -286,6 +292,9 @@ func _build_detail_panel() -> void:
 ## 섹션 공통 틀 — title이 있으면 제목 라벨을 맨 위에 두고, 테두리+배경 패널로 감싼
 ## VBoxContainer(섹션 내용을 담을 "body")를 반환한다. title이 빈 문자열이면 제목 없이
 ## 틀만 만든다(헤더 섹션 전용 — 이름 자체가 이미 제목 역할을 하므로 중복 라벨 불필요).
+## 생성한 panel(+title_label, 있으면)은 _detail_section_entries에 쌓아 K-3이 캐릭터별
+## 색으로 다시 칠할 수 있게 한다 — 여기서 넣는 색은 아직 중립값(NEUTRAL_PRIMARY 계열)일
+## 뿐, 실제 캐릭터색 적용은 항상 _refresh_detail_panel()이 담당한다(최초 호출도 포함).
 func _make_section(title: String) -> VBoxContainer:
 	var panel := PanelContainer.new()
 	var style := StyleBoxFlat.new()
@@ -304,14 +313,30 @@ func _make_section(title: String) -> VBoxContainer:
 	body.add_theme_constant_override("separation", 4)
 	panel.add_child(body)
 
+	var title_label: Label = null
 	if title != "":
-		var title_label := Label.new()
+		title_label = Label.new()
 		title_label.text = title
 		title_label.add_theme_font_size_override("font_size", 13)
 		title_label.add_theme_color_override("font_color", Color(0.55, 0.78, 0.82))
 		body.add_child(title_label)
 
+	_detail_section_entries.append({"panel": panel, "title_label": title_label})
 	return body
+
+
+## K-3: 캐릭터를 바꿀 때마다 섹션 5개의 테두리를 그 캐릭터의 primary 색으로, 제목
+## 라벨을 accent 색으로 다시 칠한다. character_id가 비어있던 적은 없지만(RunState.
+## character_id는 항상 PROFILES[0]으로 초기화) 방어적으로 CharacterTheme.ui_palette()의
+## "" 폴백(중립색)도 그대로 성립한다.
+func _apply_detail_section_theme(character_id: String) -> void:
+	var palette := CharacterTheme.ui_palette(character_id)
+	for entry in _detail_section_entries:
+		var panel: PanelContainer = entry["panel"]
+		CharacterTheme.apply(panel, character_id, false)
+		var title_label: Label = entry["title_label"]
+		if title_label != null:
+			title_label.add_theme_color_override("font_color", palette["accent"])
 
 
 ## ① 헤더: 전신 원화(또는 플레이스홀더) + 이름 + 컨셉 한 줄.
@@ -565,6 +590,7 @@ func _truncate(text: String, max_chars: int) -> String:
 ## 전부 D4) 캐릭터별 수치 변경에 항상 정확하다.
 func _refresh_detail_panel() -> void:
 	var profile := CharacterProfiles.get_profile(_selected_id)
+	_apply_detail_section_theme(_selected_id)
 	_detail_portrait.set_palette(profile["hair_color"], profile["dress_color"])
 	var art := CharacterArt.load_full(_selected_id)
 	_detail_art.texture = art
@@ -621,7 +647,9 @@ func _rebuild_starting_skill_slots() -> void:
 		var slot_button := _make_starting_skill_slot(skill, unlocked, i)
 		_starting_skill_container.add_child(slot_button)
 		_starting_skill_slot_buttons.append(slot_button)
-	FocusNav.chain_linear(_starting_skill_slot_buttons, true)
+	# K-3: 시작 스킬 슬롯의 포커스 테두리도 캐릭터 accent 색을 쓴다(K-1의 ACCENT_DEFAULT
+	# 대신). 상세 패널 전체가 이미 그 캐릭터 색이므로 포커스 색도 일관되게 맞춘다.
+	FocusNav.chain_linear(_starting_skill_slot_buttons, true, false, false, CharacterTheme.ui_palette(_selected_id)["accent"])
 
 	_update_starting_skill_description(candidates)
 

@@ -115,7 +115,8 @@ func _unhandled_input(event: InputEvent) -> void:
 ## 포커스가 안에 갇히는 방향키 체인(위/아래, wrap+trap)으로 묶고 첫 버튼에 포커스를
 ## 준다. 각 _show_*_picker()가 자신의 버튼을 다 그린 뒤 마지막에 호출한다.
 func _chain_step_focus(buttons: Array[Button]) -> void:
-	FocusNav.chain_linear(buttons, false, true, true)
+	# K-3: 포커스 강조색도 현재 캐릭터 accent로(K-1의 ACCENT_DEFAULT 대신).
+	FocusNav.chain_linear(buttons, false, true, true, CharacterTheme.ui_palette(RunState.character_id)["accent"])
 	FocusNav.grab_first_focus(buttons)
 
 

@@ -40,7 +40,8 @@ func _ready() -> void:
 ## 화면에 보이는 버튼 구성이 바뀔 때마다(선택 전/후) 다시 불러 숫자 키 배정을 갱신한다.
 func _refresh_shortcuts(buttons: Array[Button]) -> void:
 	_shortcut_buttons = buttons
-	FocusNav.chain_linear(_shortcut_buttons, false)
+	# K-3: 포커스 강조색도 현재 캐릭터 accent로(K-1의 ACCENT_DEFAULT 대신).
+	FocusNav.chain_linear(_shortcut_buttons, false, false, false, CharacterTheme.ui_palette(RunState.character_id)["accent"])
 	FocusNav.grab_first_focus(_shortcut_buttons)
 
 

@@ -99,7 +99,8 @@ func _rebuild() -> void:
 	# wrap=true: 포커스가 패널 밖(뒤에 가려진 character_select 화면)으로 못 나가게
 	# 한다 — 버튼이 하나뿐이라 지금은 "자기 자신에게 자기 자신"으로 닫힌 루프가 되지만,
 	# 목록 버튼이 나중에 늘어나도 동작은 그대로 유지된다.
-	FocusNav.chain_linear(_shortcut_buttons, false, true, true)
+	# K-3: 포커스 강조색도 현재 캐릭터 accent로(K-1의 ACCENT_DEFAULT 대신).
+	FocusNav.chain_linear(_shortcut_buttons, false, true, true, CharacterTheme.ui_palette(RunState.character_id)["accent"])
 	FocusNav.grab_first_focus(_shortcut_buttons)
 
 

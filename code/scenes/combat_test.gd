@@ -1003,7 +1003,8 @@ func _rebuild_shortcuts() -> void:
 		buttons.append(customize_toggle_button)
 	buttons.append(deck_toggle_button)
 	_shortcut_buttons = buttons
-	FocusNav.chain_linear(_shortcut_buttons, false)
+	# K-3: 포커스 강조색도 현재 캐릭터 accent로(K-1의 ACCENT_DEFAULT 대신).
+	FocusNav.chain_linear(_shortcut_buttons, false, false, false, CharacterTheme.ui_palette(RunState.character_id)["accent"])
 	FocusNav.grab_first_focus(_shortcut_buttons)
 
 

@@ -161,6 +161,15 @@ story_event, customize_panel/achievement_panel(오버레이, 포커스 트랩 + 
 test_battle_setup("뒤로"/"전투 시작"만 — 나머지 설정 컨트롤은 Godot 기본 포커스
 동작에 맡김). deck_panel은 view-only라 포커스 대상 자체가 없다.
 
+**2026-10-13 [대형 기획 11] K-3로 포커스 강조색이 캐릭터 퍼스널 컬러를 따름** —
+`FocusNav.focus_style()`의 `accent` 매개변수(K-1이 미리 열어둔 자리)에
+`CharacterTheme.ui_palette(RunState.character_id)["accent"]`를 넘겨, dungeon_map/
+combat_test/event/shop/story_event/customize_panel/achievement_panel의 포커스
+테두리가 전부 지금 런의 캐릭터 색으로 바뀐다(아직 런 시작 전인 character_select
+좌측 카드 목록/화면 공용 버튼은 중립색 유지 — 우측 상세 패널만 선택한 카드의 색을
+따름, 상세는 아래 "플레이어블 캐릭터" 절 참고). 캐릭터가 없는 테스트/QA 컨텍스트는
+`RunState.character_id` 기본값(견습 모험가)으로 자연히 폴백한다.
+
 ## 현재 구현 콘텐츠 (기획자 참고용)
 
 > 이 섹션은 코드를 열지 않고도 "지금 게임에 실제로 뭐가 들어있는지" 확인하기 위한
@@ -186,6 +195,22 @@ test_battle_setup("뒤로"/"전투 시작"만 — 나머지 설정 컨트롤은 
 이름+최대 2줄 설명) ④시작 스킬 3슬롯(기존 F-1~F-4 구조 그대로) ⑤안내(원화 미입고
 플레이스홀더 안내, 원화가 있으면 섹션 자체가 숨겨짐) — 각 섹션은 독립된 테두리 패널로
 시각적으로 분리된다(`_make_section()`).
+
+**2026-10-13 [대형 기획 11] K-3로 캐릭터 퍼스널 컬러를 UI 팔레트로 사용** —
+`code/systems/character_theme.gd`(`CharacterTheme`, 순수 함수만 — `FocusNav`/
+`CharacterProfiles`와 같은 설계)가 프로필의 `hair_color`/`dress_color` 중 더 선명한
+쪽을 골라 `ui_palette(character_id) -> {primary, accent, panel_bg, text}` 4색
+팔레트를 만든다. 원색을 그대로 배경에 쓰지 않도록(예: 해적의 밝은 터콰이즈) `panel_bg`는
+항상 HSV 명도를 0.09까지 눌러 어둡게 고정하고, `text`는 그 배경 대비 WCAG AA
+기준(4.5:1) 이상을 계산으로 보장한다(`contrast_ratio()`, 8종 전부 12~13대1로 여유
+있게 통과). 적용 지점: ① 캐릭터 선택 우측 상세 패널(섹션 5개의 테두리+제목 색이 카드
+선택에 따라 즉시 전환, `_apply_detail_section_theme()`) ② `DeckPanel`(dungeon_map/
+shop/event/story_event에 상시, combat_test에 토글로 뜨는 "주요 패널"이라 캐릭터당
+한 지점만 바꾸면 5개 화면 전부에 반영됨, `CharacterTheme.apply()`) ③ K-1의
+`FocusNav.focus_style()` 포커스 강조색(dungeon_map/combat_test/event/shop/
+story_event/customize_panel/achievement_panel, "조작" 절 참고). `CharacterTheme.apply(panel,
+character_id)`는 "panel" 테마 슬롯이 있는 Control이면 한 줄로 테두리색을 덮어쓰는
+공용 헬퍼라, 새 화면이 생겨도 같은 패턴으로 바로 적용 가능하다.
 
 | id | 이름 | 컨셉 | 시작 다이스 (공격/방어, 전부 D4) | 시작 기믹 |
 |---|---|---|---|---|

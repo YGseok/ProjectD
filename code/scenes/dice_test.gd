@@ -285,6 +285,10 @@ func _ready() -> void:
 	all_pass = _check_k2_character_select_sections(lines) and all_pass
 
 	lines.append("")
+	lines.append("[K-3: 캐릭터 퍼스널 컬러 검증: character_theme.gd ui_palette 대비비 + character_select/deck_panel 노드 StyleBox 색 실제 전환]")
+	all_pass = _check_k3_character_theme(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -5890,5 +5894,80 @@ func _check_k2_character_select_sections(lines: PackedStringArray) -> bool:
 
 	remove_child(node)
 	node.free()
+	RunState.character_id = character_backup
+	return ok
+
+
+## K-3(캐릭터 퍼스널 컬러) 검증. "플래그가 들어갔나"가 아니라 (a)실제 계산된 대비비
+## 숫자, (b)(c) 실제 노드의 StyleBox border_color 값이 캐릭터를 바꾸면 실제로
+## 달라지는지를 확인한다(세션 공통 지침 — 계산 결과/화면에 보이는 값이 바뀌는지).
+func _check_k3_character_theme(lines: PackedStringArray) -> bool:
+	var ok := true
+	var character_backup := RunState.character_id
+
+	# (a) 8명 전부 ui_palette().text 대 .panel_bg 대비비가 WCAG AA 기준(4.5) 이상인지.
+	for profile in CharacterProfiles.PROFILES:
+		var cid: String = profile["id"]
+		var palette := CharacterTheme.ui_palette(cid)
+		var ratio := CharacterTheme.contrast_ratio(palette["text"], palette["panel_bg"])
+		var contrast_ok: bool = ratio >= CharacterTheme.MIN_TEXT_CONTRAST
+		ok = contrast_ok and ok
+		lines.append("  [%s] text/panel_bg 대비비=%.2f (기준 %.1f 이상) -> %s" % [
+			cid, ratio, CharacterTheme.MIN_TEXT_CONTRAST, "OK" if contrast_ok else "FAIL"
+		])
+
+	# (b) character_select 상세 패널: 캐릭터를 바꾸면 섹션 패널의 실제 border_color가
+	# 바뀌는지 — "견습 모험가"(연한 라벤더/핑크)와 "해적"(어두운 청록)은 hue가 크게
+	# 달라 같은 색으로 우연히 겹칠 가능성이 거의 없다.
+	var scene := load("res://code/scenes/character_select.tscn")
+	var cs_node = scene.instantiate()
+	add_child(cs_node)
+
+	cs_node._on_card_selected("novice")
+	var novice_style: StyleBoxFlat = cs_node._detail_section_entries[1]["panel"].get_theme_stylebox("panel")
+	var novice_border: Color = novice_style.border_color
+
+	cs_node._on_card_selected("pirate")
+	var pirate_style: StyleBoxFlat = cs_node._detail_section_entries[1]["panel"].get_theme_stylebox("panel")
+	var pirate_border: Color = pirate_style.border_color
+
+	var section_color_changed: bool = novice_border != pirate_border
+	ok = section_color_changed and ok
+	lines.append("  상세 패널 섹션 테두리색: novice=%s pirate=%s (달라야 함) -> %s" % [
+		novice_border, pirate_border, "OK" if section_color_changed else "FAIL"
+	])
+
+	var expected_pirate_primary: Color = CharacterTheme.ui_palette("pirate")["primary"]
+	var section_color_matches: bool = pirate_border.is_equal_approx(expected_pirate_primary)
+	ok = section_color_matches and ok
+	lines.append("  상세 패널 섹션 테두리색이 ui_palette(\"pirate\").primary와 일치 -> %s" % ("OK" if section_color_matches else "FAIL"))
+
+	remove_child(cs_node)
+	cs_node.free()
+
+	# (c) DeckPanel: 캐릭터를 바꾸면 패널 자신의 border_color가 실제로 바뀌는지(별도
+	# .tscn 없이 스크립트 하나로 완결된 Control이라 new()+add_child()만으로 충분,
+	# deck_panel.gd 문서 주석 참고).
+	var deck := DeckPanel.new()
+	add_child(deck)
+
+	RunState.character_id = "novice"
+	deck._rebuild()
+	var deck_novice_style: StyleBoxFlat = deck.get_theme_stylebox("panel")
+	var deck_novice_border: Color = deck_novice_style.border_color
+
+	RunState.character_id = "pirate"
+	deck._rebuild()
+	var deck_pirate_style: StyleBoxFlat = deck.get_theme_stylebox("panel")
+	var deck_pirate_border: Color = deck_pirate_style.border_color
+
+	var deck_color_changed: bool = deck_novice_border != deck_pirate_border
+	ok = deck_color_changed and ok
+	lines.append("  DeckPanel 테두리색: novice=%s pirate=%s (달라야 함) -> %s" % [
+		deck_novice_border, deck_pirate_border, "OK" if deck_color_changed else "FAIL"
+	])
+
+	remove_child(deck)
+	deck.free()
 	RunState.character_id = character_backup
 	return ok
