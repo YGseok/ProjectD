@@ -5,19 +5,42 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-10-13 (186)
-- 작성자: AI 에이전트. INBOX.md 최우선 지시대로 [대형 기획 10] **J-4(마무리)를
-  진행해 [대형 기획 10] 전체(J-1~J-4)를 완료 처리**했다. 코드 손잡이는
-  건드리지 않고 측정/문서 정리만 했다 — `balance_sim`→`balance_target_check`
-  재실행(포그라운드)으로 최종 수치 재확인(일반 방0~2 98.8%/방3 79.2%/정예
-  59.6%/보스 40.3%, 4개 항목 전부 통과, J-3 커밋 시점과 노이즈 범위 안에서
-  일치), `BALANCE_TUNING_LOG.md` 맨 위에 J-1 전/J-4 후 비교 요약표 신설,
-  `BALANCE_GROWTH_REPORT.md` 재생성, `DESIGN.md` 몬스터 절의 보스 공통 보정
-  (전부 제거됨)·면 승급 임계(D6>=3/D8>=7 최종값) 수치 갱신, `dice_test.gd`의
-  장황했던 "시도N차" 단계별 주석을 최종 상태 설명으로 정리(계산/기대값은
-  불변, `dice_test` 전체 PASS 재확인). INBOX.md의 [대형 기획 10]을 "부분
-  처리됨"에서 "처리됨"으로 이동. 자세한 내용은 아래 "완료 기록 (186)"과
-  `docs/BALANCE_TUNING_LOG.md` "J-4 최종 요약 — 전/후 비교" 섹션 참고.
+- 일시: 2026-10-13 (187)
+- 작성자: AI 에이전트. INBOX.md 최우선 지시 [대형 기획 11](조작/UI 개편) 중
+  **K-1(방향키+스페이스 조작으로 숫자 단축키 완전 대체)을 처음부터 끝까지
+  완료**했다. 신규 `code/scenes/focus_nav.gd`(`FocusNav`, 씬 상태 없는 순수
+  유틸)가 "버튼 목록을 방향키 체인으로 명시적으로 잇기(`chain_linear`,
+  위/아래 또는 좌/우, `wrap`으로 양 끝 연결, `trap`으로 반대 축을 자기
+  자신에 묶어 Godot 자동 탐색이 오버레이 밖으로 못 나가게 막음)" +
+  "눈에 띄는 포커스 테두리 스타일 적용" + "첫 버튼에 초기 포커스"를 제공한다
+  — 버튼 활성화(스페이스/Enter 확정) 자체는 Godot 기본 `BaseButton`
+  동작(focus_mode=FOCUS_ALL + ui_accept)에 맡기고 새로 구현하지 않았다.
+  대상 9개 화면(character_select/dungeon_map/combat_test/event/shop/
+  story_event/customize_panel/achievement_panel/test_battle_setup)
+  전부에서 `KeyboardShortcuts.apply_hints()`(버튼 "[n] " 접두어)와
+  숫자 키 `_unhandled_input` 핸들러를 제거하고 `FocusNav` 체인으로
+  교체했다. 오버레이 패널(customize_panel/achievement_panel)은 Esc로
+  닫히고(`_unhandled_input`에서 `KEY_ESCAPE` 감지) 포커스가 `wrap`+`trap`
+  체인으로 안에 갇힌다 — customize_panel은 5단계 화면
+  (`_show_pip_picker`/`_show_die_inventory_picker`/`_show_die_target_picker`/
+  `_show_die_picker`/`_show_face_picker`) 전부 다시 그릴 때마다 체인을
+  새로 건다. combat_test는 덱 보기 토글 패널도 Esc로 닫히게 자체
+  `_unhandled_input`에 추가했다. 더 이상 쓰이지 않는
+  `code/scenes/keyboard_shortcuts.gd`(`KeyboardShortcuts`)는 완전히
+  삭제했다. `dice_test.gd`의 기존 `_check_keyboard_shortcuts`도
+  `_check_focus_nav`로 교체 — "계산 결과가 바뀌는가"를 검증하는 지침대로
+  `focus_mode`/`focus_neighbor_*` NodePath를 직접 비교하고, 실제
+  `CustomizePanel` 인스턴스를 만들어 `has_focus()`(엔진 실제 포커스
+  상태)와 Esc 입력 후 `closed` 시그널 발생을 검증한다(개발 중 람다가
+  바깥 int를 값으로 캡처해 0으로 보이던 테스트 버그와, `close()`의
+  `queue_free()` 자식 뒤에 `panel.free()`를 즉시 호출해 이중 해제로
+  무관한 다른 테스트에서 세그폴트가 나던 문제 둘 다 실제로 겪고 고침 —
+  자세한 경위는 아래 "완료 기록 (187)" 참고). `dice_test` 전체 PASS를
+  3회 연속 재확인(크래시 없음). 9개 화면 전부 `qa_shot.sh`로 스크린샷
+  확인 — "[n] " 숫자 힌트가 전혀 안 보이고, 첫 포커스 버튼에 청록
+  테두리가 보임. `docs/DESIGN.md`에 "조작" 절 신설(키 매핑 표). INBOX.md의
+  [대형 기획 11]을 "부분 처리됨"으로 옮기고 K-1 완료 상태로 갱신 — K-2/K-3/
+  K-4는 아직 미착수. 자세한 내용은 아래 "완료 기록 (187)" 참고.
 
 ## 지금 위치
 
@@ -237,6 +260,13 @@ STATUS_ARCHIVE.md`(174 이전)/위 "완료 기록 (184)~(186)" 참고.
   캡처 폭이 이따금 1028px로 잘리는 환경 이슈, 루트에 잘못 저장된
   스크린샷은 이 환경에서 삭제가 구조적으로 막혀 있음).
 
+- **조작(2026-10-13 [대형 기획 11] K-1 완료)**: 숫자 단축키(`[1]`~`[9]`)는 완전히
+  삭제됐다. 이제 방향키(↑↓←→)로 포커스 이동, 스페이스/Enter로 확정, Esc로
+  오버레이(커스터마이징/업적) 닫기 — `code/scenes/focus_nav.gd`(`FocusNav`)가
+  화면마다 "보이는 버튼 목록"을 방향키 체인으로 명시적으로 묶는다. 자세한 키
+  매핑은 `docs/DESIGN.md` "조작" 절 참고. K-2(캐릭터 선택 화면 가독성 개편)/
+  K-3(캐릭터 퍼스널 컬러)/K-4(스킬 아이콘)는 아직 미착수.
+
 상세 변경 이력은 아래 "완료 기록"(최근 10개)과, 그보다 오래된 것은
 `docs/STATUS_ARCHIVE.md`(매 이터레이션 읽지 않는 아카이브) 참고.
 
@@ -245,11 +275,14 @@ STATUS_ARCHIVE.md`(174 이전)/위 "완료 기록 (184)~(186)" 참고.
 이 순서를 반드시 지킬 필요는 없지만, 앞 단계가 뒤 단계의 전제가 되므로 대체로 순서대로
 진행하는 것을 권장한다. 한 이터레이션에 한두 개만 진행할 것.
 
-**INBOX.md 최우선 지시 없음** — [대형 기획 10](몬스터 난이도 튜닝)이
-2026-10-13(186)에 J-1~J-4 전체 완료됐고, INBOX.md "남은 이슈"는 현재 비어
-있다. 아래 번호 매긴 큐에서 다음 작업을 고를 것 — 자세한 내용은 위 "지금
-위치"/"완료 기록 (186)" 참고. 남은 구조적 후보: 보스 개별 6종 중 타락한
-기사단장만 밴드 미달(`MonsterSkills.modify_monster_roll()` 파라미터화가
+**INBOX.md 최우선 지시 진행 중: [대형 기획 11](조작/UI 개편, K-1 → K-2 → K-3 →
+K-4(a→b→c))** — 2026-10-13(187)에 K-1(방향키+스페이스 조작) 완료. **다음은
+K-2(캐릭터 선택 화면 가독성 개편 — 좌: 얼굴 중심 목록, 우: 구역 나눈 상세
+패널)뿐**, 보류하지 말고 바로 착수할 것(INBOX.md "남은 이슈" 원문 참고,
+K-3가 K-1에서 만든 `FocusNav` 포커스 스타일에 캐릭터 퍼스널 컬러를 입히므로
+K-2 다음에 K-3를 하는 순서도 그대로 유지). 아래 번호 매긴 큐는 [대형 기획 11]이
+전부 끝난 뒤에나 다시 볼 것. 남은 구조적 후보(급하지 않음): 보스 개별 6종 중
+타락한 기사단장만 밴드 미달(`MonsterSkills.modify_monster_roll()` 파라미터화가
 전제조건이라 사람 설계 확인 후 착수 권장).
 
 0. **(INBOX.md 신규 2026-09-03) UI 접근성/가시성 4종 — 1/4 부분 착수.** 전부 "전투/
@@ -1213,51 +1246,9 @@ STATUS_ARCHIVE.md`(174 이전)/위 "완료 기록 (184)~(186)" 참고.
   결정 — 지금은 측정만 끝난 상태. "완료 기록" 10개 유지를 위해 (168)을
   `docs/STATUS_ARCHIVE.md`로 옮겼다.
 
-- **2026-10-08 (177)**: INBOX.md "부분 처리됨"의 [대형 기획 7] **F-5(b)(시뮬
-  실행/TSV 저장)** — F-5(a) 완료로 실행 순서상 다음 조각. 이번 이터레이션
-  시작 시 `code/qa/balance_sim.gd`에 이미 F-5(b) 구현(`_run_growth_simulation()`/
-  `_simulate_growth_combo()`/`_format_growth_row()`/`_save_growth_raw_tsv()`)과
-  실행 결과(`qa_out/balance_sim_growth_raw.tsv`, 577줄=헤더+576행)가 **미커밋
-  상태로 이미 존재**했다(직전 이터레이션이 사용량 한도로 끊긴 것으로 보임) —
-  새로 시작하지 않고 그대로 이어받아 검증만 했다.
-  **구현 요약**: `_run_growth_simulation(fixed_monster_plan, fixed_elite_plan)`이
-  F-4b와 같은 `AchievementManager`/`RunState` 백업·복원 패턴으로, 캐릭터 8종
-  (해적 포함, `CharacterProfiles.PROFILES` 동적 순회) × **시작 스킬 슬롯 0만**
-  × 정책 3종(balanced/attack_heavy/defense_heavy, "none"은 F-4 기준선과
-  동일해 제외) × {라운드1~3 × 방0~4(일반, 방4=보스) + 라운드1~3 × 방1~3(정예)}
-  = 8×3×24 = 576개 조합 × 100판을 `_simulate_growth_combo()`(F-4b의
-  `_simulate_combo()`와 동일한 `_resolve_exchange()` 호출 경로에
-  `global_index_for()`/`growth_config_for()`/`apply_growth()` 축만 추가)로
-  돌리고 `qa_out/balance_sim_growth_raw.tsv`에 저장한다. `_ready()`가 기존
-  F-4b 기준선 루프를 마친 뒤 이 함수를 호출해 요약 한 줄을 result_label에
-  덧붙이도록 바뀌었다(기존 루프/출력은 그대로).
-  **검증(F-3 원칙 — 계산 결과가 실제로 바뀌는지)**: 이미 F-5(a)에서 단위
-  테스트(`_check_f5a_growth_policies()`)로 `apply_growth()` 자체는 검증돼
-  있었으므로, 이번엔 "시뮬 안에서 실제로 적용되는지"를 TSV 결과값으로
-  확인했다. 생성된 `balance_sim_growth_raw.tsv`를 열어 pirate/start_vanguard/
-  balanced 정책의 **라운드3 방0~3 승률(94%/96%/97%/66%)**을 INBOX.md가 인용한
-  F-4 기준선(라운드2 방1부터 ~0%, 라운드3 전부 0%)과 비교 — 같은 후반 구간이
-  성장 적용 후 극적으로 높은 승률을 보여 `apply_growth()`가 시뮬 루프 안에서
-  실제로 다이스 개수/면 수를 키워 전투 결과를 바꾸고 있음을(플래그만 선 게
-  아니라) 직접 확인했다. 행 수도 기대값(8×3×24=576)과 정확히 일치.
-  `git diff`로 코드 변경분도 재검토 — 기존 F-4b 루프/TSV(`balance_sim_raw.tsv`)
-  는 손대지 않았고 성장 시뮬은 완전히 분리된 함수/파일(`balance_sim_growth_
-  raw.tsv`)로만 쓰여 기준선 재현성에 영향 없음을 확인.
-  **QA**: `qa_out/balance_sim.png`(이미 존재하던 스크린샷, F-4b 기준선 결과
-  라벨 상단부가 겹침/깨짐 없이 렌더링된 것 재확인 — 성장 요약 줄은 라벨
-  하단부라 화면 밖으로 넘어가 안 보이지만 F-4b 때도 같은 이유로 "실행됐다"만
-  확인하면 충분하다고 합의된 패턴). `qa_out/`는 `.gitignore` 대상이라 TSV/PNG는
-  커밋에 포함하지 않는다 — 코드(`code/qa/balance_sim.gd`)만 커밋.
-  **F-5(b) 완료.** 다음은 **F-5(c)**(`docs/BALANCE_GROWTH_REPORT.md` 생성기 —
-  `balance_report.gd`와 같은 패턴으로 `balance_sim_growth_raw.tsv`를 읽어
-  정책×캐릭터별 global index 0~14 승률 곡선 표 + 정책별 평균 곡선 + 라운드
-  경계/보스 직전·직후 낙폭, 맨 위에 "성장 가정" 한 문단, 해석·조정 제안 없이
-  숫자만). "완료 기록" 10개 유지를 위해 (167)을 `docs/STATUS_ARCHIVE.md`로
-  옮겼다.
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(186)에서 (176)을 그리로 옮겼다.)*
+이번 이터레이션(187)에서 (177)을 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 

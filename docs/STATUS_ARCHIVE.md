@@ -8,6 +8,48 @@
 
 ---
 
+- **2026-10-08 (177)**: INBOX.md "부분 처리됨"의 [대형 기획 7] **F-5(b)(시뮬
+  실행/TSV 저장)** — F-5(a) 완료로 실행 순서상 다음 조각. 이번 이터레이션
+  시작 시 `code/qa/balance_sim.gd`에 이미 F-5(b) 구현(`_run_growth_simulation()`/
+  `_simulate_growth_combo()`/`_format_growth_row()`/`_save_growth_raw_tsv()`)과
+  실행 결과(`qa_out/balance_sim_growth_raw.tsv`, 577줄=헤더+576행)가 **미커밋
+  상태로 이미 존재**했다(직전 이터레이션이 사용량 한도로 끊긴 것으로 보임) —
+  새로 시작하지 않고 그대로 이어받아 검증만 했다.
+  **구현 요약**: `_run_growth_simulation(fixed_monster_plan, fixed_elite_plan)`이
+  F-4b와 같은 `AchievementManager`/`RunState` 백업·복원 패턴으로, 캐릭터 8종
+  (해적 포함, `CharacterProfiles.PROFILES` 동적 순회) × **시작 스킬 슬롯 0만**
+  × 정책 3종(balanced/attack_heavy/defense_heavy, "none"은 F-4 기준선과
+  동일해 제외) × {라운드1~3 × 방0~4(일반, 방4=보스) + 라운드1~3 × 방1~3(정예)}
+  = 8×3×24 = 576개 조합 × 100판을 `_simulate_growth_combo()`(F-4b의
+  `_simulate_combo()`와 동일한 `_resolve_exchange()` 호출 경로에
+  `global_index_for()`/`growth_config_for()`/`apply_growth()` 축만 추가)로
+  돌리고 `qa_out/balance_sim_growth_raw.tsv`에 저장한다. `_ready()`가 기존
+  F-4b 기준선 루프를 마친 뒤 이 함수를 호출해 요약 한 줄을 result_label에
+  덧붙이도록 바뀌었다(기존 루프/출력은 그대로).
+  **검증(F-3 원칙 — 계산 결과가 실제로 바뀌는지)**: 이미 F-5(a)에서 단위
+  테스트(`_check_f5a_growth_policies()`)로 `apply_growth()` 자체는 검증돼
+  있었으므로, 이번엔 "시뮬 안에서 실제로 적용되는지"를 TSV 결과값으로
+  확인했다. 생성된 `balance_sim_growth_raw.tsv`를 열어 pirate/start_vanguard/
+  balanced 정책의 **라운드3 방0~3 승률(94%/96%/97%/66%)**을 INBOX.md가 인용한
+  F-4 기준선(라운드2 방1부터 ~0%, 라운드3 전부 0%)과 비교 — 같은 후반 구간이
+  성장 적용 후 극적으로 높은 승률을 보여 `apply_growth()`가 시뮬 루프 안에서
+  실제로 다이스 개수/면 수를 키워 전투 결과를 바꾸고 있음을(플래그만 선 게
+  아니라) 직접 확인했다. 행 수도 기대값(8×3×24=576)과 정확히 일치.
+  `git diff`로 코드 변경분도 재검토 — 기존 F-4b 루프/TSV(`balance_sim_raw.tsv`)
+  는 손대지 않았고 성장 시뮬은 완전히 분리된 함수/파일(`balance_sim_growth_
+  raw.tsv`)로만 쓰여 기준선 재현성에 영향 없음을 확인.
+  **QA**: `qa_out/balance_sim.png`(이미 존재하던 스크린샷, F-4b 기준선 결과
+  라벨 상단부가 겹침/깨짐 없이 렌더링된 것 재확인 — 성장 요약 줄은 라벨
+  하단부라 화면 밖으로 넘어가 안 보이지만 F-4b 때도 같은 이유로 "실행됐다"만
+  확인하면 충분하다고 합의된 패턴). `qa_out/`는 `.gitignore` 대상이라 TSV/PNG는
+  커밋에 포함하지 않는다 — 코드(`code/qa/balance_sim.gd`)만 커밋.
+  **F-5(b) 완료.** 다음은 **F-5(c)**(`docs/BALANCE_GROWTH_REPORT.md` 생성기 —
+  `balance_report.gd`와 같은 패턴으로 `balance_sim_growth_raw.tsv`를 읽어
+  정책×캐릭터별 global index 0~14 승률 곡선 표 + 정책별 평균 곡선 + 라운드
+  경계/보스 직전·직후 낙폭, 맨 위에 "성장 가정" 한 문단, 해석·조정 제안 없이
+  숫자만). "완료 기록" 10개 유지를 위해 (167)을 `docs/STATUS_ARCHIVE.md`로
+  옮겼다.
+
 - **2026-10-08 (176)**: INBOX.md "남은 이슈"의 [대형 기획 7] **F-5(a)(성장 정책
   구현 + 단위 검증)** — F-5는 (a)성장 정책 구현→(b)시뮬 실행/TSV 저장→(c)리포트
   생성기 3개 이터레이션으로 쪼개라는 지시였고, 이번은 첫 조각.

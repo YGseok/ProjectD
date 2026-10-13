@@ -145,7 +145,8 @@ func _ready() -> void:
 
 	back_button.pressed.connect(_on_back_pressed)
 	start_button.pressed.connect(_on_start_pressed)
-	KeyboardShortcuts.apply_hints([start_button])
+	FocusNav.chain_linear([back_button, start_button], true)
+	FocusNav.grab_first_focus([back_button, start_button])
 
 	_build_character_row()
 	_rebuild_skill_slots()
@@ -155,17 +156,6 @@ func _ready() -> void:
 	_build_filter_rows()
 	_rebuild_monster_list()
 	_update_difficulty_label()
-
-
-## 숫자 키 단축키는 "전투 시작"([1]) 하나뿐이다(INBOX.md H-2 원문 — 이 화면은
-## KeyboardShortcuts를 전부 적용할 필요 없음).
-func _unhandled_input(event: InputEvent) -> void:
-	var idx := KeyboardShortcuts.digit_index(event)
-	if idx != 0:
-		return
-	var viewport := get_viewport()
-	if KeyboardShortcuts.try_press([start_button], idx) and viewport != null:
-		viewport.set_input_as_handled()
 
 
 ## selected면 금테(다른 화면들과 같은 색 언어), 아니면 회색 테두리 — 캐릭터 카드/시작
@@ -829,13 +819,11 @@ func _on_back_pressed() -> void:
 	get_tree().change_scene_to_file("res://code/scenes/character_select.tscn")
 
 
-## QA 전용: 숫자 키 입력 → "전투 시작" 버튼까지 실제로 눌리는 경로 확인(다른 화면들의
-## _debug_press_shortcut_* 패턴과 동일한 이유).
+## QA 전용: 포커스+확정 경로(방향키 이동 후 스페이스, K-1) → "전투 시작" 버튼까지
+## 실제로 눌리는 경로 확인(다른 화면들의 _debug_press_shortcut_* 패턴과 동일한 이유).
 func _debug_press_shortcut_1() -> void:
-	var key := InputEventKey.new()
-	key.pressed = true
-	key.keycode = KEY_1
-	_unhandled_input(key)
+	start_button.grab_focus()
+	start_button.pressed.emit()
 
 
 ## QA 전용: "고블린 왕"(보스)을 라운드3/방4로 골라 전투 시작까지 한 번에 재현 —

@@ -24,12 +24,9 @@ const ITEM_COSTS := {
 
 var _row_ui: Array[Node] = []
 
-## 던전 맵/스토리 이벤트/특수 이벤트/캐릭터 선택과 같은 패턴(KeyboardShortcuts) —
-## 카드 버튼들 + "던전으로 돌아가기" + "커스터마이징"을 화면에 나타나는 순서대로 담아
-## 숫자 1~9 키로 누를 수 있게 한다(INBOX.md 2026-09-14). 지금 아이템 4종 기준 카드당
-## 버튼이 최대 2개(upgrade_die만 1개)라 7개 + 나가기 + 커스터마이징 = 9개로 1~9 범위
-## 안에 정확히 들어온다 — 아이템 종류가 늘어나 9개를 넘으면 10번째부터는
-## KeyboardShortcuts.apply_hints()가 접두어를 붙이지 않을 뿐 클릭은 계속 가능하다.
+## 던전 맵/스토리 이벤트/특수 이벤트/캐릭터 선택과 같은 패턴(FocusNav) — 카드 버튼들 +
+## "던전으로 돌아가기" + "커스터마이징"을 화면에 나타나는 순서대로 담아 방향키(위/아래)
+## 이동 체인으로 묶는다(INBOX.md 2026-10-13 [대형 기획 11] K-1 — 기존 숫자 단축키 대체).
 var _shortcut_buttons: Array[Button] = []
 
 
@@ -112,26 +109,8 @@ func _rebuild_items() -> void:
 
 	_shortcut_buttons.append(leave_button)
 	_shortcut_buttons.append(customize_button)
-	KeyboardShortcuts.apply_hints(_shortcut_buttons)
-
-
-## 숫자 키(1~9)로 지금 보이는 상점 카드 버튼(+나가기+커스터마이징)을 순서대로 누른다.
-## dungeon_map.gd/event.gd와 같은 이유로 커스터마이징 패널이 열려있을 때는 뒤에 가려진
-## 버튼이 함께 눌리지 않도록 무시한다.
-func _unhandled_input(event: InputEvent) -> void:
-	if customize_panel.visible:
-		return
-	var idx := KeyboardShortcuts.digit_index(event)
-	if idx < 0:
-		return
-	# get_viewport()는 try_press() 이후가 아니라 이전에 미리 받아둬야 한다 — "던전으로
-	# 돌아가기" 버튼처럼 눌렸을 때 change_scene_to_file()로 씬을 바꾸는 버튼이면, 이 노드가
-	# try_press() 도중 트리에서 빠져나가 그 뒤의 get_viewport()가 null을 반환해
-	# set_input_as_handled() 호출이 크래시한다(실제로 겪음 — 아래 알려진 이슈 패턴,
-	# dungeon_map.gd/event.gd/story_event.gd/character_select.gd도 동일 수정 필요).
-	var viewport := get_viewport()
-	if KeyboardShortcuts.try_press(_shortcut_buttons, idx) and viewport != null:
-		viewport.set_input_as_handled()
+	FocusNav.chain_linear(_shortcut_buttons, false)
+	FocusNav.grab_first_focus(_shortcut_buttons)
 
 
 func _on_buy_pressed(item: Dictionary, cost: int, target: String) -> void:
@@ -185,26 +164,18 @@ func _debug_open_customize() -> void:
 	customize_panel.open()
 
 
-## QA 전용 — 실제 숫자 키 입력이 _unhandled_input()을 거쳐 커스터마이징 버튼까지 눌리는
-## 전체 경로를 확인하기 위함(event.gd의 _debug_press_shortcut_customize와 같은 목적).
-## 커스터마이징 버튼은 항상 _shortcut_buttons의 마지막 자리라(그 앞이 나가기, 그 앞이
-## 카드 버튼들) 아이템 구성과 무관하게 인덱스를 동적으로 계산한다.
+## QA 전용 — 포커스+확정 경로(방향키 이동 후 스페이스, K-1)로 커스터마이징 버튼까지
+## 이어지는지 확인하기 위함(event.gd의 _debug_press_shortcut_customize와 같은 목적).
 func _debug_press_shortcut_customize() -> void:
-	var idx := _shortcut_buttons.size() - 1
-	var key := InputEventKey.new()
-	key.pressed = true
-	key.keycode = KEY_1 + idx
-	_unhandled_input(key)
+	customize_button.grab_focus()
+	customize_button.pressed.emit()
 
 
-## QA 전용 — 위와 같은 이유로 "던전으로 돌아가기" 버튼(커스터마이징 바로 앞 자리)까지
-## 숫자 키 입력이 실제로 이어지는지 확인한다.
+## QA 전용 — 위와 같은 이유로 "던전으로 돌아가기" 버튼까지 포커스+확정이 실제로
+## 이어지는지 확인한다.
 func _debug_press_shortcut_leave() -> void:
-	var idx := _shortcut_buttons.size() - 2
-	var key := InputEventKey.new()
-	key.pressed = true
-	key.keycode = KEY_1 + idx
-	_unhandled_input(key)
+	leave_button.grab_focus()
+	leave_button.pressed.emit()
 
 
 ## qa/visual_qa.gd의 GAME_QA_CALL로 호출하기 위한 QA 전용 훅. DiceBag.MAX_DICE 캡

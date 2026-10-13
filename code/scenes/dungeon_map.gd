@@ -146,8 +146,8 @@ var _shop_gold_label: Label # "상점 입장" 버튼 바로 아래에 보유 골
 var _family_icon_by_type: Dictionary = {}
 
 ## 지금 화면에 보이는 방 선택 버튼들(+커스터마이징) — _layout_visible_buttons()가 매번
-## 다시 채운다. KeyboardShortcuts로 1~N 숫자 키를 순서대로 배정하는 데 쓴다(INBOX.md
-## 2026-09-14 "키보드로도 조작이 되도록 단축키를 추가한다").
+## 다시 채운다. FocusNav로 방향키(위/아래) 이동 체인을 만드는 데 쓴다(INBOX.md
+## 2026-10-13 [대형 기획 11] K-1 — 기존 숫자 단축키를 대체).
 var _shortcut_buttons: Array[Button] = []
 
 
@@ -641,25 +641,8 @@ func _layout_visible_buttons() -> void:
 			extra_gap = SHOP_GOLD_LABEL_GAP
 		y += BUTTON_SPACING + extra_gap
 	_shortcut_buttons = visible_buttons
-	KeyboardShortcuts.apply_hints(_shortcut_buttons)
-
-
-## 숫자 키(1~9)로 지금 보이는 방 선택 버튼(+커스터마이징)을 순서대로 누른다. 겹치는
-## 오버레이(커스터마이징 패널)가 열려있을 때는 뒤에 가려진 방 버튼이 함께 눌리면 안 되므로
-## 무시한다.
-func _unhandled_input(event: InputEvent) -> void:
-	if customize_panel.visible:
-		return
-	var idx := KeyboardShortcuts.digit_index(event)
-	if idx < 0:
-		return
-	# get_viewport()는 try_press() 이전에 미리 받아둬야 한다 — 방 입장 버튼처럼 눌렸을 때
-	# change_scene_to_file()로 씬을 바꾸는 버튼이면, 이 노드가 try_press() 도중 트리에서
-	# 빠져나가 그 뒤의 get_viewport()가 null을 반환해 set_input_as_handled() 호출이
-	# 크래시한다(shop.gd에서 실제로 겪고 발견해 5개 화면 공통으로 수정, 2026-09-15).
-	var viewport := get_viewport()
-	if KeyboardShortcuts.try_press(_shortcut_buttons, idx) and viewport != null:
-		viewport.set_input_as_handled()
+	FocusNav.chain_linear(_shortcut_buttons, false)
+	FocusNav.grab_first_focus(_shortcut_buttons)
 
 
 func _on_combat_button_pressed() -> void:
@@ -816,46 +799,41 @@ func _debug_move_deck_panel_left_berserker() -> void:
 	deck_panel.offset_right = 280.0
 
 
-## QA 전용 — "2번" 단축키(상점 입장, 방 2/4일 때 고정 노출)로 실제 change_scene_to_file()이
-## 일어나는 버튼을 숫자 키로 눌렀을 때 get_viewport()가 null이 되어 크래시하지 않는지
-## 확인하기 위함(shop.gd의 "나가기" 버튼에서 실제로 겪은 버그와 같은 경로 — 이 화면의
-## 방 입장 버튼도 동일하게 씬을 바꾸므로 같은 위험이 있었음, 2026-09-15 수정).
+## QA 전용 — 방향키/스페이스 조작(K-1)으로 "상점 입장"(방 2/4일 때 고정 노출) 버튼까지
+## 포커스가 실제로 이어지는지 확인하기 위함. grab_focus() + pressed emit으로 "방향키 이동
+## 후 스페이스 확정"을 흉내낸다(change_scene_to_file()로 씬을 바꾸는 버튼이라 이 노드가
+## 트리에서 빠져나가도 크래시하지 않는지도 함께 확인 — 2026-09-15 (105) 버그의 재발 방지).
 func _debug_press_shortcut_2() -> void:
 	RunState.rooms_cleared = 1  # 2번째 방으로 이동 — SHOP_FIXED_ROOM_INDICES=[1,3]이라 상점 확정 노출
 	_roll_room_choices()
 	_update_labels()
-	var key := InputEventKey.new()
-	key.pressed = true
-	key.keycode = KEY_2
-	_unhandled_input(key)
+	var btn := enter_shop_button
+	btn.grab_focus()
+	btn.pressed.emit()
 
 
-## QA 전용 — G-7(2026-10-07) "정예 전투" 버튼이 실제 입력 파이프라인(숫자 키 ->
-## _unhandled_input() -> 버튼)을 거쳐 combat_test 씬까지 전환하고, override 없이
-## RunState.elite_plan에서 몬스터를 고르는지 확인하기 위함(_debug_press_shortcut_2와
-## 같은 패턴). 2번째 방(idx=1)은 ELITE_CHANCE 시드가 고정적으로 "정예 전투"를
-## 노출시키는 자리라 재현 가능(qa_out/dungeon_g7_room2.png로 먼저 확인한 값) — 그 방의
-## 버튼 순서는 [1]전투/[2]상점/[3]정예 전투/[4]커스터마이징이라 "3번"을 누른다.
+## QA 전용 — G-7(2026-10-07) "정예 전투" 버튼이 포커스+확정 경로를 거쳐 combat_test
+## 씬까지 전환하고, override 없이 RunState.elite_plan에서 몬스터를 고르는지 확인하기
+## 위함(_debug_press_shortcut_2와 같은 패턴). 2번째 방(idx=1)은 ELITE_CHANCE 시드가
+## 고정적으로 "정예 전투"를 노출시키는 자리라 재현 가능(qa_out/dungeon_g7_room2.png로
+## 먼저 확인한 값).
 func _debug_press_shortcut_elite() -> void:
 	RunState.rooms_cleared = 1
 	_roll_room_choices()
 	_update_labels()
-	var key := InputEventKey.new()
-	key.pressed = true
-	key.keycode = KEY_3
-	_unhandled_input(key)
+	var btn := enter_elite_button
+	btn.grab_focus()
+	btn.pressed.emit()
 
 
-## QA 전용 — 실제 숫자 키 입력이 _unhandled_input()을 거쳐 버튼까지 눌리는 전체 경로를
-## 확인하기 위함(클릭 시뮬레이션(GAME_QA_CLICK_PATH)의 키보드판). "3번" 단축키는 항상
-## 마지막 자리인 "커스터마이징" 버튼에 배정되므로(전투/상점/특수 이벤트/스토리 이벤트가
-## 몇 개 보이든 무관하게), 이 키를 눌렀을 때 CustomizePanel이 실제로 열리는지로
-## 검증한다 — 씬 전환이 없어 스크린샷으로 결과를 바로 확인할 수 있다.
+## QA 전용 — 포커스+확정 경로(클릭 시뮬레이션(GAME_QA_CLICK_PATH)의 키보드판)로 항상
+## 마지막 자리인 "커스터마이징" 버튼까지 이어지는지 확인한다(전투/상점/특수 이벤트/
+## 스토리 이벤트가 몇 개 보이든 무관) — 씬 전환이 없어 스크린샷으로 결과를 바로 확인할
+## 수 있다.
 func _debug_press_shortcut_customize() -> void:
-	var key := InputEventKey.new()
-	key.pressed = true
-	key.keycode = KEY_3
-	_unhandled_input(key)
+	var btn := customize_button
+	btn.grab_focus()
+	btn.pressed.emit()
 
 
 ## QA 전용 — 인벤토리의 다이스가 두 주머니의 모든 다이스보다 작거나 같아 승급 자리가

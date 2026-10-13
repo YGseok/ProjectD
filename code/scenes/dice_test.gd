@@ -173,8 +173,8 @@ func _ready() -> void:
 	all_pass = _check_round_progress(lines) and all_pass
 
 	lines.append("")
-	lines.append("[키보드 단축키 검증: keyboard_shortcuts.gd KeyboardShortcuts]")
-	all_pass = _check_keyboard_shortcuts(lines) and all_pass
+	lines.append("[방향키/스페이스 포커스 내비게이션 검증: focus_nav.gd FocusNav]")
+	all_pass = _check_focus_nav(lines) and all_pass
 
 	lines.append("")
 	lines.append("[캐릭터 스킬 이벤트 구조 검증: skill_pool.gd SkillPool / event.gd _setup_skill_event / RunState.skill_flags]")
@@ -2541,73 +2541,127 @@ func _check_round_progress(lines: PackedStringArray) -> bool:
 	return ok
 
 
-## KeyboardShortcuts(신규, INBOX.md 2026-09-14 "키보드 단축키" 요청 첫 조각)의 세 가지
-## 순수 동작을 검증한다: (1) 버튼 텍스트에 "[n] " 접두어를 순서대로 붙이는지, (2) 같은
-## 버튼 목록에 다시 적용해도 접두어가 누적되지 않는지(화면이 재구성될 때마다 매번 다시
-## 부르는 dungeon_map.gd/story_event.gd 사용 패턴을 그대로 검증), (3) 숫자 키 입력을
-## 인덱스로 바르게 변환하고, 안 보이거나 비활성화된 버튼은 누르지 않는지.
-func _check_keyboard_shortcuts(lines: PackedStringArray) -> bool:
+## FocusNav(신규, INBOX.md 2026-10-13 [대형 기획 11] K-1 — 기존 숫자 단축키
+## KeyboardShortcuts를 완전히 대체)의 동작을 검증한다: (1) chain_linear()가 모든 버튼에
+## FOCUS_ALL을 적용하고 순서대로 focus_neighbor_*(수직/수평)를 연결하는지(계산 결과인
+## NodePath를 직접 비교), (2) wrap=true가 양 끝을 서로 연결하는지, (3) trap=true가 반대
+## 축을 "자기 자신"으로 묶어 자동 탐색이 밖으로 못 나가게 하는지, (4) grab_first_focus()가
+## 숨겨지거나 비활성화된 버튼은 건너뛰고 실제 엔진 포커스(has_focus())를 옮기는지. 버튼을
+## 실제 트리(self의 자식)에 넣어야 get_path_to()/grab_focus()가 성립하므로, 테스트가
+## 끝나면 바로 제거한다.
+func _check_focus_nav(lines: PackedStringArray) -> bool:
 	var ok := true
 
 	var b1 := Button.new()
-	b1.text = "전투 방 입장 (1번째 방)"
+	b1.text = "전투 방 입장"
 	var b2 := Button.new()
-	b2.text = "상점 입장 (1번째 방)"
-	var buttons: Array[Button] = [b1, b2]
+	b2.text = "상점 입장"
+	var b3 := Button.new()
+	b3.text = "커스터마이징"
+	add_child(b1)
+	add_child(b2)
+	add_child(b3)
+	var buttons: Array[Button] = [b1, b2, b3]
 
-	KeyboardShortcuts.apply_hints(buttons)
-	var hint_ok: bool = b1.text == "[1] 전투 방 입장 (1번째 방)" and b2.text == "[2] 상점 입장 (1번째 방)"
-	ok = hint_ok and ok
-	lines.append("  apply_hints(): b1='%s' b2='%s' -> %s" % [b1.text, b2.text, "OK" if hint_ok else "FAIL"])
-
-	# 방 번호가 바뀌어 텍스트가 다시 설정된 뒤 같은 버튼 목록에 apply_hints를 또 부르는
-	# 상황(dungeon_map.gd의 _update_labels()가 매번 하는 것과 동일) — 접두어가
-	# "[1] [1] ..." 식으로 쌓이면 안 된다.
-	b1.text = "전투 방 입장 (2번째 방)"
-	KeyboardShortcuts.apply_hints(buttons)
-	var no_stack_ok: bool = b1.text == "[1] 전투 방 입장 (2번째 방)"
-	ok = no_stack_ok and ok
-	lines.append("  apply_hints() 재적용 시 누적 방지: b1='%s' -> %s" % [b1.text, "OK" if no_stack_ok else "FAIL"])
-
-	var key1 := InputEventKey.new()
-	key1.pressed = true
-	key1.keycode = KEY_1
-	var idx1 := KeyboardShortcuts.digit_index(key1)
-	var digit_ok: bool = idx1 == 0
-	lines.append("  digit_index(KEY_1 눌림): idx=%d(기대 0) -> %s" % [idx1, "OK" if digit_ok else "FAIL"])
-
-	var key1_release := InputEventKey.new()
-	key1_release.pressed = false
-	key1_release.keycode = KEY_1
-	var idx_release := KeyboardShortcuts.digit_index(key1_release)
-	var release_ok: bool = idx_release == -1
-	lines.append("  digit_index(KEY_1 뗌): idx=%d(기대 -1, 눌림만 인정) -> %s" % [idx_release, "OK" if release_ok else "FAIL"])
-
-	var key_a := InputEventKey.new()
-	key_a.pressed = true
-	key_a.keycode = KEY_A
-	var idx_a := KeyboardShortcuts.digit_index(key_a)
-	var non_digit_ok: bool = idx_a == -1
-	lines.append("  digit_index(KEY_A 눌림): idx=%d(기대 -1) -> %s" % [idx_a, "OK" if non_digit_ok else "FAIL"])
-
-	# try_press: 보이고 활성화된 버튼만 눌려야 한다.
-	var pressed_count := {"b1": 0, "b2": 0}
-	b1.pressed.connect(func(): pressed_count["b1"] += 1)
-	b2.pressed.connect(func(): pressed_count["b2"] += 1)
-	b2.disabled = true
-	var press_b1_ok: bool = KeyboardShortcuts.try_press(buttons, 0) and pressed_count["b1"] == 1
-	var press_b2_blocked_ok: bool = not KeyboardShortcuts.try_press(buttons, 1) and pressed_count["b2"] == 0
-	ok = digit_ok and release_ok and non_digit_ok and press_b1_ok and press_b2_blocked_ok and ok
-	lines.append("  try_press(): 활성 버튼 누름=%s(기대 true, 1회 호출) 비활성 버튼 무시=%s(기대 true, 0회 호출) -> %s" % [
-		press_b1_ok, press_b2_blocked_ok, "OK" if (press_b1_ok and press_b2_blocked_ok) else "FAIL"
+	FocusNav.chain_linear(buttons, false)
+	var focus_mode_ok: bool = b1.focus_mode == Control.FOCUS_ALL and b2.focus_mode == Control.FOCUS_ALL and b3.focus_mode == Control.FOCUS_ALL
+	var vertical_chain_ok: bool = (
+		b1.focus_neighbor_top == NodePath() and b1.focus_neighbor_bottom == b1.get_path_to(b2)
+		and b2.focus_neighbor_top == b2.get_path_to(b1) and b2.focus_neighbor_bottom == b2.get_path_to(b3)
+		and b3.focus_neighbor_top == b3.get_path_to(b2) and b3.focus_neighbor_bottom == NodePath()
+	)
+	ok = focus_mode_ok and vertical_chain_ok and ok
+	lines.append("  chain_linear(수직, wrap 없음): focus_mode 전부 ALL=%s, 위/아래 체인 순서대로=%s -> %s" % [
+		focus_mode_ok, vertical_chain_ok, "OK" if (focus_mode_ok and vertical_chain_ok) else "FAIL"
 	])
 
-	var out_of_range_ok: bool = not KeyboardShortcuts.try_press(buttons, 5)
-	ok = out_of_range_ok and ok
-	lines.append("  try_press() 범위 밖 인덱스: %s(기대 false) -> %s" % [not out_of_range_ok, "OK" if out_of_range_ok else "FAIL"])
+	FocusNav.chain_linear(buttons, true)
+	var horizontal_chain_ok: bool = (
+		b1.focus_neighbor_left == NodePath() and b1.focus_neighbor_right == b1.get_path_to(b2)
+		and b2.focus_neighbor_left == b2.get_path_to(b1) and b2.focus_neighbor_right == b2.get_path_to(b3)
+		and b3.focus_neighbor_left == b3.get_path_to(b2) and b3.focus_neighbor_right == NodePath()
+	)
+	ok = horizontal_chain_ok and ok
+	lines.append("  chain_linear(수평, wrap 없음): 좌/우 체인 순서대로=%s -> %s" % [horizontal_chain_ok, "OK" if horizontal_chain_ok else "FAIL"])
+
+	FocusNav.chain_linear(buttons, false, true)
+	var wrap_ok: bool = b1.focus_neighbor_top == b1.get_path_to(b3) and b3.focus_neighbor_bottom == b3.get_path_to(b1)
+	ok = wrap_ok and ok
+	lines.append("  chain_linear(수직, wrap=true): 양 끝이 서로 연결됨(처음<-끝, 끝->처음)=%s -> %s" % [wrap_ok, "OK" if wrap_ok else "FAIL"])
+
+	FocusNav.chain_linear(buttons, true, true, true)
+	var trap_ok: bool = (
+		b1.focus_neighbor_top == b1.get_path_to(b1) and b1.focus_neighbor_bottom == b1.get_path_to(b1)
+		and b2.focus_neighbor_top == b2.get_path_to(b2) and b2.focus_neighbor_bottom == b2.get_path_to(b2)
+	)
+	ok = trap_ok and ok
+	lines.append("  chain_linear(trap=true): 체인에 안 쓰는 축(위/아래)이 자기 자신으로 묶임=%s -> %s" % [trap_ok, "OK" if trap_ok else "FAIL"])
+
+	# grab_first_focus: 숨겨지거나 비활성화된 버튼은 건너뛰고, 실제 엔진 포커스가 옮겨져야
+	# 한다(has_focus()로 검증 — 플래그가 아니라 엔진이 실제로 그 컨트롤을 포커스했는지).
+	b1.visible = false
+	b2.disabled = true
+	FocusNav.grab_first_focus(buttons)
+	var grab_skips_ok: bool = b3.has_focus() and not b1.has_focus() and not b2.has_focus()
+	ok = grab_skips_ok and ok
+	lines.append("  grab_first_focus(): 숨김/비활성 건너뛰고 b3에 포커스=%s(기대 true) -> %s" % [grab_skips_ok, "OK" if grab_skips_ok else "FAIL"])
+
+	b1.visible = true
+	b2.disabled = false
+	FocusNav.grab_first_focus(buttons)
+	var grab_first_ok: bool = b1.has_focus() and not b2.has_focus() and not b3.has_focus()
+	ok = grab_first_ok and ok
+	lines.append("  grab_first_focus() 전부 활성/노출: b1에 포커스=%s(기대 true) -> %s" % [grab_first_ok, "OK" if grab_first_ok else "FAIL"])
+
+	var style := FocusNav.focus_style()
+	var style_ok: bool = style is StyleBoxFlat and style.border_color == FocusNav.ACCENT_DEFAULT
+	ok = style_ok and ok
+	lines.append("  focus_style(): 기본 accent로 테두리색 지정됨=%s -> %s" % [style_ok, "OK" if style_ok else "FAIL"])
+
+	# CustomizePanel/AchievementPanel 실제 오버레이가 K-1의 "Esc로 닫기" 규칙을 지키는지
+	# 실제 인스턴스로 확인한다(순수 함수 검증과 별개 — 이 둘은 @onready 없이 완결된
+	# Control이라 add_child 없이도 동작하지만, grab_focus()가 성립하려면 실제 트리
+	# 안에 있어야 하므로 add_child한다).
+	var pip_backup := RunState.pip_inventory.duplicate()
+	var die_backup := RunState.die_inventory.duplicate()
+	RunState.pip_inventory = []
+	RunState.die_inventory = []
+	var panel := CustomizePanel.new()
+	add_child(panel)
+	panel.open()
+	var open_visible: bool = panel.visible
+	var open_ok: bool = open_visible and panel._ui.size() > 0
+	var close_btn: Button = panel._ui[panel._ui.size() - 1]
+	var panel_focus_ok: bool = close_btn.has_focus()
+	# GDScript 람다는 바깥 지역 변수를 값으로 캡처하므로(참조 아님), int를 직접 캡처해
+	# 증가시키면 바깥에서 안 보인다 — Array는 참조 타입이라 캡처한 복사본도 같은 객체를
+	# 가리켜 append()가 바깥에서도 보인다.
+	var closed_signal_log: Array = []
+	panel.closed.connect(func(): closed_signal_log.append(true))
+	var esc_key := InputEventKey.new()
+	esc_key.pressed = true
+	esc_key.keycode = KEY_ESCAPE
+	panel._unhandled_input(esc_key)
+	var esc_closes_ok: bool = not panel.visible and closed_signal_log.size() == 1
+	ok = open_ok and panel_focus_ok and esc_closes_ok and ok
+	lines.append("  CustomizePanel.open(): visible=%s(기대 true) 닫기 버튼에 포커스=%s(기대 true) -> %s" % [
+		open_visible, panel_focus_ok, "OK" if (open_ok and panel_focus_ok) else "FAIL"
+	])
+	lines.append("  CustomizePanel Esc 입력: visible=%s(기대 false) closed 시그널 %d회(기대 1) -> %s" % [
+		panel.visible, closed_signal_log.size(), "OK" if esc_closes_ok else "FAIL"
+	])
+	# close()가 내부적으로 _ui 자식들을 queue_free()(지연 삭제)로 이미 예약해뒀으므로,
+	# panel 자신도 즉시 free() 대신 queue_free()를 써야 한다 — 즉시 free()는 아직 처리
+	# 전인 자식들의 지연 삭제 예약과 겹쳐 이중 해제(use-after-free)로 다른 테스트에서
+	# 뒤늦게 크래시를 내는 것을 실제로 겪었다(원인 불명한 세그폴트로 나타남).
+	remove_child(panel)
+	panel.queue_free()
+	RunState.pip_inventory = pip_backup
+	RunState.die_inventory = die_backup
 
 	b1.queue_free()
 	b2.queue_free()
+	b3.queue_free()
 	return ok
 
 

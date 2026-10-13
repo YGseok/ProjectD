@@ -96,6 +96,29 @@ func _clear_ui() -> void:
 	_ui.clear()
 
 
+## Esc로 패널을 닫는다(K-1 — 오버레이 패널 공통 규칙, achievement_panel.gd와 같은 패턴).
+func _unhandled_input(event: InputEvent) -> void:
+	if not visible:
+		return
+	if not (event is InputEventKey):
+		return
+	var key_event := event as InputEventKey
+	if not key_event.pressed or key_event.echo or key_event.keycode != KEY_ESCAPE:
+		return
+	var viewport := get_viewport()
+	close()
+	if viewport != null:
+		viewport.set_input_as_handled()
+
+
+## 이번 단계에 보이는 버튼들(텍스트/라벨이 섞인 _ui 전체가 아니라 실제 Button만)을
+## 포커스가 안에 갇히는 방향키 체인(위/아래, wrap+trap)으로 묶고 첫 버튼에 포커스를
+## 준다. 각 _show_*_picker()가 자신의 버튼을 다 그린 뒤 마지막에 호출한다.
+func _chain_step_focus(buttons: Array[Button]) -> void:
+	FocusNav.chain_linear(buttons, false, true, true)
+	FocusNav.grab_first_focus(buttons)
+
+
 ## subtitle_text가 있으면 제목 아래에 회색 안내 문구를 한 줄 더 붙인다 — INBOX.md
 ## 피드백(2026-09-03, 2026-09-09 재차) "내가 어떤 상태인지, 여기서 무엇을 어떻게
 ## 할 수 있는지 알 수 있어야 한다"를 반영해 각 단계 호출부에서 "지금 몇 단계인지 +
@@ -146,6 +169,7 @@ func _add_frame(title_text: String, height: float = 420.0, subtitle_text: String
 func _show_pip_picker() -> void:
 	_clear_ui()
 	var pending: Array[Node] = []
+	var step_buttons: Array[Button] = []
 
 	var y := 226.0
 	y = _add_deck_overview(y, pending)
@@ -177,6 +201,7 @@ func _show_pip_picker() -> void:
 			FaceChipStyle.style_button(dbtn, 50.0, false, false)
 			dbtn.pressed.connect(_show_die_target_picker.bind(i))
 			pending.append(dbtn)
+			step_buttons.append(dbtn)
 
 			dx += 60.0
 			if dx > 1000.0:
@@ -210,6 +235,7 @@ func _show_pip_picker() -> void:
 			FaceChipStyle.style_button(pbtn, 50.0, false, false)
 			pbtn.pressed.connect(_show_die_picker.bind(i))
 			pending.append(pbtn)
+			step_buttons.append(pbtn)
 
 			px += 60.0
 			if px > 1000.0:
@@ -234,6 +260,8 @@ func _show_pip_picker() -> void:
 	close_btn.pressed.connect(close)
 	add_child(close_btn)
 	_ui.append(close_btn)
+	step_buttons.append(close_btn)
+	_chain_step_focus(step_buttons)
 
 
 ## 공격/방어 주머니를 나란히 두 열로 보여준다(읽기 전용). 각 열은 다이스별로 한 줄씩
@@ -300,6 +328,7 @@ func _add_deck_column(bag: DiceBag, label_prefix: String, origin: Vector2, pendi
 ## 것 — 눈금 흐름의 1단계(_show_pip_picker)에 붙은 "다이스 인벤토리" 버튼에서 들어온다.
 func _show_die_inventory_picker() -> void:
 	_clear_ui()
+	var step_buttons: Array[Button] = []
 
 	var chip_size := 70.0
 	var gap := 14.0
@@ -330,6 +359,7 @@ func _show_die_inventory_picker() -> void:
 			FaceChipStyle.style_button(btn, chip_size, false, false)
 			btn.pressed.connect(_show_die_target_picker.bind(i))
 			pending.append(btn)
+			step_buttons.append(btn)
 
 			x += chip_size + gap
 			if x > 1000.0:
@@ -354,6 +384,8 @@ func _show_die_inventory_picker() -> void:
 	back_btn.pressed.connect(_show_pip_picker)
 	add_child(back_btn)
 	_ui.append(back_btn)
+	step_buttons.append(back_btn)
+	_chain_step_focus(step_buttons)
 
 
 ## 다이스 인벤토리 흐름 2단계: 고른 다이스를 넣을 자리(공격/방어 주머니 중 하나의
@@ -365,6 +397,7 @@ func _show_die_inventory_picker() -> void:
 func _show_die_target_picker(inv_index: int) -> void:
 	_clear_ui()
 	_die_chosen_locked = false
+	var step_buttons: Array[Button] = []
 	var new_sides: int = RunState.die_inventory[inv_index]
 	_add_frame(
 		"커스터마이징 — D%d을(를) 넣을 다이스를 고르세요" % new_sides,
@@ -373,8 +406,8 @@ func _show_die_target_picker(inv_index: int) -> void:
 	)
 
 	var y := 226.0
-	y = _add_die_target_rows("공격", RunState.player_attack_bag, y, inv_index, new_sides)
-	y = _add_die_target_rows("방어", RunState.player_defense_bag, y, inv_index, new_sides)
+	y = _add_die_target_rows("공격", RunState.player_attack_bag, y, inv_index, new_sides, step_buttons)
+	y = _add_die_target_rows("방어", RunState.player_defense_bag, y, inv_index, new_sides, step_buttons)
 
 	if not _has_upgrade_target(new_sides):
 		var note := Label.new()
@@ -394,6 +427,8 @@ func _show_die_target_picker(inv_index: int) -> void:
 	back_btn.pressed.connect(_show_pip_picker)
 	add_child(back_btn)
 	_ui.append(back_btn)
+	step_buttons.append(back_btn)
+	_chain_step_focus(step_buttons)
 
 
 ## 공격/방어 주머니 어느 쪽이든 new_sides보다 면 개수가 작은 다이스가 하나라도
@@ -409,7 +444,7 @@ func _has_upgrade_target(new_sides: int) -> bool:
 	return false
 
 
-func _add_die_target_rows(bag_label: String, bag: DiceBag, y: float, inv_index: int, new_sides: int) -> float:
+func _add_die_target_rows(bag_label: String, bag: DiceBag, y: float, inv_index: int, new_sides: int, out_buttons: Array[Button]) -> float:
 	for i in bag.dice.size():
 		var faces: PackedInt32Array = bag.dice[i]
 		var is_upgrade := faces.size() < new_sides
@@ -422,6 +457,7 @@ func _add_die_target_rows(bag_label: String, bag: DiceBag, y: float, inv_index: 
 		btn.pressed.connect(_on_die_target_chosen.bind(bag, i, inv_index))
 		add_child(btn)
 		_ui.append(btn)
+		out_buttons.append(btn)
 		y += 54.0
 	return y
 
@@ -448,6 +484,7 @@ func _on_die_target_chosen(bag: DiceBag, die_index: int, inv_index: int) -> void
 ## 2단계: 고른 눈금을 적용할 다이스(공격/방어 주머니 중 하나)를 고른다.
 func _show_die_picker(pip_index: int) -> void:
 	_clear_ui()
+	var step_buttons: Array[Button] = []
 	var pip_value: int = RunState.pip_inventory[pip_index]
 	_add_frame(
 		"커스터마이징 (2/3) — 눈금 [%d]을(를) 넣을 다이스를 고르세요" % pip_value,
@@ -456,8 +493,8 @@ func _show_die_picker(pip_index: int) -> void:
 	)
 
 	var y := 226.0
-	y = _add_die_rows("공격", RunState.player_attack_bag, y, pip_index)
-	y = _add_die_rows("방어", RunState.player_defense_bag, y, pip_index)
+	y = _add_die_rows("공격", RunState.player_attack_bag, y, pip_index, step_buttons)
+	y = _add_die_rows("방어", RunState.player_defense_bag, y, pip_index, step_buttons)
 
 	var back_btn := Button.new()
 	back_btn.text = "뒤로"
@@ -466,9 +503,11 @@ func _show_die_picker(pip_index: int) -> void:
 	back_btn.pressed.connect(_show_pip_picker)
 	add_child(back_btn)
 	_ui.append(back_btn)
+	step_buttons.append(back_btn)
+	_chain_step_focus(step_buttons)
 
 
-func _add_die_rows(bag_label: String, bag: DiceBag, y: float, pip_index: int) -> float:
+func _add_die_rows(bag_label: String, bag: DiceBag, y: float, pip_index: int, out_buttons: Array[Button]) -> float:
 	for i in bag.dice.size():
 		var faces: PackedInt32Array = bag.dice[i]
 		var btn := Button.new()
@@ -480,6 +519,7 @@ func _add_die_rows(bag_label: String, bag: DiceBag, y: float, pip_index: int) ->
 		btn.pressed.connect(_show_face_picker.bind(bag, i, pip_index))
 		add_child(btn)
 		_ui.append(btn)
+		out_buttons.append(btn)
 
 		var chip_x := 270.0
 		var chip_size := 32.0
@@ -498,6 +538,7 @@ func _add_die_rows(bag_label: String, bag: DiceBag, y: float, pip_index: int) ->
 func _show_face_picker(bag: DiceBag, die_index: int, pip_index: int) -> void:
 	_clear_ui()
 	_face_chosen_locked = false
+	var step_buttons: Array[Button] = []
 	var pip_value: int = RunState.pip_inventory[pip_index]
 	var faces: PackedInt32Array = bag.dice[die_index]
 	var sides := faces.size()
@@ -528,6 +569,7 @@ func _show_face_picker(bag: DiceBag, die_index: int, pip_index: int) -> void:
 		btn.pressed.connect(_on_face_chosen.bind(bag, die_index, fi, pip_index))
 		add_child(btn)
 		_ui.append(btn)
+		step_buttons.append(btn)
 
 		x += chip_size + gap
 		if x > 1000.0:
@@ -541,6 +583,8 @@ func _show_face_picker(bag: DiceBag, die_index: int, pip_index: int) -> void:
 	back_btn.pressed.connect(_show_die_picker.bind(pip_index))
 	add_child(back_btn)
 	_ui.append(back_btn)
+	step_buttons.append(back_btn)
+	_chain_step_focus(step_buttons)
 
 
 ## 눈금 <-> 면 값을 맞바꾼다. 밀려난 기존 면 값은 인벤토리로 돌아오므로(사라지지

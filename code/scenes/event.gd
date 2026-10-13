@@ -157,21 +157,8 @@ static func gambler_adjusted_dc(base_dc: int, has_gambler: bool) -> int:
 
 func _refresh_shortcuts(buttons: Array[Button]) -> void:
 	_shortcut_buttons = buttons
-	KeyboardShortcuts.apply_hints(_shortcut_buttons)
-
-
-## dungeon_map.gd 등과 같은 이유(2026-09-15) — 씬을 바꾸는 버튼(아이템 획득/커스터마이징
-## 없음이므로 여기선 해당 없지만 패턴 일관성을 위해 동일하게 get_viewport()를 try_press()
-## 이전에 미리 받아둔다.
-func _unhandled_input(event: InputEvent) -> void:
-	if customize_panel.visible:
-		return
-	var idx := KeyboardShortcuts.digit_index(event)
-	if idx < 0:
-		return
-	var viewport := get_viewport()
-	if KeyboardShortcuts.try_press(_shortcut_buttons, idx) and viewport != null:
-		viewport.set_input_as_handled()
+	FocusNav.chain_linear(_shortcut_buttons, false)
+	FocusNav.grab_first_focus(_shortcut_buttons)
 
 
 func _on_safe_pressed() -> void:
@@ -523,16 +510,12 @@ func _debug_verify_d20_pickup() -> void:
 	print("[qa] d20 pickup: before=%d after=%d added_sides=%d" % [before_count, after_count, added_sides])
 
 
-## QA 전용 — 실제 숫자 키 입력이 _unhandled_input()을 거쳐 커스터마이징 버튼까지 눌리는
-## 전체 경로를 확인하기 위함(dungeon_map.gd/story_event.gd의 _debug_press_shortcut_*와
-## 같은 목적). 커스터마이징 버튼은 항상 _shortcut_buttons의 마지막 자리라 카드 구성(아이템
-## 종류에 따라 카드당 버튼이 1~2개로 달라짐)과 무관하게 인덱스를 동적으로 계산한다.
+## QA 전용 — 포커스+확정 경로(방향키 이동 후 스페이스, K-1)로 커스터마이징 버튼까지
+## 이어지는지 확인하기 위함(dungeon_map.gd/story_event.gd의 _debug_press_shortcut_*와
+## 같은 목적).
 func _debug_press_shortcut_customize() -> void:
-	var idx := _shortcut_buttons.size() - 1
-	var key := InputEventKey.new()
-	key.pressed = true
-	key.keycode = KEY_1 + idx
-	_unhandled_input(key)
+	customize_button.grab_focus()
+	customize_button.pressed.emit()
 
 
 ## qa/visual_qa.gd의 GAME_QA_CALL로 호출하기 위한 QA 전용 훅 (dungeon_map.gd의

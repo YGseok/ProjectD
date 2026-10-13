@@ -11,12 +11,10 @@ signal closed
 
 var _ui: Array[Node] = []
 
-## KeyboardShortcuts로 "닫기" 버튼에 "[1] " 단축키를 배정하는 데 쓴다(INBOX.md
-## 2026-09-14 "키보드로도 조작이 되도록" — docs/STATUS.md 큐 16 "키보드 조작/단축키"
-## 마지막 남은 화면, 지금은 버튼이 "닫기" 하나뿐이라 배열도 항상 1개짜리). 다른 5개
-## 화면과 같은 패턴을 재사용하되, 이 패널은 스스로 씬을 바꾸지 않으므로(close()는
-## visible=false만 함) 5개 화면에서 겪었던 "get_viewport()를 try_press() 이후에 부르면
-## 크래시" 문제와는 무관하다 — 그래도 일관성을 위해 미리 받아두는 순서를 그대로 따른다.
+## FocusNav로 "닫기" 버튼에 포커스 체인을 적용하는 데 쓴다(INBOX.md 2026-10-13
+## [대형 기획 11] K-1 — 기존 숫자 단축키를 방향키+스페이스로 대체, 오버레이 패널은
+## "포커스가 안에 갇히고 Esc로 닫힘"이 요구사항). 지금은 버튼이 "닫기" 하나뿐이라
+## 배열도 항상 1개짜리지만, 패턴을 다른 화면과 통일해둔다.
 var _shortcut_buttons: Array[Button] = []
 
 
@@ -98,21 +96,26 @@ func _rebuild() -> void:
 	_ui.append(close_button)
 
 	_shortcut_buttons = [close_button]
-	KeyboardShortcuts.apply_hints(_shortcut_buttons)
+	# wrap=true: 포커스가 패널 밖(뒤에 가려진 character_select 화면)으로 못 나가게
+	# 한다 — 버튼이 하나뿐이라 지금은 "자기 자신에게 자기 자신"으로 닫힌 루프가 되지만,
+	# 목록 버튼이 나중에 늘어나도 동작은 그대로 유지된다.
+	FocusNav.chain_linear(_shortcut_buttons, false, true, true)
+	FocusNav.grab_first_focus(_shortcut_buttons)
 
 
-## 숫자 키(1)로 "닫기" 버튼을 누른다(다른 5개 화면과 같은 패턴 재사용). 패널이
-## 닫혀 있을 때는(visible=false) 뒤에 가려진 character_select 화면의 카드/버튼이
-## 함께 눌리지 않도록 무시한다 — character_select.gd도 이 패널이 열려 있을 때 자신의
-## 단축키를 무시하도록 이미 가드돼 있으므로 서로 겹치지 않는다.
+## Esc로 패널을 닫는다(K-1 — 오버레이 패널 공통 규칙). 패널이 닫혀 있을 때는
+## (visible=false) 뒤에 가려진 character_select 화면에 영향을 주지 않도록 무시한다.
 func _unhandled_input(event: InputEvent) -> void:
 	if not visible:
 		return
-	var idx := KeyboardShortcuts.digit_index(event)
-	if idx < 0:
+	if not (event is InputEventKey):
+		return
+	var key_event := event as InputEventKey
+	if not key_event.pressed or key_event.echo or key_event.keycode != KEY_ESCAPE:
 		return
 	var viewport := get_viewport()
-	if KeyboardShortcuts.try_press(_shortcut_buttons, idx) and viewport != null:
+	close()
+	if viewport != null:
 		viewport.set_input_as_handled()
 
 

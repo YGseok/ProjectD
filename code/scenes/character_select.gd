@@ -78,13 +78,16 @@ var _starting_skill_unlock_label: Label
 ## 중에도 "던전 시작"은 항상 chosen_starting_skill_id(해금된 마지막 선택) 기준으로 진행된다.
 var _preview_skill_id: String = ""
 
-## KeyboardShortcuts로 1~N 숫자 키를 순서대로 배정하는 데 쓴다(INBOX.md 2026-09-14
-## "키보드로도 조작이 되도록" — 던전 맵/스토리 이벤트/특수 이벤트에 이어 이 화면에도
-## 같은 유틸을 재사용, docs/STATUS.md 큐 16 "키보드 조작/단축키" 참고). 캐릭터 카드마다
-## "선택" 버튼(개수는 PROFILES 길이만큼, 지금 5개)이 먼저 오고, 그 뒤로 "던전 시작"/
-## "업적" 두 화면 공용 버튼이 이어진다 — 카드 목록은 _build_cards()에서 한 번만 만들고
-## 이후 카드를 다시 그리지 않으므로(선택은 강조 갱신만 함), 여기서도 한 번만 채우면 된다.
+## FocusNav로 방향키 이동(위/아래) + 스페이스 확정 체인을 만드는 데 쓴다(INBOX.md
+## 2026-10-13 [대형 기획 11] K-1 — 기존 숫자 단축키를 대체). 캐릭터 카드마다 "선택"
+## 버튼(개수는 PROFILES 길이만큼, 지금 8개)이 먼저 오고, 그 뒤로 "던전 시작"/"업적"/
+## "테스트 전투" 화면 공용 버튼이 이어진다 — 카드 목록은 _build_cards()에서 한 번만
+## 만들고 이후 카드를 다시 그리지 않으므로(선택은 강조 갱신만 함), 여기서도 한 번만
+## 채우면 된다.
 var _shortcut_buttons: Array[Button] = []
+## 시작 스킬 슬롯(가로 배열) 전용 포커스 체인 — 캐릭터를 바꿀 때마다 후보가 달라지므로
+## _rebuild_starting_skill_slots()가 매번 다시 모아 FocusNav.chain_linear()를 다시 부른다.
+var _starting_skill_slot_buttons: Array[Button] = []
 
 
 func _ready() -> void:
@@ -137,7 +140,8 @@ func _build_cards() -> void:
 	_shortcut_buttons.append(achievement_button)
 	if RunState.TEST_BATTLE_ENABLED:
 		_shortcut_buttons.append(test_battle_button)
-	KeyboardShortcuts.apply_hints(_shortcut_buttons)
+	FocusNav.chain_linear(_shortcut_buttons, false)
+	FocusNav.grab_first_focus(_shortcut_buttons)
 
 
 ## 목록 한 행: 작은 초상 + 이름 + "선택" 버튼뿐(INBOX.md 요청대로 "외형과 이름들만
@@ -369,10 +373,14 @@ func _rebuild_starting_skill_slots() -> void:
 	var candidates := SkillPool.starting_skills_for_character(_selected_id)
 	RunState.chosen_starting_skill_id = _valid_or_default_starting_skill_id(_selected_id, RunState.chosen_starting_skill_id, candidates)
 
+	_starting_skill_slot_buttons = []
 	for i in candidates.size():
 		var skill: Dictionary = candidates[i]
 		var unlocked: bool = _is_slot_unlocked(_selected_id, i)
-		_starting_skill_container.add_child(_make_starting_skill_slot(skill, unlocked, i))
+		var slot_button := _make_starting_skill_slot(skill, unlocked, i)
+		_starting_skill_container.add_child(slot_button)
+		_starting_skill_slot_buttons.append(slot_button)
+	FocusNav.chain_linear(_starting_skill_slot_buttons, true)
 
 	_update_starting_skill_description(candidates)
 
@@ -515,24 +523,6 @@ func _update_starting_skill_description(candidates: Array[Dictionary]) -> void:
 	_starting_skill_desc_label.text = ""
 	_starting_skill_lock_badge_label.visible = false
 	_starting_skill_unlock_label.visible = false
-
-
-## 숫자 키(1~9)로 캐릭터 카드 "선택" 버튼(+던전 시작/업적)을 순서대로 누른다
-## (dungeon_map.gd의 같은 패턴 재사용). 업적 패널이 열려있을 때는 뒤에 가려진 버튼이
-## 함께 눌리면 안 되므로 무시한다.
-func _unhandled_input(event: InputEvent) -> void:
-	if achievement_panel.visible:
-		return
-	var idx := KeyboardShortcuts.digit_index(event)
-	if idx < 0:
-		return
-	# get_viewport()는 try_press() 이전에 미리 받아둬야 한다 — "던전 시작" 버튼처럼 눌렸을
-	# 때 change_scene_to_file()로 씬을 바꾸는 버튼이면, 이 노드가 try_press() 도중 트리에서
-	# 빠져나가 그 뒤의 get_viewport()가 null을 반환해 set_input_as_handled() 호출이
-	# 크래시한다(shop.gd에서 실제로 겪고 발견해 5개 화면 공통으로 수정, 2026-09-15).
-	var viewport := get_viewport()
-	if KeyboardShortcuts.try_press(_shortcut_buttons, idx) and viewport != null:
-		viewport.set_input_as_handled()
 
 
 func _on_card_selected(id: String) -> void:
@@ -737,34 +727,31 @@ func _debug_show_starting_skill_all_unlocked() -> void:
 	_on_card_selected("novice")
 
 
-## QA 전용 — 실제 숫자 키 입력이 _unhandled_input()을 거쳐 버튼까지 눌리는 전체 경로를
-## 확인하기 위함(dungeon_map.gd의 _debug_press_shortcut_customize와 같은 이유). "2번"은
-## PROFILES 순서상 두 번째 카드("광전사")의 "선택" 버튼에 배정되므로, 이 키를 눌렀을 때
-## 실제로 광전사 카드가 금테로 강조되는지로 검증한다.
+## QA 전용 — 방향키/스페이스 조작(K-1)의 전체 경로를 흉내낸다: 두 번째 카드("광전사")의
+## "선택" 버튼에 실제로 grab_focus()한 뒤(방향키 이동이 도달했다고 가정) pressed를 emit해
+## (스페이스 확정) 실제로 광전사 카드가 금테로 강조되는지로 검증한다.
 func _debug_press_shortcut_2() -> void:
-	var key := InputEventKey.new()
-	key.pressed = true
-	key.keycode = KEY_2
-	_unhandled_input(key)
+	var btn := _shortcut_buttons[1]
+	btn.grab_focus()
+	btn.pressed.emit()
 
 
-## QA 전용 — "7번"은 카드 5장 다음에 오는 "던전 시작"/"업적" 중 두 번째("업적")에
-## 배정되므로, 이 키를 눌렀을 때 AchievementPanel이 실제로 열리는지로 검증한다.
+## QA 전용 — 카드 8장 다음에 오는 "던전 시작"/"업적"/"테스트 전투" 중 두 번째("업적")에
+## 포커스가 가서 확정되면 AchievementPanel이 실제로 열리는지로 검증한다(_debug_press_
+## shortcut_2와 같은 패턴).
 func _debug_press_shortcut_7() -> void:
-	var key := InputEventKey.new()
-	key.pressed = true
-	key.keycode = KEY_7
-	_unhandled_input(key)
+	var btn := achievement_button
+	btn.grab_focus()
+	btn.pressed.emit()
 
 
-## QA 전용 — 업적 패널을 연 뒤, 패널 자신의 "[1] 닫기" 단축키(achievement_panel.gd의
-## _unhandled_input())가 실제 숫자 키 입력으로 패널을 닫는지 끝까지 확인한다(7/7화면
-## 완료 검증, docs/STATUS.md 큐 16 "키보드 조작/단축키"). 업적 패널이 character_select의
-## 자식 노드라 이 씬의 _unhandled_input()이 먼저 호출돼도 achievement_panel.visible
-## 가드로 인해 이 씬은 이벤트를 소비하지 않고 그대로 achievement_panel로 전달된다.
+## QA 전용 — 업적 패널을 연 뒤, 패널 자신의 Esc 핸들러(achievement_panel.gd의
+## _unhandled_input())가 실제 Esc 키 입력으로 패널을 닫는지 끝까지 확인한다. 업적 패널이
+## character_select의 자식 노드이지만, 이 씬은 더 이상 _unhandled_input()을 쓰지 않으므로
+## 입력이 그대로 achievement_panel로 전달된다.
 func _debug_press_shortcut_close_achievements() -> void:
 	achievement_panel.open()
 	var key := InputEventKey.new()
 	key.pressed = true
-	key.keycode = KEY_1
+	key.keycode = KEY_ESCAPE
 	achievement_panel._unhandled_input(key)

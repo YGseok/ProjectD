@@ -17,8 +17,8 @@ extends Node2D
 var _scenario: Dictionary
 var _continued := false
 
-## 숫자 키(1~9)로 누를 수 있는, 지금 화면에 보이는 버튼 목록(KeyboardShortcuts 참고).
-## 선택 전에는 [A안, B안, 커스터마이징], 선택 후에는 [계속, 커스터마이징]으로 바뀐다.
+## 방향키(위/아래)로 이동 가능한, 지금 화면에 보이는 버튼 목록(FocusNav 참고). 선택
+## 전에는 [A안, B안, 커스터마이징], 선택 후에는 [계속, 커스터마이징]으로 바뀐다.
 var _shortcut_buttons: Array[Button] = []
 
 
@@ -40,22 +40,8 @@ func _ready() -> void:
 ## 화면에 보이는 버튼 구성이 바뀔 때마다(선택 전/후) 다시 불러 숫자 키 배정을 갱신한다.
 func _refresh_shortcuts(buttons: Array[Button]) -> void:
 	_shortcut_buttons = buttons
-	KeyboardShortcuts.apply_hints(_shortcut_buttons)
-
-
-func _unhandled_input(event: InputEvent) -> void:
-	if customize_panel.visible:
-		return
-	var idx := KeyboardShortcuts.digit_index(event)
-	if idx < 0:
-		return
-	# get_viewport()는 try_press() 이전에 미리 받아둬야 한다 — "계속" 버튼처럼 눌렸을 때
-	# change_scene_to_file()로 씬을 바꾸는 버튼이면, 이 노드가 try_press() 도중 트리에서
-	# 빠져나가 그 뒤의 get_viewport()가 null을 반환해 set_input_as_handled() 호출이
-	# 크래시한다(shop.gd에서 실제로 겪고 발견해 5개 화면 공통으로 수정, 2026-09-15).
-	var viewport := get_viewport()
-	if KeyboardShortcuts.try_press(_shortcut_buttons, idx) and viewport != null:
-		viewport.set_input_as_handled()
+	FocusNav.chain_linear(_shortcut_buttons, false)
+	FocusNav.grab_first_focus(_shortcut_buttons)
 
 
 func _on_choice_pressed(choice: Dictionary) -> void:
@@ -123,13 +109,11 @@ func _debug_pick_choice_a() -> void:
 	_on_choice_pressed(_scenario["choice_a"])
 
 
-## QA 전용 — 실제 숫자 키 입력이 _unhandled_input()을 거쳐 "A안" 버튼까지 눌리는 전체
-## 경로를 확인하기 위함(dungeon_map.gd의 _debug_press_shortcut_customize와 같은 목적).
+## QA 전용 — 포커스+확정 경로(방향키 이동 후 스페이스, K-1)로 "A안" 버튼까지 이어지는지
+## 확인하기 위함(dungeon_map.gd의 _debug_press_shortcut_customize와 같은 목적).
 func _debug_press_shortcut_1() -> void:
-	var key := InputEventKey.new()
-	key.pressed = true
-	key.keycode = KEY_1
-	_unhandled_input(key)
+	choice_a_button.grab_focus()
+	choice_a_button.pressed.emit()
 
 
 ## QA 전용: 보유 골드(3)보다 손실 폭(10)이 큰 상황을 강제로 만들어, 결과 문구가

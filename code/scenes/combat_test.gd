@@ -367,13 +367,14 @@ var _log_lines: Array[String] = []
 var _reward_ui: Array[Node] = []
 var _reward_items: Array[Dictionary] = []
 
-## dungeon_map.gd/shop.gd 등과 같은 패턴(KeyboardShortcuts) — 지금 화면에 보이는
-## 선택지 버튼(승리 보상 카드/건너뛰기/커스터마이징 또는 "다음")에 숫자 1~9 키를
-## 순서대로 배정한다. 전투 중에는 자동 진행이라 누를 버튼이 "덱 보기" 토글뿐이지만,
-## 화면마다 버튼 구성이 계속 바뀌므로(대기 중 -> 보상 선택 -> 다음) _rebuild_shortcuts()가
-## 그때그때 호출되어 목록을 다시 만든다. 승리 보상 카드의 버튼은 카드 생성 시점에
-## _reward_action_buttons에 함께 담아둔다(카드 자체를 담는 _reward_ui와 별개 — 카드는
-## PanelContainer라 그 안의 실제 클릭 대상은 button_row의 자식 Button들이므로).
+## dungeon_map.gd/shop.gd 등과 같은 패턴(FocusNav, INBOX.md 2026-10-13 [대형 기획 11]
+## K-1 — 기존 숫자 단축키를 방향키+스페이스로 대체) — 지금 화면에 보이는 선택지 버튼
+## (승리 보상 카드/건너뛰기/커스터마이징 또는 "다음")을 방향키(위/아래) 체인으로 묶는다.
+## 전투 중에는 자동 진행이라 누를 버튼이 "덱 보기" 토글뿐이지만, 화면마다 버튼 구성이
+## 계속 바뀌므로(대기 중 -> 보상 선택 -> 다음) _rebuild_shortcuts()가 그때그때 호출되어
+## 목록을 다시 만든다. 승리 보상 카드의 버튼은 카드 생성 시점에 _reward_action_buttons에
+## 함께 담아둔다(카드 자체를 담는 _reward_ui와 별개 — 카드는 PanelContainer라 그 안의
+## 실제 클릭 대상은 button_row의 자식 Button들이므로).
 var _reward_action_buttons: Array[Button] = []
 var _shortcut_buttons: Array[Button] = []
 
@@ -985,11 +986,10 @@ func _ready() -> void:
 
 ## dungeon_map.gd/shop.gd 등과 같은 패턴 — 지금 화면에 실제로 눌러야 할 버튼들을
 ## 화면에 보이는 순서(승리 보상 카드/건너뛰기/커스터마이징 -> "다음" -> 커스터마이징
-## 토글 -> 덱 보기 토글)대로 모아 KeyboardShortcuts.apply_hints()로 "[n] " 접두어를
-## 다시 붙인다. 버튼 구성이 바뀌는 지점(전투 시작/승패 판정 직후/보상 선택-건너뛰기/
-## 덱 보기 토글)마다 호출해야 한다 — 안 그러면 예전 구성 그대로 눌리거나(이미 지워진
-## 보상 버튼이 배열에 남아 있음) 덱 보기 버튼의 "[n] " 접두어가 텍스트 갱신으로 지워진
-## 채로 남는다.
+## 토글 -> 덱 보기 토글)대로 모아 FocusNav.chain_linear()로 방향키 체인을 다시 잇고
+## grab_first_focus()로 포커스를 되돌린다. 버튼 구성이 바뀌는 지점(전투 시작/승패 판정
+## 직후/보상 선택-건너뛰기/덱 보기 토글)마다 호출해야 한다 — 안 그러면 예전 구성의 체인이
+## 남아(이미 지워진 보상 버튼이 배열에 남아 있음) 방향키 이동이 없는 버튼으로 새 버린다.
 func _rebuild_shortcuts() -> void:
 	var buttons: Array[Button] = []
 	buttons.append_array(_reward_action_buttons)
@@ -1003,24 +1003,28 @@ func _rebuild_shortcuts() -> void:
 		buttons.append(customize_toggle_button)
 	buttons.append(deck_toggle_button)
 	_shortcut_buttons = buttons
-	KeyboardShortcuts.apply_hints(_shortcut_buttons)
+	FocusNav.chain_linear(_shortcut_buttons, false)
+	FocusNav.grab_first_focus(_shortcut_buttons)
 
 
-## 숫자 키(1~9)로 지금 보이는 전투 화면 버튼을 순서대로 누른다. dungeon_map.gd/shop.gd와
-## 같은 이유로 커스터마이징 패널이 열려있을 때는 뒤에 가려진 버튼이 함께 눌리지 않도록
-## 무시하고, get_viewport()는 try_press() 이후가 아니라 이전에 미리 받아둔다 — "다음"
-## 버튼처럼 눌렸을 때 change_scene_to_file()로 씬을 바꾸는 버튼이면 이 노드가 try_press()
-## 도중 트리에서 빠져나가 그 뒤의 get_viewport()가 null을 반환해 set_input_as_handled()
-## 호출이 크래시하기 때문(2026-09-15 (105)에서 shop.gd 등 5개 화면에서 실제로 겪은
-## 버그와 동일 패턴 — 처음부터 안전한 순서로 작성).
+## Esc로 지금 열려있는 오버레이(커스터마이징 패널 우선, 아니면 덱 보기 패널)를 닫는다
+## (K-1 — 오버레이 패널 공통 규칙). 커스터마이징 패널은 자기 자신의 _unhandled_input()이
+## 이미 Esc를 처리하므로(customize_panel.gd 참고) 여기서는 그보다 먼저 가로채지 않도록
+## customize_panel.visible일 때는 아무 것도 하지 않고 그대로 패스스루한다 — 덱 보기는
+## DeckPanel 자신이 view-only라 Esc 로직이 없으므로 이 화면에서 직접 처리한다.
 func _unhandled_input(event: InputEvent) -> void:
 	if customize_panel.visible:
 		return
-	var idx := KeyboardShortcuts.digit_index(event)
-	if idx < 0:
+	if not (event is InputEventKey):
+		return
+	var key_event := event as InputEventKey
+	if not key_event.pressed or key_event.echo or key_event.keycode != KEY_ESCAPE:
+		return
+	if not deck_panel.visible:
 		return
 	var viewport := get_viewport()
-	if KeyboardShortcuts.try_press(_shortcut_buttons, idx) and viewport != null:
+	_on_deck_toggle_pressed()
+	if viewport != null:
 		viewport.set_input_as_handled()
 
 
@@ -2224,41 +2228,33 @@ func _on_customize_panel_closed() -> void:
 		_rebuild_shortcuts()
 
 
-## QA 전용 — 실제 InputEventKey를 만들어 _unhandled_input()에 직접 넣는 방식으로,
-## shop.gd/dungeon_map.gd 등에서 쓴 것과 같은 검증(키 입력 -> 버튼 클릭과 동일한 결과)을
-## combat_test에도 적용한다. "다음" 버튼은 눌리면 change_scene_to_file()로 dungeon_map
-## 씬으로 전환하는 버튼이라(2026-09-15 (105)에서 발견한 크래시 패턴과 동일 계열),
-## 패배 상태를 강제로 만들어 이 버튼이 숫자 키로도 크래시 없이 실제 씬 전환까지
-## 이어지는지 확인하는 용도.
+## QA 전용 — grab_focus() + pressed emit으로 "방향키 이동 후 스페이스 확정"(K-1)을
+## 흉내내, shop.gd/dungeon_map.gd 등에서 쓴 것과 같은 검증(포커스+확정 -> 버튼 클릭과
+## 동일한 결과)을 combat_test에도 적용한다. "다음" 버튼은 눌리면 change_scene_to_file()로
+## dungeon_map 씬으로 전환하는 버튼이라(2026-09-15 (105)에서 발견한 크래시 패턴과 동일
+## 계열), 패배 상태를 강제로 만들어 이 버튼이 크래시 없이 실제 씬 전환까지 이어지는지
+## 확인하는 용도.
 func _debug_press_shortcut_next() -> void:
 	battle_over = true
 	player_won = false
 	next_button.text = "처음부터 다시"
 	next_button.show()
 	_rebuild_shortcuts()
-	var idx := _shortcut_buttons.find(next_button)
-	var key := InputEventKey.new()
-	key.pressed = true
-	key.keycode = KEY_1 + idx
-	_unhandled_input(key)
+	next_button.grab_focus()
+	next_button.pressed.emit()
 
 
-## QA 전용 — 승리 보상 화면(카드 버튼들)에서 숫자 키로 "건너뛰기" 버튼을 실제로 누르면
-## 카드가 정리되고 next_button이 다시 나타나는지 확인한다(건너뛰기 자체는 씬을 바꾸지
-## 않아 크래시 우려는 없지만, 동적으로 구성이 바뀌는 _reward_action_buttons 기반 단축키
-## 배정이 실제로 올바른 인덱스를 가리키는지 검증하는 용도).
+## QA 전용 — 승리 보상 화면(카드 버튼들)에서 포커스+확정으로 "건너뛰기" 버튼을 실제로
+## 누르면 카드가 정리되고 next_button이 다시 나타나는지 확인한다.
 func _debug_press_shortcut_skip() -> void:
 	battle_over = true
 	player_won = true
 	_show_reward_ui()
-	# "건너뛰기" 버튼은 항상 _reward_action_buttons의 마지막 자리(카드 버튼들 -> 커스터마이징
-	# -> 건너뛰기 순)이고, _shortcut_buttons도 _reward_action_buttons를 그대로 앞에 이어붙이므로
-	# 같은 인덱스를 그대로 쓸 수 있다.
-	var idx := _reward_action_buttons.size() - 1
-	var key := InputEventKey.new()
-	key.pressed = true
-	key.keycode = KEY_1 + idx
-	_unhandled_input(key)
+	# "건너뛰기" 버튼은 항상 _reward_action_buttons의 마지막 자리(카드 버튼들 ->
+	# 커스터마이징 -> 건너뛰기 순).
+	var skip_button: Button = _reward_action_buttons[_reward_action_buttons.size() - 1]
+	skip_button.grab_focus()
+	skip_button.pressed.emit()
 
 
 ## qa/visual_qa.gd의 GAME_QA_CALL로 호출하기 위한 QA 전용 훅 (dungeon_map.gd의
