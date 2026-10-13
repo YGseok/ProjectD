@@ -103,6 +103,17 @@ static func build_card(item: Dictionary, extra_label_text: String = "", unafford
 	var title_row := HBoxContainer.new()
 	title_row.add_theme_constant_override("separation", 8)
 	title_row.add_child(_build_grade_badge(grade, gcolor))
+	# K-4b: SkillPool 스킬 카드(DiceItemPool/EventItemPool 아이템에는 없는 "id" 필드로
+	# 구분)만 모티프 아이콘을 등급 배지 옆에 붙인다 — 보상 선택/이벤트 보상 화면이 전부
+	# 이 build_card()를 공유해서 쓰므로, 여기 한 곳만 고치면 두 화면 모두 반영된다.
+	var skill_id: String = item.get("id", "")
+	if skill_id != "":
+		var motif := SkillPool.icon_motif_for(skill_id)
+		if motif != "":
+			var skill_icon := SkillIcon.new()
+			skill_icon.custom_minimum_size = Vector2(20, 20)
+			skill_icon.motif = motif
+			title_row.add_child(skill_icon)
 	vbox.add_child(title_row)
 
 	var title := Label.new()

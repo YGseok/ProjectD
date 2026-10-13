@@ -160,11 +160,23 @@ func _add_skills_section() -> void:
 
 	for skill_id in RunState.skill_flags:
 		var skill := SkillPool.find_skill(skill_id)
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 4)
+		# K-4b: 효과 모티프 아이콘(SkillPool.icon_motif_for) — 전투 중(토글)/비전투
+		# 4개 화면 전부 이 패널을 공유하므로 여기 한 곳만 고치면 "전투 중 보유 스킬
+		# 표시"와 "덱 패널" 양쪽 요구를 함께 충족한다.
+		var motif := SkillPool.icon_motif_for(skill_id)
+		if motif != "":
+			var skill_icon := SkillIcon.new()
+			skill_icon.custom_minimum_size = Vector2(14, 14)
+			skill_icon.motif = motif
+			row.add_child(skill_icon)
 		var skill_label := Label.new()
 		skill_label.text = "· %s" % String(skill.get("name", skill_id))
 		skill_label.add_theme_font_size_override("font_size", 12)
 		skill_label.add_theme_color_override("font_color", Color(0.75, 0.75, 0.75))
-		_vbox.add_child(skill_label)
+		row.add_child(skill_label)
+		_vbox.add_child(row)
 
 
 func _add_section(title_text: String, bag: DiceBag) -> void:

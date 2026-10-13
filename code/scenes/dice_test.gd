@@ -293,6 +293,10 @@ func _ready() -> void:
 	all_pass = (await _check_k4a_skill_icon_motifs(lines)) and all_pass
 
 	lines.append("")
+	lines.append("[K-4b: 스킬 아이콘 전 화면 적용 검증: item_card_style.gd build_card / character_select.gd 시작 스킬 슬롯 / deck_panel.gd 보유 스킬 섹션에 SkillIcon 실제 와이어링]")
+	all_pass = _check_k4b_skill_icon_wiring(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -6082,5 +6086,108 @@ func _check_k4a_skill_icon_motifs(lines: PackedStringArray) -> bool:
 
 	ok = render_ok and ok
 	lines.append("  모티프 %d종 실제 렌더 차이 검증(빈 아이콘 0건 + 모티프 간 픽셀 충돌 0건이어야) -> %s" % [motif_count, "OK" if render_ok else "FAIL"])
+
+	return ok
+
+
+## node 이하 트리를 재귀로 훑어 SkillIcon 노드를 전부 out에 모은다. K-4b 검증 전용 —
+## "모티프 프로퍼티가 설정됐는가"가 아니라 "실제 화면 트리에 그 아이콘 노드가 자식으로
+## 붙어있는가"를 확인하기 위해 필요(새 화면에 와이어링을 빼먹으면 플래그 테스트로는
+## 못 잡지만 이 트리 탐색으로는 빈 배열이 나와 FAIL로 드러남).
+func _collect_skill_icons(node: Node, out: Array) -> void:
+	if node is SkillIcon:
+		out.append(node)
+	for c in node.get_children():
+		_collect_skill_icons(c, out)
+
+
+## [대형 기획 11] K-4b 검증. K-4a가 만든 모티프 그리기 자체는 이미 검증됐으므로, 여기서는
+## "그 모티프가 실제 화면 호출부(보상 선택/이벤트 보상/캐릭터 선택 시작 스킬 슬롯/
+## 덱 패널)에 와이어링됐는가"만 본다 — 전부 "SkillIcon 노드가 트리에 실제로 붙어있고
+## 그 motif 값이 기대한 것과 일치하는가"로 검증(플래그만 보고 PASS 처리하지 않음).
+func _check_k4b_skill_icon_wiring(lines: PackedStringArray) -> bool:
+	var ok := true
+
+	# (1) ItemCardStyle.build_card(): SkillPool 스킬 딱셔너리(id 있음)를 넘기면 모티프
+	# 아이콘이 카드에 실제로 붙고, id가 없는 일반 아이템(DiceItemPool류)을 넘기면 안
+	# 붙는지(회귀 방지 — 스킬이 아닌 카드에 엉뚱한 아이콘이 생기면 안 됨) 둘 다 확인.
+	var deep_breath := SkillPool.find_skill("deep_breath")
+	var skill_built: Dictionary = ItemCardStyle.build_card(deep_breath)
+	var skill_icons_in_card: Array = []
+	_collect_skill_icons(skill_built["card"], skill_icons_in_card)
+	var card_has_icon: bool = skill_icons_in_card.size() == 1 and skill_icons_in_card[0].motif == SkillPool.icon_motif_for("deep_breath")
+	ok = card_has_icon and ok
+	lines.append("  build_card(스킬 '심호흡'): SkillIcon 1개 + motif='%s' 일치 -> %s" % [
+		SkillPool.icon_motif_for("deep_breath"), "OK" if card_has_icon else "FAIL"
+	])
+	(skill_built["card"] as Control).free()
+
+	var plain_item := {"name": "다이스 추가 (D4)", "description": "테스트용", "kind": "add_die", "sides": 4}
+	var item_built: Dictionary = ItemCardStyle.build_card(plain_item)
+	var skill_icons_in_item_card: Array = []
+	_collect_skill_icons(item_built["card"], skill_icons_in_item_card)
+	var item_card_has_no_icon: bool = skill_icons_in_item_card.is_empty()
+	ok = item_card_has_no_icon and ok
+	lines.append("  build_card(스킬 id 없는 일반 아이템): SkillIcon 0개(회귀 방지) -> %s" % ("OK" if item_card_has_no_icon else "FAIL"))
+	(item_built["card"] as Control).free()
+
+	# (2) character_select.gd 시작 스킬 슬롯: 해금/잠금 양쪽 모두 모티프 아이콘이 붙는지
+	# (잠금 슬롯은 INBOX.md 지시대로 "어둡게(알파 낮춤)"이지만 노드 자체는 존재해야 함).
+	var cs_scene := load("res://code/scenes/character_select.tscn")
+	var cs_node = cs_scene.instantiate()
+	add_child(cs_node)
+	cs_node._on_card_selected("novice")
+	var novice_candidates: Array[Dictionary] = SkillPool.starting_skills_for_character("novice")
+	var slot0_skill: Dictionary = novice_candidates[0]
+	var slot0_motif: String = SkillPool.icon_motif_for(slot0_skill["id"])
+
+	var unlocked_slot: Button = cs_node._make_starting_skill_slot(slot0_skill, true, 0)
+	var unlocked_icons: Array = []
+	_collect_skill_icons(unlocked_slot, unlocked_icons)
+	var unlocked_ok: bool = unlocked_icons.size() == 1 and unlocked_icons[0].motif == slot0_motif
+	ok = unlocked_ok and ok
+	lines.append("  character_select 시작 스킬 슬롯(해금, '%s'): SkillIcon motif='%s' 일치 -> %s" % [
+		slot0_skill["name"], slot0_motif, "OK" if unlocked_ok else "FAIL"
+	])
+	unlocked_slot.free()
+
+	var locked_slot: Button = cs_node._make_starting_skill_slot(slot0_skill, false, 0)
+	var locked_icons: Array = []
+	_collect_skill_icons(locked_slot, locked_icons)
+	var locked_ok: bool = locked_icons.size() == 1 and locked_icons[0].motif == slot0_motif and locked_icons[0].modulate.a < 1.0
+	ok = locked_ok and ok
+	lines.append("  character_select 시작 스킬 슬롯(잠금, '%s'): SkillIcon 윤곽 유지 + modulate.a<1 -> %s" % [
+		slot0_skill["name"], "OK" if locked_ok else "FAIL"
+	])
+	locked_slot.free()
+
+	remove_child(cs_node)
+	cs_node.free()
+
+	# (3) deck_panel.gd "보유 스킬" 섹션: 전투 중 토글/비전투 4개 화면이 공유하는 한
+	# 곳이라 여기서만 확인하면 전부 커버된다. skill_flags가 비었을 때는 아이콘이 없고
+	# (빈 텍스트 "(없음)"만), 스킬이 있으면 그 모티프가 실제로 붙는지 확인.
+	var skill_flags_backup: Array = RunState.skill_flags.duplicate()
+	var character_backup: String = RunState.character_id
+	RunState.character_id = "novice"
+
+	RunState.skill_flags = ["deep_breath"]
+	var deck := DeckPanel.new()
+	add_child(deck)
+	var deck_icons: Array = []
+	_collect_skill_icons(deck, deck_icons)
+	# deck 안엔 캐릭터 기믹용 SkillIcon(category, _add_character_section)도 함께 있으므로
+	# "motif가 기대값과 일치하는 아이콘이 정확히 1개 있는가"로 좁혀서 확인한다.
+	var matching_deck_icons: Array = deck_icons.filter(func(icon): return icon.motif == SkillPool.icon_motif_for("deep_breath"))
+	var deck_ok: bool = matching_deck_icons.size() == 1
+	ok = deck_ok and ok
+	lines.append("  DeckPanel 보유 스킬 섹션(skill_flags=[deep_breath]): SkillIcon motif='%s' 일치 -> %s" % [
+		SkillPool.icon_motif_for("deep_breath"), "OK" if deck_ok else "FAIL"
+	])
+
+	remove_child(deck)
+	deck.free()
+	RunState.skill_flags = skill_flags_backup
+	RunState.character_id = character_backup
 
 	return ok

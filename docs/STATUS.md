@@ -5,27 +5,30 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-10-13 (190)
+- 일시: 2026-10-13 (191)
 - 작성자: AI 에이전트. INBOX.md 최우선 지시 [대형 기획 11](조작/UI 개편) 중
-  **K-4a(스킬 아이콘 모티프 분류표 + 그리기 함수 + 검증)를 완료**했다. `code/
-  systems/skill_pool.gd`에 `ICON_MOTIFS`(skill_id -> 모티프 문자열, 33개 id 전수
-  매핑) + `ICON_MOTIF_VALUES`(11종) + `icon_motif_for()` 조회 함수를 추가하고,
-  `code/scenes/skill_icon.gd`(`SkillIcon`)에 기존 `category`(캐릭터 고유 기믹
-  8종)와는 완전히 별개인 `motif` 프로퍼티 + `_draw_motif()` 분기로 11종(공격/방어/
-  양쪽 다이스값 보정, 재굴림, 공격/방어/양쪽 스택형 보너스턴, 다이스 값 전환,
-  다이스 맞바꾸기, 주기형 고정 피해, 이벤트 판정 보정)을 전부 그릴 수 있게 확장
-  했다(의미가 겹치는 4종은 기존 그리기 함수에 `color` 매개변수를 추가해 재사용,
-  기존 category 호출부는 동작 변화 없음). `dice_test.gd`의 신규
-  `_check_k4a_skill_icon_motifs()`(async)가 ① 스킬 id 33개 전부 빈 모티프 없이
-  매핑되는지 ② 11종 모티프를 각자의 `SubViewport`(투명 배경)에 실제로 렌더해
-  캡처한 이미지가 서로 다른지(빈 아이콘 0건 + 모티프 간 픽셀 충돌 0건)를
-  "플래그가 아니라 실제 렌더 결과"로 검증(PASS). 아직 (b) 단계 전이라 실제 화면에
-  배선된 곳은 없지만, 화면 우상단에 11개 모티프 미리보기 줄을 남겨 `qa_shot.sh
-  dice_test` 스크린샷으로 서로 다른 모양/색이 눈으로도 뚜렷이 구분됨을 확인했다
-  (`qa_out/dice_test.png`). `bash scripts/qa_shot.sh dice_test` 전체 **PASS**
-  재확인(자세한 경위는 아래 "완료 기록 (190)" 참고). INBOX.md의 [대형 기획 11]은
-  "부분 처리됨"에 그대로 두고 K-4a 완료 상태로 진행 한 줄만 갱신 — 다음은
-  **K-4b(전 화면 실제 적용)**. "완료 기록" 10개 유지를 위해 (180)을
+  **K-4b(스킬 아이콘 모티프 전 화면 실제 적용)를 완료**했다. K-4a가 만든
+  `SkillIcon.motif`/`SkillPool.icon_motif_for()`를 세 지점에 배선했다 — ①
+  `item_card_style.gd`의 `build_card()`(아이템에 `id` 필드가 있으면, 즉 SkillPool
+  스킬이면 자동으로 모티프 아이콘을 등급 배지 옆에 붙임 — "보상 선택"/"이벤트 보상"
+  둘 다 같은 `_show_skill_offer()`를 공유해 한 곳 수정으로 자동 반영) ②
+  `character_select.gd`의 `_make_starting_skill_slot()`(해금 슬롯은 아이콘 그대로,
+  잠금 슬롯은 `modulate.a=0.4`로 흐리되 윤곽은 유지 — INBOX.md 지시대로) ③
+  `deck_panel.gd`의 `_add_skills_section()`(`RunState.skill_flags` 각 항목 라벨
+  옆에 아이콘 — 이 패널이 dungeon_map/shop/event/story_event 상시 + combat_test
+  토글 전부에 공유되므로 "상점"과 "전투 중 보유 스킬 표시" 요구를 여기 한 곳으로
+  동시에 충족). `dice_test.gd`에 신규 `_check_k4b_skill_icon_wiring()`(+재귀 헬퍼
+  `_collect_skill_icons()`)이 "모티프 프로퍼티가 설정됐나"가 아니라 "실제 화면
+  트리에 그 `SkillIcon` 노드가 자식으로 붙어있고 motif 값이 기대와 일치하는가"로
+  세 지점 전부를 검증(PASS, 작성 중 DeckPanel 케이스에서 캐릭터 기믹용 아이콘과
+  섞여 FAIL났던 것을 motif 일치 필터로 고침). `bash scripts/qa_shot.sh dice_test`
+  전체 **PASS**, `qa_out/event.png`(스킬 카드에 모티프 아이콘)/
+  `qa_out/combat_test_deckpanel_skills.png`(전투 중 보유 스킬 4개가 서로 다른 색
+  모티프로 구분)/`qa_out/character_select.png`(시작 스킬 슬롯)/`qa_out/shop.png`
+  (일반 아이템 카드는 영향 없음, 회귀 없음)로 육안 확인(자세한 경위는 아래 "완료
+  기록 (191)" 참고). INBOX.md의 [대형 기획 11]은 "부분 처리됨"에 그대로 두고
+  K-4b 완료 상태로 진행 한 줄만 갱신 — 다음은 **K-4c(외부 아트 override 경로 +
+  발주 목록 정리)**. "완료 기록" 10개 유지를 위해 (181)을
   `docs/STATUS_ARCHIVE.md`로 옮겼다.
 
 ## 지금 위치
@@ -262,14 +265,17 @@ STATUS_ARCHIVE.md`(174 이전)/위 "완료 기록 (184)~(186)" 참고.
   상세 패널·`DeckPanel`(dungeon_map/shop/event/story_event/combat_test 공유)·
   모든 화면의 포커스 강조색(K-1)에 적용한다. 자세한 내용은 `docs/DESIGN.md`
   "조작"/"플레이어블 캐릭터" 절 참고.
-- **스킬 아이콘 모티프(2026-10-13 [대형 기획 11] K-4a 완료, 화면 배선은 아직)**:
-  `code/systems/skill_pool.gd`의 `ICON_MOTIFS`가 스킬 id(SKILLS/UNIQUE_SKILLS/
-  UPGRADE_SKILLS/STARTING_SKILLS 33개) 전부를 11종 효과 모티프로 분류하고,
-  `code/scenes/skill_icon.gd`(`SkillIcon`)의 `motif` 프로퍼티가 각 모티프를 그릴
-  수 있다. 아직 어느 화면에도 실제로 배선되지 않았다(캐릭터 고유 기믹 8종을 그리는
-  기존 `category` 경로는 그대로 — `docs/DESIGN.md` "현재 구현 콘텐츠" 참고) —
-  다음 K-4b가 캐릭터 선택 시작 스킬 슬롯/보상 선택/상점/덱·커스터마이즈 패널/
-  전투 중 보유 스킬/이벤트 보상에 실제로 연결한다.
+- **스킬 아이콘 모티프(2026-10-13 [대형 기획 11] K-4a/K-4b 완료, 외부 아트
+  override는 아직)**: `code/systems/skill_pool.gd`의 `ICON_MOTIFS`가 스킬 id
+  (SKILLS/UNIQUE_SKILLS/UPGRADE_SKILLS/STARTING_SKILLS 33개) 전부를 11종 효과
+  모티프로 분류하고, `code/scenes/skill_icon.gd`(`SkillIcon`)의 `motif` 프로퍼티가
+  각 모티프를 그린다. **K-4b로 세 지점에 실제 배선 완료**: `item_card_style.gd`의
+  `build_card()`(보상 선택/이벤트 보상 스킬 카드), `character_select.gd`의
+  시작 스킬 슬롯(해금/잠금 양쪽), `deck_panel.gd`의 보유 스킬 섹션(dungeon_map/
+  shop/event/story_event 상시 + combat_test 토글 — "상점"과 "전투 중 보유 스킬
+  표시" 요구를 함께 충족). 캐릭터 고유 기믹 8종을 그리는 기존 `category` 경로는
+  그대로 별개로 유지(`docs/DESIGN.md` "현재 구현 콘텐츠" 참고). 다음 K-4c는 외부
+  아트(`resources/skills/<skill_id>.png`) override 경로와 아트 스레드 발주 목록.
 
 상세 변경 이력은 아래 "완료 기록"(최근 10개)과, 그보다 오래된 것은
 `docs/STATUS_ARCHIVE.md`(매 이터레이션 읽지 않는 아카이브) 참고.
@@ -282,11 +288,13 @@ STATUS_ARCHIVE.md`(174 이전)/위 "완료 기록 (184)~(186)" 참고.
 **INBOX.md 최우선 지시 진행 중: [대형 기획 11](조작/UI 개편, K-1 → K-2 → K-3 →
 K-4(a→b→c))** — 2026-10-13(187)에 K-1(방향키+스페이스 조작), (188)에
 K-2(캐릭터 선택 화면 가독성 개편), (189)에 K-3(캐릭터 퍼스널 컬러를 UI에 반영),
-(190)에 K-4a(스킬 아이콘 모티프 분류표 + 그리기 함수) 완료. **다음은
-K-4b(전 화면 실제 적용)뿐** — 캐릭터 선택 시작 스킬 슬롯/보상 선택/상점/
-덱·커스터마이즈 패널/전투 중 보유 스킬/이벤트 보상에 `SkillIcon.motif`를
-배선할 것(INBOX.md "남은 이슈" 원문 참고, 보류하지 말 것). 아래 번호 매긴 큐는
-[대형 기획 11]이 전부 끝난 뒤에나 다시 볼 것. 남은 구조적 후보(급하지 않음):
+(190)에 K-4a(스킬 아이콘 모티프 분류표 + 그리기 함수), (191)에 K-4b(전 화면 실제
+적용) 완료. **다음은 K-4c뿐** — 외부 아트 대체 경로
+(`resources/skills/<skill_id>.png`가 있으면 그 이미지, 없으면 절차적 모티프,
+`resources/`는 읽기만) + 완료 후 "ProjectD Art" 스레드로 넘길 발주 목록(스킬
+id/이름/모티프/계열 색/설명 한 줄)을 STATUS.md에 정리(INBOX.md "남은 이슈" 원문
+참고, 보류하지 말 것). 아래 번호 매긴 큐는 [대형 기획 11]이 전부 끝난 뒤에나 다시
+볼 것. 남은 구조적 후보(급하지 않음):
 보스 개별 6종 중 타락한 기사단장만 밴드 미달(`MonsterSkills.modify_monster_roll()` 파라미터화가
 전제조건이라 사람 설계 확인 후 착수 권장).
 
@@ -895,6 +903,50 @@ K-4b(전 화면 실제 적용)뿐** — 캐릭터 선택 시작 스킬 슬롯/�
 
 ## 완료 기록
 
+- **2026-10-13 (191)**: INBOX.md 최우선 지시 [대형 기획 11] 조작/UI 개편(K-1→K-4) 중
+  **K-4b(스킬 아이콘 모티프 전 화면 적용) 완료**. K-4a가 만든 `SkillIcon.motif`/
+  `SkillPool.icon_motif_for()`를 실제 화면 3곳에 배선했다 — INBOX.md가 요구한 6개
+  위치(캐릭터 선택 시작 스킬 슬롯/보상 선택/상점/덱·커스터마이즈 패널/전투 중 보유
+  스킬/이벤트 보상) 중 상점·전투 중 보유 스킬은 코드 구조상 이미 아래 두 지점이
+  그대로 커버해 별도 수정이 필요 없었다.
+  **(1) `item_card_style.gd`의 `build_card()`**: 아이템 딕셔너리에 `id` 필드가
+  있으면(SkillPool 스킬만 이 필드를 갖고, DiceItemPool/EventItemPool 아이템은 없음)
+  `SkillPool.icon_motif_for(id)`로 모티프를 찾아 등급 배지 옆에 `SkillIcon`을 자동으로
+  붙인다 — 이 한 곳만 고치면 "보상 선택"과 "이벤트 보상"이 둘 다 같은
+  `_show_skill_offer()`(event.gd)를 공유해서 쓰므로 자동으로 반영됨. 일반 아이템
+  카드는 `id`가 없어 회귀 없이 기존 모습 그대로 유지(테스트로 확인).
+  **(2) `character_select.gd`의 `_make_starting_skill_slot()`**: 해금된 슬롯은 이름
+  왼쪽에 모티프 아이콘, 잠긴 슬롯도 INBOX.md 지시("잠금 상태는 어둡게 + 자물쇠 배지,
+  윤곽은 보이게")대로 같은 아이콘을 `modulate.a=0.4`로 흐리게 남겨 완전히 숨기지
+  않는다.
+  **(3) `deck_panel.gd`의 `_add_skills_section()`**: `RunState.skill_flags` 각
+  항목 라벨 왼쪽에 모티프 아이콘을 붙인다. 이 패널이 dungeon_map/shop/event/
+  story_event(상시)와 combat_test(토글) 전부에 공유되는 "주요 패널"이라(K-3와 같은
+  이유), 여기 한 곳이 INBOX.md가 요구한 "상점"과 "전투 중 보유 스킬 표시" 둘 다를
+  동시에 충족한다 — 상점은 스킬을 팔지 않아 이 패널 없이는 스킬 아이콘을 볼 자리
+  자체가 없었던 화면이라, DeckPanel 공유 구조가 "새 화면을 따로 만들지 않고도
+  커버된다"는 요청(원문 "공용 헬퍼로 — 새 화면이 생겨도 한 줄로 적용되게")과 맞아
+  떨어짐. `customize_panel.gd`는 애초에 스킬을 표시하지 않아(다이스 면만 다룸)
+  변경 없음.
+  **검증**: `dice_test.gd`에 신규 `_check_k4b_skill_icon_wiring()` + 재귀 헬퍼
+  `_collect_skill_icons()`(트리를 훑어 실제 `SkillIcon` 자식 노드를 모음, "모티프
+  프로퍼티가 설정됐나"가 아니라 "그 노드가 화면 트리에 실제로 붙어있나"를 검증) —
+  ① `build_card()`에 스킬 딕셔너리를 넣으면 motif가 일치하는 `SkillIcon`이 정확히
+  1개 생기고, id 없는 일반 아이템을 넣으면 0개인지(회귀 방지) ② 시작 스킬 슬롯이
+  해금/잠금 양쪽에서 motif 아이콘을 갖고 잠금 쪽은 `modulate.a<1`인지 ③ DeckPanel에
+  `skill_flags=["deep_breath"]`를 넣으면 정확히 그 motif를 가진 아이콘이 생기는지
+  (캐릭터 기믹용 `SkillIcon`도 같은 패널에 함께 있어 "모티프가 일치하는 것만" 따로
+  필터링해서 셈 — 처음 작성 때 이걸 놓쳐 FAIL이 났던 것을 바로 고침). 전부 PASS.
+  `bash scripts/qa_shot.sh dice_test` 전체 **PASS**. 육안 확인(`qa_out/event.png` —
+  "임기응변"에 주황/회색 반반 다이아몬드, "심호흡"에 파란 방패 쉐브론 모티프가 뚜렷이
+  보임 / `qa_out/combat_test_deckpanel_skills.png` — 전투 중 토글 DeckPanel의 보유
+  스킬 4개가 서로 다른 모티프 색으로 구분됨 / `qa_out/character_select.png` — 시작
+  스킬 슬롯 "확장"에 보라 모티프 아이콘 / `qa_out/shop.png` — 스킬이 아닌 상점 아이템
+  카드에는 아이콘이 안 붙어 회귀 없음 확인). INBOX.md [대형 기획 11]은 "부분 처리됨"에
+  그대로 두고 K-4b 완료 상태로 진행 한 줄만 갱신 — 다음은 **K-4c(외부 아트 override
+  경로 — `resources/skills/<skill_id>.png` 존재 시 그 이미지 사용 + 발주 목록 정리)**.
+  "완료 기록" 10개 유지를 위해 (181)을 `docs/STATUS_ARCHIVE.md`로 옮겼다.
+
 - **2026-10-13 (190)**: INBOX.md 최우선 지시 [대형 기획 11] 조작/UI 개편(K-1→K-4) 중
   **K-4a(스킬 아이콘 모티프 분류표 + 그리기 함수 + 검증) 완료**. 지금까지 "스킬"
   (`SkillPool`의 SKILLS/UNIQUE_SKILLS/UPGRADE_SKILLS/STARTING_SKILLS, 33개 id)에는
@@ -1252,53 +1304,9 @@ K-4b(전 화면 실제 적용)뿐** — 캐릭터 선택 시작 스킬 슬롯/�
   (`dull`/`seal`/`numb`) 각각의 스킬 파라미터 완화, 또는 공격 다이스 보정
   +1→0 제거 중에서 다음 이터레이션이 고를 부분.
 
-- **2026-10-08 (181)**: INBOX.md 최우선 지시 [대형 기획 10] **J-2(보스 튜닝) 계속
-  — R1 보스(고블린 왕/점액 군주)가 시도 0~2 내내 0.0%였던 원인을 숫자로 진단한 뒤
-  그 원인에 맞는 손잡이를 움직임**. 세션 지시대로 손잡이를 더 돌리기 전에 먼저
-  EV(기대값)를 손으로 계산했다 — 균형 성장 정책·8캐릭터 평균 기준 R1 보스 자리
-  (effective_difficulty=4)에서 **플레이어 기대 공격/방어 합계는 둘 다 10.0**
-  (다이스 개수 평균 4.0 × D4 평균 2.5 — `global_index_for(1,4)=4`가 `growth_
-  sides_for`의 D6 승급 임계(5)에 한 걸음 못 미쳐 이 방만 여전히 D4). J-1 기준선
-  (시도0)에서 **고블린 왕 기대 방어=15.5(armor+2 포함)/점액 군주 기대 방어=13.5**가
-  둘 다 플레이어 기대 공격(10.0)을 웃돌아 "평균적으로 보스에게 피해를 줄 수
-  없는" 구조였고, 동시에 **보스 기대 공격(27.0/31.5) vs 플레이어 기대 방어
-  (10.0)**의 격차로 플레이어가 1~2턴 만에 죽어(HP20÷17.0≈1.2턴/÷21.5≈0.9턴) 보스
-  HP(44)를 깎을 기회 자체가 거의 없었다. 원인은 두 가지가 겹친 것으로 특정—
-  ① 보스가 서는 room4(difficulty=4)가 몬스터 다이스 면 승급 임계(원래 idx>=4)와
-  겹쳐 "몬스터는 이미 D8, 균형 성장 플레이어는 아직 D4"인 2단계 면 격차가 R1
-  보스에서만 발생(R2는 D8 vs D6, R3는 D8 vs D8로 격차가 좁거나 없음 — 실제
-  R1<R2<R3 승률 순서와 일치), ② 보스 전용 공통 보정(공격+2/방어+1)이 이미 좁은
-  격차 위에 추가로 쌓임. **적용한 손잡이 2개**: (시도3) `_monster_dice_sides_
-  for_room()`의 D8 임계를 idx>=4→idx>=5로 한 칸 늦춰 R1 보스만 D8→D6(R2/R3
-  보스는 difficulty 7/10이라 영향 없음) — 재측정 결과 생존 턴수는 늘었지만
-  (avg_turns 4.6~10.9→7.9~12.0) R1 보스 승률은 여전히 0.0%(마진 -2.5/-0.5로
-  아직 음수)였다. (시도4) `_build_monster_config()`의 보스 전용 방어 다이스
-  보정을 +1→0으로 제거(공격+1/HP×1.5는 유지) — EV 재계산상 마진이 고블린 왕
-  10.0-9.0=+1.0, 점액 군주 10.0-7.0=+3.0으로 **처음 양수 전환**, 재측정 결과
-  R1 보스 0.0%→1.8%로 실제로 움직였다(보스 전체 평균도 5.7%→10.3%, R2 5.9%→
-  13.5%/R3 11.1%→15.8%도 함께 상승 — 방어 보정 제거는 전 라운드 공통이므로).
-  여전히 목표(35~55%) 대비 크게 미달이지만 "완전히 불가능"에서 "드물게 가능"
-  으로 구조가 바뀐 것을 확인. `dice_test.gd`의 보스 고정값 테스트 4곳(공식
-  스케일링 room0~6의 D8 임계/방어 보정 제거, room4 다크나이트 steady_guard
-  하한값 4→3, 좀비 보스 r2방4 방어4→3, 고블린 왕 r1방4 방어3→2)과 몬스터
-  디버그 문구("[보스] 공격+1 / HP x1.5 강화됨", 방어 문구 삭제)를 바뀐 수치로
-  갱신, `bash scripts/qa_shot.sh dice_test` 전체 PASS 확인. `bash scripts/
-  qa_shot.sh balance_sim`(전체 재시뮬, 포그라운드로 끝까지, 약 28초×2회)으로
-  시도3/시도4 각각 재측정하고 `balance_target_check`로 확인, `qa_out/
-  combat_boss_j2_attempt4.png`로 실제 전투 화면(고블린 왕 HP33/33, 공격5D6·
-  방어2D6, 디버그 문구)도 육안 확인. `docs/BALANCE_TUNING_LOG.md`에 "J-2 R1
-  보스 0% 원인 진단" 섹션(EV 표 4개 + 구조적 원인 서술)과 "J-2 보스 튜닝 시도
-  로그" 표의 시도3/4 행을 추가. INBOX.md [대형 기획 10] 항목은 J-3~J-4가 남아
-  "부분 처리됨" 유지, 진행 줄만 갱신. **보스 전체 평균(10.3%)이 여전히
-  목표(35~55%) 대비 크게 미달이라 J-2가 계속된다** — 다음 손잡이 후보:
-  보스 HP(33)가 양수로 전환된 마진에 비해 여전히 두꺼워(고블린 왕 기준 마진
-  +1.0 vs HP33 → 추정 수십 턴, 반면 보스가 플레이어를 죽이는 데는 ~3턴) HP를
-  더 낮추거나, armor(2)/counter(2) 같은 고블린 왕 전용 스킬 파라미터를
-  완화하는 쪽이 다음으로 시도해볼 만하다(판단은 다음 이터레이션 몫).
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(190)에서 (180)을 그리로 옮겼다.)*
+이번 이터레이션(191)에서 (181)을 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 

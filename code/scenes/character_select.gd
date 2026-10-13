@@ -691,12 +691,26 @@ func _make_starting_skill_slot(skill: Dictionary, unlocked: bool, slot_index: in
 	content.alignment = BoxContainer.ALIGNMENT_CENTER
 	button.add_child(content)
 
+	# K-4b: 효과 모티프 아이콘(SkillPool.icon_motif_for)을 이름 왼쪽에 붙인다. 잠긴
+	# 슬롯도 윤곽(실루엣)은 그대로 보이되 modulate 알파를 낮춰 "어둡게"를 표현 —
+	# INBOX.md 지시대로 자물쇠 배지는 그대로 유지하고 모티프를 완전히 숨기지 않는다.
+	var motif := SkillPool.icon_motif_for(skill["id"])
 	if unlocked:
+		var name_row := HBoxContainer.new()
+		name_row.alignment = BoxContainer.ALIGNMENT_CENTER
+		name_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		name_row.add_theme_constant_override("separation", 4)
+		if motif != "":
+			var skill_icon := SkillIcon.new()
+			skill_icon.custom_minimum_size = Vector2(16, 16)
+			skill_icon.motif = motif
+			name_row.add_child(skill_icon)
 		var name_label := Label.new()
 		name_label.text = skill["name"]
 		name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		name_label.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9))
-		content.add_child(name_label)
+		name_row.add_child(name_label)
+		content.add_child(name_row)
 	else:
 		var lock_row := HBoxContainer.new()
 		lock_row.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -705,6 +719,12 @@ func _make_starting_skill_slot(skill: Dictionary, unlocked: bool, slot_index: in
 		var lock_icon := LockIcon.new()
 		lock_icon.custom_minimum_size = Vector2(16, 16)
 		lock_row.add_child(lock_icon)
+		if motif != "":
+			var skill_icon := SkillIcon.new()
+			skill_icon.custom_minimum_size = Vector2(16, 16)
+			skill_icon.motif = motif
+			skill_icon.modulate = Color(1, 1, 1, 0.4)
+			lock_row.add_child(skill_icon)
 		var name_label := Label.new()
 		name_label.text = skill["name"]
 		name_label.add_theme_color_override("font_color", Color(0.55, 0.55, 0.55))
