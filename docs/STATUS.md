@@ -5,42 +5,35 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-10-13 (187)
+- 일시: 2026-10-13 (188)
 - 작성자: AI 에이전트. INBOX.md 최우선 지시 [대형 기획 11](조작/UI 개편) 중
-  **K-1(방향키+스페이스 조작으로 숫자 단축키 완전 대체)을 처음부터 끝까지
-  완료**했다. 신규 `code/scenes/focus_nav.gd`(`FocusNav`, 씬 상태 없는 순수
-  유틸)가 "버튼 목록을 방향키 체인으로 명시적으로 잇기(`chain_linear`,
-  위/아래 또는 좌/우, `wrap`으로 양 끝 연결, `trap`으로 반대 축을 자기
-  자신에 묶어 Godot 자동 탐색이 오버레이 밖으로 못 나가게 막음)" +
-  "눈에 띄는 포커스 테두리 스타일 적용" + "첫 버튼에 초기 포커스"를 제공한다
-  — 버튼 활성화(스페이스/Enter 확정) 자체는 Godot 기본 `BaseButton`
-  동작(focus_mode=FOCUS_ALL + ui_accept)에 맡기고 새로 구현하지 않았다.
-  대상 9개 화면(character_select/dungeon_map/combat_test/event/shop/
-  story_event/customize_panel/achievement_panel/test_battle_setup)
-  전부에서 `KeyboardShortcuts.apply_hints()`(버튼 "[n] " 접두어)와
-  숫자 키 `_unhandled_input` 핸들러를 제거하고 `FocusNav` 체인으로
-  교체했다. 오버레이 패널(customize_panel/achievement_panel)은 Esc로
-  닫히고(`_unhandled_input`에서 `KEY_ESCAPE` 감지) 포커스가 `wrap`+`trap`
-  체인으로 안에 갇힌다 — customize_panel은 5단계 화면
-  (`_show_pip_picker`/`_show_die_inventory_picker`/`_show_die_target_picker`/
-  `_show_die_picker`/`_show_face_picker`) 전부 다시 그릴 때마다 체인을
-  새로 건다. combat_test는 덱 보기 토글 패널도 Esc로 닫히게 자체
-  `_unhandled_input`에 추가했다. 더 이상 쓰이지 않는
-  `code/scenes/keyboard_shortcuts.gd`(`KeyboardShortcuts`)는 완전히
-  삭제했다. `dice_test.gd`의 기존 `_check_keyboard_shortcuts`도
-  `_check_focus_nav`로 교체 — "계산 결과가 바뀌는가"를 검증하는 지침대로
-  `focus_mode`/`focus_neighbor_*` NodePath를 직접 비교하고, 실제
-  `CustomizePanel` 인스턴스를 만들어 `has_focus()`(엔진 실제 포커스
-  상태)와 Esc 입력 후 `closed` 시그널 발생을 검증한다(개발 중 람다가
-  바깥 int를 값으로 캡처해 0으로 보이던 테스트 버그와, `close()`의
-  `queue_free()` 자식 뒤에 `panel.free()`를 즉시 호출해 이중 해제로
-  무관한 다른 테스트에서 세그폴트가 나던 문제 둘 다 실제로 겪고 고침 —
-  자세한 경위는 아래 "완료 기록 (187)" 참고). `dice_test` 전체 PASS를
-  3회 연속 재확인(크래시 없음). 9개 화면 전부 `qa_shot.sh`로 스크린샷
-  확인 — "[n] " 숫자 힌트가 전혀 안 보이고, 첫 포커스 버튼에 청록
-  테두리가 보임. `docs/DESIGN.md`에 "조작" 절 신설(키 매핑 표). INBOX.md의
-  [대형 기획 11]을 "부분 처리됨"으로 옮기고 K-1 완료 상태로 갱신 — K-2/K-3/
-  K-4는 아직 미착수. 자세한 내용은 아래 "완료 기록 (187)" 참고.
+  **K-2(캐릭터 선택 화면 가독성 개편 — 좌: 얼굴 중심 목록 / 우: 구역 나눈 상세
+  패널)를 처음부터 끝까지 완료**했다. 좌측 카드 목록(`character_select.gd`의
+  `_make_card()`)을 92px짜리 "초상+이름+버튼" 행에서 56px짜리 "정사각 얼굴
+  썸네일(48×48)+이름+한 줄 기믹 라벨+선택 버튼" 행으로 줄여 8명 전부가 스크롤
+  없이 한 화면에 들어온다(8행 결합 532px < 가시 영역 540px). 얼굴 이미지는
+  신규 `CharacterArt.load_face_thumb()`가 ① `resources/characters/<id>/
+  face_neutral.png` ② `full.png`를 비율 크롭(`DEFAULT_FACE_CROP_RATIO`,
+  프로필 `face_crop` 필드로 캐릭터별 오버라이드 가능) ③ 도형 플레이스홀더
+  순서로 고른다. 우측 상세 패널은 `_build_detail_panel()`을 전면 재작성해
+  "줄글 한 덩어리" 대신 **섹션 5개**(`_make_section()` 공용 틀 — 제목+테두리
+  패널)로 나눴다 — ①헤더(전신 원화+이름+컨셉 한 줄) ②능력치 칩(공격/방어
+  다이스·이벤트 주사위·HP를 아이콘+숫자 칩으로) ③고유 능력(SkillIcon+짧은
+  이름+최대 2줄 설명, 넘치면 "…") ④시작 스킬 3슬롯(기존 F-1~F-4 구조·변수명
+  그대로 유지해 기존 회귀 테스트가 안 깨지게 함) ⑤안내(원화 미입고 플레이스홀더
+  안내 — 원화가 있으면 섹션 패널 자체를 숨김, 빈 테두리 상자가 보이던 문제를
+  스크린샷으로 발견해 고침). 검증 중 새 K-2 테스트가 autowrap 라벨의 "레이아웃
+  패스 전 size.x=0" 문제로 비정상적인 높이(1600~2600px)를 보고해, 해당 라벨
+  3개에 `.size`를 미리 못박아 해결했다(세션 지침대로 "계산 결과가 실제로
+  바뀌는가"를 보다가 실제로 겪고 고친 버그 — 자세한 경위는 아래 "완료 기록
+  (188)" 참고). `dice_test` 전체 PASS를 3회 연속 재확인(크래시 없음). 기본/
+  해적(원화 없음)/주술사(가장 긴 컨셉 문장)/잠긴 슬롯 미리보기 4개 화면을
+  `qa_shot.sh`로 스크린샷 확인 — 겹침·잘림·빈 상자 없음. `docs/DESIGN.md`
+  "플레이어블 캐릭터" 절에 K-2 레이아웃 변경 서술 추가. INBOX.md의 [대형
+  기획 11]은 "부분 처리됨"에 그대로 두고 K-2 완료 상태로 진행 한 줄만 갱신 —
+  다음은 K-3(캐릭터 퍼스널 컬러). 부수적으로, 직전(187) 이터레이션이 실제
+  "완료 기록 (187)" 항목을 추가하지 않은 누락을 발견해 이번에 보완했다
+  (아래 "완료 기록 (187)" 참고).
 
 ## 지금 위치
 
@@ -264,8 +257,12 @@ STATUS_ARCHIVE.md`(174 이전)/위 "완료 기록 (184)~(186)" 참고.
   삭제됐다. 이제 방향키(↑↓←→)로 포커스 이동, 스페이스/Enter로 확정, Esc로
   오버레이(커스터마이징/업적) 닫기 — `code/scenes/focus_nav.gd`(`FocusNav`)가
   화면마다 "보이는 버튼 목록"을 방향키 체인으로 명시적으로 묶는다. 자세한 키
-  매핑은 `docs/DESIGN.md` "조작" 절 참고. K-2(캐릭터 선택 화면 가독성 개편)/
-  K-3(캐릭터 퍼스널 컬러)/K-4(스킬 아이콘)는 아직 미착수.
+  매핑은 `docs/DESIGN.md` "조작" 절 참고. K-3(캐릭터 퍼스널 컬러)/K-4(스킬
+  아이콘)는 아직 미착수.
+- **캐릭터 선택 화면(2026-10-13 [대형 기획 11] K-2 완료)**: 좌측 목록은 정사각
+  얼굴 썸네일+이름+한 줄 기믹 라벨 행(8명 스크롤 없이 한눈에), 우측 상세
+  패널은 섹션 5개(헤더/능력치/고유 능력/시작 스킬/안내)로 구역화됐다. 자세한
+  내용은 `docs/DESIGN.md` "플레이어블 캐릭터" 절 참고.
 
 상세 변경 이력은 아래 "완료 기록"(최근 10개)과, 그보다 오래된 것은
 `docs/STATUS_ARCHIVE.md`(매 이터레이션 읽지 않는 아카이브) 참고.
@@ -276,11 +273,11 @@ STATUS_ARCHIVE.md`(174 이전)/위 "완료 기록 (184)~(186)" 참고.
 진행하는 것을 권장한다. 한 이터레이션에 한두 개만 진행할 것.
 
 **INBOX.md 최우선 지시 진행 중: [대형 기획 11](조작/UI 개편, K-1 → K-2 → K-3 →
-K-4(a→b→c))** — 2026-10-13(187)에 K-1(방향키+스페이스 조작) 완료. **다음은
-K-2(캐릭터 선택 화면 가독성 개편 — 좌: 얼굴 중심 목록, 우: 구역 나눈 상세
-패널)뿐**, 보류하지 말고 바로 착수할 것(INBOX.md "남은 이슈" 원문 참고,
-K-3가 K-1에서 만든 `FocusNav` 포커스 스타일에 캐릭터 퍼스널 컬러를 입히므로
-K-2 다음에 K-3를 하는 순서도 그대로 유지). 아래 번호 매긴 큐는 [대형 기획 11]이
+K-4(a→b→c))** — 2026-10-13(187)에 K-1(방향키+스페이스 조작), (188)에
+K-2(캐릭터 선택 화면 가독성 개편) 완료. **다음은 K-3(캐릭터 퍼스널 컬러를
+UI에 반영)뿐**, 보류하지 말고 바로 착수할 것(INBOX.md "남은 이슈" 원문 참고 —
+K-1이 만든 `FocusNav.focus_style()`의 accent 매개변수에 캐릭터 퍼스널 컬러를
+넘기는 것부터 시작). 아래 번호 매긴 큐는 [대형 기획 11]이
 전부 끝난 뒤에나 다시 볼 것. 남은 구조적 후보(급하지 않음): 보스 개별 6종 중
 타락한 기사단장만 밴드 미달(`MonsterSkills.modify_monster_roll()` 파라미터화가
 전제조건이라 사람 설계 확인 후 착수 권장).
@@ -890,6 +887,83 @@ K-2 다음에 K-3를 하는 순서도 그대로 유지). 아래 번호 매긴 �
 
 ## 완료 기록
 
+- **2026-10-13 (188)**: INBOX.md 최우선 지시 [대형 기획 11] 조작/UI 개편(K-1→K-4) 중
+  **K-2(캐릭터 선택 화면 가독성 개편: 좌 얼굴 중심 목록 / 우 구역 나눈 상세 패널)
+  완료**. 좌측 카드 목록(`code/scenes/character_select.gd`의 `_make_card()`)을
+  92px짜리 "초상+이름+버튼" 행에서 56px짜리 "정사각 얼굴 썸네일(48×48)+이름+한 줄
+  기믹 라벨+선택 버튼" 행으로 바꿔 8명 전부가 스크롤 없이 한 화면에 들어오게 했다
+  (8행 결합 높이 532px < 가시 영역 540px). 얼굴 이미지는 `CharacterArt.load_face_thumb()`
+  신설(① `resources/characters/<id>/face_neutral.png` ② `full.png`를 비율 크롭
+  `DEFAULT_FACE_CROP_RATIO`(0..1 비율, 프로필별 `face_crop` 필드로 오버라이드 가능)
+  ③ 둘 다 없으면 도형 플레이스홀더) 우선순위로 고른다. 우측 상세 패널은 `_build_
+  detail_panel()`을 전면 재작성해 "줄글 한 덩어리" 대신 `_make_section(title)`(테두리+
+  배경 패널 공용 틀)로 만든 **섹션 5개**로 쪼갰다 — ①헤더(전신 원화+이름+컨셉
+  한 줄, `_header_concept_line()`로 "—" 앞부분만 추출) ②능력치(공격/방어 다이스
+  개수를 `RewardIcon`(dice) 칩으로, 이벤트 주사위를 `EventDieVisual` 칩으로, HP를
+  고정 칩으로 — `_make_stat_chip()` 공용 틀) ③고유 능력(`SkillIcon`+짧은 이름
+  `_ability_short_name()`(GIMMICK_LABELS의 " (" 앞부분)+최대 2줄 설명 `_truncate()`
+  (ABILITY_DESC_MAX_CHARS=70자, 넘치면 "…"+전체 문장은 tooltip_text)) ④시작 스킬
+  3슬롯(기존 F-1~F-4 구조·변수명(`_starting_skill_container`/`_starting_skill_desc_
+  label`/`_on_starting_skill_selected`/`_on_starting_skill_locked_preview` 등)
+  완전히 그대로 유지 — 기존 회귀 테스트가 섹션 이동만으로 안 깨지게 함) ⑤안내
+  (원화 미입고 플레이스홀더 안내, 스크린샷으로 "빈 테두리 상자"가 보여서 라벨뿐
+  아니라 섹션 패널 자체(`_detail_note_section_panel`)를 숨기도록 추가 수정).
+  **검증 중 겪은 문제**: `dice_test.gd`에 새로 추가한 K-2 테스트(`_check_k2_
+  character_select_sections`)가 `_detail_sections_vbox.get_combined_minimum_size()`
+  로 "내용이 패널 높이(540) 안에 들어오는가"를 재자마자 1600~2600px라는 터무니
+  없는 값이 나왔다 — 원인은 autowrap(`AUTOWRAP_WORD`) Label들이 실제 컨테이너
+  레이아웃 패스(최초 1프레임)를 거치기 전에는 `size.x=0`인 채로 최소 높이를
+  계산해(모든 단어가 한 줄씩 줄바꿈) 비정상적으로 커지는 것이었다. 세 라벨
+  (`_detail_skill_label`/`_starting_skill_desc_label`/`_detail_placeholder_note`)에
+  `custom_minimum_size`뿐 아니라 `.size`까지 미리 못박아(`SECTION_BODY_WRAP_
+  WIDTH`=760/`ABILITY_DESC_WRAP_WIDTH`=720) 해결 — 이후 8명 전부 479~501px로
+  예산(540) 안에 안정적으로 들어옴을 확인. **테스트**: 새 `_check_k2_character_
+  select_sections()`가 (a) 섹션 패널 개수=5 (b) 8명 전부 섹션 텍스트가 실제로
+  채워지는지(이름/컨셉/능력치/고유능력/시작스킬 텍스트가 빈 문자열이 아님) (c) 8명
+  전부 상세 패널 결합 최소 높이가 실제 패널 크기(840×540) 예산 안인지 (d) 좌측
+  목록 결합 높이가 ScrollContainer 가시 영역 안인지를 검증 — 기존 `_check_
+  starting_skill_selection_ui`/`_check_starting_skill_locked_preview`(K-2 이전부터
+  있던 잠금 슬롯/미리보기 회귀 테스트)도 변수명을 그대로 유지해 그대로 PASS.
+  `bash scripts/qa_shot.sh dice_test` 3회 연속 PASS 확인. `qa_shot.sh character_select`로
+  기본(견습 모험가)/해적(원화 없음, 안내 섹션 노출 확인)/주술사(가장 긴 컨셉 문장,
+  2줄 말줄임 확인)/잠긴 슬롯 미리보기 4개 스크린샷으로 겹침·잘림·빈 상자 없음을
+  눈으로 확인. **K-2 완료 — 다음은 K-3(캐릭터 퍼스널 컬러)**. INBOX.md [대형
+  기획 11]은 "부분 처리됨"에 그대로 두고 진행 한 줄만 갱신. 부수적으로, 직전
+  (187) 이터레이션이 "완료 기록 (187)"을 참조하는 문구를 여러 곳에 남겼으면서도
+  실제 (187) 항목 자체를 이 목록에 추가하지 않은 누락을 발견해, 아래 (187)
+  항목을 "마지막 갱신"/"지금 위치" 서술을 근거로 이번에 보완해 추가했다.
+
+- **2026-10-13 (187)**: INBOX.md 최우선 지시 [대형 기획 11] 조작/UI 개편(K-1→K-4) 중
+  **K-1(방향키+스페이스 조작으로 숫자 단축키 완전 대체) 완료**. 신규
+  `code/scenes/focus_nav.gd`(`FocusNav`, 씬 상태 없는 순수 유틸)가 "버튼 목록을
+  방향키 체인으로 명시적으로 잇기(`chain_linear`, 위/아래 또는 좌/우, `wrap`으로
+  양 끝 연결, `trap`으로 반대 축을 자기 자신에 묶어 Godot 자동 탐색이 오버레이
+  밖으로 못 나가게 막음)" + "눈에 띄는 포커스 테두리 스타일 적용" + "첫 버튼에
+  초기 포커스"를 제공한다 — 버튼 활성화(스페이스/Enter 확정) 자체는 Godot 기본
+  `BaseButton` 동작(focus_mode=FOCUS_ALL + ui_accept)에 맡기고 새로 구현하지
+  않았다. 대상 9개 화면(character_select/dungeon_map/combat_test/event/shop/
+  story_event/customize_panel/achievement_panel/test_battle_setup) 전부에서
+  `KeyboardShortcuts.apply_hints()`(버튼 "[n] " 접두어)와 숫자 키
+  `_unhandled_input` 핸들러를 제거하고 `FocusNav` 체인으로 교체했다. 오버레이
+  패널(customize_panel/achievement_panel)은 Esc로 닫히고(`_unhandled_input`에서
+  `KEY_ESCAPE` 감지) 포커스가 `wrap`+`trap` 체인으로 안에 갇힌다 — customize_panel은
+  5단계 화면(`_show_pip_picker`/`_show_die_inventory_picker`/`_show_die_target_
+  picker`/`_show_die_picker`/`_show_face_picker`) 전부 다시 그릴 때마다 체인을
+  새로 건다. combat_test는 덱 보기 토글 패널도 Esc로 닫히게 자체 `_unhandled_
+  input`에 추가했다. 더 이상 쓰이지 않는 `code/scenes/keyboard_shortcuts.gd`
+  (`KeyboardShortcuts`)는 완전히 삭제했다. `dice_test.gd`의 기존 `_check_
+  keyboard_shortcuts`도 `_check_focus_nav`로 교체 — "계산 결과가 바뀌는가"를
+  검증하는 지침대로 `focus_mode`/`focus_neighbor_*` NodePath를 직접 비교하고,
+  실제 `CustomizePanel` 인스턴스를 만들어 `has_focus()`(엔진 실제 포커스 상태)와
+  Esc 입력 후 `closed` 시그널 발생을 검증한다(개발 중 람다가 바깥 int를 값으로
+  캡처해 0으로 보이던 테스트 버그와, `close()`의 `queue_free()` 자식 뒤에
+  `panel.free()`를 즉시 호출해 이중 해제로 무관한 다른 테스트에서 세그폴트가
+  나던 문제 둘 다 실제로 겪고 고침). `dice_test` 전체 PASS를 3회 연속 재확인
+  (크래시 없음). 9개 화면 전부 `qa_shot.sh`로 스크린샷 확인 — "[n] " 숫자 힌트가
+  전혀 안 보이고, 첫 포커스 버튼에 청록 테두리가 보임. `docs/DESIGN.md`에 "조작"
+  절 신설(키 매핑 표). INBOX.md의 [대형 기획 11]을 "부분 처리됨"으로 옮기고
+  K-1 완료 상태로 갱신 — K-2/K-3/K-4는 아직 미착수.
+
 - **2026-10-13 (186)**: INBOX.md 최우선 지시 [대형 기획 10] **J-4(마무리) 완료 —
   [대형 기획 10] 전체(J-1~J-4) 완료 처리**. 코드 손잡이는 전혀 건드리지
   않았다(J-3 커밋 이후 추가 튜닝 없음) — 이번 이터레이션은 측정/문서 정리만.
@@ -1198,57 +1272,9 @@ K-2 다음에 K-3를 하는 순서도 그대로 유지). 아래 번호 매긴 �
   35~55%). "완료 기록" 10개 유지를 위해 (169)를 `docs/STATUS_ARCHIVE.md`로
   옮겼다.
 
-- **2026-10-08 (178)**: INBOX.md 최우선 지시 [대형 기획 7] **F-5(c)(성장 정책
-  밸런스 리포트 생성기)** — F-5(a)/(b) 완료로 실행 순서상 마지막 조각,
-  **[대형 기획 7] F-5 전체 완료**.
-  **구현**: 신규 `code/qa/balance_growth_report.gd`(+ `code/scenes/
-  balance_growth_report.tscn`)를 `code/qa/balance_report.gd`(F-4c)와 같은
-  Node2D+ResultLabel 패턴으로 작성 — `qa_out/balance_sim_growth_raw.tsv`
-  (F-5b, 576행, 캐릭터 8종×시작 스킬 슬롯0×정책 3종×{라운드1~3×방0~4+방1~3
-  정예})을 읽어 `docs/BALANCE_GROWTH_REPORT.md`를 생성한다. 구성: (1) 맨 위
-  "성장 가정" 한 문단(정책 3종 정의, 전투 2회마다 다이스+1개, global index
-  5/10에서 D4→D6→D8 승급, 시작 스킬 슬롯0 고정 등 F-5a/b가 이미 확정한
-  가정을 그대로 서술), (2) "시뮬 조건(재현용)" 불릿, (3) **정책별 평균
-  곡선** — 정책 3종 각각 global index 0~14를 열로 삼은 표(일반/정예 평균
-  승률 2줄, 캐릭터 8종 평균), (4) **정책×캐릭터별 상세 곡선** — 정책×캐릭터
-  8종 = 24개 같은 포맷 표(일반/정예 승률), (5) **라운드 경계/보스 직전·직후
-  낙폭** — 정책별 평균 곡선 기준으로 R1~R3 보스 전/후 5개 구간의 승률
-  변화(%p)를 표로. `_elite_global_indices()`/`_index_label()`은
-  `RunState.TOTAL_ROOMS`/`TOTAL_ROUNDS`에서 계산해 하드코딩 없음. 전부
-  "측정/집계만, 해석·조정 제안 없음"(INBOX.md F-5c 지시) 원칙을 지켰다 —
-  숫자 계산 함수(`_average_win_rate`/`_find_row`/`_curve_table`) 외의 서술은
-  없음.
-  **검증**: `bash scripts/qa_shot.sh balance_growth_report 10 qa_out/
-  balance_growth_report.png`로 실행 — 크래시 없이 `[balance_growth_report]
-  완료 — docs/BALANCE_GROWTH_REPORT.md 저장 (576행, 정책 3종)` 로그와
-  스크린샷이 정상 저장됐다. 생성된 `docs/BALANCE_GROWTH_REPORT.md`(254줄)를
-  직접 열어 (1) 정책별 평균 곡선에서 균형/공격 몰빵/방어 몰빵 3개 표의
-  숫자가 실제로 서로 다른지(예: R1방3 일반 평균승률 72.8%/77.3%/59.2% —
-  정책마다 다름, 플래그가 아니라 실제 집계), (2) 캐릭터 8종(해적 포함)이
-  빠짐없이 24개 표에 전부 등장하는지, (3) 정예 global index(1,2,3,6,7,8,
-  11,12,13)가 아닌 칸은 "-"로 올바르게 비어있는지, (4) 낙폭 표의 5개
-  구간이 "R1방3→R1보스"/"R1보스→R2방0" 등 설계대로 계산됐는지(예: 균형
-  정책 R1방3(72.8%)→R1보스(0%) = -72.8%p) 직접 대조해 확인했다.
-  **발견**: 낙폭 표에서 "보스 직후(다음 라운드 방0)" 승률이 "보스 직전"보다
-  오히려 급등하는 패턴(예: 균형 정책 R1보스 0% → R2방0 100%)을 발견했는데,
-  코드 버그가 아니라 게임의 실제 난이도 공식(`room_index +
-  (round_index-1)*3`, `combat_test.gd`)이 라운드 전환 시 방 번호가 0으로
-  리셋되는 데서 오는 기존 설계 특성임을 공식과 대조해 확인했다(이 리포트의
-  "global index"는 성장 축일 뿐 난이도 공식과는 다른 축이라 그대로 드러남).
-  해석·조정 제안 없이 숫자만 적는 게 원칙이라 리포트 본문에는 반영하지
-  않고 여기 완료 기록에만 남긴다.
-  `git status`로 루트에 의도치 않은 파일 없음 확인(스크린샷은
-  `qa_out/balance_growth_report.png`, `qa_out/`는 `.gitignore` 대상이라
-  TSV/PNG는 커밋 제외 — `code/qa/balance_growth_report.gd`+`.tscn`과
-  `docs/BALANCE_GROWTH_REPORT.md`만 커밋).
-  **[대형 기획 7] F-5 전체 완료.** INBOX.md "부분 처리됨" → "처리됨"으로
-  이관. 조정은 사람이 `docs/BALANCE_GROWTH_REPORT.md`를 보고 다음 지시로
-  결정 — 지금은 측정만 끝난 상태. "완료 기록" 10개 유지를 위해 (168)을
-  `docs/STATUS_ARCHIVE.md`로 옮겼다.
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(187)에서 (177)을 그리로 옮겼다.)*
+이번 이터레이션(188)에서 (178)을 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 

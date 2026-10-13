@@ -8,6 +8,54 @@
 
 ---
 
+- **2026-10-08 (178)**: INBOX.md 최우선 지시 [대형 기획 7] **F-5(c)(성장 정책
+  밸런스 리포트 생성기)** — F-5(a)/(b) 완료로 실행 순서상 마지막 조각,
+  **[대형 기획 7] F-5 전체 완료**.
+  **구현**: 신규 `code/qa/balance_growth_report.gd`(+ `code/scenes/
+  balance_growth_report.tscn`)를 `code/qa/balance_report.gd`(F-4c)와 같은
+  Node2D+ResultLabel 패턴으로 작성 — `qa_out/balance_sim_growth_raw.tsv`
+  (F-5b, 576행, 캐릭터 8종×시작 스킬 슬롯0×정책 3종×{라운드1~3×방0~4+방1~3
+  정예})을 읽어 `docs/BALANCE_GROWTH_REPORT.md`를 생성한다. 구성: (1) 맨 위
+  "성장 가정" 한 문단(정책 3종 정의, 전투 2회마다 다이스+1개, global index
+  5/10에서 D4→D6→D8 승급, 시작 스킬 슬롯0 고정 등 F-5a/b가 이미 확정한
+  가정을 그대로 서술), (2) "시뮬 조건(재현용)" 불릿, (3) **정책별 평균
+  곡선** — 정책 3종 각각 global index 0~14를 열로 삼은 표(일반/정예 평균
+  승률 2줄, 캐릭터 8종 평균), (4) **정책×캐릭터별 상세 곡선** — 정책×캐릭터
+  8종 = 24개 같은 포맷 표(일반/정예 승률), (5) **라운드 경계/보스 직전·직후
+  낙폭** — 정책별 평균 곡선 기준으로 R1~R3 보스 전/후 5개 구간의 승률
+  변화(%p)를 표로. `_elite_global_indices()`/`_index_label()`은
+  `RunState.TOTAL_ROOMS`/`TOTAL_ROUNDS`에서 계산해 하드코딩 없음. 전부
+  "측정/집계만, 해석·조정 제안 없음"(INBOX.md F-5c 지시) 원칙을 지켰다 —
+  숫자 계산 함수(`_average_win_rate`/`_find_row`/`_curve_table`) 외의 서술은
+  없음.
+  **검증**: `bash scripts/qa_shot.sh balance_growth_report 10 qa_out/
+  balance_growth_report.png`로 실행 — 크래시 없이 `[balance_growth_report]
+  완료 — docs/BALANCE_GROWTH_REPORT.md 저장 (576행, 정책 3종)` 로그와
+  스크린샷이 정상 저장됐다. 생성된 `docs/BALANCE_GROWTH_REPORT.md`(254줄)를
+  직접 열어 (1) 정책별 평균 곡선에서 균형/공격 몰빵/방어 몰빵 3개 표의
+  숫자가 실제로 서로 다른지(예: R1방3 일반 평균승률 72.8%/77.3%/59.2% —
+  정책마다 다름, 플래그가 아니라 실제 집계), (2) 캐릭터 8종(해적 포함)이
+  빠짐없이 24개 표에 전부 등장하는지, (3) 정예 global index(1,2,3,6,7,8,
+  11,12,13)가 아닌 칸은 "-"로 올바르게 비어있는지, (4) 낙폭 표의 5개
+  구간이 "R1방3→R1보스"/"R1보스→R2방0" 등 설계대로 계산됐는지(예: 균형
+  정책 R1방3(72.8%)→R1보스(0%) = -72.8%p) 직접 대조해 확인했다.
+  **발견**: 낙폭 표에서 "보스 직후(다음 라운드 방0)" 승률이 "보스 직전"보다
+  오히려 급등하는 패턴(예: 균형 정책 R1보스 0% → R2방0 100%)을 발견했는데,
+  코드 버그가 아니라 게임의 실제 난이도 공식(`room_index +
+  (round_index-1)*3`, `combat_test.gd`)이 라운드 전환 시 방 번호가 0으로
+  리셋되는 데서 오는 기존 설계 특성임을 공식과 대조해 확인했다(이 리포트의
+  "global index"는 성장 축일 뿐 난이도 공식과는 다른 축이라 그대로 드러남).
+  해석·조정 제안 없이 숫자만 적는 게 원칙이라 리포트 본문에는 반영하지
+  않고 여기 완료 기록에만 남긴다.
+  `git status`로 루트에 의도치 않은 파일 없음 확인(스크린샷은
+  `qa_out/balance_growth_report.png`, `qa_out/`는 `.gitignore` 대상이라
+  TSV/PNG는 커밋 제외 — `code/qa/balance_growth_report.gd`+`.tscn`과
+  `docs/BALANCE_GROWTH_REPORT.md`만 커밋).
+  **[대형 기획 7] F-5 전체 완료.** INBOX.md "부분 처리됨" → "처리됨"으로
+  이관. 조정은 사람이 `docs/BALANCE_GROWTH_REPORT.md`를 보고 다음 지시로
+  결정 — 지금은 측정만 끝난 상태. "완료 기록" 10개 유지를 위해 (168)을
+  `docs/STATUS_ARCHIVE.md`로 옮겼다.
+
 - **2026-10-08 (177)**: INBOX.md "부분 처리됨"의 [대형 기획 7] **F-5(b)(시뮬
   실행/TSV 저장)** — F-5(a) 완료로 실행 순서상 다음 조각. 이번 이터레이션
   시작 시 `code/qa/balance_sim.gd`에 이미 F-5(b) 구현(`_run_growth_simulation()`/

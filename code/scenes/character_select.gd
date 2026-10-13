@@ -16,26 +16,50 @@ extends Node2D
 ## (기본값: 첫 번째 프로필) -> "던전 시작" 버튼 -> RunState.reset_run(선택한 id)로
 ## 새 런 시작 -> dungeon_map.tscn.
 
-## CARD_WIDTH/CARD_HEIGHT/CARD_GAP: 왼쪽 카드 목록(초상+이름만, INBOX.md 2026-09-14
-## "외형과 이름들만 간략하게 나오고, 패널 선택시 오른쪽에 상세 정보를 제공"을 반영해
-## 2026-09-15에 "카드 하나에 모든 정보" 방식에서 "간략한 목록 + 오른쪽 상세 패널"
-## 방식으로 개편)의 한 행 "기대" 크기 — 실제 행 간격은 _build_cards()가 각 카드의
-## 실제 결합 최소 높이(get_combined_minimum_size())를 측정해서 쌓으므로(ART-1a,
-## 2026-10-07), CARD_HEIGHT는 포트레이트 칸 크기 등 다른 계산의 기준값으로만 쓰인다.
-## **CardsContainer는 이제 ScrollContainer**(캐릭터가 늘어나 목록이 보이는 영역(540px)
-## 보다 길어져도 스크롤로 전부 닿을 수 있게 — 7종(7×104=728px)부터 실제로 넘침,
-## `qa_out/art_character_select.png`에서 7번째 카드가 화면 밖으로 밀려 선택 불가했던
-## 버그로 발견됨).
+## CARD_WIDTH/CARD_HEIGHT/CARD_GAP: 왼쪽 카드 목록 한 행의 "기대" 크기 — 실제 행
+## 간격은 _build_cards()가 각 카드의 실제 결합 최소 높이(get_combined_minimum_size())를
+## 측정해서 쌓으므로(ART-1a, 2026-10-07), CARD_HEIGHT는 다른 계산의 기준값으로만 쓰인다.
+## **2026-10-13 [대형 기획 11] K-2**: "카드가 큰 편이다 — 얼굴 위주 정사각 썸네일 + 이름 +
+## 한 줄 기믹 라벨로 줄여서 8명이 스크롤 없이 한눈에 보이게" 반영 — 92px짜리 행(초상+이름+
+## 버튼)에서 56px짜리 행(정사각 얼굴 썸네일+이름/기믹 2줄+선택 버튼)으로 축소. 8행 ×
+## (56+12)=544 ≈ 목록 가시 영역(540px)과 거의 같아 스크롤이 사실상 필요 없다(폭 넓은
+## 폰트/해상도에서 약간 넘쳐도 기존처럼 ScrollContainer가 받아준다).
 const CARD_WIDTH := 360.0
-const CARD_HEIGHT := 92.0
+const CARD_HEIGHT := 56.0
 const CARD_GAP := 12.0
-## PORTRAIT_SCALE: CharacterPortraitPlaceholder는 원래 카드 전체(약 136x248px)를 채우는
-## 크기로 그려지므로, 목록의 작은 초상 칸에 맞추려면 축소해야 한다(Node2D.scale 사용 —
-## _draw() 좌표 자체를 다시 계산하지 않고 그대로 축소).
-const PORTRAIT_SCALE := 0.32
-## DETAIL_ART_SIZE: 상세 패널 왼쪽 전신 원화 칸 크기. 원화 비율(1181x1332 ≈ 0.89)에
-## 맞추고, 패널 내용 높이(540 - 상하 여백 48 = 492) 안에 들어가게 잡았다.
-const DETAIL_ART_SIZE := Vector2(260, 293)
+## FACE_THUMB_SIZE: 좌측 목록의 정사각 얼굴 썸네일 한 변(K-2). CharacterArt.load_face_thumb()
+## (face_neutral.png 또는 full.png 얼굴 크롭)을 이 크기로 그대로 채워 넣고, 원화가 전혀
+## 없으면 같은 칸에 도형 플레이스홀더를 축소해 넣는다(PORTRAIT_SCALE_COMPACT).
+const FACE_THUMB_SIZE := 48.0
+## PORTRAIT_SCALE_COMPACT: 좌측 목록 폴백용 — CharacterPortraitPlaceholder(원래 약
+## 136x248px로 그려짐)를 FACE_THUMB_SIZE 정사각 칸에 맞춰 더 작게 축소한다(기존
+## PORTRAIT_SCALE=0.32는 92px 높이 행 기준이었음).
+const PORTRAIT_SCALE_COMPACT := 0.2
+## PORTRAIT_SCALE: 상세 패널 헤더 섹션 폴백용 — CharacterPortraitPlaceholder의 원본
+## 그리기 범위(x -68~68 / y -108~140, 세로 248)를 DETAIL_ART_SIZE.y(146)에 맞춰
+## 축소한다(146/248 ≈ 0.59, 약간의 여유를 둬 0.56로 잡음 — 가로도 136*0.56≈76으로
+## DETAIL_ART_SIZE.x(130) 안에 들어온다).
+const PORTRAIT_SCALE := 0.56
+## DETAIL_ART_SIZE: 상세 패널 헤더 섹션의 전신 원화 칸 크기(K-2로 "구역 나눈 상세 패널"의
+## 첫 섹션만 차지하도록 축소 — 예전에는 패널 전체 높이(293)를 썼지만, 이제 그 아래로
+## 능력치/고유 능력/시작 스킬/안내 섹션이 더 있어야 하므로 헤더 섹션 예산(약 150px) 안에
+## 들어오게 줄였다). 원화 비율(1181x1332 ≈ 0.89)은 그대로 유지.
+const DETAIL_ART_SIZE := Vector2(130, 146)
+## ABILITY_DESC_MAX_CHARS: 고유 능력 섹션(③) 설명을 "최대 2줄" 예산 안에 묶기 위한
+## 문자 수 상한(K-2 원문 "최대 2줄 설명") — 섹션 폭(~300px)·폰트(13px) 기준 대략
+## 2줄에 들어오는 길이를 감으로 잡았다. 넘치면 잘라내고 말줄임표(…)를 붙이되 전체
+## 문장은 tooltip_text로 항상 볼 수 있게 한다.
+const ABILITY_DESC_MAX_CHARS := 70
+## DISPLAY_PLAYER_HP: 능력치 칩(②)의 HP 표시용 — DESIGN.md 확정값(플레이어 초기
+## HP 20, combat_test.gd의 PLAYER_MAX_HP와 동일)을 그대로 복사한 상수다. 캐릭터마다
+## 다른 값이 아니라 표시 전용이라 profile 필드로 두지 않았다.
+const DISPLAY_PLAYER_HP := 20
+## SECTION_BODY_WRAP_WIDTH/ABILITY_DESC_WRAP_WIDTH: autowrap 라벨의 줄바꿈 폭을 레이아웃
+## 패스 전에도 못박아두는 값(위 _build_starting_skill_section()/_build_note_section()/
+## _build_ability_section() 참고) — detail_container 폭(840) - 섹션 패널 좌우 여백
+## (14x2=28) 기준. 고유 능력 섹션은 아이콘(30)+separation(10)만큼 더 좁게 잡았다.
+const SECTION_BODY_WRAP_WIDTH := 760.0
+const ABILITY_DESC_WRAP_WIDTH := 720.0
 
 @onready var cards_container: Control = $CardsContainer/CardsList
 @onready var detail_container: Control = $DetailPanelContainer
@@ -50,18 +74,33 @@ var _card_panels: Dictionary = {} # id -> PanelContainer (선택 강조 갱신�
 ## 상세 정보 패널(오른쪽)의 자식 노드들. _build_detail_panel()에서 한 번만 만들고,
 ## 카드를 고를 때마다 _refresh_detail_panel()이 텍스트/초상만 바꿔 다시 만들지 않는다
 ## (매번 새로 만들면 불필요하게 무겁고, 스크롤 위치 등 상태가 있다면 리셋될 수 있음).
+## **2026-10-13 [대형 기획 11] K-2**: "줄글 나열" 대신 구역(섹션) 단위로 쪼갰다 — 섹션은
+## _detail_sections_vbox에 순서대로 쌓이고(①헤더 ②능력치 ③고유 능력 ④시작 스킬
+## ⑤안내), 각 섹션의 실제 내용 라벨/아이콘만 아래 필드로 보관한다.
+var _detail_sections_vbox: VBoxContainer
 var _detail_portrait: CharacterPortraitPlaceholder
 ## 원화가 입고된 캐릭터는 이 TextureRect에 전신(CharacterArt.load_full)을 띄우고
 ## _detail_portrait(플레이스홀더)를 숨긴다. 원화가 없으면 반대로.
 var _detail_art: TextureRect
 var _detail_placeholder_note: Label
 var _detail_name_label: Label
+## ① 헤더의 "컨셉 한 줄" — concept 필드 전체가 아니라 _header_concept_line()으로 줄인
+## 짧은 한 줄만 담는다(전체 문장은 tooltip_text로).
 var _detail_concept_label: Label
-var _detail_dice_label: Label
-var _detail_skill_label: Label
-var _detail_skill_icon: SkillIcon
+## ② 능력치 칩 라벨(공격/방어 다이스 개수, 이벤트 주사위 면수) — 아이콘은 생성 시
+## 한 번만 만들고 다시 안 바꾸므로 따로 보관하지 않는다.
+var _detail_attack_label: Label
+var _detail_defense_label: Label
 var _detail_event_die_label: Label
 var _detail_event_die_visual: EventDieVisual
+## ③ 고유 능력 — 아이콘 + 짧은 이름(_ability_short_name) + 2줄 예산 설명(_truncate).
+var _detail_skill_icon: SkillIcon
+var _detail_ability_name_label: Label
+var _detail_skill_label: Label
+## ⑤ 안내 섹션의 바깥 패널 — 원화가 있는 캐릭터(대다수)는 보여줄 안내가 없어 라벨만
+## 숨기면 "내용 없는 빈 테두리 상자"가 남는다(실제로 screenshot에서 확인됨). 섹션
+## 패널 자체를 숨겨 그 자리를 아예 차지하지 않게 한다.
+var _detail_note_section_panel: Control
 
 ## 시작 스킬 선택([미니 기획 E]-3, INBOX.md 2026-09-17 기획자 결정) — 캐릭터마다
 ## SkillPool.starting_skills_for_character()가 돌려주는 후보(항상 최대 2개, 슬롯
@@ -144,26 +183,28 @@ func _build_cards() -> void:
 	FocusNav.grab_first_focus(_shortcut_buttons)
 
 
-## 목록 한 행: 작은 초상 + 이름 + "선택" 버튼뿐(INBOX.md 요청대로 "외형과 이름들만
-## 간략하게"). 컨셉 설명/시작 다이스/스킬 같은 상세 정보는 더 이상 카드에 없고
-## 오른쪽 DetailPanel로 옮겨졌다.
+## 목록 한 행(K-2, 2026-10-13 개편): 정사각 얼굴 썸네일 + (이름 / 기믹 한 줄) + "선택"
+## 버튼. 기존에는 상반신 직사각 썸네일 + 이름만 있었는데, "얼굴 위주 정사각 썸네일 +
+## 이름 + 한 줄 기믹 라벨"로 압축해 8명이 스크롤 없이 한눈에 들어오게 했다(INBOX.md
+## 2026-10-13 [대형 기획 11] K-2). 컨셉 설명/시작 다이스/고유 능력 같은 상세 정보는
+## 여전히 오른쪽 DetailPanel에만 있다.
 func _make_card(profile: Dictionary, select_buttons: Array[Button]) -> PanelContainer:
 	var panel := PanelContainer.new()
 	panel.custom_minimum_size = Vector2(CARD_WIDTH, CARD_HEIGHT)
 	panel.mouse_filter = Control.MOUSE_FILTER_STOP
 
 	var hbox := HBoxContainer.new()
-	hbox.add_theme_constant_override("separation", 12)
+	hbox.add_theme_constant_override("separation", 10)
 	hbox.set_anchors_preset(Control.PRESET_FULL_RECT)
 	panel.add_child(hbox)
 
 	var portrait_holder := Control.new()
-	portrait_holder.custom_minimum_size = Vector2(56, CARD_HEIGHT)
-	# 원화가 입고된 캐릭터는 상반신 썸네일(CharacterArt.load_thumb)을, 아직 없는
-	# 캐릭터는 아래의 도형 플레이스홀더를 그린다(docs/art/ART_RESOURCES.md 4장).
-	var thumb := CharacterArt.load_thumb(profile["id"])
+	portrait_holder.custom_minimum_size = Vector2(FACE_THUMB_SIZE, FACE_THUMB_SIZE)
+	portrait_holder.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	# 얼굴 이미지 소스 우선순위(K-2): ① face_neutral.png ② full.png 얼굴 크롭
+	# ③ 도형 플레이스홀더(CharacterArt.load_face_thumb()가 ①②를 내부에서 처리).
+	var thumb := CharacterArt.load_face_thumb(profile["id"])
 	if thumb != null:
-		portrait_holder.custom_minimum_size = Vector2(72, CARD_HEIGHT)
 		var thumb_rect := TextureRect.new()
 		thumb_rect.texture = thumb
 		thumb_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -176,18 +217,34 @@ func _make_card(profile: Dictionary, select_buttons: Array[Button]) -> PanelCont
 		_add_placeholder_thumb(portrait_holder, profile)
 	hbox.add_child(portrait_holder)
 
+	var name_vbox := VBoxContainer.new()
+	name_vbox.add_theme_constant_override("separation", 1)
+	name_vbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	name_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	name_vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	hbox.add_child(name_vbox)
+
 	var name_label := Label.new()
 	name_label.text = profile["name"]
-	name_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	name_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	name_label.add_theme_font_size_override("font_size", 20)
+	name_label.add_theme_font_size_override("font_size", 17)
 	name_label.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9))
-	hbox.add_child(name_label)
+	name_label.clip_text = true
+	name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	name_vbox.add_child(name_label)
+
+	# 한 줄 기믹 라벨(K-2) — GIMMICK_LABELS의 짧은 이름표를 그대로 재사용, 한 줄로
+	# 잘려도(text_overrun) 상세 패널에서 전체 설명을 볼 수 있으니 괜찮다.
+	var gimmick_label := Label.new()
+	gimmick_label.text = CharacterProfiles.gimmick_label(String(profile.get("gimmick", "")))
+	gimmick_label.add_theme_font_size_override("font_size", 12)
+	gimmick_label.add_theme_color_override("font_color", Color(0.62, 0.62, 0.65))
+	gimmick_label.clip_text = true
+	gimmick_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	name_vbox.add_child(gimmick_label)
 
 	var select_button := Button.new()
 	select_button.text = "선택"
-	select_button.custom_minimum_size = Vector2(64, 0)
+	select_button.custom_minimum_size = Vector2(56, 0)
 	select_button.pressed.connect(_on_card_selected.bind(profile["id"]))
 	hbox.add_child(select_button)
 	select_buttons.append(select_button)
@@ -197,43 +254,85 @@ func _make_card(profile: Dictionary, select_buttons: Array[Button]) -> PanelCont
 
 func _add_placeholder_thumb(portrait_holder: Control, profile: Dictionary) -> void:
 	var portrait := CharacterPortraitPlaceholder.new()
-	portrait.scale = Vector2(PORTRAIT_SCALE, PORTRAIT_SCALE)
+	portrait.scale = Vector2(PORTRAIT_SCALE_COMPACT, PORTRAIT_SCALE_COMPACT)
 	# 실루엣 그리기 범위는 원본 스케일 기준 x -68~68 / y -108~140(character_portrait_
-	# placeholder.gd 참고). PORTRAIT_SCALE(0.32)을 곱하면 x -21.8~21.8 / y -34.6~44.8 —
-	# holder(56 x CARD_HEIGHT) 안에서 가로는 중앙(28), 세로는 위/아래 범위 중간이 holder
-	# 세로 중앙(CARD_HEIGHT/2)에 오도록 원점을 살짝 위로 올린다((-34.6+44.8)/2 ≈ 5.1).
-	portrait.position = Vector2(28, CARD_HEIGHT / 2.0 - 5)
+	# placeholder.gd 참고). PORTRAIT_SCALE_COMPACT(0.2)을 곱하면 x -13.6~13.6 /
+	# y -21.6~28 — holder(FACE_THUMB_SIZE 정사각) 안에서 가로/세로 모두 중앙에 오도록
+	# 원점을 범위 중간((-21.6+28)/2 ≈ 3.2)만큼 살짝 아래로 내린다.
+	portrait.position = Vector2(FACE_THUMB_SIZE / 2.0, FACE_THUMB_SIZE / 2.0 + 3.2)
 	portrait.set_palette(profile["hair_color"], profile["dress_color"])
 	portrait_holder.add_child(portrait)
 
 
-## 오른쪽 상세 정보 패널의 뼈대(패널 배경 + 제목/초상/설명/시작 다이스/보유 스킬
-## 라벨)를 한 번만 만든다. 실제 내용은 _refresh_detail_panel()이 채운다.
+## 오른쪽 상세 정보 패널의 뼈대 — K-2(2026-10-13)로 "줄글 한 덩어리" 대신 **구역(섹션)
+## 단위**로 다시 짰다. 중요도 순(고유 능력 > 시작 스킬 > 능력치 > 부가 설명)이 아니라
+## 읽는 흐름(①누구인지 ②수치 ③고유 능력 ④시작 스킬 ⑤부가 안내) 순서로 쌓되, 가장 위
+## "헤더"는 항상 보이는 식별 정보라 별도 취급한다. 각 섹션은 _make_section()으로 만든
+## 독립된 테두리 패널이라 "제목 라벨 + 구분선/배경 패널로 시각적으로 분리"(INBOX.md
+## 원문) 요구를 구조적으로 만족한다. 실제 텍스트는 _refresh_detail_panel()이 채운다.
 func _build_detail_panel() -> void:
+	_detail_sections_vbox = VBoxContainer.new()
+	_detail_sections_vbox.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_detail_sections_vbox.add_theme_constant_override("separation", 8)
+	detail_container.add_child(_detail_sections_vbox)
+
+	_build_header_section()
+	_build_stats_section()
+	_build_ability_section()
+	_build_starting_skill_section()
+	_build_note_section()
+
+
+## 섹션 공통 틀 — title이 있으면 제목 라벨을 맨 위에 두고, 테두리+배경 패널로 감싼
+## VBoxContainer(섹션 내용을 담을 "body")를 반환한다. title이 빈 문자열이면 제목 없이
+## 틀만 만든다(헤더 섹션 전용 — 이름 자체가 이미 제목 역할을 하므로 중복 라벨 불필요).
+func _make_section(title: String) -> VBoxContainer:
 	var panel := PanelContainer.new()
-	panel.set_anchors_preset(Control.PRESET_FULL_RECT)
 	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.12, 0.12, 0.15, 0.95)
-	style.border_color = Color(0.4, 0.4, 0.45)
-	style.set_border_width_all(2)
-	style.set_corner_radius_all(10)
-	style.content_margin_left = 28
-	style.content_margin_right = 28
-	style.content_margin_top = 24
-	style.content_margin_bottom = 24
+	style.bg_color = Color(0.1, 0.1, 0.13, 0.92)
+	style.border_color = Color(0.32, 0.32, 0.37)
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(8)
+	style.content_margin_left = 14
+	style.content_margin_right = 14
+	style.content_margin_top = 8
+	style.content_margin_bottom = 8
 	panel.add_theme_stylebox_override("panel", style)
-	detail_container.add_child(panel)
+	_detail_sections_vbox.add_child(panel)
+
+	var body := VBoxContainer.new()
+	body.add_theme_constant_override("separation", 4)
+	panel.add_child(body)
+
+	if title != "":
+		var title_label := Label.new()
+		title_label.text = title
+		title_label.add_theme_font_size_override("font_size", 13)
+		title_label.add_theme_color_override("font_color", Color(0.55, 0.78, 0.82))
+		body.add_child(title_label)
+
+	return body
+
+
+## ① 헤더: 전신 원화(또는 플레이스홀더) + 이름 + 컨셉 한 줄.
+func _build_header_section() -> void:
+	var body := _make_section("")
 
 	var hbox := HBoxContainer.new()
-	hbox.add_theme_constant_override("separation", 28)
-	panel.add_child(hbox)
+	hbox.add_theme_constant_override("separation", 16)
+	body.add_child(hbox)
 
 	var portrait_holder := Control.new()
-	portrait_holder.custom_minimum_size = Vector2(DETAIL_ART_SIZE.x, 0)
+	portrait_holder.custom_minimum_size = Vector2(DETAIL_ART_SIZE.x, DETAIL_ART_SIZE.y)
 	_detail_portrait = CharacterPortraitPlaceholder.new()
-	_detail_portrait.position = Vector2(DETAIL_ART_SIZE.x / 2.0, 120)
+	_detail_portrait.scale = Vector2(PORTRAIT_SCALE, PORTRAIT_SCALE)
+	# 실루엣 그리기 범위는 원본 스케일 기준 x -68~68 / y -108~140(세로 중심 16) —
+	# PORTRAIT_SCALE을 곱한 뒤 holder 중앙에 오도록 원점을 보정한다(_add_placeholder_thumb
+	# 와 같은 계산 패턴).
+	_detail_portrait.position = Vector2(DETAIL_ART_SIZE.x / 2.0, DETAIL_ART_SIZE.y / 2.0 - 16 * PORTRAIT_SCALE)
 	portrait_holder.add_child(_detail_portrait)
 	_detail_art = TextureRect.new()
+	_detail_art.custom_minimum_size = DETAIL_ART_SIZE
 	_detail_art.size = DETAIL_ART_SIZE
 	_detail_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_detail_art.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
@@ -242,57 +341,148 @@ func _build_detail_panel() -> void:
 	portrait_holder.add_child(_detail_art)
 	hbox.add_child(portrait_holder)
 
-	var info_vbox := VBoxContainer.new()
-	info_vbox.add_theme_constant_override("separation", 14)
-	info_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	hbox.add_child(info_vbox)
+	var name_vbox := VBoxContainer.new()
+	name_vbox.add_theme_constant_override("separation", 6)
+	name_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	name_vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	hbox.add_child(name_vbox)
 
 	_detail_name_label = Label.new()
-	_detail_name_label.add_theme_font_size_override("font_size", 30)
+	_detail_name_label.add_theme_font_size_override("font_size", 28)
 	_detail_name_label.add_theme_color_override("font_color", Color(0.95, 0.85, 0.5))
-	info_vbox.add_child(_detail_name_label)
+	name_vbox.add_child(_detail_name_label)
 
-	_detail_concept_label = _make_detail_body_label()
-	info_vbox.add_child(_detail_concept_label)
+	# 컨셉 "한 줄"(K-2 원문) — clip_text+OVERRUN_TRIM_ELLIPSIS로 폭을 넘는 긴 문장도
+	# 시각적으로는 항상 한 줄로만 보이게 강제한다(전체 문장은 tooltip_text로).
+	_detail_concept_label = Label.new()
+	_detail_concept_label.add_theme_font_size_override("font_size", 15)
+	_detail_concept_label.add_theme_color_override("font_color", Color(0.8, 0.8, 0.8))
+	_detail_concept_label.clip_text = true
+	_detail_concept_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	name_vbox.add_child(_detail_concept_label)
 
-	_detail_dice_label = _make_detail_body_label()
-	info_vbox.add_child(_detail_dice_label)
 
-	var skill_row := HBoxContainer.new()
-	skill_row.add_theme_constant_override("separation", 8)
-	_detail_skill_icon = SkillIcon.new()
-	_detail_skill_icon.custom_minimum_size = Vector2(28, 28)
-	skill_row.add_child(_detail_skill_icon)
-	_detail_skill_label = _make_detail_body_label()
-	_detail_skill_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	skill_row.add_child(_detail_skill_label)
-	info_vbox.add_child(skill_row)
+## ② 능력치 칩: 공격/방어 다이스 개수, 이벤트 주사위 면 수, (고정값) HP를 아이콘+숫자
+## 칩 형태로 한 줄에 나열한다(INBOX.md 원문 "숫자는 한눈에"). HP는 캐릭터마다 다르지
+## 않고 전부 DESIGN.md 확정값(20)이라 라벨을 생성 시 한 번만 설정하고 갱신하지 않는다.
+func _build_stats_section() -> void:
+	var body := _make_section("능력치")
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	body.add_child(row)
+
+	var attack_chip := _make_stat_chip()
+	var attack_icon := RewardIcon.new()
+	attack_icon.category = "dice"
+	attack_chip["icon_holder"].add_child(attack_icon)
+	_detail_attack_label = attack_chip["label"]
+	row.add_child(attack_chip["chip"])
+
+	var defense_chip := _make_stat_chip()
+	var defense_icon := RewardIcon.new()
+	defense_icon.category = "dice"
+	defense_chip["icon_holder"].add_child(defense_icon)
+	_detail_defense_label = defense_chip["label"]
+	row.add_child(defense_chip["chip"])
 
 	# 이벤트 주사위(INBOX.md 2026-09-15 [미니 기획 B]-4): 공격/방어와 별개인 특수 이벤트
 	# 전용 다이스 — 로마 숫자 육각 칩(EventDieVisual)으로 일반 다이스와 구분해서 보여준다.
-	# 지금은 5종 전부 D6로 같아 값도 항상 같지만, 필드 구조 자체는 캐릭터별로 열려 있다.
-	var event_die_row := HBoxContainer.new()
-	event_die_row.add_theme_constant_override("separation", 8)
+	var event_chip := _make_stat_chip()
 	_detail_event_die_visual = EventDieVisual.new()
-	_detail_event_die_visual.custom_minimum_size = Vector2(28, 28)
-	event_die_row.add_child(_detail_event_die_visual)
-	_detail_event_die_label = _make_detail_body_label()
-	_detail_event_die_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	event_die_row.add_child(_detail_event_die_label)
-	info_vbox.add_child(event_die_row)
+	_detail_event_die_visual.custom_minimum_size = Vector2(22, 22)
+	event_chip["icon_holder"].add_child(_detail_event_die_visual)
+	_detail_event_die_label = event_chip["label"]
+	row.add_child(event_chip["chip"])
 
-	# 시작 스킬 선택([미니 기획 E]-3): 제목 + 슬롯 버튼 목록 + 선택된 스킬 설명.
-	# 슬롯 버튼 자체는 후보가 캐릭터마다 다르므로 여기서는 빈 컨테이너만 만들고,
-	# 실제 채우기는 _rebuild_starting_skill_slots()가 캐릭터를 고를 때마다 담당한다.
-	var skill_choice_title := Label.new()
-	skill_choice_title.text = "시작 스킬 (하나만 선택)"
-	skill_choice_title.add_theme_font_size_override("font_size", 16)
-	skill_choice_title.add_theme_color_override("font_color", Color(0.95, 0.85, 0.5))
-	info_vbox.add_child(skill_choice_title)
+	var hp_chip := _make_stat_chip()
+	var hp_icon := Label.new()
+	hp_icon.text = "♥"
+	hp_icon.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hp_icon.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	hp_icon.set_anchors_preset(Control.PRESET_FULL_RECT)
+	hp_icon.add_theme_font_size_override("font_size", 16)
+	hp_icon.add_theme_color_override("font_color", Color(0.85, 0.3, 0.35))
+	hp_chip["icon_holder"].add_child(hp_icon)
+	hp_chip["label"].text = "HP %d" % DISPLAY_PLAYER_HP
+	row.add_child(hp_chip["chip"])
+
+
+## 칩 하나(테두리 패널 + 아이콘 칸 + 텍스트 라벨)의 공통 틀. 아이콘은 호출하는 쪽이
+## icon_holder에 직접 add_child하고, 텍스트는 label.text로 채운다(캐릭터가 바뀌어도
+## 칩 틀 자체는 다시 만들지 않고 label.text만 _refresh_detail_panel()이 갱신).
+func _make_stat_chip() -> Dictionary:
+	var chip := PanelContainer.new()
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.16, 0.16, 0.2, 0.9)
+	style.border_color = Color(0.4, 0.4, 0.46)
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(6)
+	style.content_margin_left = 8
+	style.content_margin_right = 10
+	style.content_margin_top = 4
+	style.content_margin_bottom = 4
+	chip.add_theme_stylebox_override("panel", style)
+
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 6)
+	chip.add_child(row)
+
+	var icon_holder := Control.new()
+	icon_holder.custom_minimum_size = Vector2(22, 22)
+	row.add_child(icon_holder)
+
+	var label := Label.new()
+	label.add_theme_font_size_override("font_size", 14)
+	label.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9))
+	row.add_child(label)
+
+	return {"chip": chip, "icon_holder": icon_holder, "label": label}
+
+
+## ③ 고유 능력: SkillIcon + 짧은 이름(_ability_short_name) + 최대 2줄 설명(_truncate로
+## ABILITY_DESC_MAX_CHARS 예산 안에 자름, 전체 문장은 tooltip_text).
+func _build_ability_section() -> void:
+	var body := _make_section("고유 능력")
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	body.add_child(row)
+
+	_detail_skill_icon = SkillIcon.new()
+	_detail_skill_icon.custom_minimum_size = Vector2(30, 30)
+	row.add_child(_detail_skill_icon)
+
+	var text_vbox := VBoxContainer.new()
+	text_vbox.add_theme_constant_override("separation", 2)
+	text_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(text_vbox)
+
+	_detail_ability_name_label = Label.new()
+	_detail_ability_name_label.add_theme_font_size_override("font_size", 15)
+	_detail_ability_name_label.add_theme_color_override("font_color", Color(0.95, 0.85, 0.5))
+	text_vbox.add_child(_detail_ability_name_label)
+
+	_detail_skill_label = _make_detail_body_label()
+	_detail_skill_label.add_theme_font_size_override("font_size", 13)
+	# autowrap 라벨은 줄바꿈 폭을 "실제 할당된 size.x"로 계산하는데, 이 화면은 아직
+	# 레이아웃 패스(컨테이너 sort_children)를 한 번도 안 거친 시점에 바로 다음 카드를
+	# 고를 수 있어(예: QA가 _on_card_selected를 연속 호출) size.x가 0인 채로 최소 높이가
+	# 계산될 수 있다(모든 글자가 한 줄씩 줄바꿈돼 비정상적으로 커짐) — custom_minimum_size
+	# 뿐 아니라 size도 미리 못박아 K-2 레이아웃 예산 검증(dice_test.gd)이 항상 정확한
+	# 값을 읽게 한다.
+	_detail_skill_label.custom_minimum_size = Vector2(ABILITY_DESC_WRAP_WIDTH, 0)
+	_detail_skill_label.size = Vector2(ABILITY_DESC_WRAP_WIDTH, _detail_skill_label.size.y)
+	text_vbox.add_child(_detail_skill_label)
+
+
+## ④ 시작 스킬 (하나만 선택) — 슬롯 버튼 목록 + 선택/미리보기 설명. 슬롯 버튼 자체는
+## 후보가 캐릭터마다 다르므로 여기서는 빈 컨테이너만 만들고, 실제 채우기는
+## _rebuild_starting_skill_slots()가 캐릭터를 고를 때마다 담당한다.
+func _build_starting_skill_section() -> void:
+	var body := _make_section("시작 스킬 (하나만 선택)")
 
 	_starting_skill_container = HBoxContainer.new()
 	_starting_skill_container.add_theme_constant_override("separation", 10)
-	info_vbox.add_child(_starting_skill_container)
+	body.add_child(_starting_skill_container)
 
 	# 잠긴 슬롯 미리보기([대형 기획 5] F-1) — 자물쇠+"잠김" 배지(맨 위) / 효과 설명
 	# (기존 _starting_skill_desc_label 재사용, 선택/미리보기 공통) / 해금 조건(노란 계열,
@@ -301,23 +491,37 @@ func _build_detail_panel() -> void:
 	_starting_skill_lock_badge_label.text = "🔒 잠김 (미리보기)"
 	_starting_skill_lock_badge_label.add_theme_color_override("font_color", Color(0.85, 0.68, 0.25))
 	_starting_skill_lock_badge_label.visible = false
-	info_vbox.add_child(_starting_skill_lock_badge_label)
+	body.add_child(_starting_skill_lock_badge_label)
 
 	_starting_skill_desc_label = _make_detail_body_label()
-	info_vbox.add_child(_starting_skill_desc_label)
+	_starting_skill_desc_label.add_theme_font_size_override("font_size", 13)
+	# _build_ability_section()의 _detail_skill_label과 같은 이유로 size를 미리 못박는다.
+	_starting_skill_desc_label.custom_minimum_size = Vector2(SECTION_BODY_WRAP_WIDTH, 0)
+	_starting_skill_desc_label.size = Vector2(SECTION_BODY_WRAP_WIDTH, _starting_skill_desc_label.size.y)
+	body.add_child(_starting_skill_desc_label)
 
 	_starting_skill_unlock_label = _make_detail_body_label()
+	_starting_skill_unlock_label.add_theme_font_size_override("font_size", 12)
 	_starting_skill_unlock_label.add_theme_color_override("font_color", Color(0.95, 0.85, 0.3))
+	_starting_skill_unlock_label.custom_minimum_size = Vector2(SECTION_BODY_WRAP_WIDTH, 0)
+	_starting_skill_unlock_label.size = Vector2(SECTION_BODY_WRAP_WIDTH, _starting_skill_unlock_label.size.y)
 	_starting_skill_unlock_label.visible = false
-	info_vbox.add_child(_starting_skill_unlock_label)
+	body.add_child(_starting_skill_unlock_label)
 
-	var note_label := Label.new()
-	_detail_placeholder_note = note_label
-	note_label.text = "※ 플레이스홀더 실루엣 — 실제 일러스트는 추후 작업"
-	note_label.autowrap_mode = TextServer.AUTOWRAP_WORD
-	note_label.add_theme_font_size_override("font_size", 12)
-	note_label.add_theme_color_override("font_color", Color(0.55, 0.55, 0.55))
-	info_vbox.add_child(note_label)
+
+## ⑤ 해금/참고 안내 — 지금은 "원화 미입고 플레이스홀더" 안내 한 줄뿐이다(원화가 입고된
+## 캐릭터는 visible=false). 새 안내 문구가 필요해지면 이 섹션에 라벨을 추가하면 된다.
+func _build_note_section() -> void:
+	var body := _make_section("")
+	_detail_note_section_panel = body.get_parent()
+	_detail_placeholder_note = Label.new()
+	_detail_placeholder_note.text = "※ 플레이스홀더 실루엣 — 실제 일러스트는 추후 작업"
+	_detail_placeholder_note.autowrap_mode = TextServer.AUTOWRAP_WORD
+	_detail_placeholder_note.add_theme_font_size_override("font_size", 11)
+	_detail_placeholder_note.add_theme_color_override("font_color", Color(0.55, 0.55, 0.55))
+	_detail_placeholder_note.custom_minimum_size = Vector2(SECTION_BODY_WRAP_WIDTH, 0)
+	_detail_placeholder_note.size = Vector2(SECTION_BODY_WRAP_WIDTH, _detail_placeholder_note.size.y)
+	body.add_child(_detail_placeholder_note)
 
 
 func _make_detail_body_label() -> Label:
@@ -328,9 +532,37 @@ func _make_detail_body_label() -> Label:
 	return label
 
 
-## 선택된 캐릭터가 바뀔 때마다 상세 패널 내용을 갱신한다. "시작 다이스"는 desc의
-## 서술형 문장을 다시 파싱하지 않고 attack_count/defense_count에서 직접 만들어
-## (DESIGN.md 확정대로 면 개수는 5종 전부 D4) 캐릭터별 수치 변경에 항상 정확하다.
+## concept 문자열에서 "—"(기호) 앞부분만 뽑아 헤더용 짧은 한 줄로 쓴다(예: "극단형 —
+## 공격/방어 다이스가..." -> "극단형"). "—"가 없으면(견습 모험가 등) _truncate()로
+## 길이만 제한한다.
+func _header_concept_line(concept: String) -> String:
+	var dash_idx := concept.find("—")
+	if dash_idx != -1:
+		return concept.substr(0, dash_idx).strip_edges()
+	return _truncate(concept, 40)
+
+
+## CharacterProfiles.gimmick_label()의 "극단 (Min/Max 전용, 중간값 없음)" 같은 문자열에서
+## " (" 앞부분만 뽑아 고유 능력 섹션의 짧은 이름으로 쓴다.
+func _ability_short_name(gimmick: String) -> String:
+	var label := CharacterProfiles.gimmick_label(gimmick)
+	var paren_idx := label.find(" (")
+	if paren_idx == -1:
+		return label
+	return label.substr(0, paren_idx)
+
+
+## 문자열을 max_chars 이내로 자르고, 실제로 잘렸으면 말줄임표(…)를 붙인다.
+func _truncate(text: String, max_chars: int) -> String:
+	if text.length() <= max_chars:
+		return text
+	return text.substr(0, max_chars - 1).strip_edges() + "…"
+
+
+## 선택된 캐릭터가 바뀔 때마다 상세 패널 내용을 갱신한다(섹션 틀 자체는 다시 안 만들고
+## 텍스트/아이콘 category만 바꾼다). "시작 다이스"는 desc의 서술형 문장을 다시 파싱하지
+## 않고 attack_count/defense_count에서 직접 만들어(DESIGN.md 확정대로 면 개수는 8종
+## 전부 D4) 캐릭터별 수치 변경에 항상 정확하다.
 func _refresh_detail_panel() -> void:
 	var profile := CharacterProfiles.get_profile(_selected_id)
 	_detail_portrait.set_palette(profile["hair_color"], profile["dress_color"])
@@ -339,16 +571,25 @@ func _refresh_detail_panel() -> void:
 	_detail_art.visible = art != null
 	_detail_portrait.visible = art == null
 	_detail_placeholder_note.visible = art == null
+	_detail_note_section_panel.visible = art == null
 	_detail_name_label.text = profile["name"]
-	_detail_concept_label.text = "설명: %s" % String(profile.get("concept", profile.get("desc", "")))
-	_detail_dice_label.text = "시작 다이스: 공격 D4 x%d / 방어 D4 x%d" % [
-		int(profile.get("attack_count", 3)), int(profile.get("defense_count", 3))
-	]
-	_detail_skill_label.text = "보유 스킬: %s" % CharacterProfiles.gimmick_label(String(profile.get("gimmick", "")))
-	_detail_skill_icon.category = String(profile.get("gimmick", ""))
+
+	var concept: String = String(profile.get("concept", profile.get("desc", "")))
+	_detail_concept_label.text = _header_concept_line(concept)
+	_detail_concept_label.tooltip_text = concept
+
+	_detail_attack_label.text = "공격 D4×%d" % int(profile.get("attack_count", 3))
+	_detail_defense_label.text = "방어 D4×%d" % int(profile.get("defense_count", 3))
 	var event_sides: int = int(profile.get("event_die_sides", 6))
-	_detail_event_die_label.text = "이벤트 주사위: D%d (로마 숫자로 표기, 커스터마이징 불가)" % event_sides
+	_detail_event_die_label.text = "이벤트 D%d" % event_sides
 	_detail_event_die_visual.value = 1
+
+	var gimmick: String = String(profile.get("gimmick", ""))
+	_detail_skill_icon.category = gimmick
+	_detail_ability_name_label.text = _ability_short_name(gimmick)
+	_detail_skill_label.text = _truncate(concept, ABILITY_DESC_MAX_CHARS)
+	_detail_skill_label.tooltip_text = concept
+
 	_preview_skill_id = "" # 캐릭터가 바뀌면 이전 캐릭터의 잠긴 슬롯 미리보기는 의미가 없다.
 	_rebuild_starting_skill_slots()
 

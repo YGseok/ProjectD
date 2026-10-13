@@ -281,6 +281,10 @@ func _ready() -> void:
 	all_pass = _check_f5a_growth_policies(lines) and all_pass
 
 	lines.append("")
+	lines.append("[K-2: 캐릭터 선택 화면 가독성 개편 검증: character_select.gd 섹션 구조(헤더/능력치/고유 능력/시작 스킬/안내) + 8명 레이아웃 예산]")
+	all_pass = _check_k2_character_select_sections(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -5819,4 +5823,72 @@ func _check_f5a_growth_policies(lines: PackedStringArray) -> bool:
 	RunState.player_defense_bag = defense_backup
 	RunState.character_id = character_backup
 
+	return ok
+
+
+## K-2 검증(INBOX.md 2026-10-13 [대형 기획 11] K-2 "캐릭터 선택 화면 가독성 개편"):
+## "플래그가 들어갔는가"가 아니라 "화면에 실제로 보이는 텍스트/레이아웃이 바뀌는가"를
+## 본다는 세션 지침대로, (a) 섹션 패널이 정확히 5개(헤더/능력치/고유 능력/시작 스킬/
+## 안내) 실제로 생성됐는지, (b) 8명 전부에서 각 섹션의 라벨 텍스트가 실제로 채워지는지
+## (빈 문자열로 남는 섹션이 없는지), (c) 상세 패널 내용의 결합 최소 높이가 패널 실제
+## 크기(DetailPanelContainer, 840x540) 안에 들어오는지(넘치면 레이아웃이 화면 밖으로
+## 밀려난다는 뜻), (d) 좌측 카드 목록 8행의 결합 높이가 ScrollContainer 가시 영역
+## (540px) 안에 들어와 스크롤이 사실상 필요 없는지를 확인한다.
+func _check_k2_character_select_sections(lines: PackedStringArray) -> bool:
+	var ok := true
+	var character_backup := RunState.character_id
+
+	var scene := load("res://code/scenes/character_select.tscn")
+	var node = scene.instantiate()
+	add_child(node)
+
+	# (a) 상세 패널 섹션 개수 = 5(①헤더 ②능력치 ③고유 능력 ④시작 스킬 ⑤안내).
+	var section_count: int = node._detail_sections_vbox.get_child_count()
+	var section_count_ok: bool = section_count == 5
+	ok = section_count_ok and ok
+	lines.append("  상세 패널 섹션 개수: %d (기대 5) -> %s" % [section_count, "OK" if section_count_ok else "FAIL"])
+
+	var detail_height: float = node.detail_container.size.y
+	var scroll := node.get_node("CardsContainer") as ScrollContainer
+
+	for profile in CharacterProfiles.PROFILES:
+		var cid: String = profile["id"]
+		node._on_card_selected(cid)
+
+		# (b) 섹션 내용이 실제로 채워지는지 — 헤더(이름/컨셉)/능력치(공격/방어/이벤트
+		# 다이스 칩 텍스트)/고유 능력(이름+설명)/시작 스킬(설명)이 전부 빈 문자열이
+		# 아니어야 한다.
+		var non_empty_ok: bool = (node._detail_name_label.text != ""
+			and node._detail_concept_label.text != ""
+			and node._detail_attack_label.text != ""
+			and node._detail_defense_label.text != ""
+			and node._detail_event_die_label.text != ""
+			and node._detail_ability_name_label.text != ""
+			and node._detail_skill_label.text != ""
+			and node._starting_skill_desc_label.text != "")
+		ok = non_empty_ok and ok
+		lines.append("  [%s] 섹션 텍스트 비어있지 않음(이름=\"%s\" 컨셉=\"%s\" 고유능력=\"%s\") -> %s" % [
+			cid, node._detail_name_label.text, node._detail_concept_label.text,
+			node._detail_ability_name_label.text, "OK" if non_empty_ok else "FAIL"
+		])
+
+		# (c) 상세 패널 전체 내용 높이가 실제 패널 높이(540) 예산 안에 들어오는지.
+		var content_height: float = node._detail_sections_vbox.get_combined_minimum_size().y
+		var fits_ok: bool = content_height <= detail_height
+		ok = fits_ok and ok
+		lines.append("  [%s] 상세 패널 내용 높이=%.1f (예산=%.1f) -> %s" % [
+			cid, content_height, detail_height, "OK" if fits_ok else "FAIL"
+		])
+
+	# (d) 좌측 카드 목록(8행) 결합 높이가 ScrollContainer 가시 영역 안에 들어오는지
+	# (스크롤 없이 한눈에 보인다는 K-2 목표의 직접 검증).
+	var list_fits_ok: bool = node.cards_container.custom_minimum_size.y <= scroll.size.y
+	ok = list_fits_ok and ok
+	lines.append("  좌측 목록 결합 높이=%.1f (가시 영역=%.1f) -> %s" % [
+		node.cards_container.custom_minimum_size.y, scroll.size.y, "OK" if list_fits_ok else "FAIL"
+	])
+
+	remove_child(node)
+	node.free()
+	RunState.character_id = character_backup
 	return ok
