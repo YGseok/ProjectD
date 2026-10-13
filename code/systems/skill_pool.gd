@@ -465,6 +465,79 @@ static func grant_upgrade(base_id: String) -> void:
 			return
 
 
+## 스킬 아이콘 모티프 분류표([대형 기획 11] K-4a, 2026-10-13). SkillIcon(skill_icon.gd)이
+## category(캐릭터 고유 기믹 8종)와는 별개로 "스킬"(SKILLS/UNIQUE_SKILLS/UPGRADE_SKILLS/
+## STARTING_SKILLS) 쪽에 쓸 motif를 여기서 결정론적으로 조회한다. "효과" 기준으로 11종
+## 모티프로 나눴다 — 시작 스킬 13종 중 9종이 "다이스 결과값 보정"류라 먼저 "무엇을
+## 올리는가"(공격만/방어만/양쪽 다)로 나누고, 나머지(재굴림/스택형 보너스턴/다이스
+## 전환·맞바꾸기/주기형 고정 피해/이벤트 판정 보정)를 효과 종류별로 묶었다. 트리거
+## 조건(골드/인벤토리/재질/다이스 개수 등)은 모티프에 반영하지 않는다 — INBOX.md가
+## "스킬의 실제 효과"로 분류하라고 명시했고, 조건이 달라도 최종 효과(예: "공격 다이스
+## +1")가 같으면 같은 모티프를 공유해야 아이콘이 "효과를 한눈에 읽힌다"는 목적에
+## 맞는다. 새 스킬을 추가하면서 이 표에 깜빡 안 넣으면 dice_test.gd의
+## _check_k4a_skill_icon_motifs()가 빈 문자열을 잡아 FAIL로 알려준다(기본값/빈 아이콘
+## fallback을 의도적으로 두지 않음).
+const ICON_MOTIFS: Dictionary = {
+	# 공격 다이스 결과값 보정만
+	"start_aggro": "attack_boost",
+	"start_hoard": "attack_boost",
+	"start_vanguard": "attack_boost",
+	"start_wealth": "attack_boost",
+	# 방어 다이스 결과값 보정만
+	"deep_breath": "defense_boost",
+	"deep_breath_plus": "defense_boost",
+	"start_wall": "defense_boost",
+	"start_ironclad": "defense_boost",
+	"start_bulwark": "defense_boost",
+	"start_second_wind": "defense_boost",
+	# 공격+방어 둘 다 보정
+	"start_expand": "dual_boost",
+	"start_lean": "dual_boost",
+	"start_overflow": "dual_boost",
+	"start_diverse": "dual_boost",
+	# 여분 다이스로 대체(재굴림)
+	"spare_die": "reroll",
+	"spare_die_plus": "reroll",
+	# 공격 스택 임계치 도달 -> 보너스 공격턴
+	"frenzy_deepen": "burst_stack",
+	"frenzy_deepen_plus": "burst_stack",
+	"chain_explosion": "burst_stack",
+	"chain_explosion_plus": "burst_stack",
+	# 방어 스택 임계치 도달 -> 보너스 방어턴
+	"guard_deepen": "guard_stack",
+	"guard_deepen_plus": "guard_stack",
+	"chain_guard": "guard_stack",
+	"chain_guard_plus": "guard_stack",
+	# 공격+방어 스택이 함께 열림(견습 모험가 전용)
+	"versatile_surge": "dual_stack",
+	"versatile_surge_plus": "dual_stack",
+	# 다이스 값을 최댓값으로 전환
+	"charm_amplify": "dice_flip",
+	"charm_amplify_plus": "dice_flip",
+	# 다이스 맞바꾸기
+	"juggle_encore": "dice_swap",
+	"juggle_encore_plus": "dice_swap",
+	# 주기형(쿨타임) 고정 피해
+	"broadside": "cycle_strike",
+	"broadside_plus": "cycle_strike",
+	# 전투 외 이벤트 판정 보정
+	"start_gambler": "event_check",
+}
+
+## ICON_MOTIFS가 쓰는 값 전체(테스트/미리보기에서 전수 순회용). 여기 없는 문자열이
+## skill_icon.gd에 들어오면 빈 원으로 떨어진다(_draw_motif()의 match 기본 분기).
+const ICON_MOTIF_VALUES: Array[String] = [
+	"attack_boost", "defense_boost", "dual_boost", "reroll", "burst_stack",
+	"guard_stack", "dual_stack", "dice_flip", "dice_swap", "cycle_strike", "event_check",
+]
+
+
+## skill_id -> icon_motif 조회. 등록되지 않은 id는 빈 문자열을 돌려준다(의도적으로
+## fallback 모티프를 두지 않음 — 위 ICON_MOTIFS 주석 참고).
+static func icon_motif_for(skill_id: String) -> String:
+	return ICON_MOTIFS.get(skill_id, "")
+
+
 ## skill_id로 네 상수(SKILLS/UNIQUE_SKILLS/UPGRADE_SKILLS/STARTING_SKILLS) 전체를 찾아
 ## 이름/설명을 조회한다(DeckPanel "보유 스킬" 목록처럼 skill_flags에 쌓인 id만으로
 ## 화면에 표시할 이름이 필요한 곳에서 재사용). 못 찾으면 빈 Dictionary를 반환한다.

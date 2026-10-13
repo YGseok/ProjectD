@@ -5,35 +5,28 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-10-13 (189)
+- 일시: 2026-10-13 (190)
 - 작성자: AI 에이전트. INBOX.md 최우선 지시 [대형 기획 11](조작/UI 개편) 중
-  **K-3(캐릭터 퍼스널 컬러를 UI에 반영)를 처음부터 끝까지 완료**했다. 신규
-  `code/systems/character_theme.gd`(`CharacterTheme`, 씬 상태 없는 순수 함수만)가
-  캐릭터 프로필의 `hair_color`/`dress_color`에서 `ui_palette(id) -> {primary,
-  accent, panel_bg, text}` 4색 팔레트를 계산한다 — `panel_bg`는 원색이 아무리 밝아도
-  항상 HSV value=0.09로 눌러 어둡게 고정하고, `text`는 WCAG 공식(`relative_
-  luminance`/`contrast_ratio`)으로 그 배경 대비 4.5:1 이상을 자동 보장한다(8종 실측
-  12.88~13.47:1). `CharacterTheme.apply(panel, id)`는 "panel" 테마 슬롯의
-  border_color를 한 줄로 덮어쓰는 공용 헬퍼. 적용 지점 3곳: ① `character_select.gd`
-  우측 상세 패널 섹션 5개의 테두리/제목색(카드를 바꿀 때마다 `_apply_detail_section_
-  theme()`가 다시 칠함, 좌측 카드 목록/공용 버튼은 중립색 유지) ② `deck_panel.gd` —
-  dungeon_map/shop/event/story_event 상시 + combat_test 토글로 이미 5개 화면에
-  재사용되는 "주요 패널"이라 이 한 곳만 고쳐 여러 화면에 한 번에 반영 ③ K-1
-  `FocusNav.focus_style()`의 accent 매개변수 자리(dungeon_map/combat_test/event/
-  shop/story_event/customize_panel/achievement_panel 포커스 강조색). 신규
-  `dice_test.gd`의 `_check_k3_character_theme()`가 (a) 8명 전부 실제 계산된
-  대비비 숫자 (b) 캐릭터를 바꾸면 상세 패널 섹션의 실제 border_color가
-  `ui_palette()`값과 정확히 일치하며 달라지는지 (c) `DeckPanel`도 마찬가지인지를
-  "플래그가 아니라 실제 노드 StyleBox 값"으로 검증(PASS, 3회 연속 재확인).
-  구현 중 `max()`/`min()` 반환값을 `:=`로 추론하다 "Variant 추론(경고를 에러로
-  처리)" 컴파일 에러를 겪어 `float` 명시 타입으로 고쳤다(자세한 경위는 아래
-  "완료 기록 (189)" 참고). `qa_shot.sh`로 character_select(견습 모험가/해적/
-  주술사 3명 비교 — 섹션 색이 캐릭터마다 뚜렷이 다르고 겹침 없음)와 dungeon_map
-  (DeckPanel+포커스 테두리가 모두 같은 캐릭터 색으로 통일됨)을 스크린샷 확인.
-  `docs/DESIGN.md` "조작"/"플레이어블 캐릭터" 절에 K-3 서술 추가. INBOX.md의
-  [대형 기획 11]은 "부분 처리됨"에 그대로 두고 K-3 완료 상태로 진행 한 줄만
-  갱신 — 다음은 **K-4(a: 스킬 아이콘 모티프 분류표)**. "완료 기록" 10개 유지를
-  위해 (179)를 `docs/STATUS_ARCHIVE.md`로 옮겼다.
+  **K-4a(스킬 아이콘 모티프 분류표 + 그리기 함수 + 검증)를 완료**했다. `code/
+  systems/skill_pool.gd`에 `ICON_MOTIFS`(skill_id -> 모티프 문자열, 33개 id 전수
+  매핑) + `ICON_MOTIF_VALUES`(11종) + `icon_motif_for()` 조회 함수를 추가하고,
+  `code/scenes/skill_icon.gd`(`SkillIcon`)에 기존 `category`(캐릭터 고유 기믹
+  8종)와는 완전히 별개인 `motif` 프로퍼티 + `_draw_motif()` 분기로 11종(공격/방어/
+  양쪽 다이스값 보정, 재굴림, 공격/방어/양쪽 스택형 보너스턴, 다이스 값 전환,
+  다이스 맞바꾸기, 주기형 고정 피해, 이벤트 판정 보정)을 전부 그릴 수 있게 확장
+  했다(의미가 겹치는 4종은 기존 그리기 함수에 `color` 매개변수를 추가해 재사용,
+  기존 category 호출부는 동작 변화 없음). `dice_test.gd`의 신규
+  `_check_k4a_skill_icon_motifs()`(async)가 ① 스킬 id 33개 전부 빈 모티프 없이
+  매핑되는지 ② 11종 모티프를 각자의 `SubViewport`(투명 배경)에 실제로 렌더해
+  캡처한 이미지가 서로 다른지(빈 아이콘 0건 + 모티프 간 픽셀 충돌 0건)를
+  "플래그가 아니라 실제 렌더 결과"로 검증(PASS). 아직 (b) 단계 전이라 실제 화면에
+  배선된 곳은 없지만, 화면 우상단에 11개 모티프 미리보기 줄을 남겨 `qa_shot.sh
+  dice_test` 스크린샷으로 서로 다른 모양/색이 눈으로도 뚜렷이 구분됨을 확인했다
+  (`qa_out/dice_test.png`). `bash scripts/qa_shot.sh dice_test` 전체 **PASS**
+  재확인(자세한 경위는 아래 "완료 기록 (190)" 참고). INBOX.md의 [대형 기획 11]은
+  "부분 처리됨"에 그대로 두고 K-4a 완료 상태로 진행 한 줄만 갱신 — 다음은
+  **K-4b(전 화면 실제 적용)**. "완료 기록" 10개 유지를 위해 (180)을
+  `docs/STATUS_ARCHIVE.md`로 옮겼다.
 
 ## 지금 위치
 
@@ -258,7 +251,7 @@ STATUS_ARCHIVE.md`(174 이전)/위 "완료 기록 (184)~(186)" 참고.
   오버레이(커스터마이징/업적) 닫기 — `code/scenes/focus_nav.gd`(`FocusNav`)가
   화면마다 "보이는 버튼 목록"을 방향키 체인으로 명시적으로 묶는다. 포커스 강조색은
   K-3(아래)로 캐릭터 퍼스널 컬러를 따른다. 자세한 키 매핑은 `docs/DESIGN.md`
-  "조작" 절 참고. K-4(스킬 아이콘)는 아직 미착수.
+  "조작" 절 참고.
 - **캐릭터 선택 화면(2026-10-13 [대형 기획 11] K-2 완료)**: 좌측 목록은 정사각
   얼굴 썸네일+이름+한 줄 기믹 라벨 행(8명 스크롤 없이 한눈에), 우측 상세
   패널은 섹션 5개(헤더/능력치/고유 능력/시작 스킬/안내)로 구역화됐다. 자세한
@@ -269,6 +262,14 @@ STATUS_ARCHIVE.md`(174 이전)/위 "완료 기록 (184)~(186)" 참고.
   상세 패널·`DeckPanel`(dungeon_map/shop/event/story_event/combat_test 공유)·
   모든 화면의 포커스 강조색(K-1)에 적용한다. 자세한 내용은 `docs/DESIGN.md`
   "조작"/"플레이어블 캐릭터" 절 참고.
+- **스킬 아이콘 모티프(2026-10-13 [대형 기획 11] K-4a 완료, 화면 배선은 아직)**:
+  `code/systems/skill_pool.gd`의 `ICON_MOTIFS`가 스킬 id(SKILLS/UNIQUE_SKILLS/
+  UPGRADE_SKILLS/STARTING_SKILLS 33개) 전부를 11종 효과 모티프로 분류하고,
+  `code/scenes/skill_icon.gd`(`SkillIcon`)의 `motif` 프로퍼티가 각 모티프를 그릴
+  수 있다. 아직 어느 화면에도 실제로 배선되지 않았다(캐릭터 고유 기믹 8종을 그리는
+  기존 `category` 경로는 그대로 — `docs/DESIGN.md` "현재 구현 콘텐츠" 참고) —
+  다음 K-4b가 캐릭터 선택 시작 스킬 슬롯/보상 선택/상점/덱·커스터마이즈 패널/
+  전투 중 보유 스킬/이벤트 보상에 실제로 연결한다.
 
 상세 변경 이력은 아래 "완료 기록"(최근 10개)과, 그보다 오래된 것은
 `docs/STATUS_ARCHIVE.md`(매 이터레이션 읽지 않는 아카이브) 참고.
@@ -280,9 +281,11 @@ STATUS_ARCHIVE.md`(174 이전)/위 "완료 기록 (184)~(186)" 참고.
 
 **INBOX.md 최우선 지시 진행 중: [대형 기획 11](조작/UI 개편, K-1 → K-2 → K-3 →
 K-4(a→b→c))** — 2026-10-13(187)에 K-1(방향키+스페이스 조작), (188)에
-K-2(캐릭터 선택 화면 가독성 개편), (189)에 K-3(캐릭터 퍼스널 컬러를 UI에 반영)
-완료. **다음은 K-4(a→b→c)뿐** — (a) 스킬 모티프 분류표(`icon_motif`)부터
-착수할 것(INBOX.md "남은 이슈" 원문 참고, 보류하지 말 것). 아래 번호 매긴 큐는
+K-2(캐릭터 선택 화면 가독성 개편), (189)에 K-3(캐릭터 퍼스널 컬러를 UI에 반영),
+(190)에 K-4a(스킬 아이콘 모티프 분류표 + 그리기 함수) 완료. **다음은
+K-4b(전 화면 실제 적용)뿐** — 캐릭터 선택 시작 스킬 슬롯/보상 선택/상점/
+덱·커스터마이즈 패널/전투 중 보유 스킬/이벤트 보상에 `SkillIcon.motif`를
+배선할 것(INBOX.md "남은 이슈" 원문 참고, 보류하지 말 것). 아래 번호 매긴 큐는
 [대형 기획 11]이 전부 끝난 뒤에나 다시 볼 것. 남은 구조적 후보(급하지 않음):
 보스 개별 6종 중 타락한 기사단장만 밴드 미달(`MonsterSkills.modify_monster_roll()` 파라미터화가
 전제조건이라 사람 설계 확인 후 착수 권장).
@@ -892,6 +895,60 @@ K-2(캐릭터 선택 화면 가독성 개편), (189)에 K-3(캐릭터 퍼스널 
 
 ## 완료 기록
 
+- **2026-10-13 (190)**: INBOX.md 최우선 지시 [대형 기획 11] 조작/UI 개편(K-1→K-4) 중
+  **K-4a(스킬 아이콘 모티프 분류표 + 그리기 함수 + 검증) 완료**. 지금까지 "스킬"
+  (`SkillPool`의 SKILLS/UNIQUE_SKILLS/UPGRADE_SKILLS/STARTING_SKILLS, 33개 id)에는
+  아이콘이 전혀 없었다 — 캐릭터 고유 기믹 8종만 그리던 `code/scenes/skill_icon.gd`
+  (`SkillIcon`)가 이걸 그릴 수 있게 확장하는 것이 이번 조각의 범위(배선/화면 적용은
+  K-4b, 외부 아트 override는 K-4c).
+  **(1) 모티프 분류표**: `code/systems/skill_pool.gd`에 `ICON_MOTIFS`(Dictionary,
+  skill_id -> motif 문자열) + `ICON_MOTIF_VALUES`(11종 전체 목록) + `icon_motif_for(id)`
+  조회 함수를 추가했다. INBOX.md가 "스킬의 실제 효과"로 분류하라고 명시해, 트리거
+  조건(골드/인벤토리/재질/다이스 개수 등)이 달라도 최종 효과가 같으면(예: "공격
+  다이스 +1") 같은 모티프로 묶었다 — 시작 스킬 13종 중 9종이 "다이스 결과값
+  보정"류라 먼저 "무엇을 올리는가"(공격만/방어만/양쪽 다)로 나누고, 나머지(여분/
+  대체 굴림, 스택형 보너스턴 공격/방어/양쪽, 다이스 값 전환, 다이스 맞바꾸기, 주기형
+  고정 피해, 이벤트 판정 보정)를 효과 종류별로 묶어 11종(`attack_boost`/
+  `defense_boost`/`dual_boost`/`reroll`/`burst_stack`/`guard_stack`/`dual_stack`/
+  `dice_flip`/`dice_swap`/`cycle_strike`/`event_check`)이 나왔다. 기본(빈 문자열)
+  fallback을 의도적으로 두지 않아, 새 스킬을 추가하고 이 표에 깜빡 안 넣으면 바로
+  FAIL로 드러난다.
+  **(2) SkillIcon 확장**: `motif: String` 신규 프로퍼티를 추가하고(기존 `category`와는
+  완전히 별개 — 비어있지 않으면 motif 그리기가 category보다 우선, 기존 호출부는
+  `motif`를 설정하지 않으므로 하위 호환 100% 유지) `_draw_motif()` 분기로 11종을
+  각각 손그림(`draw_rect`/`draw_colored_polygon`/`draw_arc`/`draw_circle` 조합,
+  기존 `achievement_icon.gd`류와 같은 패턴). 의미가 겹치는 4종(`burst_stack`=
+  캐릭터 기믹의 "폭발 스택"과 동일한 별 모양, `guard_stack`=기존 "겹겹의 방패",
+  `dice_swap`=기존 "교차 화살표")은 새로 그리지 않고 기존 `_draw_burst()`/
+  `_draw_layered_shield()`/`_draw_swap_arrows()`에 `color` 매개변수(기본값은
+  기존 기믹 색 그대로)를 추가해 재사용했다 — 중복 구현 방지, 기존 기믹 아이콘은
+  인자 없이 호출하던 그대로라 동작 변화 없음. 나머지 7종(attack/defense/dual_boost,
+  reroll, dual_stack, dice_flip, cycle_strike, event_check)은 신규 색상 팔레트
+  7개(`COLOR_ATTACK`/`COLOR_DEFENSE`/`COLOR_DUAL`/`COLOR_REROLL`/`COLOR_FLIP`/
+  `COLOR_CYCLE`/`COLOR_EVENT`)와 함께 새로 그렸다.
+  **검증**: 신규 `dice_test.gd`의 `_check_k4a_skill_icon_motifs()`(async, 호출부
+  `_ready()`가 `await`로 받음)가 두 갈래로 확인한다 — ① SKILLS/UNIQUE_SKILLS/
+  UPGRADE_SKILLS/STARTING_SKILLS 전체 id(중복 제거 33개)가 빈 모티프로 안 떨어지는지
+  ② "플래그가 들어갔나"가 아니라 "실제로 다른 그림이 그려지는가"를 검증하기 위해,
+  11종 모티프마다 자기만의 작은 `SubViewport`(투명 배경)+`SkillIcon`을 동시에
+  만들어 실제로 몇 프레임 렌더링시킨 뒤 각 `SubViewport.get_texture().get_image()`를
+  캡처해 바이트 단위로 비교 — 전부 투명(아무것도 안 그려짐)이 아니고, 서로 다른
+  모티프끼리 완전히 같은 픽셀로 겹치지 않는지 전수 확인(PASS). 처음엔
+  `Image.get_rect()`로 메인 화면 뷰포트에서 영역만 잘라내려다 "타입을 추론할 수
+  없음" 컴파일 에러를 만나(그 메서드가 Godot 4.7 Image API에 없는 것으로 보임)
+  모티프마다 독립된 `SubViewport`를 쓰는 방식으로 바꿨다 — 동시에, 아직 (b) 단계
+  전이라 실제 화면에 안 쓰이는 모티프 11종을 눈으로도 확인할 수 있게 화면
+  우상단(`ResultLabel`이 시작하는 y=20 위 빈 띠)에 작은 미리보기 줄도 남겨
+  `qa_shot.sh dice_test` 스크린샷으로 11개 아이콘이 서로 다른 모양/색으로 뚜렷이
+  구분됨을 직접 확인했다(`qa_out/dice_test.png`). `bash scripts/qa_shot.sh
+  dice_test` 전체 **PASS** 재확인(도중 한 번 무관한 H-1 테스트가 RNG로 우연히
+  FAIL한 것을 발견해 `git stash`로 되돌린 클린 트리에서도 같은 자리에서 FAIL함을
+  확인해 내 변경과 무관한 기존 flaky 테스트임을 검증 — 재실행 후 전체 PASS).
+  INBOX.md [대형 기획 11]은 "부분 처리됨"에 그대로 두고 K-4a 완료 상태로 진행
+  한 줄만 갱신 — 다음은 **K-4b(전 화면 실제 적용: 캐릭터 선택 시작 스킬 슬롯/보상
+  선택/상점/덱·커스터마이즈 패널/전투 중 보유 스킬/이벤트 보상에 motif 아이콘
+  배선)**. "완료 기록" 10개 유지를 위해 (180)을 `docs/STATUS_ARCHIVE.md`로 옮겼다.
+
 - **2026-10-13 (189)**: INBOX.md 최우선 지시 [대형 기획 11] 조작/UI 개편(K-1→K-4) 중
   **K-3(캐릭터 퍼스널 컬러를 UI에 반영) 완료**. 신규 `code/systems/character_theme.gd`
   (`CharacterTheme`, `FocusNav`/`CharacterProfiles`와 같은 "씬 상태 없는 순수 함수만"
@@ -1239,50 +1296,9 @@ K-2(캐릭터 선택 화면 가독성 개편), (189)에 K-3(캐릭터 퍼스널 
   더 낮추거나, armor(2)/counter(2) 같은 고블린 왕 전용 스킬 파라미터를
   완화하는 쪽이 다음으로 시도해볼 만하다(판단은 다음 이터레이션 몫).
 
-- **2026-10-08 (180)**: INBOX.md 최우선 지시 [대형 기획 10] **J-2(보스 튜닝, 목표
-  35~55%) 계속 — 시도 1 측정 + 시도 2 진행**. 전 이터레이션(179)이 보스 HP 배율
-  ×2→×1.5(시도 1)로 고치고 시뮬을 백그라운드로 띄운 채 미커밋 상태로 끝났던
-  것을 `git diff`로 확인하고 이어받았다.
-  **시도 1 측정**: `bash scripts/qa_shot.sh balance_target_check`로 이미 완료돼
-  있던 시도 1의 시뮬 결과를 판정 — 보스 전체 평균 1.5%(J-1)→2.5%, 여전히 목표
-  미달.
-  **시도 2**: INBOX.md 지시("한 손잡이만 더 조정해 재측정")대로 보스 공격 다이스
-  개수 보정을 +2→+1로 완화(`combat_test.gd`의 `_build_monster_config()`, 방어
-  +1/HP×1.5는 유지). `dice_test.gd`의 보스 고정값 테스트 3곳(공식 스케일링
-  room0~6/좀비 보스 r2방4/고블린 왕 r1방4)과 몬스터 디버그 문구("[보스] 공격+1
-  / 방어+1 / HP x1.5 강화됨")를 바뀐 수치로 갱신, `bash scripts/qa_shot.sh
-  dice_test` 전체 PASS 확인. `bash scripts/qa_shot.sh balance_sim`(F-4+F-5b
-  전체 재시뮬, 포그라운드로 끝까지, 약 1~2분)으로 `qa_out/
-  balance_sim_growth_raw.tsv` 재생성 후 `balance_target_check`로 재측정 —
-  보스 전체 평균 2.5%→5.7%(R1 0.0%/R2 5.9%/R3 11.1%). 시도 1(HP만 25% 삭감,
-  +1.0%p)보다 시도 2(공격 다이스 1개 삭감, +3.2%p)가 3배 이상 크게 움직여,
-  "같은 한 손잡이"라도 효과 크기가 다름을 확인(해석·추가 조정 판단은 하지
-  않고 숫자만 기록 — INBOX.md 지시). 보스 R1은 시도 0~2 내내 0.0%로 전혀 안
-  움직인 것도 기록(라운드1 보스 고블린 왕/점액 군주 쪽이 공통 보정 완화와
-  별개로 더 들여다볼 필요가 있어 보이지만, 이것도 판단 없이 숫자만 남김).
-  **부수 발견(튜닝 로그 구조 버그)**: `balance_target_check.gd`가 "튜닝 전
-  기준선" 섹션을 재실행마다 "그 시점의(즉 튜닝 후) 숫자"로 조용히 덮어쓰는
-  구조였다 — 이번 세션에서 시도 1 결과를 측정하려고 재실행한 순간, J-1의 진짜
-  원본 기준선(보스 1.5%)이 이미 시도 1 숫자(2.5%)로 바뀌어 사라져 있었다(git
-  커밋 `120788d`에서 원본 복구). 재발 방지로 ① 원본을
-  `docs/BALANCE_TUNING_LOG.md` 맨 위에 "튜닝 전 기준선 (J-1, 고정 기록)"
-  섹션으로 손으로 고정(자동 도구가 더는 건드리지 않음), ② 도구가 매번
-  갱신하는 섹션 이름을 "최신 측정(자동 생성, 재실행마다 이 섹션만 갱신)"으로
-  바꿔 의미를 맞췄다(`code/qa/balance_target_check.gd`의
-  `BASELINE_SECTION_HEADER`→`LATEST_SECTION_HEADER` + 관련 주석/
-  `result_label` 문구). 재실행해 "고정 기록"/새로 추가한 "J-2 보스 튜닝 시도
-  로그" 섹션은 그대로 두고 "최신 측정" 섹션만 교체됨을 직접 확인(멱등성
-  검증). `BALANCE_TUNING_LOG.md`에 "J-2 보스 튜닝 시도 로그" 섹션을 신설해
-  시도 0(기준선)~2 표 + 관찰 문단을 손으로 기록(이 표는 자동 도구가 안
-  건드리므로 앞으로도 시도마다 직접 한 줄씩 추가해야 함).
-  INBOX.md [대형 기획 10] 항목은 J-3~J-4가 남아 "부분 처리됨" 유지, 진행
-  줄만 갱신. 다음은 **J-2 세 번째 손잡이**(방어 보정 +1→0 또는 R1 보스
-  0% 원인 조사) — 여전히 목표(35~55%) 대비 크게 미달이라 J-2가 계속된다.
-  "완료 기록" 10개 유지를 위해 (170)을 `docs/STATUS_ARCHIVE.md`로 옮겼다.
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(189)에서 (179)를 그리로 옮겼다.)*
+이번 이터레이션(190)에서 (180)을 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 

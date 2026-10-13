@@ -289,6 +289,10 @@ func _ready() -> void:
 	all_pass = _check_k3_character_theme(lines) and all_pass
 
 	lines.append("")
+	lines.append("[K-4a: 스킬 아이콘 모티프 검증: skill_pool.gd ICON_MOTIFS 전수 매핑 + skill_icon.gd 모티프별 실제 렌더 차이]")
+	all_pass = (await _check_k4a_skill_icon_motifs(lines)) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -5970,4 +5974,113 @@ func _check_k3_character_theme(lines: PackedStringArray) -> bool:
 	remove_child(deck)
 	deck.free()
 	RunState.character_id = character_backup
+	return ok
+
+
+## [대형 기획 11] K-4a 검증. 두 갈래:
+## (1) SkillPool.SKILLS/UNIQUE_SKILLS/UPGRADE_SKILLS/STARTING_SKILLS에 등장하는 스킬
+##     id 전부가 SkillPool.icon_motif_for()로 빈 문자열 없이 모티프를 받는지(새 스킬을
+##     추가하고 ICON_MOTIFS에 깜빡 안 넣으면 여기서 FAIL로 잡힘).
+## (2) "플래그가 들어갔는가"가 아니라 "실제로 다른 그림이 그려지는가"를 검증하기 위해,
+##     SkillPool.ICON_MOTIF_VALUES 11종을 각각 자기만의 작은 SubViewport(투명 배경)에
+##     그려서 그 SubViewport의 텍스처를 직접 이미지로 캡처한다(메인 화면 뷰포트의
+##     일부를 잘라내는 방식은 Image에 그런 API가 없어 포기 — SubViewport 하나당 모티프
+##     하나면 캡처한 이미지 전체가 곧 그 모티프의 결과라 별도 잘라내기가 필요 없다).
+##     캡처한 이미지들이 ①전부 투명이 아니고(알파 있는 픽셀이 하나라도 있어야 함,
+##     즉 뭔가 그려짐) ②서로 다른 모티프끼리 완전히 같은 픽셀로 겹치지 않는지 바이트
+##     단위로 비교한다. 검증용 SubViewport는 테스트 후 해제하고, 화면에는 (b) 단계
+##     전까지 실제 UI 배선이 없으므로 눈으로 보고 싶으면 아래에서 메인 화면에도 같은
+##     모티프를 작게 미리보기로 남겨둔다(qa_shot 스크린샷 우상단).
+## await를 쓰므로 호출부(_ready())는 `await _check_k4a_skill_icon_motifs(lines)`로
+## 받아야 한다.
+func _check_k4a_skill_icon_motifs(lines: PackedStringArray) -> bool:
+	var ok := true
+
+	var skill_ids: Dictionary = {}
+	for skill in SkillPool.SKILLS:
+		skill_ids[skill["id"]] = true
+	for skill in SkillPool.UNIQUE_SKILLS:
+		skill_ids[skill["id"]] = true
+	for skill in SkillPool.UPGRADE_SKILLS:
+		skill_ids[skill["id"]] = true
+	for skill in SkillPool.STARTING_SKILLS:
+		skill_ids[skill["id"]] = true
+
+	var missing: PackedStringArray = []
+	for id in skill_ids.keys():
+		if SkillPool.icon_motif_for(id) == "":
+			missing.append(id)
+	var mapping_ok: bool = missing.is_empty()
+	ok = mapping_ok and ok
+	lines.append("  전체 스킬 id %d개 중 모티프 누락 %d개 -> %s" % [skill_ids.size(), missing.size(), "OK" if mapping_ok else "FAIL"])
+	if not missing.is_empty():
+		lines.append("    누락 id: %s" % ", ".join(missing))
+
+	var icon_size := Vector2(20.0, 20.0)
+	var motif_count: int = SkillPool.ICON_MOTIF_VALUES.size()
+
+	# 검증용: 모티프마다 자기만의 SubViewport+SkillIcon을 만든다(투명 배경이라
+	# "아무것도 안 그려짐"이 바로 "전부 알파 0"으로 드러난다).
+	var test_viewports: Array[SubViewport] = []
+	for i in range(motif_count):
+		var icon := SkillIcon.new()
+		icon.size = icon_size
+		icon.motif = SkillPool.ICON_MOTIF_VALUES[i]
+		var vp := SubViewport.new()
+		vp.size = Vector2i(icon_size)
+		vp.transparent_bg = true
+		vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+		vp.add_child(icon)
+		add_child(vp)
+		test_viewports.append(vp)
+
+	# 미리보기용: 화면(메인 뷰포트)에 작게 남겨 qa_shot 스크린샷으로 눈으로도 확인
+	# 가능하게 한다(우상단, ResultLabel 텍스트 영역(offset_top=20) 위쪽 빈 띠).
+	var spacing := 26.0
+	var start_x: float = 1280.0 - float(motif_count) * spacing - 4.0
+	for i in range(motif_count):
+		var preview := SkillIcon.new()
+		preview.position = Vector2(start_x + float(i) * spacing, 2.0)
+		preview.size = icon_size
+		preview.motif = SkillPool.ICON_MOTIF_VALUES[i]
+		add_child(preview)
+
+	# SubViewport들이 실제로 한 번 렌더링된 뒤의 프레임을 잡기 위해 대기
+	# (visual_qa.gd의 _capture_and_quit()와 같은 "frame_post_draw까지 기다림" 패턴).
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await RenderingServer.frame_post_draw
+
+	var render_ok := true
+	var seen_data: Dictionary = {}
+	for i in range(motif_count):
+		var motif: String = SkillPool.ICON_MOTIF_VALUES[i]
+		var img: Image = test_viewports[i].get_texture().get_image()
+		if img == null:
+			render_ok = false
+			lines.append("    FAIL: 모티프 '%s' SubViewport 이미지를 가져오지 못함" % motif)
+			continue
+		var data: PackedByteArray = img.get_data()
+		var has_pixel := false
+		for b in data:
+			if b != 0:
+				has_pixel = true
+				break
+		if not has_pixel:
+			render_ok = false
+			lines.append("    FAIL: 모티프 '%s' 아이콘이 완전히 투명(아무것도 안 그려짐)" % motif)
+			continue
+		for other_motif in seen_data.keys():
+			if seen_data[other_motif] == data:
+				render_ok = false
+				lines.append("    FAIL: 모티프 '%s'와 '%s'가 완전히 같은 픽셀로 렌더됨" % [motif, other_motif])
+		seen_data[motif] = data
+
+	for vp in test_viewports:
+		remove_child(vp)
+		vp.free()
+
+	ok = render_ok and ok
+	lines.append("  모티프 %d종 실제 렌더 차이 검증(빈 아이콘 0건 + 모티프 간 픽셀 충돌 0건이어야) -> %s" % [motif_count, "OK" if render_ok else "FAIL"])
+
 	return ok
