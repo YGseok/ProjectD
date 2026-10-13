@@ -88,6 +88,8 @@ const COLOR_EVENT := Color(0.65, 0.5, 0.85)
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# 외부 아트(128px)를 28~48px로 줄여 그릴 때 테두리가 계단지지 않게 (Art 스레드 요청)
+	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	if custom_minimum_size == Vector2.ZERO:
 		custom_minimum_size = Vector2(28, 28)
 
@@ -160,6 +162,7 @@ static func load_external_art(skill_id_value: String, base_dir: String = EXTERNA
 	var img := Image.new()
 	if img.load(path) != OK:
 		return null
+	img.generate_mipmaps()  # 축소 렌더 품질용 (TEXTURE_FILTER_LINEAR_WITH_MIPMAPS와 한 쌍)
 	return ImageTexture.create_from_image(img)
 
 
