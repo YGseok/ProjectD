@@ -27,10 +27,20 @@ extends Control
 ## SkillPool.ICON_MOTIF_VALUES, 스킬 id -> 모티프 매핑은 SkillPool.icon_motif_for()).
 ## `motif`가 비어있지 않으면 motif 그리기가 category보다 우선한다(기존 category
 ## 호출부는 motif를 설정하지 않으므로 동작 변화 없음 — 하위 호환 유지). 전 화면 실제
-## 배선(K-4b)과 외부 아트 override(K-4c)는 아직 — 지금은 모티프별 그리기 함수와
-## 테스트(dice_test.gd의 _check_k4a_skill_icon_motifs)만 갖춰진 상태.
+## 배선(K-4b) 완료.
+##
+## **외부 아트 override(K-4a, 2026-10-13 신규)**: `skill_id`를 설정하면
+## `EXTERNAL_ART_DIR/<skill_id>.png`(기본값 `res://resources/skills/`)가 존재하는지
+## 확인해, 있으면 그 이미지를 motif/category보다 우선해서 그린다(없으면 에러 없이
+## 조용히 기존 절차적 그리기로 폴백 — CharacterArt.load_face() 등과 같은 패턴).
+## `resources/`는 읽기만 하고 Work 쪽이 쓰지 않는다. `external_art_base_dir`는
+## dice_test.gd가 resources/를 건드리지 않고 override 우선순위를 검증할 수 있도록
+## 테스트에서만 다른 경로(user:// 임시 폴더)로 바꿔 끼우는 용도 — 운영 중에는 항상
+## 기본값(EXTERNAL_ART_DIR)을 쓴다.
 
 const CATEGORIES := ["", "min_max_only", "fixed_defense_die", "explosive_stack", "guard_stack", "charm_flip", "juggle_swap", "cannon_volley"]
+
+const EXTERNAL_ART_DIR := "res://resources/skills/"
 
 var category: String = "":
 	set(v):
@@ -41,6 +51,19 @@ var category: String = "":
 var motif: String = "":
 	set(v):
 		motif = v
+		queue_redraw()
+
+## K-4c 신규. 설정되면 외부 아트 override 확인에 쓰인다(스킬 id). 빈 문자열이면
+## override 확인 자체를 하지 않고 기존 motif/category 그리기로 바로 간다.
+var skill_id: String = "":
+	set(v):
+		skill_id = v
+		queue_redraw()
+
+## K-4c 신규. 테스트 전용 주입 지점(위 설명 참고) — 기본값은 실제 운영 경로.
+var external_art_base_dir: String = EXTERNAL_ART_DIR:
+	set(v):
+		external_art_base_dir = v
 		queue_redraw()
 
 const COLOR_NONE := Color(0.55, 0.55, 0.55)
@@ -70,6 +93,10 @@ func _ready() -> void:
 
 
 func _draw() -> void:
+	var override_texture := _external_texture()
+	if override_texture != null:
+		draw_texture_rect(override_texture, Rect2(Vector2.ZERO, size), false)
+		return
 	if motif != "":
 		_draw_motif()
 		return
@@ -92,6 +119,48 @@ func _draw() -> void:
 			_draw_cannon()
 		_:
 			pass
+
+
+## skill_id가 설정돼 있고 external_art_base_dir 아래에 그 id의 png가 있으면 로드해서
+## 돌려준다(없으면 null). 인스턴스 메서드로 둔 건 external_art_base_dir(테스트 주입
+## 지점)을 자연히 반영하기 위함 — 실제 로드는 static load_external_art()에 위임.
+func _external_texture() -> Texture2D:
+	if skill_id == "":
+		return null
+	return SkillIcon.load_external_art(skill_id, external_art_base_dir)
+
+
+## dice_test.gd가 "지금 상태에서 _draw()가 실제로 어느 분기를 타는지"를 속성이 아니라
+## 계산 결과로 검증할 수 있게 노출한다 — _draw()도 이 세 조건을 그대로 쓴다(단일 진실
+## 소스, 두 곳에서 분기 로직이 따로 분기되다 어긋나는 일이 없게).
+func render_source() -> String:
+	if _external_texture() != null:
+		return "external"
+	if motif != "":
+		return "motif"
+	if category != "":
+		return "category"
+	return "none"
+
+
+static func external_art_path(skill_id_value: String, base_dir: String = EXTERNAL_ART_DIR) -> String:
+	return base_dir + skill_id_value + ".png"
+
+
+## 외부 아트 override 이미지 로드. ResourceLoader가 아니라 Image.load()를 직접 쓰는 건
+## resources/skills/*.png가 에디터 import 과정(.import 파일) 없이도(아트 스레드가
+## 커밋만 하면 바로) 로드되게 하기 위함 — user:// 임시 경로(테스트)에서도 동일하게
+## 동작해야 하므로 더 적합하다. 파일이 없거나 디코드에 실패하면 에러 없이 null.
+static func load_external_art(skill_id_value: String, base_dir: String = EXTERNAL_ART_DIR) -> Texture2D:
+	if skill_id_value == "":
+		return null
+	var path := external_art_path(skill_id_value, base_dir)
+	if not FileAccess.file_exists(path):
+		return null
+	var img := Image.new()
+	if img.load(path) != OK:
+		return null
+	return ImageTexture.create_from_image(img)
 
 
 ## K-4a 모티프 그리기 분기. SkillPool.ICON_MOTIF_VALUES 11종을 전부 커버하고,

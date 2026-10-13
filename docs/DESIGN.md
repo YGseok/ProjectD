@@ -406,6 +406,16 @@ character_id)`는 "panel" 테마 슬롯이 있는 Control이면 한 줄로 테�
   고정 방어(fixed_defense_die)=파란 방패, 폭발 스택(explosive_stack)=주황 별,
   수호 스택(guard_stack)=회색 겹방패. 캐릭터 선택 화면의 상세 패널과 `DeckPanel`
   캐릭터 정보 섹션 둘 다에 표시된다.
+- **스킬(`SkillPool`의 SKILLS/UNIQUE_SKILLS/UPGRADE_SKILLS/STARTING_SKILLS, 33종)
+  에도 2026-10-13 [대형 기획 11] K-4로 별도 아이콘이 붙는다** — 위 "기믹"(category)
+  경로와는 완전히 별개인 `SkillIcon.motif` 경로로, 스킬의 실제 효과(공격/방어
+  보정/재굴림/스택형 보너스턴/다이스 전환·교환/주기형 고정 피해/이벤트 판정 보정)
+  기준 11종 모티프로 분류돼(`SkillPool.ICON_MOTIFS`) 보상 선택/이벤트 보상/상점/
+  캐릭터 선택 시작 스킬 슬롯/`DeckPanel` 보유 스킬 섹션 전부에 표시된다. 외부
+  아트가 `resources/skills/<skill_id>.png`로 입고되면(`SkillIcon.skill_id`가
+  설정된 지점은 전부 자동 적용) 절차적 모티프 대신 그 이미지를 쓴다 —
+  `resources/`는 읽기만 하며, 아직 입고 전이라 지금은 전부 절차적 모티프
+  그대로다(33종 발주 목록은 `docs/STATUS.md` 완료 기록(192) 참고).
 - 시작 재질은 5종 전부 기본값(플라스틱)에서 시작(재질 획득 시스템 자체가 아직 없음).
 - 캐릭터 실루엣은 도형 조립 플레이스홀더(`character_portrait_placeholder.gd`)이고,
   캐릭터별로 머리색/원피스색만 다르게 재사용 중 — 실제 일러스트 없음.

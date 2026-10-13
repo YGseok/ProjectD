@@ -297,6 +297,10 @@ func _ready() -> void:
 	all_pass = _check_k4b_skill_icon_wiring(lines) and all_pass
 
 	lines.append("")
+	lines.append("[K-4c: 외부 아트 override 검증: skill_icon.gd render_source()가 override 파일 존재/부재에 따라 실제로 바뀌는지(resources/는 안 건드리고 user:// 임시 경로로)]")
+	all_pass = _check_k4c_skill_icon_external_art(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -6189,5 +6193,85 @@ func _check_k4b_skill_icon_wiring(lines: PackedStringArray) -> bool:
 	deck.free()
 	RunState.skill_flags = skill_flags_backup
 	RunState.character_id = character_backup
+
+	return ok
+
+
+## [대형 기획 11] K-4c 검증. "override 텍스처가 존재하면 그걸 우선해서 쓰는가"를
+## skill_icon.gd의 render_source()(실제 _draw() 분기와 같은 단일 진실 소스) 결과로
+## 확인한다 — resources/skills/를 건드리지 않고 user:// 임시 폴더에 1x1 PNG를 직접
+## 만들어서 "파일이 없을 때(motif로 폴백)" -> "파일이 생긴 뒤(override 우선)" ->
+## "파일을 지운 뒤(다시 motif로 폴백)" 세 단계로 실제 분기가 바뀌는지 본다(플래그가
+## 설정됐는지가 아니라 계산 결과가 바뀌는지를 봄). 테스트용 이미지는 INBOX.md 지시대로
+## resources/ 밖(user://)에만 만들고 끝나면 지운다.
+func _check_k4c_skill_icon_external_art(lines: PackedStringArray) -> bool:
+	var ok := true
+
+	# (1) 경로 조합 자체가 기대대로인지(운영 기본 경로).
+	var expected_path := "res://resources/skills/deep_breath.png"
+	var actual_path := SkillIcon.external_art_path("deep_breath")
+	var path_ok: bool = actual_path == expected_path
+	ok = path_ok and ok
+	lines.append("  external_art_path('deep_breath') == '%s' -> %s (실제: %s)" % [
+		expected_path, "OK" if path_ok else "FAIL", actual_path
+	])
+
+	# (2) 운영 경로(resources/skills/)에는 아직 아무 override도 없으므로, 존재하는
+	# 스킬 id라도 load_external_art()가 null을 돌려줘야 한다(파일 없음 -> 조용히 폴백,
+	# 에러 없이).
+	var prod_tex := SkillIcon.load_external_art("deep_breath")
+	var prod_null_ok: bool = prod_tex == null
+	ok = prod_null_ok and ok
+	lines.append("  load_external_art('deep_breath', 운영 경로): 파일 없음 -> null -> %s" % ("OK" if prod_null_ok else "FAIL"))
+
+	# (3) user:// 임시 폴더에 override가 없는 상태에서 SkillIcon을 만들면 render_source()가
+	# "motif"여야 한다(아직 파일 없음).
+	var tmp_dir := "user://k4c_test_tmp/"
+	DirAccess.make_dir_recursive_absolute(tmp_dir)
+	var test_skill_id := "k4c_test_skill"
+	var icon := SkillIcon.new()
+	icon.motif = "reroll"
+	icon.skill_id = test_skill_id
+	icon.external_art_base_dir = tmp_dir
+	add_child(icon)
+	var before_source := icon.render_source()
+	var before_ok: bool = before_source == "motif"
+	ok = before_ok and ok
+	lines.append("  override 파일 생성 전: render_source() == 'motif' -> %s (실제: %s)" % ["OK" if before_ok else "FAIL", before_source])
+
+	# (4) 1x1 PNG를 user:// 임시 경로에 실제로 써서 override 파일을 만든 뒤, 같은
+	# SkillIcon의 render_source()가 "external"로 바뀌는지 확인(계산 결과가 실제로
+	# 바뀌는지 — 플래그만 보는 테스트가 아님).
+	var img := Image.create(1, 1, false, Image.FORMAT_RGBA8)
+	img.set_pixel(0, 0, Color(1, 0, 0, 1))
+	var save_err := img.save_png(tmp_dir + test_skill_id + ".png")
+	var save_ok: bool = save_err == OK
+	ok = save_ok and ok
+	lines.append("  user:// 임시 PNG 저장: %s" % ("OK" if save_ok else "FAIL (err=%d)" % save_err))
+
+	var after_source := icon.render_source()
+	var after_ok: bool = after_source == "external"
+	ok = after_ok and ok
+	lines.append("  override 파일 생성 후: render_source() == 'external' -> %s (실제: %s)" % ["OK" if after_ok else "FAIL", after_source])
+
+	# (5) 같은 경로를 motif 없이(category도 없이) 쓰면 override가 유일한 그리기 소스가
+	# 돼야 한다(override가 motif/category 둘 다보다 우선한다는 주석의 우선순위 보장).
+	icon.motif = ""
+	var no_motif_source := icon.render_source()
+	var no_motif_ok: bool = no_motif_source == "external"
+	ok = no_motif_ok and ok
+	lines.append("  motif=''(카테고리도 없음)이어도 override 파일이 있으면 render_source() == 'external' -> %s" % ("OK" if no_motif_ok else "FAIL"))
+
+	# (6) 파일을 지우면 다시 motif/none으로 폴백해야 한다(override가 영구적으로 캐시되지
+	# 않고 매번 실제로 파일 존재를 확인함을 보장).
+	DirAccess.remove_absolute(tmp_dir + test_skill_id + ".png")
+	var removed_source := icon.render_source()
+	var removed_ok: bool = removed_source == "none"
+	ok = removed_ok and ok
+	lines.append("  override 파일 삭제 후: render_source() == 'none'(motif도 비웠으므로) -> %s" % ("OK" if removed_ok else "FAIL"))
+
+	remove_child(icon)
+	icon.free()
+	DirAccess.remove_absolute(tmp_dir)
 
 	return ok

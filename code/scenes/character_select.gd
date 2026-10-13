@@ -704,6 +704,7 @@ func _make_starting_skill_slot(skill: Dictionary, unlocked: bool, slot_index: in
 			var skill_icon := SkillIcon.new()
 			skill_icon.custom_minimum_size = Vector2(16, 16)
 			skill_icon.motif = motif
+			skill_icon.skill_id = skill["id"]
 			name_row.add_child(skill_icon)
 		var name_label := Label.new()
 		name_label.text = skill["name"]
@@ -723,6 +724,7 @@ func _make_starting_skill_slot(skill: Dictionary, unlocked: bool, slot_index: in
 			var skill_icon := SkillIcon.new()
 			skill_icon.custom_minimum_size = Vector2(16, 16)
 			skill_icon.motif = motif
+			skill_icon.skill_id = skill["id"]
 			skill_icon.modulate = Color(1, 1, 1, 0.4)
 			lock_row.add_child(skill_icon)
 		var name_label := Label.new()

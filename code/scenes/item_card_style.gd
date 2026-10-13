@@ -113,6 +113,7 @@ static func build_card(item: Dictionary, extra_label_text: String = "", unafford
 			var skill_icon := SkillIcon.new()
 			skill_icon.custom_minimum_size = Vector2(20, 20)
 			skill_icon.motif = motif
+			skill_icon.skill_id = skill_id
 			title_row.add_child(skill_icon)
 	vbox.add_child(title_row)
 

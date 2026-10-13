@@ -7,6 +7,21 @@
 
 ---
 
+- [처리됨 - 2026-09-16] (기획자 결정) `docs/STATUS.md` "알려진 이슈"의 "특수 이벤트
+  B급(D8) 아이템 사각지대" — 해결안 (b) 확정: 안전 풀을 "C 이하", 위험 성공 풀을
+  "B 이상"으로 등급 경계를 겹치게 넓힌다.
+  → `code/systems/event_item_pool.gd`의 `random_safe_item()`/`random_risky_item()`
+  이 각각 grade="C"만/"A"·"S"만 걸러 뽑던 것을, `SAFE_GRADES=["C","B"]`/
+  `RISKY_GRADES=["B","A","S"]`로 등급 경계를 B에서 겹치게 넓혔다. 지시대로 "안전은
+  C가 훨씬 흔하고 B는 드묾"/"위험 성공은 상위 등급일수록 흔함"을 균등 추첨이 아닌
+  가중치 추첨(`SAFE_GRADE_WEIGHTS={C:5.0,B:1.0}`, `RISKY_GRADE_WEIGHTS=
+  {B:1.0,A:2.0,S:3.0}`, 신규 `_weighted_pick()` 룰렛 휠 헬퍼)으로 구현 — 정확한
+  가중치 수치는 지시대로 잠정값. `dice_test.gd`의 `_check_event_safe_risky_choice`
+  검증을 20→200회로 늘리고 "B급이 두 풀 모두에서 최소 1번 목격되는지" 검사를
+  추가, `bash scripts/qa_shot.sh dice_test` 전체 PASS(B급 목격 "예" 확인). 순수
+  드롭률 로직 변경이라 화면 레이아웃 영향은 없음. `docs/STATUS.md` "알려진
+  이슈"에서 해당 항목을 삭제했다. docs/STATUS.md 완료 기록(121) 참고.
+
 - [처리됨 - 2026-09-16] [미니 기획 C] 캐릭터 스킬 부여 이벤트 — 전체 완료 (원본:
   2026-09-14 "캐릭터에 스킬을 부여하는 이벤트를 추가한다. 직업별 공용 이벤트 및
   고유 이벤트가 각기 있다". [미니 기획 A]/[B]/[C] 세 갈래로 구체적 수치/구조를

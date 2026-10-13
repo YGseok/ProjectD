@@ -170,6 +170,7 @@ func _add_skills_section() -> void:
 			var skill_icon := SkillIcon.new()
 			skill_icon.custom_minimum_size = Vector2(14, 14)
 			skill_icon.motif = motif
+			skill_icon.skill_id = skill_id
 			row.add_child(skill_icon)
 		var skill_label := Label.new()
 		skill_label.text = "· %s" % String(skill.get("name", skill_id))

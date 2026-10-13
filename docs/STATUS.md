@@ -5,30 +5,31 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-10-13 (191)
+- 일시: 2026-10-13 (192)
 - 작성자: AI 에이전트. INBOX.md 최우선 지시 [대형 기획 11](조작/UI 개편) 중
-  **K-4b(스킬 아이콘 모티프 전 화면 실제 적용)를 완료**했다. K-4a가 만든
-  `SkillIcon.motif`/`SkillPool.icon_motif_for()`를 세 지점에 배선했다 — ①
-  `item_card_style.gd`의 `build_card()`(아이템에 `id` 필드가 있으면, 즉 SkillPool
-  스킬이면 자동으로 모티프 아이콘을 등급 배지 옆에 붙임 — "보상 선택"/"이벤트 보상"
-  둘 다 같은 `_show_skill_offer()`를 공유해 한 곳 수정으로 자동 반영) ②
-  `character_select.gd`의 `_make_starting_skill_slot()`(해금 슬롯은 아이콘 그대로,
-  잠금 슬롯은 `modulate.a=0.4`로 흐리되 윤곽은 유지 — INBOX.md 지시대로) ③
-  `deck_panel.gd`의 `_add_skills_section()`(`RunState.skill_flags` 각 항목 라벨
-  옆에 아이콘 — 이 패널이 dungeon_map/shop/event/story_event 상시 + combat_test
-  토글 전부에 공유되므로 "상점"과 "전투 중 보유 스킬 표시" 요구를 여기 한 곳으로
-  동시에 충족). `dice_test.gd`에 신규 `_check_k4b_skill_icon_wiring()`(+재귀 헬퍼
-  `_collect_skill_icons()`)이 "모티프 프로퍼티가 설정됐나"가 아니라 "실제 화면
-  트리에 그 `SkillIcon` 노드가 자식으로 붙어있고 motif 값이 기대와 일치하는가"로
-  세 지점 전부를 검증(PASS, 작성 중 DeckPanel 케이스에서 캐릭터 기믹용 아이콘과
-  섞여 FAIL났던 것을 motif 일치 필터로 고침). `bash scripts/qa_shot.sh dice_test`
-  전체 **PASS**, `qa_out/event.png`(스킬 카드에 모티프 아이콘)/
-  `qa_out/combat_test_deckpanel_skills.png`(전투 중 보유 스킬 4개가 서로 다른 색
-  모티프로 구분)/`qa_out/character_select.png`(시작 스킬 슬롯)/`qa_out/shop.png`
-  (일반 아이템 카드는 영향 없음, 회귀 없음)로 육안 확인(자세한 경위는 아래 "완료
-  기록 (191)" 참고). INBOX.md의 [대형 기획 11]은 "부분 처리됨"에 그대로 두고
-  K-4b 완료 상태로 진행 한 줄만 갱신 — 다음은 **K-4c(외부 아트 override 경로 +
-  발주 목록 정리)**. "완료 기록" 10개 유지를 위해 (181)을
+  **K-4c(외부 아트 override 경로 + 발주 목록 정리)를 완료 — [대형 기획 11]
+  전체(K-1~K-4) 완료 처리**. `code/scenes/skill_icon.gd`에 `skill_id`/
+  `external_art_base_dir` 프로퍼티와 정적 `load_external_art()`/`external_art_path()`를
+  추가해, `resources/skills/<skill_id>.png`가 있으면(`FileAccess.file_exists()`로
+  확인) `Image.load()`로 읽어 motif/category보다 우선해서 그리고, 없으면 에러 없이
+  기존 절차적 그리기로 폴백한다. `_draw()`의 실제 분기를 테스트가 속성이 아니라
+  계산 결과로 검증할 수 있도록 `render_source() -> String`("external"/"motif"/
+  "category"/"none")을 신설해 `_draw()`도 이 함수를 그대로 쓴다(단일 진실 소스).
+  motif를 설정하던 호출부 4곳(`item_card_style.gd`/`character_select.gd` 해금·잠금
+  2곳/`deck_panel.gd`)에 `skill_icon.skill_id = ...`도 함께 설정해, override가
+  자동으로 모든 화면에 적용되게 했다. `dice_test.gd`의 신규
+  `_check_k4c_skill_icon_external_art()`가 `resources/`를 전혀 안 건드리고
+  `user://k4c_test_tmp/`에 1x1 PNG를 직접 만들어 "파일 없음(motif)" → "파일
+  생성 후(external로 실제 전환)" → "motif를 비워도 override가 우선" → "파일
+  삭제 후 다시 폴백"까지 네 단계로 실제 분기가 바뀌는지 확인(테스트 후 임시
+  파일/폴더 삭제). `bash scripts/qa_shot.sh dice_test` 전체 **PASS**(leak 경고
+  2건은 `git stash`로 교차 확인한 기존 known noise, 내 변경과 무관).
+  `qa_shot.sh event`/`character_select`로 override 파일이 없는 지금은 기존
+  절차적 모티프 그대로 렌더돼 회귀 없음을 육안 확인. INBOX.md 지시대로 스킬
+  아이콘 33종 전체의 "ProjectD Art" 발주 목록(id/이름/모티프/계열 색 hex/설명
+  한 줄)을 아래 "완료 기록 (192)"에 표로 정리했다 — **전달 자체는 이 작업
+  세션이 아니라 감독 세션이 SendMessage로 한다**(INBOX.md 명시). INBOX.md의
+  [대형 기획 11]을 "처리됨"으로 옮겼다. "완료 기록" 10개 유지를 위해 (182)를
   `docs/STATUS_ARCHIVE.md`로 옮겼다.
 
 ## 지금 위치
@@ -265,17 +266,22 @@ STATUS_ARCHIVE.md`(174 이전)/위 "완료 기록 (184)~(186)" 참고.
   상세 패널·`DeckPanel`(dungeon_map/shop/event/story_event/combat_test 공유)·
   모든 화면의 포커스 강조색(K-1)에 적용한다. 자세한 내용은 `docs/DESIGN.md`
   "조작"/"플레이어블 캐릭터" 절 참고.
-- **스킬 아이콘 모티프(2026-10-13 [대형 기획 11] K-4a/K-4b 완료, 외부 아트
-  override는 아직)**: `code/systems/skill_pool.gd`의 `ICON_MOTIFS`가 스킬 id
-  (SKILLS/UNIQUE_SKILLS/UPGRADE_SKILLS/STARTING_SKILLS 33개) 전부를 11종 효과
-  모티프로 분류하고, `code/scenes/skill_icon.gd`(`SkillIcon`)의 `motif` 프로퍼티가
-  각 모티프를 그린다. **K-4b로 세 지점에 실제 배선 완료**: `item_card_style.gd`의
+- **스킬 아이콘 모티프(2026-10-13 [대형 기획 11] K-4a~c 전체 완료)**:
+  `code/systems/skill_pool.gd`의 `ICON_MOTIFS`가 스킬 id(SKILLS/UNIQUE_SKILLS/
+  UPGRADE_SKILLS/STARTING_SKILLS 33개) 전부를 11종 효과 모티프로 분류하고,
+  `code/scenes/skill_icon.gd`(`SkillIcon`)의 `motif` 프로퍼티가 각 모티프를
+  그린다. **K-4b로 세 지점에 실제 배선 완료**: `item_card_style.gd`의
   `build_card()`(보상 선택/이벤트 보상 스킬 카드), `character_select.gd`의
   시작 스킬 슬롯(해금/잠금 양쪽), `deck_panel.gd`의 보유 스킬 섹션(dungeon_map/
   shop/event/story_event 상시 + combat_test 토글 — "상점"과 "전투 중 보유 스킬
   표시" 요구를 함께 충족). 캐릭터 고유 기믹 8종을 그리는 기존 `category` 경로는
-  그대로 별개로 유지(`docs/DESIGN.md` "현재 구현 콘텐츠" 참고). 다음 K-4c는 외부
-  아트(`resources/skills/<skill_id>.png`) override 경로와 아트 스레드 발주 목록.
+  그대로 별개로 유지(`docs/DESIGN.md` "현재 구현 콘텐츠" 참고). **K-4c로 외부
+  아트 override 완료**: `skill_id`를 설정하면 `resources/skills/<skill_id>.png`가
+  있는지 확인해(`SkillIcon.load_external_art()`) 있으면 그 이미지를, 없으면
+  절차적 모티프를 그린다(`render_source()`가 실제 분기를 돌려줌). 위 세 호출부
+  모두 `skill_id`도 함께 설정해 override가 자동으로 전 화면에 적용된다.
+  `resources/skills/`는 아직 아트가 입고되지 않아 전부 절차적 모티프 그대로다 —
+  33종 발주 목록은 `docs/STATUS.md` 완료 기록(192) 표 참고.
 
 상세 변경 이력은 아래 "완료 기록"(최근 10개)과, 그보다 오래된 것은
 `docs/STATUS_ARCHIVE.md`(매 이터레이션 읽지 않는 아카이브) 참고.
@@ -285,16 +291,13 @@ STATUS_ARCHIVE.md`(174 이전)/위 "완료 기록 (184)~(186)" 참고.
 이 순서를 반드시 지킬 필요는 없지만, 앞 단계가 뒤 단계의 전제가 되므로 대체로 순서대로
 진행하는 것을 권장한다. 한 이터레이션에 한두 개만 진행할 것.
 
-**INBOX.md 최우선 지시 진행 중: [대형 기획 11](조작/UI 개편, K-1 → K-2 → K-3 →
-K-4(a→b→c))** — 2026-10-13(187)에 K-1(방향키+스페이스 조작), (188)에
-K-2(캐릭터 선택 화면 가독성 개편), (189)에 K-3(캐릭터 퍼스널 컬러를 UI에 반영),
-(190)에 K-4a(스킬 아이콘 모티프 분류표 + 그리기 함수), (191)에 K-4b(전 화면 실제
-적용) 완료. **다음은 K-4c뿐** — 외부 아트 대체 경로
-(`resources/skills/<skill_id>.png`가 있으면 그 이미지, 없으면 절차적 모티프,
-`resources/`는 읽기만) + 완료 후 "ProjectD Art" 스레드로 넘길 발주 목록(스킬
-id/이름/모티프/계열 색/설명 한 줄)을 STATUS.md에 정리(INBOX.md "남은 이슈" 원문
-참고, 보류하지 말 것). 아래 번호 매긴 큐는 [대형 기획 11]이 전부 끝난 뒤에나 다시
-볼 것. 남은 구조적 후보(급하지 않음):
+**INBOX.md 최우선 지시 [대형 기획 11](조작/UI 개편, K-1 → K-2 → K-3 → K-4(a→b→c))
+2026-10-13(192)에 전체 완료.** K-1(187, 방향키+스페이스 조작) → K-2(188, 캐릭터
+선택 화면 가독성 개편) → K-3(189, 캐릭터 퍼스널 컬러를 UI에 반영) → K-4a(190,
+스킬 아이콘 모티프 분류표) → K-4b(191, 전 화면 실제 적용) → K-4c(192, 외부 아트
+override 경로 + 발주 목록) 순으로 전부 완료, INBOX.md도 "처리됨"으로 이동했다.
+**현재 INBOX.md에 다른 최우선 지시가 없으므로, 아래 번호 매긴 큐에서 골라 진행할
+것.** 남은 구조적 후보(급하지 않음):
 보스 개별 6종 중 타락한 기사단장만 밴드 미달(`MonsterSkills.modify_monster_roll()` 파라미터화가
 전제조건이라 사람 설계 확인 후 착수 권장).
 
@@ -903,6 +906,98 @@ id/이름/모티프/계열 색/설명 한 줄)을 STATUS.md에 정리(INBOX.md "
 
 ## 완료 기록
 
+- **2026-10-13 (192)**: INBOX.md 최우선 지시 [대형 기획 11] 조작/UI 개편(K-1→K-4) 중
+  **K-4c(외부 아트 override 경로 + 발주 목록 정리) 완료 — [대형 기획 11] 전체
+  (K-1~K-4) 완료 처리**.
+  **(1) 외부 아트 override**: `code/scenes/skill_icon.gd`에 `skill_id`(스킬 id)와
+  `external_art_base_dir`(기본값 `EXTERNAL_ART_DIR`="res://resources/skills/",
+  테스트 전용 주입 지점) 프로퍼티를 추가했다. 정적 `SkillIcon.load_external_art(
+  skill_id, base_dir)`가 `base_dir + skill_id + ".png"`를 `FileAccess.file_exists()`로
+  확인해 있으면 `Image.load()` + `ImageTexture.create_from_image()`로 로드하고
+  없으면 null(에러 없이 조용히 폴백) — `ResourceLoader.exists()+load()`가 아니라
+  `Image.load()`를 직접 쓴 건 에디터 import(.import 파일) 과정 없이도 아트
+  스레드가 PNG를 커밋만 하면 바로 로드되게 하기 위함(user:// 임시 경로에서도
+  동일하게 동작해야 하는 테스트 요구와도 맞음). `_draw()`가 이제 "override 있으면
+  그 텍스처 → 없으면 motif → 없으면 category → 없으면 빈 원" 순으로 분기하고,
+  이 우선순위를 테스트가 속성이 아니라 실제로 검증할 수 있도록 `render_source()
+  -> String`("external"/"motif"/"category"/"none")을 신설해 `_draw()`도 이 함수의
+  결과를 그대로 쓴다(단일 진실 소스 — 테스트와 실제 그리기가 서로 다른 분기를
+  타다 어긋나는 일이 없게). 호출부 4곳(`item_card_style.gd`의 `build_card()`,
+  `character_select.gd`의 `_make_starting_skill_slot()` 해금/잠금 두 분기,
+  `deck_panel.gd`의 `_add_skills_section()`)에 `skill_icon.skill_id = ...`를
+  추가해 motif를 설정하던 모든 지점이 자동으로 override 경로도 함께 갖는다(새
+  화면이 생겨도 skill_id만 설정하면 override가 자동으로 적용됨). `resources/`는
+  여전히 읽기만 하고 Work 쪽이 파일을 만들지 않는다 — `resources/skills/`는
+  아직 아트가 입고되지 않아 전부 절차적 모티프 그대로 렌더됨(아래 발주 목록 참고).
+  **검증**: `dice_test.gd`의 신규 `_check_k4c_skill_icon_external_art()`가
+  resources/를 전혀 건드리지 않고 `user://k4c_test_tmp/`에 1x1 PNG를 실제로 써서
+  ① override 파일이 없을 때 `render_source()=="motif"` ② 파일을 만든 뒤
+  `=="external"`로 실제로 바뀜(계산 결과가 바뀌는지 검증, 플래그만 보지 않음)
+  ③ motif를 비워도(category도 없음) override가 있으면 여전히 "external"(우선순위
+  보장) ④ 파일을 지우면 다시 "none"으로 폴백하는지까지 확인하고, 테스트가 만든
+  임시 파일/폴더는 전부 지운다. `external_art_path()`/`load_external_art()`의
+  경로 조합과 "운영 경로엔 아직 override가 없음"도 별도로 확인. `bash scripts/
+  qa_shot.sh dice_test` 전체 **PASS**(leak 경고 2건은 내 변경 전 클린 트리에서도
+  동일하게 재현돼 기존 known noise임을 `git stash`로 교차 확인). `qa_shot.sh
+  event`/`character_select`로 회귀 없음(override 파일이 없으니 기존 절차적
+  모티프 그대로 렌더) 육안 확인.
+  **(2) 발주 목록**: K-4c 지시대로 "ProjectD Art" 스레드로 넘길 스킬 아이콘
+  발주 목록을 아래 표로 정리했다(스킬 id/이름/모티프/계열 색/설명 한 줄, 33종
+  전부 — `SkillPool.ICON_MOTIFS` 기준, 색상 hex는 `skill_icon.gd`의 모티프별
+  `COLOR_*` 상수를 그대로 변환). **전달은 INBOX.md 지시대로 이 작업(Work) 세션이
+  아니라 감독 세션이 SendMessage로 한다** — 이 표는 그 전달의 원본 자료.
+
+  | 모티프 | 색(hex) | 스킬 id | 이름 | 설명 한 줄 |
+  |---|---|---|---|---|
+  | attack_boost | #E65926 | start_aggro | 맹공 | 공격 다이스 개수 > 방어 다이스 개수면 공격 다이스 결과값 전체 +1 |
+  | attack_boost | #E65926 | start_hoard | 수집가 | 눈금 인벤토리 5개 이상 보유 시 공격 다이스 결과값 전체 +1 |
+  | attack_boost | #E65926 | start_vanguard | 선제 | 전투 첫 공격턴 한 번만 공격 다이스 결과값 전체 +2 |
+  | attack_boost | #E65926 | start_wealth | 황금손 | 보유 골드 30마다 공격 다이스 결과값 +1(최대 +2) |
+  | defense_boost | #4D8CD9 | deep_breath | 심호흡 | 전투 첫 방어턴 한 번만 방어 다이스 결과값 전체 +1 |
+  | defense_boost | #4D8CD9 | deep_breath_plus | 심호흡+ | 매 방어턴마다(첫 턴뿐 아니라) 방어 다이스 결과값 +1 |
+  | defense_boost | #4D8CD9 | start_wall | 철벽 | 방어 다이스 개수 > 공격 다이스 개수면 방어 다이스 결과값 전체 +1 |
+  | defense_boost | #4D8CD9 | start_ironclad | 강철 방비 | 철제 재질(D12/D20) 다이스를 1개 이상 보유하면 방어 다이스 결과값 전체 +1 |
+  | defense_boost | #4D8CD9 | start_bulwark | 대비 | 전투 첫 방어턴 한 번만 방어 다이스 결과값 전체 +2 |
+  | defense_boost | #4D8CD9 | start_second_wind | 오뚝이 | 플레이어 HP가 최대 HP 절반 이하면 방어 다이스 결과값 +1 |
+  | dual_boost | #9966D9 | start_expand | 확장 | 공격+방어 다이스 합계 8개 이상이면 공격/방어 다이스 결과값 전체 +1(양 턴 대칭) |
+  | dual_boost | #9966D9 | start_lean | 정예 | 공격+방어 다이스 합계 7개 이하면 공격/방어 다이스 결과값 전체 +1(확장과 반대 조건) |
+  | dual_boost | #9966D9 | start_overflow | 과적 | 공격/방어 주머니 중 MAX_DICE(6)에 꽉 찬 쪽 결과값 +1(둘 다 꽉 차면 둘 다) |
+  | dual_boost | #9966D9 | start_diverse | 잡화점 | 공격+방어 다이스의 면 개수 종류가 3종 이상이면 공격/방어 결과값 전체 +1 |
+  | reroll | #40BF8C | spare_die | 여분 | 매 공격턴 여분 다이스 1개를 더 굴려 가장 낮은 공격값을 더 높으면 대체 |
+  | reroll | #40BF8C | spare_die_plus | 여분+ | 여분 다이스 2개를 굴려 더 높은 값으로 가장 낮은 공격값을 대체 |
+  | burst_stack | #F28C26 | frenzy_deepen | 광기 심화 | 광전사 전용 — 폭발 스택 파이프라인을 새로 열고, 3스택 보너스 공격턴이 1D20 두 번 굴려 채택 |
+  | burst_stack | #F28C26 | frenzy_deepen_plus | 광기 심화+ | 보너스 공격턴이 1D20 세 번 굴려 채택으로 강화 |
+  | burst_stack | #F28C26 | chain_explosion | 연쇄 폭발 | 폭발병 전용 — 폭발 스택 임계치 3→2로 낮춤 |
+  | burst_stack | #F28C26 | chain_explosion_plus | 연쇄 폭발+ | 임계치 2 유지 + 보너스 공격턴 1D20 두 번 굴려 채택으로 강화 |
+  | guard_stack | #8C99A6 | guard_deepen | 수호 심화 | 수호자 전용 — 수호 스택 파이프라인을 새로 열고, 3스택 보너스 방어턴이 1D20 두 번 굴려 채택 |
+  | guard_stack | #8C99A6 | guard_deepen_plus | 수호 심화+ | 보너스 방어턴이 1D20 세 번 굴려 채택으로 강화 |
+  | guard_stack | #8C99A6 | chain_guard | 연쇄 방어 | 주술사 전용 — 수호 스택 임계치 3→2로 낮춤 |
+  | guard_stack | #8C99A6 | chain_guard_plus | 연쇄 방어+ | 임계치 2 유지 + 보너스 방어턴 1D20 두 번 굴려 채택으로 강화 |
+  | dual_stack | 주황#F28C26+회색#8C99A6 반반 | versatile_surge | 임기응변 | 견습 모험가 전용 — 폭발+수호 스택 파이프라인을 공격/방어 양쪽에 동시에 염 |
+  | dual_stack | 주황#F28C26+회색#8C99A6 반반 | versatile_surge_plus | 임기응변+ | 공격/방어 스택 임계치 둘 다 3→2로 낮춤 |
+  | dice_flip | #D94D8C | charm_amplify | 매혹 심화 | 매혹사 전용 — 매 턴 최저값 다이스 전환 개수를 1개→2개로 늘림 |
+  | dice_flip | #D94D8C | charm_amplify_plus | 매혹 심화+ | 전환 개수를 2개→3개로 추가 강화 |
+  | dice_swap | #E6BF26 | juggle_encore | 곡예 앙코르 | 곡예사 전용 — 라운드 전환마다 공격/방어 다이스 1개씩 재교환(1회→매 라운드) |
+  | dice_swap | #E6BF26 | juggle_encore_plus | 곡예 앙코르+ | 라운드 전환 시 다이스 교환이 1번→2번(서로 다른 쌍)으로 강화 |
+  | cycle_strike | #26A699 | broadside | 일제 사격 | 해적 전용 — 함포 일제사격 주기를 3턴→2턴으로 단축 |
+  | cycle_strike | #26A699 | broadside_plus | 일제 사격+ | 주기 2 유지 + 고정 피해를 공격 합계 절반→전부로 강화 |
+  | event_check | #A680D9 | start_gambler | 승부사 | 매혹사 전용 — 특수 이벤트 "위험을 감수하기"의 판정 DC를 1 낮춤(최저 2) |
+
+  모티프 11종 각각의 디자인 방향(던파풍 참고, 실제 에셋 복제 아님 — INBOX.md
+  원문 그대로): 정사각 아이콘 + 굵은 테두리 프레임(프레임 색 = 위 표의 계열
+  색), 어두운 그라데이션 배경 위에 크고 단순한 실루엣 모티프(공격류=칼/위쪽
+  화살표, 방어류=방패/쉐브론, 재굴림=순환 화살표, 스택류=별/겹방패, 전환=
+  뒤집히는 다이스, 교환=교차 화살표, 주기형=시계판, 이벤트=육각 판정 다이스),
+  "+" 강화판은 금색 별/"+" 모서리 배지, 잠금은 자물쇠 배지(이건 K-4b가 이미
+  코드로 구현 — 아트는 기본 아이콘만 있으면 됨). 파일 규칙은 K-4c가 구현한
+  대로 `resources/skills/<skill_id>.png`(예: `resources/skills/deep_breath.png`)
+  하나만 있으면 충분 — "+" 변형은 별도 파일(`deep_breath_plus.png`)로 완전히
+  분리해 넘겨도 되고, 베이스 이미지에 코드 쪽 배지를 얹는 방식을 원하면 그 결정도
+  가능(현재 코드는 override 이미지를 그대로 교체해서 그리므로, 배지까지 원화에
+  포함해서 넘기는 쪽이 더 간단함).
+  **INBOX.md [대형 기획 11]을 "처리됨"으로 옮겼다 — K-1~K-4(a~c) 전체 완료.**
+  "완료 기록" 10개 유지를 위해 (182)를 `docs/STATUS_ARCHIVE.md`로 옮겼다.
+
 - **2026-10-13 (191)**: INBOX.md 최우선 지시 [대형 기획 11] 조작/UI 개편(K-1→K-4) 중
   **K-4b(스킬 아이콘 모티프 전 화면 적용) 완료**. K-4a가 만든 `SkillIcon.motif`/
   `SkillPool.icon_motif_for()`를 실제 화면 3곳에 배선했다 — INBOX.md가 요구한 6개
@@ -1267,46 +1362,9 @@ id/이름/모티프/계열 색/설명 한 줄)을 STATUS.md에 정리(INBOX.md "
   INBOX.md [대형 기획 10] 항목은 J-3~J-4가 남아 "부분 처리됨" 유지, 진행
   줄만 갱신.
 
-- **2026-10-08 (182)**: INBOX.md 최우선 지시 [대형 기획 10] **J-2(보스 튜닝) 계속
-  — 세션 지시가 제시한 다음 손잡이 후보(보스 HP 추가 완화, 고블린 왕 armor/
-  counter 완화)를 순서대로 3개 적용·재측정**(한 이터레이션에 손잡이 2~3개까지
-  시도 가능 지시를 따름). **시도5**: `combat_test.gd`의 `_build_monster_config()`
-  보스 HP 배율을 ×1.5→×1.2로 추가 완화 — 재측정 결과 R1 1.8%→6.1%, 전체평균
-  10.3%→15.5%. **시도6**: `monster_catalog.gd`의 고블린 왕 전용 `armor`
-  2→1 + `counter` 2→1(phase2_skills의 armor 강화값도 4→3으로 같이 완화해 "+2"
-  강화 폭 유지) — R1 6.1%→10.5%, 전체평균 15.5%→17.5%. **시도7**: 보스 전용 HP
-  배율을 ×1.2→×1.0(보스 HP 가산 완전 제거, 남은 보스 전용 차별화는 공격+1뿐)
-  — R1 10.5%→19.0%, 전체평균 17.5%→24.1%(R2 27.7%/R3 25.5%). 세 시도 모두
-  R1/전체평균을 꾸준히 올렸고, 특히 시도7(+6.6%p)이 시도1(HP×2→×1.5, (180)
-  기록 당시 +1.0%p)보다 훨씬 크게 움직였다 — 공격/방어 보정이 이미 완화돼
-  마진이 양수로 돌아선 뒤에는 남은 "두꺼운 HP"가 병목이었던 것으로 보인다
-  (숫자만 기록, 해석·추가 조정 판단 없음). **부수 발견**: TSV 원자료
-  (`qa_out/balance_sim_growth_raw.tsv`)를 직접 확인한 결과, 이 시뮬의 run_seed가
-  라운드마다 고정이라 각 라운드 보스 자리에서 실제로 측정되는 몬스터는 후보
-  2종 중 **한쪽뿐**임을 확인 — R1=고블린 왕(점액 군주는 576행 중 단 한 번도
-  등장 안 함), R2=광란의 마수, R3=공허의 눈. 다음 이터레이션이 몬스터 개별
-  보정으로 손잡이를 좁힐 때 이 세 몬스터만 조정하면 됨(나머지 3종 보스는 이
-  시뮬 조합에서 전혀 안 뽑혀 손대도 효과가 안 보임 — `docs/BALANCE_TUNING_LOG.md`
-  "J-2 시도 5~7" 섹션에 근거 기록). `dice_test.gd`의 보스 고정값 테스트
-  3곳(공식 스케일링 room0~6의 HP 배율, 고블린 왕 r1방4 armor/counter/hp, 좀비
-  r2방4 hp)과 몬스터 디버그 문구("[보스] 공격+1 강화됨"으로 HP 배율 문구 삭제)를
-  바뀐 수치로 갱신, `bash scripts/qa_shot.sh dice_test` 전체 PASS 확인(문구 변경
-  후 재확인 포함). `bash scripts/qa_shot.sh balance_sim`을 포그라운드로 3회
-  (시도5/6/7 각각 전체 재시뮬, 매회 약 1~2분) 끝까지 돌리고 `balance_target_check`
-  로 재측정, `qa_out/combat_boss_j2_attempt7.png`로 실제 보스 전투 화면(고블린
-  왕 HP 22/22, 디버그 문구, "[보스] 공격+1 강화됨")도 육안 확인. `docs/
-  BALANCE_TUNING_LOG.md`의 "J-2 보스 튜닝 시도 로그" 표에 시도5/6/7 3행과
-  "J-2 시도 5~7" 관찰 섹션을 추가. INBOX.md [대형 기획 10] 항목은 J-3~J-4가
-  남아 "부분 처리됨" 유지, 진행 줄만 갱신. **보스 전체 평균(24.1%)이 목표
-  (35~55%)에 더 가까워졌지만 여전히 미달이라 J-2가 계속된다** — 다음 손잡이
-  후보: 보스 전용 HP 가산은 이미 0까지 내려 더 낮출 여지가 없으므로, R2 보스
-  광란의 마수(`anger_stack`/`pounce(3)`/`bloodlust`)와 R3 보스 공허의 눈
-  (`dull`/`seal`/`numb`) 각각의 스킬 파라미터 완화, 또는 공격 다이스 보정
-  +1→0 제거 중에서 다음 이터레이션이 고를 부분.
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(191)에서 (181)을 그리로 옮겼다.)*
+이번 이터레이션(192)에서 (182)를 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 
