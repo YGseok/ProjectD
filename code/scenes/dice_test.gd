@@ -680,19 +680,13 @@ func _check_monster_config_scaling(lines: PackedStringArray) -> bool:
 	])
 
 	# 공식 자체를 room_index 0..6에서 직접 재계산해 대조(경계값 0/1/2/3/4/5/6 전부 확인).
-	# room_index == RunState.TOTAL_ROOMS - 1(지금은 4)은 "보스" 보정(HP x1.0 —
-	# [대형 기획 10] J-2(2026-10-08) 2차 시도로 공격+2를 +1로 추가 완화, HP는 1차
-	# 시도에서 x2->x1.5, 5차 시도로 x1.5->x1.2, 7차 시도로 x1.2->x1.0(보스 전용 HP
-	# 가산 완전 제거)까지 추가 완화, 방어 보정 +1은 4차 시도로 완전히 제거, 공격
-	# 보정도 12차 시도(이번 이터레이션)로 +1->+0까지 완전히 제거 — R1 보스가 EV상
-	# 평균적으로 보스에게 피해를 못 주는 구조였던 문제를 고치기 위함, docs/
-	# BALANCE_TUNING_LOG.md 참고)이 추가로 붙으므로 그 방만 별도로 기대값을
-	# 조정한다. D8 면 승급 임계도 3차 시도로 idx>=4 -> idx>=5로 한 칸 늦췄고, J-3
-	# (2026-10-12) 1차 시도로 idx>=2 -> idx>=3 / idx>=5 -> idx>=6, 2차 시도로 D6/D8 둘 다
-	# 한 칸씩 더(idx>=3 -> idx>=4, idx>=6 -> idx>=7) 늦췄다가 일반 방3이 "초과"로
-	# 뒤집혀(R1이 과도하게 쉬워짐), 3차 시도로 D6 임계만 1차 시도 값(idx>=3)으로
-	# 되돌리고 D8 임계는 2차 시도 값(idx>=7)을 유지했다 — 보스가 서는 room4에는 두
-	# 임계 모두 영향 없음, _monster_dice_sides_for_room() 주석 참고).
+	# 기대값은 [대형 기획 10] J-2/J-3(2026-10-08~12) 튜닝이 끝난 최종 상태 —
+	# 보스(room_index == RunState.TOTAL_ROOMS - 1, 지금은 4) 전용 공통 보정(공격/
+	# 방어 다이스 개수 가산, HP 배율)은 전부 제거됐고(공격+0/방어+0/HP×1.0), 다이스
+	# 면 승급 임계는 D6>=3/D8>=7(최초값 D6>=2/D8>=5에서 튜닝됨). 시도별 변화 경위는
+	# `docs/BALANCE_TUNING_LOG.md`("J-2 보스 튜닝 시도 로그"/"J-3 방3 절벽 + 정예
+	# 튜닝 시도 로그" 섹션) 참고 — 보스가 서는 room4는 D6/D8 두 임계 어느 쪽으로도
+	# 영향받지 않는다(`_monster_dice_sides_for_room()` 주석 참고).
 	var formula_ok := true
 	for idx in range(7):
 		var cfg = combat._monster_config_for_room(idx)
@@ -4883,11 +4877,10 @@ func _check_g6_monster_plan(lines: PackedStringArray) -> bool:
 	])
 
 	# 라운드2/방4(보스): difficulty = 4+(2-1)*3 = 7 -> 기본 공격=2+3=5, 방어=1+2=3,
-	# hp=round((10+21)*1.4)=43(좀비 hp_mult 1.4 반영), sides=8(>=5, J-2 3차 시도로 임계
-	# 변경됐지만 difficulty=7은 여전히 그 위이므로 영향 없음). 보스 공격 보정은
-	# [대형 기획 10] J-2(2026-10-08) 2차 시도로 +2->+1, 12차 시도(이번 이터레이션)로
-	# +1->+0까지 완전히 제거돼 이제 공격=5(기본값 그대로). 방어 보정 +1은 4차 시도로
-	# 제거, HP 가산도 7차 시도로 완전히 제거(x1.0) -> 공격5 방어3 hp43.
+	# hp=round((10+21)*1.4)=43(좀비 hp_mult 1.4 반영), sides=8(difficulty=7은 D8 임계
+	# D8>=7 경계값이라 승급됨). 보스 전용 공통 보정(공격/방어 다이스 가산, HP 배율)은
+	# [대형 기획 10] J-2(2026-10-08)에서 전부 제거됐으므로(공격+0/방어+0/HP×1.0) 기본
+	# 공식값이 그대로 나온다 -> 공격5 방어3 hp43.
 	var r2_room4: Dictionary = combat._monster_config_for_plan(2, 4)
 	var r2_room4_ok: bool = r2_room4["name"] == "좀비 [보스]" and r2_room4["attack_count"] == 5 \
 		and r2_room4["defense_count"] == 3 and r2_room4["max_hp"] == 43 and r2_room4["is_boss"] == true
@@ -5096,10 +5089,9 @@ func _check_g8_boss(lines: PackedStringArray) -> bool:
 	])
 
 	# (3) 실제 배선: _monster_config_for_plan()이 보스 자리에 "고블린 왕"(armor 1 +
-	# guard_up + counter 1, 3스킬 — [대형 기획 10] J-2 6차 시도(2026-10-08)로 armor/
-	# counter를 2에서 1로 완화)을 꽂았을 때 is_boss 배율(공격+1/방어+1/HP x1.2 —
-	# J-2 5차 시도로 HP 배율도 x1.5에서 x1.2로 추가 완화)과 skill_ids 3개가 전부
-	# 계산 결과에 반영되는지.
+	# guard_up + counter 1, 3스킬 — [대형 기획 10] J-2(2026-10-08)로 armor/counter를
+	# 2에서 1로 완화한 최종값)을 꽂았을 때 is_boss(이제 공통 배율 없음, 아래 참고)와
+	# skill_ids 3개가 전부 계산 결과에 반영되는지.
 	var plan_backup: Array = RunState.monster_plan
 	RunState.monster_plan = [
 		["slime", "goblin", "skeleton", "orc", "goblin_king"],
@@ -5108,9 +5100,9 @@ func _check_g8_boss(lines: PackedStringArray) -> bool:
 	var combat = script.new()
 
 	# 라운드1/방4(보스): difficulty=4+(1-1)*3=4 -> 기본 공격=2+int(4/2.0)=4, 방어=1+int(4/3.0)=2,
-	# hp=10+12=22(hp_mult 1.0). 보스 공격 보정은 J-2 12차 시도(이번 이터레이션)로
-	# +1->+0까지 완전히 제거돼 공격=4(기본값 그대로), 방어 보정은 J-2 4차 시도로 제거,
-	# HP 가산도 J-2 7차 시도로 완전히 제거(x1.0) -> 공격4 방어2 hp22(round(22*1.0)=22).
+	# hp=10+12=22(hp_mult 1.0). 보스 전용 공통 보정(공격/방어 다이스 가산, HP 배율)은
+	# [대형 기획 10] J-2(2026-10-08)에서 전부 제거됐으므로 기본 공식값 그대로 나온다
+	# -> 공격4 방어2 hp22.
 	var boss_config: Dictionary = combat._monster_config_for_plan(1, 4)
 	var boss_stats_ok: bool = boss_config["name"] == "고블린 왕 [보스]" and boss_config["attack_count"] == 4 \
 		and boss_config["defense_count"] == 2 and boss_config["max_hp"] == 22 and boss_config["is_boss"] == true

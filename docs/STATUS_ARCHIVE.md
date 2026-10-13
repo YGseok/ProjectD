@@ -8,6 +8,47 @@
 
 ---
 
+- **2026-10-08 (176)**: INBOX.md "남은 이슈"의 [대형 기획 7] **F-5(a)(성장 정책
+  구현 + 단위 검증)** — F-5는 (a)성장 정책 구현→(b)시뮬 실행/TSV 저장→(c)리포트
+  생성기 3개 이터레이션으로 쪼개라는 지시였고, 이번은 첫 조각.
+  **배경**: F-4 리포트(`docs/BALANCE_REPORT.md`)는 "아이템 없이 시작 구성
+  그대로"만 측정해 후반(라운드2 방1부터 ~0%) 난이도 절벽이 보이는데, 이게
+  "런 중 실제로 강해지면 완화되는 정상적 절벽"인지 판단할 근거가 없었다 —
+  그래서 "전투 직전 주머니를 지금까지 몇 번째 전투인가에 따라 키운 뒤 같은
+  경로로 돌린다"는 성장 정책이 필요했다.
+  **구현**: `code/qa/balance_sim.gd`에 static 함수 6개를 추가했다 —
+  `global_index_for(round_index, room_index)`(지금까지 치른 전투 수,
+  `(라운드-1)×TOTAL_ROOMS+방`), `growth_sides_for(policy, global_index)`
+  (성장 정책 공통으로 global index 5 이후 D4→D6, 10 이후 D8 — "none"(기존
+  F-4b 기준선)은 항상 4), `growth_counts_for(policy, base_attack, base_defense,
+  global_index)`(전투 2번마다 다이스 1개 추가, 배분 방향만 정책별로 다름 —
+  "balanced"=공격/방어 번갈아, "attack_heavy"=공격만, "defense_heavy"=방어만,
+  전부 `DiceBag.MAX_DICE`(6) 상한), `growth_config_for(policy, character_id,
+  global_index)`(앞 둘을 `CharacterProfiles` 기본값과 합쳐 "attack_count"/
+  "defense_count"/"sides" Dictionary로), `apply_growth(growth)`(이 Dictionary를
+  실제 `RunState.player_attack_bag`/`player_defense_bag`에 반영하고
+  `RunState._apply_character_gimmick()` 재호출 — `test_battle_setup.gd
+  ._apply_growth()`와 같은 재구성 방식 재사용, 새 패턴 안 만듦). 기존
+  `_ready()`/`_simulate_combo()`(F-4b 기준선 루프)는 전혀 건드리지 않았다 —
+  "none" 정책이 곧 그 기준선과 동일해야 비교가 공정하므로.
+  **검증(F-3 원칙 — 플래그가 아니라 계산 결과)**: `dice_test.gd`에
+  `_check_f5a_growth_policies()`를 신설해, global_index 경계값(0/4/5/9/10/14)
+  에서 면 개수가 기대대로 승급하는지(`none`은 14에서도 4 그대로), "balanced"가
+  실제로 번갈아 배분되는지(idx2→공격4/방어3, idx4→4/4), "attack_heavy"/
+  "defense_heavy"가 idx14(추가 7회)에서 한쪽만 `MAX_DICE`(6)에 막히고 반대쪽은
+  base 그대로인지(6/3, 3/6), `growth_config_for`가 실제 캐릭터 기본값(해적
+  공격2/방어3)을 읽어오는지, 마지막으로 `apply_growth()` 호출 후
+  `RunState.player_attack_bag.dice[0].size()` 등 **다이스 배열 자체**가
+  바뀌는지(개수/면 수 둘 다)까지 직접 확인했다(검증 후 RunState 원복).
+  **QA**: `bash scripts/qa_shot.sh dice_test` 전체 PASS(신규 섹션 포함, 다른
+  섹션 회귀 없음).
+  **F-5(a) 완료.** 실행 로직만 갖췄을 뿐 아직 100판 시뮬은 돌리지 않았다 —
+  다음은 **F-5(b)**(위 함수들을 매 조합 전투 직전에 호출해 실제로 시뮬을
+  실행하고 `qa_out/`에 원자료 TSV로 저장, INBOX.md 지시 범위: 캐릭터 7종 ×
+  시작 스킬 슬롯 0만 × 정책 3종(balanced/attack_heavy/defense_heavy) × 라운드
+  1~3 × 방 0~4(보스 포함) + 방 1~3 정예 × 100판). "완료 기록" 10개 유지를
+  위해 (166)을 `docs/STATUS_ARCHIVE.md`로 옮겼다.
+
 - **2026-10-08 (175)**: INBOX.md "부분 처리됨"의 [대형 기획 9] 해적 **I-4(마무리)**
   — I-3 완료로 실행 순서상 마지막 조각, **[대형 기획 9] 전체 완료**.
   **DESIGN.md**: "플레이어블 캐릭터 (7종)" 절을 8종으로 갱신하고 해적 행(컨셉/
