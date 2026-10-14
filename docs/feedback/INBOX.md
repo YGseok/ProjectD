@@ -105,6 +105,36 @@
   (같은 절차). 선택지 카드의 정보량/정렬, 가격·효과 표시 위계, 개발용 문구 제거. M-1~M-3에서 만든 공용 컴포넌트를 재사용하고 새로
   복붙하지 말 것. 마지막에 DESIGN.md UI 절에 "공용 UI 컴포넌트 목록과 사용처"를 정리하고 UI_REVIEW.md에 전체 Before/After 요약.
 
+  **[감독 추가 비평 2026-10-14, M-2 직후 — M-3에서 가장 먼저 반영할 것]**
+  - **`[QA] 공격 2D4 · 방어 1D4` 노란 디버그 글줄이 여전히 화면 오른쪽에 보인다.** 원인: M-2가 `OS.is_debug_build()`로 가렸는데
+    사용자는 에디터/디버그 바이너리로 실행하므로 항상 true다. → **디버그 문구 노출 조건을 `OS.is_debug_build()`가 아니라
+    "명시적 QA 플래그"(예: 환경변수 `GAME_QA_DEBUG_UI=1` 또는 `RunState`/전용 const)로 바꿔라.** 일반 플레이(에디터 실행 포함)에선 개발용
+    문구가 절대 보이면 안 된다. 전 화면에서 `[QA]`, `combat_test`, `테스트 허브`, 노드명 등 개발용 문구를 grep으로 찾아 같은 기준으로 정리하고,
+    렌더된 텍스트에 이런 문구가 없는지 검증하는 테스트를 추가(QA 플래그 꺼진 상태).
+  - 전투 화면의 **3D 다이스 구역이 작고**(화면 중앙 소형 발판), 주사위 결과 칩이 가운데/아래에 흩어져 있다 → 다이스 스테이지를 키우고
+    굴림 결과 칩은 한곳(스테이지 아래 한 줄, 공격/방어 라벨 포함)으로 모아 위계를 만든다.
+  - 모든 패널이 "얇은 테두리 사각형 + 어두운 단색"이라 질감이 없다. 코드로 가능한 범위(내부 그라데이션, 상단 하이라이트 라인,
+    미세한 그림자, 코너 장식 없는 라운드 값 통일, 제목 줄 구분선)는 M-3/M-4에서 `UIKit`에 반영하되, **본격적인 질감/장식은 아트 스레드
+    납품(M-5)으로 해결**한다.
+
+  **M-5. UIKit 이미지 스킨 지원 (아트 스레드 `resources/ui/` 납품 대비)** — 사용자가 "패널 등 디자인이 너무 구리다, 필요한 건 art에 요청하라"고
+  지시해서 ProjectD Art 스레드에 UI 키트를 발주했고(커밋 d27b2c2, `docs/art/ART_RESOURCES.md` 2-6 목록·3-6 규격), 납품 전이라도
+  코드 구조를 먼저 만들어 둔다. **M-4 이후에 진행.**
+  - 파일 규칙(아트 스레드 확정): `resources/ui/<종류>/<이름>.png`, 크기·9-slice 마진은 `docs/art/ART_RESOURCES.md` 3-6 표를 읽어 그대로 사용
+    (`resources/`, `docs/art/`는 읽기만 하고 절대 수정/추가하지 말 것). 요약: 패널 section(128², 마진24)/hud(256×64, 20)/card(128×160, 24)/
+    overlay(256², 32), 버튼 primary·secondary 각 normal/hover/pressed/disabled/focus(128×48, 마진16), bar/hp_frame(256×28, 마진12)+hp_fill,
+    badge/turn·tier_{normal,elite,boss}·round·codex_base, deco/chip·divider(가로 3분할 고정 중앙)·title_ornament, icon/{gold,pip,dice,hp,defense,attack,crown,skull,lock},
+    배경 `resources/backgrounds/{dungeon_map,event,shop,combat}.png`.
+  - 규칙: `<이름>_base.png`(무채색)와 `<이름>_accent.png`(흰색+알파)는 같은 크기의 쌍 — **base는 그대로, accent는 `CharacterTheme` 팔레트 색으로 modulate**
+    해서 겹쳐 그린다(`StyleBoxTexture` 2장 또는 TextureRect 겹침, 구현은 판단). 버튼 상태 5종은 **파일이 일부만 있어도 상태별로 폴백**(없는 상태는 절차적 스타일).
+  - **파일이 하나도 없어도 지금과 똑같이 동작해야 한다(폴백 = 현재의 절차적 `UIKit` 스타일)**. `ResourceLoader.exists`/`FileAccess.file_exists`로
+    확인, 없어도 에러·경고 없음. 아이콘 33종 스킬 아이콘의 `resources/skills/` override 구조(K-4c, `SkillIcon.load_external_art`)와 같은 패턴 + 밉맵
+    (`generate_mipmaps` + LINEAR_WITH_MIPMAPS, 축소 시 계단 방지).
+  - 적용 범위: `UIKit`의 구역 패널/HUD 띠/카드/오버레이/버튼/HP 바/배지/칩/구분선/제목 장식 팩토리 전부가 스킨을 우선 사용. 화면별 호출부 수정 최소화
+    (팩토리 내부에서 처리). 배경은 `CharacterTheme.apply_background`가 `resources/backgrounds/<씬>.png`가 있으면 그것을 깔고 그 위에 퍼스널 컬러 비네트.
+  - 테스트: 임시 `user://` 경로(또는 주입 가능한 base_dir)에 실제 PNG를 만들어 "없음→있음→없음"에서 팩토리가 돌려주는 StyleBox 종류/텍스처가 실제로
+    바뀌는지, 버튼 5상태 중 일부만 있을 때 나머지는 폴백인지, accent의 modulate가 캐릭터를 바꾸면 달라지는지 검증. 납품된 파일이 있으면 qa_shot으로 눈으로 확인.
+
 - [부분 처리됨 - 2026-10-07] 2026-10-06 [미니 기획 ART-1] 원화 적용에 따른 개선 (아트
   스레드 "ProjectD Art"에서 전달).
   배경: 캐릭터 선택 화면에 전신 원화 4장(견습 모험가/광전사/수호자/폭발병)이 적용됨
