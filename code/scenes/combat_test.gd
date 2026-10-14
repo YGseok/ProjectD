@@ -195,6 +195,8 @@ const DICE_SPAWN_ROW_SPACING := 0.5
 @onready var deck_panel: DeckPanel = $DeckPanel
 @onready var customize_toggle_button: Button = $CustomizeToggleButton
 @onready var customize_panel: CustomizePanel = $CustomizePanel
+@onready var skill_codex_button: Button = $SkillCodexButton
+@onready var skill_codex_panel: SkillCodexPanel = $SkillCodexPanel
 ## [대형 기획 8] H-1(2026-10-08) — 테스트 전투 결과 화면 전용 버튼 2개(평소 NextButton
 ## 자리를 대신함). RunState.test_battle일 때만 보인다.
 @onready var test_retry_button: Button = $TestRetryButton
@@ -972,6 +974,7 @@ func _ready() -> void:
 
 	next_button.pressed.connect(_on_next_button_pressed)
 	deck_toggle_button.pressed.connect(_on_deck_toggle_pressed)
+	skill_codex_button.pressed.connect(_on_skill_codex_pressed)
 	customize_toggle_button.pressed.connect(_on_customize_toggle_pressed)
 	customize_toggle_button.visible = false
 	customize_panel.closed.connect(_on_customize_panel_closed)
@@ -1002,6 +1005,7 @@ func _rebuild_shortcuts() -> void:
 	if customize_toggle_button.visible:
 		buttons.append(customize_toggle_button)
 	buttons.append(deck_toggle_button)
+	buttons.append(skill_codex_button)
 	_shortcut_buttons = buttons
 	# K-3: 포커스 강조색도 현재 캐릭터 accent로(K-1의 ACCENT_DEFAULT 대신).
 	FocusNav.chain_linear(_shortcut_buttons, false, false, false, CharacterTheme.ui_palette(RunState.character_id)["accent"])
@@ -1015,6 +1019,10 @@ func _rebuild_shortcuts() -> void:
 ## DeckPanel 자신이 view-only라 Esc 로직이 없으므로 이 화면에서 직접 처리한다.
 func _unhandled_input(event: InputEvent) -> void:
 	if customize_panel.visible:
+		return
+	# [대형 기획 12] L-2(c): SkillCodexPanel도 customize_panel과 같은 이유로 자기 자신의
+	# _unhandled_input()이 이미 Esc를 처리하므로 여기서 가로채지 않는다.
+	if skill_codex_panel.visible:
 		return
 	if not (event is InputEventKey):
 		return
@@ -1038,6 +1046,17 @@ func _on_deck_toggle_pressed() -> void:
 	deck_panel.visible = not deck_panel.visible
 	deck_toggle_button.text = "덱 닫기" if deck_panel.visible else "덱 보기"
 	_rebuild_shortcuts()
+
+
+## [대형 기획 12] L-2(c): 전투 화면도 던전 진행 중이므로 "이번 회차 보유"가 반영된
+## RunState.skill_flags를 그대로 넘긴다(dungeon_map.gd의 _on_skill_codex_pressed()와
+## 같은 이유). 덱 보기 토글과 달리 _rebuild_shortcuts()는 다시 부르지 않는다 — 버튼
+## 구성 자체(보이는 버튼 목록)는 패널을 열고 닫아도 바뀌지 않기 때문.
+func _on_skill_codex_pressed() -> void:
+	if skill_codex_panel.visible:
+		skill_codex_panel.close()
+	else:
+		skill_codex_panel.open(RunState.character_id, RunState.skill_flags)
 
 
 ## INBOX.md 피드백(2026-09-03) "커스터마이징은 전투 중에는 불가능해야 한다" — 이전
@@ -2326,6 +2345,15 @@ func _debug_move_deck_panel_left() -> void:
 	deck_panel.offset_right = 280.0
 	deck_panel.visible = true
 	deck_toggle_button.text = "덱 닫기"
+
+
+## QA 전용 — [대형 기획 12] L-2(c). 포커스+확정 경로로 "스킬 도감" 버튼까지 이어지고,
+## 전투 중 보유 스킬(skill_flags)이 실제로 "보유" 상태로 반영돼 열리는지 확인한다
+## (character_select.gd의 _debug_press_shortcut_skill_codex()와 같은 패턴).
+func _debug_press_shortcut_skill_codex() -> void:
+	RunState.skill_flags = ["deep_breath"]
+	skill_codex_button.grab_focus()
+	skill_codex_button.pressed.emit()
 
 
 ## qa/visual_qa.gd의 GAME_QA_CALL로 호출하기 위한 인자 없는 래퍼 (QA 전용). 정상

@@ -313,6 +313,10 @@ func _ready() -> void:
 	all_pass = _check_l2b_skill_codex_panel(lines) and all_pass
 
 	lines.append("")
+	lines.append("[L-2(c): 스킬 도감 진입점 연결 검증: character_select/dungeon_map/shop/event/story_event의 '스킬 도감' 버튼이 실제로 패널을 열고(character_id/owned 값 포함) 토글로 닫는지]")
+	all_pass = _check_l2c_skill_codex_entry_points(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -6610,6 +6614,94 @@ func _check_l2b_skill_codex_panel(lines: PackedStringArray) -> bool:
 	RunState.character_id = character_backup
 	RunState.skill_flags = skill_flags_backup
 	RunState.test_battle = test_battle_backup
+	return ok
+
+
+## [대형 기획 12] L-2(c)(2026-10-14) 검증: 진입점 연결. character_select/dungeon_map/
+## shop/event/story_event 다섯 화면에 실제로 추가된 "스킬 도감" 버튼이 (1) 눌리면
+## SkillCodexPanel.visible이 실제로 true가 되는지 (2) 패널에 넘겨진 character_id/
+## owned_skill_ids가 "플래그가 들어갔는가"가 아니라 패널 내부 상태(_character_id/
+## _owned)로 실제로 맞는지 (3) 화면마다 호출부 의미가 다른지(캐릭터 선택 화면은
+## 항상 owned=[], 던전 진행 화면은 RunState.skill_flags 그대로) (4) 다시 누르면
+## 토글로 닫히는지를 검증한다. combat_test.tscn은 _run_battle()이 await로 이어지는
+## 물리 시뮬레이션을 포함해 이 동기 테스트 harness에서 안전하게 인스턴스화할 수 없어
+## (다른 화면들과 달리 이 파일에 인스턴스화 전례가 없음) 제외하고, qa_shot 스크린샷
+## (_debug_press_shortcut_skill_codex)으로만 눈으로 확인한다.
+func _check_l2c_skill_codex_entry_points(lines: PackedStringArray) -> bool:
+	var ok := true
+	var character_backup := RunState.character_id
+	var skill_flags_backup := RunState.skill_flags.duplicate()
+	var gold_backup := RunState.gold
+
+	SkillCodex._debug_reset_for_qa()
+	AchievementManager._debug_reset_for_qa()
+
+	# (A) character_select: owned_skill_ids는 항상 빈 배열이어야 한다(런 시작 전이라
+	# "보유"라는 개념이 없음 — INBOX.md L-2 원문). RunState.skill_flags를 일부러 채워둔
+	# 채로 열어서, 패널이 그 값을 잘못 가져다 쓰지 않는지(항상 []) 함께 확인한다.
+	RunState.character_id = "novice"
+	RunState.skill_flags = ["start_expand", "deep_breath"]
+	var select_scene := load("res://code/scenes/character_select.tscn")
+	var select_node = select_scene.instantiate()
+	add_child(select_node)
+	select_node._on_card_selected("pirate")
+	select_node._skill_codex_button.pressed.emit()
+	var select_open_ok: bool = select_node.skill_codex_panel.visible
+	var select_char_ok: bool = select_node.skill_codex_panel._character_id == "pirate"
+	var select_owned_ok: bool = select_node.skill_codex_panel._owned.is_empty()
+	ok = select_open_ok and select_char_ok and select_owned_ok and ok
+	lines.append("  character_select: '스킬 도감' 버튼 클릭(pirate 선택 중) -> panel.visible=%s(기대 true) character_id=%s(기대 pirate) owned=%s(기대 빈 배열) -> %s" % [
+		select_node.skill_codex_panel.visible, select_node.skill_codex_panel._character_id, select_node.skill_codex_panel._owned,
+		"OK" if (select_open_ok and select_char_ok and select_owned_ok) else "FAIL"
+	])
+	select_node._skill_codex_button.pressed.emit()
+	var select_close_ok: bool = not select_node.skill_codex_panel.visible
+	ok = select_close_ok and ok
+	lines.append("  character_select: 다시 클릭 -> 토글로 닫힘(visible=%s, 기대 false) -> %s" % [
+		select_node.skill_codex_panel.visible, "OK" if select_close_ok else "FAIL"
+	])
+	remove_child(select_node)
+	select_node.free()
+
+	# (B) 던전 진행 화면 4종: RunState.character_id/skill_flags를 그대로 패널에 넘겨야
+	# 한다("이번 회차 보유" 반영 — character_select와의 차이). 네 화면 모두 버튼/패널
+	# 필드 이름이 같아(skill_codex_button/skill_codex_panel) 한 헬퍼로 검증한다.
+	RunState.character_id = "pirate"
+	RunState.skill_flags = ["start_vanguard", "broadside"]
+	var dungeon_scene_paths := {
+		"dungeon_map": "res://code/scenes/dungeon_map.tscn",
+		"shop": "res://code/scenes/shop.tscn",
+		"event": "res://code/scenes/event.tscn",
+		"story_event": "res://code/scenes/story_event.tscn",
+	}
+	for screen_label in dungeon_scene_paths:
+		var scene := load(dungeon_scene_paths[screen_label])
+		var node = scene.instantiate()
+		add_child(node)
+		node.skill_codex_button.pressed.emit()
+		var open_ok: bool = node.skill_codex_panel.visible
+		var char_ok: bool = node.skill_codex_panel._character_id == "pirate"
+		var owned_ok: bool = node.skill_codex_panel._owned == RunState.skill_flags
+		var this_ok := open_ok and char_ok and owned_ok
+		ok = this_ok and ok
+		lines.append("  %s: '스킬 도감' 버튼 클릭 -> panel.visible=%s(기대 true) character_id=%s(기대 pirate) owned=%s(기대 %s) -> %s" % [
+			screen_label, node.skill_codex_panel.visible, node.skill_codex_panel._character_id, node.skill_codex_panel._owned,
+			RunState.skill_flags, "OK" if this_ok else "FAIL"
+		])
+		node.skill_codex_button.pressed.emit()
+		var close_ok: bool = not node.skill_codex_panel.visible
+		ok = close_ok and ok
+		lines.append("  %s: 다시 클릭 -> 토글로 닫힘(visible=%s, 기대 false) -> %s" % [
+			screen_label, node.skill_codex_panel.visible, "OK" if close_ok else "FAIL"
+		])
+		remove_child(node)
+		node.free()
+
+	SkillCodex._debug_reset_for_qa()
+	AchievementManager._debug_reset_for_qa()
+	RunState.character_id = character_backup
+	RunState.skill_flags = skill_flags_backup
+	RunState.gold = gold_backup
 	return ok
 
 

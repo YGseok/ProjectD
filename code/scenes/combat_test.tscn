@@ -6,6 +6,7 @@
 [ext_resource type="Script" path="res://code/scenes/deck_panel.gd" id="4_deck_panel"]
 [ext_resource type="Script" path="res://code/scenes/customize_panel.gd" id="5_customize_panel"]
 [ext_resource type="Script" path="res://code/scenes/family_icon.gd" id="6_family_icon"]
+[ext_resource type="Script" path="res://code/scenes/skill_codex_panel.gd" id="7_skill_codex"]
 
 [sub_resource type="LabelSettings" id="LabelSettings_title"]
 font_size = 26
@@ -191,6 +192,16 @@ offset_bottom = 188.0
 autowrap_mode = 2
 text = ""
 label_settings = SubResource("LabelSettings_monster_debug")
+
+[node name="SkillCodexButton" type="Button" parent="."]
+offset_left = 835.0
+offset_top = 20.0
+offset_right = 980.0
+offset_bottom = 54.0
+text = "스킬 도감"
+
+[node name="SkillCodexPanel" type="Control" parent="."]
+script = ExtResource("7_skill_codex")
 
 [node name="CustomizeToggleButton" type="Button" parent="."]
 offset_left = 985.0

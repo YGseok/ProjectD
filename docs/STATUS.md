@@ -5,37 +5,32 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-10-14 (195)
+- 일시: 2026-10-14 (196)
 - 작성자: AI 에이전트. INBOX.md 최우선 지시 [대형 기획 12](캐릭터 선택/스킬 도감/
-  전역 퍼스널 컬러, L-1→L-3) 중 **L-2(b)(도감 패널 UI)를 완료**. 신규
-  `code/scenes/skill_codex_panel.gd`(`SkillCodexPanel`)가 `open(character_id,
-  owned_skill_ids)`로 여는 재사용 가능한 오버레이 패널이다 — `SkillPool.
-  codex_entries()`(L-2(a))를 3열 `GridContainer`로 그리고, 카드마다 L-1의
-  `CharacterCardPanel`을 재사용한다. 보유/발견-미보유/미발견 3상태를
-  아이콘 알파(1.0/0.55/0.35)·이름("???" 포함)·배지 텍스트("보유"/"발견"/
-  "미발견", 색만이 아니라 텍스트로도 구분)·테두리 굵기/색 네 겹으로
-  구분하고, 미발견인 시작 스킬 슬롯은 F-1의 `SkillPool.unlock_requirement()`
-  잠금 안내 문구를 그대로 재사용한다. 요약 라벨은 "보유 N개 · 발견 M /
-  전체 K"(+전부 발견이면 "도감 완성"). 격자 포커스는 기존 `FocusNav.
-  chain_linear()`(1자 체인)로 상/하 이동을 표현할 수 없어 패널 전용
-  `_chain_grid()`를 신설 — 모든 칸이 네 방향 전부 wrap(반대편 모서리로
-  순환)으로 다른 카드와 연결돼 `trap` 없이도 포커스가 밖으로 못 나간다.
-  Esc로 닫힘(achievement_panel.gd와 동일 패턴). `dice_test.gd`의 신규
-  `_check_l2b_skill_codex_panel()`이 보유/발견-미보유/미발견(힌트 있음/
-  없음) 4가지 조합을 실제로 만들어 배지/이름/아이콘 알파/설명 텍스트/
-  요약 라벨/포커스/wrap 경로/Esc 닫힘을 전부 계산·렌더 결과로 검증(플래그만
-  보지 않음). `bash scripts/qa_shot.sh dice_test` 전체 **PASS**(8회 재실행
-  중 7회 즉시 PASS, 1회는 L-2(b)와 무관한 기존 H1 테스트가 1회성으로
-  FAIL했다가 이후 전부 PASS로 복귀 — `git stash`로 변경분을 뺀 원본
-  코드로도 재현 안 됨을 교차 확인, 상세는 "완료 기록 (195)" 참고).
-  `GAME_QA_CALL=_debug_show_skill_codex_panel_mixed`로 패널에 3상태를 섞어
-  띄운 `qa_out/skill_codex_panel_l2b.png`로 육안 확인 — 1280x720 안에서
-  카드가 잘리지 않고 스크롤바만 뜸(카드 9개가 3행이라 의도대로). L-2(c)
-  (캐릭터 선택/던전 진행 화면에 실제 진입 버튼 배선)는 아직 — 이번 조각은
-  재사용 가능한 패널 자체만 만들었다. INBOX.md의 [대형 기획 12]는 L-2(c)/
-  L-3가 남아 "부분 처리됨"에 두고 진행 줄만 갱신했다. "완료 기록" 10개
-  유지를 위해 (185)를 `docs/STATUS_ARCHIVE.md`로 옮겼다. 다음은 **L-2(c)**
-  (진입점 연결).
+  전역 퍼스널 컬러, L-1→L-3) 중 **L-2(c)(진입점 연결)를 완료**. L-2(b)가
+  만든 `SkillCodexPanel`을 6개 화면(character_select + dungeon_map/shop/
+  event/story_event/combat_test)에 실제 "스킬 도감" 버튼으로 배선했다.
+  character_select는 우측 상세 패널 헤더에 버튼을 두고 `owned_skill_ids`를
+  항상 빈 배열로 넘기며(런 시작 전, INBOX.md 원문 "선택 화면에서는 보유
+  0개"), 던전 진행 화면 5개는 `RunState.skill_flags`를 그대로 넘겨
+  "이번 회차 보유"를 반영한다. dungeon_map/shop/event/story_event는 화면
+  우상단 고정 위치(x1080-1240,y24-60, `AchievementButton`과 같은 패턴)에,
+  combat_test는 기존 커스터마이징/덱 보기 토글 옆(x835-980,y20-54)에
+  버튼을 뒀다. 전부 토글(다시 누르면 닫힘) 패턴이고, combat_test는
+  `customize_panel`과 같은 이유로 Esc 처리를 패널 자신에게 패스스루하도록
+  가드를 추가했다. `dice_test.gd`의 신규 `_check_l2c_skill_codex_entry_
+  points()`가 5개 화면(character_select/dungeon_map/shop/event/
+  story_event)을 실제로 인스턴스화해 버튼을 눌렀을 때 패널의
+  `_character_id`/`_owned`가 기대값과 정확히 일치하는지, 토글 닫힘까지
+  검증(플래그가 아니라 패널 내부 실제 상태). combat_test.tscn은
+  `_run_battle()`의 물리 시뮬레이션 `await` 체인 때문에 이 동기 테스트
+  harness에서 직접 인스턴스화하지 않고 `qa_shot` 스크린샷
+  (`_debug_press_shortcut_skill_codex`)으로만 육안 확인했다. `bash
+  scripts/qa_shot.sh dice_test` 전체 **PASS**, 6개 화면 전부
+  `qa_out/l2c_*.png`로 레이아웃 겹침 없음 확인(상세는 "완료 기록 (196)"
+  참고). "완료 기록" 10개 유지를 위해 (186)을 `docs/STATUS_ARCHIVE.md`로
+  옮겼다. **[대형 기획 12]는 L-3(전역 퍼스널 컬러를 배경/패널로 확장)만
+  남았다** — INBOX.md "부분 처리됨"에 진행 줄 갱신. 다음은 **L-3**.
 
 ## 지금 위치
 
@@ -304,10 +299,14 @@ STATUS_ARCHIVE.md`(174 이전)/위 "완료 기록 (184)~(186)" 참고.
   owned_skill_ids)`로 여는 재사용 가능한 오버레이 패널 — `codex_entries()`를
   3열 격자로 그리고, 보유/발견-미보유/미발견 3상태를 아이콘 알파/이름/배지
   텍스트/테두리 네 겹으로 구분한다. 격자 포커스는 패널 전용 `_chain_grid()`
-  (모든 칸이 wrap으로 서로 연결)가 담당. 아직 실제 화면에 여는 진입
-  버튼(L-2(c))은 없다 — 지금은 재사용 가능한 패널 자체만 존재. [대형 기획
-  12]의 남은 조각(L-2(c) 진입점 연결, L-3 전역 퍼스널 컬러 확장)은
-  `docs/feedback/INBOX.md` "부분 처리됨" 참고.
+  (모든 칸이 wrap으로 서로 연결)가 담당.
+- **스킬 도감 진입점 연결(2026-10-14 [대형 기획 12] L-2(c) 완료)**: 6개
+  화면(character_select + dungeon_map/shop/event/story_event/combat_test)에
+  "스킬 도감" 버튼이 실제로 배선됐다. character_select는 우측 상세 패널
+  헤더에서 열고 `owned_skill_ids`는 항상 빈 배열(런 시작 전), 던전 진행
+  화면 5개는 `RunState.skill_flags`를 그대로 넘겨 "이번 회차 보유"를
+  반영한다. 전부 토글(다시 누르면 닫힘) 패턴. [대형 기획 12]의 남은 조각
+  (L-3 전역 퍼스널 컬러 확장)은 `docs/feedback/INBOX.md` "부분 처리됨" 참고.
 
 상세 변경 이력은 아래 "완료 기록"(최근 10개)과, 그보다 오래된 것은
 `docs/STATUS_ARCHIVE.md`(매 이터레이션 읽지 않는 아카이브) 참고.
@@ -319,11 +318,10 @@ STATUS_ARCHIVE.md`(174 이전)/위 "완료 기록 (184)~(186)" 참고.
 
 **INBOX.md 최우선 지시 [대형 기획 12](캐릭터 선택/스킬 도감/전역 퍼스널 컬러,
 L-1 → L-2(a→b→c) → L-3) 진행 중 — L-1(193) → L-2(a)(194, 스킬 도감 데이터/
-저장) → L-2(b)(2026-10-14, 195, 도감 패널 UI `SkillCodexPanel`) 완료.**
-다음은 **L-2(c)**(진입점 연결 — 캐릭터 선택 화면의 선택된 캐릭터 도감 열기
-버튼 + 던전 진행 화면(dungeon_map/combat_test/shop/event/story_event)의
-기존 DeckPanel 여는 자리와 같은 위치에 "스킬 도감" 버튼) → L-3(전역 퍼스널
-컬러 확장) 순. 상세 지시 원문은 `docs/feedback/INBOX.md` "부분 처리됨"의
+저장) → L-2(b)(195, 도감 패널 UI `SkillCodexPanel`) → L-2(c)(2026-10-14, 196,
+진입점 연결 — 6개 화면에 "스킬 도감" 버튼 배선) 완료.**
+다음은 **L-3**(전역 퍼스널 컬러를 게임 전반의 배경+주요 패널로 확장, K-3
+후속). 상세 지시 원문은 `docs/feedback/INBOX.md` "부분 처리됨"의
 [대형 기획 12] 항목 참고 — 전투 규칙/밸런스 수치는 건드리지 말 것.
 **[대형 기획 11](조작/UI 개편, K-1~K-4)은 2026-10-13(192)에 전체 완료됐다**(K-1
 187 → K-2 188 → K-3 189 → K-4a 190 → K-4b 191 → K-4c 192). [대형 기획 12]가
@@ -936,6 +934,61 @@ L-1 → L-2(a→b→c) → L-3) 진행 중 — L-1(193) → L-2(a)(194, 스킬 �
 
 ## 완료 기록
 
+- **2026-10-14 (196)**: INBOX.md 최우선 지시 [대형 기획 12] 캐릭터 선택/스킬 도감/
+  전역 퍼스널 컬러(L-1→L-3) 중 **L-2(c)(진입점 연결) 완료**. L-2(b)가 만든
+  재사용 가능한 `SkillCodexPanel`을 캐릭터 선택 화면 + 던전 진행 화면 5곳
+  (dungeon_map/shop/event/story_event/combat_test)에 실제로 배선했다.
+  ① **character_select.gd**: 카드 선택 시 바뀌는 우측 상세 패널의 헤더
+  섹션(`_build_header_section()`)에 "스킬 도감" 버튼을 추가 — name_vbox가
+  `SIZE_EXPAND_FILL`이라 남는 가로 공간을 먹는 성질을 이용해, 새 섹션/고정
+  좌표 없이 헤더 hbox 맨 오른쪽에 자연스럽게 자리잡는다. 눌리면
+  `skill_codex_panel.open(_selected_id, [])` — 이 화면은 런 시작 전이라
+  "보유" 개념이 없어 `owned_skill_ids`는 INBOX.md 원문대로 항상 빈 배열(카드
+  선택 전에 미리 채워둔 `RunState.skill_flags`가 있어도 패널에는 전달되지
+  않음, 테스트로 확인). 카드 체인(`_shortcut_buttons`)에도 추가돼 방향키로
+  도달 가능. ② **던전 진행 화면 4종(dungeon_map/shop/event/story_event)**:
+  화면 우상단 고정 위치(x1080-1240, y24-60 — `AchievementButton`과 같은
+  "Title 라벨의 빈 공간 위에 버튼을 얹는" 기존 패턴 재사용, 네 화면 전부
+  동일 좌표라 일관된 위치)에 "스킬 도감" 버튼을 두고, 눌리면
+  `skill_codex_panel.open(RunState.character_id, RunState.skill_flags)` —
+  "이번 회차 보유"가 반영돼야 하므로 character_select와 달리 실제
+  skill_flags를 그대로 넘긴다(INBOX.md L-2(c) 원문). `dungeon_map.gd`만
+  버튼이 방 선택지처럼 동적으로 y-스택되는 `_layout_visible_buttons()`
+  루프 안에 있으면 위치가 덮어써지므로, 그 루프가 끝난 뒤에만
+  `_shortcut_buttons`(포커스 체인용)에 추가해 고정 위치는 유지하면서
+  방향키로는 도달 가능하게 했다. 나머지 세 화면은 버튼 위치가 애초에
+  `.tscn` 고정값이라 각 `_refresh_shortcuts(...)` 호출부(선택 전/후 등
+  버튼 구성이 바뀌는 지점마다)에 `skill_codex_button`만 추가하면 됐다.
+  ③ **combat_test.gd**: 다이스 뷰포트/초상화/로그로 화면이 이미 꽉 차
+  `CustomizeToggleButton`/`DeckToggleButton` 바로 왼쪽(x835-980, y20-54,
+  Title 텍스트가 끝나는 지점 뒤의 빈 공간)에 추가. `_rebuild_shortcuts()`가
+  `deck_toggle_button` 다음에 항상 포함시키고, `_unhandled_input()`의 Esc
+  처리가 `customize_panel.visible`일 때 패스스루하던 것과 같은 이유로
+  `skill_codex_panel.visible`일 때도 패스스루하도록 가드를 추가해 패널
+  자신의 Esc 닫기와 충돌하지 않게 했다. 8종 전부 토글(다시 누르면 닫힘)
+  패턴으로 통일(achievement_button과 동일 if-visible-then-close-else-open).
+  **검증**: `dice_test.gd`의 신규 `_check_l2c_skill_codex_entry_points()`가
+  "버튼이 눌렸는가"가 아니라 실제 결과 — character_select는 캐릭터를
+  "해적"으로 바꾼 뒤 버튼을 눌러 패널의 `_character_id=="pirate"`이고
+  `_owned`가 실제로 빈 배열인지(RunState.skill_flags를 일부러 채워둔 채로
+  확인), 다시 누르면 `visible=false`로 토글되는지를 검증. 나머지 4화면
+  (dungeon_map/shop/event/story_event)은 RunState.skill_flags를 실제
+  배열로 채운 뒤 버튼을 눌러 패널의 `_character_id`/`_owned`가 그 값과
+  정확히 일치하는지, 토글 닫힘까지 공통 패턴으로 검증(한 화면당 버튼
+  wiring이 동일해 한 루프로 처리). combat_test.tscn은 `_run_battle()`이
+  `await`로 이어지는 물리 시뮬레이션을 포함해(다른 4화면과 달리 이 파일에
+  씬 인스턴스화 전례가 없음) 동기 테스트 harness에서 직접 인스턴스화하지
+  않고, `GAME_QA_CALL=_debug_press_shortcut_skill_codex`
+  스크린샷(`qa_out/l2c_combat_test_codex.png`)으로 패널이 실제로 열리고
+  "심호흡"이 보유 상태(퍼스널 컬러 테두리)로 보임을 눈으로 확인했다.
+  `bash scripts/qa_shot.sh dice_test` 전체 **PASS**(leak 경고는
+  `git stash`로 변경분을 뺀 원본 코드에서도 동일하게 재현되는 pre-existing
+  noise임을 교차 확인). 5개 화면 전부 `qa_out/l2c_*.png`로 레이아웃 겹침
+  없음 육안 확인(dungeon_map/shop/event/story_event는 우상단 버튼이
+  DeckPanel/기존 UI와 안 겹침, combat_test는 덱 보기/커스터마이징 토글
+  옆에 자연스럽게 들어감). **[대형 기획 12]는 L-3(전역 퍼스널 컬러 확장)만
+  남았다** — INBOX.md "부분 처리됨"에 진행 줄 갱신.
+
 - **2026-10-14 (195)**: INBOX.md 최우선 지시 [대형 기획 12] 캐릭터 선택/스킬 도감/
   전역 퍼스널 컬러(L-1→L-3) 중 **L-2(b)(도감 패널 UI) 완료**. 신규
   `code/scenes/skill_codex_panel.gd`(`SkillCodexPanel extends Control`,
@@ -1402,38 +1455,9 @@ L-1 → L-2(a→b→c) → L-3) 진행 중 — L-1(193) → L-2(a)(194, 스킬 �
   절 신설(키 매핑 표). INBOX.md의 [대형 기획 11]을 "부분 처리됨"으로 옮기고
   K-1 완료 상태로 갱신 — K-2/K-3/K-4는 아직 미착수.
 
-- **2026-10-13 (186)**: INBOX.md 최우선 지시 [대형 기획 10] **J-4(마무리) 완료 —
-  [대형 기획 10] 전체(J-1~J-4) 완료 처리**. 코드 손잡이는 전혀 건드리지
-  않았다(J-3 커밋 이후 추가 튜닝 없음) — 이번 이터레이션은 측정/문서 정리만.
-  **① 최종 재측정**: `bash scripts/qa_shot.sh balance_sim`(TSV 재생성, 648
-  조합×100판) → `bash scripts/qa_shot.sh balance_target_check`(재측정) 둘 다
-  포그라운드로 끝까지 실행. 결과(균형 정책, 8캐릭터 평균) — 일반 방0~2
-  98.8%/일반 방3 79.2%/정예 59.6%/보스 40.3% **4개 항목 전부 통과**, J-3
-  커밋 시점("최신 측정" 98.6/79.4/59.8/39.6%)과 100판 샘플링 노이즈 범위
-  안에서 일치해 코드 변경 없음을 재확인. ② **`docs/BALANCE_TUNING_LOG.md`
-  맨 위에 "J-4 최종 요약 — 전/후 비교" 섹션 신설**(고정 기록) — J-1 기준선
-  (방0~2 97.1%/방3 64.2%/정예 39.3%/보스 1.5%, 방3·정예·보스 3개 미달)과
-  J-4 최종(위 4개 수치, 전부 통과)을 표로 대조하고, 결정적이었던 손잡이(J-2:
-  보스 공통 공격 보정 완전 제거 +19.1%p, J-3: D6/D8 면 승급 임계 분리)와
-  남은 미달(보스 개별 6종 중 타락한 기사단장만 28.9%로 밴드 미달, 전체
-  평균은 통과)을 숫자만으로 기록. ③ `bash scripts/qa_shot.sh
-  balance_growth_report`로 **`docs/BALANCE_GROWTH_REPORT.md` 재생성**(648행
-  반영, 정책 3종). ④ **`docs/DESIGN.md` "던전 몬스터" 절 갱신** — 보스
-  전용 공통 보정(최초값 공격+2/방어+1/HP×2)이 J-2에서 전부 제거됐음(현재
-  공격+0/방어+0/HP×1.0)과 다이스 면 승급 임계 최종값(D6>=3/D8>=7, 최초값
-  D6>=2/D8>=5)을 반영, 정예 공통 공식(스킬2+hp_mult1.5+공격+1)은 J-2/J-3이
-  건드리지 않은 최초값 그대로임을 명시. ⑤ **`dice_test.gd` 고정값 테스트
-  주석 정리** — `_check_monster_config_scaling()`/라운드2방4(보스)/고블린 왕
-  보스 설정 검증부에 누적돼 있던 "시도1/시도2/...시도12차" 식 단계별 경위
-  서술을 "최종 상태(보스 공통 보정 전부 제거, 면 승급 임계 D6>=3/D8>=7) +
-  경위는 BALANCE_TUNING_LOG.md 참고"로 압축(계산/기대값 자체는 전혀 안
-  바꿈). `bash scripts/qa_shot.sh dice_test` 전체 **PASS** 재확인(주석만
-  바꿔 로직 영향 없음을 재확인하는 차원). **[대형 기획 10] 전체(J-1~J-4)
-  완료** — INBOX.md "부분 처리됨"에서 "처리됨"으로 이동.
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(195)에서 (185)를 그리로 옮겼다.)*
+이번 이터레이션(196)에서 (186)을 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 

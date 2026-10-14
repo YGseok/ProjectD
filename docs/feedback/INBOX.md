@@ -57,8 +57,18 @@
   패널 전용 `_chain_grid()`(모든 칸이 wrap으로 서로 연결돼 trap 없이도 밖으로
   못 나감)가 담당. `dice_test.gd`의 `_check_l2b_skill_codex_panel()`이 3상태
   조합을 실제로 만들어 배지/이름/아이콘/설명/요약/포커스/Esc를 전부 계산·렌더
-  결과로 검증. 상세는 `docs/STATUS.md` 완료 기록(195) 참고. **다음은 L-2(c)**
-  (진입점 연결).
+  결과로 검증. 상세는 `docs/STATUS.md` 완료 기록(195) 참고.
+
+  → **L-2(c) 완료(2026-10-14, 196)** — `SkillCodexPanel`을 6개 화면(캐릭터 선택
+  + dungeon_map/shop/event/story_event/combat_test)에 실제 "스킬 도감" 버튼으로
+  배선했다. 캐릭터 선택은 우측 상세 패널 헤더에서 열고 `owned_skill_ids`는
+  항상 빈 배열(런 시작 전), 던전 진행 화면 5개는 `RunState.skill_flags`를
+  그대로 넘겨 "이번 회차 보유"를 반영한다. 전부 토글(다시 누르면 닫힘) 패턴.
+  `dice_test.gd`의 `_check_l2c_skill_codex_entry_points()`가 5개 화면(combat_test
+  제외 — 물리 시뮬레이션 await 때문에 qa_shot 스크린샷으로만 확인)을 실제로
+  인스턴스화해 버튼 클릭 후 패널의 character_id/owned 값과 토글 닫힘을 검증.
+  상세는 `docs/STATUS.md` 완료 기록(196) 참고. **다음은 L-3**(전역 퍼스널 컬러
+  확장).
 
   **L-1. 캐릭터 카드 자체를 눌러 선택 (선택 버튼 제거)**
   - 현재 캐릭터 카드마다 "선택" 버튼이 따로 있다(`character_select.gd` `_make_card()`의 `select_button`). 이 버튼을

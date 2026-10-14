@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" path="res://code/scenes/character_select.gd" id="1_script"]
 [ext_resource type="Script" path="res://code/scenes/achievement_panel.gd" id="3_achievements"]
+[ext_resource type="Script" path="res://code/scenes/skill_codex_panel.gd" id="4_skill_codex"]
 
 [sub_resource type="LabelSettings" id="LabelSettings_title"]
 font_size = 28
@@ -61,3 +62,6 @@ text = "테스트 전투"
 
 [node name="AchievementPanel" type="Control" parent="."]
 script = ExtResource("3_achievements")
+
+[node name="SkillCodexPanel" type="Control" parent="."]
+script = ExtResource("4_skill_codex")

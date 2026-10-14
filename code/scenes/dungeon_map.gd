@@ -130,6 +130,8 @@ const MIN_SHOP_ITEM_COST := 10
 @onready var customize_button: Button = $CustomizeButton
 @onready var customize_panel: CustomizePanel = $CustomizePanel
 @onready var deck_panel: DeckPanel = $DeckPanel
+@onready var skill_codex_button: Button = $SkillCodexButton
+@onready var skill_codex_panel: SkillCodexPanel = $SkillCodexPanel
 
 var _shop_available := true
 var _event_available := true
@@ -159,6 +161,7 @@ func _ready() -> void:
 	enter_elite_button.pressed.connect(_on_elite_button_pressed)
 	_style_elite_button()
 	customize_button.pressed.connect(customize_panel.open)
+	skill_codex_button.pressed.connect(_on_skill_codex_pressed)
 	_setup_map_strip()
 	_setup_reward_icons()
 	_setup_reward_legend()
@@ -640,6 +643,11 @@ func _layout_visible_buttons() -> void:
 			_shop_gold_label.size = Vector2(btn.offset_right - btn.offset_left, 18.0)
 			extra_gap = SHOP_GOLD_LABEL_GAP
 		y += BUTTON_SPACING + extra_gap
+	# [대형 기획 12] L-2(c): "스킬 도감" 버튼은 커스터마이징처럼 방 선택지가 아니라
+	# 언제든 열 수 있는 고정 위치 버튼(화면 우상단, .tscn에 명시)이라 위 y-스택 루프에
+	# 넣지 않고 체인에만 맨 끝으로 추가한다 — 루프가 이미 끝난 뒤라 position은 그대로
+	# 유지되고, 방향키로는 여전히 도달 가능하다.
+	visible_buttons.append(skill_codex_button)
 	_shortcut_buttons = visible_buttons
 	# K-3: 포커스 강조색도 현재 캐릭터 accent로(K-1의 ACCENT_DEFAULT 대신).
 	FocusNav.chain_linear(_shortcut_buttons, false, false, false, CharacterTheme.ui_palette(RunState.character_id)["accent"])
@@ -673,6 +681,17 @@ func _on_story_button_pressed() -> void:
 func _on_elite_button_pressed() -> void:
 	RunState.pending_elite_fight = true
 	get_tree().change_scene_to_file("res://code/scenes/combat_test.tscn")
+
+
+## [대형 기획 12] L-2(c): 던전 진행 중에는 "이번 회차 보유"가 반영돼야 하므로
+## RunState.skill_flags를 그대로 넘긴다(캐릭터 선택 화면의 _on_skill_codex_pressed()가
+## 항상 빈 배열을 넘기는 것과의 차이 — INBOX.md L-2(c) 원문 "던전 진행 중에는 현재 런
+## 기준 '이번 회차 보유'가 반영").
+func _on_skill_codex_pressed() -> void:
+	if skill_codex_panel.visible:
+		skill_codex_panel.close()
+	else:
+		skill_codex_panel.open(RunState.character_id, RunState.skill_flags)
 
 
 ## qa/visual_qa.gd의 GAME_QA_CALL로 호출하기 위한 QA 전용 훅. 실제 전투 승리를 끝까지
@@ -833,6 +852,16 @@ func _debug_press_shortcut_elite() -> void:
 ## 수 있다.
 func _debug_press_shortcut_customize() -> void:
 	var btn := customize_button
+	btn.grab_focus()
+	btn.pressed.emit()
+
+
+## QA 전용 — [대형 기획 12] L-2(c). 포커스+확정 경로로 "스킬 도감" 버튼까지 이어지고,
+## 실제로 패널이 RunState.skill_flags(이번 회차 보유)를 반영해 열리는지 확인한다
+## (_debug_press_shortcut_customize와 같은 패턴).
+func _debug_press_shortcut_skill_codex() -> void:
+	RunState.skill_flags = ["deep_breath", "start_expand"]
+	var btn := skill_codex_button
 	btn.grab_focus()
 	btn.pressed.emit()
 

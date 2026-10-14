@@ -13,6 +13,8 @@ extends Node2D
 @onready var continue_button: Button = $ContinueButton
 @onready var customize_button: Button = $CustomizeButton
 @onready var customize_panel: CustomizePanel = $CustomizePanel
+@onready var skill_codex_button: Button = $SkillCodexButton
+@onready var skill_codex_panel: SkillCodexPanel = $SkillCodexPanel
 
 var _scenario: Dictionary
 var _continued := false
@@ -34,7 +36,8 @@ func _ready() -> void:
 	continue_button.hide()
 	continue_button.pressed.connect(_on_continue_pressed)
 	customize_button.pressed.connect(customize_panel.open)
-	_refresh_shortcuts([choice_a_button, choice_b_button, customize_button])
+	skill_codex_button.pressed.connect(_on_skill_codex_pressed)
+	_refresh_shortcuts([choice_a_button, choice_b_button, customize_button, skill_codex_button])
 
 
 ## 화면에 보이는 버튼 구성이 바뀔 때마다(선택 전/후) 다시 불러 숫자 키 배정을 갱신한다.
@@ -58,7 +61,7 @@ func _on_choice_pressed(choice: Dictionary) -> void:
 		result_label.text = "아무 일도 일어나지 않았다. (보유 %d)" % RunState.gold
 	result_label.show()
 	continue_button.show()
-	_refresh_shortcuts([continue_button, customize_button])
+	_refresh_shortcuts([continue_button, customize_button, skill_codex_button])
 
 
 ## RunState.gold에 delta를 적용하고 실제로 변한 양(actual_delta)을 반환한다.
@@ -137,3 +140,21 @@ func _debug_force_low_gold_loss() -> void:
 ## _debug_open_customize와 같은 목적).
 func _debug_open_customize() -> void:
 	customize_panel.open()
+
+
+## [대형 기획 12] L-2(c): 던전 진행 중에는 "이번 회차 보유"가 반영돼야 하므로
+## RunState.skill_flags를 그대로 넘긴다(dungeon_map.gd의 _on_skill_codex_pressed()와
+## 같은 이유).
+func _on_skill_codex_pressed() -> void:
+	if skill_codex_panel.visible:
+		skill_codex_panel.close()
+	else:
+		skill_codex_panel.open(RunState.character_id, RunState.skill_flags)
+
+
+## QA 전용 — [대형 기획 12] L-2(c). 포커스+확정 경로로 "스킬 도감" 버튼까지 이어지는지
+## 확인(_debug_press_shortcut_1과 같은 패턴).
+func _debug_press_shortcut_skill_codex() -> void:
+	RunState.skill_flags = ["deep_breath"]
+	skill_codex_button.grab_focus()
+	skill_codex_button.pressed.emit()

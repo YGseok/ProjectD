@@ -67,6 +67,7 @@ const ABILITY_DESC_WRAP_WIDTH := 720.0
 @onready var achievement_button: Button = $AchievementButton
 @onready var achievement_panel: AchievementPanel = $AchievementPanel
 @onready var test_battle_button: Button = $TestBattleButton
+@onready var skill_codex_panel: SkillCodexPanel = $SkillCodexPanel
 
 var _selected_id: String = CharacterProfiles.PROFILES[0]["id"]
 var _card_panels: Dictionary = {} # id -> PanelContainer (선택 강조 갱신용)
@@ -87,6 +88,11 @@ var _detail_name_label: Label
 ## ① 헤더의 "컨셉 한 줄" — concept 필드 전체가 아니라 _header_concept_line()으로 줄인
 ## 짧은 한 줄만 담는다(전체 문장은 tooltip_text로).
 var _detail_concept_label: Label
+## [대형 기획 12] L-2(c): 헤더 섹션 안에 떠 있는 "스킬 도감" 진입 버튼 — 선택된 캐릭터의
+## 도감을 연다(캐릭터 선택 화면이라 owned_skill_ids는 항상 빈 배열, INBOX.md L-2 원문
+## "선택 화면에서는 보유 0개" 참고). 캐릭터를 바꿔도 버튼 자체는 다시 만들지 않는다
+## (텍스트/클릭 대상이 _selected_id를 매번 읽으므로 그대로 재사용 가능).
+var _skill_codex_button: Button
 ## ② 능력치 칩 라벨(공격/방어 다이스 개수, 이벤트 주사위 면수) — 아이콘은 생성 시
 ## 한 번만 만들고 다시 안 바꾸므로 따로 보관하지 않는다.
 var _detail_attack_label: Label
@@ -186,6 +192,7 @@ func _build_cards() -> void:
 	_refresh_detail_panel()
 
 	_shortcut_buttons = card_controls
+	_shortcut_buttons.append(_skill_codex_button)
 	_shortcut_buttons.append(start_button)
 	_shortcut_buttons.append(achievement_button)
 	if RunState.TEST_BATTLE_ENABLED:
@@ -390,6 +397,16 @@ func _build_header_section() -> void:
 	_detail_concept_label.clip_text = true
 	_detail_concept_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	name_vbox.add_child(_detail_concept_label)
+
+	# [대형 기획 12] L-2(c): name_vbox가 SIZE_EXPAND_FILL이라 남는 가로 공간을 전부 먹으므로,
+	# 그 뒤에 버튼을 추가하면 hbox 맨 오른쪽(헤더 섹션 안)에 자리잡는다 — 새 섹션/고정
+	# 좌표 없이 기존 레이아웃만으로 "우측 패널의 스킬 도감 버튼"(INBOX.md 원문)을 만족.
+	_skill_codex_button = Button.new()
+	_skill_codex_button.text = "스킬 도감"
+	_skill_codex_button.custom_minimum_size = Vector2(110, 32)
+	_skill_codex_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_skill_codex_button.pressed.connect(_on_skill_codex_pressed)
+	hbox.add_child(_skill_codex_button)
 
 
 ## ② 능력치 칩: 공격/방어 다이스 개수, 이벤트 주사위 면 수, (고정값) HP를 아이콘+숫자
@@ -877,6 +894,16 @@ func _on_achievement_pressed() -> void:
 		achievement_panel.open()
 
 
+## [대형 기획 12] L-2(c): 지금 선택된 캐릭터의 스킬 도감을 연다. 이 화면은 아직 런이
+## 시작되지 않은 상태라 "보유 스킬"이라는 개념이 없으므로 owned_skill_ids는 항상
+## 빈 배열 — INBOX.md L-2 원문 "선택 화면에서는 보유 0개(전부 ①②)"를 그대로 따른다.
+func _on_skill_codex_pressed() -> void:
+	if skill_codex_panel.visible:
+		skill_codex_panel.close()
+	else:
+		skill_codex_panel.open(_selected_id, [])
+
+
 ## QA 전용: 클릭을 흉내낼 수 없는 자동 스크린샷에서 버튼 동작을 검증하기 위한 래퍼.
 func _debug_start_run() -> void:
 	_on_start_pressed()
@@ -1065,3 +1092,31 @@ func _debug_press_shortcut_close_achievements() -> void:
 	key.pressed = true
 	key.keycode = KEY_ESCAPE
 	achievement_panel._unhandled_input(key)
+
+
+## QA 전용 — [대형 기획 12] L-2(c). 포커스+확정 경로(방향키 이동 후 스페이스, K-1)로
+## 헤더 섹션의 "스킬 도감" 버튼까지 이어지고, 실제로 SkillCodexPanel이 지금 선택된
+## 캐릭터로 열리는지 확인한다(_debug_press_shortcut_7과 같은 패턴).
+func _debug_press_shortcut_skill_codex() -> void:
+	var btn := _skill_codex_button
+	btn.grab_focus()
+	btn.pressed.emit()
+
+
+## QA 전용 — 다른 캐릭터(해적)를 고른 상태에서 스킬 도감을 열어, 도감 내용이
+## _selected_id를 따라 실제로 바뀌는지 확인한다(캐릭터 선택 화면은 owned_skill_ids가
+## 항상 빈 배열이라 전부 미발견/발견 상태만 보여야 정상).
+func _debug_show_skill_codex_pirate() -> void:
+	SkillCodex._debug_reset_for_qa()
+	_on_card_selected("pirate")
+	_on_skill_codex_pressed()
+
+
+## QA 전용 — 스킬 도감 패널을 연 뒤, 패널 자신의 Esc 핸들러로 실제로 닫히는지 확인한다
+## (_debug_press_shortcut_close_achievements와 같은 패턴).
+func _debug_press_shortcut_close_skill_codex() -> void:
+	_on_skill_codex_pressed()
+	var key := InputEventKey.new()
+	key.pressed = true
+	key.keycode = KEY_ESCAPE
+	skill_codex_panel._unhandled_input(key)

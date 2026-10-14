@@ -36,6 +36,8 @@ extends Node2D
 @onready var roll_root: Node2D = $RollRoot
 @onready var customize_button: Button = $CustomizeButton
 @onready var customize_panel: CustomizePanel = $CustomizePanel
+@onready var skill_codex_button: Button = $SkillCodexButton
+@onready var skill_codex_panel: SkillCodexPanel = $SkillCodexPanel
 @onready var title_label: Label = $Title
 @onready var prompt_label: Label = $PromptLabel
 @onready var safe_button: Button = $SafeButton
@@ -83,6 +85,7 @@ var _shortcut_buttons: Array[Button] = []
 func _ready() -> void:
 	_dc = gambler_adjusted_dc(difficulty_for_room(RunState.rooms_cleared), RunState.skill_flags.has("start_gambler"))
 	customize_button.pressed.connect(customize_panel.open)
+	skill_codex_button.pressed.connect(_on_skill_codex_pressed)
 	fail_label.hide()
 	continue_button.hide()
 	continue_button.pressed.connect(_on_continue_after_fail_pressed)
@@ -108,7 +111,7 @@ func _setup_item_event() -> void:
 	risky_button.text = "위험을 감수하기 (이벤트 주사위 D%d, %d 이상 성공)" % [RunState.event_die_sides, _dc]
 	safe_button.pressed.connect(_on_safe_pressed)
 	risky_button.pressed.connect(_on_risky_pressed)
-	_refresh_shortcuts([safe_button, risky_button, customize_button])
+	_refresh_shortcuts([safe_button, risky_button, customize_button, skill_codex_button])
 
 
 ## [미니 기획 C]-1: 물음표 이벤트가 가끔 아이템 대신 스킬 후보를 제시한다. 안전/위험
@@ -214,7 +217,7 @@ func _show_fail() -> void:
 	fail_label.text = "아쉽게도 손에 넣지 못했다... 이번 기회는 여기서 끝이다."
 	fail_label.show()
 	continue_button.show()
-	_refresh_shortcuts([continue_button, customize_button])
+	_refresh_shortcuts([continue_button, customize_button, skill_codex_button])
 
 
 func _on_continue_after_fail_pressed() -> void:
@@ -299,6 +302,7 @@ func _show_item_offer(item: Dictionary) -> void:
 		offer_buttons.append(def_btn)
 
 	offer_buttons.append(customize_button)
+	offer_buttons.append(skill_codex_button)
 	_refresh_shortcuts(offer_buttons)
 
 
@@ -340,6 +344,7 @@ func _show_skill_offer(skills: Array[Dictionary]) -> void:
 		offer_buttons.append(pick_btn)
 
 	offer_buttons.append(customize_button)
+	offer_buttons.append(skill_codex_button)
 	_refresh_shortcuts(offer_buttons)
 
 
@@ -525,10 +530,28 @@ func _debug_press_shortcut_customize() -> void:
 	customize_button.pressed.emit()
 
 
+## QA 전용 — [대형 기획 12] L-2(c). 포커스+확정 경로로 "스킬 도감" 버튼까지 이어지는지
+## 확인(_debug_press_shortcut_customize와 같은 패턴).
+func _debug_press_shortcut_skill_codex() -> void:
+	RunState.skill_flags = ["deep_breath"]
+	skill_codex_button.grab_focus()
+	skill_codex_button.pressed.emit()
+
+
 ## qa/visual_qa.gd의 GAME_QA_CALL로 호출하기 위한 QA 전용 훅 (dungeon_map.gd의
 ## _debug_open_customize와 같은 목적).
 func _debug_open_customize() -> void:
 	customize_panel.open()
+
+
+## [대형 기획 12] L-2(c): 던전 진행 중에는 "이번 회차 보유"가 반영돼야 하므로
+## RunState.skill_flags를 그대로 넘긴다(dungeon_map.gd의 _on_skill_codex_pressed()와
+## 같은 이유).
+func _on_skill_codex_pressed() -> void:
+	if skill_codex_panel.visible:
+		skill_codex_panel.close()
+	else:
+		skill_codex_panel.open(RunState.character_id, RunState.skill_flags)
 
 
 ## QA 전용: 스킬 이벤트 분기(30% 확률)가 실제로 카드 2장을 겹침 없이 보여주는지

@@ -21,6 +21,8 @@ const ITEM_COSTS := {
 @onready var items_root: Node2D = $ItemsRoot
 @onready var customize_button: Button = $CustomizeButton
 @onready var customize_panel: CustomizePanel = $CustomizePanel
+@onready var skill_codex_button: Button = $SkillCodexButton
+@onready var skill_codex_panel: SkillCodexPanel = $SkillCodexPanel
 
 var _row_ui: Array[Node] = []
 
@@ -33,6 +35,7 @@ var _shortcut_buttons: Array[Button] = []
 func _ready() -> void:
 	leave_button.pressed.connect(_on_leave_pressed)
 	customize_button.pressed.connect(customize_panel.open)
+	skill_codex_button.pressed.connect(_on_skill_codex_pressed)
 	_rebuild_items()
 
 
@@ -109,6 +112,7 @@ func _rebuild_items() -> void:
 
 	_shortcut_buttons.append(leave_button)
 	_shortcut_buttons.append(customize_button)
+	_shortcut_buttons.append(skill_codex_button)
 	# K-3: 포커스 강조색도 현재 캐릭터 accent로(K-1의 ACCENT_DEFAULT 대신).
 	FocusNav.chain_linear(_shortcut_buttons, false, false, false, CharacterTheme.ui_palette(RunState.character_id)["accent"])
 	FocusNav.grab_first_focus(_shortcut_buttons)
@@ -165,11 +169,29 @@ func _debug_open_customize() -> void:
 	customize_panel.open()
 
 
+## [대형 기획 12] L-2(c): 던전 진행 중에는 "이번 회차 보유"가 반영돼야 하므로
+## RunState.skill_flags를 그대로 넘긴다(dungeon_map.gd의 _on_skill_codex_pressed()와
+## 같은 이유).
+func _on_skill_codex_pressed() -> void:
+	if skill_codex_panel.visible:
+		skill_codex_panel.close()
+	else:
+		skill_codex_panel.open(RunState.character_id, RunState.skill_flags)
+
+
 ## QA 전용 — 포커스+확정 경로(방향키 이동 후 스페이스, K-1)로 커스터마이징 버튼까지
 ## 이어지는지 확인하기 위함(event.gd의 _debug_press_shortcut_customize와 같은 목적).
 func _debug_press_shortcut_customize() -> void:
 	customize_button.grab_focus()
 	customize_button.pressed.emit()
+
+
+## QA 전용 — [대형 기획 12] L-2(c). 포커스+확정 경로로 "스킬 도감" 버튼까지 이어지는지
+## 확인(_debug_press_shortcut_customize와 같은 패턴).
+func _debug_press_shortcut_skill_codex() -> void:
+	RunState.skill_flags = ["deep_breath"]
+	skill_codex_button.grab_focus()
+	skill_codex_button.pressed.emit()
 
 
 ## QA 전용 — 위와 같은 이유로 "던전으로 돌아가기" 버튼까지 포커스+확정이 실제로
