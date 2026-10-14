@@ -52,15 +52,27 @@ func _remove_flat_background(img: Image) -> bool:
 		if d[i * 4 + 3] < 200: transparent += 1
 	if transparent > (w * h / 37) / 50:
 		return false  # 이미 투명 배경
-	# 테두리 평균색
-	var acc := Vector3.ZERO; var n := 0
+	# 테두리 색 팔레트: 테두리 픽셀을 16단계로 양자화해 10% 이상을 차지하는 색들을 배경색으로 본다.
+	# 단색 배경이면 1색, ChatGPT가 흔히 그려 넣는 "가짜 투명" 체커보드면 흰색/회색 2색이 잡힌다.
+	var counts := {}; var n := 0
+	var border := []
 	for x in w:
-		for y in [0, h - 1]:
-			var c := img.get_pixel(x, y); acc += Vector3(c.r, c.g, c.b); n += 1
+		border.append(img.get_pixel(x, 0)); border.append(img.get_pixel(x, h - 1))
 	for y in h:
-		for x in [0, w - 1]:
-			var c := img.get_pixel(x, y); acc += Vector3(c.r, c.g, c.b); n += 1
-	var bg := acc / n
+		border.append(img.get_pixel(0, y)); border.append(img.get_pixel(w - 1, y))
+	for c in border:
+		var key := Vector3i(int(c.r * 15.0 + 0.5), int(c.g * 15.0 + 0.5), int(c.b * 15.0 + 0.5))
+		counts[key] = counts.get(key, 0) + 1; n += 1
+	var bgs: Array[Vector3] = []
+	for key in counts:
+		if counts[key] >= n / 10:
+			bgs.append(Vector3(key.x, key.y, key.z) / 15.0)
+	if bgs.is_empty():
+		return false
+	# 배경색이 전부 밝은 무채색(흰색·연회색 체커보드)이면, 색 거리 대신 "밝은 무채색" 여부로 판정한다
+	var light_neutral := true
+	for b in bgs:
+		if minf(b.x, minf(b.y, b.z)) < 0.7 or maxf(b.x, maxf(b.y, b.z)) - minf(b.x, minf(b.y, b.z)) > 0.06: light_neutral = false
 	var visited := PackedByteArray(); visited.resize(w * h)
 	var stack := PackedInt32Array()
 	for x in w:
@@ -74,12 +86,47 @@ func _remove_flat_background(img: Image) -> bool:
 		visited[p] = 1
 		var x := p % w; var y := p / w
 		var c := img.get_pixel(x, y)
-		if Vector3(c.r, c.g, c.b).distance_to(bg) > TOL: continue
+		var cv := Vector3(c.r, c.g, c.b)
+		var near := false
+		for b in bgs:
+			if cv.distance_to(b) <= TOL: near = true; break
+		if light_neutral and c.s < 0.06 and c.v > 0.72: near = true
+		if not near: continue
 		img.set_pixel(x, y, Color(c.r, c.g, c.b, 0.0)); removed += 1
 		if x > 0: stack.append(p - 1)
 		if x < w - 1: stack.append(p + 1)
 		if y > 0: stack.append(p - w)
 		if y < h - 1: stack.append(p + w)
+	# 체커보드인 경우: 테두리와 이어지지 않은 안쪽 틈(머리카락과 몸 사이 등)에도 체커보드가 남는다.
+	# 남은 "밝은 무채색" 덩어리 중 연회색과 흰색이 둘 다 상당량(각 20% 이상) 섞인 것만 체커보드로 보고 지운다
+	# (의상의 흰색·크림색은 한 가지 톤 위주라 걸리지 않음).
+	if light_neutral:
+		var seen := PackedByteArray(); seen.resize(w * h)
+		var comp := PackedInt32Array()
+		for start in w * h:
+			if seen[start] == 1: continue
+			var sc := img.get_pixel(start % w, start / w)
+			if sc.a == 0.0 or not (sc.s < 0.06 and sc.v > 0.72): continue
+			comp.clear(); stack.clear(); stack.append(start); seen[start] = 1
+			var grey := 0; var white := 0
+			while stack.size() > 0:
+				var p := stack[stack.size() - 1]; stack.remove_at(stack.size() - 1)
+				comp.append(p)
+				var c := img.get_pixel(p % w, p / w)
+				if c.v >= 0.95: white += 1
+				else: grey += 1
+				var x := p % w; var y := p / w
+				for q in [p - 1 if x > 0 else -1, p + 1 if x < w - 1 else -1, p - w if y > 0 else -1, p + w if y < h - 1 else -1]:
+					if q < 0 or seen[q] == 1: continue
+					var qc := img.get_pixel(q % w, q / w)
+					if qc.a > 0.0 and qc.s < 0.06 and qc.v > 0.72:
+						seen[q] = 1; stack.append(q)
+			var total := comp.size()
+			if total >= 200 and grey >= total * 0.2 and white >= total * 0.2:
+				for p in comp:
+					var c := img.get_pixel(p % w, p / w)
+					img.set_pixel(p % w, p / w, Color(c.r, c.g, c.b, 0.0))
+				removed += total
 	# 남은 픽셀 중 지운 픽셀과 맞닿은 것은 반투명으로(계단 완화)
 	for y in range(1, h - 1):
 		for x in range(1, w - 1):
@@ -87,7 +134,7 @@ func _remove_flat_background(img: Image) -> bool:
 			if c.a == 0.0: continue
 			if img.get_pixel(x - 1, y).a == 0.0 or img.get_pixel(x + 1, y).a == 0.0 or img.get_pixel(x, y - 1).a == 0.0 or img.get_pixel(x, y + 1).a == 0.0:
 				img.set_pixel(x, y, Color(c.r, c.g, c.b, 0.6))
-	print("[post] 단색 배경 제거: ", removed, "px (배경색 ", Color(bg.x, bg.y, bg.z).to_html(false), ")")
+	print("[post] 배경 제거: ", removed, "px (배경색 ", bgs.map(func(b): return Color(b.x, b.y, b.z).to_html(false)), ")")
 	return true
 
 
