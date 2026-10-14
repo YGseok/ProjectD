@@ -8,6 +8,36 @@
 
 ---
 
+- **2026-10-08 (184)**: INBOX.md 최우선 지시 [대형 기획 10] **J-2(보스 튜닝)
+  완료 확인·커밋** — 직전 이터레이션이 주간 사용량 한도로 끊기며 시도10~14
+  (점액 군주 `atk_dice_delta` 1→0, 타락한 기사단장 armor/counter 완화 시험·
+  counter 원복, 마지막으로 보스 공통 공격 보정 +1→+0 완전 제거)를 미커밋
+  상태로 남겼다. `git diff -- code/scenes/combat_test.gd code/scenes/
+  dice_test.gd code/systems/monster_catalog.gd docs/BALANCE_TUNING_LOG.md
+  docs/STATUS_ARCHIVE.md`로 다섯 파일을 전부 검토해, `monster_catalog.gd`의
+  `ooze_lord`(`atk_dice_delta: 0`)/`fallen_commander`(`armor: 1`+
+  `counter: 1`+`steady_guard`)/`skeleton_general`(이전 커밋 `23ff30f`로 이미
+  반영된 `atk_dice_delta: -1`)/`goblin_king`(이전 커밋으로 이미 반영된
+  `armor: 1`+`counter: 1`)과 `combat_test.gd`의 보스 공통 `attack_count += 0`이
+  `BALANCE_TUNING_LOG.md` "J-2 보스 튜닝 시도 로그" 표의 시도14(최종, counter
+  원복 반영) 행이 서술한 값과 정확히 일치함을 확인했다. `dice_test.gd`의 보스
+  관련 기대값(보스 공격 보정 +1→+0에 맞춘 `expected_attack` 계산, 라운드1/2
+  보스 설정 테스트의 기대 공격 수치)도 그 상태에 맞게 이미 갱신돼 있었다.
+  **재검증**: `bash scripts/qa_shot.sh balance_sim`(TSV 576→648행 재생성)→
+  `bash scripts/qa_shot.sh balance_target_check`(재측정)를 각각 포그라운드로
+  끝까지 돌려 "최신 측정" 섹션을 새로 갱신 — 보스 전체평균 **39.3%**(R1
+  38.3%/R2 45.5%/R3 34.0%, 목표 35~55% **통과**), 개별 6종(고블린 왕 35.1%/
+  점액 군주 41.5%/광란의 마수 53.1%/해골 장군 37.9%/공허의 눈 40.3%/타락한
+  기사단장 27.8%)은 미커밋 상태가 서술한 38.8%/27.8%대와 거의 일치(시드
+  비결정성으로 소수점대 차이, 판정에는 영향 없음). `bash scripts/qa_shot.sh
+  dice_test` 전체 **PASS** 확인. 보스 평균이 이미 목표를 통과한 상태라
+  INBOX.md 지시(평균 미달 시에만 추가 시도)에 따라 **손잡이를 추가로 건드리지
+  않고 그대로 커밋**했다. `git status`로 프로젝트 루트에 의도치 않은 미추적
+  파일 없음 확인. **J-2 완료** — 미달로 남은 타락한 기사단장(`steady_guard`가
+  병목 의심, armor/counter 완화는 효과 없음을 시도13~14가 이미 확인)은
+  `MonsterSkills.modify_monster_roll()` 파라미터화가 필요한 더 큰 변경이라
+  다음 후보로 남기고, **다음은 J-3(방3 절벽+정예 튜닝)**.
+
 - **2026-10-08 (183)**: INBOX.md 최우선 지시 [대형 기획 10] **J-2(보스 튜닝) 계속
   — (182)가 미커밋 상태로 남긴 "보스 6종 개별 측정" 확장을 먼저 검증·커밋하고,
   그 결과가 드러낸 최저 승률 보스 하나를 조정**. 세션 지시대로 (182)의

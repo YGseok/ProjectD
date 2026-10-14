@@ -36,7 +36,18 @@
 
   → **L-1 완료(2026-10-14, 193)** — 카드마다 있던 "선택" 버튼을 없애고 카드 패널
   (`CharacterCardPanel`) 전체를 클릭/스페이스 선택 영역으로 바꿨다. 상세는
-  `docs/STATUS.md` 완료 기록(193) 참고. **다음은 L-2(a)**(스킬 도감 데이터/저장).
+  `docs/STATUS.md` 완료 기록(193) 참고.
+
+  → **L-2(a) 완료(2026-10-14, 194)** — `SkillPool.codex_entries(character_id)`
+  (순수 함수, 시작→전용→공용→강화 순, 8명 전부 9개씩)와 신규 Autoload
+  `SkillCodex`(`code/systems/skill_codex.gd`, `user://skill_codex.json` 영구
+  저장)로 캐릭터별 발견 기록을 저장한다. 기록 훅은 `event.gd`의
+  `_show_skill_offer()`(스킬 후보 표시 시점)와 `character_select.gd`의 슬롯
+  렌더링(해금 슬롯)/잠금 미리보기 클릭 세 지점에 직접 배선 — `SkillPool.grant()`/
+  `RunState.reset_run()` 안에 넣지 않은 이유(테스트 전투 설정 화면의 호출 순서
+  문제)는 `skill_codex.gd` 상단 주석 참고. 테스트 전투 중에는 기록되지 않음을
+  확인(가드 테스트 포함). 상세는 `docs/STATUS.md` 완료 기록(194) 참고. **다음은
+  L-2(b)**(도감 패널 UI, `SkillCodexPanel`).
 
   **L-1. 캐릭터 카드 자체를 눌러 선택 (선택 버튼 제거)**
   - 현재 캐릭터 카드마다 "선택" 버튼이 따로 있다(`character_select.gd` `_make_card()`의 `select_button`). 이 버튼을

@@ -305,6 +305,10 @@ func _ready() -> void:
 	all_pass = _check_l1_card_click_select(lines) and all_pass
 
 	lines.append("")
+	lines.append("[L-2(a): 스킬 도감 데이터/저장 검증: skill_pool.gd codex_entries() 완전성/순서 + skill_codex.gd 발견 기록 저장/로드/캐릭터별 격리/테스트전투 가드]")
+	all_pass = _check_l2a_skill_codex(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -6361,3 +6365,131 @@ func _find_button_with_text(root: Node, text: String) -> Button:
 		if found != null:
 			return found
 	return null
+
+
+## [대형 기획 12] L-2(a)(2026-10-14) 검증: 스킬 도감 데이터/저장. "플래그가 들어갔는가"가
+## 아니라 (1) codex_entries()가 실제로 돌려주는 배열의 크기/순서/codex_source 분류가
+## 기대와 일치하는지 (2) SkillCodex 저장 파일이 실제로 디스크에 쓰이고 다시 읽어도
+## 내용이 유지되는지 (3) 캐릭터별로 발견 기록이 실제로 분리되는지 (4) 테스트 전투 중엔
+## 기록되지 않는지 (5) 깨진 JSON을 읽어도 크래시 없이 빈 상태로 안전한지 (6) 실제 화면
+## 훅(event.gd _show_skill_offer / character_select.gd 슬롯 렌더링+잠금 미리보기)이
+## 실제로 SkillCodex에 기록을 남기는지를 검증한다.
+func _check_l2a_skill_codex(lines: PackedStringArray) -> bool:
+	var ok := true
+	var character_backup := RunState.character_id
+	var skill_flags_backup := RunState.skill_flags.duplicate()
+	var test_battle_backup := RunState.test_battle
+
+	SkillCodex._debug_reset_for_qa()
+	AchievementManager._debug_reset_for_qa()
+
+	# (1) codex_entries() 완전성/순서 — 8명 전부 총 9개(시작 3 + 전용 1 + 공용 2 +
+	# 강화 3(공용 2 + 전용 1)), 등장 순서가 시작->전용->공용->강화이고, id 중복이 없어야
+	# 한다.
+	var count_ok := true
+	var order_ok := true
+	var no_dup_ok := true
+	var expected_sources: Array[String] = [
+		"starting", "starting", "starting",
+		"unique",
+		"common", "common",
+		"upgrade", "upgrade", "upgrade",
+	]
+	for profile in CharacterProfiles.PROFILES:
+		var character_id: String = profile["id"]
+		var entries: Array[Dictionary] = SkillPool.codex_entries(character_id)
+		if entries.size() != 9:
+			count_ok = false
+		var seen: Dictionary = {}
+		for entry in entries:
+			if seen.has(entry["id"]):
+				no_dup_ok = false
+			seen[entry["id"]] = true
+		for i in min(entries.size(), expected_sources.size()):
+			if entries[i]["codex_source"] != expected_sources[i]:
+				order_ok = false
+	ok = count_ok and order_ok and no_dup_ok and ok
+	lines.append("  codex_entries() 8명 전부 size()==9 -> %s" % ("OK" if count_ok else "FAIL"))
+	lines.append("  codex_entries() 순서(시작x3->전용x1->공용x2->강화x3) 8명 전부 일치 -> %s" % ("OK" if order_ok else "FAIL"))
+	lines.append("  codex_entries() id 중복 없음(8명 전부) -> %s" % ("OK" if no_dup_ok else "FAIL"))
+
+	# (2) 저장/로드 왕복 — mark_discovered() 직후 _load()로 디스크에서 다시 읽어도
+	# is_discovered()가 여전히 true여야 한다(메모리 캐시가 아니라 실제 파일 내용 확인).
+	SkillCodex.mark_discovered("novice", "start_expand")
+	SkillCodex._load()
+	var roundtrip_ok: bool = SkillCodex.is_discovered("novice", "start_expand")
+	ok = roundtrip_ok and ok
+	lines.append("  mark_discovered(novice,start_expand) 후 _load() 재로드해도 is_discovered()==true -> %s" % ("OK" if roundtrip_ok else "FAIL"))
+
+	# (3) 캐릭터별 격리 — 캐릭터 A에서 본 스킬이 캐릭터 B 도감에서는 미발견으로 남아야
+	# 한다.
+	var isolation_ok: bool = not SkillCodex.is_discovered("berserker", "start_expand")
+	ok = isolation_ok and ok
+	lines.append("  novice에서 발견한 start_expand는 berserker 도감에서는 여전히 미발견 -> %s" % ("OK" if isolation_ok else "FAIL"))
+
+	# (4) 테스트 전투 가드 — RunState.test_battle=true인 동안 mark_discovered()를
+	# 불러도 기록되지 않아야 한다.
+	RunState.test_battle = true
+	SkillCodex.mark_discovered("guardian", "start_wall")
+	var test_battle_guard_ok: bool = not SkillCodex.is_discovered("guardian", "start_wall")
+	ok = test_battle_guard_ok and ok
+	lines.append("  RunState.test_battle=true 중 mark_discovered() 호출 -> 기록 안 됨(is_discovered()==false) -> %s" % ("OK" if test_battle_guard_ok else "FAIL"))
+	RunState.test_battle = false
+	SkillCodex.mark_discovered("guardian", "start_wall")
+	var test_battle_recovers_ok: bool = SkillCodex.is_discovered("guardian", "start_wall")
+	ok = test_battle_recovers_ok and ok
+	lines.append("  RunState.test_battle=false로 복귀 후 같은 호출 -> 정상 기록 -> %s" % ("OK" if test_battle_recovers_ok else "FAIL"))
+	RunState.test_battle = test_battle_backup
+
+	# (5) 깨진 JSON — 저장 파일에 유효하지 않은 텍스트를 직접 써넣고 _load()를 불러도
+	# 크래시 없이 빈 상태(discovered_count_for()==0)로 안전하게 떨어져야 한다.
+	var corrupt_f := FileAccess.open(SkillCodex.SAVE_PATH, FileAccess.WRITE)
+	corrupt_f.store_string("{이것은 유효한 JSON이 아님")
+	corrupt_f.close()
+	SkillCodex._load()
+	var corrupt_json_ok: bool = SkillCodex.discovered_count_for("novice") == 0 and SkillCodex.discovered_count_for("guardian") == 0
+	ok = corrupt_json_ok and ok
+	lines.append("  깨진 JSON 파일 로드 -> 크래시 없이 빈 상태(discovered_count_for()==0) -> %s" % ("OK" if corrupt_json_ok else "FAIL"))
+
+	SkillCodex._debug_reset_for_qa()
+
+	# (6a) event.gd 훅 — 스킬 후보가 화면(_show_skill_offer)에 실제로 표시되면 그
+	# 자리에서 SkillCodex에 기록되는지, 실제 씬을 인스턴스화해 QA 강제 훅(_debug_force_
+	# skill_event_as_guardian, SKILLS[0]=심호흡/UNIQUE_SKILLS[1]=수호 심화를 강제로
+	# 보여줌)으로 확인한다.
+	var event_scene := load("res://code/scenes/event.tscn")
+	var event_node = event_scene.instantiate()
+	add_child(event_node)
+	event_node._debug_force_skill_event_as_guardian()
+	var event_hook_ok: bool = SkillCodex.is_discovered("guardian", SkillPool.SKILLS[0]["id"]) and SkillCodex.is_discovered("guardian", SkillPool.UNIQUE_SKILLS[1]["id"])
+	ok = event_hook_ok and ok
+	lines.append("  event.gd _show_skill_offer()로 표시된 두 스킬(심호흡/수호 심화)이 실제로 SkillCodex에 기록됨 -> %s" % ("OK" if event_hook_ok else "FAIL"))
+	remove_child(event_node)
+	event_node.free()
+	SkillCodex._debug_reset_for_qa()
+
+	# (6b) character_select.gd 훅 — 해금된 슬롯(슬롯 0)은 렌더링만으로 기록되고, 잠긴
+	# 슬롯(슬롯 1)은 미리보기를 클릭하기 전에는 기록되지 않다가 클릭하면 기록돼야 한다.
+	var select_scene := load("res://code/scenes/character_select.tscn")
+	var select_node = select_scene.instantiate()
+	add_child(select_node)
+	select_node._on_card_selected("novice")
+	var slot0_discovered_ok: bool = SkillCodex.is_discovered("novice", "start_expand")
+	ok = slot0_discovered_ok and ok
+	lines.append("  character_select.gd 슬롯0(항상 해금, 확장) 렌더링만으로 기록됨 -> %s" % ("OK" if slot0_discovered_ok else "FAIL"))
+	var slot1_not_yet_ok: bool = not SkillCodex.is_discovered("novice", "start_lean")
+	ok = slot1_not_yet_ok and ok
+	lines.append("  슬롯1(잠김, 정예)은 미리보기 클릭 전엔 기록되지 않음 -> %s" % ("OK" if slot1_not_yet_ok else "FAIL"))
+	select_node._on_starting_skill_locked_preview("start_lean")
+	var slot1_preview_ok: bool = SkillCodex.is_discovered("novice", "start_lean")
+	ok = slot1_preview_ok and ok
+	lines.append("  슬롯1을 잠금 미리보기로 클릭한 뒤엔 기록됨 -> %s" % ("OK" if slot1_preview_ok else "FAIL"))
+	remove_child(select_node)
+	select_node.free()
+
+	SkillCodex._debug_reset_for_qa()
+	AchievementManager._debug_reset_for_qa()
+	RunState.character_id = character_backup
+	RunState.skill_flags = skill_flags_backup
+	RunState.test_battle = test_battle_backup
+	return ok

@@ -649,6 +649,12 @@ func _rebuild_starting_skill_slots() -> void:
 	for i in candidates.size():
 		var skill: Dictionary = candidates[i]
 		var unlocked: bool = _is_slot_unlocked(_selected_id, i)
+		if unlocked:
+			# [대형 기획 12] L-2(a): 해금된 슬롯은 이름/효과가 곧바로 보이므로(아래
+			# _make_starting_skill_slot()의 unlocked 분기), 렌더링 시점이 곧 "발견"이다.
+			# 잠긴 슬롯은 "???"만 보이므로 여기서는 기록하지 않고
+			# _on_starting_skill_locked_preview()가 대신 기록한다.
+			SkillCodex.mark_discovered(_selected_id, skill["id"])
 		var slot_button := _make_starting_skill_slot(skill, unlocked, i)
 		_starting_skill_container.add_child(slot_button)
 		_starting_skill_slot_buttons.append(slot_button)
@@ -794,6 +800,9 @@ func _on_starting_skill_selected(id: String) -> void:
 ## 두고 "미리보기"만 바꾼다 — 설명란에 그 스킬의 효과 + 해금 조건이 보이지만, 실제
 ## 시작 스킬(그리고 "던전 시작"이 쓰는 값)은 여전히 해금된 마지막 선택이다.
 func _on_starting_skill_locked_preview(id: String) -> void:
+	# [대형 기획 12] L-2(a): 잠긴 슬롯을 클릭해 상세(효과+해금 조건)를 본 순간이 곧
+	# "발견"이다(skill_codex.gd 상단 주석의 "잠금 미리보기로 상세를 본 순간" 기록 시점).
+	SkillCodex.mark_discovered(_selected_id, id)
 	_preview_skill_id = id
 	_rebuild_starting_skill_slots()
 
@@ -989,6 +998,7 @@ func _debug_show_achievements_scrolled() -> void:
 ## 모험가를 선택한다(견습 모험가의 슬롯 1 "정예"가 잠긴 채로 보여야 정상).
 func _debug_show_starting_skill_locked() -> void:
 	AchievementManager._debug_reset_for_qa()
+	SkillCodex._debug_reset_for_qa()
 	_on_card_selected("novice")
 
 
@@ -997,6 +1007,7 @@ func _debug_show_starting_skill_locked() -> void:
 ## 바뀌는 것까지 한 번에 확인한다.
 func _debug_show_starting_skill_unlocked() -> void:
 	AchievementManager._debug_reset_for_qa()
+	SkillCodex._debug_reset_for_qa()
 	AchievementManager.unlock("clear_novice")
 	_on_card_selected("novice")
 	_on_starting_skill_selected("start_lean")
@@ -1007,6 +1018,7 @@ func _debug_show_starting_skill_unlocked() -> void:
 ## 바뀌지 않아야 한다(여전히 슬롯 0 "확장").
 func _debug_show_starting_skill_locked_preview() -> void:
 	AchievementManager._debug_reset_for_qa()
+	SkillCodex._debug_reset_for_qa()
 	_on_card_selected("novice")
 	_on_starting_skill_locked_preview("start_lean")
 
@@ -1018,6 +1030,7 @@ func _debug_show_starting_skill_locked_preview() -> void:
 ## 확인할 수 없었음).
 func _debug_show_starting_skill_all_unlocked() -> void:
 	AchievementManager._debug_reset_for_qa()
+	SkillCodex._debug_reset_for_qa()
 	AchievementManager.unlock("r1_novice")
 	AchievementManager.unlock("clear_novice")
 	_on_card_selected("novice")

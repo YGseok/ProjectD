@@ -310,6 +310,12 @@ func _show_item_offer(item: Dictionary) -> void:
 ## 강조된다 — 새 스킬 획득 이벤트(_setup_skill_event)는 같은 함수를 쓰되 그때는
 ## _is_skill_upgrade_event가 false라 기존 등급색 테두리 그대로 나온다.
 func _show_skill_offer(skills: Array[Dictionary]) -> void:
+	# [대형 기획 12] L-2(a): 후보로 화면에 뜨는 순간이 곧 "발견"이다(skill_codex.gd
+	# 상단 주석의 "표시된 순간" 기록 시점). RunState.test_battle이면 내부에서 자동으로
+	# 건너뛴다.
+	for skill in skills:
+		SkillCodex.mark_discovered(RunState.character_id, skill["id"])
+
 	_clear_row_ui()
 
 	var offer_buttons: Array[Button] = []

@@ -538,6 +538,59 @@ static func icon_motif_for(skill_id: String) -> String:
 	return ICON_MOTIFS.get(skill_id, "")
 
 
+## 캐릭터별 스킬 도감 전체 목록([대형 기획 12] L-2(a), INBOX.md 2026-10-14) — 그
+## 캐릭터가 런에서 만날 수 있는 모든 스킬을 결정론적 순서(시작 스킬 -> 전용 -> 공용 ->
+## 강화)로 모은다. "+"판은 base와 별개 항목으로 집계한다(INBOX.md 명시) — UPGRADE_SKILLS
+## id가 이미 base와 다르므로("<base>_plus") 중복 걱정 없이 그대로 포함한다. 각 항목에
+## "codex_source"(이 함수 전용 분류표 — SkillIcon.category(캐릭터 기믹 8종)와는 다른
+## 개념) 필드를 덧붙여 도감 UI가 섹션을 나누거나 테스트가 분류를 검증할 수 있게 한다.
+## 순수 함수(SkillPool의 다른 조회 함수들과 같은 스타일) — RunState/SkillCodex를 전혀
+## 읽지 않으므로 몇 번을 불러도 항상 같은 결과를 돌려준다(발견/보유 여부는 호출부가
+## SkillCodex.is_discovered()/RunState.skill_flags로 따로 합성).
+static func codex_entries(character_id: String) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	var seen: Dictionary = {}
+
+	for skill in starting_skills_for_character(character_id):
+		if seen.has(skill["id"]):
+			continue
+		seen[skill["id"]] = true
+		var entry: Dictionary = skill.duplicate()
+		entry["codex_source"] = "starting"
+		result.append(entry)
+
+	for skill in UNIQUE_SKILLS:
+		if skill.get("character_id", "") != character_id:
+			continue
+		if seen.has(skill["id"]):
+			continue
+		seen[skill["id"]] = true
+		var entry: Dictionary = skill.duplicate()
+		entry["codex_source"] = "unique"
+		result.append(entry)
+
+	for skill in SKILLS:
+		if seen.has(skill["id"]):
+			continue
+		seen[skill["id"]] = true
+		var entry: Dictionary = skill.duplicate()
+		entry["codex_source"] = "common"
+		result.append(entry)
+
+	for skill in UPGRADE_SKILLS:
+		var required_character: String = skill.get("character_id", "")
+		if required_character != "" and required_character != character_id:
+			continue
+		if seen.has(skill["id"]):
+			continue
+		seen[skill["id"]] = true
+		var entry: Dictionary = skill.duplicate()
+		entry["codex_source"] = "upgrade"
+		result.append(entry)
+
+	return result
+
+
 ## skill_id로 네 상수(SKILLS/UNIQUE_SKILLS/UPGRADE_SKILLS/STARTING_SKILLS) 전체를 찾아
 ## 이름/설명을 조회한다(DeckPanel "보유 스킬" 목록처럼 skill_flags에 쌓인 id만으로
 ## 화면에 표시할 이름이 필요한 곳에서 재사용). 못 찾으면 빈 Dictionary를 반환한다.
