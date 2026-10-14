@@ -179,13 +179,26 @@ const DICE_SPAWN_PER_ROW := 4
 const DICE_SPAWN_COL_SPACING := 0.45
 const DICE_SPAWN_ROW_SPACING := 0.5
 
-@onready var player_hp_label: Label = $PlayerHPLabel
-@onready var monster_hp_label: Label = $MonsterHPLabel
-@onready var monster_family_icon: FamilyIcon = $MonsterFamilyIcon
+## [대형 기획 13] M-2(2026-10-14): 아래 HUD 관련 변수들은 더는 tscn에 미리 박힌 노드를
+## @onready로 받지 않는다 — 캐릭터 퍼스널 컬러 테두리가 패널마다 필요해 dungeon_map.gd의
+## _setup_hud_bar() 패턴처럼 _setup_combat_hud()가 런타임에 직접 만든다. 변수 자체는
+## 그대로 남겨 기존 _update_labels() 등 호출부의 텍스트/색 갱신 로직을 건드리지 않는다.
+var player_hp_label: Label
+var monster_hp_label: Label
+var monster_family_icon: FamilyIcon
+var player_hp_bar_fill: ColorRect
+var monster_hp_bar_fill: ColorRect
+var turn_label: Label
+var monster_name_label: Label
+var monster_tier_label: Label
+var monster_trait_label: Label
+var player_status_label: Label
+## _setup_combat_hud()가 만든 패널 3개(좌/중앙/우) — QA 캐릭터 전환 훅이 다시 그릴 때
+## 이전 패널을 지우는 용도로만 쓴다(로그 패널은 log_label을 재사용해야 해서 별도
+## _log_panel로 관리 — _setup_log_panel() 참고).
+var _hud_panels: Array[Node] = []
+var _log_panel: PanelContainer
 @onready var monster_debug_info_label: Label = $MonsterDebugInfoLabel
-@onready var player_hp_bar_fill: ColorRect = $PlayerHPBarFill
-@onready var monster_hp_bar_fill: ColorRect = $MonsterHPBarFill
-@onready var turn_label: Label = $TurnLabel
 @onready var log_label: Label = $LogLabel
 @onready var dice_root: Node3D = $DiceViewportContainer/DiceViewport/DiceRoot
 @onready var next_button: Button = $NextButton
@@ -206,10 +219,18 @@ var player_hp := 20
 const PLAYER_MAX_HP := 20
 
 ## INBOX.md 피드백(2026-09-09) "체력바 추가 등 정보를 텍스트보다 이미지로 표현하는게
-## 좋을 듯" — HP를 텍스트 라벨뿐 아니라 채워진 정도로 보여주는 막대(ColorRect 2장,
-## combat_test.tscn 참고)를 추가한다. 너비는 각 Bg/Fill의 tscn 초기 크기와 맞춰둠.
-const PLAYER_HP_BAR_WIDTH := 380.0
-const MONSTER_HP_BAR_WIDTH := 340.0
+## 좋을 듯" — HP를 텍스트 라벨뿐 아니라 채워진 정도로 보여주는 막대(ColorRect 2장)로
+## 함께 보여준다. [대형 기획 13] M-2(2026-10-14)로 HUD가 전부 런타임 생성으로 바뀌면서
+## 너비는 _setup_combat_hud()가 만드는 HP 바 Control의 custom_minimum_size와 맞춰뒀고,
+## 두께도 16 -> HP_BAR_HEIGHT(28)로 키워 "두껍게"(INBOX M-2 원문) 요구를 반영했다.
+const PLAYER_HP_BAR_WIDTH := 310.0
+const MONSTER_HP_BAR_WIDTH := 330.0
+const HP_BAR_HEIGHT := 28.0
+## [대형 기획 13] M-2(2026-10-14) — INBOX M-2 "캐릭터/몬스터 그림... 크기를 키운다".
+## 기존 기준 배율 1.0(플레이어)/1.25(보스)보다 전반적으로 키우되, tscn의 새 portrait
+## position(안쪽으로 당김)과 함께 화면 밖으로 잘리지 않는 선으로 맞춘 값.
+const PORTRAIT_SCALE_NORMAL := 1.1
+const PORTRAIT_SCALE_BOSS := 1.3
 ## 체력 비율에 따라 초록(넉넉) -> 주황(경고) -> 빨강(위험)으로 막대 색이 바뀐다 —
 ## "쪼이는 맛"(위기감)을 색으로도 드러내기 위함.
 const HP_BAR_COLOR_HIGH := Color(0.35, 0.85, 0.35)
@@ -940,12 +961,267 @@ func _reset_player_battle_state() -> void:
 	player_won = false
 
 
+## _skill_debug_line()의 짧은 요약판 — "기믹: 반격 (공격이 완전히 막히면...)" 같은 QA용
+## 상세 설명 대신 "반격"처럼 패널 칩에 들어갈 짧은 이름만 돌려준다(INBOX M-2 "몬스터
+## 성격·기믹 설명은... '특성' 라벨 + 아이콘 칩으로").
+const SKILL_TRAIT_LABELS := {
+	"anger_stack": "분노 스택", "fixed_value": "고정값", "min_max_only": "극단",
+	"steady_guard": "철벽 방어", "armor": "방어구", "guard_up": "궁지의 방어",
+	"counter": "반격", "sticky": "끈적임", "seal": "봉인", "dull": "둔화",
+	"numb": "마비", "pounce": "기습", "bloodlust": "피의 갈망", "drain": "흡수",
+	"chill": "한기", "revive": "불사",
+}
+
+
+func _skill_trait_label(skill_id: String) -> String:
+	return SKILL_TRAIT_LABELS.get(skill_id, "")
+
+
+## 몬스터 "특성" 패널 전용 — _monster_debug_info_text()(QA 디버그 줄, 다이스 개수/면
+## 등 수치 포함)와 달리 성격 한 줄 + 보유 스킬의 짧은 이름만 사람이 읽기 좋게 나열한다.
+## config만 받는 순수 함수라 dice_test.gd가 인스턴스화 없이 바로 검증할 수 있다.
+static func _monster_trait_summary_text(config: Dictionary) -> String:
+	var parts: Array[String] = []
+	var personality: String = config.get("personality", "")
+	if personality != "":
+		parts.append(personality)
+	var skill_names: Array[String] = []
+	for skill_id in config.get("skill_ids", []):
+		var label: String = SKILL_TRAIT_LABELS.get(skill_id, "")
+		if label != "":
+			skill_names.append(label)
+	if not skill_names.is_empty():
+		parts.append("특성: " + ", ".join(skill_names))
+	if parts.is_empty():
+		return "특성 없음"
+	return "\n".join(parts)
+
+
+static func _monster_tier_text(is_elite: bool, is_boss: bool) -> String:
+	if is_boss:
+		return "보스"
+	if is_elite:
+		return "정예"
+	return "일반"
+
+
+static func _monster_tier_color(is_elite: bool, is_boss: bool) -> Color:
+	if is_boss:
+		return Color(0.95, 0.8, 0.25)
+	if is_elite:
+		return Color(0.85, 0.3, 0.3)
+	return Color(0.6, 0.6, 0.63)
+
+
+## [대형 기획 13] M-2(2026-10-14) — HUD 중앙 배지 위에 보이는 작은 캡션. test_battle이면
+## 던전 진행과 무관한 난이도 지표(RunState.test_difficulty)를, 아니면 실제 라운드/방
+## 번호를 보여준다. 전투 중 값이 바뀌지 않아(같은 전투 안에서는 방을 이동하지 않음)
+## _setup_combat_hud()에서 한 번만 호출하면 된다.
+func _round_room_caption() -> String:
+	if RunState.test_battle:
+		return "테스트 전투 · 난이도 %d" % RunState.test_difficulty
+	return "라운드 %d · 방 %d" % [RunState.round_index, RunState.rooms_cleared + 1]
+
+
+## HP 바 하나(배경 ColorRect + 채움 ColorRect + 그 위에 겹친 숫자 Label)를 만들어
+## parent(세로 VBoxContainer)에 붙인다. _update_hp_bar()/_update_labels()가 기존 로직
+## 그대로 fill.size.x/color와 label.text만 바꿔 쓸 수 있도록 {"fill":.., "label":..}을
+## 돌려준다(INBOX M-2 "HP 바는... 숫자를 바 위에 겹쳐 표시").
+func _build_hp_bar(parent: Node, width: float) -> Dictionary:
+	var holder := Control.new()
+	holder.custom_minimum_size = Vector2(width, HP_BAR_HEIGHT)
+	parent.add_child(holder)
+
+	var bg := ColorRect.new()
+	bg.color = Color(0.2, 0.07, 0.07)
+	bg.size = Vector2(width, HP_BAR_HEIGHT)
+	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	holder.add_child(bg)
+
+	var fill := ColorRect.new()
+	fill.color = HP_BAR_COLOR_HIGH
+	fill.size = Vector2(width, HP_BAR_HEIGHT)
+	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	holder.add_child(fill)
+
+	var label := Label.new()
+	label.size = Vector2(width, HP_BAR_HEIGHT)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	label.add_theme_font_size_override("font_size", 15)
+	label.add_theme_color_override("font_color", Color(0.98, 0.98, 0.98))
+	label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
+	label.add_theme_constant_override("outline_size", 3)
+	holder.add_child(label)
+
+	return {"fill": fill, "label": label}
+
+
+## [대형 기획 13] M-2(2026-10-14) — 상단 HUD를 "좌=플레이어 / 중앙=턴·라운드 / 우=몬스터"
+## 3구역 패널로 새로 그린다. dungeon_map.gd의 _setup_hud_bar()와 같은 패턴으로
+## UIKit(M-1이 만든 공용 헬퍼, INBOX M-4 "새로 복붙하지 말 것")을 재사용해 런타임에
+## 만든다 — 캐릭터 퍼스널 컬러 테두리가 패널마다 필요해 tscn 정적 노드로는 표현하기
+## 어렵다. _ready() 맨 앞과 QA 캐릭터 전환 훅(_debug_set_character())에서 호출된다.
+func _setup_combat_hud() -> void:
+	for node in _hud_panels:
+		if is_instance_valid(node):
+			node.queue_free()
+	_hud_panels.clear()
+
+	var cid := RunState.character_id
+	var profile := CharacterProfiles.get_profile(cid)
+
+	# --- 좌: 플레이어 ---
+	var player_body := UIKit.make_section(self, "", cid, Vector2(20, 56))
+	var player_panel: PanelContainer = player_body.get_parent()
+	player_panel.custom_minimum_size = Vector2(340, 0)
+	_hud_panels.append(player_panel)
+
+	var player_row := HBoxContainer.new()
+	player_row.add_theme_constant_override("separation", 8)
+	player_body.add_child(player_row)
+
+	var player_face_holder := Control.new()
+	player_face_holder.custom_minimum_size = Vector2(32, 32)
+	var player_thumb := CharacterArt.load_face_thumb(cid)
+	if player_thumb != null:
+		var player_thumb_rect := TextureRect.new()
+		player_thumb_rect.texture = player_thumb
+		player_thumb_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		player_thumb_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		player_thumb_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
+		player_face_holder.add_child(player_thumb_rect)
+	player_row.add_child(player_face_holder)
+
+	var player_name_label := Label.new()
+	player_name_label.text = profile.get("name", "플레이어")
+	player_name_label.add_theme_font_size_override("font_size", 17)
+	CharacterTheme.apply_label(player_name_label, cid, false)
+	player_name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	player_row.add_child(player_name_label)
+
+	var player_bar := _build_hp_bar(player_body, PLAYER_HP_BAR_WIDTH)
+	player_hp_bar_fill = player_bar["fill"]
+	player_hp_label = player_bar["label"]
+
+	# --- 중앙: 턴 / 라운드 ---
+	var center_body := UIKit.make_section(self, "", cid, Vector2(380, 56))
+	var center_panel: PanelContainer = center_body.get_parent()
+	center_panel.custom_minimum_size = Vector2(500, 0)
+	_hud_panels.append(center_panel)
+
+	var round_caption := Label.new()
+	round_caption.text = _round_room_caption()
+	round_caption.add_theme_font_size_override("font_size", 12)
+	round_caption.add_theme_color_override("font_color", Color(0.65, 0.65, 0.68))
+	round_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	center_body.add_child(round_caption)
+
+	turn_label = Label.new()
+	turn_label.text = "전투 시작"
+	turn_label.add_theme_font_size_override("font_size", 22)
+	turn_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	CharacterTheme.apply_label(turn_label, cid, true)
+	center_body.add_child(turn_label)
+
+	# --- 우: 몬스터 ---
+	var monster_body := UIKit.make_section(self, "", cid, Vector2(900, 56))
+	var monster_panel: PanelContainer = monster_body.get_parent()
+	monster_panel.custom_minimum_size = Vector2(360, 0)
+	_hud_panels.append(monster_panel)
+
+	var monster_row := HBoxContainer.new()
+	monster_row.add_theme_constant_override("separation", 6)
+	monster_body.add_child(monster_row)
+	monster_family_icon = FamilyIcon.new()
+	monster_family_icon.custom_minimum_size = Vector2(26, 26)
+	monster_row.add_child(monster_family_icon)
+	monster_name_label = Label.new()
+	monster_name_label.text = monster_name
+	monster_name_label.add_theme_font_size_override("font_size", 17)
+	monster_name_label.add_theme_color_override("font_color", Color(0.92, 0.92, 0.92))
+	monster_name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	monster_name_label.clip_text = true
+	monster_name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	monster_row.add_child(monster_name_label)
+	monster_tier_label = Label.new()
+	monster_tier_label.text = _monster_tier_text(monster_is_elite, monster_is_boss)
+	monster_tier_label.add_theme_font_size_override("font_size", 12)
+	monster_tier_label.add_theme_color_override("font_color", _monster_tier_color(monster_is_elite, monster_is_boss))
+	monster_row.add_child(monster_tier_label)
+
+	var monster_bar := _build_hp_bar(monster_body, MONSTER_HP_BAR_WIDTH)
+	monster_hp_bar_fill = monster_bar["fill"]
+	monster_hp_label = monster_bar["label"]
+
+	monster_trait_label = Label.new()
+	monster_trait_label.text = ""
+	monster_trait_label.autowrap_mode = TextServer.AUTOWRAP_WORD
+	monster_trait_label.add_theme_font_size_override("font_size", 11)
+	monster_trait_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.72))
+	monster_trait_label.custom_minimum_size = Vector2(MONSTER_HP_BAR_WIDTH, 0)
+	monster_body.add_child(monster_trait_label)
+
+	player_portrait.scale = Vector2(PORTRAIT_SCALE_NORMAL, PORTRAIT_SCALE_NORMAL)
+	monster_debug_info_label.visible = OS.is_debug_build()
+
+
+## [대형 기획 13] M-2 — 기존 평문 LogLabel을 테두리 있는 "전투 기록" 섹션 패널로 감싸고,
+## 맨 위에 _update_status_panel()이 채우는 상태 요약 한 줄을 추가한다(INBOX M-2
+## "행동 로그/스킬 상태 요약... 구역 패널로"). log_label 자체(텍스트 갱신 로직,
+## _append_log())는 그대로 재사용 — 부모만 바뀐다. _hud_panels와 별도로 관리하는 이유는
+## log_label을 큐프리하지 않고 다음 패널로 재부모화해야 하기 때문(_setup_combat_hud()가
+## 패널을 통째로 지우면 자식인 log_label까지 함께 사라짐).
+func _setup_log_panel() -> void:
+	var cid := RunState.character_id
+	var old_parent := log_label.get_parent()
+	if old_parent != null:
+		old_parent.remove_child(log_label)
+	if _log_panel != null and is_instance_valid(_log_panel):
+		_log_panel.queue_free()
+
+	var body := UIKit.make_section(self, "전투 기록", cid, Vector2(140, 552))
+	_log_panel = body.get_parent()
+	_log_panel.custom_minimum_size = Vector2(1000, 0)
+
+	player_status_label = Label.new()
+	player_status_label.add_theme_font_size_override("font_size", 12)
+	CharacterTheme.apply_label(player_status_label, cid, true)
+	body.add_child(player_status_label)
+
+	log_label.custom_minimum_size = Vector2(0, 100)
+	body.add_child(log_label)
+	_update_status_panel()
+
+
+## [대형 기획 13] M-2 — "다음"/"다시 하기"/"설정으로 돌아가기"와 상단 토글 3개(스킬
+## 도감/커스터마이징/덱 보기)를 dungeon_map.gd의 _style_action_buttons()와 같은
+## "주 행동은 꽉 채운 칠, 보조 행동은 테두리만" 위계로 통일한다(INBOX M-2 "버튼 스타일
+## 통일성"). 전투 중 자동 진행이라 평소엔 눌릴 버튼이 토글 3개뿐이고, "다음"만 승패
+## 판정 후 나타나는 유일한 주 행동이라 primary를 그대로 둔다.
+func _style_result_buttons() -> void:
+	var cid := RunState.character_id
+	UIKit.style_primary_button(next_button, cid)
+	UIKit.style_secondary_button(test_retry_button, cid)
+	UIKit.style_secondary_button(test_back_button, cid)
+	UIKit.style_secondary_button(skill_codex_button, cid)
+	UIKit.style_secondary_button(customize_toggle_button, cid)
+	UIKit.style_secondary_button(deck_toggle_button, cid)
+
+
 func _ready() -> void:
+	_setup_combat_hud()
+	_setup_log_panel()
+	_style_result_buttons()
 	# L-3(2026-10-14, [대형 기획 12] K-3 후속): 배경/제목을 현재 캐릭터 퍼스널 컬러로.
 	CharacterTheme.apply_background(self, RunState.character_id)
 	var title := get_node_or_null("Title")
 	if title is Label:
 		CharacterTheme.apply_label(title, RunState.character_id)
+		# [대형 기획 13] M-2: 개발용 "combat_test.tscn — ..." 문구 제거(INBOX M-2 원문).
+		# dungeon_map.gd M-1과 같은 패턴 — RunState.test_battle일 때만 맥락을 살려 부기.
+		(title as Label).text = "전투 (테스트 전투)" if RunState.test_battle else "전투"
 	var room_override := OS.get_environment("GAME_QA_ROOM_OVERRIDE")
 	var config: Dictionary
 	# [대형 기획 8] H-1(2026-10-08): RunState.test_battle이 가장 먼저 우선한다 — 테스트
@@ -969,10 +1245,17 @@ func _ready() -> void:
 	monster_family_icon.category = config.get("family", "")
 	monster_family_icon.is_boss = monster_is_boss
 	monster_family_icon.is_elite = monster_is_elite
+	monster_name_label.text = monster_name
+	monster_tier_label.text = _monster_tier_text(monster_is_elite, monster_is_boss)
+	monster_tier_label.add_theme_color_override("font_color", _monster_tier_color(monster_is_elite, monster_is_boss))
+	monster_trait_label.text = _monster_trait_summary_text(config)
 	monster_portrait.set_body_color(monster_color if monster_color.a > 0 else Color(0.5, 0.5, 0.5))
 	monster_portrait.set_family(config.get("family", ""))
 	# G-8(2026-10-07): "전용 초상화 크기(일반의 1.25배)" — 보스만 조금 크게 그린다.
-	monster_portrait.scale = Vector2(1.25, 1.25) if monster_is_boss else Vector2(1, 1)
+	# [대형 기획 13] M-2: INBOX M-2 "캐릭터/몬스터 그림... 크기를 키운다"에 맞춰 기준
+	# 배율 자체도 1.0 -> PORTRAIT_SCALE_NORMAL(1.1)로 올렸다(화면 밖으로 잘리지 않는
+	# 선에서 — 몬스터 포트레이트 position도 tscn에서 1210 -> 1170으로 안쪽으로 당김).
+	monster_portrait.scale = Vector2(PORTRAIT_SCALE_BOSS, PORTRAIT_SCALE_BOSS) if monster_is_boss else Vector2(PORTRAIT_SCALE_NORMAL, PORTRAIT_SCALE_NORMAL)
 	monster_debug_info_label.text = _monster_debug_info_text(config)
 
 	_reset_player_battle_state()
@@ -995,19 +1278,34 @@ func _ready() -> void:
 ## QA 전용(GAME_QA_CALL) — L-3 배경/패널 퍼스널 컬러를 눈으로 확인하기 위한 0-arity
 ## 래퍼. 밝은 색(해적)/어두운 색(주술사)을 각각 스크린샷으로 비교할 때 쓴다.
 func _debug_qa_character_pirate() -> void:
-	RunState.character_id = "pirate"
-	CharacterTheme.apply_background(self, RunState.character_id)
-	var title := get_node_or_null("Title")
-	if title is Label:
-		CharacterTheme.apply_label(title, RunState.character_id)
+	_debug_set_character("pirate")
 
 
 func _debug_qa_character_shieldbearer() -> void:
-	RunState.character_id = "shieldbearer"
+	_debug_set_character("shieldbearer")
+
+
+## [대형 기획 13] M-2(2026-10-14): 위 두 훅의 공용 구현 — dungeon_map.gd의
+## _debug_set_character()와 같은 패턴. HUD가 이제 전부 런타임에 만들어지므로 배경/제목뿐
+## 아니라 HUD 패널 3개/로그 패널/버튼 스타일까지 캐릭터가 바뀌면 전부 다시 그려야 한다.
+func _debug_set_character(character_id: String) -> void:
+	RunState.character_id = character_id
 	CharacterTheme.apply_background(self, RunState.character_id)
 	var title := get_node_or_null("Title")
 	if title is Label:
 		CharacterTheme.apply_label(title, RunState.character_id)
+	_setup_combat_hud()
+	_setup_log_panel()
+	_style_result_buttons()
+	monster_family_icon.category = monster_config.get("family", "")
+	monster_family_icon.is_boss = monster_is_boss
+	monster_family_icon.is_elite = monster_is_elite
+	monster_name_label.text = monster_name
+	monster_tier_label.text = _monster_tier_text(monster_is_elite, monster_is_boss)
+	monster_tier_label.add_theme_color_override("font_color", _monster_tier_color(monster_is_elite, monster_is_boss))
+	monster_trait_label.text = _monster_trait_summary_text(monster_config)
+	monster_debug_info_label.text = _monster_debug_info_text(monster_config)
+	_update_labels()
 
 
 ## dungeon_map.gd/shop.gd 등과 같은 패턴 — 지금 화면에 실제로 눌러야 할 버튼들을
@@ -1174,6 +1472,7 @@ func _do_exchange(is_player_attacking: bool) -> void:
 	if result.get("boss_phase2_activated", false):
 		monster_portrait.set_expression("angry")
 		monster_debug_info_label.text = _monster_debug_info_text(monster_config)
+		monster_trait_label.text = _monster_trait_summary_text(monster_config)
 
 	await _maybe_finish_battle(dmg)
 
@@ -1837,10 +2136,13 @@ func _clear_exchange_dice_chips() -> void:
 
 
 func _update_labels() -> void:
-	player_hp_label.text = "플레이어 HP: %d / %d" % [player_hp, PLAYER_MAX_HP]
-	monster_hp_label.text = "%s HP: %d / %d" % [monster_name, monster_hp, monster_max_hp]
+	# [대형 기획 13] M-2: 이름/몬스터 이름은 이제 HUD 패널의 별도 라벨(monster_name_label)이
+	# 보여주므로, 이 라벨은 HP 바 위에 겹쳐지는 숫자 전용("20 / 20")으로 짧아졌다.
+	player_hp_label.text = "%d / %d" % [player_hp, PLAYER_MAX_HP]
+	monster_hp_label.text = "%d / %d" % [monster_hp, monster_max_hp]
 	_update_hp_bar(player_hp_bar_fill, PLAYER_HP_BAR_WIDTH, player_hp, PLAYER_MAX_HP)
 	_update_hp_bar(monster_hp_bar_fill, MONSTER_HP_BAR_WIDTH, monster_hp, monster_max_hp)
+	_update_status_panel()
 
 
 ## fill(ColorRect)의 너비를 hp/max_hp 비율만큼 줄이고(왼쪽 기준 고정, 오른쪽부터
@@ -1854,6 +2156,35 @@ func _update_hp_bar(fill: ColorRect, full_width: float, hp: int, max_hp: int) ->
 		fill.color = HP_BAR_COLOR_MID
 	else:
 		fill.color = HP_BAR_COLOR_LOW
+
+
+## [대형 기획 13] M-2(2026-10-14) — INBOX M-2 "아래쪽 절반의 빈 공간... 스킬 상태 요약을
+## 구역 패널로" 반영. "전투 기록" 패널(_setup_log_panel()) 맨 위 한 줄에 지금 활성화된
+## 스택/주기 상태를 요약한다. 플레이어 기믹/스킬별로 관련 있는 항목만 보여주고(캐릭터
+## 하나가 여러 파이프라인을 동시에 갖는 일은 없음 — frenzy_deepen/guard_deepen/
+## chain_explosion/chain_guard/versatile_surge 전부 explosive_stack 또는 guard_stack
+## 파이프라인 "중 하나"를 여는 스킬일 뿐 둘 다 동시에 열지 않음), 해당 없으면 "활성
+## 효과 없음"으로 명시해 빈 줄처럼 보이지 않게 한다. _update_labels()가 매 교환 후
+## 호출하므로 턴마다 자동 갱신된다.
+func _update_status_panel() -> void:
+	if player_status_label == null:
+		return
+	var parts: Array[String] = []
+	if player_dice_gimmick == "explosive_stack" or player_frenzy_active or player_versatile_active:
+		parts.append("공격 스택 %d/%d" % [player_explosive_stacks, _player_explosive_threshold()])
+	if player_dice_gimmick == "guard_stack" or player_guard_deepen_active or player_versatile_active:
+		parts.append("방어 스택 %d/%d" % [player_guard_stacks, _player_guard_threshold()])
+	if player_dice_gimmick == "cannon_volley":
+		var cycle := _cannon_volley_cycle()
+		var into_cycle: int = player_attack_turn_count % cycle
+		parts.append("함포 %d/%d턴" % [into_cycle, cycle])
+	if player_deep_breath_used:
+		parts.append("심호흡 사용됨")
+	if player_vanguard_used:
+		parts.append("선제 사용됨")
+	if player_bulwark_used:
+		parts.append("대비 사용됨")
+	player_status_label.text = "상태: " + (" · ".join(parts) if not parts.is_empty() else "활성 효과 없음")
 
 
 ## "여분"/"여분+" 스킬(INBOX.md [미니 기획 C]-3, [미니 기획 D]-4) 전용 헬퍼 — bag의

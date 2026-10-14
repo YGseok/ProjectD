@@ -5,29 +5,20 @@
 [ext_resource type="Script" path="res://code/scenes/monster_portrait_placeholder.gd" id="3_monster_portrait"]
 [ext_resource type="Script" path="res://code/scenes/deck_panel.gd" id="4_deck_panel"]
 [ext_resource type="Script" path="res://code/scenes/customize_panel.gd" id="5_customize_panel"]
-[ext_resource type="Script" path="res://code/scenes/family_icon.gd" id="6_family_icon"]
 [ext_resource type="Script" path="res://code/scenes/skill_codex_panel.gd" id="7_skill_codex"]
 
 [sub_resource type="LabelSettings" id="LabelSettings_title"]
-font_size = 26
+font_size = 22
 font_color = Color(0.85, 0.85, 0.85, 1)
-
-[sub_resource type="LabelSettings" id="LabelSettings_hp"]
-font_size = 22
-font_color = Color(0.9, 0.9, 0.9, 1)
-
-[sub_resource type="LabelSettings" id="LabelSettings_turn"]
-font_size = 22
-font_color = Color(1, 0.85, 0.4, 1)
 
 [sub_resource type="LabelSettings" id="LabelSettings_log"]
 font_size = 16
 font_color = Color(0.75, 0.8, 0.85, 1)
 
 [sub_resource type="LabelSettings" id="LabelSettings_monster_debug"]
-font_size = 13
+font_size = 10
 font_color = Color(0.85, 0.85, 0.6, 1)
-outline_size = 3
+outline_size = 2
 outline_color = Color(0.05, 0.05, 0.05, 1)
 
 [sub_resource type="Environment" id="Environment_1"]
@@ -61,84 +52,23 @@ color = Color(0.06, 0.06, 0.08, 1)
 
 [node name="Title" type="Label" parent="."]
 offset_left = 40.0
-offset_top = 20.0
-offset_right = 1240.0
-offset_bottom = 56.0
-text = "combat_test.tscn — 플레이어 vs 테스트 몬스터"
+offset_top = 14.0
+offset_right = 700.0
+offset_bottom = 44.0
+text = "전투"
 label_settings = SubResource("LabelSettings_title")
 
-[node name="PlayerHPLabel" type="Label" parent="."]
-offset_left = 40.0
-offset_top = 70.0
-offset_right = 420.0
-offset_bottom = 100.0
-text = "플레이어 HP: 20 / 20"
-label_settings = SubResource("LabelSettings_hp")
-
-[node name="MonsterFamilyIcon" type="Control" parent="."]
-offset_left = 868.0
-offset_top = 73.0
-offset_right = 892.0
-offset_bottom = 97.0
-script = ExtResource("6_family_icon")
-
-[node name="MonsterHPLabel" type="Label" parent="."]
-offset_left = 900.0
-offset_top = 70.0
-offset_right = 1240.0
-offset_bottom = 100.0
-horizontal_alignment = 2
-text = "몬스터 HP: 10 / 10"
-label_settings = SubResource("LabelSettings_hp")
-
-[node name="PlayerHPBarBg" type="ColorRect" parent="."]
-offset_left = 40.0
-offset_top = 100.0
-offset_right = 420.0
-offset_bottom = 116.0
-color = Color(0.22, 0.07, 0.07, 1)
-
-[node name="PlayerHPBarFill" type="ColorRect" parent="."]
-offset_left = 40.0
-offset_top = 100.0
-offset_right = 420.0
-offset_bottom = 116.0
-color = Color(0.35, 0.85, 0.35, 1)
-
-[node name="MonsterHPBarBg" type="ColorRect" parent="."]
-offset_left = 900.0
-offset_top = 100.0
-offset_right = 1240.0
-offset_bottom = 116.0
-color = Color(0.22, 0.07, 0.07, 1)
-
-[node name="MonsterHPBarFill" type="ColorRect" parent="."]
-offset_left = 900.0
-offset_top = 100.0
-offset_right = 1240.0
-offset_bottom = 116.0
-color = Color(0.35, 0.85, 0.35, 1)
-
-[node name="TurnLabel" type="Label" parent="."]
-offset_left = 440.0
-offset_top = 70.0
-offset_right = 840.0
-offset_bottom = 100.0
-horizontal_alignment = 1
-text = "전투 시작"
-label_settings = SubResource("LabelSettings_turn")
-
 [node name="PlayerPortrait" type="Node2D" parent="."]
-position = Vector2(70, 270)
+position = Vector2(110, 300)
 script = ExtResource("2_player_portrait")
 
 [node name="MonsterPortrait" type="Node2D" parent="."]
-position = Vector2(1210, 312)
+position = Vector2(1170, 300)
 script = ExtResource("3_monster_portrait")
 
 [node name="DiceViewportContainer" type="SubViewportContainer" parent="."]
 offset_left = 140.0
-offset_top = 120.0
+offset_top = 184.0
 offset_right = 1140.0
 offset_bottom = 500.0
 stretch = true
@@ -185,10 +115,10 @@ shape = SubResource("BoxShape3D_wall_we")
 [node name="DiceRoot" type="Node3D" parent="DiceViewportContainer/DiceViewport"]
 
 [node name="MonsterDebugInfoLabel" type="Label" parent="."]
-offset_left = 900.0
-offset_top = 118.0
-offset_right = 1270.0
-offset_bottom = 188.0
+offset_left = 1146.0
+offset_top = 552.0
+offset_right = 1276.0
+offset_bottom = 712.0
 autowrap_mode = 2
 text = ""
 label_settings = SubResource("LabelSettings_monster_debug")

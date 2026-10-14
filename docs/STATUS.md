@@ -5,25 +5,37 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-10-14 (198)
+- 일시: 2026-10-14 (199)
 - 작성자: AI 에이전트. INBOX.md 최우선 지시 [대형 기획 13](던전 선택~전투 UI 품질
-  개선, M-1→M-4, 셀프 피드백 루프 방식) 중 **M-1(던전 맵 화면)을 완료**. 캐릭터
-  선택 화면(K-2/K-3) 수준의 구역 패널·버튼 위계·퍼스널 컬러로 `dungeon_map`을
-  끌어올리는 작업으로, Before 캡처 → 비평(`docs/UI_REVIEW.md`) → 수정 → After
-  캡처 + 재비평을 2라운드 거쳐 완료했다. 신규 공용 헬퍼 `code/systems/ui_kit.gd`
-  (`UIKit` — 구역 패널/HUD 띠/스탯 칩/진행도 점/주·보조 버튼 스타일)를 만들어
-  M-2~M-4가 재사용할 기반을 마련했고, `dungeon_map.gd`에 라운드/진행도(점)/골드
-  HUD 바를 신설해 개발용 문구("(테스트 허브)")를 제거하고 버튼 위계(전투=주 행동
-  강조, 나머지=보조)를 적용했다. 5개 화면이 공유하는 `deck_panel.gd`도 구역
-  패널화 + 빈 공간을 메울 신규 정보(이벤트 주사위/인벤토리) + ScrollContainer(런
-  후반 보유 스킬이 많아져도 화면 밖으로 안 잘림)로 함께 개선됐다. 과정에서
-  `FocusNav.focus_style()`의 불투명 배경이 커스텀 버튼색을 덮어버리는 전 화면
-  공통 버그를 발견해 수정(배경 투명화). `dice_test.gd` 신규 검증 포함 전체
-  **PASS**, `qa_out/m1_*.png`로 6개 상태 육안 확인. 상세는 `docs/UI_REVIEW.md`
-  "M-1" 절과 아래 "완료 기록 (198)". "완료 기록" 10개 유지를 위해 (188)을
-  `docs/STATUS_ARCHIVE.md`로 옮겼다. **다음은 M-2(전투 화면 기본 레이아웃/HUD)**
-  — INBOX.md "부분 처리됨"의 [대형 기획 13] 원문 참고, M-1에서 만든 `UIKit`을
-  재사용할 것.
+  개선, M-1→M-4, 셀프 피드백 루프 방식) 중 **M-2(전투 화면 기본 레이아웃/HUD)를
+  완료**. `combat_test` 화면을 M-1(`dungeon_map`)과 같은 수준으로 끌어올리는
+  작업으로, 코드를 먼저 읽어 문제를 특정한 뒤 설계 → 구현 → 캡처 7장 + 비평 →
+  DeckPanel 토글/승리 보상 화면과의 공존까지 확인하는 흐름으로 1라운드 만에
+  "하" 수준 문제만 남는 결과에 도달했다(상세는 `docs/UI_REVIEW.md` "M-2" 절).
+  개발용 제목("combat_test.tscn — ...")을 "전투"로 바꾸고, 기존 "[QA] 공격
+  2D4 · 방어 1D4" 디버그 줄은 `OS.is_debug_build()`일 때만(릴리즈 빌드에서는
+  완전히 숨김) 화면 구석 10px 글자로 격하했다. 상단에 "좌=플레이어(얼굴+이름+
+  28px HP 바, 숫자 겹쳐 표시)/중앙=턴·라운드 배지/우=몬스터(계열 아이콘+이름+
+  일반·정예·보스 텍스트 배지+HP 바+'특성' 줄)" 3구역 HUD를 `_setup_combat_hud()`
+  (M-1이 만든 `UIKit` 공용 헬퍼 재사용)로 새로 그렸다. 몬스터 "특성" 줄은 신규
+  `_monster_trait_summary_text()`(순수 함수)가 성격 + 보유 스킬의 짧은 이름만
+  사람이 읽기 좋게 보여주고(다이스 개수 같은 수치는 디버그 줄에만 남김), 캐릭터/
+  몬스터 포트레이트는 `combat_test.tscn`에서 안쪽으로 당기고 배율도
+  `PORTRAIT_SCALE_NORMAL`(1.1)/`PORTRAIT_SCALE_BOSS`(1.3)로 키워 보스 몬스터도
+  더는 화면 밖으로 안 벗어난다. 기존 평문 `LogLabel`은 `_setup_log_panel()`로
+  "전투 기록" 구역 패널이 되고 맨 위에 캐릭터 기믹별 활성 스택/주기를 보여주는
+  "상태" 요약 줄(`_update_status_panel()`)이 새로 생겼다. 버튼 6개(다음/다시
+  하기/설정으로/스킬도감/커스터마이징/덱보기)는 `_style_result_buttons()`로
+  주/보조 위계 통일. `dice_test.gd`에 `_check_m2_combat_hud()` 신규 검증(실제
+  `combat_test.tscn` instantiate + 렌더된 텍스트/색/visible 확인, 순수 함수
+  단위 검증 포함) 추가해 전체 **PASS**, `qa_out/m2_before_*.png` 7장으로 전투
+  시작/교환 후/보스/정예/캐릭터 전환/덱 보기 토글/승리 보상 화면 육안 확인(마지막
+  둘은 M-3 영역과의 레이아웃 충돌 여부만 스모크 테스트). 상세는 `docs/
+  UI_REVIEW.md` "M-2" 절과 아래 "완료 기록 (199)". **다음은 M-3(전투 화면
+  상태별 연출/결과/보상 UI)** — INBOX.md "부분 처리됨"의 [대형 기획 13] 원문
+  참고, 승리 보상 카드가 현재 새 플레이어 HUD 패널 하단과 살짝 겹치는 것(이번
+  이터레이션에서 발견, M-2 범위 밖이라 그대로 둠)부터 M-3의 Before 비평 출발점
+  으로 쓸 것.
 
 ## 지금 위치
 
@@ -318,8 +330,18 @@ STATUS_ARCHIVE.md`(174 이전)/위 "완료 기록 (184)~(186)" 참고.
   위계가 분명해졌다. 5개 화면이 공유하는 `DeckPanel`은 섹션 5개(캐릭터 얼굴+
   이름/보유 스킬/공격 주머니/방어 주머니/기타 정보(이벤트 주사위+인벤토리))로
   구역화됐고 넘치면 스크롤된다. 새 공용 헬퍼 `code/systems/ui_kit.gd`(`UIKit`)가
-  이 패턴들을 담당 — M-2(전투 화면)부터는 이걸 재사용한다. 자세한 내용은
-  `docs/UI_REVIEW.md` "M-1" 절 참고.
+  이 패턴들을 담당. 자세한 내용은 `docs/UI_REVIEW.md` "M-1" 절 참고.
+- **전투 화면 HUD/버튼 위계/전투 기록 패널(2026-10-14 [대형 기획 13] M-2 완료)**:
+  `combat_test.tscn`의 개발용 제목/상시 노출 디버그 줄이 사라지고(디버그 줄은
+  `OS.is_debug_build()`일 때만 구석 10px 글자로), 상단에 "좌=플레이어(얼굴+
+  이름+28px HP 바, 숫자 겹침)/중앙=턴·라운드 배지/우=몬스터(계열 아이콘+이름+
+  일반·정예·보스 텍스트 배지+HP 바+성격·스킬 요약 '특성' 줄)" 3구역 HUD가
+  `_setup_combat_hud()`(M-1의 `UIKit` 재사용)로 생겼다. 포트레이트는 안쪽으로
+  당기고 배율을 키워(`PORTRAIT_SCALE_NORMAL`/`PORTRAIT_SCALE_BOSS`) 보스도 더는
+  화면 밖으로 안 나간다. 기존 평문 `LogLabel`은 "전투 기록" 구역 패널이 되고
+  맨 위에 캐릭터 기믹별 활성 스택/주기를 보여주는 "상태" 요약 줄이 붙었다. 버튼
+  6개는 주/보조 위계로 통일. 자세한 내용은 `docs/UI_REVIEW.md` "M-2" 절 참고.
+  M-3(전투 상태별 연출/결과/보상 UI)부터는 이 HUD를 그대로 두고 재사용한다.
 
 상세 변경 이력은 아래 "완료 기록"(최근 10개)과, 그보다 오래된 것은
 `docs/STATUS_ARCHIVE.md`(매 이터레이션 읽지 않는 아카이브) 참고.
@@ -330,10 +352,15 @@ STATUS_ARCHIVE.md`(174 이전)/위 "완료 기록 (184)~(186)" 참고.
 진행하는 것을 권장한다. 한 이터레이션에 한두 개만 진행할 것.
 
 **INBOX.md 최우선 지시는 지금 [대형 기획 13](던전 선택~전투 UI 품질 개선,
-M-1~M-4, 셀프 피드백 루프 방식)이다 — M-1(던전 맵 화면)이 2026-10-14(198)에
-완료됐고, 다음은 M-2(전투 화면 기본 레이아웃/HUD)다.** M-1에서 만든
-`code/systems/ui_kit.gd`(`UIKit`)를 M-2~M-4가 재사용할 것(INBOX M-4 원문
-"새로 복붙하지 말 것"). [대형 기획 11](조작/UI 개편, K-1~K-4)은 2026-10-13(192)에,
+M-1~M-4, 셀프 피드백 루프 방식)이다 — M-1(던전 맵 화면)이 2026-10-14(198)에,
+M-2(전투 화면 기본 레이아웃/HUD)가 2026-10-14(199)에 완료됐고, 다음은
+M-3(전투 화면 상태별 연출/결과/보상 UI)다.** M-1에서 만든
+`code/systems/ui_kit.gd`(`UIKit`)를 M-2가 재사용했고 M-3~M-4도 그대로 재사용할
+것(INBOX M-4 원문 "새로 복붙하지 말 것"). M-3는 M-2가 끝내지 않고 남겨둔
+"승리 보상 화면 오버레이가 새 플레이어 HUD 패널 하단과 살짝 겹침"(`qa_out/
+m2_before_result.png`에서 확인, `docs/UI_REVIEW.md` M-2 "남은 하 수준 문제"
+참고 — 다만 당시엔 "하" 수준으로 분류했으나 M-3 범위에서는 제대로 다룰 것)부터
+Before 비평에 포함하는 게 좋다. [대형 기획 11](조작/UI 개편, K-1~K-4)은 2026-10-13(192)에,
 [대형 기획 12](캐릭터 선택/스킬 도감/전역 퍼스널 컬러, L-1~L-3)는 2026-10-14(197)에
 각각 전체 완료됐다. [대형 기획 13]이 전부 끝나면 아래 번호 매긴 큐에서 고를 것.
 남은 구조적 후보(급하지 않음): 보스 개별 6종 중 타락한 기사단장만 밴드 미달
@@ -945,6 +972,60 @@ M-1~M-4, 셀프 피드백 루프 방식)이다 — M-1(던전 맵 화면)이 202
 
 ## 완료 기록
 
+- **2026-10-14 (199)**: INBOX.md 최우선 지시 [대형 기획 13] 던전 선택~전투 UI 품질
+  개선(M-1→M-4, 셀프 피드백 루프 방식) 중 **M-2(전투 화면 기본 레이아웃/HUD) 완료**.
+  M-1과 달리 이번엔 먼저 `combat_test.gd`/`.tscn`을 전부 읽어 각 문제의 정확한
+  노드/라인을 특정한 뒤 설계했고, 1라운드 구현 + 7장 캡처 + 비평만으로 "하" 수준
+  문제만 남는 결과에 도달했다(전체 기록은 `docs/UI_REVIEW.md` "M-2" 절).
+  **개발용 문구 제거**: 제목 "combat_test.tscn — 플레이어 vs 테스트 몬스터" ->
+  "전투"(`RunState.test_battle`이면 "(테스트 전투)" 부기, M-1과 같은 패턴). 기존
+  "[QA] 공격 2D4 · 방어 1D4" + 스킬/보스 디버그 줄(`monster_debug_info_label`)은
+  삭제하지 않고 `OS.is_debug_build()`일 때만 보이는 화면 구석(x1146~1276,
+  y552~712) 10px 글자로 격하 — 릴리즈 빌드에서는 완전히 숨겨진다(INBOX M-2
+  "QA/디버그 플래그가 켜졌을 때만 표시").
+  **상단 HUD 3구역 재설계** (`_setup_combat_hud()`, dungeon_map.gd의
+  `_setup_hud_bar()`와 같은 패턴으로 M-1이 만든 `UIKit`을 재사용해 런타임에 생성):
+  좌(플레이어) = 얼굴 썸네일(`CharacterArt.load_face_thumb`)+이름+두꺼운(28px,
+  기존 16px) HP 바(숫자 겹쳐 표시, `_build_hp_bar()` 신규 헬퍼) / 중앙 = "라운드
+  N·방 M"(테스트 전투면 "테스트 전투·난이도 N") 캡션 + 큰 턴 배지 / 우(몬스터) =
+  계열 아이콘(`FamilyIcon`, 보스 왕관/정예 빨간 테두리 유지)+이름+"일반/정예/보스"
+  텍스트 배지(회색/빨강/금색, 아이콘과 이중 신호)+HP 바+**"특성" 줄**(신규
+  `_monster_trait_summary_text()` 순수 함수 — 성격 한 줄 + 보유 스킬의 짧은
+  이름(`SKILL_TRAIT_LABELS` 16종 매핑)만 사람이 읽기 좋게, 다이스 개수 등 수치는
+  디버그 줄에만 남김).
+  **초상화 재배치**: `combat_test.tscn`에서 player(70,270)->(110,300),
+  monster(1210,312)->(1170,300)로 안쪽으로 당기고 기준 배율도 1.0/1.25 ->
+  `PORTRAIT_SCALE_NORMAL`(1.1)/`PORTRAIT_SCALE_BOSS`(1.3)로 키웠다 — 보스
+  몬스터 우측 끝이 x=1255.8로 화면(1280) 안에 안전하게 들어온다(이전엔 1.25배
+  시 1292.5로 캔버스 밖으로 벗어났었음, 신규 dice_test 검증으로 회귀 방지).
+  다이스 뷰포트 상단도 120->184로 내려 HUD와 안 겹치게 조정.
+  **"전투 기록" 구역 패널화**(`_setup_log_panel()`): 평문 `LogLabel`을 `UIKit.
+  make_section()` 패널로 감싸고 맨 위에 **"상태" 요약 줄**(`_update_status_panel()`
+  — 캐릭터 기믹별 활성 스택/주기만 골라 보여주고 없으면 "활성 효과 없음")을
+  추가, `log_label` 자체(텍스트 갱신 로직)는 재부모화만 해서 재사용.
+  **버튼 위계 통일**(`_style_result_buttons()`): "다음"만 `style_primary_button`,
+  나머지 5개(다시하기/설정으로/스킬도감/커스터마이징/덱보기)는
+  `style_secondary_button`. QA 캐릭터 전환 훅(`_debug_qa_character_pirate/
+  shieldbearer`)도 `_debug_set_character()` 공용 구현으로 묶어 HUD/로그
+  패널/버튼까지 전부 다시 그리도록 확장(HUD가 전부 런타임 생성이라 배경색만
+  바꾸는 것으론 부족해짐).
+  **검증**: `dice_test.gd`에 신규 `_check_m2_combat_hud()` — 순수 함수(티어
+  텍스트/색, 특성 요약) 단위 검증 + `combat_test.tscn`을 실제 instantiate해
+  (M-1의 dungeon_map 테스트와 같은 패턴 — `_ready()`가 `_run_battle()`의
+  await에 들어가기 전까지는 전부 동기 실행되므로 물리 시뮬레이션을 기다릴 필요가
+  없음을 확인하고 적용) 제목/몬스터 이름·티어/디버그 줄 visible/HP 바 오버레이
+  갱신/중앙 캡션/상태 요약 줄/LogLabel 재부모화/버튼 위계/보스 포트레이트 화면
+  내 안착까지 렌더 결과로 검증. 전체 **PASS**(`qa_out/dice_test_m2b.png`로
+  확인 후 삭제 — 스크린샷 자체는 보존 불필요, 텍스트 PASS만 남기면 충분).
+  `qa_out/m2_before_*.png` 7장(전투 시작/교환 1회 후(HP 바 색 전환 확인)/
+  보스/정예(goblin_chief)/해적 QA 캐릭터 전환/덱 보기 토글/승리 보상 화면)으로
+  육안 확인 — 마지막 둘(덱 보기, 승리 보상)은 M-3 영역과의 레이아웃 충돌 여부만
+  보는 스모크 테스트였고 크래시/파손 없음을 확인했을 뿐 M-3 자체를 손대진
+  않았다(승리 보상 오버레이가 새 플레이어 HUD 패널 하단과 살짝 겹치는 것을
+  발견했지만 M-2 범위 밖이라 "하" 수준으로 남겨두고 다음 M-3의 Before 비평
+  출발점으로 인계). "완료 기록" 10개 유지를 위해 (189)를 `docs/STATUS_ARCHIVE.md`
+  로 옮겼다.
+
 - **2026-10-14 (198)**: INBOX.md 최우선 지시 [대형 기획 13] 던전 선택~전투 UI 품질
   개선(M-1→M-4, 셀프 피드백 루프 방식) 중 **M-1(던전 맵 화면) 완료**. 기준 화면인
   캐릭터 선택(K-2/K-3 — 구역 패널, 테두리, 퍼스널 컬러) 수준으로 `dungeon_map`을
@@ -1437,60 +1518,9 @@ M-1~M-4, 셀프 피드백 루프 방식)이다 — M-1(던전 맵 화면)이 202
   선택/상점/덱·커스터마이즈 패널/전투 중 보유 스킬/이벤트 보상에 motif 아이콘
   배선)**. "완료 기록" 10개 유지를 위해 (180)을 `docs/STATUS_ARCHIVE.md`로 옮겼다.
 
-- **2026-10-13 (189)**: INBOX.md 최우선 지시 [대형 기획 11] 조작/UI 개편(K-1→K-4) 중
-  **K-3(캐릭터 퍼스널 컬러를 UI에 반영) 완료**. 신규 `code/systems/character_theme.gd`
-  (`CharacterTheme`, `FocusNav`/`CharacterProfiles`와 같은 "씬 상태 없는 순수 함수만"
-  설계)에 `ui_palette(character_id) -> {primary, accent, panel_bg, text}`를 만들었다 —
-  프로필의 `hair_color`/`dress_color` 중 채도×명도가 큰(더 선명한) 쪽을 골라, `accent`는
-  HSV 채도/명도를 끌어올려 어두운 배경 위에서 또렷한 포커스·테두리 색으로, `primary`는
-  중간 명도로 눌러 평상시 테두리색으로, `panel_bg`는 원색이 아무리 밝아도(해적의
-  터콰이즈 등) 항상 HSV value=0.09까지 눌러 어두운 배경으로 고정한다(INBOX.md가 명시한
-  "원색을 그대로 배경에 쓰지 말 것" 우려를 구조적으로 막음). `text`는 near-white
-  고정값이지만 `_ensure_text_contrast()`가 WCAG 2.0 공식(`relative_luminance`/
-  `contrast_ratio`, 둘 다 공개 함수)으로 `panel_bg` 대비 4.5:1 미만이면 자동으로
-  밝혀 보정한다(실측 8종 전부 12.88~13.47:1로 여유 있게 통과, panel_bg를 항상 어둡게
-  고정한 덕에 사실상 항상 한 번에 통과). `CharacterTheme.apply(panel, character_id,
-  use_accent)`는 "panel" 테마 슬롯의 StyleBoxFlat을 복제해 border_color만 덮어쓰는
-  한 줄 헬퍼(INBOX.md 원문 "화면별 하드코딩이 아니라 공용 헬퍼로 — 새 화면이 생겨도
-  한 줄로 적용되게").
-  **적용**: ① `character_select.gd` 우측 상세 패널 — `_make_section()`이 만드는 섹션
-  5개를 `_detail_section_entries`(panel+title_label 쌍)에 쌓아두고, `_refresh_detail_
-  panel()`이 호출하는 신규 `_apply_detail_section_theme()`가 카드를 고를 때마다 그
-  캐릭터의 `primary`(테두리)/`accent`(제목색)로 다시 칠한다. 시작 스킬 슬롯의 포커스
-  체인도 같은 `accent`를 쓰도록 `FocusNav.chain_linear()` 호출에 넘겼다(좌측 카드
-  목록/화면 공용 버튼은 "선택 전 기본은 중립색" 원문대로 FocusNav.ACCENT_DEFAULT 유지 —
-  상세 패널만 캐릭터색을 따름). ② `deck_panel.gd` — dungeon_map/shop/event/
-  story_event에 상시, combat_test에 토글로 뜨는 "주요 패널"이 이미 5개 화면에
-  재사용되고 있어서, 이 패널 하나의 `_rebuild()`에 `CharacterTheme.apply(self,
-  RunState.character_id)` 한 줄만 추가해 "런 시작 이후 모든 화면의 주요 패널 테두리
-  통일" 요구를 화면마다 따로 손대지 않고 충족했다(제목 "캐릭터: OOO" 글자색도 accent로).
-  ③ K-1이 만든 `FocusNav.focus_style()`의 `accent` 매개변수 자리에 `CharacterTheme.
-  ui_palette(RunState.character_id)["accent"]`를 꽂았다 — dungeon_map/combat_test/
-  event/shop/story_event(`FocusNav.chain_linear(_shortcut_buttons, false)` 호출부
-  5곳)와 customize_panel/achievement_panel(오버레이 트랩 체인)까지 전부 포커스
-  강조색이 캐릭터색으로 바뀐다.
-  **검증**: 신규 `dice_test.gd`의 `_check_k3_character_theme()`가 (a) 8명 전부 ui_
-  palette().text/.panel_bg 실제 계산된 대비비가 4.5 이상인지(12.88~13.47 확인) (b)
-  character_select를 "견습 모험가"→"해적"으로 바꾸면 상세 패널 섹션의 실제
-  border_color가 달라지고 `ui_palette("pirate").primary`와 정확히 일치하는지 (c)
-  `DeckPanel.new()`로 캐릭터를 바꿔가며 `_rebuild()`를 직접 불러 패널 자신의
-  border_color가 실제로 바뀌는지 — 셋 다 "플래그가 들어갔나"가 아니라 "실제 노드의
-  StyleBox 색 값"으로 검증. 처음 실행 시 `character_theme.gd`의 `max(l1, l2)`/
-  `min(l1, l2)`를 `var lighter := ...`로 타입 추론해 "Variant로 추론됨(경고를 에러로
-  처리)" 컴파일 에러가 났고, `float` 명시 타입으로 고쳐 해결(세션 권한 설정상 흔한
-  함정 — 이 프로젝트는 경고를 에러로 처리). `bash scripts/qa_shot.sh dice_test` 3회
-  연속 PASS 확인. `qa_shot.sh character_select`로 견습 모험가(연핑크)/해적(청록, 원화
-  있음)/주술사(짙은 보라, 원화 있음) 3명을 스크린샷 비교 — 섹션 테두리·제목·"고유
-  능력" 아이콘 색이 캐릭터마다 뚜렷이 다르고 겹침/번짐 없음 확인, `qa_shot.sh
-  dungeon_map`으로 DeckPanel 테두리+"캐릭터: 견습 모험가" 제목+"전투 방 입장" 버튼
-  포커스 테두리가 전부 같은 핑크 계열로 통일됨을 확인. `docs/DESIGN.md` "조작"/
-  "플레이어블 캐릭터" 절에 K-3 서술 추가. **K-3 완료 — 다음은 K-4(a: 스킬 아이콘
-  모티프 분류표)**. INBOX.md [대형 기획 11]은 "부분 처리됨"에 그대로 두고 진행 한
-  줄만 갱신. "완료 기록" 10개 유지를 위해 (179)를 `docs/STATUS_ARCHIVE.md`로 옮겼다.
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(198)에서 (188)을 그리로 옮겼다.)*
+이번 이터레이션(199)에서 (189)를 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 

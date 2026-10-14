@@ -8,6 +8,57 @@
 
 ---
 
+- **2026-10-13 (189)**: INBOX.md 최우선 지시 [대형 기획 11] 조작/UI 개편(K-1→K-4) 중
+  **K-3(캐릭터 퍼스널 컬러를 UI에 반영) 완료**. 신규 `code/systems/character_theme.gd`
+  (`CharacterTheme`, `FocusNav`/`CharacterProfiles`와 같은 "씬 상태 없는 순수 함수만"
+  설계)에 `ui_palette(character_id) -> {primary, accent, panel_bg, text}`를 만들었다 —
+  프로필의 `hair_color`/`dress_color` 중 채도×명도가 큰(더 선명한) 쪽을 골라, `accent`는
+  HSV 채도/명도를 끌어올려 어두운 배경 위에서 또렷한 포커스·테두리 색으로, `primary`는
+  중간 명도로 눌러 평상시 테두리색으로, `panel_bg`는 원색이 아무리 밝아도(해적의
+  터콰이즈 등) 항상 HSV value=0.09까지 눌러 어두운 배경으로 고정한다(INBOX.md가 명시한
+  "원색을 그대로 배경에 쓰지 말 것" 우려를 구조적으로 막음). `text`는 near-white
+  고정값이지만 `_ensure_text_contrast()`가 WCAG 2.0 공식(`relative_luminance`/
+  `contrast_ratio`, 둘 다 공개 함수)으로 `panel_bg` 대비 4.5:1 미만이면 자동으로
+  밝혀 보정한다(실측 8종 전부 12.88~13.47:1로 여유 있게 통과, panel_bg를 항상 어둡게
+  고정한 덕에 사실상 항상 한 번에 통과). `CharacterTheme.apply(panel, character_id,
+  use_accent)`는 "panel" 테마 슬롯의 StyleBoxFlat을 복제해 border_color만 덮어쓰는
+  한 줄 헬퍼(INBOX.md 원문 "화면별 하드코딩이 아니라 공용 헬퍼로 — 새 화면이 생겨도
+  한 줄로 적용되게").
+  **적용**: ① `character_select.gd` 우측 상세 패널 — `_make_section()`이 만드는 섹션
+  5개를 `_detail_section_entries`(panel+title_label 쌍)에 쌓아두고, `_refresh_detail_
+  panel()`이 호출하는 신규 `_apply_detail_section_theme()`가 카드를 고를 때마다 그
+  캐릭터의 `primary`(테두리)/`accent`(제목색)로 다시 칠한다. 시작 스킬 슬롯의 포커스
+  체인도 같은 `accent`를 쓰도록 `FocusNav.chain_linear()` 호출에 넘겼다(좌측 카드
+  목록/화면 공용 버튼은 "선택 전 기본은 중립색" 원문대로 FocusNav.ACCENT_DEFAULT 유지 —
+  상세 패널만 캐릭터색을 따름). ② `deck_panel.gd` — dungeon_map/shop/event/
+  story_event에 상시, combat_test에 토글로 뜨는 "주요 패널"이 이미 5개 화면에
+  재사용되고 있어서, 이 패널 하나의 `_rebuild()`에 `CharacterTheme.apply(self,
+  RunState.character_id)` 한 줄만 추가해 "런 시작 이후 모든 화면의 주요 패널 테두리
+  통일" 요구를 화면마다 따로 손대지 않고 충족했다(제목 "캐릭터: OOO" 글자색도 accent로).
+  ③ K-1이 만든 `FocusNav.focus_style()`의 `accent` 매개변수 자리에 `CharacterTheme.
+  ui_palette(RunState.character_id)["accent"]`를 꽂았다 — dungeon_map/combat_test/
+  event/shop/story_event(`FocusNav.chain_linear(_shortcut_buttons, false)` 호출부
+  5곳)와 customize_panel/achievement_panel(오버레이 트랩 체인)까지 전부 포커스
+  강조색이 캐릭터색으로 바뀐다.
+  **검증**: 신규 `dice_test.gd`의 `_check_k3_character_theme()`가 (a) 8명 전부 ui_
+  palette().text/.panel_bg 실제 계산된 대비비가 4.5 이상인지(12.88~13.47 확인) (b)
+  character_select를 "견습 모험가"→"해적"으로 바꾸면 상세 패널 섹션의 실제
+  border_color가 달라지고 `ui_palette("pirate").primary`와 정확히 일치하는지 (c)
+  `DeckPanel.new()`로 캐릭터를 바꿔가며 `_rebuild()`를 직접 불러 패널 자신의
+  border_color가 실제로 바뀌는지 — 셋 다 "플래그가 들어갔나"가 아니라 "실제 노드의
+  StyleBox 색 값"으로 검증. 처음 실행 시 `character_theme.gd`의 `max(l1, l2)`/
+  `min(l1, l2)`를 `var lighter := ...`로 타입 추론해 "Variant로 추론됨(경고를 에러로
+  처리)" 컴파일 에러가 났고, `float` 명시 타입으로 고쳐 해결(세션 권한 설정상 흔한
+  함정 — 이 프로젝트는 경고를 에러로 처리). `bash scripts/qa_shot.sh dice_test` 3회
+  연속 PASS 확인. `qa_shot.sh character_select`로 견습 모험가(연핑크)/해적(청록, 원화
+  있음)/주술사(짙은 보라, 원화 있음) 3명을 스크린샷 비교 — 섹션 테두리·제목·"고유
+  능력" 아이콘 색이 캐릭터마다 뚜렷이 다르고 겹침/번짐 없음 확인, `qa_shot.sh
+  dungeon_map`으로 DeckPanel 테두리+"캐릭터: 견습 모험가" 제목+"전투 방 입장" 버튼
+  포커스 테두리가 전부 같은 핑크 계열로 통일됨을 확인. `docs/DESIGN.md` "조작"/
+  "플레이어블 캐릭터" 절에 K-3 서술 추가. **K-3 완료 — 다음은 K-4(a: 스킬 아이콘
+  모티프 분류표)**. INBOX.md [대형 기획 11]은 "부분 처리됨"에 그대로 두고 진행 한
+  줄만 갱신. "완료 기록" 10개 유지를 위해 (179)를 `docs/STATUS_ARCHIVE.md`로 옮겼다.
+
 - **2026-10-13 (188)**: INBOX.md 최우선 지시 [대형 기획 11] 조작/UI 개편(K-1→K-4) 중
   **K-2(캐릭터 선택 화면 가독성 개편: 좌 얼굴 중심 목록 / 우 구역 나눈 상세 패널)
   완료**. 좌측 카드 목록(`code/scenes/character_select.gd`의 `_make_card()`)을

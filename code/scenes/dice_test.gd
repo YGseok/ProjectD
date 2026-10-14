@@ -325,6 +325,10 @@ func _ready() -> void:
 	all_pass = _check_m1_dungeon_map_hud_and_buttons(lines) and all_pass
 
 	lines.append("")
+	lines.append("[M-2: 전투 화면 HUD 검증: combat_test.gd 3구역 HUD(플레이어/턴·라운드/몬스터) 실제 렌더 텍스트 + 티어 배지/특성 요약 순수 함수 + 디버그 줄 빌드 플래그 게이팅 + 전투 기록 패널/상태 요약 + 버튼 위계]")
+	all_pass = _check_m2_combat_hud(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -7035,4 +7039,159 @@ func _check_m1_dungeon_map_hud_and_buttons(lines: PackedStringArray) -> bool:
 	RunState.gold = gold_backup
 	RunState.rooms_cleared = rooms_backup
 	RunState.test_battle = test_battle_backup
+	return ok
+
+
+## [대형 기획 13] M-2(2026-10-14) 검증 — combat_test.gd의 HUD 재설계를 "노드가 있는가"가
+## 아니라 실제 렌더 텍스트/색이 맞는가로 검증한다. combat_test.tscn을 실제로 instantiate해
+## 트리에 넣는다(M-1의 dungeon_map 테스트와 같은 패턴) — _ready()는 "HUD/버튼/몬스터 설정"을
+## 전부 끝낸 뒤 맨 마지막 _run_battle() 호출에서만 await로 들어가므로(물리 다이스 정지
+## 대기), add_child() 직후 시점엔 이미 검증 대상 전부가 동기적으로 완성돼 있다 — 물리
+## 코루틴이 끝나길 기다릴 필요가 없다(다른 combat_test 테스트들이 피했던 "await 때문에
+## 느리다"는 문제가 애초에 발생하지 않는 지점만 검사).
+func _check_m2_combat_hud(lines: PackedStringArray) -> bool:
+	var ok := true
+	var character_backup := RunState.character_id
+	var test_battle_backup := RunState.test_battle
+	var test_monster_id_backup := RunState.test_monster_id
+	var test_difficulty_backup := RunState.test_difficulty
+
+	# --- 순수 함수(인스턴스 없이도 검증 가능한 부분 먼저) ---
+	var combat_script := load("res://code/scenes/combat_test.gd")
+	var probe = combat_script.new()
+	var tier_normal_ok: bool = probe._monster_tier_text(false, false) == "일반"
+	var tier_elite_ok: bool = probe._monster_tier_text(true, false) == "정예"
+	var tier_boss_ok: bool = probe._monster_tier_text(false, true) == "보스"
+	ok = tier_normal_ok and tier_elite_ok and tier_boss_ok and ok
+	lines.append("  티어 텍스트(일반/정예/보스): '%s'/'%s'/'%s' -> %s" % [
+		probe._monster_tier_text(false, false), probe._monster_tier_text(true, false),
+		probe._monster_tier_text(false, true),
+		"OK" if (tier_normal_ok and tier_elite_ok and tier_boss_ok) else "FAIL"
+	])
+	var tier_colors_distinct_ok: bool = (
+		probe._monster_tier_color(false, false) != probe._monster_tier_color(true, false)
+		and probe._monster_tier_color(true, false) != probe._monster_tier_color(false, true)
+	)
+	ok = tier_colors_distinct_ok and ok
+	lines.append("  티어 색이 일반/정예/보스 셋 다 다름(색만으로도 혼동 안 되게) -> %s" % [
+		"OK" if tier_colors_distinct_ok else "FAIL"
+	])
+	# "특성" 요약 — _monster_debug_info_text()(QA용, 다이스 개수 등 수치 포함)와 달리
+	# 성격 + 스킬 짧은 이름만 사람이 읽기 좋게 나열하고 수치는 안 들어가야 한다.
+	var trait_config := {
+		"personality": "무기력하고 단순함", "skill_ids": ["counter", "armor"],
+		"attack_count": 99, "defense_count": 99, "dice_sides": 99,
+	}
+	var trait_text: String = probe._monster_trait_summary_text(trait_config)
+	var trait_ok: bool = (
+		trait_text.contains("무기력하고 단순함") and trait_text.contains("반격")
+		and trait_text.contains("방어구") and not trait_text.contains("99")
+	)
+	ok = trait_ok and ok
+	lines.append("  특성 요약(성격+스킬 짧은 이름 포함, 다이스 수치 미포함): '%s' -> %s" % [
+		trait_text.replace("\n", " / "), "OK" if trait_ok else "FAIL"
+	])
+	var trait_empty_ok: bool = probe._monster_trait_summary_text({}) == "특성 없음"
+	ok = trait_empty_ok and ok
+	lines.append("  특성 요약(빈 config): '%s' (기대 '특성 없음') -> %s" % [
+		probe._monster_trait_summary_text({}), "OK" if trait_empty_ok else "FAIL"
+	])
+	probe.free()
+
+	# --- 실제 화면(테스트 전투 모드로 몬스터를 "슬라임" 고정 — 결정론적) ---
+	RunState.character_id = "pirate"
+	RunState.test_battle = true
+	RunState.test_monster_id = "slime"
+	RunState.test_difficulty = 0
+
+	var combat_scene := load("res://code/scenes/combat_test.tscn")
+	var combat = combat_scene.instantiate()
+	add_child(combat)
+
+	var title: Label = combat.get_node("Title")
+	var title_ok: bool = title.text == "전투 (테스트 전투)" and not title.text.contains("combat_test.tscn")
+	ok = title_ok and ok
+	lines.append("  제목(테스트 전투 중): '%s' (기대 '전투 (테스트 전투)', 개발용 파일명 없음) -> %s" % [
+		title.text, "OK" if title_ok else "FAIL"
+	])
+
+	var monster_name_ok: bool = combat.monster_name_label.text == "슬라임"
+	var monster_tier_text_ok: bool = combat.monster_tier_label.text == "일반"
+	ok = monster_name_ok and monster_tier_text_ok and ok
+	lines.append("  몬스터 HUD: 이름='%s'(기대 '슬라임') 티어='%s'(기대 '일반') -> %s" % [
+		combat.monster_name_label.text, combat.monster_tier_label.text,
+		"OK" if (monster_name_ok and monster_tier_text_ok) else "FAIL"
+	])
+	var trait_shown_ok: bool = combat.monster_trait_label.text.contains("무기력하고 단순함")
+	ok = trait_shown_ok and ok
+	lines.append("  몬스터 특성 패널: '%s' -> %s" % [
+		combat.monster_trait_label.text.replace("\n", " / "), "OK" if trait_shown_ok else "FAIL"
+	])
+
+	# 디버그 줄("[QA] 공격...") 가시성은 OS.is_debug_build()를 그대로 따라야 한다
+	# (INBOX M-2 "QA/디버그 플래그가 켜졌을 때만 표시" — 릴리즈 빌드에선 항상 숨김).
+	var debug_visibility_ok: bool = combat.monster_debug_info_label.visible == OS.is_debug_build()
+	ok = debug_visibility_ok and ok
+	lines.append("  디버그 줄 visible=%s (기대 OS.is_debug_build()=%s) -> %s" % [
+		combat.monster_debug_info_label.visible, OS.is_debug_build(), "OK" if debug_visibility_ok else "FAIL"
+	])
+
+	# HP 바 오버레이 숫자가 실제 HP를 반영(두껍게 키운 바 위에 숫자를 겹쳐 표시 — 별도
+	# 텍스트 줄이 아님). 값을 바꾸고 _update_labels()를 다시 불러도 따라오는지까지 확인.
+	combat.player_hp = 13
+	combat.monster_hp = 3
+	combat._update_labels()
+	var hp_overlay_ok: bool = combat.player_hp_label.text == "13 / 20" and combat.monster_hp_label.text == "3 / %d" % combat.monster_max_hp
+	ok = hp_overlay_ok and ok
+	lines.append("  HP 바 오버레이 갱신: 플레이어='%s'(기대 '13 / 20') 몬스터='%s' -> %s" % [
+		combat.player_hp_label.text, combat.monster_hp_label.text, "OK" if hp_overlay_ok else "FAIL"
+	])
+
+	# 라운드/방 캡션 — 테스트 전투면 "난이도" 표기를 쓴다(던전 진행 라운드/방 개념이 없음).
+	var caption_ok: bool = combat._round_room_caption() == "테스트 전투 · 난이도 0"
+	ok = caption_ok and ok
+	lines.append("  중앙 캡션(테스트 전투): '%s' (기대 '테스트 전투 · 난이도 0') -> %s" % [
+		combat._round_room_caption(), "OK" if caption_ok else "FAIL"
+	])
+
+	# "전투 기록" 패널: 상태 요약 줄이 "상태:"로 시작하고, log_label이 그 패널 자식으로
+	# 재부모화됐는지(평문 그대로 화면 루트에 남지 않았는지).
+	var status_label_ok: bool = combat.player_status_label != null and combat.player_status_label.text.begins_with("상태:")
+	ok = status_label_ok and ok
+	lines.append("  전투 기록 패널 상태 요약 줄: '%s' -> %s" % [
+		combat.player_status_label.text if combat.player_status_label else "(null)", "OK" if status_label_ok else "FAIL"
+	])
+	var log_reparented_ok: bool = combat.log_label.get_parent() != null and combat.log_label.get_parent() != combat
+	ok = log_reparented_ok and ok
+	lines.append("  LogLabel이 '전투 기록' 섹션 패널 자식으로 재부모화됨 -> %s" % [
+		"OK" if log_reparented_ok else "FAIL"
+	])
+
+	# 주/보조 버튼 위계 — "다음"만 주 행동(캐릭터 accent 꽉 채움), 나머지는 보조(테두리만).
+	var next_style: StyleBoxFlat = combat.next_button.get_theme_stylebox("normal")
+	var codex_style: StyleBoxFlat = combat.skill_codex_button.get_theme_stylebox("normal")
+	var button_hierarchy_ok: bool = next_style != null and codex_style != null and next_style.bg_color != codex_style.bg_color
+	ok = button_hierarchy_ok and ok
+	lines.append("  버튼 위계: 다음(주) normal=%s 스킬도감(보조) normal=%s (달라야 함) -> %s" % [
+		next_style.bg_color if next_style else "null", codex_style.bg_color if codex_style else "null",
+		"OK" if button_hierarchy_ok else "FAIL"
+	])
+
+	# 초상화가 더는 화면 밖으로 안 나가는지 — 보스 배율(PORTRAIT_SCALE_BOSS)을 적용해도
+	# 몬스터 포트레이트의 가장 넓은 지점(ellipse radius_x=66)이 뷰포트(1280) 안에 있어야 함.
+	var monster_portrait: Node2D = combat.get_node("MonsterPortrait")
+	var boss_right_edge: float = monster_portrait.position.x + 66.0 * combat.PORTRAIT_SCALE_BOSS
+	var portrait_within_viewport_ok: bool = boss_right_edge < 1280.0
+	ok = portrait_within_viewport_ok and ok
+	lines.append("  보스 배율 몬스터 포트레이트 우측 끝 x=%.1f (기대 <1280, 화면 밖으로 안 나감) -> %s" % [
+		boss_right_edge, "OK" if portrait_within_viewport_ok else "FAIL"
+	])
+
+	remove_child(combat)
+	combat.free()
+
+	RunState.character_id = character_backup
+	RunState.test_battle = test_battle_backup
+	RunState.test_monster_id = test_monster_id_backup
+	RunState.test_difficulty = test_difficulty_backup
 	return ok
