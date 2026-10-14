@@ -317,6 +317,10 @@ func _ready() -> void:
 	all_pass = _check_l2c_skill_codex_entry_points(lines) and all_pass
 
 	lines.append("")
+	lines.append("[L-3: 전역 퍼스널 컬러 배경/패널 확장 검증: character_theme.gd apply_background()가 Background ColorRect/비네트를 실제로 캐릭터별로 다르게 칠하는지 + 5개 화면 + 오버레이 패널 3종(customize/achievement/skill_codex) 틀 테두리색 전환]")
+	all_pass = (await _check_l3_personal_color_background(lines)) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -5997,6 +6001,177 @@ func _check_k3_character_theme(lines: PackedStringArray) -> bool:
 
 	remove_child(deck)
 	deck.free()
+	RunState.character_id = character_backup
+	return ok
+
+
+## [대형 기획 12] L-3 검증. 세 갈래:
+## (a) CharacterTheme.apply_background() 단위 검증 — combat_test.tscn과 같은
+##     "Background" ColorRect 구조를 흉내낸 더미 Node2D로(combat_test.tscn 자체는
+##     물리 시뮬레이션 await 때문에 이 동기 harness에서 직접 인스턴스화하지 않는
+##     기존 관례를 그대로 따름 — L-2(c) 주석 참고). Background.color와 그 자식으로
+##     생성되는 ThemeVignette(TextureRect).modulate가 캐릭터별로 실제로 달라지고
+##     ui_palette() 값과 정확히 일치하는지 확인.
+## (b) 실제 화면 5개(character_select는 카드 전환으로, dungeon_map/shop/event/
+##     story_event는 RunState.character_id로) 인스턴스의 Background 노드 실제
+##     color가 캐릭터를 바꾸면 달라지는지.
+## (c) 오버레이 패널 3종(CustomizePanel/AchievementPanel/SkillCodexPanel)의 틀이
+##     이제 ColorRect 대신 Panel이라 border_color를 갖고, 캐릭터를 바꾸면 그 색도
+##     실제로 바뀌는지.
+## character_select의 카드 전환은 Tween으로 애니메이션되므로(INBOX.md L-3 원문
+## "부드럽게 전환") 색이 즉시 바뀌지 않는다 — await로 전환 시간(기본 0.25초)이 지날
+## 때까지 기다린 뒤에 최종 색을 확인한다. 호출부(_ready())는 `await`로 받아야 한다.
+func _check_l3_personal_color_background(lines: PackedStringArray) -> bool:
+	var ok := true
+	var character_backup := RunState.character_id
+
+	# (a)
+	var dummy := Node2D.new()
+	var dummy_bg := ColorRect.new()
+	dummy_bg.name = "Background"
+	dummy_bg.color = Color(0.06, 0.06, 0.08, 1)
+	dummy.add_child(dummy_bg)
+	add_child(dummy)
+
+	CharacterTheme.apply_background(dummy, "novice")
+	var novice_bg_color: Color = dummy_bg.color
+	var vignette: TextureRect = dummy_bg.get_node_or_null("ThemeVignette")
+	var vignette_created_ok: bool = vignette != null and vignette.texture != null
+	ok = vignette_created_ok and ok
+	lines.append("  apply_background(novice): ThemeVignette 생성됨=%s -> %s" % [
+		vignette != null, "OK" if vignette_created_ok else "FAIL"
+	])
+
+	CharacterTheme.apply_background(dummy, "pirate")
+	var pirate_bg_color: Color = dummy_bg.color
+	var pirate_vignette_modulate: Color = vignette.modulate if vignette != null else Color.WHITE
+
+	var bg_changed: bool = novice_bg_color != pirate_bg_color
+	ok = bg_changed and ok
+	lines.append("  Background.color: novice=%s pirate=%s (달라야 함) -> %s" % [
+		novice_bg_color, pirate_bg_color, "OK" if bg_changed else "FAIL"
+	])
+
+	var expected_pirate_bg: Color = CharacterTheme.ui_palette("pirate")["panel_bg"]
+	expected_pirate_bg.a = 1.0
+	var bg_matches: bool = pirate_bg_color.is_equal_approx(expected_pirate_bg)
+	ok = bg_matches and ok
+	lines.append("  Background.color이 ui_palette(\"pirate\").panel_bg와 일치 -> %s" % ("OK" if bg_matches else "FAIL"))
+
+	var expected_pirate_tint: Color = CharacterTheme.ui_palette("pirate")["primary"]
+	expected_pirate_tint.a = 1.0
+	var vignette_matches: bool = pirate_vignette_modulate.is_equal_approx(expected_pirate_tint)
+	ok = vignette_matches and ok
+	lines.append("  ThemeVignette.modulate이 ui_palette(\"pirate\").primary와 일치 -> %s" % ("OK" if vignette_matches else "FAIL"))
+
+	remove_child(dummy)
+	dummy.free()
+
+	# (b) character_select: 카드 전환으로 배경이 바뀌는지.
+	RunState.character_id = "novice"
+	var select_scene := load("res://code/scenes/character_select.tscn")
+	var select_node = select_scene.instantiate()
+	add_child(select_node)
+	var select_novice_bg: Color = select_node.get_node("Background").color
+	select_node._on_card_selected("pirate")
+	# 카드 전환은 Tween으로 애니메이션되므로(즉시 적용 아님) 전환 시간이 지날 때까지 기다린다.
+	await get_tree().create_timer(0.35).timeout
+	var select_pirate_bg: Color = select_node.get_node("Background").color
+	var select_changed: bool = select_novice_bg != select_pirate_bg
+	ok = select_changed and ok
+	lines.append("  character_select Background: novice=%s pirate=%s (카드 전환 시 달라야 함) -> %s" % [
+		select_novice_bg, select_pirate_bg, "OK" if select_changed else "FAIL"
+	])
+	remove_child(select_node)
+	select_node.free()
+
+	# (b) 던전 진행 화면 4종: RunState.character_id로.
+	var screen_paths := {
+		"dungeon_map": "res://code/scenes/dungeon_map.tscn",
+		"shop": "res://code/scenes/shop.tscn",
+		"event": "res://code/scenes/event.tscn",
+		"story_event": "res://code/scenes/story_event.tscn",
+	}
+	for screen_label in screen_paths:
+		var scene := load(screen_paths[screen_label])
+
+		RunState.character_id = "novice"
+		var node_a = scene.instantiate()
+		add_child(node_a)
+		var bg_a: Color = node_a.get_node("Background").color
+		remove_child(node_a)
+		node_a.free()
+
+		RunState.character_id = "pirate"
+		var node_b = scene.instantiate()
+		add_child(node_b)
+		var bg_b: Color = node_b.get_node("Background").color
+		remove_child(node_b)
+		node_b.free()
+
+		var screen_changed: bool = bg_a != bg_b
+		ok = screen_changed and ok
+		lines.append("  %s Background: novice=%s pirate=%s (캐릭터 다르면 달라야 함) -> %s" % [
+			screen_label, bg_a, bg_b, "OK" if screen_changed else "FAIL"
+		])
+
+	# (c) 오버레이 패널 틀(Panel) border_color.
+	RunState.character_id = "novice"
+	var customize := CustomizePanel.new()
+	add_child(customize)
+	customize.open()
+	var customize_novice_border: Color = (customize._ui[0] as Panel).get_theme_stylebox("panel").border_color
+	customize.close()
+
+	RunState.character_id = "pirate"
+	customize.open()
+	var customize_pirate_border: Color = (customize._ui[0] as Panel).get_theme_stylebox("panel").border_color
+	var customize_changed: bool = customize_novice_border != customize_pirate_border
+	ok = customize_changed and ok
+	lines.append("  CustomizePanel 틀 테두리색: novice=%s pirate=%s (달라야 함) -> %s" % [
+		customize_novice_border, customize_pirate_border, "OK" if customize_changed else "FAIL"
+	])
+	customize.close()
+	remove_child(customize)
+	customize.free()
+
+	RunState.character_id = "novice"
+	var achievement := AchievementPanel.new()
+	add_child(achievement)
+	achievement.open()
+	var ach_novice_border: Color = (achievement._ui[0] as Panel).get_theme_stylebox("panel").border_color
+	achievement.close()
+
+	RunState.character_id = "pirate"
+	achievement.open()
+	var ach_pirate_border: Color = (achievement._ui[0] as Panel).get_theme_stylebox("panel").border_color
+	var ach_changed: bool = ach_novice_border != ach_pirate_border
+	ok = ach_changed and ok
+	lines.append("  AchievementPanel 틀 테두리색: novice=%s pirate=%s (달라야 함) -> %s" % [
+		ach_novice_border, ach_pirate_border, "OK" if ach_changed else "FAIL"
+	])
+	achievement.close()
+	remove_child(achievement)
+	achievement.free()
+
+	RunState.character_id = "novice"
+	var codex := SkillCodexPanel.new()
+	add_child(codex)
+	codex.open("novice", [])
+	var codex_novice_border: Color = (codex._ui[0] as Panel).get_theme_stylebox("panel").border_color
+	codex.close()
+
+	codex.open("pirate", [])
+	var codex_pirate_border: Color = (codex._ui[0] as Panel).get_theme_stylebox("panel").border_color
+	var codex_changed: bool = codex_novice_border != codex_pirate_border
+	ok = codex_changed and ok
+	lines.append("  SkillCodexPanel 틀 테두리색: novice=%s pirate=%s (달라야 함) -> %s" % [
+		codex_novice_border, codex_pirate_border, "OK" if codex_changed else "FAIL"
+	])
+	codex.close()
+	remove_child(codex)
+	codex.free()
+
 	RunState.character_id = character_backup
 	return ok
 

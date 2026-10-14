@@ -8,6 +8,37 @@
 
 ---
 
+- **2026-10-13 (187)**: INBOX.md 최우선 지시 [대형 기획 11] 조작/UI 개편(K-1→K-4) 중
+  **K-1(방향키+스페이스 조작으로 숫자 단축키 완전 대체) 완료**. 신규
+  `code/scenes/focus_nav.gd`(`FocusNav`, 씬 상태 없는 순수 유틸)가 "버튼 목록을
+  방향키 체인으로 명시적으로 잇기(`chain_linear`, 위/아래 또는 좌/우, `wrap`으로
+  양 끝 연결, `trap`으로 반대 축을 자기 자신에 묶어 Godot 자동 탐색이 오버레이
+  밖으로 못 나가게 막음)" + "눈에 띄는 포커스 테두리 스타일 적용" + "첫 버튼에
+  초기 포커스"를 제공한다 — 버튼 활성화(스페이스/Enter 확정) 자체는 Godot 기본
+  `BaseButton` 동작(focus_mode=FOCUS_ALL + ui_accept)에 맡기고 새로 구현하지
+  않았다. 대상 9개 화면(character_select/dungeon_map/combat_test/event/shop/
+  story_event/customize_panel/achievement_panel/test_battle_setup) 전부에서
+  `KeyboardShortcuts.apply_hints()`(버튼 "[n] " 접두어)와 숫자 키
+  `_unhandled_input` 핸들러를 제거하고 `FocusNav` 체인으로 교체했다. 오버레이
+  패널(customize_panel/achievement_panel)은 Esc로 닫히고(`_unhandled_input`에서
+  `KEY_ESCAPE` 감지) 포커스가 `wrap`+`trap` 체인으로 안에 갇힌다 — customize_panel은
+  5단계 화면(`_show_pip_picker`/`_show_die_inventory_picker`/`_show_die_target_
+  picker`/`_show_die_picker`/`_show_face_picker`) 전부 다시 그릴 때마다 체인을
+  새로 건다. combat_test는 덱 보기 토글 패널도 Esc로 닫히게 자체 `_unhandled_
+  input`에 추가했다. 더 이상 쓰이지 않는 `code/scenes/keyboard_shortcuts.gd`
+  (`KeyboardShortcuts`)는 완전히 삭제했다. `dice_test.gd`의 기존 `_check_
+  keyboard_shortcuts`도 `_check_focus_nav`로 교체 — "계산 결과가 바뀌는가"를
+  검증하는 지침대로 `focus_mode`/`focus_neighbor_*` NodePath를 직접 비교하고,
+  실제 `CustomizePanel` 인스턴스를 만들어 `has_focus()`(엔진 실제 포커스 상태)와
+  Esc 입력 후 `closed` 시그널 발생을 검증한다(개발 중 람다가 바깥 int를 값으로
+  캡처해 0으로 보이던 테스트 버그와, `close()`의 `queue_free()` 자식 뒤에
+  `panel.free()`를 즉시 호출해 이중 해제로 무관한 다른 테스트에서 세그폴트가
+  나던 문제 둘 다 실제로 겪고 고침). `dice_test` 전체 PASS를 3회 연속 재확인
+  (크래시 없음). 9개 화면 전부 `qa_shot.sh`로 스크린샷 확인 — "[n] " 숫자 힌트가
+  전혀 안 보이고, 첫 포커스 버튼에 청록 테두리가 보임. `docs/DESIGN.md`에 "조작"
+  절 신설(키 매핑 표). INBOX.md의 [대형 기획 11]을 "부분 처리됨"으로 옮기고
+  K-1 완료 상태로 갱신 — K-2/K-3/K-4는 아직 미착수.
+
 - **2026-10-13 (186)**: INBOX.md 최우선 지시 [대형 기획 10] **J-4(마무리) 완료 —
   [대형 기획 10] 전체(J-1~J-4) 완료 처리**. 코드 손잡이는 전혀 건드리지
   않았다(J-3 커밋 이후 추가 튜닝 없음) — 이번 이터레이션은 측정/문서 정리만.

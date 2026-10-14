@@ -941,6 +941,11 @@ func _reset_player_battle_state() -> void:
 
 
 func _ready() -> void:
+	# L-3(2026-10-14, [대형 기획 12] K-3 후속): 배경/제목을 현재 캐릭터 퍼스널 컬러로.
+	CharacterTheme.apply_background(self, RunState.character_id)
+	var title := get_node_or_null("Title")
+	if title is Label:
+		CharacterTheme.apply_label(title, RunState.character_id)
 	var room_override := OS.get_environment("GAME_QA_ROOM_OVERRIDE")
 	var config: Dictionary
 	# [대형 기획 8] H-1(2026-10-08): RunState.test_battle이 가장 먼저 우선한다 — 테스트
@@ -985,6 +990,24 @@ func _ready() -> void:
 	_update_labels()
 	_rebuild_shortcuts()
 	_run_battle()
+
+
+## QA 전용(GAME_QA_CALL) — L-3 배경/패널 퍼스널 컬러를 눈으로 확인하기 위한 0-arity
+## 래퍼. 밝은 색(해적)/어두운 색(주술사)을 각각 스크린샷으로 비교할 때 쓴다.
+func _debug_qa_character_pirate() -> void:
+	RunState.character_id = "pirate"
+	CharacterTheme.apply_background(self, RunState.character_id)
+	var title := get_node_or_null("Title")
+	if title is Label:
+		CharacterTheme.apply_label(title, RunState.character_id)
+
+
+func _debug_qa_character_shieldbearer() -> void:
+	RunState.character_id = "shieldbearer"
+	CharacterTheme.apply_background(self, RunState.character_id)
+	var title := get_node_or_null("Title")
+	if title is Label:
+		CharacterTheme.apply_label(title, RunState.character_id)
 
 
 ## dungeon_map.gd/shop.gd 등과 같은 패턴 — 지금 화면에 실제로 눌러야 할 버튼들을

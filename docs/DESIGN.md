@@ -176,6 +176,35 @@ combat_test/event/shop/story_event/customize_panel/achievement_panel의 포커�
 "스페이스/Enter" 규칙이 그대로 적용되고(카드가 포커스된 상태에서 확정), 마우스는
 카드 어디를 클릭해도 선택되며 hover 시 살짝 밝아진다.
 
+### 퍼스널 컬러 적용 범위 (2026-10-14 [대형 기획 12] L-3 완료, K-3 후속 정리)
+
+K-3(포커스 강조색·캐릭터 선택 상세 패널·`DeckPanel`)에 이어 L-3로 캐릭터 퍼스널
+컬러(`CharacterTheme.ui_palette`)가 적용되는 범위가 게임 전반의 배경과 주요 패널
+테두리까지 넓어졌다. 지금 적용된 전체 지점을 한곳에 정리하면:
+
+- **배경**: `CharacterTheme.apply_background(scene_root, character_id)`(신규
+  공용 헬퍼) — 각 씬의 "Background" ColorRect를 `panel_bg`로 물들이고, 그 자식으로
+  `primary` 색조의 약한 방사형 그라데이션(비네트, `ThemeVignette` TextureRect)을
+  얹는다. 적용 화면: character_select, dungeon_map, combat_test, event, shop,
+  story_event(총 6개 — DESIGN.md가 언급하는 "주요 화면" 전부). character_select는
+  카드를 바꿀 때마다 즉시 전환이 아니라 짧은 Tween(0.25초)으로 부드럽게 전환되고,
+  그 외 화면은 화면 진입 시 그 런의 캐릭터 색으로 즉시 시작한다(애니메이션 없음 —
+  이미 정해진 캐릭터라 전환할 "이전 색"이 없음).
+- **화면 제목(상단 HUD)**: `CharacterTheme.apply_label(label, character_id)`(신규
+  공용 헬퍼, accent 색) — 위 6개 화면의 "Title" 라벨에 전부 적용.
+- **주요 패널 테두리**: `CharacterTheme.apply(panel, character_id)`(K-3부터 있던
+  헬퍼) — 캐릭터 선택 상세 패널 5섹션(K-3)·`DeckPanel`(K-3)에 이어, L-3로
+  `CustomizePanel`/`AchievementPanel`/`SkillCodexPanel`의 틀(기존엔 테두리 없는
+  단순 검정 `ColorRect`였던 것을 `Panel`+`StyleBoxFlat`로 바꿈)에도 적용됐다.
+- **포커스 강조색**: K-1부터 있던 `FocusNav.focus_style()`의 accent 매개변수 — 위
+  모든 화면/오버레이 패널에서 그대로 유지.
+- **적용되지 않는 곳**: 전투 중 다이스 3D 지오테메트리·재질 색(DESIGN.md "다이스
+  연출" 절 — 재질 시스템과 별개 축이라 섞지 않음), 몬스터 쪽 UI(몬스터는 플레이어
+  캐릭터가 없으므로 퍼스널 컬러 대상이 아님).
+- 대비(WCAG AA 4.5:1 이상)는 `ui_palette()`가 `panel_bg`를 항상 어둡게,
+  `text`를 그 배경 대비로 보정해 자동 보장 — 8명 전부 12~13대1로 여유 있게
+  통과(계산은 `code/scenes/dice_test.gd`의 K-3/L-3 검증 참고).
+
 ## 현재 구현 콘텐츠 (기획자 참고용)
 
 > 이 섹션은 코드를 열지 않고도 "지금 게임에 실제로 뭐가 들어있는지" 확인하기 위한

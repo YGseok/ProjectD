@@ -154,6 +154,11 @@ var _shortcut_buttons: Array[Button] = []
 
 
 func _ready() -> void:
+	# L-3(2026-10-14, [대형 기획 12] K-3 후속): 배경/제목을 현재 캐릭터 퍼스널 컬러로.
+	CharacterTheme.apply_background(self, RunState.character_id)
+	var title := get_node_or_null("Title")
+	if title is Label:
+		CharacterTheme.apply_label(title, RunState.character_id)
 	enter_combat_button.pressed.connect(_on_combat_button_pressed)
 	enter_shop_button.pressed.connect(_on_shop_button_pressed)
 	enter_event_button.pressed.connect(_on_event_button_pressed)
@@ -168,6 +173,24 @@ func _ready() -> void:
 	_setup_shop_gold_label()
 	_roll_room_choices()
 	_update_labels()
+
+
+## QA 전용(GAME_QA_CALL) — L-3 배경/패널 퍼스널 컬러를 눈으로 확인하기 위한 0-arity
+## 래퍼. 밝은 색(해적)/어두운 색(주술사)을 각각 스크린샷으로 비교할 때 쓴다.
+func _debug_qa_character_pirate() -> void:
+	RunState.character_id = "pirate"
+	CharacterTheme.apply_background(self, RunState.character_id)
+	var title := get_node_or_null("Title")
+	if title is Label:
+		CharacterTheme.apply_label(title, RunState.character_id)
+
+
+func _debug_qa_character_shieldbearer() -> void:
+	RunState.character_id = "shieldbearer"
+	CharacterTheme.apply_background(self, RunState.character_id)
+	var title := get_node_or_null("Title")
+	if title is Label:
+		CharacterTheme.apply_label(title, RunState.character_id)
 
 
 ## 보상 카테고리 아이콘(RewardIcon)이 무엇을 뜻하는지 설명하는 범례. INBOX.md 피드백

@@ -104,6 +104,76 @@ static func ui_palette(character_id: String) -> Dictionary:
 	return {"primary": primary, "accent": accent, "panel_bg": panel_bg, "text": text}
 
 
+## L-3(2026-10-14, [대형 기획 12] K-3 후속)이 쓰는 비네트 질감 — 중심이 살짝 밝고
+## 가장자리로 갈수록 투명해지는 흑백(순수 알파) 그라데이션 텍스처를 한 번만 만들어
+## 캐싱해둔다. 캐릭터별 색은 이 텍스처를 입히는 TextureRect의 `modulate`로만 주므로
+## (흰 중심 × accent색 = accent색, 알파는 그대로) 캐릭터가 바뀌어도 텍스처 자체를 다시
+## 만들 필요가 없고 Tween으로 modulate만 보간하면 매끄러운 색 전환이 된다.
+static var _vignette_texture: GradientTexture2D
+
+
+static func _get_vignette_texture() -> GradientTexture2D:
+	if _vignette_texture == null:
+		var gradient := Gradient.new()
+		gradient.set_color(0, Color(1, 1, 1, 0.3))
+		gradient.set_color(1, Color(1, 1, 1, 0.0))
+		var tex := GradientTexture2D.new()
+		tex.gradient = gradient
+		tex.fill = GradientTexture2D.FILL_RADIAL
+		tex.fill_from = Vector2(0.5, 0.4)
+		tex.fill_to = Vector2(0.5, 1.0)
+		tex.width = 128
+		tex.height = 128
+		_vignette_texture = tex
+	return _vignette_texture
+
+
+## scene_root 바로 아래의 "Background"라는 이름의 ColorRect(전 화면 공통 네이밍 —
+## dungeon_map/combat_test/event/shop/story_event/character_select.tscn 전부 이
+## 패턴)를 찾아 캐릭터 팔레트 기준으로 물들인다: ColorRect.color를 panel_bg로,
+## 그 자식으로 (없으면 새로) 만든 비네트 TextureRect의 modulate를 primary로 — "어두운
+## panel_bg 단색 + primary 색조의 약한 그라데이션/비네트"(INBOX.md L-3 원문). 해당
+## 이름의 ColorRect가 없는 씬(오버레이 패널 등)에서는 조용히 아무 일도 하지 않는다.
+## animate=true면 짧은 Tween으로 부드럽게 전환(캐릭터 선택 화면에서 카드를 바꿀 때),
+## false면 즉시 적용(화면 최초 진입 시 깜빡임 없이 바로 그 캐릭터 색으로 시작).
+static func apply_background(scene_root: Node, character_id: String, animate: bool = false, duration: float = 0.25) -> void:
+	var bg_node := scene_root.get_node_or_null("Background")
+	if not (bg_node is ColorRect):
+		return
+	var bg_rect: ColorRect = bg_node
+	var vignette: TextureRect = bg_rect.get_node_or_null("ThemeVignette")
+	if vignette == null:
+		vignette = TextureRect.new()
+		vignette.name = "ThemeVignette"
+		vignette.set_anchors_preset(Control.PRESET_FULL_RECT)
+		vignette.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		vignette.stretch_mode = TextureRect.STRETCH_SCALE
+		vignette.texture = _get_vignette_texture()
+		bg_rect.add_child(vignette)
+
+	var palette := ui_palette(character_id)
+	var target_bg: Color = palette["panel_bg"]
+	target_bg.a = 1.0
+	var target_tint: Color = palette["primary"]
+	target_tint.a = 1.0
+
+	if animate:
+		var tween := bg_rect.create_tween()
+		tween.set_parallel(true)
+		tween.tween_property(bg_rect, "color", target_bg, duration)
+		tween.tween_property(vignette, "modulate", target_tint, duration)
+	else:
+		bg_rect.color = target_bg
+		vignette.modulate = target_tint
+
+
+## Label의 글자색을 팔레트 기준으로 덮어쓰는 한 줄 헬퍼 — "상단 HUD 띠"(화면 제목 등)에
+## 쓴다. use_accent=true(기본)면 더 밝은 accent, false면 primary.
+static func apply_label(label: Label, character_id: String, use_accent: bool = true) -> void:
+	var palette := ui_palette(character_id)
+	label.add_theme_color_override("font_color", palette["accent"] if use_accent else palette["primary"])
+
+
 ## panel(PanelContainer/Panel 등 "panel" 테마 슬롯을 쓰는 Control)의 테두리 색을
 ## character_id 팔레트 기준으로 덮어쓰는 한 줄 헬퍼(INBOX.md 원문 "화면별 하드코딩이
 ## 아니라 공용 헬퍼로 — 새 화면이 생겨도 한 줄로 적용되게"). 기존에 "panel" 스타일

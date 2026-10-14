@@ -53,12 +53,19 @@ func _debug_scroll_to_bottom() -> void:
 func _rebuild() -> void:
 	_clear_ui()
 
-	var bg := ColorRect.new()
-	bg.color = Color(0, 0, 0, 0.9)
+	# L-3(2026-10-14, [대형 기획 12] K-3 후속): 평범한 검정 ColorRect였던 틀을
+	# Panel(테두리 있음)로 바꿔 CharacterTheme.apply()로 캐릭터 색 테두리를 입힌다.
+	var bg := Panel.new()
+	var frame_style := StyleBoxFlat.new()
+	frame_style.bg_color = Color(0, 0, 0, 0.9)
+	frame_style.set_border_width_all(2)
+	frame_style.set_corner_radius_all(8)
+	bg.add_theme_stylebox_override("panel", frame_style)
 	bg.position = Vector2(140, 80)
 	bg.size = Vector2(1000, 560)
 	add_child(bg)
 	_ui.append(bg)
+	CharacterTheme.apply(bg, RunState.character_id, false)
 
 	var entries := AchievementManager.get_all_for_display()
 	var unlocked_count := 0
@@ -70,6 +77,7 @@ func _rebuild() -> void:
 	title.text = "업적 (%d / %d 달성)" % [unlocked_count, entries.size()]
 	title.position = Vector2(170, 100)
 	title.size = Vector2(940, 30)
+	CharacterTheme.apply_label(title, RunState.character_id)
 	add_child(title)
 	_ui.append(title)
 

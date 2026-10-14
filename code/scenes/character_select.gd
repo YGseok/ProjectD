@@ -72,6 +72,11 @@ const ABILITY_DESC_WRAP_WIDTH := 720.0
 var _selected_id: String = CharacterProfiles.PROFILES[0]["id"]
 var _card_panels: Dictionary = {} # id -> PanelContainer (선택 강조 갱신용)
 
+## L-3(2026-10-14, [대형 기획 12] K-3 후속): 배경을 처음 칠할 때는(화면 진입 직후)
+## 즉시 적용하고, 그 뒤로 카드를 바꿀 때마다는 짧은 Tween으로 부드럽게 전환한다
+## (INBOX.md 원문 "카드를 고르면 배경이 그 캐릭터 색으로 부드럽게 전환").
+var _background_themed := false
+
 ## 상세 정보 패널(오른쪽)의 자식 노드들. _build_detail_panel()에서 한 번만 만들고,
 ## 카드를 고를 때마다 _refresh_detail_panel()이 텍스트/초상만 바꿔 다시 만들지 않는다
 ## (매번 새로 만들면 불필요하게 무겁고, 스크롤 위치 등 상태가 있다면 리셋될 수 있음).
@@ -613,6 +618,11 @@ func _truncate(text: String, max_chars: int) -> String:
 func _refresh_detail_panel() -> void:
 	var profile := CharacterProfiles.get_profile(_selected_id)
 	_apply_detail_section_theme(_selected_id)
+	CharacterTheme.apply_background(self, _selected_id, _background_themed)
+	_background_themed = true
+	var title := get_node_or_null("Title")
+	if title is Label:
+		CharacterTheme.apply_label(title, _selected_id)
 	_detail_portrait.set_palette(profile["hair_color"], profile["dress_color"])
 	var art := CharacterArt.load_full(_selected_id)
 	_detail_art.texture = art
@@ -851,6 +861,21 @@ func _on_card_selected(id: String) -> void:
 	_selected_id = id
 	_refresh_selection_highlight()
 	_refresh_detail_panel()
+
+
+## QA 전용(GAME_QA_CALL) — L-3 배경 전환 Tween은 실제 플레이에선 바람직하지만
+## (INBOX.md 원문 "부드럽게 전환"), 자동 스크린샷은 호출 후 딱 1프레임만 기다리고
+## 캡처하므로(visual_qa.gd) 애니메이션 도중의 색만 찍히는 문제가 있다. _background_themed를
+## 일부러 false로 되돌려 _refresh_detail_panel()이 평소처럼 쓰는 Tween 대신 즉시 적용
+## 분기를 타게 만든다 — _on_card_selected() 자체의 로직은 건드리지 않는다.
+func _debug_qa_instant_select_pirate() -> void:
+	_background_themed = false
+	_on_card_selected("pirate")
+
+
+func _debug_qa_instant_select_shieldbearer() -> void:
+	_background_themed = false
+	_on_card_selected("shieldbearer")
 
 
 ## 선택된 카드는 금테(업적 패널의 "해금" 카드와 같은 색 언어), 나머지는 회색 테두리로

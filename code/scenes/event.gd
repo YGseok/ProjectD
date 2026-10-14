@@ -83,6 +83,9 @@ var _shortcut_buttons: Array[Button] = []
 
 
 func _ready() -> void:
+	# L-3(2026-10-14, [대형 기획 12] K-3 후속): 배경/제목을 현재 캐릭터 퍼스널 컬러로.
+	CharacterTheme.apply_background(self, RunState.character_id)
+	CharacterTheme.apply_label(title_label, RunState.character_id)
 	_dc = gambler_adjusted_dc(difficulty_for_room(RunState.rooms_cleared), RunState.skill_flags.has("start_gambler"))
 	customize_button.pressed.connect(customize_panel.open)
 	skill_codex_button.pressed.connect(_on_skill_codex_pressed)

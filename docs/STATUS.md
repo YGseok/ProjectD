@@ -5,32 +5,30 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-10-14 (196)
+- 일시: 2026-10-14 (197)
 - 작성자: AI 에이전트. INBOX.md 최우선 지시 [대형 기획 12](캐릭터 선택/스킬 도감/
-  전역 퍼스널 컬러, L-1→L-3) 중 **L-2(c)(진입점 연결)를 완료**. L-2(b)가
-  만든 `SkillCodexPanel`을 6개 화면(character_select + dungeon_map/shop/
-  event/story_event/combat_test)에 실제 "스킬 도감" 버튼으로 배선했다.
-  character_select는 우측 상세 패널 헤더에 버튼을 두고 `owned_skill_ids`를
-  항상 빈 배열로 넘기며(런 시작 전, INBOX.md 원문 "선택 화면에서는 보유
-  0개"), 던전 진행 화면 5개는 `RunState.skill_flags`를 그대로 넘겨
-  "이번 회차 보유"를 반영한다. dungeon_map/shop/event/story_event는 화면
-  우상단 고정 위치(x1080-1240,y24-60, `AchievementButton`과 같은 패턴)에,
-  combat_test는 기존 커스터마이징/덱 보기 토글 옆(x835-980,y20-54)에
-  버튼을 뒀다. 전부 토글(다시 누르면 닫힘) 패턴이고, combat_test는
-  `customize_panel`과 같은 이유로 Esc 처리를 패널 자신에게 패스스루하도록
-  가드를 추가했다. `dice_test.gd`의 신규 `_check_l2c_skill_codex_entry_
-  points()`가 5개 화면(character_select/dungeon_map/shop/event/
-  story_event)을 실제로 인스턴스화해 버튼을 눌렀을 때 패널의
-  `_character_id`/`_owned`가 기대값과 정확히 일치하는지, 토글 닫힘까지
-  검증(플래그가 아니라 패널 내부 실제 상태). combat_test.tscn은
-  `_run_battle()`의 물리 시뮬레이션 `await` 체인 때문에 이 동기 테스트
-  harness에서 직접 인스턴스화하지 않고 `qa_shot` 스크린샷
-  (`_debug_press_shortcut_skill_codex`)으로만 육안 확인했다. `bash
-  scripts/qa_shot.sh dice_test` 전체 **PASS**, 6개 화면 전부
-  `qa_out/l2c_*.png`로 레이아웃 겹침 없음 확인(상세는 "완료 기록 (196)"
-  참고). "완료 기록" 10개 유지를 위해 (186)을 `docs/STATUS_ARCHIVE.md`로
-  옮겼다. **[대형 기획 12]는 L-3(전역 퍼스널 컬러를 배경/패널로 확장)만
-  남았다** — INBOX.md "부분 처리됨"에 진행 줄 갱신. 다음은 **L-3**.
+  전역 퍼스널 컬러, L-1→L-3) 중 **L-3(전역 퍼스널 컬러를 배경+주요 패널로
+  확장)을 완료해 [대형 기획 12] 전체(L-1~L-3)를 완료 처리**. K-3(포커스
+  강조색·캐릭터 선택 상세 패널·`DeckPanel`에만 적용돼 있던 것)를 게임 전반으로
+  넓혔다 — `CharacterTheme`에 신규 `apply_background(scene_root, character_id,
+  animate, duration)`(6개 전체화면 씬 공통 "Background" ColorRect를 `panel_bg`로,
+  그 자식 `ThemeVignette`를 `primary` 색 `modulate`로 물들임 — character_select는
+  카드 전환마다 0.25초 Tween, 나머지 5개는 즉시 적용)와 `apply_label(label,
+  character_id)`(화면 제목)을 추가하고, 오버레이 패널 3종(`CustomizePanel`/
+  `AchievementPanel`/`SkillCodexPanel`)의 틀을 테두리 없는 `ColorRect`에서
+  `Panel`+`StyleBoxFlat`로 바꿔 기존 `CharacterTheme.apply()`로 테두리를 입혔다.
+  `dice_test.gd`의 신규 `_check_l3_personal_color_background()`가 헬퍼 단위
+  검증 + 실제 화면 5개의 `Background.color` 전환(character_select는 Tween이
+  끝나길 `await`로 기다린 뒤 확인) + 오버레이 패널 3종 테두리색 전환까지 전부
+  PASS. `bash scripts/qa_shot.sh dice_test` 전체 **PASS**, INBOX.md가 요구한
+  "3명 × 3화면"(해적/주술사/견습 모험가 × character_select/dungeon_map/
+  combat_test) 스크린샷(`qa_out/l3_*.png`)으로 배경 틴트가 또렷하면서도 가독성이
+  유지됨을 육안 확인. `docs/DESIGN.md`에 "퍼스널 컬러 적용 범위" 절을 신설해
+  K-3~L-3 전체 적용 지점을 한곳에 정리했다(INBOX.md L-3 원문 지시). "완료 기록"
+  10개 유지를 위해 (187)을 `docs/STATUS_ARCHIVE.md`로 옮겼다. **다음 할 일은
+  아래 "다음 할 일 큐"의 번호 매긴 목록에서 고를 것** — [대형 기획 11]/[대형
+  기획 12] 모두 전체 완료라 INBOX.md 최우선 지시 항목은 당분간 없음(새 지시가
+  추가되면 그것이 최우선).
 
 ## 지금 위치
 
@@ -305,8 +303,17 @@ STATUS_ARCHIVE.md`(174 이전)/위 "완료 기록 (184)~(186)" 참고.
   "스킬 도감" 버튼이 실제로 배선됐다. character_select는 우측 상세 패널
   헤더에서 열고 `owned_skill_ids`는 항상 빈 배열(런 시작 전), 던전 진행
   화면 5개는 `RunState.skill_flags`를 그대로 넘겨 "이번 회차 보유"를
-  반영한다. 전부 토글(다시 누르면 닫힘) 패턴. [대형 기획 12]의 남은 조각
-  (L-3 전역 퍼스널 컬러 확장)은 `docs/feedback/INBOX.md` "부분 처리됨" 참고.
+  반영한다. 전부 토글(다시 누르면 닫힘) 패턴.
+- **전역 퍼스널 컬러 배경/패널 확장(2026-10-14 [대형 기획 12] L-3 완료 —
+  [대형 기획 12] 전체 완료)**: K-3(포커스 강조색·캐릭터 선택 상세 패널·
+  `DeckPanel`에만 적용)를 게임 전반으로 확장. `CharacterTheme.apply_background()`
+  (신규)가 6개 전체화면 씬(character_select/dungeon_map/combat_test/event/
+  shop/story_event)의 배경을 캐릭터색으로 물들이고 약한 비네트를 얹는다
+  (character_select는 카드 전환마다 Tween으로 부드럽게 전환, 나머지는 즉시
+  적용). 화면 제목도 `apply_label()`로 accent 색. 오버레이 패널 3종
+  (`CustomizePanel`/`AchievementPanel`/`SkillCodexPanel`)의 틀도 테두리
+  있는 `Panel`로 바뀌어 `CharacterTheme.apply()`로 테두리색이 입혀진다.
+  적용 범위 전체 정리는 `docs/DESIGN.md` "퍼스널 컬러 적용 범위" 절 참고.
 
 상세 변경 이력은 아래 "완료 기록"(최근 10개)과, 그보다 오래된 것은
 `docs/STATUS_ARCHIVE.md`(매 이터레이션 읽지 않는 아카이브) 참고.
@@ -316,18 +323,15 @@ STATUS_ARCHIVE.md`(174 이전)/위 "완료 기록 (184)~(186)" 참고.
 이 순서를 반드시 지킬 필요는 없지만, 앞 단계가 뒤 단계의 전제가 되므로 대체로 순서대로
 진행하는 것을 권장한다. 한 이터레이션에 한두 개만 진행할 것.
 
-**INBOX.md 최우선 지시 [대형 기획 12](캐릭터 선택/스킬 도감/전역 퍼스널 컬러,
-L-1 → L-2(a→b→c) → L-3) 진행 중 — L-1(193) → L-2(a)(194, 스킬 도감 데이터/
-저장) → L-2(b)(195, 도감 패널 UI `SkillCodexPanel`) → L-2(c)(2026-10-14, 196,
-진입점 연결 — 6개 화면에 "스킬 도감" 버튼 배선) 완료.**
-다음은 **L-3**(전역 퍼스널 컬러를 게임 전반의 배경+주요 패널로 확장, K-3
-후속). 상세 지시 원문은 `docs/feedback/INBOX.md` "부분 처리됨"의
-[대형 기획 12] 항목 참고 — 전투 규칙/밸런스 수치는 건드리지 말 것.
-**[대형 기획 11](조작/UI 개편, K-1~K-4)은 2026-10-13(192)에 전체 완료됐다**(K-1
-187 → K-2 188 → K-3 189 → K-4a 190 → K-4b 191 → K-4c 192). [대형 기획 12]가
-전부 끝나면 아래 번호 매긴 큐에서 골라 진행할 것. 남은 구조적 후보(급하지 않음):
-보스 개별 6종 중 타락한 기사단장만 밴드 미달(`MonsterSkills.modify_monster_roll()` 파라미터화가
-전제조건이라 사람 설계 확인 후 착수 권장).
+**[대형 기획 12](캐릭터 선택/스킬 도감/전역 퍼스널 컬러, L-1~L-3)는
+2026-10-14(197)에 전체 완료됐다**(L-1 193 → L-2(a) 194 → L-2(b) 195 →
+L-2(c) 196 → L-3 197). **[대형 기획 11](조작/UI 개편, K-1~K-4)은
+2026-10-13(192)에 전체 완료됐다**(K-1 187 → K-2 188 → K-3 189 → K-4a 190 →
+K-4b 191 → K-4c 192). 두 INBOX.md 최우선 지시 항목 모두 끝났으므로, 새 지시가
+INBOX.md에 추가되지 않은 지금은 **아래 번호 매긴 큐에서 골라 진행할 것**. 남은
+구조적 후보(급하지 않음): 보스 개별 6종 중 타락한 기사단장만 밴드 미달
+(`MonsterSkills.modify_monster_roll()` 파라미터화가 전제조건이라 사람 설계
+확인 후 착수 권장).
 
 0. **(INBOX.md 신규 2026-09-03) UI 접근성/가시성 4종 — 1/4 부분 착수.** 전부 "전투/
    선택지 화면 어디서든 정보가 상시 보이거나, 조작이 더 직관적이어야 한다"는 계열의
@@ -934,6 +938,53 @@ L-1 → L-2(a→b→c) → L-3) 진행 중 — L-1(193) → L-2(a)(194, 스킬 �
 
 ## 완료 기록
 
+- **2026-10-14 (197)**: INBOX.md 최우선 지시 [대형 기획 12] 캐릭터 선택/스킬 도감/
+  전역 퍼스널 컬러(L-1→L-3) 중 **L-3(전역 퍼스널 컬러를 배경+주요 패널로 확장)
+  완료 — [대형 기획 12] 전체(L-1~L-3) 완료 처리**. K-3(포커스 강조색·캐릭터
+  선택 상세 패널·`DeckPanel`에만 적용)를 게임 전반으로 넓히는 작업.
+  **① 배경**: `code/systems/character_theme.gd`에 신규 `apply_background(scene_root,
+  character_id, animate=false, duration=0.25)`를 추가 — 모든 전체화면 씬이
+  공유하는 "Background"라는 이름의 ColorRect(dungeon_map/combat_test/event/
+  shop/story_event/character_select.tscn 전부 동일 네이밍 컨벤션)를 찾아
+  `panel_bg`로 물들이고, 그 자식으로 (없으면 새로) 만드는 `ThemeVignette`
+  (TextureRect)에 `primary` 색을 `modulate`로 입혀 약한 방사형 그라데이션(비네트)을
+  얹는다. 비네트 텍스처 자체(흰 중심→투명 가장자리 알파 그라데이션)는 캐릭터와
+  무관하게 한 번만 만들어 캐싱하고(`_vignette_texture` static) 캐릭터색은
+  `modulate` 곱으로만 입혀, Tween으로 `modulate`만 보간하면 텍스처 재생성 없이
+  매끄러운 색 전환이 된다. 위 6개 화면의 `_ready()`에서 호출(dungeon_map/
+  combat_test/event/shop/story_event는 즉시 적용, character_select는 카드를
+  바꿀 때마다 `_refresh_detail_panel()`에서 `animate=true`로 호출해 0.25초
+  Tween으로 부드럽게 전환 — 최초 진입만 `animate=false`로 깜빡임 없이 시작).
+  **② 화면 제목**: 신규 `apply_label(label, character_id, use_accent=true)` —
+  위 6개 화면의 "Title" 라벨에 accent 색 적용. **③ 오버레이 패널 3종
+  (`CustomizePanel`/`AchievementPanel`/`SkillCodexPanel`)**: 기존엔 테두리 없는
+  단순 검정 `ColorRect` 틀이었던 것을 `Panel`+`StyleBoxFlat`(배경색 유지, 테두리
+  2px 추가)로 바꾸고 기존 `CharacterTheme.apply(panel, character_id)` 헬퍼로
+  테두리를 캐릭터 primary 색으로 칠한다(제목 라벨도 accent로). **테스트**:
+  `dice_test.gd`의 신규 `_check_l3_personal_color_background()`가 (a)
+  `apply_background()` 단위 검증(combat_test.tscn과 같은 "Background" ColorRect
+  구조를 흉내낸 더미 노드로 — combat_test 자체는 물리 await 때문에 기존 관례대로
+  직접 인스턴스화 안 함) — `ThemeVignette` 생성/`Background.color`·
+  `ThemeVignette.modulate`가 `ui_palette()` 값과 정확히 일치하는지, (b) 실제
+  화면 5개(character_select는 카드 전환, 나머지 4개는 `RunState.character_id`)
+  인스턴스의 `Background.color`가 캐릭터를 바꾸면 실제로 달라지는지(character_select는
+  Tween이 비동기라 `await get_tree().create_timer(0.35).timeout`으로 전환이
+  끝난 뒤에 확인), (c) 오버레이 패널 3종의 `Panel.border_color`가 캐릭터별로
+  바뀌는지까지 전부 PASS(처음엔 character_select 쪽이 FAIL — Tween이 끝나기 전에
+  즉시 읽어서 색이 그대로였던 버그, await 추가로 해결). `bash scripts/qa_shot.sh
+  dice_test` 전체 **PASS**. qa_shot으로 요구된 "3명 × 3화면"(해적=밝은 청록/
+  주술사=어두운 보라/견습 모험가=중립, × character_select/dungeon_map/
+  combat_test)을 `qa_out/l3_*.png`로 촬영해 육안 확인 — 배경 틴트가 또렷이
+  구분되면서도 텍스트/다이스/HP바 전부 선명하게 읽힘, 레이아웃 겹침 없음.
+  character_select/dungeon_map은 QA 전용 0-arity 디버그 훅을 새로 추가해
+  캐릭터를 바꿨다(`_debug_qa_instant_select_*`/`_debug_qa_character_*` —
+  character_select는 기존 `_debug_select_pirate`/`_debug_select_shieldbearer`가
+  이미 있었으나 Tween 애니메이션 도중 색이 찍히는 문제가 있어, `_background_themed`를
+  일부러 false로 되돌려 즉시 적용 분기를 타는 전용 변형을 추가로 만들었다).
+  `docs/DESIGN.md`에 "퍼스널 컬러 적용 범위" 절 신설(INBOX.md L-3 원문 지시대로,
+  K-3부터 L-3까지 전체 적용 지점을 한곳에 정리). **[대형 기획 12](L-1~L-3) 전체
+  완료** — INBOX.md "부분 처리됨"에서 "처리됨"으로 이동.
+
 - **2026-10-14 (196)**: INBOX.md 최우선 지시 [대형 기획 12] 캐릭터 선택/스킬 도감/
   전역 퍼스널 컬러(L-1→L-3) 중 **L-2(c)(진입점 연결) 완료**. L-2(b)가 만든
   재사용 가능한 `SkillCodexPanel`을 캐릭터 선택 화면 + 던전 진행 화면 5곳
@@ -1424,40 +1475,9 @@ L-1 → L-2(a→b→c) → L-3) 진행 중 — L-1(193) → L-2(a)(194, 스킬 �
   실제 (187) 항목 자체를 이 목록에 추가하지 않은 누락을 발견해, 아래 (187)
   항목을 "마지막 갱신"/"지금 위치" 서술을 근거로 이번에 보완해 추가했다.
 
-- **2026-10-13 (187)**: INBOX.md 최우선 지시 [대형 기획 11] 조작/UI 개편(K-1→K-4) 중
-  **K-1(방향키+스페이스 조작으로 숫자 단축키 완전 대체) 완료**. 신규
-  `code/scenes/focus_nav.gd`(`FocusNav`, 씬 상태 없는 순수 유틸)가 "버튼 목록을
-  방향키 체인으로 명시적으로 잇기(`chain_linear`, 위/아래 또는 좌/우, `wrap`으로
-  양 끝 연결, `trap`으로 반대 축을 자기 자신에 묶어 Godot 자동 탐색이 오버레이
-  밖으로 못 나가게 막음)" + "눈에 띄는 포커스 테두리 스타일 적용" + "첫 버튼에
-  초기 포커스"를 제공한다 — 버튼 활성화(스페이스/Enter 확정) 자체는 Godot 기본
-  `BaseButton` 동작(focus_mode=FOCUS_ALL + ui_accept)에 맡기고 새로 구현하지
-  않았다. 대상 9개 화면(character_select/dungeon_map/combat_test/event/shop/
-  story_event/customize_panel/achievement_panel/test_battle_setup) 전부에서
-  `KeyboardShortcuts.apply_hints()`(버튼 "[n] " 접두어)와 숫자 키
-  `_unhandled_input` 핸들러를 제거하고 `FocusNav` 체인으로 교체했다. 오버레이
-  패널(customize_panel/achievement_panel)은 Esc로 닫히고(`_unhandled_input`에서
-  `KEY_ESCAPE` 감지) 포커스가 `wrap`+`trap` 체인으로 안에 갇힌다 — customize_panel은
-  5단계 화면(`_show_pip_picker`/`_show_die_inventory_picker`/`_show_die_target_
-  picker`/`_show_die_picker`/`_show_face_picker`) 전부 다시 그릴 때마다 체인을
-  새로 건다. combat_test는 덱 보기 토글 패널도 Esc로 닫히게 자체 `_unhandled_
-  input`에 추가했다. 더 이상 쓰이지 않는 `code/scenes/keyboard_shortcuts.gd`
-  (`KeyboardShortcuts`)는 완전히 삭제했다. `dice_test.gd`의 기존 `_check_
-  keyboard_shortcuts`도 `_check_focus_nav`로 교체 — "계산 결과가 바뀌는가"를
-  검증하는 지침대로 `focus_mode`/`focus_neighbor_*` NodePath를 직접 비교하고,
-  실제 `CustomizePanel` 인스턴스를 만들어 `has_focus()`(엔진 실제 포커스 상태)와
-  Esc 입력 후 `closed` 시그널 발생을 검증한다(개발 중 람다가 바깥 int를 값으로
-  캡처해 0으로 보이던 테스트 버그와, `close()`의 `queue_free()` 자식 뒤에
-  `panel.free()`를 즉시 호출해 이중 해제로 무관한 다른 테스트에서 세그폴트가
-  나던 문제 둘 다 실제로 겪고 고침). `dice_test` 전체 PASS를 3회 연속 재확인
-  (크래시 없음). 9개 화면 전부 `qa_shot.sh`로 스크린샷 확인 — "[n] " 숫자 힌트가
-  전혀 안 보이고, 첫 포커스 버튼에 청록 테두리가 보임. `docs/DESIGN.md`에 "조작"
-  절 신설(키 매핑 표). INBOX.md의 [대형 기획 11]을 "부분 처리됨"으로 옮기고
-  K-1 완료 상태로 갱신 — K-2/K-3/K-4는 아직 미착수.
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(196)에서 (186)을 그리로 옮겼다.)*
+이번 이터레이션(197)에서 (187)을 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 

@@ -125,17 +125,26 @@ func _chain_step_focus(buttons: Array[Button]) -> void:
 ## 할 수 있는지 알 수 있어야 한다"를 반영해 각 단계 호출부에서 "지금 몇 단계인지 +
 ## 이 화면에서 고르면 무슨 일이 일어나는지"를 문장으로 명시한다.
 func _add_frame(title_text: String, height: float = 420.0, subtitle_text: String = "") -> void:
-	var bg := ColorRect.new()
-	bg.color = Color(0, 0, 0, 0.9)
+	# L-3(2026-10-14, [대형 기획 12] K-3 후속): 평범한 검정 ColorRect였던 틀을
+	# Panel(테두리 있음)로 바꿔 CharacterTheme.apply()로 캐릭터 색 테두리를 입힌다
+	# (내부 배경색 0,0,0,0.9는 그대로 유지 — 가독성 핵심 영역이라 대비를 해치지 않음).
+	var bg := Panel.new()
+	var frame_style := StyleBoxFlat.new()
+	frame_style.bg_color = Color(0, 0, 0, 0.9)
+	frame_style.set_border_width_all(2)
+	frame_style.set_corner_radius_all(8)
+	bg.add_theme_stylebox_override("panel", frame_style)
 	bg.position = Vector2(140, 120)
 	bg.size = Vector2(1000, height)
 	add_child(bg)
 	_ui.append(bg)
+	CharacterTheme.apply(bg, RunState.character_id, false)
 
 	var title := Label.new()
 	title.text = title_text
 	title.position = Vector2(170, 140)
 	title.size = Vector2(940, 30)
+	CharacterTheme.apply_label(title, RunState.character_id)
 	add_child(title)
 	_ui.append(title)
 
