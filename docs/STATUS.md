@@ -5,32 +5,32 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-10-13 (192)
-- 작성자: AI 에이전트. INBOX.md 최우선 지시 [대형 기획 11](조작/UI 개편) 중
-  **K-4c(외부 아트 override 경로 + 발주 목록 정리)를 완료 — [대형 기획 11]
-  전체(K-1~K-4) 완료 처리**. `code/scenes/skill_icon.gd`에 `skill_id`/
-  `external_art_base_dir` 프로퍼티와 정적 `load_external_art()`/`external_art_path()`를
-  추가해, `resources/skills/<skill_id>.png`가 있으면(`FileAccess.file_exists()`로
-  확인) `Image.load()`로 읽어 motif/category보다 우선해서 그리고, 없으면 에러 없이
-  기존 절차적 그리기로 폴백한다. `_draw()`의 실제 분기를 테스트가 속성이 아니라
-  계산 결과로 검증할 수 있도록 `render_source() -> String`("external"/"motif"/
-  "category"/"none")을 신설해 `_draw()`도 이 함수를 그대로 쓴다(단일 진실 소스).
-  motif를 설정하던 호출부 4곳(`item_card_style.gd`/`character_select.gd` 해금·잠금
-  2곳/`deck_panel.gd`)에 `skill_icon.skill_id = ...`도 함께 설정해, override가
-  자동으로 모든 화면에 적용되게 했다. `dice_test.gd`의 신규
-  `_check_k4c_skill_icon_external_art()`가 `resources/`를 전혀 안 건드리고
-  `user://k4c_test_tmp/`에 1x1 PNG를 직접 만들어 "파일 없음(motif)" → "파일
-  생성 후(external로 실제 전환)" → "motif를 비워도 override가 우선" → "파일
-  삭제 후 다시 폴백"까지 네 단계로 실제 분기가 바뀌는지 확인(테스트 후 임시
-  파일/폴더 삭제). `bash scripts/qa_shot.sh dice_test` 전체 **PASS**(leak 경고
-  2건은 `git stash`로 교차 확인한 기존 known noise, 내 변경과 무관).
-  `qa_shot.sh event`/`character_select`로 override 파일이 없는 지금은 기존
-  절차적 모티프 그대로 렌더돼 회귀 없음을 육안 확인. INBOX.md 지시대로 스킬
-  아이콘 33종 전체의 "ProjectD Art" 발주 목록(id/이름/모티프/계열 색 hex/설명
-  한 줄)을 아래 "완료 기록 (192)"에 표로 정리했다 — **전달 자체는 이 작업
-  세션이 아니라 감독 세션이 SendMessage로 한다**(INBOX.md 명시). INBOX.md의
-  [대형 기획 11]을 "처리됨"으로 옮겼다. "완료 기록" 10개 유지를 위해 (182)를
-  `docs/STATUS_ARCHIVE.md`로 옮겼다.
+- 일시: 2026-10-14 (193)
+- 작성자: AI 에이전트. INBOX.md 최우선 지시 [대형 기획 12](캐릭터 선택/스킬 도감/
+  전역 퍼스널 컬러, L-1→L-3) 중 **L-1(캐릭터 카드 자체를 눌러 선택, "선택" 버튼
+  제거)을 완료**. 캐릭터 카드마다 있던 전용 "선택" `Button`을 없애고, 카드
+  패널(신규 `code/scenes/character_card_panel.gd`의 `CharacterCardPanel`) 전체가
+  클릭/스페이스 선택 영역이 되도록 바꿨다. `_gui_input()`에서 좌클릭과
+  ui_accept(스페이스/Enter)를 똑같이 `activated` 시그널로 통일하고, hover 시
+  `modulate`로 살짝 밝아지는 피드백을 준다. `FocusNav.chain_linear`/
+  `grab_first_focus`가 Button 전용(`Array[Button]`)이었던 걸 비타입 `Array`로
+  열어 Button이 아닌 Control(카드 패널)도 같은 포커스 체인에 섞일 수 있게
+  했고, `grab_first_focus`의 `.disabled` 체크는 `ctrl is BaseButton`으로
+  감싸 PanelContainer에도 안전하게 동작한다 — 다른 7개 화면은 전부 기존
+  `Array[Button]`을 그대로 넘기므로 호출부 변경 없이 회귀 없음(비타입 Array
+  매개변수는 더 구체적인 타입을 그대로 받아들임). `dice_test.gd`의 신규
+  `_check_l1_card_click_select()`가 실제 `InputEventMouseButton`/
+  `InputEventKey`(KEY_SPACE)를 카드 패널의 `_gui_input()`에 직접 넣어
+  `_selected_id`가 실제로 바뀌는지, 선택된 카드의 StyleBox `border_color`가
+  실제로 달라지는지, 씬 전체에 "선택" 텍스트 `Button`이 하나도 안 남았는지를
+  계산/렌더 결과로 검증(플래그만 보지 않음). `bash scripts/qa_shot.sh
+  dice_test` 전체 **PASS**(leak 경고는 `git stash`로 교차 확인한 기존 known
+  noise). `qa_out/character_select.png`/`character_select_l1_pirate.png`/
+  `character_select_l1_focus.png`로 마우스/키보드 양쪽 선택 경로와 테마 전환을
+  육안 확인, 레이아웃 겹침 없음. INBOX.md의 [대형 기획 12]는 L-2~L-3가 남아
+  "부분 처리됨"으로 옮기고 진행 줄만 갱신했다. "완료 기록" 10개 유지를 위해
+  (183)을 `docs/STATUS_ARCHIVE.md`로 옮겼다. 다음은 **L-2(a)**(스킬 도감
+  데이터/저장 — `SkillPool.codex_entries()` + 발견 기록 영구 저장).
 
 ## 지금 위치
 
@@ -282,6 +282,12 @@ STATUS_ARCHIVE.md`(174 이전)/위 "완료 기록 (184)~(186)" 참고.
   모두 `skill_id`도 함께 설정해 override가 자동으로 전 화면에 적용된다.
   `resources/skills/`는 아직 아트가 입고되지 않아 전부 절차적 모티프 그대로다 —
   33종 발주 목록은 `docs/STATUS.md` 완료 기록(192) 표 참고.
+- **캐릭터 카드 클릭 선택(2026-10-14 [대형 기획 12] L-1 완료)**: 캐릭터 선택
+  화면의 카드마다 있던 "선택" 버튼이 사라지고, 카드 패널(`code/scenes/
+  character_card_panel.gd`의 `CharacterCardPanel`) 전체가 클릭/스페이스 선택
+  영역이다. `FocusNav`의 체인 유틸이 Button 전용에서 범용 Control도 받도록
+  확장됐다(다른 화면은 영향 없음). [대형 기획 12]의 남은 조각(L-2 스킬 도감,
+  L-3 전역 퍼스널 컬러 확장)은 `docs/feedback/INBOX.md` "부분 처리됨" 참고.
 
 상세 변경 이력은 아래 "완료 기록"(최근 10개)과, 그보다 오래된 것은
 `docs/STATUS_ARCHIVE.md`(매 이터레이션 읽지 않는 아카이브) 참고.
@@ -291,13 +297,15 @@ STATUS_ARCHIVE.md`(174 이전)/위 "완료 기록 (184)~(186)" 참고.
 이 순서를 반드시 지킬 필요는 없지만, 앞 단계가 뒤 단계의 전제가 되므로 대체로 순서대로
 진행하는 것을 권장한다. 한 이터레이션에 한두 개만 진행할 것.
 
-**INBOX.md 최우선 지시 [대형 기획 11](조작/UI 개편, K-1 → K-2 → K-3 → K-4(a→b→c))
-2026-10-13(192)에 전체 완료.** K-1(187, 방향키+스페이스 조작) → K-2(188, 캐릭터
-선택 화면 가독성 개편) → K-3(189, 캐릭터 퍼스널 컬러를 UI에 반영) → K-4a(190,
-스킬 아이콘 모티프 분류표) → K-4b(191, 전 화면 실제 적용) → K-4c(192, 외부 아트
-override 경로 + 발주 목록) 순으로 전부 완료, INBOX.md도 "처리됨"으로 이동했다.
-**현재 INBOX.md에 다른 최우선 지시가 없으므로, 아래 번호 매긴 큐에서 골라 진행할
-것.** 남은 구조적 후보(급하지 않음):
+**INBOX.md 최우선 지시 [대형 기획 12](캐릭터 선택/스킬 도감/전역 퍼스널 컬러,
+L-1 → L-2(a→b→c) → L-3) 진행 중 — L-1(2026-10-14, 193, 캐릭터 카드 자체를 눌러
+선택) 완료.** 다음은 **L-2(a)**(스킬 도감 데이터/저장: `SkillPool.codex_entries()`
++ 캐릭터별 발견 기록 영구 저장) → L-2(b)(도감 패널 UI) → L-2(c)(진입점 연결) →
+L-3(전역 퍼스널 컬러 확장) 순. 상세 지시 원문은 `docs/feedback/INBOX.md` "부분
+처리됨"의 [대형 기획 12] 항목 참고 — 전투 규칙/밸런스 수치는 건드리지 말 것.
+**[대형 기획 11](조작/UI 개편, K-1~K-4)은 2026-10-13(192)에 전체 완료됐다**(K-1
+187 → K-2 188 → K-3 189 → K-4a 190 → K-4b 191 → K-4c 192). [대형 기획 12]가
+전부 끝나면 아래 번호 매긴 큐에서 골라 진행할 것. 남은 구조적 후보(급하지 않음):
 보스 개별 6종 중 타락한 기사단장만 밴드 미달(`MonsterSkills.modify_monster_roll()` 파라미터화가
 전제조건이라 사람 설계 확인 후 착수 권장).
 
@@ -906,6 +914,48 @@ override 경로 + 발주 목록) 순으로 전부 완료, INBOX.md도 "처리됨
 
 ## 완료 기록
 
+- **2026-10-14 (193)**: INBOX.md 최우선 지시 [대형 기획 12] 캐릭터 선택/스킬 도감/
+  전역 퍼스널 컬러(L-1→L-3) 중 **L-1(캐릭터 카드 자체를 눌러 선택, "선택" 버튼
+  제거) 완료**. 카드마다 있던 전용 "선택" `Button`을 지우고, 카드 패널 자체를
+  클릭/스페이스 선택 영역으로 바꿨다. 신규 `code/scenes/character_card_panel.gd`
+  (`CharacterCardPanel extends PanelContainer`)가 `activated` 시그널 하나로
+  좌클릭(`InputEventMouseButton`)과 ui_accept(스페이스/Enter)를 `_gui_input()`
+  에서 똑같이 처리하고, `mouse_entered`/`mouse_exited`로 hover 시 `modulate`를
+  살짝 밝혀 피드백을 준다(선택 강조 테두리는 기존 `_refresh_selection_highlight()`
+  가 "panel" StyleBox로 별도 관리해 서로 간섭 안 함). `character_select.gd`의
+  `_make_card()`가 `CharacterCardPanel`을 만들고 `activated`를
+  `_on_card_selected.bind(id)`에 바로 연결하며, 자식 컨트롤(hbox/portrait_holder/
+  name_vbox)의 `mouse_filter`를 전부 `IGNORE`로 비워 클릭이 항상 패널까지
+  통과하게 했다. 포커스 체인(`FocusNav`)이 Button 전용이었던 걸 범용으로
+  열어야 해서 `code/scenes/focus_nav.gd`의 `chain_linear`/`grab_first_focus`
+  매개변수를 `Array[Button]` → `Array`(비타입)로 바꾸고, `grab_first_focus`
+  내부의 `.disabled` 체크를 `ctrl is BaseButton`으로 감싸(PanelContainer엔
+  그 속성이 없음) 범용 Control도 안전하게 처리한다 — 다른 화면들(dungeon_map/
+  combat_test/event/shop/story_event/customize_panel/achievement_panel)은
+  전부 Array[Button]을 그대로 넘기므로(비타입 Array 매개변수는 더 구체적인
+  타입을 그대로 받아들임) 호출부 변경 없이 회귀 없음. `_shortcut_buttons`도
+  `Array[Button]`→`Array[Control]`로 바꿔 카드 패널과 "던전 시작"/"업적"/
+  "테스트 전투" `Button` 3개가 한 체인에 섞여 들어간다. QA 전용
+  `_debug_press_shortcut_2()`도 `.pressed.emit()`(Button 전용) 대신
+  `CharacterCardPanel.activated.emit()`으로 갱신. **검증**: `dice_test.gd`의
+  신규 `_check_l1_card_click_select()`가 character_select.tscn을 실제
+  인스턴스화해 ① 실제 `InputEventMouseButton`(좌클릭)을 카드 패널의
+  `_gui_input()`에 직접 넣어 `_selected_id`가 바뀌는지 ② 실제
+  `InputEventKey`(KEY_SPACE)로도 바뀌는지(마우스 없이) ③ 선택된 카드의 실제
+  StyleBox `border_color`가 미선택 카드와 달라지는지(금테 강조) ④ 카드 패널이
+  `focus_mode == FOCUS_ALL`인지 ⑤ 씬 전체를 재귀 탐색(`_find_button_with_text`
+  신규 헬퍼)해 "선택" 텍스트 `Button`이 하나도 남지 않았는지까지 계산/렌더
+  결과로 확인(플래그만 보지 않음). `bash scripts/qa_shot.sh dice_test` 전체
+  **PASS**(leak 경고는 `git stash`로 교차 확인한 기존 known noise, 내 변경과
+  무관 — (192) 때와 동일 패턴). `qa_out/character_select.png`(기본 화면, "선택"
+  버튼 없이 카드만)/`character_select_l1_pirate.png`(`_debug_select_pirate`로
+  8번째 카드 클릭 선택 + 테마 전환 확인)/`character_select_l1_focus.png`
+  (`_debug_press_shortcut_2`로 키보드 경로까지 금테 선택 확인) 3장으로 육안
+  검증, 레이아웃 겹침/깨짐 없음. 잠긴/사용 불가 카드는 아직 게임에 없어
+  "클릭 무시" 분기는 추가하지 않음(해당 기능이 생기면 `CharacterCardPanel`에
+  `locked: bool` 플래그를 얹는 식으로 확장 가능). 다음은 **L-2(a)**(스킬
+  도감 데이터/저장 — `SkillPool.codex_entries()` + 발견 기록 영구 저장).
+
 - **2026-10-13 (192)**: INBOX.md 최우선 지시 [대형 기획 11] 조작/UI 개편(K-1→K-4) 중
   **K-4c(외부 아트 override 경로 + 발주 목록 정리) 완료 — [대형 기획 11] 전체
   (K-1~K-4) 완료 처리**.
@@ -1321,50 +1371,9 @@ override 경로 + 발주 목록) 순으로 전부 완료, INBOX.md도 "처리됨
   `MonsterSkills.modify_monster_roll()` 파라미터화가 필요한 더 큰 변경이라
   다음 후보로 남기고, **다음은 J-3(방3 절벽+정예 튜닝)**.
 
-- **2026-10-08 (183)**: INBOX.md 최우선 지시 [대형 기획 10] **J-2(보스 튜닝) 계속
-  — (182)가 미커밋 상태로 남긴 "보스 6종 개별 측정" 확장을 먼저 검증·커밋하고,
-  그 결과가 드러낸 최저 승률 보스 하나를 조정**. 세션 지시대로 (182)의
-  `git diff`를 먼저 읽어 `balance_sim.gd`의 `_simulate_combo_boss()`/
-  `_simulate_growth_combo_boss()`(보스 자리만 예외적으로 라운드당 후보 2종
-  전부를 각각 TRIALS_PER_COMBO판씩 측정), `balance_target_check.gd`의
-  `_boss_species_breakdown()`(몬스터별 개별 승률 표), `balance_growth_report.gd`의
-  `_find_row()` 평균화(같은 global_index에 중복 행이 생겨도 대응) 확장을 검증
-  (`qa_out/balance_sim_growth_raw.tsv` 576→649행 확인). `bash scripts/qa_shot.sh
-  balance_target_check`로 이 TSV를 판정해 재측정하니 **보스 전체 평균이
-  17.2%(R1 14.8%/R2 16.7%/R3 20.1%)로, (182)가 보고한 24.1%보다 더 낮았다**
-  — (182)까지의 숫자가 실은 라운드당 후보 1종(더 쉬운 쪽)만 반영한 것이었기
-  때문. `bash scripts/qa_shot.sh dice_test` 전체 PASS 확인 후 이 측정 범위
-  확장분을 먼저 커밋(`fb3f5ed`)·푸시했다. `docs/BALANCE_TUNING_LOG.md`에
-  "J-2 측정 범위 확장" 섹션 + "J-2 시도 로그" 8번 행을 추가해 보스 개별
-  승률(R1 고블린 왕 18.4%/점액 군주 11.2%, R2 광란의 마수 30.5%/**해골 장군
-  2.9%**, R3 공허의 눈 27.0%/타락한 기사단장 13.3%)을 목표(35~55%) 대비
-  이탈 순으로 정리 — **R2 보스 해골 장군(2.9%, -32.1%p)이 6종 중 가장 크게
-  벗어나** 세션 지시("가장 벗어난 보스부터 손잡이를 하나씩")대로 이것부터
-  조정했다. 해골 장군의 스킬 3종(fixed_value/drain/chill)은 전부 amount
-  파라미터가 코드에 고정값으로 박혀있어 고블린 왕 armor/counter처럼 수치
-  하나만 깎을 수 없었다 — 대신 이미 사람이 승인한 "몬스터별 atk_dice_delta/
-  def_dice_delta/hp_mult" 손잡이를 써서 `monster_catalog.gd`의
-  `skeleton_general` 항목에 `atk_dice_delta: 0 → -1`(공격 다이스 1개 감소)을
-  적용 — 공격력이 줄면 drain(입힌 피해의 절반 회복)이 회복하는 절대량도
-  같이 줄어 두 스킬을 동시에 완화하는 효과를 노렸다. 재측정 결과 **해골 장군
-  단독 승률 2.9%→16.4%(+13.5%p)**, R2 라운드 평균 16.7%→21.6%, 보스 전체
-  평균 17.2%→**19.0%**(+1.8%p) — 가장 낮았던 종은 크게 끌어올렸지만 전체
-  평균 이동폭은 크지 않다(이제 R1 점액 군주 11.6%가 다음으로 가장 낮음).
-  `bash scripts/qa_shot.sh dice_test` 전체 PASS 재확인, `qa_out/
-  combat_boss_j2_skeleton_general.png`로 실제 전투 화면(공격 4D6, 디버그
-  문구에 "흡수"/"한기" 스킬 설명, HP 22/22)도 육안 확인(스크린샷이 프로젝트
-  루트에 먼저 저장돼 `qa_out/`으로 옮기려 했으나 이 환경의 구조적 삭제/이동
-  제약으로 루트 사본은 그대로 남음 — 기존에 알려진 이슈와 같은 유형, git에는
-  add하지 않아 커밋에 안 들어감). `docs/BALANCE_TUNING_LOG.md`에 "J-2 시도 9"
-  섹션과 시도 로그 9번 행을 추가. 전체 평균 19.0%는 여전히 목표(35~55%)
-  미달 — J-2는 다음 이터레이션에서 계속(다음 후보: R1 점액 군주
-  `atk_dice_delta` 1→0 검토, 또는 R3 타락한 기사단장 스킬 파라미터).
-  INBOX.md [대형 기획 10] 항목은 J-3~J-4가 남아 "부분 처리됨" 유지, 진행
-  줄만 갱신.
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(192)에서 (182)를 그리로 옮겼다.)*
+이번 이터레이션(193)에서 (183)을 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 

@@ -301,6 +301,10 @@ func _ready() -> void:
 	all_pass = _check_k4c_skill_icon_external_art(lines) and all_pass
 
 	lines.append("")
+	lines.append("[L-1: 캐릭터 카드 클릭 선택 검증: character_card_panel.gd CharacterCardPanel이 실제 InputEventMouseButton/ui_accept로 선택 상태를 바꾸는지 + '선택' 버튼이 더는 없는지]")
+	all_pass = _check_l1_card_click_select(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -6275,3 +6279,85 @@ func _check_k4c_skill_icon_external_art(lines: PackedStringArray) -> bool:
 	DirAccess.remove_absolute(tmp_dir)
 
 	return ok
+
+
+## [대형 기획 12] L-1(2026-10-14) 검증: 카드마다 있던 "선택" 버튼을 없애고 카드 패널
+## (CharacterCardPanel) 전체를 클릭/스페이스 선택 영역으로 바꿨다. "플래그가 들어갔는가"가
+## 아니라 실제 InputEventMouseButton/ui_accept 이벤트를 panel._gui_input()에 직접 넣어
+## (a) 좌클릭으로 _selected_id가 바뀌는지 (b) 스페이스(ui_accept)로도 바뀌는지 (c) 선택된
+## 카드의 실제 StyleBox 테두리 색이 "선택" 금테로 바뀌는지 (d) 씬 전체에 "선택" 텍스트
+## 버튼이 더는 없는지를 확인한다.
+func _check_l1_card_click_select(lines: PackedStringArray) -> bool:
+	var ok := true
+	var character_backup := RunState.character_id
+
+	var scene := load("res://code/scenes/character_select.tscn")
+	var node = scene.instantiate()
+	add_child(node)
+
+	# (a) 기본 선택(견습 모험가)에서 "광전사" 카드 패널에 실제 좌클릭 이벤트를 넣으면
+	# _selected_id가 "berserker"로 바뀌어야 한다.
+	var berserker_panel: CharacterCardPanel = node._card_panels["berserker"]
+	var click_event := InputEventMouseButton.new()
+	click_event.button_index = MOUSE_BUTTON_LEFT
+	click_event.pressed = true
+	berserker_panel._gui_input(click_event)
+	var click_select_ok: bool = node._selected_id == "berserker"
+	ok = click_select_ok and ok
+	lines.append("  좌클릭 InputEventMouseButton -> _selected_id=%s(기대 berserker) -> %s" % [
+		node._selected_id, "OK" if click_select_ok else "FAIL"
+	])
+
+	# (c) 선택된 카드의 실제 StyleBox border_color가 금테(_refresh_selection_highlight()의
+	# 선택색)로 바뀌었는지 — 선택 안 된 카드(견습 모험가)와 비교해 실제로 달라야 한다.
+	var berserker_border: Color = berserker_panel.get_theme_stylebox("panel").border_color
+	var novice_panel: CharacterCardPanel = node._card_panels["novice"]
+	var novice_border: Color = novice_panel.get_theme_stylebox("panel").border_color
+	var highlight_ok: bool = berserker_border != novice_border
+	ok = highlight_ok and ok
+	lines.append("  선택된 카드(광전사) 테두리색=%s vs 미선택(견습 모험가)=%s(달라야 함) -> %s" % [
+		berserker_border, novice_border, "OK" if highlight_ok else "FAIL"
+	])
+
+	# (b) 다른 카드("수호자")에 실제로 grab_focus()한 뒤 ui_accept(스페이스) 이벤트를
+	# 넣으면 _selected_id가 "guardian"으로 바뀌어야 한다(마우스 없이 키보드만으로 선택).
+	var guardian_panel: CharacterCardPanel = node._card_panels["guardian"]
+	guardian_panel.grab_focus()
+	var space_event := InputEventKey.new()
+	space_event.keycode = KEY_SPACE
+	space_event.pressed = true
+	guardian_panel._gui_input(space_event)
+	var space_select_ok: bool = node._selected_id == "guardian"
+	ok = space_select_ok and ok
+	lines.append("  스페이스(ui_accept) InputEventKey -> _selected_id=%s(기대 guardian) -> %s" % [
+		node._selected_id, "OK" if space_select_ok else "FAIL"
+	])
+
+	# (e) 카드 패널이 실제로 포커스 가능한지(방향키 체인이 성립하려면 FOCUS_ALL 필수).
+	var focusable_ok: bool = berserker_panel.focus_mode == Control.FOCUS_ALL
+	ok = focusable_ok and ok
+	lines.append("  카드 패널 focus_mode == FOCUS_ALL -> %s" % ("OK" if focusable_ok else "FAIL"))
+
+	# (d) 씬 전체에 "선택" 텍스트를 가진 Button이 더는 없어야 한다(카드마다 있던 전용
+	# 선택 버튼 제거 확인 — "던전 시작" 등 다른 버튼과 혼동되지 않게 정확한 텍스트로 검색).
+	var leftover_button := _find_button_with_text(node, "선택")
+	var no_select_button_ok: bool = leftover_button == null
+	ok = no_select_button_ok and ok
+	lines.append("  씬에 '선택' 텍스트 버튼이 남아있지 않음 -> %s" % ("OK" if no_select_button_ok else "FAIL"))
+
+	remove_child(node)
+	node.free()
+	RunState.character_id = character_backup
+	return ok
+
+
+## 트리를 재귀적으로 돌며 text가 정확히 일치하는 Button을 찾는다(없으면 null). L-1 검증이
+## "카드마다 있던 선택 버튼이 완전히 사라졌는지"를 노드 레벨에서 직접 확인하기 위한 용도.
+func _find_button_with_text(root: Node, text: String) -> Button:
+	if root is Button and (root as Button).text == text:
+		return root
+	for child in root.get_children():
+		var found := _find_button_with_text(child, text)
+		if found != null:
+			return found
+	return null

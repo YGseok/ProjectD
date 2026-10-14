@@ -36,7 +36,7 @@ static func make_focusable(control: Control, accent: Color = ACCENT_DEFAULT) -> 
 	control.add_theme_stylebox_override("focus", focus_style(accent))
 
 
-## buttons를 "한 줄" 순서로 보고 각 버튼에 FOCUS_ALL + 포커스 스타일을 적용하고,
+## buttons를 "한 줄" 순서로 보고 각 요소에 FOCUS_ALL + 포커스 스타일을 적용하고,
 ## horizontal이면 좌/우, 아니면 위/아래 focus_neighbor_*를 순서대로 이어 방향키 이동이
 ## 목록 순서와 일치하게 한다. wrap=true면 마지막 다음은 처음으로, 처음 이전은 마지막으로
 ## 돌아 포커스가 밖으로 못 나간다. trap=true면 체인에 안 쓰는 반대쪽 축(예: horizontal이면
@@ -44,11 +44,15 @@ static func make_focusable(control: Control, accent: Color = ACCENT_DEFAULT) -> 
 ## 비어 있으면 화면 좌표 기준으로 가장 가까운 다른 포커스 가능 컨트롤을 자동으로 찾는 것)이
 ## 오버레이 패널 뒤에 깔린 화면의 버튼으로 새 버리는 것을 막는다 — customize_panel/
 ## achievement_panel처럼 "포커스가 패널 안에 갇혀야" 하는 곳에서 wrap과 함께 켠다(K-1
-## 요구사항). null이거나 해제된(freed) 버튼은 건너뛴다. get_path_to()가 성립하려면 두
-## 버튼이 같은 트리(공통 부모) 아래에 있어야 한다 — 실제 씬에서는 항상 그렇고, 테스트는
-## 임시 부모 Node 하나에 버튼들을 자식으로 넣어두면 된다.
-static func chain_linear(buttons: Array[Button], horizontal: bool, wrap: bool = false, trap: bool = false, accent: Color = ACCENT_DEFAULT) -> void:
-	var valid: Array[Button] = []
+## 요구사항). null이거나 해제된(freed) 요소는 건너뛴다. get_path_to()가 성립하려면 두
+## 요소가 같은 트리(공통 부모) 아래에 있어야 한다 — 실제 씬에서는 항상 그렇고, 테스트는
+## 임시 부모 Node 하나에 자식으로 넣어두면 된다.
+## buttons는 일부러 Array(비타입)로 받는다 — [대형 기획 12] L-1부터 Button이 아닌
+## Control(캐릭터 카드 패널, CharacterCardPanel)도 체인에 들어오므로, 호출하는 쪽이
+## Array[Button]이든 Array[Control]이든 그대로 넘길 수 있게 열어둔다(런타임에 각 요소가
+## 실제로 Control인지는 valid 배열에 append할 때 엔진이 보장).
+static func chain_linear(buttons: Array, horizontal: bool, wrap: bool = false, trap: bool = false, accent: Color = ACCENT_DEFAULT) -> void:
+	var valid: Array[Control] = []
 	for b in buttons:
 		if b != null and is_instance_valid(b):
 			valid.append(b)
@@ -84,11 +88,19 @@ static func chain_linear(buttons: Array[Button], horizontal: bool, wrap: bool = 
 				valid[i].focus_neighbor_right = self_path2
 
 
-## 목록에서 "보이고 활성화된" 첫 버튼에 포커스를 준다. 화면 진입/재구성 시 호출 — 첫
+## 목록에서 "보이고 활성화된" 첫 요소에 포커스를 준다. 화면 진입/재구성 시 호출 — 첫
 ## 방향키 입력 전에 아무 것도 포커스돼 있지 않으면 방향키가 아무 효과도 없기 때문에
-## (Godot은 "현재 포커스" 기준으로 다음 포커스를 찾으므로) 반드시 필요하다.
-static func grab_first_focus(buttons: Array[Button]) -> void:
+## (Godot은 "현재 포커스" 기준으로 다음 포커스를 찾으므로) 반드시 필요하다. "disabled"는
+## BaseButton(Button 등)에만 있는 속성이라, CharacterCardPanel처럼 Button이 아닌 Control도
+## 체인에 들어올 수 있는 [대형 기획 12] L-1부터는 `is BaseButton`으로 먼저 확인한다.
+static func grab_first_focus(buttons: Array) -> void:
 	for b in buttons:
-		if b != null and is_instance_valid(b) and b.visible and not b.disabled:
-			b.grab_focus()
-			return
+		if b == null or not is_instance_valid(b):
+			continue
+		var ctrl: Control = b
+		if not ctrl.visible:
+			continue
+		if ctrl is BaseButton and (ctrl as BaseButton).disabled:
+			continue
+		ctrl.grab_focus()
+		return

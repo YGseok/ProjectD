@@ -124,12 +124,14 @@ var _starting_skill_unlock_label: Label
 var _preview_skill_id: String = ""
 
 ## FocusNav로 방향키 이동(위/아래) + 스페이스 확정 체인을 만드는 데 쓴다(INBOX.md
-## 2026-10-13 [대형 기획 11] K-1 — 기존 숫자 단축키를 대체). 캐릭터 카드마다 "선택"
-## 버튼(개수는 PROFILES 길이만큼, 지금 8개)이 먼저 오고, 그 뒤로 "던전 시작"/"업적"/
-## "테스트 전투" 화면 공용 버튼이 이어진다 — 카드 목록은 _build_cards()에서 한 번만
-## 만들고 이후 카드를 다시 그리지 않으므로(선택은 강조 갱신만 함), 여기서도 한 번만
-## 채우면 된다.
-var _shortcut_buttons: Array[Button] = []
+## 2026-10-13 [대형 기획 11] K-1 — 기존 숫자 단축키를 대체). 캐릭터 카드 패널 자체
+## (개수는 PROFILES 길이만큼, 지금 8개 — [대형 기획 12] L-1부터는 카드마다 있던 "선택"
+## 버튼이 사라지고 카드 패널(CharacterCardPanel)이 직접 체인에 들어간다)가 먼저 오고,
+## 그 뒤로 "던전 시작"/"업적"/"테스트 전투" 화면 공용 버튼이 이어진다. Button이 아닌
+## Control도 섞여 들어가므로 타입은 Array[Control](FocusNav.chain_linear/grab_first_focus
+## 둘 다 Array를 받아 혼용 가능) — 카드 목록은 _build_cards()에서 한 번만 만들고 이후
+## 카드를 다시 그리지 않으므로(선택은 강조 갱신만 함), 여기서도 한 번만 채우면 된다.
+var _shortcut_buttons: Array[Control] = []
 ## 시작 스킬 슬롯(가로 배열) 전용 포커스 체인 — 캐릭터를 바꿀 때마다 후보가 달라지므로
 ## _rebuild_starting_skill_slots()가 매번 다시 모아 FocusNav.chain_linear()를 다시 부른다.
 var _starting_skill_slot_buttons: Array[Button] = []
@@ -160,7 +162,9 @@ func _build_cards() -> void:
 		c.queue_free()
 	_card_panels.clear()
 
-	var select_buttons: Array[Button] = []
+	# [대형 기획 12] L-1: 카드마다 있던 "선택" 버튼이 사라지고 카드 패널 자체가 포커스
+	# 체인에 들어간다(각 카드의 activated 시그널은 _make_card() 안에서 바로 연결됨).
+	var card_controls: Array[Control] = []
 	# ART-1a(2026-10-07): CARD_HEIGHT(92)를 고정 행 간격으로 썼더니, 패널의 실제
 	# 결합 최소 높이(panel 스타일박스 여백 + 내부 버튼/라벨 최소 크기)가 그보다 커서
 	# Godot이 자동으로 size를 키우며 다음 행과 겹쳤다. 대신 카드를 추가할 때마다
@@ -168,19 +172,20 @@ func _build_cards() -> void:
 	var y := 0.0
 	for i in CharacterProfiles.PROFILES.size():
 		var profile: Dictionary = CharacterProfiles.PROFILES[i]
-		var card := _make_card(profile, select_buttons)
+		var card := _make_card(profile)
 		cards_container.add_child(card)
 		card.position = Vector2(0, y)
 		var card_height: float = max(CARD_HEIGHT, card.get_combined_minimum_size().y)
 		card.size = Vector2(CARD_WIDTH, card_height)
 		y += card_height + CARD_GAP
 		_card_panels[profile["id"]] = card
+		card_controls.append(card)
 	cards_container.custom_minimum_size = Vector2(CARD_WIDTH, max(0.0, y - CARD_GAP))
 
 	_refresh_selection_highlight()
 	_refresh_detail_panel()
 
-	_shortcut_buttons = select_buttons
+	_shortcut_buttons = card_controls
 	_shortcut_buttons.append(start_button)
 	_shortcut_buttons.append(achievement_button)
 	if RunState.TEST_BATTLE_ENABLED:
@@ -189,24 +194,30 @@ func _build_cards() -> void:
 	FocusNav.grab_first_focus(_shortcut_buttons)
 
 
-## 목록 한 행(K-2, 2026-10-13 개편): 정사각 얼굴 썸네일 + (이름 / 기믹 한 줄) + "선택"
-## 버튼. 기존에는 상반신 직사각 썸네일 + 이름만 있었는데, "얼굴 위주 정사각 썸네일 +
-## 이름 + 한 줄 기믹 라벨"로 압축해 8명이 스크롤 없이 한눈에 들어오게 했다(INBOX.md
-## 2026-10-13 [대형 기획 11] K-2). 컨셉 설명/시작 다이스/고유 능력 같은 상세 정보는
-## 여전히 오른쪽 DetailPanel에만 있다.
-func _make_card(profile: Dictionary, select_buttons: Array[Button]) -> PanelContainer:
-	var panel := PanelContainer.new()
+## 목록 한 행(K-2, 2026-10-13 개편 / [대형 기획 12] L-1(2026-10-14)로 "선택" 버튼 제거):
+## 정사각 얼굴 썸네일 + (이름 / 기믹 한 줄) — 카드 패널(CharacterCardPanel) 전체가
+## 클릭/스페이스 선택 영역이라 더는 별도 버튼이 없다. "얼굴 위주 정사각 썸네일 + 이름 +
+## 한 줄 기믹 라벨"로 압축해 8명이 스크롤 없이 한눈에 들어오게 했다(INBOX.md 2026-10-13
+## [대형 기획 11] K-2). 컨셉 설명/시작 다이스/고유 능력 같은 상세 정보는 여전히 오른쪽
+## DetailPanel에만 있다.
+func _make_card(profile: Dictionary) -> CharacterCardPanel:
+	var panel := CharacterCardPanel.new()
 	panel.custom_minimum_size = Vector2(CARD_WIDTH, CARD_HEIGHT)
 	panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	panel.activated.connect(_on_card_selected.bind(profile["id"]))
 
 	var hbox := HBoxContainer.new()
 	hbox.add_theme_constant_override("separation", 10)
 	hbox.set_anchors_preset(Control.PRESET_FULL_RECT)
+	# 카드 안의 자식 컨트롤이 클릭을 가로채지 않도록 IGNORE로 비워, 마우스 클릭이 항상
+	# panel._gui_input()까지 그대로 통과하게 한다(L-1 원문 "mouse_filter 정리").
+	hbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.add_child(hbox)
 
 	var portrait_holder := Control.new()
 	portrait_holder.custom_minimum_size = Vector2(FACE_THUMB_SIZE, FACE_THUMB_SIZE)
 	portrait_holder.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	portrait_holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	# 얼굴 이미지 소스 우선순위(K-2): ① face_neutral.png ② full.png 얼굴 크롭
 	# ③ 도형 플레이스홀더(CharacterArt.load_face_thumb()가 ①②를 내부에서 처리).
 	var thumb := CharacterArt.load_face_thumb(profile["id"])
@@ -228,6 +239,7 @@ func _make_card(profile: Dictionary, select_buttons: Array[Button]) -> PanelCont
 	name_vbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	name_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	name_vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	name_vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hbox.add_child(name_vbox)
 
 	var name_label := Label.new()
@@ -247,13 +259,6 @@ func _make_card(profile: Dictionary, select_buttons: Array[Button]) -> PanelCont
 	gimmick_label.clip_text = true
 	gimmick_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	name_vbox.add_child(gimmick_label)
-
-	var select_button := Button.new()
-	select_button.text = "선택"
-	select_button.custom_minimum_size = Vector2(56, 0)
-	select_button.pressed.connect(_on_card_selected.bind(profile["id"]))
-	hbox.add_child(select_button)
-	select_buttons.append(select_button)
 
 	return panel
 
@@ -1018,13 +1023,14 @@ func _debug_show_starting_skill_all_unlocked() -> void:
 	_on_card_selected("novice")
 
 
-## QA 전용 — 방향키/스페이스 조작(K-1)의 전체 경로를 흉내낸다: 두 번째 카드("광전사")의
-## "선택" 버튼에 실제로 grab_focus()한 뒤(방향키 이동이 도달했다고 가정) pressed를 emit해
-## (스페이스 확정) 실제로 광전사 카드가 금테로 강조되는지로 검증한다.
+## QA 전용 — 방향키/스페이스 조작(K-1)의 전체 경로를 흉내낸다: 두 번째 카드("광전사")
+## 패널에 실제로 grab_focus()한 뒤(방향키 이동이 도달했다고 가정) CharacterCardPanel의
+## activated를 emit해(스페이스 확정, [대형 기획 12] L-1부터 카드 패널 자신이 선택 단위)
+## 실제로 광전사 카드가 금테로 강조되는지로 검증한다.
 func _debug_press_shortcut_2() -> void:
-	var btn := _shortcut_buttons[1]
-	btn.grab_focus()
-	btn.pressed.emit()
+	var card := _shortcut_buttons[1] as CharacterCardPanel
+	card.grab_focus()
+	card.activated.emit()
 
 
 ## QA 전용 — 카드 8장 다음에 오는 "던전 시작"/"업적"/"테스트 전투" 중 두 번째("업적")에

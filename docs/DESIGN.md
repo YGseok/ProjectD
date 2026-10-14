@@ -170,6 +170,12 @@ combat_test/event/shop/story_event/customize_panel/achievement_panel의 포커�
 따름, 상세는 아래 "플레이어블 캐릭터" 절 참고). 캐릭터가 없는 테스트/QA 컨텍스트는
 `RunState.character_id` 기본값(견습 모험가)으로 자연히 폴백한다.
 
+**2026-10-14 [대형 기획 12] L-1로 캐릭터 카드 자체가 선택 단위가 됨** — 카드마다
+따로 있던 "선택" 버튼이 사라지고, 카드 패널(`code/scenes/character_card_panel.gd`의
+`CharacterCardPanel`) 전체가 클릭/스페이스 선택 영역이자 포커스 대상이다. 위 표의
+"스페이스/Enter" 규칙이 그대로 적용되고(카드가 포커스된 상태에서 확정), 마우스는
+카드 어디를 클릭해도 선택되며 hover 시 살짝 밝아진다.
+
 ## 현재 구현 콘텐츠 (기획자 참고용)
 
 > 이 섹션은 코드를 열지 않고도 "지금 게임에 실제로 뭐가 들어있는지" 확인하기 위한
