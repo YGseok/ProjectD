@@ -20,6 +20,20 @@ ProjectD 규격으로 후처리한 **후보**를 만든다. 채택·적용·장�
 - `out/`은 git에 올리지 않는다(`.gitignore`). 채택본만 `resources/`로 들어간다.
 - `tools/.gdignore`: 이 폴더의 PNG를 Godot가 임포트하지 않게 함.
 
+
+## 무료 경로 (기본) — ChatGPT 화면 + Claude 후처리
+
+API는 유료라 기본은 ChatGPT 구독 안에서 생성한다(2026-10-14 사용자 결정: 비용 지출 없음).
+
+1. Claude가 job을 만들고 `bash tools/artgen/prompt.sh <job_id>`로 **붙여넣을 프롬프트 + 첨부할 참고 이미지 경로**를 뽑아 전달.
+2. 사용자가 ChatGPT에 참고 이미지를 첨부하고 프롬프트를 붙여넣어 생성 → 마음에 드는 걸 다운로드.
+3. 다운로드한 파일을 `tools/artgen/inbox/`에 넣고 Claude에게 알림(파일 이름은 아무거나).
+4. Claude가 `bash tools/artgen/ingest.sh <파일> <full|face|icon> <job_id>`로 규격 후보 생성
+   (불투명 단색 배경은 자동 제거) → 검수 → `adopt.sh`로 채택 → 화면 QA → 장부 갱신 → push.
+
+`inbox/`와 `out/`은 git에 올리지 않는다.
+
+## 유료 경로 (선택) — OpenAI API
 ## 준비 (사용자, 1회)
 
 API 키는 **사용자가 직접** 환경변수로 넣는다(스크립트·Claude는 키를 파일에 쓰거나 출력하지 않음).
