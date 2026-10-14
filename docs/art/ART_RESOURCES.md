@@ -195,7 +195,7 @@ ART-<분류><대상 번호 3자리>-<종류>
 
 | id | 이름 | 참고 색 (머리 / 의상) | 전신 `full.png` | 표정 5종 `face_*.png` |
 |---|---|---|---|---|
-| `novice` | 견습 모험가 | `#C79EDB` / `#EB8CA8` | ✅ 적용 | 📝 ART-CH001-FACE (neutral 1/5 ✅ — 선택 화면 목록 썸네일에 사용 중) |
+| `novice` | 견습 모험가 | `#C79EDB` / `#EB8CA8` | ✅ 적용 | 📦 ART-CH001-FACE 5/5 입고 (neutral은 목록 썸네일 ✅, 전투 화면은 Work ART-1b 연결 대기) |
 | `berserker` | 광전사 | `#D94033` / `#591A1A` | ✅ 적용 | 📝 ART-CH002-FACE |
 | `guardian` | 수호자 | `#668CD9` / `#40668C` | ✅ 적용 | 📝 ART-CH003-FACE |
 | `explosive` | 폭발병 | `#F28C26` / `#802E0D` | ✅ 적용 | 📝 ART-CH004-FACE |
@@ -650,6 +650,7 @@ Work는 `resources/ui/` 이미지가 있으면 StyleBoxTexture로 쓰고, 없으
 | 2026-10-14 | ART-CH008-FULL 해적 전신 (첫 GPT 생성분 — ChatGPT `Project D - Claude` 스레드, 1차 긴 머리 → 단발+땋은 머리·주사위 정정으로 2차 채택. 1차본은 `_reference/characters/pirate/gpt_v1_long_hair.png`) | 캐릭터 선택 화면 | `qa_out/art_character_select_pirate.png` |
 | 2026-10-14 | ART-CH001-FACE 중 `face_neutral.png` (GPT 생성) | 선택 화면 왼쪽 목록 얼굴 썸네일(K-2 우선순위 ①). 전투 표정은 5장 모두 입고 시 전환 | `qa_out/art_character_select_pirate.png` |
 | 2026-10-14 | ART-SK607-ICON 일제 사격 아이콘 (GPT 생성, 256 원본은 `_reference/skills/broadside_256.png`, 게임용 128) | `resources/skills/broadside.png` — `SkillIcon.load_external_art()` 로드 확인. `+`판은 아직 절차적 | (도감에서 미발견 상태라 화면 미노출) |
+| 2026-10-14 | ART-CH001-FACE 나머지 4장 (happy/hurt/sad/angry, GPT 생성 — 5장 머리 위치·구도 일치 확인) | `resources/characters/novice/face_*.png` 입고. 전투 화면 표시는 Work ART-1b(표정 컷 로딩 코드) 대기 | `qa_out/art_novice_face_set.png` |
 
 ---
 
