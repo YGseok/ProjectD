@@ -46,8 +46,19 @@
   렌더링(해금 슬롯)/잠금 미리보기 클릭 세 지점에 직접 배선 — `SkillPool.grant()`/
   `RunState.reset_run()` 안에 넣지 않은 이유(테스트 전투 설정 화면의 호출 순서
   문제)는 `skill_codex.gd` 상단 주석 참고. 테스트 전투 중에는 기록되지 않음을
-  확인(가드 테스트 포함). 상세는 `docs/STATUS.md` 완료 기록(194) 참고. **다음은
-  L-2(b)**(도감 패널 UI, `SkillCodexPanel`).
+  확인(가드 테스트 포함). 상세는 `docs/STATUS.md` 완료 기록(194) 참고.
+
+  → **L-2(b) 완료(2026-10-14, 195)** — 신규 `code/scenes/skill_codex_panel.gd`
+  (`SkillCodexPanel`)가 `open(character_id, owned_skill_ids)`로 여는 재사용
+  가능한 오버레이 패널. `codex_entries()`를 3열 격자(L-1의 `CharacterCardPanel`
+  재사용)로 그리고, 보유/발견-미보유/미발견 3상태를 아이콘 알파·이름("???")·
+  배지 텍스트("보유"/"발견"/"미발견")·테두리 네 겹으로 구분(색만으로 구분하지
+  않음). 미발견인 시작 스킬 슬롯은 F-1 잠금 안내 문구를 재사용. 격자 포커스는
+  패널 전용 `_chain_grid()`(모든 칸이 wrap으로 서로 연결돼 trap 없이도 밖으로
+  못 나감)가 담당. `dice_test.gd`의 `_check_l2b_skill_codex_panel()`이 3상태
+  조합을 실제로 만들어 배지/이름/아이콘/설명/요약/포커스/Esc를 전부 계산·렌더
+  결과로 검증. 상세는 `docs/STATUS.md` 완료 기록(195) 참고. **다음은 L-2(c)**
+  (진입점 연결).
 
   **L-1. 캐릭터 카드 자체를 눌러 선택 (선택 버튼 제거)**
   - 현재 캐릭터 카드마다 "선택" 버튼이 따로 있다(`character_select.gd` `_make_card()`의 `select_button`). 이 버튼을

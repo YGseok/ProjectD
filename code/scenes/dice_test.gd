@@ -309,6 +309,10 @@ func _ready() -> void:
 	all_pass = _check_l2a_skill_codex(lines) and all_pass
 
 	lines.append("")
+	lines.append("[L-2(b): 스킬 도감 패널 UI 검증: skill_codex_panel.gd SkillCodexPanel이 보유/발견-미보유/미발견 3상태를 실제로 다른 텍스트/모듈레이트로 렌더하는지 + 격자 포커스 체인 + Esc 닫기]")
+	all_pass = _check_l2b_skill_codex_panel(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -6493,3 +6497,137 @@ func _check_l2a_skill_codex(lines: PackedStringArray) -> bool:
 	RunState.skill_flags = skill_flags_backup
 	RunState.test_battle = test_battle_backup
 	return ok
+
+
+## [대형 기획 12] L-2(b)(2026-10-14) 검증: 스킬 도감 패널 UI. "플래그가 들어갔는가"가
+## 아니라 실제로 렌더된 노드의 텍스트/모듈레이트가 3상태(보유/발견-미보유/미발견)에
+## 따라 다른지, 요약 라벨 숫자가 맞는지, 격자 포커스 체인이 실제로 성립하는지, Esc로
+## 닫히는지를 검증한다. "novice"(견습 모험가) 도감 9개 중 의도적으로 4개 상태를 섞어
+## 만든다: 보유 2(확장/심호흡) · 발견-미보유 2(임기응변/심호흡+) · 미발견(힌트 없음)
+## 3(여분/여분+/임기응변+) · 미발견(F-1 잠금 힌트 있음) 2(정예=슬롯1/황금손=슬롯2).
+func _check_l2b_skill_codex_panel(lines: PackedStringArray) -> bool:
+	var ok := true
+	var character_backup := RunState.character_id
+	var skill_flags_backup := RunState.skill_flags.duplicate()
+	var test_battle_backup := RunState.test_battle
+
+	SkillCodex._debug_reset_for_qa()
+	AchievementManager._debug_reset_for_qa()
+	RunState.test_battle = false
+	RunState.character_id = "novice"
+
+	var owned: Array[String] = ["start_expand", "deep_breath"]
+	RunState.skill_flags = owned.duplicate()
+	for skill_id in owned:
+		SkillCodex.mark_discovered("novice", skill_id)
+	SkillCodex.mark_discovered("novice", "versatile_surge")
+	SkillCodex.mark_discovered("novice", "deep_breath_plus")
+
+	var panel := SkillCodexPanel.new()
+	add_child(panel)
+	panel.open("novice", owned)
+
+	var expected_entries := SkillPool.codex_entries("novice")
+	var count_ok: bool = panel._card_by_id.size() == expected_entries.size()
+	ok = count_ok and ok
+	lines.append("  카드 수 == codex_entries('novice').size()(기대 %d) -> %s" % [expected_entries.size(), "OK" if count_ok else "FAIL"])
+
+	# 보유 상태 — start_expand(확장).
+	var owned_badge: Label = panel._badge_label_by_id["start_expand"]
+	var owned_name: Label = panel._name_label_by_id["start_expand"]
+	var owned_icon: SkillIcon = panel._icon_by_id["start_expand"]
+	var owned_ok: bool = owned_badge.text == SkillCodexPanel.BADGE_TEXT_OWNED and owned_name.text == "확장" and is_equal_approx(owned_icon.modulate.a, 1.0)
+	ok = owned_ok and ok
+	lines.append("  보유(확장): 배지='%s'(기대 보유) 이름='%s'(기대 확장) 아이콘알파=%.2f(기대 1.0) -> %s" % [
+		owned_badge.text, owned_name.text, owned_icon.modulate.a, "OK" if owned_ok else "FAIL"
+	])
+
+	# 발견-미보유 상태 — versatile_surge(임기응변).
+	var disc_badge: Label = panel._badge_label_by_id["versatile_surge"]
+	var disc_name: Label = panel._name_label_by_id["versatile_surge"]
+	var disc_icon: SkillIcon = panel._icon_by_id["versatile_surge"]
+	var disc_ok: bool = disc_badge.text == SkillCodexPanel.BADGE_TEXT_DISCOVERED and disc_name.text == "임기응변" and is_equal_approx(disc_icon.modulate.a, 0.55)
+	ok = disc_ok and ok
+	lines.append("  발견-미보유(임기응변): 배지='%s'(기대 발견) 이름='%s'(기대 임기응변) 아이콘알파=%.2f(기대 0.55) -> %s" % [
+		disc_badge.text, disc_name.text, disc_icon.modulate.a, "OK" if disc_ok else "FAIL"
+	])
+
+	# 미발견(힌트 없음) 상태 — spare_die(여분).
+	var undisc_badge: Label = panel._badge_label_by_id["spare_die"]
+	var undisc_name: Label = panel._name_label_by_id["spare_die"]
+	var undisc_icon: SkillIcon = panel._icon_by_id["spare_die"]
+	var undisc_desc: Label = panel._desc_label_by_id["spare_die"]
+	var undisc_ok: bool = undisc_badge.text == SkillCodexPanel.BADGE_TEXT_UNDISCOVERED and undisc_name.text == "???" and is_equal_approx(undisc_icon.modulate.a, 0.35) and undisc_desc.text == ""
+	ok = undisc_ok and ok
+	lines.append("  미발견(여분, 힌트 없음): 배지='%s'(기대 미발견) 이름='%s'(기대 ???) 아이콘알파=%.2f(기대 0.35) 설명='%s'(기대 빈 문자열) -> %s" % [
+		undisc_badge.text, undisc_name.text, undisc_icon.modulate.a, undisc_desc.text, "OK" if undisc_ok else "FAIL"
+	])
+
+	# 미발견(F-1 잠금 힌트 있음) 상태 — start_lean(정예, 슬롯1).
+	var locked_desc: Label = panel._desc_label_by_id["start_lean"]
+	var expected_hint: String = SkillPool.unlock_requirement("novice", 1)["text"]
+	var locked_hint_ok: bool = locked_desc.text == expected_hint and expected_hint != ""
+	ok = locked_hint_ok and ok
+	lines.append("  미발견(정예, 슬롯1 잠금 힌트): 설명='%s' == unlock_requirement 텍스트('%s') -> %s" % [
+		locked_desc.text, expected_hint, "OK" if locked_hint_ok else "FAIL"
+	])
+
+	# 요약 라벨 — 보유 2개 · 발견 4(보유 2 + 발견-미보유 2) / 전체 9.
+	var summary_ok: bool = panel._summary_label.text.contains("보유 2개") and panel._summary_label.text.contains("발견 4 / 전체 %d" % expected_entries.size())
+	ok = summary_ok and ok
+	lines.append("  요약 라벨='%s'(보유 2개/발견 4/전체 %d 포함 기대) -> %s" % [
+		panel._summary_label.text, expected_entries.size(), "OK" if summary_ok else "FAIL"
+	])
+
+	# 격자 포커스 체인 — 첫 카드에 포커스가 가 있고, 각 행의 좌/우가 wrap으로 서로 연결.
+	var first_card: Control = panel._card_controls[0]
+	var grab_focus_ok: bool = first_card.has_focus()
+	ok = grab_focus_ok and ok
+	lines.append("  open() 직후 첫 카드에 포커스 -> %s" % ("OK" if grab_focus_ok else "FAIL"))
+
+	var row_end_idx: int = min(SkillCodexPanel.COLUMNS - 1, panel._card_controls.size() - 1)
+	var wrap_left_ok: bool = first_card.focus_neighbor_left == first_card.get_path_to(panel._card_controls[row_end_idx])
+	ok = wrap_left_ok and ok
+	lines.append("  첫 행 wrap: 첫 카드의 왼쪽 포커스 이웃 == 그 행 마지막 카드 -> %s" % ("OK" if wrap_left_ok else "FAIL"))
+
+	# Esc로 닫힘(customize_panel.gd 검증과 동일 패턴).
+	var closed_signal_log: Array = []
+	panel.closed.connect(func(): closed_signal_log.append(true))
+	var esc_key := InputEventKey.new()
+	esc_key.pressed = true
+	esc_key.keycode = KEY_ESCAPE
+	panel._unhandled_input(esc_key)
+	var esc_closes_ok: bool = not panel.visible and closed_signal_log.size() == 1
+	ok = esc_closes_ok and ok
+	lines.append("  Esc 입력: visible=%s(기대 false) closed 시그널 %d회(기대 1) -> %s" % [
+		panel.visible, closed_signal_log.size(), "OK" if esc_closes_ok else "FAIL"
+	])
+
+	remove_child(panel)
+	panel.queue_free()
+	SkillCodex._debug_reset_for_qa()
+	AchievementManager._debug_reset_for_qa()
+	RunState.character_id = character_backup
+	RunState.skill_flags = skill_flags_backup
+	RunState.test_battle = test_battle_backup
+	return ok
+
+
+## QA 전용(GAME_QA_CALL): 미발견/발견-미보유/보유 3상태가 한 화면에 같이 보이는
+## SkillCodexPanel 스크린샷을 찍기 위한 훅. _check_l2b_skill_codex_panel()과 같은 혼합
+## 상태를 만들어 연다 — L-2(c)(진입점 연결) 전이라 실제 화면 버튼은 아직 없으므로
+## dice_test 씬을 빌려 패널만 띄운다.
+func _debug_show_skill_codex_panel_mixed() -> void:
+	SkillCodex._debug_reset_for_qa()
+	AchievementManager._debug_reset_for_qa()
+	RunState.test_battle = false
+	RunState.character_id = "novice"
+	var owned: Array[String] = ["start_expand", "deep_breath"]
+	RunState.skill_flags = owned.duplicate()
+	for skill_id in owned:
+		SkillCodex.mark_discovered("novice", skill_id)
+	SkillCodex.mark_discovered("novice", "versatile_surge")
+	SkillCodex.mark_discovered("novice", "deep_breath_plus")
+	var panel := SkillCodexPanel.new()
+	add_child(panel)
+	panel.open("novice", owned)
