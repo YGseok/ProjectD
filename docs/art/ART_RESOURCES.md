@@ -186,14 +186,14 @@ ART-<분류><대상 번호 3자리>-<종류>
 
 | id | 이름 | 참고 색 (머리 / 의상) | 전신 `full.png` | 표정 5종 `face_*.png` |
 |---|---|---|---|---|
-| `novice` | 견습 모험가 | `#C79EDB` / `#EB8CA8` | ✅ 적용 | 📝 ART-CH001-FACE |
+| `novice` | 견습 모험가 | `#C79EDB` / `#EB8CA8` | ✅ 적용 | 📝 ART-CH001-FACE (neutral 1/5 ✅ — 선택 화면 목록 썸네일에 사용 중) |
 | `berserker` | 광전사 | `#D94033` / `#591A1A` | ✅ 적용 | 📝 ART-CH002-FACE |
 | `guardian` | 수호자 | `#668CD9` / `#40668C` | ✅ 적용 | 📝 ART-CH003-FACE |
 | `explosive` | 폭발병 | `#F28C26` / `#802E0D` | ✅ 적용 | 📝 ART-CH004-FACE |
 | `shieldbearer` | 주술사 | `#1F1429` / `#2E0A1A` | ✅ 적용 | 📝 ART-CH005-FACE (전신 입고됨 — 착수 가능) |
 | `enchantress` | 매혹사 | `#BF2673` / `#8C0D40` | ✅ 적용 | 📝 ART-CH006-FACE (전신 입고됨 — 착수 가능) |
 | `juggler` | 곡예사 | `#F2D940` / `#8026BF` | ✅ 적용 | 📝 ART-CH007-FACE (전신 입고됨 — 착수 가능) |
-| `pirate` | 해적 | `#0E4A4F` / `#1FA5A0` (퍼스널 컬러: 터콰이즈) | 📝 ART-CH008-FULL | 📝 ART-CH008-FACE (전신 입고 후) |
+| `pirate` | 해적 | `#0E4A4F` / `#1FA5A0` (퍼스널 컬러: 터콰이즈) | ✅ 적용 | 📝 ART-CH008-FACE (전신 입고 후) |
 
 ### 2-2. 몬스터 (의인화, 35종) — 정의: `code/systems/monster_catalog.gd`
 
@@ -315,7 +315,7 @@ ID는 기본 스킬 하나당 번호 하나(`-ICON`), "+" 강화판은 같은 �
 | SK604 | `versatile_surge` (`_plus`) | 임기응변 | 이중 스택 · `#F28C26`+`#8C99A6` 반반 | 견습 모험가 | 공격·방어 최댓값마다 각각 스택, 3스택 보너스턴 | 📝 / 📝 |
 | SK605 | `charm_amplify` (`_plus`) | 매혹 심화 | 다이스 전환 · `#D94D8C` | 매혹사 | 매혹 효과가 최저 다이스 2개에 적용 | 📝 / 📝 |
 | SK606 | `juggle_encore` (`_plus`) | 곡예 앙코르 | 다이스 교환 · `#E6BF26` | 곡예사 | 라운드마다 공/방 다이스 1개씩 다시 맞교환 | 📝 / 📝 |
-| SK607 | `broadside` (`_plus`) | 일제 사격 | 주기 공격 · `#26A699` | 해적 | 함포 주기 3→2턴 / +: 고정 피해 강화 | 📝 / 📝 |
+| SK607 | `broadside` (`_plus`) | 일제 사격 | 주기 공격 · `#26A699` | 해적 | 함포 주기 3→2턴 / +: 고정 피해 강화 | ✅ / 📝 |
 
 **발주 우선순위** (Work 제안과 같음): S1 캐릭터 전용 고유 스킬 SK600~607 (16장) → S2 시작 스킬 SK001~013 (13장)
 → S3 공용 획득 SK300~301 (4장). 실제 디자인은 **모티프 11종**이라, 모티프마다 베이스 1장을 먼저 잡고
@@ -573,6 +573,9 @@ ID는 기본 스킬 하나당 번호 하나(`-ICON`), "+" 강화판은 같은 �
 | 2026-10-07 | ART-CH006~007-FULL (매혹사·곡예사 전신 — 한 장(1275×1234)에 둘이 함께 입고 → 두 캐릭터 사이 투명 경로를 따라 분리해 1181×1332 캔버스 중앙 배치) | 캐릭터 선택 화면 (코드 수정 없이 자동 적용) | `qa_out/art_character_select_juggler.png` |
 | 2026-10-08 | ART-CH006~007-FULL 교체 (분리본 재입고: `enchantress_cleaned.png` / `acrobat_cleaned.png`). 매혹사 오른쪽에 남은 곡예사 잔해(x 925~1000, y 684~980)를 지움. 원본은 `_reference/characters/{enchantress,juggler}/delivered_*.png` | 캐릭터 선택 화면 | `qa_out/art_character_select_juggler.png` |
 | 2026-10-08 | ART-CH006~007-FULL 크기 보정 — 캐릭터 세로를 다른 캐릭터와 같은 1303px로 확대(매혹사 ×1.061, 곡예사 ×1.068, Lanczos). 화면에는 원본의 약 22%로 축소 표시되므로 화질 영향 없음 | 캐릭터 선택 화면 | `qa_out/art_character_select_juggler.png` |
+| 2026-10-14 | ART-CH008-FULL 해적 전신 (첫 GPT 생성분 — ChatGPT `Project D - Claude` 스레드, 1차 긴 머리 → 단발+땋은 머리·주사위 정정으로 2차 채택. 1차본은 `_reference/characters/pirate/gpt_v1_long_hair.png`) | 캐릭터 선택 화면 | `qa_out/art_character_select_pirate.png` |
+| 2026-10-14 | ART-CH001-FACE 중 `face_neutral.png` (GPT 생성) | 선택 화면 왼쪽 목록 얼굴 썸네일(K-2 우선순위 ①). 전투 표정은 5장 모두 입고 시 전환 | `qa_out/art_character_select_pirate.png` |
+| 2026-10-14 | ART-SK607-ICON 일제 사격 아이콘 (GPT 생성, 256 원본은 `_reference/skills/broadside_256.png`, 게임용 128) | `resources/skills/broadside.png` — `SkillIcon.load_external_art()` 로드 확인. `+`판은 아직 절차적 | (도감에서 미발견 상태라 화면 미노출) |
 
 ---
 

@@ -35,3 +35,9 @@ code path, c=monster art path tied to G-1 MonsterCatalog ids.
 `code/systems/monster_catalog.gd` mapped in ledger: normal MO001~021, elite MO600~607, boss
 MO800~805; MO005 `dark_knight` (compat, not in random pool) shares MO600 art. Order priority
 M1 bosses → M2 family reps (MO001~004) → M3 elites → M4 other normals.
+
+**GPT generation pipeline (2026-10-14):** `tools/artgen/` — Claude writes jobs/<id>/(job.env+prompt.txt),
+`bash tools/artgen/artgen.sh <job> [n]` calls OpenAI images API (edits w/ REFS, else generations,
+transparent bg) and Godot `postprocess.gd` makes spec-fit candidates in out/ (gitignored); Claude
+reviews, user picks, `adopt.sh` copies into resources/. Key only via user-set env OPENAI_API_KEY —
+never handle/echo it. No python/jq on this PC: use curl + Godot headless for everything.
