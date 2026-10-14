@@ -37,7 +37,7 @@ echo "[artgen] job=$JOB kind=$KIND size=$SIZE n=$N model=$MODEL quality=$QUALITY
 if [ -n "$REFS" ]; then
   args=()
   for r in $REFS; do args+=(-F "image[]=@$ROOT/$r"); done
-  curl -sS --fail-with-body https://api.openai.com/v1/images/edits \
+  curl -sS https://api.openai.com/v1/images/edits \
     -H "Authorization: Bearer $OPENAI_API_KEY" \
     -F "model=$MODEL" -F "prompt=$PROMPT" -F "n=$N" -F "size=$SIZE" \
     -F "quality=$QUALITY" -F "background=transparent" -F "output_format=png" \
@@ -48,9 +48,14 @@ else
   esc=$(printf '%s' "$PROMPT" | tr '\r\n' '  ' | tr -d '\134' | tr '"' "'")
   printf '{"model":"%s","prompt":"%s","n":%s,"size":"%s","quality":"%s","background":"transparent","output_format":"png"}' \
     "$MODEL" "$esc" "$N" "$SIZE" "$QUALITY" > "$OUT/request.json"
-  curl -sS --fail-with-body https://api.openai.com/v1/images/generations \
+  curl -sS https://api.openai.com/v1/images/generations \
     -H "Authorization: Bearer $OPENAI_API_KEY" -H "Content-Type: application/json" \
     --data-binary "@$OUT/request.json" -o "$OUT/response.json"
+fi
+
+if grep -q "\"error\"" "$OUT/response.json"; then
+  echo "[artgen] API 오류:" >&2; head -c 600 "$OUT/response.json" >&2; echo >&2
+  rm -f "$OUT/response.json"; exit 1
 fi
 
 "$GODOT_BIN" --headless --script "$HERE/postprocess.gd" -- "$OUT/response.json" "$KIND" "$OUT" 2>&1 \
