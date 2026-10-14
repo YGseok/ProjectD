@@ -321,6 +321,10 @@ func _ready() -> void:
 	all_pass = (await _check_l3_personal_color_background(lines)) and all_pass
 
 	lines.append("")
+	lines.append("[M-1: 던전 맵 HUD/버튼 위계/DeckPanel 구역화 검증: dungeon_map.gd HUD 칩 실제 갱신 + UIKit 주/보조 버튼 색 차이 + DeckPanel 구역 패널화/스크롤 + FocusNav 포커스 오버레이가 커스텀 버튼색을 안 가리는지]")
+	all_pass = _check_m1_dungeon_map_hud_and_buttons(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -6898,3 +6902,137 @@ func _debug_show_skill_codex_panel_mixed() -> void:
 	var panel := SkillCodexPanel.new()
 	add_child(panel)
 	panel.open("novice", owned)
+
+
+## [대형 기획 13] M-1(2026-10-14) 검증 — "플래그가 들어갔는가"가 아니라 실제 렌더/계산
+## 결과(제목 문자열, 버튼 배경색 차이, HUD 라벨 텍스트, 점 개수, 패널 구조)를 확인한다.
+## dungeon_map.gd는 @onready 노드를 쓰므로 실제 .tscn을 인스턴스화해야 한다(DeckPanel
+## 검증과 같은 패턴).
+func _check_m1_dungeon_map_hud_and_buttons(lines: PackedStringArray) -> bool:
+	var ok := true
+	var character_backup := RunState.character_id
+	var gold_backup := RunState.gold
+	var rooms_backup := RunState.rooms_cleared
+	var test_battle_backup := RunState.test_battle
+
+	RunState.character_id = "novice"
+	RunState.test_battle = false
+	RunState.gold = 42
+	RunState.rooms_cleared = 0
+
+	var map_scene := load("res://code/scenes/dungeon_map.tscn")
+	var map = map_scene.instantiate()
+	add_child(map)
+
+	# 제목: 개발용 문구("테스트 허브")가 없어야 하고, 테스트 전투가 아니면 "던전 맵"만.
+	var title: Label = map.get_node("Title")
+	var title_ok: bool = title.text == "던전 맵" and not title.text.contains("테스트 허브")
+	ok = title_ok and ok
+	lines.append("  제목(테스트 전투 아님): '%s' (기대 '던전 맵', 개발용 문구 없음) -> %s" % [
+		title.text, "OK" if title_ok else "FAIL"
+	])
+
+	# 주 행동(전투) 버튼과 보조 행동(상점) 버튼의 normal 배경색이 달라야 한다(위계).
+	var primary_style: StyleBoxFlat = map.enter_combat_button.get_theme_stylebox("normal")
+	var secondary_style: StyleBoxFlat = map.enter_shop_button.get_theme_stylebox("normal")
+	var button_hierarchy_ok: bool = primary_style != null and secondary_style != null and primary_style.bg_color != secondary_style.bg_color
+	ok = button_hierarchy_ok and ok
+	lines.append("  버튼 위계: 전투 normal=%s 상점 normal=%s (달라야 함) -> %s" % [
+		primary_style.bg_color if primary_style else "null", secondary_style.bg_color if secondary_style else "null",
+		"OK" if button_hierarchy_ok else "FAIL"
+	])
+	# 정예 전투 버튼은 tint(빨강)를 받아 상점과도, 전투와도 달라야 한다(G-7 "빨간 테두리"
+	# 의도가 UIKit 통합 후에도 유지되는지).
+	var elite_style: StyleBoxFlat = map.enter_elite_button.get_theme_stylebox("normal")
+	var elite_distinct_ok: bool = elite_style != null and elite_style.border_color != secondary_style.border_color
+	ok = elite_distinct_ok and ok
+	lines.append("  정예 버튼 테두리색이 일반 보조 버튼과 다름(위험 강조 유지): elite=%s secondary=%s -> %s" % [
+		elite_style.border_color if elite_style else "null", secondary_style.border_color, "OK" if elite_distinct_ok else "FAIL"
+	])
+
+	# HUD 칩: 라운드/골드 값이 RunState를 그대로 반영.
+	var round_text_ok: bool = map._hud_round_value_label.text == "%d/%d" % [RunState.round_index, RunState.TOTAL_ROUNDS]
+	ok = round_text_ok and ok
+	lines.append("  HUD 라운드 칩: '%s' (기대 '%d/%d') -> %s" % [
+		map._hud_round_value_label.text, RunState.round_index, RunState.TOTAL_ROUNDS, "OK" if round_text_ok else "FAIL"
+	])
+	var gold_text_ok: bool = map._hud_gold_value_label.text == str(RunState.gold)
+	ok = gold_text_ok and ok
+	lines.append("  HUD 골드 칩: '%s' (기대 '%d') -> %s" % [
+		map._hud_gold_value_label.text, RunState.gold, "OK" if gold_text_ok else "FAIL"
+	])
+
+	# 골드를 바꾸고 _update_labels()를 다시 불러도 칩이 따라오는지(정적 텍스트가 아님을 확인).
+	RunState.gold = 999
+	map._update_labels()
+	var gold_updates_ok: bool = map._hud_gold_value_label.text == "999"
+	ok = gold_updates_ok and ok
+	lines.append("  HUD 골드 칩 갱신(999로 변경 후 _update_labels() 재호출): '%s' -> %s" % [
+		map._hud_gold_value_label.text, "OK" if gold_updates_ok else "FAIL"
+	])
+
+	# 진행도 점 개수는 TOTAL_ROOMS와 같아야 한다(INBOX M-1 "진행도는 진행 바나 칸").
+	var dots_count_ok: bool = map._hud_progress_dots.get_child_count() == RunState.TOTAL_ROOMS
+	ok = dots_count_ok and ok
+	lines.append("  진행도 점 개수: %d (기대 %d) -> %s" % [
+		map._hud_progress_dots.get_child_count(), RunState.TOTAL_ROOMS, "OK" if dots_count_ok else "FAIL"
+	])
+
+	# MapStrip 카드가 뷰포트(1280x720) 밖으로 흘러나오지 않는지(카드 높이를 동적으로
+	# 계산하도록 바꿨으므로, 계산값 자체가 화면을 벗어나지 않는지 확인).
+	var strip_within_viewport_ok: bool = map._map_card_height > 0.0 and map.map_strip.offset_bottom <= 720.0
+	ok = strip_within_viewport_ok and ok
+	lines.append("  MapStrip 카드 높이=%.1f, 바닥 y=%.1f (기대 >0, <=720) -> %s" % [
+		map._map_card_height, map.map_strip.offset_bottom, "OK" if strip_within_viewport_ok else "FAIL"
+	])
+
+	# DeckPanel: 구역 패널화(섹션 5개: 캐릭터/보유 스킬/공격/방어/기타 정보) + 넘치면
+	# 스크롤되도록 ScrollContainer로 감쌌는지.
+	var deck: DeckPanel = map.get_node("DeckPanel")
+	var deck_sections := 0
+	var has_scroll := false
+	for c in deck.get_children():
+		if c is ScrollContainer:
+			has_scroll = true
+			for inner in c.get_children():
+				if inner is VBoxContainer:
+					deck_sections = inner.get_child_count()
+	var deck_structure_ok: bool = has_scroll and deck_sections == 5
+	ok = deck_structure_ok and ok
+	lines.append("  DeckPanel: ScrollContainer=%s 섹션 개수=%d (기대 true, 5) -> %s" % [
+		has_scroll, deck_sections, "OK" if deck_structure_ok else "FAIL"
+	])
+
+	remove_child(map)
+	map.free()
+
+	# 테스트 전투 중(RunState.test_battle=true)이면 제목에 "(테스트 전투)"가 붙어야 한다.
+	RunState.test_battle = true
+	var map2_scene := load("res://code/scenes/dungeon_map.tscn")
+	var map2 = map2_scene.instantiate()
+	add_child(map2)
+	var title2: Label = map2.get_node("Title")
+	var test_battle_title_ok: bool = title2.text == "던전 맵 (테스트 전투)"
+	ok = test_battle_title_ok and ok
+	lines.append("  제목(테스트 전투 중): '%s' (기대 '던전 맵 (테스트 전투)') -> %s" % [
+		title2.text, "OK" if test_battle_title_ok else "FAIL"
+	])
+	remove_child(map2)
+	map2.free()
+
+	# FocusNav.focus_style()의 배경이 투명해야(알파=0) 커스텀 버튼색(주/보조) 위에 포커스
+	# 테두리가 겹쳐 그려져도 밑의 색이 그대로 보인다 — M-1 라운드 1에서 발견한 버그의 회귀
+	# 방지(오버레이 방식으로 그려지는 Godot Button 포커스 스타일 특성상, 배경이 불투명하면
+	# 포커스된 버튼은 항상 그 불투명색으로 덮여 주/보조 구분이 사라진다).
+	var fstyle := FocusNav.focus_style()
+	var focus_transparent_ok: bool = fstyle.bg_color.a == 0.0
+	ok = focus_transparent_ok and ok
+	lines.append("  FocusNav.focus_style() 배경 투명(포커스가 커스텀 버튼색을 안 가림): alpha=%.2f -> %s" % [
+		fstyle.bg_color.a, "OK" if focus_transparent_ok else "FAIL"
+	])
+
+	RunState.character_id = character_backup
+	RunState.gold = gold_backup
+	RunState.rooms_cleared = rooms_backup
+	RunState.test_battle = test_battle_backup
+	return ok

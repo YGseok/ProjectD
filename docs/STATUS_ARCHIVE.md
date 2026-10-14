@@ -8,6 +8,52 @@
 
 ---
 
+- **2026-10-13 (188)**: INBOX.md 최우선 지시 [대형 기획 11] 조작/UI 개편(K-1→K-4) 중
+  **K-2(캐릭터 선택 화면 가독성 개편: 좌 얼굴 중심 목록 / 우 구역 나눈 상세 패널)
+  완료**. 좌측 카드 목록(`code/scenes/character_select.gd`의 `_make_card()`)을
+  92px짜리 "초상+이름+버튼" 행에서 56px짜리 "정사각 얼굴 썸네일(48×48)+이름+한 줄
+  기믹 라벨+선택 버튼" 행으로 바꿔 8명 전부가 스크롤 없이 한 화면에 들어오게 했다
+  (8행 결합 높이 532px < 가시 영역 540px). 얼굴 이미지는 `CharacterArt.load_face_thumb()`
+  신설(① `resources/characters/<id>/face_neutral.png` ② `full.png`를 비율 크롭
+  `DEFAULT_FACE_CROP_RATIO`(0..1 비율, 프로필별 `face_crop` 필드로 오버라이드 가능)
+  ③ 둘 다 없으면 도형 플레이스홀더) 우선순위로 고른다. 우측 상세 패널은 `_build_
+  detail_panel()`을 전면 재작성해 "줄글 한 덩어리" 대신 `_make_section(title)`(테두리+
+  배경 패널 공용 틀)로 만든 **섹션 5개**로 쪼갰다 — ①헤더(전신 원화+이름+컨셉
+  한 줄, `_header_concept_line()`로 "—" 앞부분만 추출) ②능력치(공격/방어 다이스
+  개수를 `RewardIcon`(dice) 칩으로, 이벤트 주사위를 `EventDieVisual` 칩으로, HP를
+  고정 칩으로 — `_make_stat_chip()` 공용 틀) ③고유 능력(`SkillIcon`+짧은 이름
+  `_ability_short_name()`(GIMMICK_LABELS의 " (" 앞부분)+최대 2줄 설명 `_truncate()`
+  (ABILITY_DESC_MAX_CHARS=70자, 넘치면 "…"+전체 문장은 tooltip_text)) ④시작 스킬
+  3슬롯(기존 F-1~F-4 구조·변수명(`_starting_skill_container`/`_starting_skill_desc_
+  label`/`_on_starting_skill_selected`/`_on_starting_skill_locked_preview` 등)
+  완전히 그대로 유지 — 기존 회귀 테스트가 섹션 이동만으로 안 깨지게 함) ⑤안내
+  (원화 미입고 플레이스홀더 안내, 스크린샷으로 "빈 테두리 상자"가 보여서 라벨뿐
+  아니라 섹션 패널 자체(`_detail_note_section_panel`)를 숨기도록 추가 수정).
+  **검증 중 겪은 문제**: `dice_test.gd`에 새로 추가한 K-2 테스트(`_check_k2_
+  character_select_sections`)가 `_detail_sections_vbox.get_combined_minimum_size()`
+  로 "내용이 패널 높이(540) 안에 들어오는가"를 재자마자 1600~2600px라는 터무니
+  없는 값이 나왔다 — 원인은 autowrap(`AUTOWRAP_WORD`) Label들이 실제 컨테이너
+  레이아웃 패스(최초 1프레임)를 거치기 전에는 `size.x=0`인 채로 최소 높이를
+  계산해(모든 단어가 한 줄씩 줄바꿈) 비정상적으로 커지는 것이었다. 세 라벨
+  (`_detail_skill_label`/`_starting_skill_desc_label`/`_detail_placeholder_note`)에
+  `custom_minimum_size`뿐 아니라 `.size`까지 미리 못박아(`SECTION_BODY_WRAP_
+  WIDTH`=760/`ABILITY_DESC_WRAP_WIDTH`=720) 해결 — 이후 8명 전부 479~501px로
+  예산(540) 안에 안정적으로 들어옴을 확인. **테스트**: 새 `_check_k2_character_
+  select_sections()`가 (a) 섹션 패널 개수=5 (b) 8명 전부 섹션 텍스트가 실제로
+  채워지는지(이름/컨셉/능력치/고유능력/시작스킬 텍스트가 빈 문자열이 아님) (c) 8명
+  전부 상세 패널 결합 최소 높이가 실제 패널 크기(840×540) 예산 안인지 (d) 좌측
+  목록 결합 높이가 ScrollContainer 가시 영역 안인지를 검증 — 기존 `_check_
+  starting_skill_selection_ui`/`_check_starting_skill_locked_preview`(K-2 이전부터
+  있던 잠금 슬롯/미리보기 회귀 테스트)도 변수명을 그대로 유지해 그대로 PASS.
+  `bash scripts/qa_shot.sh dice_test` 3회 연속 PASS 확인. `qa_shot.sh character_select`로
+  기본(견습 모험가)/해적(원화 없음, 안내 섹션 노출 확인)/주술사(가장 긴 컨셉 문장,
+  2줄 말줄임 확인)/잠긴 슬롯 미리보기 4개 스크린샷으로 겹침·잘림·빈 상자 없음을
+  눈으로 확인. **K-2 완료 — 다음은 K-3(캐릭터 퍼스널 컬러)**. INBOX.md [대형
+  기획 11]은 "부분 처리됨"에 그대로 두고 진행 한 줄만 갱신. 부수적으로, 직전
+  (187) 이터레이션이 "완료 기록 (187)"을 참조하는 문구를 여러 곳에 남겼으면서도
+  실제 (187) 항목 자체를 이 목록에 추가하지 않은 누락을 발견해, 아래 (187)
+  항목을 "마지막 갱신"/"지금 위치" 서술을 근거로 이번에 보완해 추가했다.
+
 - **2026-10-13 (187)**: INBOX.md 최우선 지시 [대형 기획 11] 조작/UI 개편(K-1→K-4) 중
   **K-1(방향키+스페이스 조작으로 숫자 단축키 완전 대체) 완료**. 신규
   `code/scenes/focus_nav.gd`(`FocusNav`, 씬 상태 없는 순수 유틸)가 "버튼 목록을

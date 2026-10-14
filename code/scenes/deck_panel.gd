@@ -30,9 +30,13 @@ extends PanelContainer
 ## 섹션 아래에 나열한다. 지금까지는 스킬을 얻어도 이 패널/캐릭터 선택 화면 어디에도
 ## "지금 뭘 갖고 있는지" 모아서 보여주는 곳이 없었다.
 
-const CHIP_SIZE := 20.0
-const CHIP_GAP := 3.0
-const SECTION_GAP := 10.0
+const CHIP_SIZE := 22.0
+const CHIP_GAP := 4.0
+## [대형 기획 13] M-1: 얼굴 썸네일 한 변 — character_select.gd의 좌측 목록과 같은
+## 패턴(FACE_THUMB_SIZE/PORTRAIT_SCALE_COMPACT)을 재사용하되 패널 폭(260px 전후)에
+## 맞춰 조금 더 작게 잡았다.
+const FACE_THUMB_SIZE := 40.0
+const PORTRAIT_SCALE_COMPACT := 0.17
 
 var _vbox: VBoxContainer
 var _last_signature := ""
@@ -56,9 +60,22 @@ func _ready() -> void:
 	# 지점에서 통일하기에 가장 효율적인 자리다 — 실제 색 적용은 캐릭터가 바뀔 때마다
 	# _rebuild()가 담당(이 _ready() 시점의 border_color는 _rebuild()가 바로 덮어씀).
 
+	# [대형 기획 13] M-1: 보유 스킬이 많이 쌓이면(런 후반) 6섹션 총합이 이 패널의 고정
+	# 높이(화면마다 다르지만 dungeon_map 기준 550px)를 넘을 수 있다 — 전엔 그냥 화면
+	# 밖으로 잘렸다(INBOX M-1이 명시적으로 금지하는 "화면 밖으로 잘림"). ScrollContainer로
+	# 감싸 넘치면 스크롤되게 한다(character_select 좌측 카드 목록의 ART-1a와 같은 해법).
+	var scroll := ScrollContainer.new()
+	scroll.set_anchors_preset(Control.PRESET_FULL_RECT)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	add_child(scroll)
+
 	_vbox = VBoxContainer.new()
-	_vbox.add_theme_constant_override("separation", 4)
-	add_child(_vbox)
+	# 구역(섹션)마다 독립된 테두리 패널(UIKit.make_section)로 바뀌면서 패널 자체의
+	# 여백이 섹션 사이 간격 역할을 겸하므로, 이전처럼 별도 _add_spacer() 노드 없이
+	# VBox separation만으로 충분하다.
+	_vbox.add_theme_constant_override("separation", 6)
+	_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(_vbox)
 	_rebuild()
 
 
@@ -74,7 +91,10 @@ func _process(_delta: float) -> void:
 
 
 func _signature() -> String:
-	return "%s#%s#%s#%s" % [RunState.character_id, _bag_signature(RunState.player_attack_bag), _bag_signature(RunState.player_defense_bag), ",".join(RunState.skill_flags)]
+	return "%s#%s#%s#%s#%d#%d" % [
+		RunState.character_id, _bag_signature(RunState.player_attack_bag), _bag_signature(RunState.player_defense_bag),
+		",".join(RunState.skill_flags), RunState.pip_inventory.size(), RunState.die_inventory.size(),
+	]
 
 
 func _bag_signature(bag: DiceBag) -> String:
@@ -94,46 +114,79 @@ func _rebuild() -> void:
 	CharacterTheme.apply(self, RunState.character_id, false)
 	for c in _vbox.get_children():
 		c.queue_free()
-	_add_character_section()
-	_add_spacer()
-	_add_skills_section()
-	_add_spacer()
-	_add_section("공격 주머니", RunState.player_attack_bag)
-	_add_spacer()
-	_add_section("방어 주머니", RunState.player_defense_bag)
+	var cid := RunState.character_id
+	_add_character_section(cid)
+	_add_skills_section(cid)
+	_add_bag_section("공격 주머니", RunState.player_attack_bag, cid)
+	_add_bag_section("방어 주머니", RunState.player_defense_bag, cid)
+	# [대형 기획 13] M-1: 기존 4섹션이 이 패널(dungeon_map 기준 550px 높이)을 다 채우지
+	# 못해 아래쪽이 통째로 빈 공간이었다(INBOX M-1 비평 "빈 공간이 없게 배치"). 이벤트
+	# 주사위/인벤토리는 지금까지 DeckPanel 어디에도 없던 실제 정보라 장식용 여백 대신
+	# 유의미한 내용으로 채운다 — 섹션을 따로 쪼개면 테두리/패딩만 늘어 공간을 더 먹으므로
+	# (오히려 "빈 공간" 문제를 키움) 한 섹션에 묶는다.
+	_add_misc_section(cid)
 
 
-## 캐릭터 이름 + 설명(기믹 포함)을 덱 정보 위에 보여준다. character_profiles.gd의
-## desc 필드는 캐릭터 선택 화면에서 쓰는 것과 동일한 텍스트를 그대로 재사용 — 별도
-## "요약본"을 새로 만들지 않아 두 화면의 설명이 어긋날 일이 없다.
-## 스킬(기믹) 유형 아이콘(SkillIcon, 2026-09-15 신규)을 이름 왼쪽에 붙여, 이 패널만
-## 봐도 캐릭터 선택 화면의 상세 패널과 같은 시각적 언어로 어떤 계열의 기믹인지
+## [대형 기획 13] M-1: 캐릭터 얼굴 썸네일 + 이름 + 설명(기믹 포함)을 구역 패널 하나로
+## 묶는다(INBOX M-1 원문 "캐릭터 얼굴+이름"). 얼굴 이미지 우선순위는 character_select
+## 좌측 목록과 같은 규칙(CharacterArt.load_face_thumb() — face_neutral.png ->
+## full.png 크롭 -> 도형 플레이스홀더)이라 두 화면의 얼굴이 항상 일치한다.
+## 스킬(기믹) 유형 아이콘(SkillIcon)은 이름 옆에 그대로 유지해 어떤 계열의 기믹인지
 ## 짐작 가능하게 한다(INBOX.md 2026-09-14 "캐릭터 스킬에 아이콘을 추가한다").
-func _add_character_section() -> void:
-	var profile := CharacterProfiles.get_profile(RunState.character_id)
+func _add_character_section(cid: String) -> void:
+	var profile := CharacterProfiles.get_profile(cid)
+	var body := UIKit.make_section(_vbox, "", cid)
+
+	var hbox := HBoxContainer.new()
+	hbox.add_theme_constant_override("separation", 8)
+	body.add_child(hbox)
+
+	var portrait_holder := Control.new()
+	portrait_holder.custom_minimum_size = Vector2(FACE_THUMB_SIZE, FACE_THUMB_SIZE)
+	var thumb := CharacterArt.load_face_thumb(cid)
+	if thumb != null:
+		var thumb_rect := TextureRect.new()
+		thumb_rect.texture = thumb
+		thumb_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		thumb_rect.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+		thumb_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		thumb_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
+		portrait_holder.add_child(thumb_rect)
+	else:
+		var portrait := CharacterPortraitPlaceholder.new()
+		portrait.scale = Vector2(PORTRAIT_SCALE_COMPACT, PORTRAIT_SCALE_COMPACT)
+		portrait.position = Vector2(FACE_THUMB_SIZE / 2.0, FACE_THUMB_SIZE / 2.0 + 2.7)
+		portrait.set_palette(profile["hair_color"], profile["dress_color"])
+		portrait_holder.add_child(portrait)
+	hbox.add_child(portrait_holder)
+
+	var name_vbox := VBoxContainer.new()
+	name_vbox.add_theme_constant_override("separation", 2)
+	name_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hbox.add_child(name_vbox)
 
 	var title_row := HBoxContainer.new()
-	title_row.add_theme_constant_override("separation", 6)
+	title_row.add_theme_constant_override("separation", 4)
 	var skill_icon := SkillIcon.new()
-	skill_icon.custom_minimum_size = Vector2(18, 18)
+	skill_icon.custom_minimum_size = Vector2(16, 16)
 	skill_icon.category = String(profile.get("gimmick", ""))
 	title_row.add_child(skill_icon)
 
 	var title := Label.new()
-	title.text = "캐릭터: %s" % profile.get("name", "")
-	title.add_theme_font_size_override("font_size", 15)
+	title.text = String(profile.get("name", ""))
+	title.add_theme_font_size_override("font_size", 16)
 	# K-3: 이름 글자색도 테두리와 같은 캐릭터 accent로 — 패널 전체가 "이 캐릭터의 색"
 	# 이라는 인상을 제목에서부터 준다.
-	title.add_theme_color_override("font_color", CharacterTheme.ui_palette(RunState.character_id)["accent"])
+	title.add_theme_color_override("font_color", CharacterTheme.ui_palette(cid)["accent"])
 	title_row.add_child(title)
-	_vbox.add_child(title_row)
+	name_vbox.add_child(title_row)
 
 	var desc := Label.new()
 	desc.text = String(profile.get("desc", ""))
 	desc.add_theme_font_size_override("font_size", 12)
 	desc.add_theme_color_override("font_color", Color(0.75, 0.75, 0.75))
 	desc.autowrap_mode = TextServer.AUTOWRAP_WORD
-	_vbox.add_child(desc)
+	name_vbox.add_child(desc)
 
 
 ## STATUS.md 큐 16([미니 기획 D]-6, "선택, 급하지 않음"으로 미착수 남아있던 항목) —
@@ -143,19 +196,15 @@ func _add_character_section() -> void:
 ## 상수를 전부 뒤져 이름을 찾아주므로, 이 패널은 어느 스킬이 어느 상수 출신인지 몰라도
 ## 된다 — 새 스킬 종류가 늘어도 이 코드는 그대로 유지됨. 새 위젯을 만들지 않고 캐릭터
 ## 섹션과 같은 Label 나열 패턴을 재사용했다.
-func _add_skills_section() -> void:
-	var title := Label.new()
-	title.text = "보유 스킬"
-	title.add_theme_font_size_override("font_size", 15)
-	title.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9))
-	_vbox.add_child(title)
+func _add_skills_section(cid: String) -> void:
+	var body := UIKit.make_section(_vbox, "보유 스킬", cid)
 
 	if RunState.skill_flags.is_empty():
 		var empty_label := Label.new()
 		empty_label.text = "(없음)"
 		empty_label.add_theme_font_size_override("font_size", 12)
 		empty_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
-		_vbox.add_child(empty_label)
+		body.add_child(empty_label)
 		return
 
 	for skill_id in RunState.skill_flags:
@@ -177,21 +226,59 @@ func _add_skills_section() -> void:
 		skill_label.add_theme_font_size_override("font_size", 12)
 		skill_label.add_theme_color_override("font_color", Color(0.75, 0.75, 0.75))
 		row.add_child(skill_label)
-		_vbox.add_child(row)
+		body.add_child(row)
 
 
-func _add_section(title_text: String, bag: DiceBag) -> void:
-	var title := Label.new()
-	title.text = title_text
-	title.add_theme_font_size_override("font_size", 15)
-	title.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9))
-	_vbox.add_child(title)
+## 이벤트 주사위(RunState.event_die_sides) + 눈금/다이스 인벤토리 — 둘 다 지금까지
+## character_select 상세 패널/CustomizePanel을 열어야만 보이던 정보라, 던전 진행
+## 화면에서도 상시 볼 수 있게 한 섹션에 함께 넣는다(각각 섹션을 쪼개면 테두리/패딩만
+## 늘어 "빈 공간" 문제를 오히려 키우므로 묶음).
+func _add_misc_section(cid: String) -> void:
+	var body := UIKit.make_section(_vbox, "기타 정보", cid)
+
+	var die_row := HBoxContainer.new()
+	die_row.add_theme_constant_override("separation", 8)
+	body.add_child(die_row)
+	var sample := EventDieVisual.new()
+	sample.custom_minimum_size = Vector2(24, 24)
+	sample.value = 1
+	die_row.add_child(sample)
+	var die_label := Label.new()
+	die_label.text = "이벤트 주사위 D%d" % RunState.event_die_sides
+	die_label.add_theme_font_size_override("font_size", 12)
+	die_label.add_theme_color_override("font_color", Color(0.75, 0.75, 0.75))
+	die_row.add_child(die_label)
+
+	var inv_row := HBoxContainer.new()
+	inv_row.add_theme_constant_override("separation", 16)
+	body.add_child(inv_row)
+	inv_row.add_child(_make_inventory_chip("pip", "눈금 %d개" % RunState.pip_inventory.size()))
+	inv_row.add_child(_make_inventory_chip("dice", "다이스 %d개" % RunState.die_inventory.size()))
+
+
+func _make_inventory_chip(category: String, text: String) -> Control:
+	var pair := HBoxContainer.new()
+	pair.add_theme_constant_override("separation", 5)
+	var icon := RewardIcon.new()
+	icon.custom_minimum_size = Vector2(16, 16)
+	icon.category = category
+	pair.add_child(icon)
+	var label := Label.new()
+	label.text = text
+	label.add_theme_font_size_override("font_size", 12)
+	label.add_theme_color_override("font_color", Color(0.75, 0.75, 0.75))
+	pair.add_child(label)
+	return pair
+
+
+func _add_bag_section(title_text: String, bag: DiceBag, cid: String) -> void:
+	var body := UIKit.make_section(_vbox, title_text, cid)
 	for faces in bag.dice:
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", CHIP_GAP)
 		for v in faces:
 			row.add_child(_make_chip(v))
-		_vbox.add_child(row)
+		body.add_child(row)
 
 
 func _make_chip(value: int) -> Control:
@@ -216,9 +303,3 @@ func _make_chip(value: int) -> Control:
 	label.add_theme_color_override("font_color", Color(0.15, 0.12, 0.08))
 	panel.add_child(label)
 	return panel
-
-
-func _add_spacer() -> void:
-	var spacer := Control.new()
-	spacer.custom_minimum_size = Vector2(0, SECTION_GAP)
-	_vbox.add_child(spacer)

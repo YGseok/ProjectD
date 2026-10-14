@@ -68,10 +68,21 @@ const ELITE_CHANCE := 0.35
 ## 유지). idx는 0부터 시작하므로 "2번째/4번째 방"은 idx 1/3 — 지금의 TOTAL_ROOMS=5
 ## 기준으로 잡은 값이라 방 개수가 바뀌면 이 목록도 사람이 다시 정해야 함.
 const SHOP_FIXED_ROOM_INDICES: Array[int] = [1, 3]
-const BUTTON_TOP_START := 320.0
-const BUTTON_SPACING := 70.0
-const BUTTON_HEIGHT := 50.0
+## [대형 기획 13] M-1: BUTTON_TOP_START는 더 이상 고정값이 아니라 MapStrip의 실제
+## 높이(동적 계산, _build_map_strip 참고)에 따라 _layout_visible_buttons()가 매번
+## 계산한다 — 이 상수는 MapStrip과 버튼 구역 사이의 여백(gap)만 의미한다.
+const BUTTON_TOP_GAP := 20.0
+## 주 행동(전투 입장)과 보조 행동(상점/이벤트/정예/커스터마이징)의 버튼 높이를 다르게 둬
+## "주 행동은 크고 강조, 보조 행동은 작게"(INBOX M-1 원문)를 구조적으로 보장한다.
+const PRIMARY_BUTTON_SPACING := UIKit.PRIMARY_BUTTON_HEIGHT + 14.0
+const SECONDARY_BUTTON_SPACING := UIKit.SECONDARY_BUTTON_HEIGHT + 10.0
 const SHOP_GOLD_LABEL_GAP := 22.0
+## MapStrip 방 카드 높이를 내용(행 개수)에 맞춰 계산하는 데 쓰는 치수 — 고정 130px
+## 대신 실제 보여줄 줄 수(제목 1 + 전투 1 + 노출된 선택지 수)로 계산한다(INBOX M-1
+## "카드 높이를 내용에 맞춰 조절").
+const MAP_CARD_TITLE_H := 22.0
+const MAP_CARD_ROW_H := 22.0
+const MAP_CARD_PAD := 20.0
 
 ## 업적 "눈금 수집가"/"다이스 수집가" 임계치 — 감으로 잡은 잠정값(achievement_manager.gd
 ## DEFINITIONS의 pip_hoarder/die_hoarder 문구와 맞춰뒀다).
@@ -152,6 +163,24 @@ var _family_icon_by_type: Dictionary = {}
 ## 2026-10-13 [대형 기획 11] K-1 — 기존 숫자 단축키를 대체).
 var _shortcut_buttons: Array[Button] = []
 
+## [대형 기획 13] M-1: 상단 HUD 바(라운드/진행도/골드)와 범례 띠 — 둘 다 코드로 생성해
+## self에 바로 붙인다(기존 _setup_reward_legend()와 같은 패턴). _hud_round_value_label/
+## _hud_gold_value_label은 _update_labels()가 매번 값을 갱신한다.
+var _hud_round_value_label: Label
+var _hud_dots_holder: VBoxContainer
+var _hud_progress_dots: Control
+var _hud_gold_value_label: Label
+## 방마다 내용(행 수)이 달라도 한 줄(MapStrip)에서는 전부 같은 높이로 맞춰야 정렬이
+## 흐트러지지 않는다 — _build_map_strip()이 런 전체에서 가장 긴 카드 기준으로 계산해
+## 여기 저장하고, _layout_visible_buttons()가 그 아래 버튼 시작 y를 정하는 데 쓴다.
+var _map_card_height := 130.0
+## _hud_bar_panel/_legend_bar_panel: _setup_hud_bar()/_setup_reward_legend()가 반환하는
+## HBoxContainer의 부모(PanelContainer) — QA 전용 _debug_set_character()가 캐릭터를
+## 바꿀 때 다시 그릴 수 있도록 보관한다(일반 플레이에서는 캐릭터가 화면 생존 중 바뀌지
+## 않아 _ready() 이후 다시 쓸 일이 없음).
+var _hud_bar_panel: PanelContainer
+var _legend_bar_panel: PanelContainer
+
 
 func _ready() -> void:
 	# L-3(2026-10-14, [대형 기획 12] K-3 후속): 배경/제목을 현재 캐릭터 퍼스널 컬러로.
@@ -159,49 +188,84 @@ func _ready() -> void:
 	var title := get_node_or_null("Title")
 	if title is Label:
 		CharacterTheme.apply_label(title, RunState.character_id)
+		# [대형 기획 13] M-1: "(테스트 허브)" 개발용 문구 제거. 테스트 전투 중일 때만
+		# (RunState.test_battle) 맥락을 살려 "(테스트 전투)" 표기를 붙인다(INBOX M-1
+		# 원문 "개발용 문구는 RunState.test_battle일 때만 '테스트 전투' 표기로 보여도 됨").
+		(title as Label).text = "던전 맵 (테스트 전투)" if RunState.test_battle else "던전 맵"
 	enter_combat_button.pressed.connect(_on_combat_button_pressed)
 	enter_shop_button.pressed.connect(_on_shop_button_pressed)
 	enter_event_button.pressed.connect(_on_event_button_pressed)
 	enter_story_button.pressed.connect(_on_story_button_pressed)
 	enter_elite_button.pressed.connect(_on_elite_button_pressed)
-	_style_elite_button()
+	_style_action_buttons()
 	customize_button.pressed.connect(customize_panel.open)
 	skill_codex_button.pressed.connect(_on_skill_codex_pressed)
+	_setup_hud_bar()
+	_setup_reward_legend()
+	_setup_status_caption()
 	_setup_map_strip()
 	_setup_reward_icons()
-	_setup_reward_legend()
 	_setup_shop_gold_label()
 	_roll_room_choices()
 	_update_labels()
 
 
+## [대형 기획 13] M-1: RoomsClearedLabel/GoldLabel(기존 평문, HUD 바로 대체됨)은 노드
+## 자체(@onready 바인딩, 기존 텍스트 갱신 로직)는 그대로 두되 역할을 바꾼다 — GoldLabel은
+## 완전히 숨기고(HUD 골드 칩이 대신함), RoomsClearedLabel은 "게임 클리어!" 등 여러 분기의
+## 상세 문구(칩 하나로 압축하기 어려움)를 보여주는 작은 캡션으로 격하해 HUD/범례 바로
+## 아래에 둔다.
+func _setup_status_caption() -> void:
+	gold_label.visible = false
+	rooms_cleared_label.label_settings = null
+	rooms_cleared_label.offset_left = 40.0
+	rooms_cleared_label.offset_top = 170.0
+	rooms_cleared_label.offset_right = 940.0
+	rooms_cleared_label.offset_bottom = 192.0
+	rooms_cleared_label.add_theme_font_size_override("font_size", 13)
+	rooms_cleared_label.add_theme_color_override("font_color", Color(0.65, 0.65, 0.68))
+
+
 ## QA 전용(GAME_QA_CALL) — L-3 배경/패널 퍼스널 컬러를 눈으로 확인하기 위한 0-arity
 ## 래퍼. 밝은 색(해적)/어두운 색(주술사)을 각각 스크린샷으로 비교할 때 쓴다.
 func _debug_qa_character_pirate() -> void:
-	RunState.character_id = "pirate"
-	CharacterTheme.apply_background(self, RunState.character_id)
-	var title := get_node_or_null("Title")
-	if title is Label:
-		CharacterTheme.apply_label(title, RunState.character_id)
+	_debug_set_character("pirate")
 
 
 func _debug_qa_character_shieldbearer() -> void:
-	RunState.character_id = "shieldbearer"
+	_debug_set_character("shieldbearer")
+
+
+## [대형 기획 13] M-1: 위 두 훅의 공용 구현 — 배경/제목뿐 아니라 HUD 바/범례 띠/행동
+## 버튼까지 캐릭터가 바뀌면 전부 다시 그린다(M-1부터 이 요소들이 생겨 기존 두 훅만으론
+## 부족해짐). HUD 바/범례 띠는 캐릭터가 화면 생존 중 바뀌는 일이 정상 플레이에는 없어
+## "다시 만들기"(기존 패널 제거 후 재생성)로 충분하다.
+func _debug_set_character(character_id: String) -> void:
+	RunState.character_id = character_id
 	CharacterTheme.apply_background(self, RunState.character_id)
 	var title := get_node_or_null("Title")
 	if title is Label:
 		CharacterTheme.apply_label(title, RunState.character_id)
+	_style_action_buttons()
+	if _hud_bar_panel != null and is_instance_valid(_hud_bar_panel):
+		_hud_bar_panel.queue_free()
+	if _legend_bar_panel != null and is_instance_valid(_legend_bar_panel):
+		_legend_bar_panel.queue_free()
+	_setup_hud_bar()
+	_setup_reward_legend()
+	_update_labels()
 
 
 ## 보상 카테고리 아이콘(RewardIcon)이 무엇을 뜻하는지 설명하는 범례. INBOX.md 피드백
 ## ("던전 맵에서 각 보상 아이콘이 무엇을 의미하는지 아이콘 텍스트 또는 범례가 필요할 것
 ## 같다")을 반영 — 골드 라벨 옆 빈 공간에 아이콘+텍스트 3쌍을 고정으로 한 번만 그린다
 ## (방마다 달라지는 게 아니라 "아이콘 자체의 의미"라 정적으로 충분함).
+## [대형 기획 13] M-1: 전엔 아무 틀 없이 배경 위에 떠 있던 텍스트 줄이라 "떠 있는
+## 느낌"이었다(INBOX M-1 비평 원문) — 얇은 테두리 띠로 감싸 HUD 바 바로 아래에 붙인다.
 func _setup_reward_legend() -> void:
-	var legend := HBoxContainer.new()
+	var legend := UIKit.make_bar(self, RunState.character_id, Vector2(40.0, 134.0))
 	legend.add_theme_constant_override("separation", 16)
-	legend.position = Vector2(560.0, 116.0)
-	legend.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_legend_bar_panel = legend.get_parent()
 	var specs := [
 		["gold", "골드"], ["pip", "눈금"], ["dice", "다이스"], ["mystery", "미정(이벤트)"],
 		["elite", "정예(강적, 보상 큼)"],
@@ -213,29 +277,71 @@ func _setup_reward_legend() -> void:
 		pair.add_child(_make_reward_icon(spec[0]))
 		var label := Label.new()
 		label.text = spec[1]
-		label.add_theme_font_size_override("font_size", 13)
+		label.add_theme_font_size_override("font_size", 12)
 		label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
 		pair.add_child(label)
 		legend.add_child(pair)
-	add_child(legend)
 
 
-## "상점 입장" 버튼 바로 아래에 보유 골드를 보여준다(INBOX.md: "상점 입장 버튼 하단에
-## 보유 골드량을 표시해준다. 해당 선택지가 의미가 없음을 보여줘야 한다"). 위치는 상점
-## 버튼이 방마다 노출 여부/순서가 바뀌므로 정적 배치가 불가능해 _layout_visible_buttons()
-## 에서 다른 버튼들과 함께 매번 다시 계산한다.
-## INBOX.md [대형 기획 6] G-7 원문 "버튼에 빨간 테두리" — "정예 전투" 버튼만 기본 테마
-## 스타일박스를 복제해 테두리색/두께를 바꾼 것으로 교체해 다른 방 버튼과 구분한다.
-## get_theme_stylebox()가 기본 테마의 StyleBoxFlat을 주지 않을 수도 있는 환경을 대비해
-## 항상 새 StyleBoxFlat을 만들어 적용(테마 의존 없이 결정적으로 동작).
-func _style_elite_button() -> void:
-	for state in ["normal", "hover", "pressed", "focus"]:
-		var style := StyleBoxFlat.new()
-		style.bg_color = Color(0.22, 0.08, 0.08) if state == "normal" else Color(0.3, 0.1, 0.1)
-		style.border_color = Color(0.85, 0.2, 0.2)
-		style.set_border_width_all(2)
-		style.set_corner_radius_all(4)
-		enter_elite_button.add_theme_stylebox_override(state, style)
+## [대형 기획 13] M-1: 행동 버튼 6개(전투/상점/특수 이벤트/스토리/정예/커스터마이징)를
+## "주 행동은 크고 강조, 보조 행동은 작게"(INBOX M-1 원문) 위계로 한 번에 스타일링한다.
+## 버튼 텍스트/가시성은 매 _update_labels()마다 바뀌지만 스타일 자체는 캐릭터가 바뀌지
+## 않는 한 고정이라 _ready()에서 한 번만 호출하면 된다(UIKit.style_*가 "focus" 슬롯은
+## 건드리지 않아 FocusNav.chain_linear()가 나중에 덮어쓰는 포커스 테두리와 충돌 없음).
+func _style_action_buttons() -> void:
+	var cid := RunState.character_id
+	UIKit.style_primary_button(enter_combat_button, cid)
+	UIKit.style_secondary_button(enter_shop_button, cid)
+	UIKit.style_secondary_button(enter_event_button, cid)
+	UIKit.style_secondary_button(enter_story_button, cid)
+	UIKit.style_secondary_button(customize_button, cid)
+	# "정예 전투"만 INBOX.md [대형 기획 6] G-7 원문대로 위험을 알리는 빨간 테두리를
+	# 유지 — UIKit.style_secondary_button의 tint 매개변수로 같은 틀(두께/모서리) 안에서
+	# 색만 바꾼다(이전에는 틀 자체가 다른 버튼들과 달라 "같은 버튼 스타일"이 아니었음).
+	UIKit.style_secondary_button(enter_elite_button, cid, Color(0.85, 0.2, 0.2))
+
+
+## [대형 기획 13] M-1: 라운드/진행도/골드를 "아이콘 + 큰 숫자 + 짧은 캡션" 칩 3개로
+## 묶은 HUD 바 — 기존에 같은 크기(22px) 평문이던 RoomsClearedLabel/GoldLabel의 위계
+## 없음 문제를 해결한다(INBOX M-1 원문 "진행도/골드를... 아이콘+큰 숫자+짧은 라벨").
+## 자세한 상태 문구(게임 클리어! 등 — 여러 분기가 있어 칩 하나로 압축하기 어려움)는
+## RoomsClearedLabel을 작은 캡션으로 격하해 그대로 보여준다(_update_labels() 참고).
+func _setup_hud_bar() -> void:
+	var cid := RunState.character_id
+	var bar := UIKit.make_bar(self, cid, Vector2(40.0, 72.0))
+	bar.alignment = BoxContainer.ALIGNMENT_BEGIN
+	_hud_bar_panel = bar.get_parent()
+
+	var round_chip := UIKit.make_stat_chip(bar, null, "1/%d" % RunState.TOTAL_ROUNDS, "라운드", cid)
+	_hud_round_value_label = round_chip["value_label"]
+
+	_hud_dots_holder = VBoxContainer.new()
+	_hud_dots_holder.alignment = BoxContainer.ALIGNMENT_CENTER
+	bar.add_child(_hud_dots_holder)
+	_hud_progress_dots = UIKit.make_progress_dots(_hud_dots_holder, RunState.TOTAL_ROOMS, 0, 0, cid)
+	var dots_caption := Label.new()
+	dots_caption.text = "진행도"
+	dots_caption.add_theme_font_size_override("font_size", 11)
+	dots_caption.add_theme_color_override("font_color", Color(0.65, 0.65, 0.68))
+	dots_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_hud_dots_holder.add_child(dots_caption)
+
+	var gold_icon := RewardIcon.new()
+	gold_icon.custom_minimum_size = Vector2(20, 20)
+	gold_icon.category = "gold"
+	var gold_chip := UIKit.make_stat_chip(bar, gold_icon, str(RunState.gold), "골드", cid)
+	_hud_gold_value_label = gold_chip["value_label"]
+
+
+## HUD 진행도 점은 UIKit.make_progress_dots()가 매번 새 노드를 만드는 구조라(map_strip
+## 카드처럼), _update_labels()가 호출될 때마다 이전 점 줄을 지우고 다시 그린다.
+func _refresh_hud_progress_dots() -> void:
+	if _hud_progress_dots != null and is_instance_valid(_hud_progress_dots):
+		_hud_progress_dots.queue_free()
+	var filled: int = clampi(RunState.rooms_cleared, 0, RunState.TOTAL_ROOMS)
+	var current: int = -1 if RunState.is_run_complete() else RunState.rooms_cleared
+	_hud_progress_dots = UIKit.make_progress_dots(_hud_dots_holder, RunState.TOTAL_ROOMS, filled, current, RunState.character_id)
+	_hud_dots_holder.move_child(_hud_progress_dots, 0)
 
 
 func _setup_shop_gold_label() -> void:
@@ -481,13 +587,22 @@ func _update_labels() -> void:
 		enter_event_button.visible = _event_available
 		enter_story_button.visible = _story_available
 		enter_elite_button.visible = _elite_available
+	# [대형 기획 13] M-1: HUD 칩(라운드/진행도/골드)도 매번 함께 갱신한다 — 아래
+	# _build_map_strip()이 map_strip.offset_bottom을 다시 계산하므로 버튼 레이아웃보다
+	# 먼저 호출해도 안전하다(둘 다 RunState만 읽고 서로 의존하지 않음).
+	_hud_round_value_label.text = "%d/%d" % [RunState.round_index, RunState.TOTAL_ROUNDS]
+	_hud_gold_value_label.text = str(RunState.gold)
+	_refresh_hud_progress_dots()
 	_update_family_icons()
-	_layout_visible_buttons()
 	_build_map_strip()
+	_layout_visible_buttons()
 
 
 ## MapStrip 안에 배경 연결선(ColorRect) + 노드를 담을 HBoxContainer를 한 번만 세팅한다.
+## [대형 기획 13] M-1: HUD 바/범례 띠/상태 캡션이 생긴 만큼 MapStrip 시작 y를 아래로
+## 내린다(끝 y는 _build_map_strip()이 카드 높이에 맞춰 매번 다시 계산).
 func _setup_map_strip() -> void:
+	map_strip.offset_top = 198.0
 	_map_line = ColorRect.new()
 	_map_line.color = Color(0.35, 0.35, 0.4, 0.6)
 	_map_line.anchor_left = 0.0
@@ -511,6 +626,20 @@ func _setup_map_strip() -> void:
 func _build_map_strip() -> void:
 	for c in _map_hbox.get_children():
 		c.queue_free()
+	# [대형 기획 13] M-1: 카드 높이를 고정 130 대신 "이 런에서 실제로 가장 많은 선택지를
+	# 보여주는 방" 기준으로 계산한다 — 노출되는 선택지가 적은 방이 많은 런일수록 카드
+	# 아래쪽 빈 공간이 줄어든다(INBOX M-1 비평 "방 카드는 아래쪽 절반이 비어 있다").
+	# 한 줄(MapStrip)에 나열되므로 전부 같은 높이를 써야 정렬이 흐트러지지 않는다.
+	var max_rows := 0
+	for idx in range(RunState.TOTAL_ROOMS):
+		var opts := _room_options_for_index(idx)
+		var rows := 2  # 제목 1줄 + "전투"는 항상 노출
+		for t in opts.order:
+			if opts[t]:
+				rows += 1
+		max_rows = max(max_rows, rows)
+	_map_card_height = MAP_CARD_TITLE_H + MAP_CARD_ROW_H * max_rows + MAP_CARD_PAD
+	map_strip.offset_bottom = map_strip.offset_top + _map_card_height
 	for idx in range(RunState.TOTAL_ROOMS):
 		_map_hbox.add_child(_make_map_node(idx))
 
@@ -520,7 +649,7 @@ func _make_map_node(idx: int) -> Control:
 	var is_current := idx == RunState.rooms_cleared and not RunState.is_run_complete()
 
 	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(150, 130)
+	panel.custom_minimum_size = Vector2(150, _map_card_height)
 	var style := StyleBoxFlat.new()
 	if is_current:
 		style.bg_color = Color(0.25, 0.22, 0.12, 0.95)
@@ -647,25 +776,31 @@ func _layout_visible_buttons() -> void:
 		row.visible = false
 	_shop_gold_label.visible = false
 
-	var y := BUTTON_TOP_START
+	# [대형 기획 13] M-1: MapStrip이 더 이상 고정 높이가 아니라 그 바로 아래(+gap)에서
+	# 버튼 구역이 시작한다. 주 행동(전투)은 PRIMARY_BUTTON_HEIGHT, 나머지는
+	# SECONDARY_BUTTON_HEIGHT로 "크고 강조 / 작고 보조"(INBOX M-1 원문) 위계를 둔다.
+	var y := map_strip.offset_bottom + BUTTON_TOP_GAP
 	for i in visible_buttons.size():
 		var btn: Button = visible_buttons[i]
-		btn.offset_top = y
-		btn.offset_bottom = y + BUTTON_HEIGHT
 		var t: String = visible_types[i]
+		var is_primary := t == "combat"
+		var height := UIKit.PRIMARY_BUTTON_HEIGHT if is_primary else UIKit.SECONDARY_BUTTON_HEIGHT
+		var spacing := PRIMARY_BUTTON_SPACING if is_primary else SECONDARY_BUTTON_SPACING
+		btn.offset_top = y
+		btn.offset_bottom = y + height
 		if _reward_icon_rows.has(t):
 			var row: HBoxContainer = _reward_icon_rows[t]
 			row.visible = true
-			row.position = Vector2(btn.offset_right + 16.0, y + (BUTTON_HEIGHT - 18.0) * 0.5)
+			row.position = Vector2(btn.offset_right + 16.0, y + (height - 18.0) * 0.5)
 		# "상점" 버튼 아래에 골드 라벨이 들어갈 여유(SHOP_GOLD_LABEL_GAP)만큼 다음 버튼과의
-		# 간격을 늘린다 — 다른 버튼들은 기존 BUTTON_SPACING 그대로 유지.
+		# 간격을 늘린다 — 다른 버튼들은 기존 spacing 그대로 유지.
 		var extra_gap := 0.0
 		if t == "shop":
 			_shop_gold_label.visible = true
 			_shop_gold_label.position = Vector2(btn.offset_left, btn.offset_bottom + 2.0)
 			_shop_gold_label.size = Vector2(btn.offset_right - btn.offset_left, 18.0)
 			extra_gap = SHOP_GOLD_LABEL_GAP
-		y += BUTTON_SPACING + extra_gap
+		y += spacing + extra_gap
 	# [대형 기획 12] L-2(c): "스킬 도감" 버튼은 커스터마이징처럼 방 선택지가 아니라
 	# 언제든 열 수 있는 고정 위치 버튼(화면 우상단, .tscn에 명시)이라 위 y-스택 루프에
 	# 넣지 않고 체인에만 맨 끝으로 추가한다 — 루프가 이미 끝난 뒤라 position은 그대로

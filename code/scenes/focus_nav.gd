@@ -20,9 +20,17 @@ const ACCENT_DEFAULT := Color(0.3, 0.85, 0.95)
 
 ## 포커스를 받았을 때 보이는 테두리 스타일. K-3(캐릭터 퍼스널 컬러)에서 accent를 캐릭터
 ## 색으로 넘길 수 있도록 매개변수화해뒀다 — 지금은 전부 기본값(밝은 청록)을 쓴다.
+##
+## [대형 기획 13] M-1(2026-10-14): bg_color를 투명으로 바꿨다 — Godot은 포커스 상태의
+## 버튼을 그릴 때 normal/hover 등 기존 스타일 위에 이 "focus" 스타일을 겹쳐 그리므로
+## (교체가 아니라 오버레이), 예전처럼 불투명한 회색 배경을 쓰면 UIKit.style_primary_
+## button()처럼 버튼마다 다른 배경색을 준 커스텀 스타일이 포커스 상태에서 전부 같은
+## 회색으로 덮여버린다(주 행동 버튼이 포커스되는 순간 보조 버튼과 구분이 안 되던 버그,
+## M-1 첫 스크린샷에서 발견). 테두리만으로도 "눈에 띄는 하이라이트"(K-1 원문 요구)는
+## 충분히 성립한다.
 static func focus_style(accent: Color = ACCENT_DEFAULT) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.22, 0.22, 0.26, 0.95)
+	style.bg_color = Color(0, 0, 0, 0)
 	style.border_color = accent
 	style.set_border_width_all(3)
 	style.set_corner_radius_all(6)
