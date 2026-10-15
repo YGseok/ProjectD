@@ -92,6 +92,13 @@ fi
 
 RUN_CMD=("$GODOT_BIN" --path "$PROJECT_DIR")
 
+# 캡처용 창이 작업 중인 화면에 번쩍 뜨는 것(이터레이션이 스크린샷을 찍을 때마다 팝업)을
+# 막기 위해 창을 화면 밖 좌표에 띄운다. 렌더링/스크린샷은 화면 밖에서도 정상 동작한다
+# (2026-10-15 확인). 창을 눈으로 보고 싶으면 QA_SHOW_WINDOW=1 로 실행.
+if [[ "${QA_SHOW_WINDOW:-0}" != "1" ]]; then
+  RUN_CMD+=(--position -32000,-32000)
+fi
+
 # 실제 창을 띄워야 하므로 --headless 를 쓰지 않는다.
 # `DISPLAY` 환경변수는 X11(리눅스)에만 있는 개념이다. Windows(Git Bash/MINGW)나 macOS는
 # DISPLAY가 항상 비어 있어도 네이티브 창을 그냥 띄울 수 있으므로, "DISPLAY 없으면
