@@ -53,6 +53,18 @@
   완료 기록(199) 참고. **다음은 M-3(전투 화면 상태별 연출/결과/보상 UI)** — M-2에서 발견한 "승리 보상
   오버레이가 새 플레이어 HUD 패널 하단과 살짝 겹침"부터 Before 비평에 포함할 것.
 
+  → **M-3 완료(2026-10-15, 200)** — 아래 "감독 추가 비평" 3가지를 먼저 반영했다: ① 디버그 줄 노출 조건을
+  `OS.is_debug_build()`(에디터 실행이면 항상 true)에서 명시적 `GAME_QA_DEBUG_UI=1` 환경변수로 바꿔 일반
+  플레이에선 항상 숨도록 ② 다이스 뷰포트(`DiceViewportContainer`)를 세로 316->340으로 키우고 `SubViewport`
+  해상도를 컨테이너와 정확히 맞춰 있던 세로 스트레치 왜곡(25% 눌림)을 없앴으며 `Camera3D`도 18% 당겨
+  체감 크기를 더 키움(물리 바닥/벽은 그대로) ③ 결과 칩을 화면 양 끝에서 "공격"/"방어" 라벨과 함께 화면
+  중앙(x=640) 한 줄로 정렬. 승리 보상 오버레이가 HUD 패널과 겹치던 것은 직전 이터레이션이 이미
+  `REWARD_FRAME_TOP=184`로 고쳐뒀고, 이번엔 다이스 스테이지 확대로 밀린 버튼 행/"전투 기록" 패널/보상
+  프레임 좌표를 연쇄로 재조정해 여전히 안 겹침을 재확인. `dice_test` 신규 검증(`_check_m3_combat_dice_stage`,
+  물리 없이 순수 UI 함수 직접 호출 + 렌더 노드 위치 검증) 전체 PASS, `qa_out/m3_*.png` 9개(Before 3 +
+  After 4 + 보상/패배 2) 육안 확인까지 1라운드 만에 완료. 상세는 `docs/UI_REVIEW.md` "M-3" 절 / `docs/
+  STATUS.md` 완료 기록(200) 참고. **다음은 M-4(이벤트/상점/스토리 이벤트 화면 통일)**.
+
   **셀프 피드백 절차 (각 조각에서 반드시 이 순서로, 한 이터레이션 안에서 2~3라운드 반복):**
   1. **Before 캡처**: 대상 화면을 `bash scripts/qa_shot.sh`로 여러 상태(아래 조각별 목록)에서 찍고 **이미지를 직접 읽어서 본다.**
   2. **비평 작성**: `docs/UI_REVIEW.md`(없으면 새로 만든다)에 화면별로 "보이는 문제"를 구체적으로 적는다. 체크 항목:
@@ -105,7 +117,7 @@
   (같은 절차). 선택지 카드의 정보량/정렬, 가격·효과 표시 위계, 개발용 문구 제거. M-1~M-3에서 만든 공용 컴포넌트를 재사용하고 새로
   복붙하지 말 것. 마지막에 DESIGN.md UI 절에 "공용 UI 컴포넌트 목록과 사용처"를 정리하고 UI_REVIEW.md에 전체 Before/After 요약.
 
-  **[감독 추가 비평 2026-10-14, M-2 직후 — M-3에서 가장 먼저 반영할 것]**
+  **[감독 추가 비평 2026-10-14, M-2 직후 — M-3에서 가장 먼저 반영할 것] (M-3에서 반영 완료, 위 참고)**
   - **`[QA] 공격 2D4 · 방어 1D4` 노란 디버그 글줄이 여전히 화면 오른쪽에 보인다.** 원인: M-2가 `OS.is_debug_build()`로 가렸는데
     사용자는 에디터/디버그 바이너리로 실행하므로 항상 true다. → **디버그 문구 노출 조건을 `OS.is_debug_build()`가 아니라
     "명시적 QA 플래그"(예: 환경변수 `GAME_QA_DEBUG_UI=1` 또는 `RunState`/전용 const)로 바꿔라.** 일반 플레이(에디터 실행 포함)에선 개발용
@@ -121,7 +133,9 @@
   지시해서 ProjectD Art 스레드에 UI 키트를 발주했고(커밋 d27b2c2, `docs/art/ART_RESOURCES.md` 2-6 목록·3-6 규격), 납품 전이라도
   코드 구조를 먼저 만들어 둔다. **M-4 이후에 진행.**
   - 파일 규칙(아트 스레드 확정): `resources/ui/<종류>/<이름>.png`, 크기·9-slice 마진은 `docs/art/ART_RESOURCES.md` 3-6 표를 읽어 그대로 사용
-    (`resources/`, `docs/art/`는 읽기만 하고 절대 수정/추가하지 말 것). 요약: 패널 section(128², 마진24)/hud(256×64, 20)/card(128×160, 24)/
+    (`resources/`, `docs/art/`는 읽기만 하고 절대 수정/추가하지 말 것). **2026-10-15 U1 패널 4종 입고 완료(`resources/ui/panel/`) — 마진이 아래 요약
+    값에서 바뀜: hud는 좌우 34/상하 20, overlay는 44 (표 3-6/2-6의 값이 최종).** accent는 흰색+알파 레이어(안쪽 트림 선·모서리 보석·주사위 눈)로 퍼스널
+    컬러 modulate 후 base 위에 같은 9-slice로 겹침. 버튼(U2)/HP바/배지 등은 이후 단계 납품. 요약: 패널 section(128², 마진24)/hud(256×64, 20)/card(128×160, 24)/
     overlay(256², 32), 버튼 primary·secondary 각 normal/hover/pressed/disabled/focus(128×48, 마진16), bar/hp_frame(256×28, 마진12)+hp_fill,
     badge/turn·tier_{normal,elite,boss}·round·codex_base, deco/chip·divider(가로 3분할 고정 중앙)·title_ornament, icon/{gold,pip,dice,hp,defense,attack,crown,skull,lock},
     배경 `resources/backgrounds/{dungeon_map,event,shop,combat}.png`.

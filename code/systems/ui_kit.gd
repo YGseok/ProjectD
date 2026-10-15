@@ -11,6 +11,13 @@ extends RefCounted
 const SECTION_BG := Color(0.1, 0.1, 0.13, 0.92)
 const SECTION_BORDER_WIDTH := 1
 const SECTION_CORNER := 8
+## [대형 기획 13] M-3 — 감독 추가 비평(2026-10-14) "패널이 전부 얇은 테두리 사각형 +
+## 어두운 단색이라 질감이 없다" 반영. 본격적인 질감/장식(그라데이션 텍스처, 코너 장식)은
+## M-5 아트 스킨 납품으로 미루고, 코드로 값싸게 되는 미세한 그림자만 모든 구역 패널/
+## HUD 바에 공통으로 입힌다 — StyleBoxFlat 내장 기능이라 성능/의존성 부담이 없다.
+const SECTION_SHADOW_SIZE := 6
+const SECTION_SHADOW_COLOR := Color(0, 0, 0, 0.35)
+const SECTION_SHADOW_OFFSET := Vector2(0, 2)
 
 const BUTTON_CORNER := 6
 const PRIMARY_BUTTON_HEIGHT := 64.0
@@ -26,6 +33,9 @@ static func make_section(parent: Node, title: String, character_id: String, posi
 	style.bg_color = SECTION_BG
 	style.set_border_width_all(SECTION_BORDER_WIDTH)
 	style.set_corner_radius_all(SECTION_CORNER)
+	style.shadow_size = SECTION_SHADOW_SIZE
+	style.shadow_color = SECTION_SHADOW_COLOR
+	style.shadow_offset = SECTION_SHADOW_OFFSET
 	style.content_margin_left = 14
 	style.content_margin_right = 14
 	style.content_margin_top = 8
@@ -49,6 +59,13 @@ static func make_section(parent: Node, title: String, character_id: String, posi
 		title_label.add_theme_font_size_override("font_size", 13)
 		CharacterTheme.apply_label(title_label, character_id, true)
 		body.add_child(title_label)
+		# 감독 추가 비평 "제목 줄 구분선" — 제목이 있는 패널만 제목과 본문 사이에 얇은
+		# 가로선을 둬 둘을 시각적으로 분리한다(제목 없는 패널은 구분할 대상이 없어 생략).
+		var divider := ColorRect.new()
+		var palette := CharacterTheme.ui_palette(character_id)
+		divider.color = Color(palette["primary"].r, palette["primary"].g, palette["primary"].b, 0.3)
+		divider.custom_minimum_size = Vector2(0, 1)
+		body.add_child(divider)
 	return body
 
 

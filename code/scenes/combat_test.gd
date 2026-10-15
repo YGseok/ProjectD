@@ -231,6 +231,19 @@ const HP_BAR_HEIGHT := 28.0
 ## position(안쪽으로 당김)과 함께 화면 밖으로 잘리지 않는 선으로 맞춘 값.
 const PORTRAIT_SCALE_NORMAL := 1.1
 const PORTRAIT_SCALE_BOSS := 1.3
+## [대형 기획 13] M-3 — 감독 추가 비평(2026-10-14) 전까지 승리 보상 화면
+## (_show_reward_ui/_add_reward_frame)이 쓰던 y=120 기준값은 M-2 이전(다이스 뷰포트가
+## offset_top=120이던 시절)의 값이 그대로 남은 것이었다. M-2가 다이스 뷰포트를 184로
+## 내렸지만(위 HUD 패널과 안 겹치게) 보상 화면 좌표는 따라가지 못해, 새 플레이어/몬스터
+## HUD 패널 하단과 보상 화면 반투명 배경이 살짝 겹치는 회귀가 생겼다(STATUS.md 199
+## 인수인계 기록). REWARD_FRAME_TOP을 다이스 뷰포트와 같은 184로 맞추고, 그 안에서
+## 카드/버튼이 "전투 기록" 패널 위에서 끝나도록 REWARD_FRAME_BOTTOM/REWARD_CARD_HEIGHT를
+## 함께 조정했다 — 이후 다이스 스테이지 확대(아래 EXCHANGE_* 주석 참고)로 "전투 기록"
+## 패널이 552->572로 20px 더 내려가면서 이 값들도 같이 20px(356->376, 230->250)
+## 늘어났다.
+const REWARD_FRAME_TOP := 184.0
+const REWARD_FRAME_BOTTOM := 560.0
+const REWARD_CARD_HEIGHT := 250.0
 ## 체력 비율에 따라 초록(넉넉) -> 주황(경고) -> 빨강(위험)으로 막대 색이 바뀐다 —
 ## "쪼이는 맛"(위기감)을 색으로도 드러내기 위함.
 const HP_BAR_COLOR_HIGH := Color(0.35, 0.85, 0.35)
@@ -407,11 +420,24 @@ var _shortcut_buttons: Array[Button] = []
 var _exchange_chip_nodes: Array[Node] = []
 ## INBOX.md 피드백(2026-09-09) "전투의 재미가 없다. 다이스 값이 잘 안보여서 쪼이는 맛이
 ## 덜하다" — 칩 크기를 34 -> 44로 키워 값이 더 잘 보이게 함(라벨 폰트 크기는
-## ShapeDieChip이 size.y 비례로 자동 조정하므로 숫자도 함께 커짐). Y좌표는 다이스
-## 개수가 많을 때(최대 한 줄) LogLabel(y=556)과 안 겹치도록 같이 조정.
-const EXCHANGE_CHIP_SIZE := 44.0
+## ShapeDieChip이 size.y 비례로 자동 조정하므로 숫자도 함께 커짐).
+## [대형 기획 13] M-3 — 감독 추가 비평(2026-10-14) "3D 다이스 구역이 작고... 결과 칩이
+## 가운데/아래에 흩어져 있다 -> 스테이지를 키우고 결과 칩은 한곳(스테이지 아래 한 줄,
+## 공격/방어 라벨 포함)으로 모아라"를 반영. 기존엔 공격 칩을 화면 왼쪽에서 오른쪽으로,
+## 방어 칩을 화면 오른쪽에서 왼쪽으로 각각 따로 깔아 두 그룹이 양 끝에 흩어져 보였다.
+## 지금은 _show_exchange_dice_chips()가 "공격" 라벨+칩들, "방어" 라벨+칩들을 이어 붙인
+## 뒤 전체 폭을 계산해 화면 중앙(다이스 뷰포트 중심 x=640)에 한 줄로 정렬한다. 그 공간을
+## 확보하려고 다이스 뷰포트(combat_test.tscn)를 184~500에서 184~524로 넓히고(세로
+## 24px), 칩 크기는 44->40으로 살짝 줄여 524~566 사이 한 줄에 라벨과 함께 들어가게
+## 했다(버튼 행도 526~566로 같이 내려감, LogLabel도 552->572로 20px 밀림).
+const EXCHANGE_CHIP_SIZE := 40.0
 const EXCHANGE_CHIP_GAP := 7.0
-const EXCHANGE_CHIP_Y := 504.0
+const EXCHANGE_CHIP_Y := 526.0
+const EXCHANGE_LABEL_WIDTH := 44.0
+const EXCHANGE_GROUP_GAP := 32.0
+## 다이스 뷰포트(140~1140)의 가로 중심 — 공격/방어 한 줄을 이 x값 기준으로 가운데
+## 정렬한다.
+const EXCHANGE_ROW_CENTER_X := 640.0
 
 ## 커스터마이징(눈금 교환)은 이제 code/scenes/customize_panel.gd(CustomizePanel)
 ## 하나로 통합됨 — 승리 보상 화면의 "커스터마이징" 버튼도 이 화면 전용 로직 대신 그
@@ -756,6 +782,15 @@ func _build_monster_config(profile: Dictionary, name_text_in: String, difficulty
 ## 검증 가능(dice_test.gd 참고). 사람이 "너무 장황하다"고 피드백하면 이 함수만
 ## 줄이면 되고, 완전히 필요 없다고 하면 _ready()의 호출 한 줄과 이 라벨 노드만
 ## 지우면 된다.
+## [대형 기획 13] M-3 — 감독 추가 비평(2026-10-14): "[QA] 공격 2D4 · 방어 1D4" 디버그
+## 줄을 M-2가 OS.is_debug_build()로 가렸는데, 사용자는 에디터/디버그 바이너리로 실행하므로
+## is_debug_build()가 늘 true라 일반 플레이에서도 문구가 그대로 보였다(실사용 환경과
+## "디버그 빌드 여부"가 무관함). 명시적 QA 플래그(GAME_QA_DEBUG_UI=1)로 바꿔, qa_shot 등
+## 의도적으로 켠 경우에만 보이고 평소(에디터 실행 포함)에는 항상 숨도록 한다.
+static func _qa_debug_ui_enabled() -> bool:
+	return OS.get_environment("GAME_QA_DEBUG_UI") == "1"
+
+
 func _monster_debug_info_text(config: Dictionary) -> String:
 	var sides: int = config["dice_sides"]
 	var text := "[QA] 공격 %dD%d · 방어 %dD%d" % [
@@ -1164,7 +1199,7 @@ func _setup_combat_hud() -> void:
 	monster_body.add_child(monster_trait_label)
 
 	player_portrait.scale = Vector2(PORTRAIT_SCALE_NORMAL, PORTRAIT_SCALE_NORMAL)
-	monster_debug_info_label.visible = OS.is_debug_build()
+	monster_debug_info_label.visible = _qa_debug_ui_enabled()
 
 
 ## [대형 기획 13] M-2 — 기존 평문 LogLabel을 테두리 있는 "전투 기록" 섹션 패널로 감싸고,
@@ -1181,7 +1216,11 @@ func _setup_log_panel() -> void:
 	if _log_panel != null and is_instance_valid(_log_panel):
 		_log_panel.queue_free()
 
-	var body := UIKit.make_section(self, "전투 기록", cid, Vector2(140, 552))
+	# [대형 기획 13] M-3 — 다이스 스테이지를 키우려고 버튼/칩 행이 526~566으로
+	# 내려가면서 이 패널도 552->572로 20px 밀렸다. log_label 최소 높이를 100->80으로
+	# 줄여 패널 전체 바닥(572+높이)이 화면(720) 안에서 이전과 비슷하게 들어오게 맞췄다
+	# (내용이 길면 어차피 min size를 넘어 자동으로 커지므로 가독성은 그대로).
+	var body := UIKit.make_section(self, "전투 기록", cid, Vector2(140, 572))
 	_log_panel = body.get_parent()
 	_log_panel.custom_minimum_size = Vector2(1000, 0)
 
@@ -1190,7 +1229,7 @@ func _setup_log_panel() -> void:
 	CharacterTheme.apply_label(player_status_label, cid, true)
 	body.add_child(player_status_label)
 
-	log_label.custom_minimum_size = Vector2(0, 100)
+	log_label.custom_minimum_size = Vector2(0, 80)
 	body.add_child(log_label)
 	_update_status_panel()
 
@@ -2101,15 +2140,49 @@ func _clear_dice() -> void:
 		child.queue_free()
 
 
-## 이번 교환의 공격/방어 다이스 결과를 각각 화면 좌/우에서 안쪽으로 나열해 보여준다.
-## NextButton(x540-740, 전투 진행 중에는 hidden)과 겹치는 중앙부는 비워 둔다.
+## 이번 교환의 공격/방어 다이스 결과를 "공격"/"방어" 라벨 + 칩을 이어 붙인 한 줄로
+## 화면 중앙(EXCHANGE_ROW_CENTER_X)에 정렬해 보여준다(M-3, 위 EXCHANGE_* 상수 주석
+## 참고 — 예전엔 두 그룹이 화면 양 끝에 따로 떨어져 있었다).
 func _show_exchange_dice_chips(atk_bag: DiceBag, atk_values: Array, def_bag: DiceBag, def_values: Array, atk_tint: Color, def_tint: Color) -> void:
 	_clear_exchange_dice_chips()
-	_layout_dice_chip_row(atk_bag, atk_values, 150.0, atk_tint, false)
-	_layout_dice_chip_row(def_bag, def_values, 1130.0, def_tint, true)
+	var atk_width := _dice_row_width(atk_bag.dice.size())
+	var def_width := _dice_row_width(def_bag.dice.size())
+	var total_width := EXCHANGE_LABEL_WIDTH + atk_width + EXCHANGE_GROUP_GAP + EXCHANGE_LABEL_WIDTH + def_width
+	var x := EXCHANGE_ROW_CENTER_X - total_width / 2.0
+	x = _add_exchange_group_label("공격", x, atk_tint)
+	x = _layout_dice_chip_row(atk_bag, atk_values, x, atk_tint)
+	x += EXCHANGE_GROUP_GAP
+	x = _add_exchange_group_label("방어", x, def_tint)
+	_layout_dice_chip_row(def_bag, def_values, x, def_tint)
 
 
-func _layout_dice_chip_row(bag: DiceBag, values: Array, x_start: float, tint: Color, right_align: bool) -> void:
+func _dice_row_width(count: int) -> float:
+	if count <= 0:
+		return 0.0
+	return count * (EXCHANGE_CHIP_SIZE + EXCHANGE_CHIP_GAP) - EXCHANGE_CHIP_GAP
+
+
+## "공격"/"방어" 라벨을 x 위치에 그리고, 다음 칩이 시작할 x(라벨 폭만큼 이동한 값)를
+## 돌려준다.
+func _add_exchange_group_label(text: String, x: float, tint: Color) -> float:
+	var label := Label.new()
+	label.text = text
+	label.add_theme_font_size_override("font_size", 15)
+	label.add_theme_color_override("font_color", tint if tint.a > 0 else Color(0.85, 0.85, 0.85))
+	label.custom_minimum_size = Vector2(EXCHANGE_LABEL_WIDTH - 6.0, EXCHANGE_CHIP_SIZE)
+	label.size = Vector2(EXCHANGE_LABEL_WIDTH - 6.0, EXCHANGE_CHIP_SIZE)
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.position = Vector2(x, EXCHANGE_CHIP_Y)
+	add_child(label)
+	_exchange_chip_nodes.append(label)
+	return x + EXCHANGE_LABEL_WIDTH
+
+
+## x_start부터 칩을 왼쪽에서 오른쪽으로 나열하고, 마지막 칩의 오른쪽 끝(다음 그룹이
+## 이어붙일 x) — _dice_row_width()가 "칩 사이 간격만 포함하고 꼬리 간격은 없는" bbox로
+## 계산하므로, 돌려주는 값도 마지막 칩 뒤에 남는 EXCHANGE_CHIP_GAP을 빼서 맞춘다(안
+## 그러면 중앙 정렬 계산이 그룹마다 간격 하나씩 밀림).
+func _layout_dice_chip_row(bag: DiceBag, values: Array, x_start: float, tint: Color) -> float:
 	var border := tint if tint.a > 0 else Color(0.15, 0.12, 0.08)
 	var x := x_start
 	for i in bag.dice.size():
@@ -2120,12 +2193,11 @@ func _layout_dice_chip_row(bag: DiceBag, values: Array, x_start: float, tint: Co
 		chip.shape_sides = ShapeDieChip.shape_sides_for_dice_sides(sides)
 		chip.border_color = border
 		chip.value = values[i]
-		if right_align:
-			x -= EXCHANGE_CHIP_SIZE
 		chip.position = Vector2(x, EXCHANGE_CHIP_Y)
 		add_child(chip)
 		_exchange_chip_nodes.append(chip)
-		x += -EXCHANGE_CHIP_GAP if right_align else EXCHANGE_CHIP_SIZE + EXCHANGE_CHIP_GAP
+		x += EXCHANGE_CHIP_SIZE + EXCHANGE_CHIP_GAP
+	return x - EXCHANGE_CHIP_GAP if bag.dice.size() > 0 else x_start
 
 
 func _clear_exchange_dice_chips() -> void:
@@ -2406,9 +2478,11 @@ func _character_round1_achievement_id(char_id: String) -> String:
 
 
 ## 승리 시 다이스 개조 아이템 2개를 제시하고, 어느 주머니(공격/방어)에 적용할지
-## 고르게 한다. 다이스 뷰포트가 차지하던 영역(140,120)-(1140,540) 위에 반투명 배경과
-## 함께 그려서 전투가 끝난 뒤 화면을 재활용한다. NextButton은 아이템을 고르거나
-## 건너뛰기 전까지는 숨겨서 보상을 먼저 보게 한다.
+## 고르게 한다. 다이스 뷰포트가 차지하던 영역(140,REWARD_FRAME_TOP)-(1140,
+## REWARD_FRAME_BOTTOM) 위에 반투명 배경과 함께 그려서 전투가 끝난 뒤 화면을
+## 재활용한다. NextButton은 아이템을 고르거나 건너뛰기 전까지는 숨겨서 보상을 먼저
+## 보게 한다. 버튼은 [대형 기획 13] M-3로 UIKit.style_secondary_button을 써서 다른
+## 화면과 같은 보조 행동 스타일(테두리+퍼스널 컬러)을 입는다(기존엔 민짜 기본 Button).
 func _show_reward_ui() -> void:
 	if _reward_items.is_empty():
 		# G-7(2026-10-07): "정예" 승리는 EliteRewardPool(A급 이상 중심 가중치)에서 뽑는다 —
@@ -2418,6 +2492,7 @@ func _show_reward_ui() -> void:
 		else:
 			_reward_items = DiceItemPool.random_choices(2, RunState.player_attack_bag, RunState.player_defense_bag)
 
+	var cid := RunState.character_id
 	_clear_reward_ui()
 	next_button.hide()
 	_add_reward_frame("승리 보상 — 다이스 아이템을 고르고 적용할 주머니를 선택하세요")
@@ -2426,8 +2501,8 @@ func _show_reward_ui() -> void:
 	# 겹치지 않도록 한다" — 덱 패널(DeckPanel, x=980~1240)이 결과 화면 도중 다시
 	# 열리더라도 겹치지 않도록, 보상 카드 영역을 x=980 앞(140~960)에서 끝나게 좁힌다.
 	var card_width := 380.0
-	var card_height := 260.0
-	var card_y := 185.0
+	var card_height := REWARD_CARD_HEIGHT
+	var card_y := REWARD_FRAME_TOP + 65.0
 	var card_x := [160.0, 560.0]
 	for i in _reward_items.size():
 		var item: Dictionary = _reward_items[i]
@@ -2443,8 +2518,9 @@ func _show_reward_ui() -> void:
 		if item.get("kind", "") == "upgrade_die":
 			var upgrade_btn := Button.new()
 			upgrade_btn.text = "다이스 획득 (인벤토리)"
-			upgrade_btn.custom_minimum_size = Vector2(0, 38)
+			upgrade_btn.custom_minimum_size = Vector2(0, 36)
 			upgrade_btn.pressed.connect(_on_reward_upgrade_chosen.bind(item))
+			UIKit.style_secondary_button(upgrade_btn, cid)
 			button_row.add_child(upgrade_btn)
 			_reward_action_buttons.append(upgrade_btn)
 			continue
@@ -2456,8 +2532,9 @@ func _show_reward_ui() -> void:
 		var atk_btn := Button.new()
 		atk_btn.text = "공격 주머니에 적용" if atk_applicable else DiceItemPool.unavailable_reason(item)
 		atk_btn.disabled = not atk_applicable
-		atk_btn.custom_minimum_size = Vector2(0, 38)
+		atk_btn.custom_minimum_size = Vector2(0, 36)
 		atk_btn.pressed.connect(_on_reward_chosen.bind(item, "attack"))
+		UIKit.style_secondary_button(atk_btn, cid)
 		button_row.add_child(atk_btn)
 		_reward_action_buttons.append(atk_btn)
 
@@ -2468,25 +2545,28 @@ func _show_reward_ui() -> void:
 		var def_btn := Button.new()
 		def_btn.text = "방어 주머니에 적용" if def_applicable else DiceItemPool.unavailable_reason(item)
 		def_btn.disabled = not def_applicable
-		def_btn.custom_minimum_size = Vector2(0, 38)
+		def_btn.custom_minimum_size = Vector2(0, 36)
 		def_btn.pressed.connect(_on_reward_chosen.bind(item, "defense"))
+		UIKit.style_secondary_button(def_btn, cid)
 		button_row.add_child(def_btn)
 		_reward_action_buttons.append(def_btn)
 
 	var custom_btn := Button.new()
 	custom_btn.text = "커스터마이징: 눈금 교환"
-	custom_btn.position = Vector2(160, card_y + card_height + 15)
-	custom_btn.size = Vector2(340, 40)
+	custom_btn.position = Vector2(160, card_y + card_height + 10)
+	custom_btn.size = Vector2(340, 36)
 	custom_btn.pressed.connect(_open_customize_from_reward)
+	UIKit.style_secondary_button(custom_btn, cid)
 	add_child(custom_btn)
 	_reward_ui.append(custom_btn)
 	_reward_action_buttons.append(custom_btn)
 
 	var skip_btn := Button.new()
 	skip_btn.text = "건너뛰기"
-	skip_btn.position = Vector2(560, card_y + card_height + 15)
-	skip_btn.size = Vector2(160, 40)
+	skip_btn.position = Vector2(560, card_y + card_height + 10)
+	skip_btn.size = Vector2(160, 36)
 	skip_btn.pressed.connect(_on_reward_skipped)
+	UIKit.style_secondary_button(skip_btn, cid)
 	add_child(skip_btn)
 	_reward_ui.append(skip_btn)
 	_reward_action_buttons.append(skip_btn)
@@ -2496,23 +2576,45 @@ func _show_reward_ui() -> void:
 
 ## 공통 배경+제목 프레임을 그린다 (보상 화면의 3단계 — 아이템 선택 / 다이스 선택 /
 ## 면 선택 — 모두 이 위에 그려서 화면을 재활용한다). D8~D12처럼 면이 많은 다이스는
-## 얼굴 그리드가 두 줄이 될 수 있어 height를 늘려 부를 수 있게 함(기본 420).
-func _add_reward_frame(title_text: String, height: float = 420.0) -> void:
+## 얼굴 그리드가 두 줄이 될 수 있어 height를 늘려 부를 수 있게 함(기본
+## REWARD_FRAME_BOTTOM - REWARD_FRAME_TOP). [대형 기획 13] M-3로 민짜 검정
+## ColorRect 대신 캐릭터 테두리+그림자가 있는 Panel로 바꿔 다른 구역 패널들과 통일하고,
+## 제목 아래 얇은 구분선을 둬 "제목/본문"을 시각적으로 나눈다(INBOX M-3 감독 추가 비평
+## "패널이 전부 얇은 테두리 사각형 + 어두운 단색이라 질감이 없다" 반영 — 본격적인
+## 질감/장식은 M-5 아트 스킨으로 미루고, 코드로 가능한 그림자/구분선만 먼저 적용).
+func _add_reward_frame(title_text: String, height: float = REWARD_FRAME_BOTTOM - REWARD_FRAME_TOP) -> void:
 	# INBOX.md 피드백(2026-09-09) — 폭을 980(DeckPanel 왼쪽 끝)보다 좁게 잡아 덱 패널이
 	# 결과 화면 중에 다시 열려도 겹치지 않게 한다 (위 card_x 주석 참고).
-	var bg := ColorRect.new()
-	bg.color = Color(0, 0, 0, 0.85)
-	bg.position = Vector2(140, 120)
+	var cid := RunState.character_id
+	var palette := CharacterTheme.ui_palette(cid)
+	var bg := Panel.new()
+	var bg_style := StyleBoxFlat.new()
+	bg_style.bg_color = Color(0.05, 0.05, 0.07, 0.93)
+	bg_style.border_color = palette["primary"]
+	bg_style.set_border_width_all(2)
+	bg_style.set_corner_radius_all(UIKit.SECTION_CORNER)
+	bg_style.shadow_size = 8
+	bg_style.shadow_color = Color(0, 0, 0, 0.4)
+	bg.add_theme_stylebox_override("panel", bg_style)
+	bg.position = Vector2(140, REWARD_FRAME_TOP)
 	bg.size = Vector2(820, height)
 	add_child(bg)
 	_reward_ui.append(bg)
 
 	var title := Label.new()
 	title.text = title_text
-	title.position = Vector2(170, 140)
+	title.position = Vector2(170, REWARD_FRAME_TOP + 20.0)
 	title.size = Vector2(760, 30)
+	CharacterTheme.apply_label(title, cid, true)
 	add_child(title)
 	_reward_ui.append(title)
+
+	var divider := ColorRect.new()
+	divider.color = Color(palette["primary"].r, palette["primary"].g, palette["primary"].b, 0.35)
+	divider.position = Vector2(170, REWARD_FRAME_TOP + 50.0)
+	divider.size = Vector2(760, 1)
+	add_child(divider)
+	_reward_ui.append(divider)
 
 
 func _clear_reward_ui() -> void:

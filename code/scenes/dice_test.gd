@@ -329,6 +329,10 @@ func _ready() -> void:
 	all_pass = _check_m2_combat_hud(lines) and all_pass
 
 	lines.append("")
+	lines.append("[M-3: 전투 화면 다이스 스테이지 확대 + 결과 칩 한 줄 정리 + 보상 프레임 검증: combat_test.gd 다이스 뷰포트 크기/비율, 공격·방어 칩이 라벨과 함께 한 줄로 중앙 정렬되는지, 보상 프레임이 전투 기록 패널 위에서 끝나는지]")
+	all_pass = _check_m3_combat_dice_stage(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -7128,13 +7132,24 @@ func _check_m2_combat_hud(lines: PackedStringArray) -> bool:
 		combat.monster_trait_label.text.replace("\n", " / "), "OK" if trait_shown_ok else "FAIL"
 	])
 
-	# 디버그 줄("[QA] 공격...") 가시성은 OS.is_debug_build()를 그대로 따라야 한다
-	# (INBOX M-2 "QA/디버그 플래그가 켜졌을 때만 표시" — 릴리즈 빌드에선 항상 숨김).
-	var debug_visibility_ok: bool = combat.monster_debug_info_label.visible == OS.is_debug_build()
-	ok = debug_visibility_ok and ok
-	lines.append("  디버그 줄 visible=%s (기대 OS.is_debug_build()=%s) -> %s" % [
-		combat.monster_debug_info_label.visible, OS.is_debug_build(), "OK" if debug_visibility_ok else "FAIL"
+	# 디버그 줄("[QA] 공격...") 가시성은 [감독 추가 비평 2026-10-14]로 OS.is_debug_build()
+	# (에디터 실행이면 항상 true라 일반 플레이에서도 보이던 버그)가 아니라 명시적 QA
+	# 플래그(GAME_QA_DEBUG_UI)를 따라야 한다 — 플래그 없이는 항상 숨고, "1"이면 보임.
+	var qa_debug_env_backup := OS.get_environment("GAME_QA_DEBUG_UI")
+	OS.set_environment("GAME_QA_DEBUG_UI", "")
+	var debug_hidden_by_default_ok: bool = combat._qa_debug_ui_enabled() == false and combat.monster_debug_info_label.visible == false
+	ok = debug_hidden_by_default_ok and ok
+	lines.append("  디버그 줄: 플래그 없음(일반 플레이, 에디터 실행 포함) -> visible=%s(기대 false) -> %s" % [
+		combat.monster_debug_info_label.visible, "OK" if debug_hidden_by_default_ok else "FAIL"
 	])
+	OS.set_environment("GAME_QA_DEBUG_UI", "1")
+	combat.monster_debug_info_label.visible = combat._qa_debug_ui_enabled()
+	var debug_shown_with_flag_ok: bool = combat._qa_debug_ui_enabled() == true and combat.monster_debug_info_label.visible == true
+	ok = debug_shown_with_flag_ok and ok
+	lines.append("  디버그 줄: GAME_QA_DEBUG_UI=1 -> visible=%s(기대 true) -> %s" % [
+		combat.monster_debug_info_label.visible, "OK" if debug_shown_with_flag_ok else "FAIL"
+	])
+	OS.set_environment("GAME_QA_DEBUG_UI", qa_debug_env_backup)
 
 	# HP 바 오버레이 숫자가 실제 HP를 반영(두껍게 키운 바 위에 숫자를 겹쳐 표시 — 별도
 	# 텍스트 줄이 아님). 값을 바꾸고 _update_labels()를 다시 불러도 따라오는지까지 확인.
@@ -7194,4 +7209,105 @@ func _check_m2_combat_hud(lines: PackedStringArray) -> bool:
 	RunState.test_battle = test_battle_backup
 	RunState.test_monster_id = test_monster_id_backup
 	RunState.test_difficulty = test_difficulty_backup
+	return ok
+
+
+## [대형 기획 13] M-3 — 감독 추가 비평(2026-10-14) "3D 다이스 구역이 작고... 결과 칩이
+## 가운데/아래에 흩어져 있다"를 코드로 고쳤는지 "계산 결과(실제 렌더된 노드 위치/크기)"로
+## 검증한다(플래그가 아니라). _show_exchange_dice_chips()는 물리 다이스 스폰 없이도
+## 순수하게 호출 가능해서(칩은 값을 받아서 그릴 뿐 굴리지 않음), combat_test.tscn을
+## instantiate한 뒤 직접 호출해 확인할 수 있다.
+func _check_m3_combat_dice_stage(lines: PackedStringArray) -> bool:
+	var ok := true
+
+	var combat_scene := load("res://code/scenes/combat_test.tscn")
+	var combat = combat_scene.instantiate()
+	add_child(combat)
+
+	# 1) 다이스 뷰포트가 M-2보다 커졌고(세로 316->340), 더 이상 비율이 안 틀어지게
+	#    SubViewport 해상도가 컨테이너 크기와 정확히 일치하는지.
+	var viewport_container: SubViewportContainer = combat.get_node("DiceViewportContainer")
+	var dice_viewport: SubViewport = combat.get_node("DiceViewportContainer/DiceViewport")
+	var container_size: Vector2 = viewport_container.size
+	var grew_ok: bool = container_size.y > 316.0
+	ok = grew_ok and ok
+	lines.append("  다이스 뷰포트 컨테이너 크기: %s (기대 세로 >316, M-2 값보다 커짐) -> %s" % [
+		container_size, "OK" if grew_ok else "FAIL"
+	])
+	var no_distortion_ok: bool = dice_viewport.size == Vector2i(container_size)
+	ok = no_distortion_ok and ok
+	lines.append("  SubViewport 해상도=%s == 컨테이너 크기=%s (늘이기/찌그러짐 없음) -> %s" % [
+		dice_viewport.size, Vector2i(container_size), "OK" if no_distortion_ok else "FAIL"
+	])
+
+	# 2) 결과 칩 한 줄: "공격"/"방어" 라벨이 각각 하나씩 있고, 그 사이에 칩들이 이어
+	#    붙으며, 전체 묶음이 화면 중앙(EXCHANGE_ROW_CENTER_X)에 좌우 대칭으로 정렬되는지.
+	var atk_bag := DiceBag.new(4, 3)
+	var def_bag := DiceBag.new(4, 2)
+	combat._show_exchange_dice_chips(atk_bag, [1, 2, 3], def_bag, [4, 1], Color(0.9, 0.3, 0.3, 1), Color(0.3, 0.5, 0.9, 1))
+
+	var atk_label: Label = null
+	var def_label: Label = null
+	var chip_count := 0
+	for node in combat._exchange_chip_nodes:
+		if node is Label:
+			if node.text == "공격":
+				atk_label = node
+			elif node.text == "방어":
+				def_label = node
+		else:
+			chip_count += 1
+	var labels_ok: bool = atk_label != null and def_label != null and atk_label.position.x < def_label.position.x
+	ok = labels_ok and ok
+	lines.append("  결과 칩 한 줄: '공격' 라벨 x=%s, '방어' 라벨 x=%s (공격이 왼쪽) -> %s" % [
+		atk_label.position.x if atk_label else "(없음)", def_label.position.x if def_label else "(없음)",
+		"OK" if labels_ok else "FAIL"
+	])
+	var chip_count_ok: bool = chip_count == atk_bag.dice.size() + def_bag.dice.size()
+	ok = chip_count_ok and ok
+	lines.append("  칩 개수=%d (기대 %d = 공격 %d + 방어 %d) -> %s" % [
+		chip_count, atk_bag.dice.size() + def_bag.dice.size(), atk_bag.dice.size(), def_bag.dice.size(),
+		"OK" if chip_count_ok else "FAIL"
+	])
+
+	var leftmost := INF
+	var rightmost := -INF
+	for node in combat._exchange_chip_nodes:
+		leftmost = min(leftmost, node.position.x)
+		var w: float = node.custom_minimum_size.x if node is Label else node.size.x
+		rightmost = max(rightmost, node.position.x + w)
+	var center := (leftmost + rightmost) / 2.0
+	var centered_ok: bool = abs(center - combat.EXCHANGE_ROW_CENTER_X) < 2.0
+	ok = centered_ok and ok
+	lines.append("  칩 한 줄 중심 x=%.1f (기대 %.1f 근처, 화면 양 끝에 흩어지지 않고 중앙 정렬) -> %s" % [
+		center, combat.EXCHANGE_ROW_CENTER_X, "OK" if centered_ok else "FAIL"
+	])
+
+	# 3) 버튼 행(다음/다시 하기/설정으로)이 넓어진 뷰포트 아래로 내려갔고, "전투 기록"
+	#    패널(_setup_log_panel)과 겹치지 않는지.
+	var viewport_bottom: float = viewport_container.position.y + container_size.y
+	var next_button_top: float = combat.next_button.position.y
+	var buttons_below_viewport_ok: bool = next_button_top >= viewport_bottom
+	ok = buttons_below_viewport_ok and ok
+	lines.append("  버튼 행 y=%.1f >= 다이스 뷰포트 바닥 y=%.1f (안 겹침) -> %s" % [
+		next_button_top, viewport_bottom, "OK" if buttons_below_viewport_ok else "FAIL"
+	])
+	var log_panel_top: float = combat._log_panel.position.y
+	var button_bottom: float = next_button_top + combat.next_button.size.y
+	var log_below_buttons_ok: bool = log_panel_top >= button_bottom
+	ok = log_below_buttons_ok and ok
+	lines.append("  '전투 기록' 패널 y=%.1f >= 버튼 행 바닥 y=%.1f (안 겹침) -> %s" % [
+		log_panel_top, button_bottom, "OK" if log_below_buttons_ok else "FAIL"
+	])
+
+	# 4) 승리 보상 프레임이 "전투 기록" 패널 위에서 끝나는지(M-2 인수인계 때 발견한
+	#    겹침 회귀가 다이스 스테이지 확대로 재발하지 않았는지).
+	var reward_frame_bottom_ok: bool = combat.REWARD_FRAME_BOTTOM <= log_panel_top - 8.0
+	ok = reward_frame_bottom_ok and ok
+	lines.append("  REWARD_FRAME_BOTTOM=%.1f <= '전투 기록' 패널 y(%.1f) - 8 (안 겹침, 여유 포함) -> %s" % [
+		combat.REWARD_FRAME_BOTTOM, log_panel_top, "OK" if reward_frame_bottom_ok else "FAIL"
+	])
+
+	remove_child(combat)
+	combat.free()
 	return ok

@@ -70,18 +70,18 @@ script = ExtResource("3_monster_portrait")
 offset_left = 140.0
 offset_top = 184.0
 offset_right = 1140.0
-offset_bottom = 500.0
+offset_bottom = 524.0
 stretch = true
 
 [node name="DiceViewport" type="SubViewport" parent="DiceViewportContainer"]
 transparent_bg = true
-size = Vector2i(1000, 420)
+size = Vector2i(1000, 340)
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="DiceViewportContainer/DiceViewport"]
 environment = SubResource("Environment_1")
 
 [node name="Camera3D" type="Camera3D" parent="DiceViewportContainer/DiceViewport"]
-transform = Transform3D(1, 0, 0, 0, 0.8, 0.6, 0, -0.6, 0.8, 0, 3.6, 5.5)
+transform = Transform3D(1, 0, 0, 0, 0.8, 0.6, 0, -0.6, 0.8, 0, 2.952, 4.51)
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="DiceViewportContainer/DiceViewport"]
 transform = Transform3D(0.866, 0.25, -0.433, 0, 0.866, 0.5, 0.5, -0.433, 0.75, 0, 3, 0)
@@ -116,7 +116,7 @@ shape = SubResource("BoxShape3D_wall_we")
 
 [node name="MonsterDebugInfoLabel" type="Label" parent="."]
 offset_left = 1146.0
-offset_top = 552.0
+offset_top = 572.0
 offset_right = 1276.0
 offset_bottom = 712.0
 autowrap_mode = 2
@@ -164,30 +164,30 @@ script = ExtResource("5_customize_panel")
 [node name="NextButton" type="Button" parent="."]
 visible = false
 offset_left = 540.0
-offset_top = 508.0
+offset_top = 526.0
 offset_right = 740.0
-offset_bottom = 548.0
+offset_bottom = 566.0
 text = "다음"
 
 [node name="TestRetryButton" type="Button" parent="."]
 visible = false
 offset_left = 440.0
-offset_top = 508.0
+offset_top = 526.0
 offset_right = 630.0
-offset_bottom = 548.0
+offset_bottom = 566.0
 text = "다시 하기"
 
 [node name="TestBackButton" type="Button" parent="."]
 visible = false
 offset_left = 640.0
-offset_top = 508.0
+offset_top = 526.0
 offset_right = 880.0
-offset_bottom = 548.0
+offset_bottom = 566.0
 text = "설정으로 돌아가기"
 
 [node name="LogLabel" type="Label" parent="."]
 offset_left = 140.0
-offset_top = 556.0
+offset_top = 572.0
 offset_right = 1140.0
 offset_bottom = 720.0
 autowrap_mode = 2

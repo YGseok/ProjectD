@@ -8,6 +8,60 @@
 
 ---
 
+- **2026-10-13 (190)**: INBOX.md 최우선 지시 [대형 기획 11] 조작/UI 개편(K-1→K-4) 중
+  **K-4a(스킬 아이콘 모티프 분류표 + 그리기 함수 + 검증) 완료**. 지금까지 "스킬"
+  (`SkillPool`의 SKILLS/UNIQUE_SKILLS/UPGRADE_SKILLS/STARTING_SKILLS, 33개 id)에는
+  아이콘이 전혀 없었다 — 캐릭터 고유 기믹 8종만 그리던 `code/scenes/skill_icon.gd`
+  (`SkillIcon`)가 이걸 그릴 수 있게 확장하는 것이 이번 조각의 범위(배선/화면 적용은
+  K-4b, 외부 아트 override는 K-4c).
+  **(1) 모티프 분류표**: `code/systems/skill_pool.gd`에 `ICON_MOTIFS`(Dictionary,
+  skill_id -> motif 문자열) + `ICON_MOTIF_VALUES`(11종 전체 목록) + `icon_motif_for(id)`
+  조회 함수를 추가했다. INBOX.md가 "스킬의 실제 효과"로 분류하라고 명시해, 트리거
+  조건(골드/인벤토리/재질/다이스 개수 등)이 달라도 최종 효과가 같으면(예: "공격
+  다이스 +1") 같은 모티프로 묶었다 — 시작 스킬 13종 중 9종이 "다이스 결과값
+  보정"류라 먼저 "무엇을 올리는가"(공격만/방어만/양쪽 다)로 나누고, 나머지(여분/
+  대체 굴림, 스택형 보너스턴 공격/방어/양쪽, 다이스 값 전환, 다이스 맞바꾸기, 주기형
+  고정 피해, 이벤트 판정 보정)를 효과 종류별로 묶어 11종(`attack_boost`/
+  `defense_boost`/`dual_boost`/`reroll`/`burst_stack`/`guard_stack`/`dual_stack`/
+  `dice_flip`/`dice_swap`/`cycle_strike`/`event_check`)이 나왔다. 기본(빈 문자열)
+  fallback을 의도적으로 두지 않아, 새 스킬을 추가하고 이 표에 깜빡 안 넣으면 바로
+  FAIL로 드러난다.
+  **(2) SkillIcon 확장**: `motif: String` 신규 프로퍼티를 추가하고(기존 `category`와는
+  완전히 별개 — 비어있지 않으면 motif 그리기가 category보다 우선, 기존 호출부는
+  `motif`를 설정하지 않으므로 하위 호환 100% 유지) `_draw_motif()` 분기로 11종을
+  각각 손그림(`draw_rect`/`draw_colored_polygon`/`draw_arc`/`draw_circle` 조합,
+  기존 `achievement_icon.gd`류와 같은 패턴). 의미가 겹치는 4종(`burst_stack`=
+  캐릭터 기믹의 "폭발 스택"과 동일한 별 모양, `guard_stack`=기존 "겹겹의 방패",
+  `dice_swap`=기존 "교차 화살표")은 새로 그리지 않고 기존 `_draw_burst()`/
+  `_draw_layered_shield()`/`_draw_swap_arrows()`에 `color` 매개변수(기본값은
+  기존 기믹 색 그대로)를 추가해 재사용했다 — 중복 구현 방지, 기존 기믹 아이콘은
+  인자 없이 호출하던 그대로라 동작 변화 없음. 나머지 7종(attack/defense/dual_boost,
+  reroll, dual_stack, dice_flip, cycle_strike, event_check)은 신규 색상 팔레트
+  7개(`COLOR_ATTACK`/`COLOR_DEFENSE`/`COLOR_DUAL`/`COLOR_REROLL`/`COLOR_FLIP`/
+  `COLOR_CYCLE`/`COLOR_EVENT`)와 함께 새로 그렸다.
+  **검증**: 신규 `dice_test.gd`의 `_check_k4a_skill_icon_motifs()`(async, 호출부
+  `_ready()`가 `await`로 받음)가 두 갈래로 확인한다 — ① SKILLS/UNIQUE_SKILLS/
+  UPGRADE_SKILLS/STARTING_SKILLS 전체 id(중복 제거 33개)가 빈 모티프로 안 떨어지는지
+  ② "플래그가 들어갔나"가 아니라 "실제로 다른 그림이 그려지는가"를 검증하기 위해,
+  11종 모티프마다 자기만의 작은 `SubViewport`(투명 배경)+`SkillIcon`을 동시에
+  만들어 실제로 몇 프레임 렌더링시킨 뒤 각 `SubViewport.get_texture().get_image()`를
+  캡처해 바이트 단위로 비교 — 전부 투명(아무것도 안 그려짐)이 아니고, 서로 다른
+  모티프끼리 완전히 같은 픽셀로 겹치지 않는지 전수 확인(PASS). 처음엔
+  `Image.get_rect()`로 메인 화면 뷰포트에서 영역만 잘라내려다 "타입을 추론할 수
+  없음" 컴파일 에러를 만나(그 메서드가 Godot 4.7 Image API에 없는 것으로 보임)
+  모티프마다 독립된 `SubViewport`를 쓰는 방식으로 바꿨다 — 동시에, 아직 (b) 단계
+  전이라 실제 화면에 안 쓰이는 모티프 11종을 눈으로도 확인할 수 있게 화면
+  우상단(`ResultLabel`이 시작하는 y=20 위 빈 띠)에 작은 미리보기 줄도 남겨
+  `qa_shot.sh dice_test` 스크린샷으로 11개 아이콘이 서로 다른 모양/색으로 뚜렷이
+  구분됨을 직접 확인했다(`qa_out/dice_test.png`). `bash scripts/qa_shot.sh
+  dice_test` 전체 **PASS** 재확인(도중 한 번 무관한 H-1 테스트가 RNG로 우연히
+  FAIL한 것을 발견해 `git stash`로 되돌린 클린 트리에서도 같은 자리에서 FAIL함을
+  확인해 내 변경과 무관한 기존 flaky 테스트임을 검증 — 재실행 후 전체 PASS).
+  INBOX.md [대형 기획 11]은 "부분 처리됨"에 그대로 두고 K-4a 완료 상태로 진행
+  한 줄만 갱신 — 다음은 **K-4b(전 화면 실제 적용: 캐릭터 선택 시작 스킬 슬롯/보상
+  선택/상점/덱·커스터마이즈 패널/전투 중 보유 스킬/이벤트 보상에 motif 아이콘
+  배선)**. "완료 기록" 10개 유지를 위해 (180)을 `docs/STATUS_ARCHIVE.md`로 옮겼다.
+
 - **2026-10-13 (189)**: INBOX.md 최우선 지시 [대형 기획 11] 조작/UI 개편(K-1→K-4) 중
   **K-3(캐릭터 퍼스널 컬러를 UI에 반영) 완료**. 신규 `code/systems/character_theme.gd`
   (`CharacterTheme`, `FocusNav`/`CharacterProfiles`와 같은 "씬 상태 없는 순수 함수만"
