@@ -7,6 +7,79 @@
 
 ---
 
+- [처리됨 - 2026-09-17] 2026-09-17 스킬을 강화시킬 수 있는 이벤트를
+  추가해줘. 강화되는 스킬은 [스킬명+] 라고 네이밍 붙여서, 기존 스킬의
+  강화판임을 직관적으로 알 수 있게 한다. 좋아보여야 하니까 아이콘 테두리를
+  노란 색으로 두껍게 강조하면 좋을 듯 함.
+
+  **(기획자 결정 — 구체적 설계, [미니 기획 D] 스킬 강화 이벤트)** — **전체
+  완료(1~5번, 6번은 선택이라 미착수).** 지금 캐릭터 스킬은 공용 2종("심호흡"/
+  "여분")+고유 5종(캐릭터별 1개씩)이 전부 `RunState.skill_flags`에 문자열
+  id로만 쌓이고 강화 개념이 없던 것을, 아래 순서로 나눠 구현했다.
+
+  1~3번은 (128)/(129)에서 완료 — `code/systems/skill_pool.gd`에
+  `UPGRADE_SKILLS`(7종 강화판 데이터) + `available_upgrade_choices(n,
+  character_id)`/`grant_upgrade(base_id)`, `code/scenes/event.gd`에
+  `SKILL_UPGRADE_EVENT_CHANCE`(=0.2, 잠정값)로 특수 이벤트 방이 기존 스킬
+  이벤트(30%)보다 먼저 "스킬 강화" 이벤트로 분기(강화 후보 없으면 항상 기존
+  이벤트로 폴백, 카드 UI는 기존 스킬 획득 카드 재사용). **4번(전투 배선)은
+  네 이터레이션에 걸쳐 7종 전부 완료** — `combat_test.gd`의 `_do_exchange()`가
+  "`+` > base > 없음" 우선순위로 분기한다: (130) 공용 2종 "심호흡+"(매
+  방어턴마다 적용, base는 첫 방어턴만)/"여분+"(여분 다이스 2개 굴려 최댓값,
+  base는 1개) → (131) 광전사/수호자 페어 "광기 심화+"/"수호 심화+"(둘 다
+  base의 "1D20 두 번 굴려 최댓값"을 "세 번 굴려 최댓값"으로, 공용 로직은
+  신규 `_apply_bonus_reroll()` 순수 함수로 분리) → (132) 폭발병/방패병 페어
+  "연쇄 폭발+"/"연쇄 방어+"(base는 임계치만 2로 낮췄을 뿐 보너스 턴 굴림은
+  그대로였는데, "+"는 임계치 2 유지한 채 보너스 턴을 광기/수호 심화와 같은
+  방식으로 강화, `_apply_bonus_reroll()` 재사용) → **(133)에서 마지막 남은
+  "임기응변+"(견습 모험가 전용)를 배선** — 다른 4쌍과 달리 base(임기응변)가
+  이미 "넓지만 얕게"(임계치·보너스 강화 없음)였으므로, "+"는 그 축("발동
+  빈도")을 마저 강화 — chain_explosion/chain_guard와 같은 방식으로 공격/방어
+  두 파이프라인의 임계치를 동시에 3에서 2로 낮췄다(신규
+  `player_versatile_plus_active` 플래그, `_player_explosive_threshold()`/
+  `_player_guard_threshold()`가 함께 확인). 이걸로 7종 전부 배선 완료.
+  **(133)에서 5번(UI 강조)도 완료** — `ItemCardStyle.build_card()`에
+  `highlight: bool = false` 매개변수를 추가해 true면 카드 테두리를 등급색
+  대신 두껍고(4px) 노란색(`HIGHLIGHT_BORDER`)으로 그린다. `event.gd`의
+  `_setup_skill_upgrade_event()`가 자기 자신을 부를 때
+  `_is_skill_upgrade_event = true`로 세팅해(QA 훅처럼 `_ready()`를 거치지
+  않고 직접 호출해도 항상 정확하도록 자기 완결적으로 만듦), `_show_skill_
+  offer()`가 이 플래그를 `highlight` 인자로 넘긴다 — 새 스킬 획득 카드는
+  이 플래그가 false라 기존 등급색 테두리 그대로. `qa_out/event_skill_
+  upgrade_highlight.png`(노란 두꺼운 테두리 확인)/`qa_out/event_skill_
+  offer_normal_recheck.png`(일반 스킬 카드는 기존 얇은 초록 테두리 유지)로
+  검증. `dice_test.gd`에 임기응변+ 임계치 검증((7))과 highlight 파라미터
+  검증(신규 `_check_skill_upgrade_card_highlight`)을 추가, `bash scripts/
+  qa_shot.sh dice_test` 전체 PASS. 6번(DeckPanel 보유 스킬 목록)은 원문이
+  "선택, 급하지 않음"이라 명시한 항목이라 미착수 — 완료 기준(1~5번)은 이걸로
+  전부 충족돼 이 항목을 처리됨으로 옮긴다. docs/STATUS.md 완료 기록
+  (128~133) 참고.
+  **추가(2026-09-28, (147))**: 미뤄뒀던 6번도 마저 완료했다 — `DeckPanel`에
+  "보유 스킬" 섹션을 추가해 `RunState.skill_flags`를 이름으로 풀어 나열한다
+  (`SkillPool.find_skill()` 신규, 네 스킬 상수 전체에서 id로 이름 조회).
+  docs/STATUS.md 완료 기록(147) 참고.
+
+- [처리됨 - 2026-09-17] (기획자 결정) 견습 모험가("novice") 전용 고유 스킬 설계
+  확정 — "임기응변" (id: `versatile_surge`).
+  → 지시된 설계 그대로 구현했다. `code/systems/skill_pool.gd`의
+  `UNIQUE_SKILLS`에 `character_id: "novice"` 항목을 추가하고, `code/scenes/
+  combat_test.gd`에 `player_versatile_active`(다른 4개 스킬 플래그와 동일한
+  위치·패턴, `RunState.skill_flags.has("versatile_surge")`) 변수를 신설해
+  공격 스택 조건(`explosive_stack" or player_frenzy_active`)과 방어 스택
+  조건(`guard_stack" or player_guard_deepen_active`) 각각에 지시대로
+  `or player_versatile_active`를 추가했다 — 두 조건 문자열이 `_do_exchange()`
+  안에 각각 2곳(보너스 1D20 사용 판단 + 스택 적립/초기화)씩 있어 4곳 모두
+  동일하게 확장, 공격/방어 두 파이프라인이 함께 열리도록 했다. 지시대로
+  임계치(`EXPLOSIVE_STACK_THRESHOLD`/`GUARD_STACK_THRESHOLD`, 둘 다 3)와
+  보너스 턴(1D20 한 번 굴림)은 강화하지 않았다("넓지만 얕게"). `dice_test.gd`에
+  캐릭터 필터 검증(novice=true, berserker=false, 다른 4개 스킬과 같은 패턴) +
+  "임기응변 보유 시에도 임계치 함수 둘 다 기본값(3) 그대로인지" 검증을 추가,
+  `bash scripts/qa_shot.sh dice_test` 전체 PASS. `event.gd`의 QA 훅
+  `_debug_force_skill_event_as_novice()`로 `qa_out/event_skill_offer_novice.png`
+  (카드 겹침 없음)를, `qa_out/combat_test.png`로 기본 전투 정상 진행을 확인했다.
+  `docs/DESIGN.md`도 갱신 — **이제 5개 캐릭터 전원의 고유 스킬이 완성됨**.
+  docs/STATUS.md 완료 기록(127)/다음 할 일 큐 17번 참고.
+
 - [처리됨 - 2026-09-16] (기획자 결정) `docs/STATUS.md` "알려진 이슈"의 "특수 이벤트
   B급(D8) 아이템 사각지대" — 해결안 (b) 확정: 안전 풀을 "C 이하", 위험 성공 풀을
   "B 이상"으로 등급 경계를 겹치게 넓힌다.

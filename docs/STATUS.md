@@ -5,26 +5,27 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-10-15 (203)
-- 작성자: AI 에이전트. 직전 이터레이션이 M-5(b) 작업 도중 사용 한도로 중단돼
-  미커밋 상태로 남긴 것을 재시도 지시로 이어받았다. **M-5(b)(배지/장식/아이콘)를
-  마무리해 [대형 기획 13](M-1~M-5) 전체를 완료 처리**했다. `git diff`로 확인한
-  결과 구현(`UIKit`의 배지/장식/9종 아이콘 공용 로더 + `CharacterTheme.
-  apply_background()`의 배경 사진 지원 + combat_test/dungeon_map/event/shop/
-  story_event/deck_panel/skill_codex_panel/character_select/achievement_icon/
-  family_icon/lock_icon/reward_icon 호출부 배선)는 이미 전부 끝나 있었고, 이번
-  이터레이션은 `bash scripts/qa_shot.sh dice_test`로 드러난 테스트 버그 2개
-  (신규 `_check_m5b_badges_decor_icons_backgrounds()`의 "제목 장식" 검증이 좌/우
-  장식 파일을 둘 다 만들어놓고 자식 수를 3개로만 기대한 것, "scene_key 빈 문자열"
-  검증이 직전 호출의 `queue_free()` 지연 해제 때문에 같은 프레임에서 FAIL난 것 —
-  후자는 `character_theme.gd`에 `remove_child()`를 추가해 트리 탈착을 동기화해
-  고침)만 고친 뒤 **전체 PASS**를 확인하고, 셀프 피드백 1라운드(`qa_out/m5b_*.png`
-  6장 육안 확인 — 배지/장식/아이콘/배경 사진이 M-5(a) 스킨과 같은 톤으로 자연스럽게
-  어울림, 레이아웃 문제 없음)로 마무리했다. 상세는 아래 "완료 기록 (203)" 참고.
-  **M-5(a)(202)/M-5(b)(203) 전체 완료 — 단, [대형 기획 13] 자체는 아직 미완료**:
-  M-5는 INBOX 원래 순서상 M-4 뒤였는데 (202) 때 사용자 지시로 순서를 바꿔 먼저
-  진행했을 뿐, **M-4(이벤트/상점/스토리 이벤트 화면 통일)가 여전히 큐에 남아있다**
-  — 다음은 M-4.
+- 일시: 2026-10-15 (204)
+- 작성자: AI 에이전트. 이번 이터레이션은 세션 지시로 [대형 기획 13] M-4보다
+  [미니 기획 ART-2](아트 스레드 "ProjectD Art"가 전달한 전투 화면 표정 컷 하단
+  잘림 문제, INBOX "남은 이슈" 맨 위)를 먼저 처리했다. **ART-2 완료** — 표정
+  컷(240×240) 아래 20~25%에 `code/shaders/face_art_fade.gdshader`(신규,
+  `smoothstep` 기반)로 알파 그라데이션을 입혀 가슴께에서 끊긴 원화 하단이
+  일직선으로 잘린 것처럼 보이던 문제를 해결(개선 방향 ①·"가장 간단" 채택,
+  ②프레임 방식은 몬스터 원화 ART-1c 미입고라 좌우 대칭 맞출 대상이 없어 보류).
+  왼쪽 잘림(글로벌 x<0)은 `character_portrait_placeholder.gd`에 신설한
+  `FACE_ART_LEFT_SHIFT`(=40.0) 상수로 `_face_rect` 위치를 오른쪽으로 밀어
+  고쳤다(combat_test.tscn의 PlayerPortrait 위치(110,300)+PORTRAIT_SCALE_NORMAL
+  (1.1) 조합에서 기존 중앙 정렬 오프셋이 화면 밖으로 나가던 것 — 보정 후 글로벌
+  왼쪽 끝 x=22, 요구치 16 이상 충족). `dice_test.gd`에 신규
+  `_check_art2_face_crop_fix()`를 추가해 "속성 존재"가 아니라 실제 렌더
+  결과(SubViewport로 셰이더를 직접 렌더해 중간 높이 알파 0.992 vs 바닥 근처
+  알파 0.000)로 검증, `bash scripts/qa_shot.sh dice_test` 전체 **PASS**. 셀프
+  피드백 루프(캡처→비평→수정→재캡처) 2라운드로 `qa_out/combat_test.png`(평시)/
+  `art2_happy_check.png`(승리)/`art2_lose_check.png`(패배) 육안 확인 — 모든
+  표정에서 아래 끝이 배경에 자연스럽게 녹아들고 왼쪽 여백도 생김. 상세는 아래
+  "완료 기록 (204)" 참고. **[대형 기획 13] M-4(이벤트/상점/스토리 이벤트 화면
+  통일)는 여전히 큐에 남아있다 — 다음은 M-4.**
 
 ## 지금 위치
 
@@ -135,6 +136,10 @@ STATUS_ARCHIVE.md`(174 이전)/위 "완료 기록 (184)~(186)" 참고.
 `qa_out/art1b_novice_start.png`/`art1b_novice_after_exchange.png`로 원화가
 HP 패널·다이스 스테이지·결과 칩과 겹치지 않고 표정(happy)도 실제로 바뀌는 것
 육안 확인. ART-1c(몬스터 원화)는 몬스터 쪽 face_* 입고 전이라 여전히 대기.
+**ART-2(전투 화면 표정 컷 하단 잘림 처리) 완료(2026-10-15, 204)** — 표정 컷
+아래 20~25% 알파 그라데이션 셰이더(`code/shaders/face_art_fade.gdshader`)로
+가슴께 잘림이 일직선으로 떠 보이던 문제를 해결하고, `FACE_ART_LEFT_SHIFT` 보정
+으로 왼쪽이 화면 밖으로 잘리던 것도 고쳤다. 상세는 아래 "완료 기록 (204)" 참고.
 **큐의 나머지 항목은 대부분 사람 플레이테스트/피드백 또는 설계 결정이
 필요한 상태** — 자세한 내용은 "알려진 이슈 / 막힌 것" 섹션 참고.
 
@@ -403,6 +408,8 @@ HP 바)가 2026-10-15(202)에, M-5(b)(배지/장식/아이콘)가 2026-10-15(203
 M-5는 원래 INBOX 순서상 M-4 뒤였으나 (202) 때 사용자 지시로 M-4보다 먼저
 진행했다(사용자 지시 우선) — M-4는 그만큼 순서가 밀렸을 뿐 여전히 큐에
 남아있다(이제 M-5가 전부 끝났으니 M-4가 [대형 기획 13]의 마지막 남은 조각).
+**[미니 기획 ART-2](전투 화면 표정 컷 하단 잘림 처리)도 2026-10-15(204)에
+사용자(세션) 지시로 M-4보다 먼저 끼어들어 완료됐다** — M-4는 다음 이터레이션.
 M-1에서 만든 `code/systems/ui_kit.gd`(`UIKit`)를 M-2/M-3/M-5(a)/M-5(b)가
 재사용했고 M-4도 그대로 재사용할 것(INBOX M-4 원문 "새로 복붙하지 말 것").
 [대형 기획 11]
@@ -1018,6 +1025,58 @@ M-1에서 만든 `code/systems/ui_kit.gd`(`UIKit`)를 M-2/M-3/M-5(a)/M-5(b)가
 
 ## 완료 기록
 
+- **2026-10-15 (204)**: 세션 지시로 [대형 기획 13] M-4보다 먼저 [미니 기획 ART-2]
+  (아트 스레드 "ProjectD Art"가 전달한 "전투 화면 표정 컷 하단 잘림 처리")를
+  **완료**. 문제: ART-1b(201)로 입고된 견습 모험가 face_* 5장이 `qa_out/
+  art1b_novice_after_exchange.png`에서 상반신 표정 컷(240×240)의 아래 끝이
+  화면 중간(y≈448)에서 일직선으로 뚝 잘려 떠 보이고, 왼쪽도 화면 끝(x=0)에
+  붙어 잘리는 문제가 있었다. 원화 face_*.png 자체가 가슴께에서 끊긴 상반신
+  구도라 아래가 잘려 있는 것 자체는 아트 문제가 아니라 배치 문제.
+  **원인 분석**: `character_portrait_placeholder.gd`의 `_ensure_face_rect()`가
+  `_face_rect.position`을 `(-FACE_ART_SIZE.x/2, -FACE_ART_SIZE.y/2+16)` =
+  (-120, -104)로 중앙 정렬했는데, 실제 렌더 시 부모 `PlayerPortrait`
+  Node2D의 tscn 위치(110, 300)에 `combat_test.gd`의
+  `PORTRAIT_SCALE_NORMAL`(1.1) 스케일이 곱해져 글로벌 왼쪽 끝이
+  `110 + (-120*1.1) = -22`(화면 밖, 음수 x)로 밀려났다 — 이게 "왼쪽이 화면
+  끝에 붙어 잘림"의 실체. 아래쪽은 화면 밖으로 잘린 게 아니라, 정사각
+  텍스처(가슴께에서 끊긴 상반신)가 아무 처리 없이 그대로 그려져 생긴 하드
+  엣지였다.
+  **해결 — INBOX 개선 방향 ①(표정 컷 아래 20~25% 그라데이션 마스크, "가장
+  간단"으로 제시된 쪽) 채택**: 신규 `code/shaders/face_art_fade.gdshader`
+  (`shader_type canvas_item`)가 `fade_start=0.76` 기준
+  `smoothstep(fade_start, 1.0, UV.y)`로 텍스처 하단 ~24% 구간의 알파를
+  선형으로 0까지 줄인다. `_ensure_face_rect()`가 이 셰이더를
+  `ShaderMaterial`로 `_face_rect.material`에 입혀 가슴께 잘림이 배경에
+  자연스럽게 녹아들게 했다. 왼쪽 잘림은 신규 상수 `FACE_ART_LEFT_SHIFT`
+  (=40.0, 로컬 기준)로 `_face_rect.position`의 x 오프셋을 -120에서 -80으로
+  밀어, 글로벌 왼쪽 끝이 `110 + (-80*1.1) = 22`(요구치 16 이상)가 되도록
+  고쳤다. `set_character()`(원화 모드 전환 트리거)를 부르는 곳이
+  `combat_test.gd` 한 곳뿐이라(캐릭터 선택/덱 패널/테스트 전투 설정은
+  플레이스홀더만 쓰고 원화 모드로 전환하지 않음) 이 전투 화면 전용 보정이
+  다른 화면에 영향 없다. 개선 방향 ②(UI 키트 프레임/액자)는 몬스터 쪽 원화
+  (ART-1c)가 아직 입고 전이라 "몬스터도 같은 액자로 좌우 대칭" 요구를 지금
+  채울 수 없어 채택하지 않음 — 몬스터 원화가 들어오면 그때 재검토 가능.
+  **검증**: `dice_test.gd`에 신규 `_check_art2_face_crop_fix()`를
+  `_check_art1b_combat_face_art()` 바로 뒤에 추가 — "속성이 설정됐는가"가
+  아니라 ① 실제 production `combat_test.tscn` 인스턴스(캐릭터=novice)에서
+  `face_rect.global_position.x`가 16 이상인지(실측 22.0) ② 셰이더가 실제로
+  `FACE_ART_FADE_SHADER`로 적용됐는지 ③ 그 face_rect를 실제 캐릭터 노드에서
+  떼어 독립 `SubViewport`에 재부모화해 두 프레임 + `frame_post_draw`를
+  기다린 뒤 렌더된 이미지를 `get_image()`로 읽어 중간 높이(y=120) 알파와
+  바닥 근처(y=238) 알파를 비교(실측 중간=0.992, 바닥=0.000 — 기대치
+  "바닥이 중간의 30% 미만"을 크게 만족)해 "일직선 절단이 아니라 실제로
+  투명하게 사라짐"을 렌더 결과로 확인했다. `bash scripts/qa_shot.sh
+  dice_test` **전체 PASS**(기존 섹션 전부 회귀 없음).
+  **셀프 피드백 루프**: 1라운드 — `qa_out/combat_test.png`(전투 시작 직후,
+  neutral 표정)로 아래 끝이 부드럽게 사라지고 왼쪽에 여백이 생긴 것을 확인.
+  2라운드 — `_debug_show_test_battle_win`/`_debug_show_test_battle_lose` QA
+  훅으로 `qa_out/art2_happy_check.png`(happy)/`art2_lose_check.png`
+  (angry/sad) 추가 촬영해 다른 표정에서도 동일하게 하단 페이드와 왼쪽 여백이
+  유지됨을 확인 — 추가 수정 없이 2라운드로 종료. 전투 규칙/밸런스는
+  손대지 않았고 `resources/`·`docs/art/`는 읽기만 했다. **[대형 기획 13]
+  M-4(이벤트/상점/스토리 이벤트 화면 통일)는 여전히 큐에 남아있다 — 다음은
+  M-4.**
+
 - **2026-10-15 (203)**: 직전 이터레이션(M-5(b))이 사용 한도로 중단된 뒤 재시도 지시로
   이어받아 **M-5(b)(배지/장식/아이콘 — [대형 기획 13] 완료) 마무리**. 작업 트리에는 이미
   구현이 거의 끝난 상태로 남아있었다 — 이번 이터레이션은 그 상태를 감사하고, 남은 버그
@@ -1506,58 +1565,9 @@ M-1에서 만든 `code/systems/ui_kit.gd`(`UIKit`)를 M-2/M-3/M-5(a)/M-5(b)가
   (진입점 연결 — 캐릭터 선택 화면/던전 진행 화면에 실제 버튼 배선)는 아직
   — 이번 조각은 재사용 가능한 패널 자체만 만들었다. 다음은 **L-2(c)**.
 
-- **2026-10-14 (194)**: INBOX.md 최우선 지시 [대형 기획 12] 캐릭터 선택/스킬 도감/
-  전역 퍼스널 컬러(L-1→L-3) 중 **L-2(a)(스킬 도감 데이터/저장) 완료**. 신규
-  `SkillPool.codex_entries(character_id)`(순수 함수)가 그 캐릭터가 런에서
-  만날 수 있는 스킬 전체(시작 스킬 3 → 전용 1 → 공용 2 → 강화 3(공용 2 +
-  전용 1), 결정론적 순서, id 중복 제거, 각 항목에 `codex_source`
-  태그)를 8명 전부 9개씩 돌려준다. 신규 Autoload `code/systems/
-  skill_codex.gd`(`SkillCodex`, `AchievementManager`와 동일한 "Autoload +
-  `user://skill_codex.json`" 패턴)가 캐릭터별 발견 기록을 영구 저장한다 —
-  `mark_discovered(character_id, skill_id)`/`is_discovered()`/
-  `discovered_ids_for()`/`discovered_count_for()` API. **기록 시점을
-  SkillPool.grant()/RunState.reset_run() 안이 아니라 호출부(화면)에 직접
-  배선**했다 — `reset_run()`이 시작 스킬을 `SkillPool.grant()`로 부여하는
-  순간에는 `RunState.test_battle`이 아직 `reset_run()` 자신이 맨 먼저
-  초기화해둔 `false` 상태이고, `test_battle_setup.gd._apply_start_
-  selection()`은 `reset_run()` 호출이 끝난 "다음 줄"에서야 `test_battle =
-  true`를 세팅하므로, grant() 안에 `test_battle` 가드를 두면 테스트 전투
-  경로에서도 뚫려버린다(skill_codex.gd 상단 주석에 이 순서 문제를 그대로
-  남겨둠). 대신 두 화면에서 직접 호출: ① `event.gd`의 `_show_skill_offer()`
-  (신규/강화 스킬 후보가 카드로 뜨는 단일 지점, 두 이벤트 분기가 공유)가
-  표시되는 스킬마다 `SkillCodex.mark_discovered(RunState.character_id,
-  skill["id"])` ② `character_select.gd`의 `_rebuild_starting_skill_slots()`
-  (해금된 슬롯은 이름/효과가 바로 보이므로 렌더링 시점이 곧 발견) +
-  `_on_starting_skill_locked_preview()`(잠긴 슬롯을 클릭해 상세를 본 순간)
-  둘 다 `_selected_id` 기준으로 기록 — `test_battle_setup.gd`는 이 두 화면을
-  전혀 거치지 않는 별도 UI라 자연히 제외된다. `character_select.gd`의 기존
-  QA 디버그 훅 4개(`_debug_show_starting_skill_locked/_unlocked/
-  _locked_preview/_all_unlocked`)에도 `AchievementManager._debug_reset_
-  for_qa()` 옆에 `SkillCodex._debug_reset_for_qa()`를 나란히 추가해 QA 실행
-  간 발견 기록이 섞이지 않게 했다. **검증**: `dice_test.gd`의 신규
-  `_check_l2a_skill_codex()`가 (1) 8명 전부 `codex_entries().size()==9`,
-  순서(시작x3→전용x1→공용x2→강화x3), id 중복 없음 (2) `mark_discovered()`
-  후 `SkillCodex._load()`로 실제 디스크 파일을 재로드해도 `is_discovered()`
-  가 유지되는지(메모리 캐시가 아니라 파일 내용 확인) (3) 캐릭터 A에서 본
-  스킬이 캐릭터 B 도감에서는 미발견으로 남는지(격리) (4)
-  `RunState.test_battle=true` 중엔 기록되지 않고 `false`로 돌아오면
-  정상 기록되는지 (5) 저장 파일에 깨진 JSON을 직접 써넣고 `_load()`를
-  불러도 크래시 없이 `discovered_count_for()==0`으로 안전한지 (6) 실제
-  `event.tscn`/`character_select.tscn`을 인스턴스화해 QA 훅/슬롯 클릭으로
-  화면에 표시된 스킬이 실제로 `SkillCodex`에 기록되는지(해금 슬롯=즉시,
-  잠금 슬롯=미리보기 클릭 전엔 미기록→클릭 후 기록)까지 전부 계산/파일
-  결과로 검증(플래그만 보지 않음). `bash scripts/qa_shot.sh dice_test`
-  전체 **PASS**(연속 4회 재실행 모두 FAIL 0건 — 최초 1회 `결과: FAIL`이
-  떴던 건 tail로 잘린 구간에 있던 기존 noise로 재현 안 됨, leak 경고는
-  기존 known noise). `qa_out/character_select_l2a_check.png`로 캐릭터
-  선택 화면이 L-2(a) 변경(데이터/저장뿐이라 UI 신규 없음) 이후에도 레이아웃
-  그대로임을 육안 확인. L-2(b)(도감 패널 UI)는 아직 없어 발견 기록을 눈으로
-  볼 방법은 없다 — 다음 이터레이션에서 확인 가능. 다음은 **L-2(b)**(도감
-  패널 UI, `SkillCodexPanel`).
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(203)에서 (193)을 그리로 옮겼다.)*
+이번 이터레이션(204)에서 (194)를 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 

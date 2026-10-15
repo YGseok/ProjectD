@@ -345,6 +345,10 @@ func _ready() -> void:
 	all_pass = _check_m5b_badges_decor_icons_backgrounds(lines) and all_pass
 
 	lines.append("")
+	lines.append("[ART-2: 전투 화면 표정 컷 하단 잘림 처리 검증: 왼쪽 끝 글로벌 좌표가 화면 밖(x<16)으로 안 나가는지 + 하단 페이드 셰이더가 실제로 적용돼 바닥 근처 알파가 중간 높이보다 뚜렷이 낮게 렌더되는지]")
+	all_pass = (await _check_art2_face_crop_fix(lines)) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -7438,6 +7442,89 @@ func _check_art1b_combat_face_art(lines: PackedStringArray) -> bool:
 		combat.player_portrait._use_face_art, "OK" if berserker_combat_ok else "FAIL"
 	])
 
+	remove_child(combat)
+	combat.free()
+	RunState.character_id = character_backup
+	return ok
+
+
+## [미니 기획 ART-2] qa_out/art1b_novice_after_exchange.png에서 드러난 "표정 컷 아래 끝이
+## y≈448에서 일직선으로 잘려 떠 보이고 왼쪽도 화면 끝(x<0)에 붙어 잘린다"는 문제를
+## 실제로 고쳤는지 검증한다 — "속성이 설정됐는가"가 아니라 ① 실제 production
+## combat_test.tscn 인스턴스에서 표정 컷의 글로벌 왼쪽 끝 좌표가 화면 밖으로 안 나가는지,
+## ② 하단 페이드 셰이더를 실제로 SubViewport에 렌더해 바닥 근처 알파가 중간 높이보다
+## 뚜렷이 낮아지는지(= 일직선 절단이 아니라 투명하게 사라짐) 렌더 결과로 확인한다.
+## await를 쓰므로 호출부는 `await _check_art2_face_crop_fix(lines)`로 불러야 한다
+## (_check_k4a_skill_icon_motifs와 같은 패턴).
+func _check_art2_face_crop_fix(lines: PackedStringArray) -> bool:
+	var ok := true
+
+	var character_backup: String = RunState.character_id
+	RunState.character_id = "novice" # face_* 5장이 입고된 유일한 캐릭터 — 원화 모드 보장
+	var combat_scene := load("res://code/scenes/combat_test.tscn")
+	var combat = combat_scene.instantiate()
+	add_child(combat)
+
+	var portrait: CharacterPortraitPlaceholder = combat.player_portrait
+	var use_face_art_ok: bool = portrait._use_face_art
+	ok = use_face_art_ok and ok
+	lines.append("  combat_test(novice) PlayerPortrait._use_face_art=%s (기대 true, 원화 모드) -> %s" % [
+		use_face_art_ok, "OK" if use_face_art_ok else "FAIL"
+	])
+
+	var face_rect: TextureRect = portrait._face_rect
+	var left_edge: float = face_rect.global_position.x if face_rect != null else -999.0
+	var left_margin_ok: bool = left_edge >= 16.0
+	ok = left_margin_ok and ok
+	lines.append("  표정 컷 왼쪽 끝 글로벌 x=%.1f (기대 >= 16.0, 화면 왼쪽 끝에서 안 잘리는 여백) -> %s" % [
+		left_edge, "OK" if left_margin_ok else "FAIL"
+	])
+
+	var material_ok: bool = (face_rect != null and face_rect.material is ShaderMaterial
+		and (face_rect.material as ShaderMaterial).shader == CharacterPortraitPlaceholder.FACE_ART_FADE_SHADER)
+	ok = material_ok and ok
+	lines.append("  표정 컷에 하단 페이드 셰이더(FACE_ART_FADE_SHADER)가 적용됨 -> %s" % (
+		"OK" if material_ok else "FAIL"
+	))
+
+	# 실제 렌더 결과로 "아래쪽이 일직선으로 뚝 잘리지 않고 투명해지는지" 확인 — 실제로
+	# 쓰이고 있는 face_rect 그 자체(이미 production에서 렌더되는 것으로 확인된 노드)를
+	# 독립 SubViewport로 옮겨 중간 높이와 바닥 근처의 알파를 비교한다(새로 만든 별도
+	# TextureRect를 쓰면 레이아웃/텍스처 준비 타이밍이 달라질 수 있어 실제 노드를 재사용).
+	var probe_viewport := SubViewport.new()
+	probe_viewport.size = Vector2i(240, 240)
+	probe_viewport.transparent_bg = true
+	probe_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	add_child(probe_viewport)
+
+	var render_ok := false
+	var mid_alpha := 0.0
+	var bottom_alpha := 0.0
+	if face_rect != null:
+		portrait.remove_child(face_rect)
+		face_rect.position = Vector2.ZERO
+		probe_viewport.add_child(face_rect)
+
+		await get_tree().process_frame
+		await get_tree().process_frame
+		await RenderingServer.frame_post_draw
+
+		var img: Image = probe_viewport.get_texture().get_image()
+		render_ok = img != null
+		if render_ok:
+			mid_alpha = img.get_pixel(120, 120).a
+			bottom_alpha = img.get_pixel(120, 238).a
+	ok = render_ok and ok
+	if render_ok:
+		var fade_ok: bool = bottom_alpha < mid_alpha * 0.3
+		ok = fade_ok and ok
+		lines.append("  렌더된 표정 컷 알파: 중간 높이=%.3f, 바닥 근처(y=238)=%.3f (기대 바닥이 중간의 30%% 미만) -> %s" % [
+			mid_alpha, bottom_alpha, "OK" if fade_ok else "FAIL"
+		])
+	else:
+		lines.append("    FAIL: SubViewport 이미지를 가져오지 못함")
+
+	probe_viewport.queue_free() # face_rect도 함께 해제됨(재부모화돼 combat 트리 밖으로 나감)
 	remove_child(combat)
 	combat.free()
 	RunState.character_id = character_backup

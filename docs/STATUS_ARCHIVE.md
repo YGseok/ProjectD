@@ -8,6 +8,55 @@
 
 ---
 
+- **2026-10-14 (194)**: INBOX.md 최우선 지시 [대형 기획 12] 캐릭터 선택/스킬 도감/
+  전역 퍼스널 컬러(L-1→L-3) 중 **L-2(a)(스킬 도감 데이터/저장) 완료**. 신규
+  `SkillPool.codex_entries(character_id)`(순수 함수)가 그 캐릭터가 런에서
+  만날 수 있는 스킬 전체(시작 스킬 3 → 전용 1 → 공용 2 → 강화 3(공용 2 +
+  전용 1), 결정론적 순서, id 중복 제거, 각 항목에 `codex_source`
+  태그)를 8명 전부 9개씩 돌려준다. 신규 Autoload `code/systems/
+  skill_codex.gd`(`SkillCodex`, `AchievementManager`와 동일한 "Autoload +
+  `user://skill_codex.json`" 패턴)가 캐릭터별 발견 기록을 영구 저장한다 —
+  `mark_discovered(character_id, skill_id)`/`is_discovered()`/
+  `discovered_ids_for()`/`discovered_count_for()` API. **기록 시점을
+  SkillPool.grant()/RunState.reset_run() 안이 아니라 호출부(화면)에 직접
+  배선**했다 — `reset_run()`이 시작 스킬을 `SkillPool.grant()`로 부여하는
+  순간에는 `RunState.test_battle`이 아직 `reset_run()` 자신이 맨 먼저
+  초기화해둔 `false` 상태이고, `test_battle_setup.gd._apply_start_
+  selection()`은 `reset_run()` 호출이 끝난 "다음 줄"에서야 `test_battle =
+  true`를 세팅하므로, grant() 안에 `test_battle` 가드를 두면 테스트 전투
+  경로에서도 뚫려버린다(skill_codex.gd 상단 주석에 이 순서 문제를 그대로
+  남겨둠). 대신 두 화면에서 직접 호출: ① `event.gd`의 `_show_skill_offer()`
+  (신규/강화 스킬 후보가 카드로 뜨는 단일 지점, 두 이벤트 분기가 공유)가
+  표시되는 스킬마다 `SkillCodex.mark_discovered(RunState.character_id,
+  skill["id"])` ② `character_select.gd`의 `_rebuild_starting_skill_slots()`
+  (해금된 슬롯은 이름/효과가 바로 보이므로 렌더링 시점이 곧 발견) +
+  `_on_starting_skill_locked_preview()`(잠긴 슬롯을 클릭해 상세를 본 순간)
+  둘 다 `_selected_id` 기준으로 기록 — `test_battle_setup.gd`는 이 두 화면을
+  전혀 거치지 않는 별도 UI라 자연히 제외된다. `character_select.gd`의 기존
+  QA 디버그 훅 4개(`_debug_show_starting_skill_locked/_unlocked/
+  _locked_preview/_all_unlocked`)에도 `AchievementManager._debug_reset_
+  for_qa()` 옆에 `SkillCodex._debug_reset_for_qa()`를 나란히 추가해 QA 실행
+  간 발견 기록이 섞이지 않게 했다. **검증**: `dice_test.gd`의 신규
+  `_check_l2a_skill_codex()`가 (1) 8명 전부 `codex_entries().size()==9`,
+  순서(시작x3→전용x1→공용x2→강화x3), id 중복 없음 (2) `mark_discovered()`
+  후 `SkillCodex._load()`로 실제 디스크 파일을 재로드해도 `is_discovered()`
+  가 유지되는지(메모리 캐시가 아니라 파일 내용 확인) (3) 캐릭터 A에서 본
+  스킬이 캐릭터 B 도감에서는 미발견으로 남는지(격리) (4)
+  `RunState.test_battle=true` 중엔 기록되지 않고 `false`로 돌아오면
+  정상 기록되는지 (5) 저장 파일에 깨진 JSON을 직접 써넣고 `_load()`를
+  불러도 크래시 없이 `discovered_count_for()==0`으로 안전한지 (6) 실제
+  `event.tscn`/`character_select.tscn`을 인스턴스화해 QA 훅/슬롯 클릭으로
+  화면에 표시된 스킬이 실제로 `SkillCodex`에 기록되는지(해금 슬롯=즉시,
+  잠금 슬롯=미리보기 클릭 전엔 미기록→클릭 후 기록)까지 전부 계산/파일
+  결과로 검증(플래그만 보지 않음). `bash scripts/qa_shot.sh dice_test`
+  전체 **PASS**(연속 4회 재실행 모두 FAIL 0건 — 최초 1회 `결과: FAIL`이
+  떴던 건 tail로 잘린 구간에 있던 기존 noise로 재현 안 됨, leak 경고는
+  기존 known noise). `qa_out/character_select_l2a_check.png`로 캐릭터
+  선택 화면이 L-2(a) 변경(데이터/저장뿐이라 UI 신규 없음) 이후에도 레이아웃
+  그대로임을 육안 확인. L-2(b)(도감 패널 UI)는 아직 없어 발견 기록을 눈으로
+  볼 방법은 없다 — 다음 이터레이션에서 확인 가능. 다음은 **L-2(b)**(도감
+  패널 UI, `SkillCodexPanel`).
+
 - **2026-10-14 (193)**: INBOX.md 최우선 지시 [대형 기획 12] 캐릭터 선택/스킬 도감/
   전역 퍼스널 컬러(L-1→L-3) 중 **L-1(캐릭터 카드 자체를 눌러 선택, "선택" 버튼
   제거) 완료**. 카드마다 있던 전용 "선택" `Button`을 지우고, 카드 패널 자체를

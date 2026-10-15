@@ -27,7 +27,7 @@
 
 - 2026-10-15 [대형 기획 14] 조작/선택 화면/이벤트 특화 클래스 (N-1 → N-5). 사용자 플레이 피드백 5건.
   사람이 설계해둔 항목이니 "사람 설계 결정 필요"로 보류하지 말 것. **한 이터레이션에 한 조각(또는 (a)(b)(c) 한 칸)만.**
-  **순서/의존성: 진행 중인 [대형 기획 13] M-5(a)(UIKit 이미지 스킨)·M-5(b)·ART-2·M-4가 먼저 끝난 뒤 착수**(N-3은 M-5의 UIKit 버튼 팩토리를
+  **순서/의존성: 진행 중인 [대형 기획 13] M-4(M-5(a)·M-5(b)·ART-2는 완료됨, 2026-10-15)가 먼저 끝난 뒤 착수**(N-3은 M-5의 UIKit 버튼 팩토리를
   반드시 사용). 그 전에 이 항목을 고르지 말 것. 우선 순서는 N-1 → N-2 → N-3 → N-4 → N-5(a→b→c). 테스트는 상태 플래그가 아니라 실제 동작
   결과(키 입력 후 포커스/콜백/상태, 렌더된 칩 개수·면 수, 계산된 값)를 검증. 화면은 qa_shot으로 눈으로 확인(셀프 피드백: 캡처→읽고 비평→수정→재캡처).
 
@@ -87,17 +87,6 @@
     (이름/컨셉/퍼스널 컬러/스킬 id·이름·모티프·설명)를 표로 정리해 둘 것.
 
 (플레이해보고 느낀 점을 이 섹션에 자유롭게 적어주세요.)
-
-- 2026-10-15 [미니 기획 ART-2] 전투 화면 표정 컷 하단 잘림 처리 (아트 스레드 "ProjectD Art"에서 전달)
-  - 현상: ART-1b 적용 후 `qa_out/art1b_novice_after_exchange.png`에서 상반신 표정 컷(240×240)의 **아래 끝이 화면 중간(y≈448)에서
-    일직선으로 뚝 잘려** 떠 보이고, 왼쪽도 화면 끝(x=0)에 붙어 잘린다. 원화 face_*.png는 가슴께에서 끊긴 상반신 구도라 원본 자체가
-    아래가 잘려 있음(아트 쪽 문제가 아니라 배치 문제).
-  - 개선 방향(둘 중 택1, 혹은 조합):
-    ① 표정 컷 아래 20~25%에 투명으로 사라지는 세로 그라데이션 마스크(셰이더 또는 미리 만든 알파 그라데이션 텍스처를 곱함) — 가장 간단.
-    ② 표정 컷을 UI 키트 프레임(`resources/ui/panel/card_*` 또는 `section_*`) 안에 넣어 초상화 액자로 표시 — 잘린 끝이 프레임 안쪽으로 들어가 자연스러움.
-       이 경우 몬스터 쪽 `$MonsterPortrait`(ART-1c)도 같은 액자를 써서 좌우 대칭을 맞출 것.
-  - 왼쪽 여백: 표정 컷을 화면 왼쪽 끝에서 16px 이상 띄우거나(②면 액자째), 의도적으로 화면 밖으로 걸칠 거면 더 크게 걸쳐서 "잘린 것"이 아니라 "걸친 것"으로 보이게.
-  - 확인: 수정 후 같은 장면 qa_shot으로 아래 끝·왼쪽 끝이 더 이상 일직선 절단면으로 보이지 않는지.
 
 ## 부분 처리됨
 
@@ -411,6 +400,26 @@
   AI는 실제 일러스트를 그릴 수 없음).
 
 ## 처리됨
+
+- [처리됨 - 2026-10-15] 2026-10-15 [미니 기획 ART-2] 전투 화면 표정 컷 하단 잘림 처리 (아트 스레드 "ProjectD Art"에서 전달)
+  - 현상: ART-1b 적용 후 `qa_out/art1b_novice_after_exchange.png`에서 상반신 표정 컷(240×240)의 아래 끝이 화면 중간(y≈448)에서
+    일직선으로 뚝 잘려 떠 보이고, 왼쪽도 화면 끝(x=0)에 붙어 잘렸었다. 원화 face_*.png는 가슴께에서 끊긴 상반신 구도라 원본 자체가
+    아래가 잘려 있음(아트 쪽 문제가 아니라 배치 문제) — 개선 방향 중 ①(아래 20~25% 그라데이션 마스크, "가장 간단"으로 제시된 쪽)을 택함.
+  - 구현: `code/shaders/face_art_fade.gdshader`(신규, `shader_type canvas_item`) — `fade_start=0.76` 기준 `smoothstep(fade_start,
+    1.0, UV.y)`로 텍스처 하단 ~24% 구간의 알파를 선형으로 0까지 줄인다. `character_portrait_placeholder.gd`의 `_ensure_face_rect()`가
+    `_face_rect`에 이 셰이더를 `ShaderMaterial`로 입혀 아래쪽이 배경에 자연스럽게 녹아들게 했다. 왼쪽 잘림은 `FACE_ART_LEFT_SHIFT`(=40.0,
+    로컬 기준) 상수를 신설해 `_face_rect.position`을 오른쪽으로 밀었다 — combat_test.tscn의 `PlayerPortrait` 위치(110,300)에
+    `PORTRAIT_SCALE_NORMAL`(1.1)이 곱해지면 기존 중앙 정렬 오프셋(-120)이 화면 밖(음수 x)으로 나가던 것을, 보정 후 글로벌 왼쪽 끝이
+    x=22(요구치 16px 이상)가 되도록 고정값으로 맞췄다. `set_character()`를 부르는 곳이 `combat_test.gd` 한 곳뿐이라(캐릭터 선택/
+    덱 패널/테스트 전투 설정은 플레이스홀더만 쓰고 원화 모드로 전환하지 않음) 이 화면 전용 보정으로 다른 화면에 영향 없음. 프레임(②,
+    UI 키트 패널) 방식은 몬스터 쪽 원화(ART-1c)가 아직 입고 전이라 좌우 대칭을 맞출 대상이 없어 채택하지 않음 — 몬스터 원화가 들어오면
+    그때 프레임 방식 재검토 가능.
+  - 검증: `dice_test.gd`에 신규 `_check_art2_face_crop_fix()` 추가 — "속성 존재" 대신 ① production `combat_test.tscn` 인스턴스에서
+    표정 컷의 실제 글로벌 왼쪽 끝 좌표(≥16 기대, 실측 22.0) ② 셰이더가 실제로 `FACE_ART_FADE_SHADER`로 적용됐는지 ③ 그 셰이더를
+    독립 SubViewport에 실제로 렌더해 중간 높이 알파(실측 0.992, 불투명)와 바닥 근처 알파(실측 0.000, 완전 투명)를 비교해 "일직선 절단이
+    아니라 투명하게 사라짐"을 렌더 결과로 확인했다. `bash scripts/qa_shot.sh dice_test` 전체 PASS. `qa_out/art2_happy_check.png`
+    (승리/happy 표정)·`qa_out/art2_lose_check.png`(패배/angry 표정) 육안 확인 — 둘 다 아래 끝이 부드럽게 사라지고 왼쪽에 여백이
+    생겨 더는 "화면 끝에 붙어 잘린" 모습이 아님. 상세는 `docs/STATUS.md` 완료 기록(204) 참고.
 
 - [처리됨 - 2026-10-14] 2026-10-14 [대형 기획 12] 캐릭터 선택/스킬 도감/전역 퍼스널 컬러 (L-1 → L-3). 사용자 플레이 피드백 3건.
   사람이 설계해둔 항목이니 "사람 설계 결정 필요"로 보류하지 말 것. **한 이터레이션에 한 조각(또는 (a)(b)(c) 한 칸)만.**
@@ -1618,79 +1627,7 @@
   [미니 기획 E] 완료 기준(1~4번)을 전부 충족했다. docs/STATUS.md 완료
   기록(134~138) 참고.
 
-- [처리됨 - 2026-09-17] 2026-09-17 스킬을 강화시킬 수 있는 이벤트를
-  추가해줘. 강화되는 스킬은 [스킬명+] 라고 네이밍 붙여서, 기존 스킬의
-  강화판임을 직관적으로 알 수 있게 한다. 좋아보여야 하니까 아이콘 테두리를
-  노란 색으로 두껍게 강조하면 좋을 듯 함.
-
-  **(기획자 결정 — 구체적 설계, [미니 기획 D] 스킬 강화 이벤트)** — **전체
-  완료(1~5번, 6번은 선택이라 미착수).** 지금 캐릭터 스킬은 공용 2종("심호흡"/
-  "여분")+고유 5종(캐릭터별 1개씩)이 전부 `RunState.skill_flags`에 문자열
-  id로만 쌓이고 강화 개념이 없던 것을, 아래 순서로 나눠 구현했다.
-
-  1~3번은 (128)/(129)에서 완료 — `code/systems/skill_pool.gd`에
-  `UPGRADE_SKILLS`(7종 강화판 데이터) + `available_upgrade_choices(n,
-  character_id)`/`grant_upgrade(base_id)`, `code/scenes/event.gd`에
-  `SKILL_UPGRADE_EVENT_CHANCE`(=0.2, 잠정값)로 특수 이벤트 방이 기존 스킬
-  이벤트(30%)보다 먼저 "스킬 강화" 이벤트로 분기(강화 후보 없으면 항상 기존
-  이벤트로 폴백, 카드 UI는 기존 스킬 획득 카드 재사용). **4번(전투 배선)은
-  네 이터레이션에 걸쳐 7종 전부 완료** — `combat_test.gd`의 `_do_exchange()`가
-  "`+` > base > 없음" 우선순위로 분기한다: (130) 공용 2종 "심호흡+"(매
-  방어턴마다 적용, base는 첫 방어턴만)/"여분+"(여분 다이스 2개 굴려 최댓값,
-  base는 1개) → (131) 광전사/수호자 페어 "광기 심화+"/"수호 심화+"(둘 다
-  base의 "1D20 두 번 굴려 최댓값"을 "세 번 굴려 최댓값"으로, 공용 로직은
-  신규 `_apply_bonus_reroll()` 순수 함수로 분리) → (132) 폭발병/방패병 페어
-  "연쇄 폭발+"/"연쇄 방어+"(base는 임계치만 2로 낮췄을 뿐 보너스 턴 굴림은
-  그대로였는데, "+"는 임계치 2 유지한 채 보너스 턴을 광기/수호 심화와 같은
-  방식으로 강화, `_apply_bonus_reroll()` 재사용) → **(133)에서 마지막 남은
-  "임기응변+"(견습 모험가 전용)를 배선** — 다른 4쌍과 달리 base(임기응변)가
-  이미 "넓지만 얕게"(임계치·보너스 강화 없음)였으므로, "+"는 그 축("발동
-  빈도")을 마저 강화 — chain_explosion/chain_guard와 같은 방식으로 공격/방어
-  두 파이프라인의 임계치를 동시에 3에서 2로 낮췄다(신규
-  `player_versatile_plus_active` 플래그, `_player_explosive_threshold()`/
-  `_player_guard_threshold()`가 함께 확인). 이걸로 7종 전부 배선 완료.
-  **(133)에서 5번(UI 강조)도 완료** — `ItemCardStyle.build_card()`에
-  `highlight: bool = false` 매개변수를 추가해 true면 카드 테두리를 등급색
-  대신 두껍고(4px) 노란색(`HIGHLIGHT_BORDER`)으로 그린다. `event.gd`의
-  `_setup_skill_upgrade_event()`가 자기 자신을 부를 때
-  `_is_skill_upgrade_event = true`로 세팅해(QA 훅처럼 `_ready()`를 거치지
-  않고 직접 호출해도 항상 정확하도록 자기 완결적으로 만듦), `_show_skill_
-  offer()`가 이 플래그를 `highlight` 인자로 넘긴다 — 새 스킬 획득 카드는
-  이 플래그가 false라 기존 등급색 테두리 그대로. `qa_out/event_skill_
-  upgrade_highlight.png`(노란 두꺼운 테두리 확인)/`qa_out/event_skill_
-  offer_normal_recheck.png`(일반 스킬 카드는 기존 얇은 초록 테두리 유지)로
-  검증. `dice_test.gd`에 임기응변+ 임계치 검증((7))과 highlight 파라미터
-  검증(신규 `_check_skill_upgrade_card_highlight`)을 추가, `bash scripts/
-  qa_shot.sh dice_test` 전체 PASS. 6번(DeckPanel 보유 스킬 목록)은 원문이
-  "선택, 급하지 않음"이라 명시한 항목이라 미착수 — 완료 기준(1~5번)은 이걸로
-  전부 충족돼 이 항목을 처리됨으로 옮긴다. docs/STATUS.md 완료 기록
-  (128~133) 참고.
-  **추가(2026-09-28, (147))**: 미뤄뒀던 6번도 마저 완료했다 — `DeckPanel`에
-  "보유 스킬" 섹션을 추가해 `RunState.skill_flags`를 이름으로 풀어 나열한다
-  (`SkillPool.find_skill()` 신규, 네 스킬 상수 전체에서 id로 이름 조회).
-  docs/STATUS.md 완료 기록(147) 참고.
-
-- [처리됨 - 2026-09-17] (기획자 결정) 견습 모험가("novice") 전용 고유 스킬 설계
-  확정 — "임기응변" (id: `versatile_surge`).
-  → 지시된 설계 그대로 구현했다. `code/systems/skill_pool.gd`의
-  `UNIQUE_SKILLS`에 `character_id: "novice"` 항목을 추가하고, `code/scenes/
-  combat_test.gd`에 `player_versatile_active`(다른 4개 스킬 플래그와 동일한
-  위치·패턴, `RunState.skill_flags.has("versatile_surge")`) 변수를 신설해
-  공격 스택 조건(`explosive_stack" or player_frenzy_active`)과 방어 스택
-  조건(`guard_stack" or player_guard_deepen_active`) 각각에 지시대로
-  `or player_versatile_active`를 추가했다 — 두 조건 문자열이 `_do_exchange()`
-  안에 각각 2곳(보너스 1D20 사용 판단 + 스택 적립/초기화)씩 있어 4곳 모두
-  동일하게 확장, 공격/방어 두 파이프라인이 함께 열리도록 했다. 지시대로
-  임계치(`EXPLOSIVE_STACK_THRESHOLD`/`GUARD_STACK_THRESHOLD`, 둘 다 3)와
-  보너스 턴(1D20 한 번 굴림)은 강화하지 않았다("넓지만 얕게"). `dice_test.gd`에
-  캐릭터 필터 검증(novice=true, berserker=false, 다른 4개 스킬과 같은 패턴) +
-  "임기응변 보유 시에도 임계치 함수 둘 다 기본값(3) 그대로인지" 검증을 추가,
-  `bash scripts/qa_shot.sh dice_test` 전체 PASS. `event.gd`의 QA 훅
-  `_debug_force_skill_event_as_novice()`로 `qa_out/event_skill_offer_novice.png`
-  (카드 겹침 없음)를, `qa_out/combat_test.png`로 기본 전투 정상 진행을 확인했다.
-  `docs/DESIGN.md`도 갱신 — **이제 5개 캐릭터 전원의 고유 스킬이 완성됨**.
-  docs/STATUS.md 완료 기록(127)/다음 할 일 큐 17번 참고.
-
 *(이보다 오래된 "처리됨" 항목은 `docs/INBOX_ARCHIVE.md`에 보관돼 있음 — 이 파일에는
-최근 12개만 유지해 매 이터레이션 읽기 비용을 줄임. 이번 이터레이션(2026-10-13)에서
-"특수 이벤트 B급 아이템 사각지대"(기획자 결정, 2026-09-16) 항목을 그리로 옮겼다.)*
+최근 12개만 유지해 매 이터레이션 읽기 비용을 줄임. 이번 이터레이션(2026-10-15)에서
+"스킬 강화 이벤트"([미니 기획 D], 2026-09-17)와 "견습 모험가 고유 스킬 설계"(기획자
+결정, 2026-09-17) 2개 항목을 그리로 옮겼다.)*

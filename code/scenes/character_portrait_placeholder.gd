@@ -22,6 +22,20 @@ const MOUTH_COLOR := Color(0.55, 0.25, 0.3)
 ## HP 패널/다이스 스테이지와 안 겹치는 범위(INBOX "약 220~260px") 중간값.
 const FACE_ART_SIZE := Vector2(240, 240)
 
+## [미니 기획 ART-2] combat_test.tscn의 PlayerPortrait 위치(110, 300)는
+## 2026-10-15까지 FACE_ART_SIZE를 정확히 중앙 정렬했는데, PORTRAIT_SCALE_NORMAL(1.1,
+## combat_test.gd)이 곱해지면 왼쪽 끝이 화면 밖(음수 x)으로 나가 일직선으로 잘려
+## 보였다(INBOX ART-2, qa_out/art1b_novice_after_exchange.png). 중심을 오른쪽으로
+## 40px(로컬 기준, 1.1배 스케일에서 글로벌 약 +44px) 밀어 왼쪽 여백이 16px 이상
+## 남도록 고정값으로 보정 — set_character()를 부르는 곳이 combat_test.gd 하나뿐이라
+## (character_select/deck_panel/test_battle_setup은 플레이스홀더만 쓰고 원화 모드로
+## 전환하지 않음) 이 화면 전용 보정으로 안전하다.
+const FACE_ART_LEFT_SHIFT := 40.0
+
+## [미니 기획 ART-2] 표정 컷 아래 20~25% 구간을 투명으로 그라데이션 처리해 가슴께에서
+## 끊긴 원화 하단이 배경 위에 떠 보이는 것 대신 자연스럽게 사라지게 한다.
+const FACE_ART_FADE_SHADER := preload("res://code/shaders/face_art_fade.gdshader")
+
 ## "neutral" / "happy" / "hurt" / "sad" / "angry"
 @export var expression: String = "neutral"
 @export var hair_color := Color(0.78, 0.62, 0.86)
@@ -61,11 +75,14 @@ func _ensure_face_rect() -> void:
 	_face_rect = TextureRect.new()
 	_face_rect.custom_minimum_size = FACE_ART_SIZE
 	_face_rect.size = FACE_ART_SIZE
-	_face_rect.position = Vector2(-FACE_ART_SIZE.x / 2.0, -FACE_ART_SIZE.y / 2.0 + 16.0)
+	_face_rect.position = Vector2(-FACE_ART_SIZE.x / 2.0 + FACE_ART_LEFT_SHIFT, -FACE_ART_SIZE.y / 2.0 + 16.0)
 	_face_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_face_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	_face_rect.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	_face_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var fade_material := ShaderMaterial.new()
+	fade_material.shader = FACE_ART_FADE_SHADER
+	_face_rect.material = fade_material
 	add_child(_face_rect)
 
 
