@@ -201,7 +201,7 @@ ART-<분류><대상 번호 3자리>-<종류>
 | `explosive` | 폭발병 | `#F28C26` / `#802E0D` | ✅ 적용 | ✅ ART-CH004-FACE 5/5 입고 (목록 썸네일 + 전투 표정 자동 적용) |
 | `shieldbearer` | 주술사 | `#1F1429` / `#2E0A1A` | ✅ 적용 | ✅ ART-CH005-FACE 5/5 입고 (목록 썸네일 + 전투 표정 자동 적용) |
 | `enchantress` | 매혹사 | `#BF2673` / `#8C0D40` | ✅ 적용 | ✅ ART-CH006-FACE 5/5 입고 (목록 썸네일 + 전투 표정 자동 적용) |
-| `juggler` | 곡예사 | `#F2D940` / `#8026BF` | ✅ 적용 | 📝 ART-CH007-FACE (전신 입고됨 — 착수 가능) |
+| `juggler` | 곡예사 | `#F2D940` / `#8026BF` | ✅ 적용 | ✅ ART-CH007-FACE 5/5 입고 (목록 썸네일 + 전투 표정 자동 적용) |
 | `pirate` | 해적 | `#0E4A4F` / `#1FA5A0` (퍼스널 컬러: 터콰이즈) | ✅ 적용 | 📝 ART-CH008-FACE (전신 입고 후) |
 
 ### 2-2. 몬스터 (의인화, 35종) — 정의: `code/systems/monster_catalog.gd`
@@ -676,6 +676,7 @@ Work는 `resources/ui/` 이미지가 있으면 StyleBoxTexture로 쓰고, 없으
 | 2026-10-16 | ART-CH004-FACE 폭발병 표정 5장 (GPT 생성, "Project D - Claude" 스레드, 견습 모험가 neutral을 구도 템플릿으로 첨부. 5장 머리 위치·구도 일치 확인) | `resources/characters/explosive/face_*.png` 입고(원본 `_reference/characters/explosive/`). Work ART-1b 로직으로 전투 화면 자동 적용 | `qa_out/art_explosive_face_set.png` |
 | 2026-10-16 | ART-CH005-FACE 주술사 표정 5장 (GPT 생성, "Project D - Claude" 스레드, 견습 모험가 neutral을 구도 템플릿으로 첨부. 5장 머리 위치·구도 일치 확인) | `resources/characters/shieldbearer/face_*.png` 입고(원본 `_reference/characters/shieldbearer/`). Work ART-1b 로직으로 전투 화면 자동 적용 | `qa_out/art_shieldbearer_face_set.png` |
 | 2026-10-16 | ART-CH006-FACE 매혹사 표정 5장 (GPT 생성, "Project D - Claude" 스레드, 견습 모험가 neutral을 구도 템플릿으로 첨부. 5장 머리 위치·구도 일치 확인) | `resources/characters/enchantress/face_*.png` 입고(원본 `_reference/characters/enchantress/`). Work ART-1b 로직으로 전투 화면 자동 적용 | `qa_out/art_enchantress_face_set.png` |
+| 2026-10-16 | ART-CH007-FACE 곡예사 표정 5장 (GPT 생성, "Project D - Claude" 스레드, 견습 모험가 neutral을 구도 템플릿으로 첨부. 5장 머리 위치·구도 일치 확인) | `resources/characters/juggler/face_*.png` 입고(원본 `_reference/characters/juggler/`). Work ART-1b 로직으로 전투 화면 자동 적용 | `qa_out/art_juggler_face_set.png` |
 
 ---
 
