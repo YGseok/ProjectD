@@ -123,13 +123,37 @@ func _draw() -> void:
 			pass
 
 
+## [미니 기획 ART-3](2026-10-16, 아트 스레드 버그 리포트) 캐시 — _draw()가 매 프레임
+## load_external_art()로 ImageTexture를 새로 만들어 지역 변수로만 쥐고 있으면, 함수가
+## 끝나는 순간 아무도 참조하지 않는 그 텍스처가 해제되면서(RefCounted) 이미 그리기
+## 명령에 기록된 RID가 무효화돼 흰 사각형으로 보였다(resources/skills/ 37종 입고 후
+## 실제로 재현됨). 멤버 변수로 들고 있으면 텍스처 객체가 노드 생명주기 동안 살아있어
+## RID가 계속 유효하다 — path(= skill_id+base_dir로 결정)가 바뀔 때만 다시 로드한다.
+var _cached_external_texture: Texture2D = null
+var _cached_external_path: String = ""
+
 ## skill_id가 설정돼 있고 external_art_base_dir 아래에 그 id의 png가 있으면 로드해서
 ## 돌려준다(없으면 null). 인스턴스 메서드로 둔 건 external_art_base_dir(테스트 주입
 ## 지점)을 자연히 반영하기 위함 — 실제 로드는 static load_external_art()에 위임.
+## exists 확인은 매 호출(= 매 프레임)마다 가볍게(파일 존재 여부만) 다시 하므로, 같은
+## 경로에 파일이 생기거나 사라지는 것(dice_test.gd의 user:// 임시 경로 시나리오)은
+## 그대로 바로 반영된다 — 비싼 디코드(Image.load/ImageTexture 생성)만 경로가 실제로
+## 바뀌었을 때(또는 캐시가 비어있을 때)로 제한해 캐싱의 이득을 유지한다.
 func _external_texture() -> Texture2D:
 	if skill_id == "":
+		_cached_external_texture = null
+		_cached_external_path = ""
 		return null
-	return SkillIcon.load_external_art(skill_id, external_art_base_dir)
+	var path := SkillIcon.external_art_path(skill_id, external_art_base_dir)
+	var exists: bool = ResourceLoader.exists(path) if external_art_base_dir == EXTERNAL_ART_DIR else FileAccess.file_exists(path)
+	if not exists:
+		_cached_external_texture = null
+		_cached_external_path = ""
+		return null
+	if _cached_external_texture == null or _cached_external_path != path:
+		_cached_external_texture = SkillIcon.load_external_art(skill_id, external_art_base_dir)
+		_cached_external_path = path
+	return _cached_external_texture
 
 
 ## dice_test.gd가 "지금 상태에서 _draw()가 실제로 어느 분기를 타는지"를 속성이 아니라
@@ -149,14 +173,21 @@ static func external_art_path(skill_id_value: String, base_dir: String = EXTERNA
 	return base_dir + skill_id_value + ".png"
 
 
-## 외부 아트 override 이미지 로드. ResourceLoader가 아니라 Image.load()를 직접 쓰는 건
-## resources/skills/*.png가 에디터 import 과정(.import 파일) 없이도(아트 스레드가
-## 커밋만 하면 바로) 로드되게 하기 위함 — user:// 임시 경로(테스트)에서도 동일하게
-## 동작해야 하므로 더 적합하다. 파일이 없거나 디코드에 실패하면 에러 없이 null.
+## 외부 아트 override 이미지 로드. [미니 기획 ART-3](2026-10-16, 아트 스레드 지적)로
+## production 경로(base_dir == EXTERNAL_ART_DIR)는 character_art.gd의 load_face()와
+## 같은 패턴으로 바뀌었다 — res://resources/skills/*.png는 이미 .import돼 있으므로
+## ResourceLoader(load())로 읽으면 export 빌드에서도 정상 동작하고(Image.load() 직접
+## 호출은 "will not work on export" 경고가 남는 raw 파일 접근 방식), 엔진이 관리하는
+## CompressedTexture2D를 그대로 쓸 수 있다. user:// 임시 경로(테스트)는 여전히 .import가
+## 없는 raw PNG라 FileAccess+Image.load()가 유일한 방법 — 기존 방식 그대로 유지.
 static func load_external_art(skill_id_value: String, base_dir: String = EXTERNAL_ART_DIR) -> Texture2D:
 	if skill_id_value == "":
 		return null
 	var path := external_art_path(skill_id_value, base_dir)
+	if base_dir == EXTERNAL_ART_DIR:
+		if not ResourceLoader.exists(path):
+			return null
+		return load(path) as Texture2D
 	if not FileAccess.file_exists(path):
 		return null
 	var img := Image.new()

@@ -84,6 +84,13 @@ const MAP_CARD_TITLE_H := 22.0
 const MAP_CARD_ROW_H := 22.0
 const MAP_CARD_PAD := 20.0
 
+## [미니 기획 M-7] 방 카드 accent 틴트 3색 — 기존 StyleBoxFlat 폴백이 쓰던
+## border_color와 동일한 값(현재=금색/완료=초록/미래=중립 회색)을 그대로 재사용해,
+## 스킨이 있을 때와 없을 때 색 의미가 일치하게 한다.
+const MAP_CARD_TINT_CURRENT := Color(0.9, 0.75, 0.2)
+const MAP_CARD_TINT_CLEARED := Color(0.3, 0.45, 0.3)
+const MAP_CARD_TINT_FUTURE := Color(0.3, 0.3, 0.35)
+
 ## 업적 "눈금 수집가"/"다이스 수집가" 임계치 — 감으로 잡은 잠정값(achievement_manager.gd
 ## DEFINITIONS의 pip_hoarder/die_hoarder 문구와 맞춰뒀다).
 const PIP_HOARDER_THRESHOLD := 10
@@ -658,31 +665,49 @@ func _build_map_strip() -> void:
 		_map_hbox.add_child(_make_map_node(idx))
 
 
-func _make_map_node(idx: int) -> Control:
+## [미니 기획 M-7](2026-10-16) — M-6이 범위 밖으로 남긴 던전 맵 방 카드(MapStrip)
+## 스킨. 보상/상점/이벤트 카드(`item_card_style.build_card()`)와 달리 방 카드는
+## 등급이 없고 한 방이 여러 선택지(전투+상점+이벤트 등)를 동시에 가질 수 있어 "선택지
+## 종류색" 하나를 카드 전체 accent로 쓸 수 없다 — 대신 기존에 이미 카드 프레임
+## 테두리색으로 쓰던 "방 상태" 3색(현재=금색/완료=초록/미래=중립 회색)을 그대로
+## `UIKit.apply_card_skin()`의 tint로 넘긴다(M-6과 같은 "accent만 상황색으로
+## modulate" 패턴). 개별 선택지 색(전투/상점/이벤트/정예/스토리)은 그 아래
+## `_make_type_chip()`이 독립된 PanelContainer로 그리므로 이 변경과 무관하게 그대로
+## 유지된다. 파일이 없으면 기존 StyleBoxFlat 3색 테두리로 폴백(호출부/기존 로직 불변).
+func _make_map_node(idx: int, base_dir: String = UIKit.SKIN_BASE_DIR) -> Control:
 	var is_cleared := idx < RunState.rooms_cleared
 	var is_current := idx == RunState.rooms_cleared and not RunState.is_run_complete()
 
 	var panel := PanelContainer.new()
 	panel.custom_minimum_size = Vector2(150, _map_card_height)
-	var style := StyleBoxFlat.new()
+	var card_tint: Color
 	if is_current:
-		style.bg_color = Color(0.25, 0.22, 0.12, 0.95)
-		style.border_color = Color(0.9, 0.75, 0.2)
-		style.set_border_width_all(3)
+		card_tint = MAP_CARD_TINT_CURRENT
 	elif is_cleared:
-		style.bg_color = Color(0.12, 0.16, 0.12, 0.85)
-		style.border_color = Color(0.3, 0.45, 0.3)
-		style.set_border_width_all(1)
+		card_tint = MAP_CARD_TINT_CLEARED
 	else:
-		style.bg_color = Color(0.12, 0.12, 0.15, 0.85)
-		style.border_color = Color(0.3, 0.3, 0.35)
-		style.set_border_width_all(1)
-	style.set_corner_radius_all(6)
-	style.content_margin_left = 8
-	style.content_margin_right = 8
-	style.content_margin_top = 8
-	style.content_margin_bottom = 8
-	panel.add_theme_stylebox_override("panel", style)
+		card_tint = MAP_CARD_TINT_FUTURE
+	var skin_applied := UIKit.apply_card_skin(panel, card_tint, base_dir)
+	if not skin_applied:
+		var style := StyleBoxFlat.new()
+		if is_current:
+			style.bg_color = Color(0.25, 0.22, 0.12, 0.95)
+			style.border_color = card_tint
+			style.set_border_width_all(3)
+		elif is_cleared:
+			style.bg_color = Color(0.12, 0.16, 0.12, 0.85)
+			style.border_color = card_tint
+			style.set_border_width_all(1)
+		else:
+			style.bg_color = Color(0.12, 0.12, 0.15, 0.85)
+			style.border_color = card_tint
+			style.set_border_width_all(1)
+		style.set_corner_radius_all(6)
+		style.content_margin_left = 8
+		style.content_margin_right = 8
+		style.content_margin_top = 8
+		style.content_margin_bottom = 8
+		panel.add_theme_stylebox_override("panel", style)
 	panel.modulate = Color(1, 1, 1, 0.55 if is_cleared else 1.0)
 
 	var vbox := VBoxContainer.new()

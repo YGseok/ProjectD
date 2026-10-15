@@ -8,6 +8,108 @@
 
 ---
 
+- **2026-10-15 (207)**: INBOX.md 최우선 지시 [대형 기획 14](조작/선택 화면/이벤트
+  특화 클래스·전용 이벤트) 중 **N-1(방향키+스페이스로 "진행"까지) 완료**. K-1이
+  이동/선택은 방향키+스페이스로 이미 대체했지만, 사용자가 "진행까지" 마우스 없이
+  가능해야 한다고 다시 요청한 항목 — 전수 감사 → "주 행동 키" 규칙 적용 → 실제
+  `InputEventKey` 시퀀스로 풀 시뮬레이션, 3단계 순서로 진행.
+  **① 전수 감사**(화면/오버레이별로 코드를 직접 읽어 "마우스로만 되는 단계"를
+  찾음, 상세 표는 아래 참고): 대부분의 화면(dungeon_map/combat_test/event/shop/
+  story_event/customize_panel/achievement_panel/skill_codex_panel)은 K-1~M-5가
+  이미 완전히 키보드로 닿았다 — combat_test는 DESIGN.md가 명시한 대로 전투
+  진행 자체가 자동이라 "굴리기/교환 확정/턴 넘김" 버튼이 원래 없음. **실제로
+  찾은 버그 2개 + 불일치 1개**는 모두 character_select/shop에 있었다:
+  (1) **캐릭터 선택의 "시작 스킬 슬롯"(공격/방어 다이스 개수와 별개인 슬롯0~2
+  선택)이 카드 목록(수직 체인)과 전혀 연결돼 있지 않아 마우스로만 닿을 수
+  있었음** — `character_select.gd`의 `_starting_skill_slot_buttons`는 자기들
+  끼리만 수평 체인이고, 카드 쪽 `_shortcut_buttons`(수직 체인)와는 아무 접점이
+  없었다. (2) **그 슬롯을 하나 고르거나 미리보기하면(스페이스) 포커스가 완전히
+  끊김** — `_rebuild_starting_skill_slots()`가 슬롯 버튼을 매번 통째로 지우고
+  새로 만드는데, 그 호출이 슬롯 버튼 자신의 pressed 핸들러 안에서 일어나면
+  방금 눌렀던(포커스를 갖고 있던) 버튼이 사라지고 아무도 새 포커스를 받지
+  않아 방향키를 또 눌러도 반응이 없었다(마우스로 다시 클릭해야만 복구). (3)
+  **shop의 기본 포커스가 "주 행동"(던전으로 돌아가기, style_primary_button)이
+  아니라 첫 품목 구매 버튼이었음** — `_shortcut_buttons` 배열이 화면에 보이는
+  순서(품목들 먼저, 주 행동은 맨 끝)라 `FocusNav.grab_first_focus()`가 우연히
+  틀린 곳에 포커스를 줬다. **② "주 행동 키" 규칙**: dungeon_map(전투 입장)/
+  combat_test(보상·다음·패배 전부 리스트 첫 자리)/event·story_event(선택지
+  자체가 주 행동, 또는 "계속"이 첫 자리)는 이미 규칙을 충족하고 있었음을
+  코드로 확인만 하고 건드리지 않았다. shop만 실제로 틀려서 `code/scenes/
+  focus_nav.gd`에 신규 `grab_default_focus(primary, fallback_list)`(primary가
+  보이고 활성화돼 있으면 그쪽에, 아니면 기존 `grab_first_focus()`로 폴백)를
+  추가하고 `shop.gd`가 `leave_button`을 넘기도록 배선 — 리스트 순서(화면에
+  보이는 순서, 방향키 체인용)는 그대로 두고 "첫 포커스가 어디로 가는지"만
+  명시적으로 분리했다. **character_select 수정**: `_rebuild_starting_skill_slots()`
+  끝에 신규 `_link_cards_to_skill_slots()`(모든 카드의 오른쪽 방향키 → 슬롯[0],
+  모든 슬롯의 왼쪽/위/아래 → 지금 선택된 카드 — 좌/우와 상/하 두 체인이 각각
+  건드리는 축이 달라 서로 안 깨짐)를 추가해 버그(1)을 고쳤다. 버그(2)는
+  `_on_starting_skill_selected()`/`_on_starting_skill_locked_preview()` 끝에
+  신규 `_restore_starting_skill_focus(target_id)`(방금 고르거나 미리보던
+  스킬과 같은 인덱스의 새 슬롯 버튼에 `grab_focus()`)를 추가해 고쳤다 —
+  `_refresh_detail_panel()`(캐릭터 카드 전환)이 부르는 같은
+  `_rebuild_starting_skill_slots()` 경로에는 이 복구를 걸지 않았다(그때는
+  포커스가 여전히 카드 목록에 있어야 카드 연속 탐색이 안 끊긴다).
+  **③ 실제 InputEventKey 풀 시뮬레이션**: 처음엔 `dice_test.gd` 안에서
+  캐릭터 선택→던전 맵→전투→... 전체를 돌려보려 했으나, dice_test 자신이
+  그 실행의 `current_scene`이라 어느 화면의 "진행" 버튼이든
+  `change_scene_to_file()`을 실제로 한 번만 호출해도 dice_test 자신이
+  교체돼(SceneTree.current_scene은 전역에 하나) 테스트 하네스 전체가 사라지는
+  문제를 발견 — 그래서 `code/qa/visual_qa.gd`(Autoload, current_scene이 아니라
+  안 사라짐)에 새 모드를 추가했다. `GAME_QA_KEY_RUN=1`(`scripts/qa_shot.sh`의
+  신규 9번째 인자)이면 스크린샷 캡처 대신 `_run_key_sequence_playthrough()`가
+  실제 `Input.parse_input_event()`로 캐릭터 선택(카드 탐색 → 오른쪽으로 시작
+  스킬 슬롯 진입 확인 → 왼쪽으로 복귀 확인 → 스페이스로 확정) → 아래 방향키로
+  "던전 시작" 도달 → 던전 맵(기본 포커스가 "전투 입장"인지) → 전투 입장 →
+  **실제 물리 다이스 전투가 자동으로 승리까지 끝나길 대기**(`battle_over`/
+  `player_won` 폴링) → 보상 선택(기본 포커스 확인 후 스페이스) → "다음" 버튼
+  방향키 도달+확정 → 다음 방(RunState.rooms_cleared 실제 증가 확인)까지 2개
+  방을 반복한다. 디버깅 중 실제 버그 2개를 더 발견: (a) Godot의 `BaseButton`은
+  `ui_accept` **release**에서야 `pressed`를 emit하는데(press만으로는 CharacterCardPanel
+  같은 커스텀 `_gui_input`만 반응하고 실제 `Button`은 안 눌림) 처음엔 press만
+  보내서 "던전 시작" 버튼이 실제로는 안 눌리고 있었음 — `_send_key()`가 press+
+  release를 모두 보내도록 수정. (b) `VisualQA`의 기존 `_process()`(프레임 세서
+  캡처 루프)가 `set_process(true)`를 명시적으로 안 불러도 Godot 기본 동작으로
+  계속 돌고 있어서, `GAME_QA_FRAME`(기본 60)에 도달하는 순간 느닷없이
+  `_capture_and_quit()`이 끼어들어 `get_tree().quit()`을 불러 한창 진행 중이던
+  플레이스루 코루틴을 중간에 죽이는 문제 — key-run 모드 진입 시 `set_process(false)`를
+  명시적으로 호출하고 `_process()` 자체에도 방어적 가드를 추가해 해결. 실제
+  물리 전투 승리까지 기다리는 타임아웃도 처음엔 1200프레임(20초 가정)으로
+  잡았다가 실제로 재보니(화면 밖(-4000,-4000)에 떠서 fps가 60 미만으로 나옴)
+  부족해 4800프레임으로 늘렸다. **최종 결과**: `bash scripts/qa_shot.sh
+  character_select 60 "" "" "" "" "" "" 1` — 21개 검증 전부 OK, 실제 벽시계
+  시간 약 32초(물리 전투 2회 포함). **회귀 테스트**: `dice_test.gd`에 신규
+  `_check_n1_character_select_skill_slot_key_nav()`(실제 `InputEventKey`로
+  카드↔슬롯 교차 연결 4항목 검증, press+release 패턴은 여기서도 그대로 재사용)
+  추가, `_check_m4_event_shop_story_ui()`에 shop 기본 포커스 검증 1항목 추가 —
+  `bash scripts/qa_shot.sh dice_test` 전체 **PASS**(FAIL 0건, 2회 재확인).
+  전투 규칙/밸런스는 전혀 건드리지 않았다. **전수 감사 표(화면·상태·현재 키로
+  가능한가·부족한 것)**:
+
+  | 화면/오버레이 | 상태/조작 | 키보드로 가능한가 | 비고 |
+  |---|---|---|---|
+  | character_select | 카드 선택(좌/우/방향키+스페이스) | 가능(기존 K-1/L-1) | - |
+  | character_select | 시작 스킬 슬롯 0~2 선택/미리보기 | **불가(마우스 전용) → 이번에 수정** | `_link_cards_to_skill_slots()` 신규 |
+  | character_select | 슬롯 선택 후 계속 방향키 탐색 | **불가(포커스 소실) → 이번에 수정** | `_restore_starting_skill_focus()` 신규 |
+  | character_select | 던전 시작/업적/테스트 전투 | 가능(기존 K-1) | - |
+  | dungeon_map | 전투/상점/이벤트/스토리/정예 입장, 커스터마이징, 스킬 도감 | 가능(기존 K-1/M-1) | 기본 포커스=전투(주 행동), 기존에 이미 일치 |
+  | combat_test | 다이스 굴리기/교환 확정/턴 넘김 | **버튼 자체가 없음(자동 진행)** | DESIGN.md "전투 진행 자체는 자동" — 해당 없음 |
+  | combat_test | 승리 보상 카드/커스터마이징/건너뛰기, 승패 후 "다음"/"처음부터 다시", 덱/도감 토글 | 가능(기존 M-3) | 기본 포커스=리스트 첫 항목(주 행동), 기존에 이미 일치 |
+  | combat_test | 3D 다이스 영역 클릭 | 클릭 핸들러 없음(순수 연출) | 해당 없음 |
+  | event | 안전/위험, 스킬·강화 카드, 실패 후 계속, 커스터마이징/도감 | 가능(기존 M-4) | 선택지 자체가 주 행동 또는 "계속"이 첫 자리 |
+  | shop | 품목 구매, 커스터마이징/도감 | 가능(체인 자체는 기존) | - |
+  | shop | **기본 포커스** | **첫 품목이었음(불일치) → 이번에 수정** | `FocusNav.grab_default_focus()` 신규 + 배선 |
+  | story_event | A/B 선택, 계속, 커스터마이징/도감 | 가능(기존 M-4) | - |
+  | customize_panel | 눈금→다이스→면 3단계, 다이스 인벤토리 2단계, 닫기, Esc | 가능(기존, 매 단계 `_chain_step_focus`) | - |
+  | achievement_panel | 목록 열람(view-only), 닫기, Esc | 가능(기존) | 목록 항목 자체는 포커스 불필요 |
+  | skill_codex_panel | 3열 격자 탐색(wrap), 닫기, Esc | 가능(기존 `_chain_grid`) | - |
+  | deck_panel | (조작 없음, view-only) | 해당 없음 | - |
+  | test_battle_setup | 뒤로/전투 시작 | 가능(기존) | OptionButton 등 세부 설정은 Godot 기본 geometry 포커스에 의존(DESIGN.md가 이미 명시한 한계) — 숨김 QA/개발 화면이라 핵심 플레이 루프 밖, 이번 범위에서 보류 |
+
+  남은 "부족" 항목은 0건(위 표의 "불가"는 모두 이번에 수정 완료, test_battle_setup
+  한 줄만 의도적 보류 — 정식 플레이 흐름이 아닌 개발용 숨김 화면). INBOX.md의
+  [대형 기획 14] 항목은 N-1 완료 기록을 반영해 "부분 처리됨"에 두고(N-2~N-6
+  남음) 진행 한 줄을 갱신했다. **다음은 N-2(캐릭터 선택 전신 이미지 확대)**.
+
 - **2026-10-15 (206)**: INBOX.md 최우선 지시(남은 이슈 맨 위 항목) [미니 기획 M-6]
   카드 프레임 스킨 적용 완료 — **셀프 피드백 루프 방식**. 배경: M-5(a)(202)가
   `resources/ui/panel/card_{base,accent}.png`를 "card" kind로 지원하려다, 카드

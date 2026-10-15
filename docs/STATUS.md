@@ -5,38 +5,38 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-10-16 (216)
-- 작성자: AI 에이전트. INBOX.md "부분 처리됨" [미니 기획 ART-1] **ART-1c(몬스터
-  원화 경로) 완료 — [미니 기획 ART-1](ART-1a/1b/1c) 전체 완료**. 몬스터 원화는
-  아직 입고 전(`resources/monsters/`가 비어 있음)이라 지시대로 코드 경로만
-  준비했다. `MonsterPortraitPlaceholder.set_monster(monster_id)`를
-  ART-1b(`CharacterPortraitPlaceholder.set_character()`)와 같은 구조로 추가 —
-  새 경로-확인 클래스를 만들지 않고 `CharacterArt.has_all_faces()`/`load_face()`
-  (범용 순수 함수)를 몬스터 전용 base_dir("res://resources/monsters/%s/")로
-  재사용해 중복 구현을 피했다. face_{neutral,happy,hurt,sad,angry}.png 5장이
-  전부 있으면 원화 표정 컷(하단 페이드 셰이더까지 ART-2 셰이더 상수 재사용),
-  하나라도 없으면 기존 도형 플레이스홀더 유지 — `combat_test.gd`의 몬스터 구성
-  지점에 `monster_portrait.set_monster(monster_id)` 한 줄만 추가해 배선했다.
-  MonsterPortrait는 화면 우측 끝(x=1170, 폭 1280) 근처라 ART-2(좌측 잘림)와
-  반대 방향(우측 잘림) 문제가 있어 신규 `FACE_ART_SHIFT`로 보정 — 일반/보스
-  배율 둘 다 화면 안에 여유 있게 들어옴을 수치로 확인. `dice_test.gd` 신규
-  `_check_art1c_monster_face_art()`(ART-1b/ART-2와 같은 구조 — 가짜 user://
-  디렉터리로 5장/일부/없음 세 경우 검증 + production 인스턴스 일치 확인 +
-  오른쪽 끝 글로벌 좌표 수치 검증 + 하단 페이드 셰이더 SubViewport 렌더 알파
-  검증)로 전부 OK, `bash scripts/qa_shot.sh dice_test` 2회 실행 모두 "결과:
-  PASS"(FAIL 0건). **셀프 피드백 2라운드**: 몬스터 원화가 아직 없어 production
-  화면만으로는 원화 모드를 볼 수 없으므로 QA 전용 0-arity 훅(`_debug_show_
-  monster_face_art_normal/_boss()`, `user://`에 가짜 face_*.png 생성 —
-  `resources/`는 안 건드림)을 추가해 캡처했으나, 이 환경의 알려진 QA 캡처 폭
-  잘림(1028px)에 걸려 production 배치 좌표(x=1170>1028)의 몬스터 포트레이트가
-  캡처 밖으로 나가는 것을 1라운드에서 발견 — QA 훅에서만 한시적으로 화면
-  중앙(x=500)으로 옮겨 재캡처해 원화 텍스처/표정이 실제로 그려지는 것은 확인했지만,
-  그 디버그 좌표에서 다이스 스테이지 바닥 장식과 겹쳐 하단 페이드가 눈으로는
-  뚜렷이 안 보이는 것을 발견해(실제 배치에서는 안 겹치는 디버그 아티팩트) 2라운드로
-  SubViewport 알파 수치 검증을 테스트에 추가해 셰이더가 캐릭터 쪽과 동일하게
-  완벽히 작동함(중간 알파=1.000, 바닥 알파=0.000)을 확정했다. `resources/`·
-  `docs/art/`는 읽기만 했고 전투 규칙/밸런스는 건드리지 않았다. INBOX.md의
-  [미니 기획 ART-1] 항목을 "처리됨"으로 옮겼다. 상세는 아래 "완료 기록 (216)"
+- 일시: 2026-10-16 (217)
+- 작성자: AI 에이전트. 세 가지 독립 작업을 한 이터레이션에서 완료했다.
+  **(A) [미니 기획 M-7](던전 맵 방 카드 MapStrip 프레임 스킨) 완료** —
+  M-6(206)이 등급 신호가 없다는 이유로 범위 밖에 남겨뒀던 방 카드에 같은
+  `UIKit.apply_card_skin()` 패턴을 연결하되, 등급색 대신 방 상태 3색
+  (현재=금색/완료=초록/미래=회색, 기존 StyleBoxFlat 폴백 테두리색 그대로
+  재사용)을 accent 틴트로 썼다 — 한 방이 선택지를 여러 개 동시에 가질 수 있어
+  "선택지 종류색" 하나를 카드 전체에 못 쓰기 때문. 선택지 칩(전투/상점/이벤트/
+  정예/스토리, 보스·정예 배지 포함)은 별도 PanelContainer라 무관하게 유지됨.
+  **(B) H-1 "일반 모드 보존" 불안정 테스트 원인 특정 + 결정화** — 2026-09-15
+  부터 "6번 중 1번꼴 일회성 FAIL"로만 기록돼 있던 것의 실제 원인을 찾았다.
+  그 검증이 `RunState.monster_plan`(매 `reset_run()`마다 `randi()`로 새
+  시드)에서 실제 몬스터를 뽑아 공격 다이스 1개를 50으로 고정해 "무조건
+  승리"를 가정했는데, 일반 20종 중 "유령"(`ghost`, 스킬 `seal`=그 턴 공격
+  다이스 중 최솟값 1개를 0으로)이 뽑히면 다이스가 1개뿐이라 그 유일한
+  다이스가 통째로 0이 돼 가정이 깨지고 있었다 — 다이스를 2개로 늘려(seal이
+  하나를 0으로 만들어도 나머지가 남음) 어떤 몬스터가 뽑혀도 결정적이게
+  고쳤다(검증 의도는 그대로 보존). `bash scripts/qa_shot.sh dice_test` 5회
+  연속 PASS로 재발 없음 확인. **(C) [미니 기획 ART-3](INBOX.md "남은 이슈",
+  아트 스레드가 우선순위 높음으로 전달한 버그 리포트) 완료** — 스킬 아이콘
+  원화가 흰 사각형으로 보이던 버그. `skill_icon.gd`의 `_draw()`가 매 프레임
+  `ImageTexture`를 새로 만들어 지역 변수로만 쥔 채 그려서, 함수가 끝나자마자
+  해제돼 RID가 무효화되던 것이 원인(아트 스레드가 정확히 진단) — 멤버 변수로
+  캐시하고(파일 존재 여부는 매번 가볍게 재확인), production 경로는
+  `character_art.gd`와 같은 `ResourceLoader`/`load()` 패턴으로 바꿔 고쳤다.
+  `qa_out/art3_skill_codex_check.png`로 흰 사각형이 아니라 실제 아이콘 아트가
+  그려지는 것을 육안 확인. 덤으로 배경/HUD 아이콘 반영(알려진 이슈 "(2)는
+  여전히 미확인")도 dungeon_map/combat/shop/event 4개 화면 캡처로 전부 정상
+  반영을 확인해 해당 항목을 제거했다. 세 작업 모두 전투 규칙/밸런스는 안
+  건드렸고 `resources/`·`docs/art/`는 읽기만 했다. INBOX.md의 [미니 기획
+  ART-3]를 "처리됨"으로 옮겼다(M-7은 INBOX 항목이 아니라 STATUS.md 큐/M-6
+  메모에서 파생된 작업이라 INBOX 변경 없음). 상세는 아래 "완료 기록 (217)"
   참고. **다음은 INBOX.md "남은 이슈"에 새 항목이 없으면 아래 "알려진 이슈/
   막힌 것"을 참고해 독립적으로 진행 가능한 항목을 고를 것.**
 
@@ -316,8 +316,13 @@ monsters/`가 비어 있음)이라 지금은 전원 플레이스홀더 그대로
   있는지 확인해(`SkillIcon.load_external_art()`) 있으면 그 이미지를, 없으면
   절차적 모티프를 그린다(`render_source()`가 실제 분기를 돌려줌). 위 세 호출부
   모두 `skill_id`도 함께 설정해 override가 자동으로 전 화면에 적용된다.
-  `resources/skills/`는 아직 아트가 입고되지 않아 전부 절차적 모티프 그대로다 —
-  33종 발주 목록은 `docs/STATUS.md` 완료 기록(192) 표 참고.
+  **2026-10-16 (196, 214에서) 아트 스레드가 `resources/skills/` 37종(전체
+  스킬) 전량을 입고 완료**했고, **[미니 기획 ART-3](217)로 그 아트가 실제로는
+  흰 사각형으로 그려지던 버그**(`_draw()`가 매 프레임 새 `ImageTexture`를
+  지역 변수로만 쥐어 함수 종료 즉시 RID가 무효화됨)를 고쳐 이제 전부 실제
+  아이콘 아트로 정상 렌더된다(`SkillIcon`이 텍스처를 멤버 변수로 캐시, 파일
+  존재 여부만 매번 가볍게 재확인). 33종 발주 당시 목록은 `docs/STATUS_
+  ARCHIVE.md` 완료 기록(192) 표 참고(이후 37종으로 소폭 늘어남).
 - **캐릭터 카드 클릭 선택(2026-10-14 [대형 기획 12] L-1 완료)**: 캐릭터 선택
   화면의 카드마다 있던 "선택" 버튼이 사라지고, 카드 패널(`code/scenes/
   character_card_panel.gd`의 `CharacterCardPanel`) 전체가 클릭/스페이스 선택
@@ -444,8 +449,19 @@ monsters/`가 비어 있음)이라 지금은 전원 플레이스홀더 그대로
   전체를 살짝 눌러 칠해(`CARD_SKIN_UNAFFORDABLE_MODULATE`) 상태를 함께 전달.
   `ui_kit.gd`의 신규 `apply_card_skin()`(character_id 대신 tint Color를 직접
   받는 패턴)이 담당, 파일 없으면 기존 StyleBoxFlat 등급색 테두리로 폴백. 던전
-  맵 방 카드(MapStrip)는 등급 기반이 아니고 `build_card()`를 안 써 이번 범위
-  밖(INBOX 원문이 "구현 판단"으로 남김). 상세는 아래 "완료 기록 (206)" 참고.
+  맵 방 카드(MapStrip)는 등급 기반이 아니고 `build_card()`를 안 써 M-6
+  당시에는 범위 밖(INBOX 원문이 "구현 판단"으로 남김)이었다. 상세는 `docs/
+  STATUS_ARCHIVE.md`의 완료 기록(206) 참고.
+- **던전 맵 방 카드(MapStrip) 프레임 스킨(2026-10-16 [미니 기획 M-7] 완료)**:
+  M-6이 남겨둔 MapStrip 방 카드에도 `apply_card_skin()`을 연결했다 — 등급이
+  없는 대신 **방 상태 3색**(현재=금색/완료=초록/미래=회색, 기존 StyleBoxFlat
+  폴백 테두리색과 동일값)을 accent 틴트로 쓴다(`dungeon_map.gd`의
+  `_make_map_node()`, `MAP_CARD_TINT_CURRENT/CLEARED/FUTURE` 상수). 한 방이
+  전투+상점+이벤트처럼 선택지를 여러 개 동시에 가질 수 있어 "선택지 종류색"
+  하나로는 카드 전체를 못 칠하는 제약 때문에 상태색을 택했다. 선택지 칩
+  (`_make_type_chip()`, 보스/정예 배지 포함)은 별도 PanelContainer라 무관하게
+  그대로 유지되고, 완료 방의 기존 modulate 알파 0.55 어둡게 효과도 그대로다.
+  파일 없으면 기존 3색 StyleBoxFlat 폴백. 상세는 아래 "완료 기록 (217)" 참고.
 - **전 화면 키보드만으로 진행(2026-10-15 [대형 기획 14] N-1 완료)**: 전수 감사로
   찾은 두 버그를 고쳤다 — ① `character_select`의 시작 스킬 슬롯(공격/방어
   주머니 개수와 별개인 슬롯0~2)이 카드 목록(수직 체인)과 연결돼 있지 않아
@@ -591,8 +607,12 @@ ART-1c(몬스터 원화 경로)가 2026-10-16(216)로 완료돼 [미니 기획 A
 끝났다** — `MonsterPortraitPlaceholder.set_monster()`가 ART-1b와 같은 구조로
 몬스터 face_* 5장 유무에 따라 원화/플레이스홀더를 전환한다(몬스터 쪽 아트는
 아직 입고 전이라 지금은 전원 플레이스홀더, 코드만 준비됨, 상세는 완료 기록
-(216)). **다음은 INBOX.md "남은 이슈"에 새 항목이 없으면 아래 "알려진
-이슈/막힌 것"을 참고해 독립적으로 진행 가능한 항목을 고를 것.**
+(216)). **2026-10-16(217)로 [미니 기획 M-7](던전 맵 방 카드 MapStrip 프레임
+스킨, M-6이 범위 밖에 남겼던 조각) 완료 + INBOX.md "남은 이슈"의 [미니 기획
+ART-3](스킬 아이콘 흰 사각형 버그, 아트 스레드 리포트) 완료 + H-1 불안정
+테스트 원인 특정·결정화까지 함께 처리했다**(상세는 완료 기록 (217)). **다음은
+INBOX.md "남은 이슈"에 새 항목이 없으면 아래 "알려진 이슈/막힌 것"을 참고해
+독립적으로 진행 가능한 항목을 고를 것.**
 
 남은 구조적 후보(급하지 않음): 보스 개별 6종 중 타락한 기사단장만 밴드 미달
 (`MonsterSkills.modify_monster_roll()` 파라미터화가 전제조건이라 사람 설계
@@ -1203,6 +1223,89 @@ ART-1c(몬스터 원화 경로)가 2026-10-16(216)로 완료돼 [미니 기획 A
 
 ## 완료 기록
 
+- **2026-10-16 (217)**: 세 가지 독립 작업 — (A) **[미니 기획 M-7](던전 맵 방 카드
+  프레임 스킨) 완료**: [미니 기획 M-6](206)이 등급 신호가 없다는 이유로 범위
+  밖에 남겨뒀던 `dungeon_map.gd`의 `MapStrip` 방 카드에 M-6과 같은
+  `UIKit.apply_card_skin()` 패턴을 연결했다. 등급 대신 **방 상태 3색**(현재=금색
+  `MAP_CARD_TINT_CURRENT`/완료=초록 `MAP_CARD_TINT_CLEARED`/미래=중립 회색
+  `MAP_CARD_TINT_FUTURE`, 기존 StyleBoxFlat 폴백이 쓰던 border_color와 동일한
+  값 재사용)를 accent 틴트로 넘긴다 — 한 방이 전투+상점+이벤트처럼 선택지를
+  여러 개 동시에 가질 수 있어 "선택지 종류색" 하나를 카드 전체에 못 쓰는 제약
+  때문에 상태색을 택했다(INBOX 원문이 "구현 판단"으로 남긴 두 선택지 중 하나).
+  `_make_type_chip()`이 그리는 개별 선택지 칩(전투/상점/이벤트/정예/스토리,
+  FamilyIcon 보스/정예 배지 포함)은 별도 PanelContainer라 이 변경과 완전히
+  무관 — 가독성 그대로 유지. 완료 방의 기존 `panel.modulate` 알파 0.55 어둡게
+  효과도 그대로 둠(건드릴 필요 없음). 파일 없으면 기존 3색 StyleBoxFlat 폴백.
+  `dice_test.gd` 신규 `_check_m7_map_card_skin()`(M-6과 같은 "없음→있음→없음"
+  user:// 주입 패턴 — 방 상태 3종의 합성 픽셀이 실제로 서로 다른지, 완료 방
+  modulate.a<1 유지, production 자산 end-to-end, 선택지 칩 자식 구조 보존)로
+  검증, `bash scripts/qa_shot.sh dice_test` 전체 PASS. **셀프 피드백 2라운드**:
+  `qa_out/m7_room_cards.png`(기본 상태, 현재 방만 금색)와
+  `m7_room_cards_advanced.png`(`_debug_advance_rooms`로 완료 2개+현재 1개+
+  미래 2개가 한 화면에 공존)를 직접 읽어 현재 방의 금색 코너 보석 장식이
+  뚜렷이 구분되고, 완료 방은 어둡게 가라앉으면서도 "(완료)" 표시와 함께
+  남고, 미래 방은 중립 회색 프레임으로 차분함을 확인 — 추가로
+  `m7_boss_room.png`(`_debug_show_boss_room`)로 마지막 방(보스) 현재 강조와
+  계열 아이콘이 함께 잘 보이는 것도 확인, 2라운드 만에 "하" 수준 문제도 없어
+  종료.
+  (B) **H-1 "일반 모드 보존" 불안정 테스트(2026-09-15부터 알려진 "6번 중
+  1번꼴 일회성 FAIL", `docs/STATUS_ARCHIVE.md`에 여러 차례 pre-existing
+  노이즈로만 기록돼 있던 것) 원인 특정 + 결정화.** `_check_h1_test_battle_mode()`의
+  "일반 모드 보존" 구간이 `_monster_config_for_plan(1, 0)`(= round1/room0,
+  `RunState.monster_plan` 기반, `reset_run()`이 매번 `randi()`로 새 run_seed를
+  뽑으므로 매 실행마다 다른 몬스터가 걸림)으로 실제 몬스터를 구성한 뒤 1개짜리
+  공격 다이스를 50으로 강제 고정해 "무조건 승리"를 가정했는데, 일반 20종 중
+  "유령"(`ghost`, 부정형, 스킬 `seal` — 그 턴 공격 다이스 중 **최솟값 1개를
+  0으로**)이 뽑히면 다이스가 1개뿐이라 그 유일한 다이스가 통째로 0이 돼 데미지가
+  0이 되고 몬스터가 죽지 않아 가정이 깨지던 것이 원인이었다(`MonsterSkills.
+  modify_player_roll()`→`DiceBag.apply_zero_lowest()`). 수정은 공격 다이스를
+  1개에서 **2개**로 늘린 것 — seal이 하나를 0으로 만들어도 나머지 하나(50)가
+  그대로 남아 몬스터 HP 1을 항상 넘어서므로, 20종 중 무엇이 뽑혀도(sticky
+  -1/dull -1 같은 다른 감쇠 포함) 결과가 결정적이다(검증 의미인 "일반 모드에서
+  승리 시 골드/눈금/rooms_cleared가 정상적으로 바뀌는가"는 그대로 보존 — 몬스터
+  종류를 고정하지 않고 "무엇이 나와도 이긴다"는 전제를 고치는 쪽을 택함, 테스트
+  의도 변경 없음). `bash scripts/qa_shot.sh dice_test`를 5회 연속 실행해 전부
+  PASS로 재발 없음 확인(기존엔 수 회 반복 시 1회 정도 FAIL이 섞였음).
+  (C) **[미니 기획 ART-3](INBOX.md "남은 이슈", 아트 스레드 "ProjectD Art"가
+  우선순위 높음으로 전달한 버그 리포트) 완료 — 스킬 아이콘 원화가 흰 사각형으로
+  보이는 버그.** 원인은 아트 스레드가 정확히 진단한 그대로: `skill_icon.gd`의
+  `_draw()`가 매 프레임 `load_external_art()`로 `ImageTexture`를 새로 만들어
+  지역 변수로만 쥔 채 `draw_texture_rect()`에 넘기고, 함수가 끝나는 순간 아무도
+  참조하지 않는 그 텍스처(RefCounted)가 즉시 해제되면서 이미 그리기 명령에
+  기록된 RID가 무효화돼 흰 사각형으로 그려졌다. 수정: ① `_external_texture()`가
+  텍스처를 멤버 변수(`_cached_external_texture`/`_cached_external_path`)로
+  캐시해 노드 생명주기 동안 살려둔다 — 단, exists 확인은 매 호출마다 가볍게
+  (파일 존재 여부만) 다시 하므로 dice_test.gd의 user:// 임시 경로 시나리오
+  ("같은 skill_id/base_dir인 채로 파일이 생기거나 사라짐")는 그대로 즉시
+  반영되고, 비싼 디코드만 경로가 실제로 바뀌었을 때(또는 캐시가 비어있을 때)로
+  제한된다. ② `load_external_art()`가 production 경로(`base_dir ==
+  EXTERNAL_ART_DIR`)에서는 `character_art.gd`의 `load_face()`와 같은 패턴으로
+  `ResourceLoader.exists()`+`load()`를 쓰도록 바꿨다(.import된 리소스를 정식
+  경로로 읽어 export 빌드에서도 안전 — 기존 `Image.load()` 직접 호출은 "will
+  not work on export" 경고가 남는 raw 파일 접근이었음). user:// 테스트 경로는
+  기존 FileAccess+Image.load() 그대로 유지(.import가 없는 raw PNG라 여전히
+  유일한 방법). INBOX 원문이 함께 지적한 `dice_test.gd`의 "운영 경로 deep_breath
+  없음 → null" 가정(resources/skills/ 37종이 당시 막 입고되며 깨졌던 것, 이번
+  세션 초반에 이미 한 번 발견해 고쳤던 부분)도 존재하지 않는 id로 바꿔 "파일
+  없음→null" 계약만 검증하도록 정리하고, 실제 입고된 deep_breath로는 "있으면
+  로드됨" end-to-end를 새로 검증하는 쪽으로 나눴다. `bash scripts/qa_shot.sh
+  dice_test` 전체 PASS(기존 `_check_k4c_skill_icon_external_art()`의 "없음→
+  있음→없음" 전환 시나리오가 캐시와 함께도 깨지지 않음을 확인). **셀프
+  피드백**: `qa_out/art3_skill_codex_check.png`(스킬 도감, 원래 버그가
+  보고됐던 화면)를 직접 읽어 "확장/정예/임기응변/심호흡/여분" 전부 흰 사각형이
+  아니라 실제 아이콘 아트(나무/다이아몬드/나침반/숨결/다이스 그림)로 보임을
+  확인. **덤으로 — 알려진 이슈 "(2)는 여전히 미확인"(215, resources/backgrounds/
+  와 resources/ui/icon/ 반영 확인) 해소**: `qa_out/m7_room_cards*.png`
+  (dungeon_map 배경+범례 아이콘)/`art_bg_check_combat.png`(전투 배경)/
+  `art_bg_check_shop.png`(상점 배경)/`art_bg_check_event.png`(이벤트 배경) 4개
+  화면 전부 플레이스홀더 색이 아니라 실제 배경 사진/아이콘 그림으로 정상
+  렌더됨을 육안 확인 — 아래 "알려진 이슈"에서 해당 항목 제거.
+  세 작업 모두 전투 규칙/밸런스는 건드리지 않았고, `resources/`·`docs/art/`는
+  읽기만 했다(ART-3는 아트 스레드가 이미 커밋한 `resources/skills/` 자산을
+  그대로 읽어서 검증만 함). INBOX.md의 [미니 기획 ART-3]를 "처리됨"으로 옮겼다
+  (M-7은 INBOX 항목이 아니라 STATUS.md 큐/M-6 인수인계 메모에서 파생된 작업이라
+  INBOX 변경 없음).
+
 - **2026-10-16 (216)**: INBOX.md "부분 처리됨" [미니 기획 ART-1] **ART-1c(몬스터
   원화 경로) 완료 — [미니 기획 ART-1](ART-1a/1b/1c) 전체 완료.** 몬스터 원화는
   아직 입고 전(`resources/monsters/`가 비어 있음)이라 **코드 경로만** 준비했다
@@ -1764,129 +1867,12 @@ ART-1c(몬스터 원화 경로)가 2026-10-16(216)로 완료돼 [미니 기획 A
   진행 기록을 반영해 한 줄 갱신(N-3~N-6 남음). **다음은 N-3(flat 버튼 전수
   교정)**.
 
-- **2026-10-15 (207)**: INBOX.md 최우선 지시 [대형 기획 14](조작/선택 화면/이벤트
-  특화 클래스·전용 이벤트) 중 **N-1(방향키+스페이스로 "진행"까지) 완료**. K-1이
-  이동/선택은 방향키+스페이스로 이미 대체했지만, 사용자가 "진행까지" 마우스 없이
-  가능해야 한다고 다시 요청한 항목 — 전수 감사 → "주 행동 키" 규칙 적용 → 실제
-  `InputEventKey` 시퀀스로 풀 시뮬레이션, 3단계 순서로 진행.
-  **① 전수 감사**(화면/오버레이별로 코드를 직접 읽어 "마우스로만 되는 단계"를
-  찾음, 상세 표는 아래 참고): 대부분의 화면(dungeon_map/combat_test/event/shop/
-  story_event/customize_panel/achievement_panel/skill_codex_panel)은 K-1~M-5가
-  이미 완전히 키보드로 닿았다 — combat_test는 DESIGN.md가 명시한 대로 전투
-  진행 자체가 자동이라 "굴리기/교환 확정/턴 넘김" 버튼이 원래 없음. **실제로
-  찾은 버그 2개 + 불일치 1개**는 모두 character_select/shop에 있었다:
-  (1) **캐릭터 선택의 "시작 스킬 슬롯"(공격/방어 다이스 개수와 별개인 슬롯0~2
-  선택)이 카드 목록(수직 체인)과 전혀 연결돼 있지 않아 마우스로만 닿을 수
-  있었음** — `character_select.gd`의 `_starting_skill_slot_buttons`는 자기들
-  끼리만 수평 체인이고, 카드 쪽 `_shortcut_buttons`(수직 체인)와는 아무 접점이
-  없었다. (2) **그 슬롯을 하나 고르거나 미리보기하면(스페이스) 포커스가 완전히
-  끊김** — `_rebuild_starting_skill_slots()`가 슬롯 버튼을 매번 통째로 지우고
-  새로 만드는데, 그 호출이 슬롯 버튼 자신의 pressed 핸들러 안에서 일어나면
-  방금 눌렀던(포커스를 갖고 있던) 버튼이 사라지고 아무도 새 포커스를 받지
-  않아 방향키를 또 눌러도 반응이 없었다(마우스로 다시 클릭해야만 복구). (3)
-  **shop의 기본 포커스가 "주 행동"(던전으로 돌아가기, style_primary_button)이
-  아니라 첫 품목 구매 버튼이었음** — `_shortcut_buttons` 배열이 화면에 보이는
-  순서(품목들 먼저, 주 행동은 맨 끝)라 `FocusNav.grab_first_focus()`가 우연히
-  틀린 곳에 포커스를 줬다. **② "주 행동 키" 규칙**: dungeon_map(전투 입장)/
-  combat_test(보상·다음·패배 전부 리스트 첫 자리)/event·story_event(선택지
-  자체가 주 행동, 또는 "계속"이 첫 자리)는 이미 규칙을 충족하고 있었음을
-  코드로 확인만 하고 건드리지 않았다. shop만 실제로 틀려서 `code/scenes/
-  focus_nav.gd`에 신규 `grab_default_focus(primary, fallback_list)`(primary가
-  보이고 활성화돼 있으면 그쪽에, 아니면 기존 `grab_first_focus()`로 폴백)를
-  추가하고 `shop.gd`가 `leave_button`을 넘기도록 배선 — 리스트 순서(화면에
-  보이는 순서, 방향키 체인용)는 그대로 두고 "첫 포커스가 어디로 가는지"만
-  명시적으로 분리했다. **character_select 수정**: `_rebuild_starting_skill_slots()`
-  끝에 신규 `_link_cards_to_skill_slots()`(모든 카드의 오른쪽 방향키 → 슬롯[0],
-  모든 슬롯의 왼쪽/위/아래 → 지금 선택된 카드 — 좌/우와 상/하 두 체인이 각각
-  건드리는 축이 달라 서로 안 깨짐)를 추가해 버그(1)을 고쳤다. 버그(2)는
-  `_on_starting_skill_selected()`/`_on_starting_skill_locked_preview()` 끝에
-  신규 `_restore_starting_skill_focus(target_id)`(방금 고르거나 미리보던
-  스킬과 같은 인덱스의 새 슬롯 버튼에 `grab_focus()`)를 추가해 고쳤다 —
-  `_refresh_detail_panel()`(캐릭터 카드 전환)이 부르는 같은
-  `_rebuild_starting_skill_slots()` 경로에는 이 복구를 걸지 않았다(그때는
-  포커스가 여전히 카드 목록에 있어야 카드 연속 탐색이 안 끊긴다).
-  **③ 실제 InputEventKey 풀 시뮬레이션**: 처음엔 `dice_test.gd` 안에서
-  캐릭터 선택→던전 맵→전투→... 전체를 돌려보려 했으나, dice_test 자신이
-  그 실행의 `current_scene`이라 어느 화면의 "진행" 버튼이든
-  `change_scene_to_file()`을 실제로 한 번만 호출해도 dice_test 자신이
-  교체돼(SceneTree.current_scene은 전역에 하나) 테스트 하네스 전체가 사라지는
-  문제를 발견 — 그래서 `code/qa/visual_qa.gd`(Autoload, current_scene이 아니라
-  안 사라짐)에 새 모드를 추가했다. `GAME_QA_KEY_RUN=1`(`scripts/qa_shot.sh`의
-  신규 9번째 인자)이면 스크린샷 캡처 대신 `_run_key_sequence_playthrough()`가
-  실제 `Input.parse_input_event()`로 캐릭터 선택(카드 탐색 → 오른쪽으로 시작
-  스킬 슬롯 진입 확인 → 왼쪽으로 복귀 확인 → 스페이스로 확정) → 아래 방향키로
-  "던전 시작" 도달 → 던전 맵(기본 포커스가 "전투 입장"인지) → 전투 입장 →
-  **실제 물리 다이스 전투가 자동으로 승리까지 끝나길 대기**(`battle_over`/
-  `player_won` 폴링) → 보상 선택(기본 포커스 확인 후 스페이스) → "다음" 버튼
-  방향키 도달+확정 → 다음 방(RunState.rooms_cleared 실제 증가 확인)까지 2개
-  방을 반복한다. 디버깅 중 실제 버그 2개를 더 발견: (a) Godot의 `BaseButton`은
-  `ui_accept` **release**에서야 `pressed`를 emit하는데(press만으로는 CharacterCardPanel
-  같은 커스텀 `_gui_input`만 반응하고 실제 `Button`은 안 눌림) 처음엔 press만
-  보내서 "던전 시작" 버튼이 실제로는 안 눌리고 있었음 — `_send_key()`가 press+
-  release를 모두 보내도록 수정. (b) `VisualQA`의 기존 `_process()`(프레임 세서
-  캡처 루프)가 `set_process(true)`를 명시적으로 안 불러도 Godot 기본 동작으로
-  계속 돌고 있어서, `GAME_QA_FRAME`(기본 60)에 도달하는 순간 느닷없이
-  `_capture_and_quit()`이 끼어들어 `get_tree().quit()`을 불러 한창 진행 중이던
-  플레이스루 코루틴을 중간에 죽이는 문제 — key-run 모드 진입 시 `set_process(false)`를
-  명시적으로 호출하고 `_process()` 자체에도 방어적 가드를 추가해 해결. 실제
-  물리 전투 승리까지 기다리는 타임아웃도 처음엔 1200프레임(20초 가정)으로
-  잡았다가 실제로 재보니(화면 밖(-4000,-4000)에 떠서 fps가 60 미만으로 나옴)
-  부족해 4800프레임으로 늘렸다. **최종 결과**: `bash scripts/qa_shot.sh
-  character_select 60 "" "" "" "" "" "" 1` — 21개 검증 전부 OK, 실제 벽시계
-  시간 약 32초(물리 전투 2회 포함). **회귀 테스트**: `dice_test.gd`에 신규
-  `_check_n1_character_select_skill_slot_key_nav()`(실제 `InputEventKey`로
-  카드↔슬롯 교차 연결 4항목 검증, press+release 패턴은 여기서도 그대로 재사용)
-  추가, `_check_m4_event_shop_story_ui()`에 shop 기본 포커스 검증 1항목 추가 —
-  `bash scripts/qa_shot.sh dice_test` 전체 **PASS**(FAIL 0건, 2회 재확인).
-  전투 규칙/밸런스는 전혀 건드리지 않았다. **전수 감사 표(화면·상태·현재 키로
-  가능한가·부족한 것)**:
-
-  | 화면/오버레이 | 상태/조작 | 키보드로 가능한가 | 비고 |
-  |---|---|---|---|
-  | character_select | 카드 선택(좌/우/방향키+스페이스) | 가능(기존 K-1/L-1) | - |
-  | character_select | 시작 스킬 슬롯 0~2 선택/미리보기 | **불가(마우스 전용) → 이번에 수정** | `_link_cards_to_skill_slots()` 신규 |
-  | character_select | 슬롯 선택 후 계속 방향키 탐색 | **불가(포커스 소실) → 이번에 수정** | `_restore_starting_skill_focus()` 신규 |
-  | character_select | 던전 시작/업적/테스트 전투 | 가능(기존 K-1) | - |
-  | dungeon_map | 전투/상점/이벤트/스토리/정예 입장, 커스터마이징, 스킬 도감 | 가능(기존 K-1/M-1) | 기본 포커스=전투(주 행동), 기존에 이미 일치 |
-  | combat_test | 다이스 굴리기/교환 확정/턴 넘김 | **버튼 자체가 없음(자동 진행)** | DESIGN.md "전투 진행 자체는 자동" — 해당 없음 |
-  | combat_test | 승리 보상 카드/커스터마이징/건너뛰기, 승패 후 "다음"/"처음부터 다시", 덱/도감 토글 | 가능(기존 M-3) | 기본 포커스=리스트 첫 항목(주 행동), 기존에 이미 일치 |
-  | combat_test | 3D 다이스 영역 클릭 | 클릭 핸들러 없음(순수 연출) | 해당 없음 |
-  | event | 안전/위험, 스킬·강화 카드, 실패 후 계속, 커스터마이징/도감 | 가능(기존 M-4) | 선택지 자체가 주 행동 또는 "계속"이 첫 자리 |
-  | shop | 품목 구매, 커스터마이징/도감 | 가능(체인 자체는 기존) | - |
-  | shop | **기본 포커스** | **첫 품목이었음(불일치) → 이번에 수정** | `FocusNav.grab_default_focus()` 신규 + 배선 |
-  | story_event | A/B 선택, 계속, 커스터마이징/도감 | 가능(기존 M-4) | - |
-  | customize_panel | 눈금→다이스→면 3단계, 다이스 인벤토리 2단계, 닫기, Esc | 가능(기존, 매 단계 `_chain_step_focus`) | - |
-  | achievement_panel | 목록 열람(view-only), 닫기, Esc | 가능(기존) | 목록 항목 자체는 포커스 불필요 |
-  | skill_codex_panel | 3열 격자 탐색(wrap), 닫기, Esc | 가능(기존 `_chain_grid`) | - |
-  | deck_panel | (조작 없음, view-only) | 해당 없음 | - |
-  | test_battle_setup | 뒤로/전투 시작 | 가능(기존) | OptionButton 등 세부 설정은 Godot 기본 geometry 포커스에 의존(DESIGN.md가 이미 명시한 한계) — 숨김 QA/개발 화면이라 핵심 플레이 루프 밖, 이번 범위에서 보류 |
-
-  남은 "부족" 항목은 0건(위 표의 "불가"는 모두 이번에 수정 완료, test_battle_setup
-  한 줄만 의도적 보류 — 정식 플레이 흐름이 아닌 개발용 숨김 화면). INBOX.md의
-  [대형 기획 14] 항목은 N-1 완료 기록을 반영해 "부분 처리됨"에 두고(N-2~N-6
-  남음) 진행 한 줄을 갱신했다. **다음은 N-2(캐릭터 선택 전신 이미지 확대)**.
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(216)에서 (206)을 그리로 옮겼다.)*
+이번 이터레이션(217)에서 (207)을 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 
-- **(215에서 절반 해결) `resources/backgrounds/`/`resources/ui/icon/`에 새로
-  입고된 자산이 각 화면에 실제로 올바르게 반영되는지는 아직 미확인.** 214에서
-  발견된 두 가지 중 (1) "berserker/guardian face_* 입고로 `dice_test.gd`의
-  ART-1b 관련 테스트 4건이 하드코딩된 가정 때문에 FAIL"은 215(N-6과 같은
-  이터레이션)에서 해결 완료 — `CharacterArt.has_all_faces()`/`load_face()`에
-  `base_dir` 매개변수를 추가해 특정 캐릭터의 실제 입고 상태에 의존하지 않는
-  테스트로 재작성했다(상세는 완료 기록(215)). **(2)는 여전히 미확인**:
-  `resources/backgrounds/{combat,dungeon_map,event,shop}.png`와
-  `resources/ui/icon/{attack,crown,defense,dice,gold,hp,lock,pip,skull}.png`가
-  이 세션(N 시리즈) 시작 전부터 새로 입고돼 있었는데(아트 스레드가 전달한
-  자산, `resources/`는 읽기만 했으므로 Work 쪽 변경 아님) M-5(b)/ART-1c 관련
-  기존 코드가 이미 "있으면 쓰고 없으면 폴백" 구조라 자동으로 반영됐을 가능성이
-  높지만, 각 화면에서 실제로 깨짐 없이 보이는지 사람 눈으로(또는 qa_shot으로)
-  아직 확인한 적 없음 — 다음에 ART-1c 또는 아트 반영을 다루는 이터레이션이
-  확인할 것.
 - **이 세션 권한 모드에서 Bash로 python/awk/node/PowerShell 스크립팅을 승인
   없이 못 쓴다(2026-10-08, F-4c 작업 중 확인).** `.claude/settings.json`의
   허용 목록이 `git`/`scripts/qa_shot.sh`/`mkdir`/`ls`/`find`/`cat`뿐이라,

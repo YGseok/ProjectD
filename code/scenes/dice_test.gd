@@ -357,6 +357,10 @@ func _ready() -> void:
 	all_pass = _check_m6_card_frame_skin(lines) and all_pass
 
 	lines.append("")
+	lines.append("[M-7: 던전 맵 방 카드(MapStrip) 프레임 스킨 검증: dungeon_map.gd _make_map_node()가 resources/ui/panel/card_{base,accent}.png 유무에 따라 StyleBoxTexture(현재=금색/완료=초록/미래=회색 틴트)<->StyleBoxFlat 폴백을 전환하는지, 방 상태 3종의 합성 결과가 실제로 서로 다른지, production 자산으로도 실제 렌더되는지]")
+	all_pass = _check_m7_map_card_skin(lines) and all_pass
+
+	lines.append("")
 	lines.append("[N-1: 캐릭터 선택 — 카드 목록(수직 체인)과 시작 스킬 슬롯(수평 체인)이 실제 InputEventKey(방향키)로 서로 연결되는지 검증(전수 감사에서 발견: 전에는 마우스로만 슬롯에 닿을 수 있었음), 슬롯을 고른 뒤에도 방향키 포커스가 안 끊기는지]")
 	all_pass = (await _check_n1_character_select_skill_slot_key_nav(lines)) and all_pass
 
@@ -3747,6 +3751,140 @@ func _check_m6_card_frame_skin(lines: PackedStringArray) -> bool:
 	return ok
 
 
+## [미니 기획 M-7](2026-10-16) 검증: dungeon_map.gd _make_map_node()가 M-6과 같은
+## "없음→있음→없음" base_dir 주입 패턴으로 resources/ui/panel/card_{base,accent}.png
+## 유무에 따라 StyleBoxTexture(방 상태색 틴트)<->StyleBoxFlat 폴백을 전환하는지, 방
+## 상태 3종(현재/완료/미래)의 합성 결과가 실제로 서로 다른지(같은 tint면 같은 캐시
+## 텍스처가 나올 수 있어 "다르다"를 직접 확인해야 함), production 자산으로도 실제
+## 렌더되는지를 확인한다.
+func _check_m7_map_card_skin(lines: PackedStringArray) -> bool:
+	var ok := true
+	var tmp_dir := "user://m7_test_tmp/"
+	DirAccess.make_dir_recursive_absolute(tmp_dir + "panel")
+
+	var character_backup := RunState.character_id
+	var rooms_backup := RunState.rooms_cleared
+	var round_backup := RunState.round_index
+	RunState.reset_run("novice")
+	RunState.round_index = 1
+
+	var map_script := load("res://code/scenes/dungeon_map.gd")
+	var map_instance = map_script.new()
+
+	# --- (1) 파일 없음 -> StyleBoxFlat 폴백(기존 동작과 완전히 동일), 상태별 border_color도
+	#     기존 3색(MAP_CARD_TINT_*) 그대로 ---
+	RunState.rooms_cleared = 0
+	var current_no_skin: Control = map_instance._make_map_node(0, tmp_dir)
+	add_child(current_no_skin)
+	var current_no_skin_flat: bool = current_no_skin.get_theme_stylebox("panel") is StyleBoxFlat
+	var current_no_skin_color_ok: bool = (current_no_skin.get_theme_stylebox("panel") as StyleBoxFlat).border_color == map_script.MAP_CARD_TINT_CURRENT
+	ok = current_no_skin_flat and current_no_skin_color_ok and ok
+	lines.append("  (1) card_base.png 없음(현재 방): 'panel' 스타일=%s border_color=%s(기대 MAP_CARD_TINT_CURRENT) -> %s" % [
+		current_no_skin.get_theme_stylebox("panel").get_class(), current_no_skin_color_ok,
+		"OK" if (current_no_skin_flat and current_no_skin_color_ok) else "FAIL"
+	])
+	current_no_skin.queue_free()
+
+	# --- (2) base+accent(합성 전부 불투명) -> 방 상태별 tint가 합성 텍스처 픽셀에
+	#     그대로 반영되고, 상태가 다르면 서로 달라야 한다 ---
+	_m5a_write_solid_png(tmp_dir + "panel/card_base.png", 8, 8, Color(0, 0, 0, 1))
+	_m5a_write_solid_png(tmp_dir + "panel/card_accent.png", 8, 8, Color(1, 1, 1, 1))
+
+	RunState.rooms_cleared = 0
+	var current_node: Control = map_instance._make_map_node(0, tmp_dir)
+	add_child(current_node)
+	var current_style: StyleBox = current_node.get_theme_stylebox("panel")
+	var current_is_tex: bool = current_style is StyleBoxTexture
+	ok = current_is_tex and ok
+	var current_pixel: Color = (current_style as StyleBoxTexture).texture.get_image().get_pixel(0, 0) if current_is_tex else Color.BLACK
+	var current_color_ok: bool = _m5a_color_close(current_pixel, map_script.MAP_CARD_TINT_CURRENT)
+	ok = current_color_ok and ok
+	lines.append("  (2) 현재 방(idx==rooms_cleared): 스타일=%s 합성픽셀=%s(기대 MAP_CARD_TINT_CURRENT=%s) -> %s" % [
+		current_style.get_class(), current_pixel, map_script.MAP_CARD_TINT_CURRENT, "OK" if (current_is_tex and current_color_ok) else "FAIL"
+	])
+	current_node.queue_free()
+
+	RunState.rooms_cleared = 1
+	var cleared_node: Control = map_instance._make_map_node(0, tmp_dir)
+	add_child(cleared_node)
+	var cleared_style: StyleBox = cleared_node.get_theme_stylebox("panel")
+	var cleared_is_tex: bool = cleared_style is StyleBoxTexture
+	ok = cleared_is_tex and ok
+	var cleared_pixel: Color = (cleared_style as StyleBoxTexture).texture.get_image().get_pixel(0, 0) if cleared_is_tex else Color.BLACK
+	var cleared_color_ok: bool = _m5a_color_close(cleared_pixel, map_script.MAP_CARD_TINT_CLEARED)
+	var cleared_modulate_ok: bool = cleared_node.modulate.a < 1.0
+	ok = cleared_color_ok and cleared_modulate_ok and ok
+	lines.append("  (2) 완료 방(idx<rooms_cleared): 합성픽셀=%s(기대 MAP_CARD_TINT_CLEARED=%s), panel.modulate.a=%s(기대 <1, 어둡게) -> %s" % [
+		cleared_pixel, map_script.MAP_CARD_TINT_CLEARED, cleared_node.modulate.a,
+		"OK" if (cleared_is_tex and cleared_color_ok and cleared_modulate_ok) else "FAIL"
+	])
+	cleared_node.queue_free()
+
+	RunState.rooms_cleared = 0
+	var future_node: Control = map_instance._make_map_node(2, tmp_dir)
+	add_child(future_node)
+	var future_style: StyleBox = future_node.get_theme_stylebox("panel")
+	var future_is_tex: bool = future_style is StyleBoxTexture
+	ok = future_is_tex and ok
+	var future_pixel: Color = (future_style as StyleBoxTexture).texture.get_image().get_pixel(0, 0) if future_is_tex else Color.BLACK
+	var future_color_ok: bool = _m5a_color_close(future_pixel, map_script.MAP_CARD_TINT_FUTURE)
+	ok = future_color_ok and ok
+	var states_differ_ok: bool = (
+		not _m5a_color_close(current_pixel, cleared_pixel)
+		and not _m5a_color_close(current_pixel, future_pixel)
+		and not _m5a_color_close(cleared_pixel, future_pixel)
+	)
+	ok = states_differ_ok and ok
+	lines.append("  (2) 미래 방(idx>rooms_cleared): 합성픽셀=%s(기대 MAP_CARD_TINT_FUTURE=%s), 현재/완료/미래 3색 서로 다름=%s -> %s" % [
+		future_pixel, map_script.MAP_CARD_TINT_FUTURE, states_differ_ok,
+		"OK" if (future_is_tex and future_color_ok and states_differ_ok) else "FAIL"
+	])
+	future_node.queue_free()
+
+	# --- (3) 파일 삭제 -> 다시 StyleBoxFlat 폴백 ---
+	DirAccess.remove_absolute(tmp_dir + "panel/card_base.png")
+	DirAccess.remove_absolute(tmp_dir + "panel/card_accent.png")
+	var removed_node: Control = map_instance._make_map_node(0, tmp_dir)
+	add_child(removed_node)
+	var removed_is_flat: bool = removed_node.get_theme_stylebox("panel") is StyleBoxFlat
+	ok = removed_is_flat and ok
+	lines.append("  (3) card_base.png 삭제 후 다시 _make_map_node(): 스타일=%s (기대 StyleBoxFlat로 복귀) -> %s" % [
+		removed_node.get_theme_stylebox("panel").get_class(), "OK" if removed_is_flat else "FAIL"
+	])
+	removed_node.queue_free()
+	DirAccess.remove_absolute(tmp_dir + "panel")
+	DirAccess.remove_absolute(tmp_dir)
+
+	# --- (4) production 자산(이미 입고됨) end-to-end: 기본 base_dir로 부르면 StyleBoxTexture,
+	#     정예/보스 배지(FamilyIcon)·선택지 칩(_make_type_chip)은 이 변경과 무관한 별도
+	#     PanelContainer라 자식 개수가 그대로인지도 함께 확인(가독성 유지 요건).
+	RunState.rooms_cleared = 0
+	var prod_node: Control = map_instance._make_map_node(0)
+	add_child(prod_node)
+	var prod_style: StyleBox = prod_node.get_theme_stylebox("panel")
+	var prod_is_tex: bool = prod_style is StyleBoxTexture
+	ok = prod_is_tex and ok
+	var prod_margin_ok: bool = prod_is_tex and (prod_style as StyleBoxTexture).texture_margin_left == 24
+	ok = prod_margin_ok and ok
+	# 자식 구조: vbox(title + 전투 칩 + 노출된 선택지 칩들) — 적어도 title+전투 칩 2개는 항상 있음.
+	var vbox := prod_node.get_child(0) as VBoxContainer
+	var chips_preserved_ok: bool = vbox != null and vbox.get_child_count() >= 2
+	ok = chips_preserved_ok and ok
+	lines.append("  (4) production: 스타일=%s(기대 StyleBoxTexture) texture_margin_left=%s(기대 24), 제목+선택지 칩 구조 보존(%d개, 기대 >=2) -> %s" % [
+		prod_style.get_class(), (prod_style as StyleBoxTexture).texture_margin_left if prod_is_tex else "(없음)",
+		vbox.get_child_count() if vbox != null else 0,
+		"OK" if (prod_is_tex and prod_margin_ok and chips_preserved_ok) else "FAIL"
+	])
+	prod_node.queue_free()
+
+	map_instance.free()
+	RunState.character_id = character_backup
+	RunState.rooms_cleared = rooms_backup
+	RunState.round_index = round_backup
+
+	return ok
+
+
 ## [미니 기획 E]-2 검증(INBOX.md 2026-09-17 기획자 결정, [대형 기획 5] F-2(b)로 13종/
 ## 3슬롯으로 갱신): STARTING_SKILLS가 모두 전투 배선 없이도 검증 가능한 순수 데이터/필터
 ## 로직이므로, 기획서가 명시한 "캐릭터별 선택 가능한 시작 스킬 목록"(슬롯 0/1/2 순서 포함)이
@@ -5636,7 +5774,14 @@ func _check_h1_test_battle_mode(lines: PackedStringArray) -> bool:
 	normal_instance._apply_monster_config(normal_config)
 	normal_instance._reset_player_battle_state()
 	normal_instance.monster_hp = 1
-	var normal_atk_bag := DiceBag.new(4, 1)
+	# round1/room0 몬스터는 RunState.monster_plan(reset_run()의 randi() 시드)이 매번
+	# 다르게 뽑는다 — "유령"(ghost, seal)이 뽑히면 공격 다이스가 1개뿐일 때
+	# apply_zero_lowest()가 그 유일한 다이스를 통째로 0으로 만들어 강제 승리 전제가
+	# 깨지는 실제 원인을 찾았다(기존 "6번 중 1번 일회성 FAIL" 노이즈, STATUS.md
+	# 알려진 이슈). 다이스를 2개로 늘리면 seal이 하나를 0으로 만들어도 나머지
+	# 하나(50)가 그대로 남아 몬스터 HP 1을 확실히 넘어서므로, 어떤 일반 몬스터가
+	# 뽑혀도(sticky -1/dull -1 정도의 다른 감쇠도 마찬가지) 결과가 결정적이다.
+	var normal_atk_bag := DiceBag.new(4, 2)
 	normal_atk_bag.force_fixed_value(50)
 	var normal_def_bag := DiceBag.new(4, 1)
 	normal_def_bag.force_fixed_value(0)
@@ -6799,13 +6944,26 @@ func _check_k4c_skill_icon_external_art(lines: PackedStringArray) -> bool:
 		expected_path, "OK" if path_ok else "FAIL", actual_path
 	])
 
-	# (2) 운영 경로(resources/skills/)에는 아직 아무 override도 없으므로, 존재하는
-	# 스킬 id라도 load_external_art()가 null을 돌려줘야 한다(파일 없음 -> 조용히 폴백,
-	# 에러 없이).
+	# (2) 운영 경로(resources/skills/)에 파일이 없는 id는 load_external_art()가 null을
+	# 돌려줘야 한다(파일 없음 -> 조용히 폴백, 에러 없이). "deep_breath"로 테스트하던
+	# 과거 버전은 2026-10-16에 아트 스레드가 33종 스킬 아이콘을 전부 입고하면서
+	# 깨졌다(STATUS.md 알려진 이슈와 같은 "하드코딩된 미입고 가정" 패턴 — ART-1b의
+	# berserker/guardian face_* 사례와 동일) — 실존 스킬 id 대신 존재할 수 없는 id로
+	# 바꿔 "파일 없음 -> null" 계약 자체를 검증한다.
+	var missing_tex := SkillIcon.load_external_art("k4c_nonexistent_skill_id_xyz")
+	var missing_null_ok: bool = missing_tex == null
+	ok = missing_null_ok and ok
+	lines.append("  load_external_art(존재하지 않는 id, 운영 경로): 파일 없음 -> null -> %s" % ("OK" if missing_null_ok else "FAIL"))
+
+	# (2b) 반대로 "deep_breath"는 이제 아트 스레드가 실제로 입고한 스킬이므로, 운영
+	# 경로에서 실제 Texture2D를 돌려줘야 한다(end-to-end — "파일이 있으면 쓴다" 쪽
+	# 계약도 production 자산으로 직접 확인).
 	var prod_tex := SkillIcon.load_external_art("deep_breath")
-	var prod_null_ok: bool = prod_tex == null
-	ok = prod_null_ok and ok
-	lines.append("  load_external_art('deep_breath', 운영 경로): 파일 없음 -> null -> %s" % ("OK" if prod_null_ok else "FAIL"))
+	var prod_loaded_ok: bool = prod_tex != null
+	ok = prod_loaded_ok and ok
+	lines.append("  load_external_art('deep_breath', 운영 경로): 아트 입고됨 -> Texture2D 로드=%s -> %s" % [
+		prod_loaded_ok, "OK" if prod_loaded_ok else "FAIL"
+	])
 
 	# (3) user:// 임시 폴더에 override가 없는 상태에서 SkillIcon을 만들면 render_source()가
 	# "motif"여야 한다(아직 파일 없음).
