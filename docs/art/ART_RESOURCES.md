@@ -364,7 +364,7 @@ Work는 `resources/ui/` 이미지가 있으면 StyleBoxTexture로 쓰고, 없으
 | UI351 | 구분선 (가로 라인 + 중앙 장식) | `deco/divider_base.png` + `divider_accent.png` (중앙 보석만 ACCENT) | 512×16 | 좌우 0 (중앙 고정, 가로 3분할: 좌 240 / 중 32 / 우 240) | 📦 (2026-10-15) |
 | UI352 | 섹션 제목 양옆 장식 | `deco/title_ornament_{left,right}_base.png` + `_accent.png` (안쪽 끝 보석만 ACCENT, 그림은 48×24 안 세로 가운데 48×11) | 48×24 | (늘이지 않음) | 📦 (2026-10-15) |
 | **UI 아이콘 (UI400~, 흰색 단색 실루엣 — 코드가 착색)** | | | | | |
-| UI400~408 | 골드 / 눈금 / 주사위 / HP(하트) / 방어(방패) / 공격(칼) / 왕관(정예·보스) / 해골(보스) / 잠금 | `icon/{gold,pip,dice,hp,defense,attack,crown,skull,lock}.png` | 64×64 | — | 📝 |
+| UI400~408 | 골드 / 눈금 / 주사위 / HP(하트) / 방어(방패) / 공격(칼) / 왕관(정예·보스) / 해골(보스) / 잠금 | `icon/{gold,pip,dice,hp,defense,attack,crown,skull,lock}.png` | 64×64 | — | 📦 (2026-10-15) |
 | UI410~413 | 몬스터 계열 아이콘 (인간형·부정형·야수형·언데드형) | `icon/family_{humanoid,amorphous,beast,undead}.png` | 64×64 | — | ➖ 보류 (2-4) |
 | **배경 (BG 분류, 선택)** | | | | | |
 | BG001 | 던전 맵 배경 | `resources/backgrounds/dungeon_map.png` | 1280×720 이상 | — | 📝 |
@@ -661,6 +661,7 @@ Work는 `resources/ui/` 이미지가 있으면 StyleBoxTexture로 쓰고, 없으
 | 2026-10-15 | ART-UI250·254·255 턴/라운드/도감 상태 배지 (GPT 생성 1차 채택 — 3단 시트. 끝장식이 넓어 마진 변경: 턴 좌우 44, 라운드 좌우 40, 도감 좌우 18) | `resources/ui/badge/{turn,round}_{base,accent}.png`, `codex_base.png` 입고. 늘림 테스트 통과. 티어 배지(UI251~253)는 다음 | `tools/artgen/out/ui_badges/stack.png` |
 | 2026-10-15 | ART-UI251~253 티어 배지 일반/정예/보스 (GPT 생성 1차 채택 — 가로 3단 시트, 같은 배율로 64×64에 맞춰 크기 위계 유지: 일반 쇠 방패·정예 금관·보스 뿔+해골 진홍) | `resources/ui/badge/tier_{normal,elite,boss}.png` 입고. 64px 판독 확인. **U4 배지 완료** | `tools/artgen/out/ui_tier/emblems_preview.png` |
 | 2026-10-15 | ART-UI350~352 스탯 칩·구분선·제목 장식 (GPT 생성 1차 채택 — 3단 시트. 구분선은 가운데 장식 32px 고정 + 양옆 선을 240px로 늘려 512×16 구성, 제목 장식은 좌우 분리 후 비율 유지) | `resources/ui/deco/` 입고. **U5 완료** | `tools/artgen/out/ui_deco/deco_preview.png` |
+| 2026-10-15 | ART-UI400~408 UI 아이콘 9종 (GPT 생성 2차 — 1차 "투명 배경에 흰 실루엣"은 배경에 흰 얼룩이 끼고 칼·자물쇠가 붙어 폐기. 2차는 **흰 바탕에 검은 실루엣**으로 받아 반전(알파=어두운 정도) → 흰색+알파, 3×3 격자 분리 후 58px로 맞춰 64×64 중앙 배치) | `resources/ui/icon/{gold,pip,dice,hp,defense,attack,crown,skull,lock}.png` 입고. 64·24px 착색 판독 확인. **U6 완료**(계열 아이콘 UI410~413은 보류 유지) | `tools/artgen/out/ui_icons/final/icons_preview.png` |
 
 ---
 
