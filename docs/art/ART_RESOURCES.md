@@ -355,10 +355,10 @@ Work는 `resources/ui/` 이미지가 있으면 StyleBoxTexture로 쓰고, 없으
 | **바 (UI200~)** | | | | | |
 | UI200 | HP 바 | `bar/hp_frame_base.png` + `hp_frame_accent.png` (9-slice) + `bar/hp_fill.png` (64×8 흰·회색 그라데이션, 코드가 녹→주황→빨강 착색, 9-slice 좌우 2). **채움 위치 = 프레임 안쪽 홈: 프레임 사각형에서 좌 22 / 상 11 / 우 22 / 하 10 px 안쪽** (마진 안이라 늘려도 고정) | 256×28 | **프레임 좌우 32, 상하 10** (2026-10-15 변경) | 📦 (2026-10-15) |
 | **배지·리본 (UI250~)** | | | | | |
-| UI250 | 턴 표시 배지 (내 공격/방어/몬스터 턴 공용) | `badge/turn_base.png` + `turn_accent.png` | 192×40 | 좌우 20, 상하 12 | 📝 |
+| UI250 | 턴 표시 배지 (내 공격/방어/몬스터 턴 공용) | `badge/turn_base.png` + `turn_accent.png` | 192×40 | **좌우 44, 상하 12** (2026-10-15 변경 — 화살촉 끝장식 폭) | 📦 (2026-10-15) |
 | UI251~253 | 티어 배지 일반 / 정예 / 보스 | `badge/tier_{normal,elite,boss}.png` | 64×64 | (늘이지 않음) | 📝 |
-| UI254 | 라운드 배지 | `badge/round_base.png` + `round_accent.png` | 96×40 | 좌우 16, 상하 12 | 📝 |
-| UI255 | 도감 상태 배지 (보유/발견/미발견 공용) | `badge/codex_base.png` | 96×28 | 좌우 12, 상하 8 | 📝 |
+| UI254 | 라운드 배지 | `badge/round_base.png` + `round_accent.png` | 96×40 | **좌우 40, 상하 12** (2026-10-15 변경) | 📦 (2026-10-15) |
+| UI255 | 도감 상태 배지 (보유/발견/미발견 공용) | `badge/codex_base.png` | 96×28 | **좌우 18, 상하 8** (2026-10-15 변경) — 밝은 회색 면, 코드가 상태색으로 modulate | 📦 (2026-10-15) |
 | **칩·구분선·장식 (UI350~)** | | | | | |
 | UI350 | 스탯 칩 배경 | `deco/chip.png` | 64×32 | 좌우 12, 상하 10 | 📝 |
 | UI351 | 구분선 (가로 라인 + 중앙 장식) | `deco/divider.png` | 512×16 | 좌우 0 (중앙 고정, 가로 3분할: 좌 240 / 중 32 / 우 240) | 📝 |
@@ -658,6 +658,7 @@ Work는 `resources/ui/` 이미지가 있으면 StyleBoxTexture로 쓰고, 없으
 | 2026-10-15 | ART-UI100 주 버튼 5상태 (GPT 생성 1차 채택 — 한 장에 5상태를 세로로 그리게 해 일관성 확보, 새 도구 `sheet_split.gd`로 분리. 모서리 캡이 가로 약 26px라 마진 좌우 28 / 상하 16. 파일을 상태별 base+accent로 나눔) | `resources/ui/button/primary_*` 입고. 128~300px 늘림 테스트 통과. 화면 적용은 Work M-5 대기 | `tools/artgen/out/ui_btn_primary/stack.png` |
 | 2026-10-15 | ART-UI101 보조 버튼 5상태 (GPT 생성 1차 채택, 주 버튼과 같은 틀) | `resources/ui/button/secondary_*` 입고. **U2 버튼 완료**. 화면 적용은 Work M-5 대기 | `tools/artgen/out/ui_btn_secondary/stack.png` |
 | 2026-10-15 | ART-UI200 HP 바 (GPT 생성 1차 채택 — 프레임+채움 2단 시트. 흰 배경은 sheet_split이 제거, 채움 막대의 검은 외곽선은 안쪽 6px 잘라냄, 무채색화) | `resources/ui/bar/hp_frame_{base,accent}.png`, `hp_fill.png` 입고. 256~540px + 녹/주황/빨강 착색 미리보기 확인. **U3 완료**. 화면 적용은 Work M-5 대기 | `tools/artgen/out/ui_hpbar/hp_preview.png` |
+| 2026-10-15 | ART-UI250·254·255 턴/라운드/도감 상태 배지 (GPT 생성 1차 채택 — 3단 시트. 끝장식이 넓어 마진 변경: 턴 좌우 44, 라운드 좌우 40, 도감 좌우 18) | `resources/ui/badge/{turn,round}_{base,accent}.png`, `codex_base.png` 입고. 늘림 테스트 통과. 티어 배지(UI251~253)는 다음 | `tools/artgen/out/ui_badges/stack.png` |
 
 ---
 
