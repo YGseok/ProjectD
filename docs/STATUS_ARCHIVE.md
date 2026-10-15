@@ -8,6 +8,65 @@
 
 ---
 
+- **2026-10-15 (205)**: INBOX.md 최우선 지시 [대형 기획 13] M-4(이벤트/상점/스토리
+  이벤트 화면 통일) 완료 — **[대형 기획 13](M-1~M-5, ART-2 포함) 전체 완료.**
+  event/shop/story_event 세 화면을 dungeon_map/combat_test와 같은 HUD·구역 패널·
+  버튼 스타일로 맞췄다. **Before**(`qa_out/m4_before_{shop,event,story}.png`):
+  버튼(안전/위험·A안/B안·던전으로 돌아가기·커스터마이징·카드 안 구매/적용/획득
+  버튼 전부)이 테두리 없는 기본 Godot 스타일(포커스된 버튼만 핑크 테두리)이라
+  던전 맵/전투의 코너 장식 있는 입체 버튼과 완전히 다른 시각 언어였고, shop
+  "보유 골드"는 평문, event/story_event의 서사 텍스트는 배경 위에 맨 글자로
+  떠 있었다. **수정**: ① 세 화면의 모든 버튼(정적 scene 버튼 + `_rebuild_items()`/
+  `_show_item_offer()`/`_show_skill_offer()`가 매번 새로 만드는 동적 버튼까지)에
+  `UIKit.style_primary_button`/`style_secondary_button`을 적용 — 각 화면의
+  "유일한 진행 행동"만 주 행동(shop "던전으로 돌아가기", event/story_event
+  "계속"), 나머지는 보조. event의 안전/위험 선택지는 서로 다른 tint(초록/
+  주황-빨강)로 의미를 구분(dungeon_map 정예 전투의 빨간 tint와 같은 패턴,
+  기존 `tint` 매개변수 재사용 — 새 매개변수 추가 없음). ② `UIKit.make_bar`/
+  `make_stat_chip`을 그대로 재사용해 shop의 평문 골드 라벨을 아이콘+큰 숫자+
+  캡션 HUD 칩으로 교체. ③ 신규 `UIKit.make_backdrop()`(제목/바디 스캐폴딩이
+  없는 순수 배경 프레임 — `make_section()`에서 스킨 적용 로직만 분리한 경량
+  버전)으로 event/story_event의 PromptLabel/Description 뒤에 구역 패널 느낌의
+  배경을 깔았다 — 기존 Label 노드는 reparent하지 않고 `move_child(panel, 1)`로
+  Background 바로 뒤에 끼워 넣어 기존 `@onready` 참조/테스트 호환성을 그대로
+  유지했다. 아이템 카드(`ItemCardStyle`)의 등급(S/A/B/C) 색 테두리 신호는
+  M-5(a) 결정대로 손대지 않고 유지. **검증**: `dice_test.gd`에 신규
+  `_check_m4_event_shop_story_ui`(14단계 — shop HUD 칩 실제 갱신(42→777
+  재호출로 확인)/버튼 `has_theme_stylebox_override` 실제 적용 여부/안전·위험
+  tint가 서로 다른 합성 텍스처인지/카드 안 동적 버튼 스타일/서사 텍스트 배경
+  프레임이 올바른 인덱스에 있는지)을 추가해 전체 PASS. 과정에서 테스트 코드
+  자체의 버그 2개를 발견·수정했다 — (1) 외부 스크립트(`dice_test.gd`)에서
+  `event._setup_skill_event()`(매개변수 타입 `Array[Dictionary]`)에 배열
+  리터럴을 직접 넘기면 GDScript가 자동으로 타입을 맞춰주지 않아 런타임
+  `SCRIPT ERROR`로 조용히 실패하는 함정(변수에 명시적으로 `Array[Dictionary]`
+  타입을 선언한 뒤 넘기는 것으로 해결 — 같은 스크립트 내부 호출(`event.gd`
+  자신의 `_debug_force_skill_event_as_guardian()` 등)은 리터럴이 그대로
+  통하는 것과 대조적이라 주의), (2) 로그 문구에서 불리언 값을 반전해서
+  출력하던 복붙 실수(검증 로직 자체는 맞았는데 사람이 읽는 메시지만 틀림) —
+  둘 다 테스트 코드 안의 버그였고 게임 로직과는 무관. **참고(세션 중 발견,
+  별도 조치 불필요로 판단)**: 전체 스위트를 반복 실행하는 과정에서 H-1
+  "일반 모드 보존" 검증이 6번 중 1번꼴로 일회성 FAIL했는데, (195)의
+  완료 기록(현재 `docs/STATUS_ARCHIVE.md`)에도 같은 테스트가 같은 패턴
+  (일회성 FAIL 후 재실행 시 항상 PASS, 원본 코드로 되돌려도 재현 안 됨)으로
+  이미 기록돼 있어 **이번 세션이 새로 만든 문제가 아니라 기존에 알려진
+  pre-existing 노이즈임을 교차 확인**(내 변경 전 커밋으로는 재현 시도
+  안 함 — 과거 기록과 패턴이 동일해 추가 검증 없이도 충분히 신뢰 가능하다고
+  판단). **셀프 피드백**: `qa_out/m4_after_{shop,event,story}.png`(기본) +
+  `m4_after_shop_partial.png`(일부 구매 가능)/`m4_after_event_pips.png`
+  (안전 선택 카드)/`m4_after_event_fail.png`(위험 실패+"계속")/
+  `m4_after_event_skill.png`(스킬 제안 카드 2장)/`m4_after_story_picked.png`
+  (선택 후 "계속") 총 9장 육안 확인 — 버튼이 전부 입체 스타일로 바뀌고
+  서사 텍스트에 배경 프레임이 생겨 던전 맵/전투와 통일됨, 레이아웃 겹침/
+  잘림 없음, 1라운드 만에 "하" 수준 문제만 남아 종료. `docs/DESIGN.md`에
+  신규 "UI" 절(공용 UI 컴포넌트 목록과 사용처 표)을 추가하고, `docs/
+  UI_REVIEW.md`에 "M-4" 절 + "[대형 기획 13] 전체 Before/After 요약" 절을
+  추가했다. INBOX.md의 [대형 기획 13] 전체 항목을 "처리됨"으로 옮겼다
+  (처리됨 13개 → 가장 오래된 "[미니 기획 E] 캐릭터별 시작 스킬 선택"을
+  `docs/INBOX_ARCHIVE.md`로 이동해 12개 유지). 전투 규칙/밸런스는 전혀
+  건드리지 않음. **다음은 [대형 기획 14](조작/선택 화면/이벤트 특화
+  클래스·전용 이벤트, N-1 → N-6) N-1부터** — INBOX.md가 명시한 순서/의존성
+  (M-4 완료 후 착수)이 이제 충족됐다.
+
 - **2026-10-15 (204)**: 세션 지시로 [대형 기획 13] M-4보다 먼저 [미니 기획 ART-2]
   (아트 스레드 "ProjectD Art"가 전달한 "전투 화면 표정 컷 하단 잘림 처리")를
   **완료**. 문제: ART-1b(201)로 입고된 견습 모험가 face_* 5장이 `qa_out/

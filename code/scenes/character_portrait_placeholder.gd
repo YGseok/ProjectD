@@ -48,6 +48,13 @@ var _use_face_art := false
 var _character_id := ""
 var _face_rect: TextureRect = null
 
+## 2026-10-16 [대형 기획 14] N-6 인수인계 수정 — CharacterArt.has_all_faces()/load_face()의
+## base_dir 주입 지점을 그대로 통과시킨다(skill_icon.gd의 external_art_base_dir와 같은
+## 패턴). dice_test.gd가 user:// 임시 디렉터리를 넣어 "5장 모두/일부만/없음"을 실제
+## 캐릭터 입고 상태에 의존하지 않고 검증할 수 있게 한다 — production 호출부(combat_test.gd)는
+## 전혀 안 바꿔도 기본값(CharacterArt.BASE_DIR)으로 그대로 동작한다.
+var art_base_dir: String = CharacterArt.BASE_DIR
+
 
 func set_palette(new_hair_color: Color, new_dress_color: Color) -> void:
 	hair_color = new_hair_color
@@ -61,7 +68,7 @@ func set_palette(new_hair_color: Color, new_dress_color: Color) -> void:
 ## _use_face_art가 항상 false라 지금과 동일한 도형 플레이스홀더로 동작한다.
 func set_character(character_id: String) -> void:
 	_character_id = character_id
-	_use_face_art = CharacterArt.has_all_faces(character_id)
+	_use_face_art = CharacterArt.has_all_faces(character_id, art_base_dir)
 	if _use_face_art:
 		_ensure_face_rect()
 	if _face_rect != null:
@@ -89,7 +96,7 @@ func _ensure_face_rect() -> void:
 func set_expression(new_expression: String) -> void:
 	expression = new_expression
 	if _use_face_art and _face_rect != null:
-		_face_rect.texture = CharacterArt.load_face(_character_id, expression)
+		_face_rect.texture = CharacterArt.load_face(_character_id, expression, art_base_dir)
 	queue_redraw()
 
 

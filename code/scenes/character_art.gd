@@ -50,27 +50,46 @@ static func load_thumb(character_id: String) -> Texture2D:
 	return atlas
 
 
-static func face_path(character_id: String, expression: String) -> String:
-	return (BASE_DIR % character_id) + "face_%s.png" % expression
+## base_dir(2026-10-16 [대형 기획 14] N-6 인수인계 수정 — "berserker는 face_*가
+## 없다"는 가정이 실제 아트 입고로 깨져 dice_test.gd ART-1b 검증 4건이 FAIL로
+## 돌아선 문제): 기본값은 production 경로(BASE_DIR)지만, dice_test.gd가 user://
+## 임시 디렉터리를 넘겨 "5장 모두 있음/일부만 있음/없음" 세 경우를 실제 캐릭터
+## 입고 상태에 의존하지 않고 검증할 수 있게 한다 — ui_kit.gd/skill_icon.gd의
+## base_dir 주입 패턴(FileAccess.file_exists + Image.load, ResourceLoader 경유
+## 안 함)과 동일한 이유.
+static func face_path(character_id: String, expression: String, base_dir: String = BASE_DIR) -> String:
+	return (base_dir % character_id) + "face_%s.png" % expression
 
 
-## 전투 화면용 표정 컷(ART-1b 규칙) 1장. 아직 입고된 캐릭터가 없어 지금은 항상 null을
-## 돌려주지만, K-2의 "얼굴 이미지 소스 우선순위 ① face_neutral.png"가 이 함수를 먼저
-## 확인하게 해 입고되는 즉시 자동으로 쓰이게 해둔다.
-static func load_face(character_id: String, expression: String) -> Texture2D:
-	var path := face_path(character_id, expression)
-	if not ResourceLoader.exists(path):
+## 전투 화면용 표정 컷(ART-1b 규칙) 1장. 파일이 없으면 null(호출하는 쪽이 기존 도형
+## 플레이스홀더로 폴백). base_dir가 production 경로(기본값)면 기존과 동일하게
+## ResourceLoader(load())로 가져온다 — res:// 임포트된 리소스를 그대로 쓰므로 export
+## 경고("Loaded resource as image file...")가 없고 기존 동작과 완전히 같다. base_dir가
+## 주입된 테스트 경로(user:// 등)일 때만 FileAccess.file_exists + Image.load로 읽는다
+## (ui_kit.gd/skill_icon.gd의 base_dir 주입 패턴과 동일한 이유 — ResourceLoader는
+## .import가 없는 user:// raw PNG를 못 읽는다).
+static func load_face(character_id: String, expression: String, base_dir: String = BASE_DIR) -> Texture2D:
+	var path := face_path(character_id, expression, base_dir)
+	if base_dir == BASE_DIR:
+		if not ResourceLoader.exists(path):
+			return null
+		return load(path) as Texture2D
+	if not FileAccess.file_exists(path):
 		return null
-	return load(path) as Texture2D
+	var img := Image.new()
+	if img.load(path) != OK:
+		return null
+	img.generate_mipmaps()
+	return ImageTexture.create_from_image(img)
 
 
 ## ART-1b: face_{neutral,happy,hurt,sad,angry} 5장이 전부 입고됐는지 — 전투 화면이
 ## "일부만 원화로 섞이는" 상태를 막기 위해 5장 모두 있을 때만 원화 모드로 전환한다.
 const FACE_EXPRESSIONS := ["neutral", "happy", "hurt", "sad", "angry"]
 
-static func has_all_faces(character_id: String) -> bool:
+static func has_all_faces(character_id: String, base_dir: String = BASE_DIR) -> bool:
 	for expression in FACE_EXPRESSIONS:
-		if not ResourceLoader.exists(face_path(character_id, expression)):
+		if not FileAccess.file_exists(face_path(character_id, expression, base_dir)):
 			return false
 	return true
 

@@ -664,8 +664,10 @@ HP×1.0 — 난이도 공식·몬스터별 `atk_dice_delta`/`def_dice_delta`/`hp
 
 #### 특수 이벤트 — `code/scenes/event.gd` (아이템 정의: `code/systems/event_item_pool.gd`)
 
-- 대상: 모든 캐릭터 공통(캐릭터별 차등 없음) — 단 이벤트 주사위 면 개수(`event_die_
-  sides`)만 곡예사(D12)가 예외(위 "이벤트 주사위" 절 참고).
+- 대상: 기본적으로 모든 캐릭터 공통(캐릭터별 차등 없음) — 이벤트 주사위 면 개수
+  (`event_die_sides`)는 곡예사(D12)가 예외(위 "이벤트 주사위" 절 참고), 아래
+  "캐릭터 전용 이벤트/특별 선택지"(N-6)는 8명 중 1명(전용 이벤트) 또는 1명이
+  더 유리한(특별 선택지) 형태로 캐릭터별 차등이 생긴 첫 사례.
 - **흐름(2026-09-16부터, INBOX.md [미니 기획 B] 2~3번)**: 방마다 선택지는 항상 2개로
   고정된다 — "안전하게 넘어가기"(리스크 없음, 확정 보상) / "위험을 감수하기"(캐릭터의
   이벤트 주사위를 1회 굴려 `DC = min(5, 3 + room_index / 2)`와 비교 — 방 0~1은 DC3,
@@ -694,6 +696,31 @@ HP×1.0 — 난이도 공식·몬스터별 `atk_dice_delta`/`def_dice_delta`/`hp
   아이템을 실제 주머니(공격/방어)에 넣거나 인벤토리에 담는 카드 UI는 이전과 동일
   (add_die는 주머니 선택 버튼, upgrade_die/gain_pips는 즉시 획득 버튼 하나) — 골드/
   눈금 보상은 카드 없이 문구만 보여주고 즉시 반영된다.
+- **캐릭터 전용 이벤트 + 특별 선택지(2026-10-16 N-6 신규)**: `EventChallengePool.
+  CHALLENGES`의 각 항목에 선택적 `only_characters`(이벤트 수준)/`special_choice`
+  (선택지 수준) 필드가 추가됐다.
+  - **전용 이벤트 4종**(`only_characters`에 캐릭터 id 1개만 — `EventChallengePool.
+    pick_challenge()`가 그 캐릭터에게만 `EXCLUSIVE_EVENT_CHANCE`(=0.25) 확률로
+    공용 4종(보물/도박/탐색/함정 해체) 대신 이 전용 이벤트를 섞어준다, 다른
+    캐릭터는 절대 못 만남): `treasure_map`(해적, "낡은 보물 지도") / `circus_master`
+    (곡예사, "서커스 단장의 내기") / `duel_arena`(광전사, "결투장의 부름") /
+    `ancient_oath`(수호자, "오래된 성소의 수호 서약"). 화면 제목 옆에 "(○○ 전용)"
+    배지가 붙는다.
+  - **특별 선택지 4종**(`special_choice`에 `requires_character`+`label`+
+    `description`+`reward` — 기존 공용 4종 각각에 1개씩): treasure→enchantress
+    "매혹의 시선으로 숨은 보물까지 홀린다" / gambling→novice "다재다능하게 승부를
+    가른다" / exploration→shieldbearer "저주의 눈으로 샛길의 함정까지 꿰뚫는다" /
+    trap_disarm→explosive "화약으로 통째로 날려버린다". safe/risky 버튼 아래
+    세 번째 선택지로 표시되는데, 비소유 캐릭터에게는 잠김(자물쇠 아이콘+
+    "🔒 ○○ 선택 가능" 문구+흐린 효과 설명, 방향키로 포커스는 가지만 Space를
+    눌러도 실행 안 됨)으로, 소유 캐릭터에게는 활성(금색 테두리+"○○ 전용" 배지)
+    으로 보이며 굴림 없이 즉시 보상을 받는다 — 보상은 그 challenge의
+    `safe_reward`보다 같은 type 기준으로 분명히 크다(`EventChallengePool.
+    reward_expected_value()`로 검증, 실측 2~4배).
+  - 이로써 8명(견습 모험가/광전사/수호자/폭발병/주술사/매혹사/곡예사/해적) 전원이
+    전용 이벤트 또는 특별 선택지를 최소 1개씩 보유한다. 선택은 `event.gd`의
+    `challenge_seed(run_seed, room_index)`로 시드한 결정적 RNG 하나로 이뤄져
+    같은 런의 같은 방이면 테스트 전투/QA 시드에서도 항상 같은 결과가 나온다.
   **[기획자 결정 - 2026-09-16, 해결안 (b)]** 안전/위험 풀은 원래 각각 C만/A·S만이라
   B급 아이템(D8)이 어느 풀에도 안 걸리는 사각지대가 있었는데, 등급 경계를 B에서
   겹치게 넓혀(안전=C~B, 위험 성공=B~A~S) 해결했다(`EventItemPool.SAFE_GRADE_WEIGHTS`

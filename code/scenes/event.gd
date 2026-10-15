@@ -56,6 +56,21 @@ extends Node2D
 ## 승부사)·굴림 보정(곡예 흥행(+))·성공 보너스(한탕)는 챌린지 종류와 무관하게 그대로
 ## 전부 적용된다(_dc는 종류 선택 전에 한 번만 계산, event_roll_bonus/FORTUNE_GOLD_BONUS는
 ## tier 분기 전에 적용).
+##
+## [대형 기획 14] N-6(2026-10-16, INBOX.md "남은 이슈" 최종 조각): 캐릭터 전용 이벤트 +
+## 특별 선택지. CHALLENGES 추첨을 "randi() % size"(전역 RNG, 재현 불가)에서
+## EventChallengePool.pick_challenge(character_id, rng)로 교체해 run_seed+방 번호로
+## 시드한 RandomNumberGenerator 하나로 "전용 이벤트 대체 여부 + 최종 챌린지"까지 전부
+## 결정적으로 만든다(challenge_seed(), 아래) — 같은 런의 같은 방이면 테스트 전투/QA
+## 시드에서도 항상 같은 챌린지가 나온다. 선택된 챌린지가 only_characters를 가지면
+## (= 전용 이벤트, 이 캐릭터만 볼 수 있음) 제목에 "(이름 전용)" 배지를 붙이고
+## (_setup_item_event()), special_choice가 있으면 safe/risky 버튼 아래 세 번째
+## 선택지를 추가로 그린다(_build_special_choice_button()) — 소유 캐릭터(RunState.
+## character_id가 requires_character에 있음)에게는 활성(굴림 없이 즉시 reward 획득,
+## 그 challenge의 safe_reward보다 같은 type 기준으로 더 크다), 그 외에게는 잠김
+## (자물쇠 문구 + 흐린 효과 설명, pressed 미연결이라 방향키로 포커스는 가지만 Space를
+## 눌러도 아무 일도 일어나지 않는다 — character_select.gd의 잠긴 시작 스킬 슬롯과 같은
+## "포커스는 가능, 실행은 불가" 패턴).
 
 @onready var items_root: Node2D = $ItemsRoot
 @onready var roll_root: Node2D = $RollRoot
@@ -123,6 +138,21 @@ var _shortcut_buttons: Array[Button] = []
 ## 거친 뒤 덮어써서) 결정적으로 재현할 때도 항상 유효한 값을 갖는다.
 var _challenge: Dictionary = EventChallengePool.CHALLENGES[0]
 
+## N-6: _challenge.special_choice가 있을 때 safe/risky 아래에 그려지는 세 번째
+## 선택지 버튼 — _setup_item_event()가 호출될 때마다(최초 또는 _debug_force_challenge())
+## 새로 만들어지므로, 이전 것을 지우기 위해 참조를 들고 있는다(없으면 null).
+var _special_button: Button = null
+
+## N-6: run_seed+방 번호로 챌린지 선택을 결정적으로 만드는 시드 공식 — 몬스터 플랜
+## (run_state.gd의 ELITE_SEED_OFFSET)이나 던전 맵 방 선택지(dungeon_map.gd의
+## idx*104729+7, run_seed 미포함)와 오프셋을 분리해 "이 시드가 어디서 왔는지"
+## 추적하기 쉽게 한다(실제로 겹쳐도 서로 다른 RandomNumberGenerator 인스턴스라
+## 문제는 없음).
+const CHALLENGE_SEED_OFFSET := 50021
+
+static func challenge_seed(run_seed: int, room_index: int) -> int:
+	return run_seed + room_index * 104729 + CHALLENGE_SEED_OFFSET
+
 
 func _ready() -> void:
 	# L-3(2026-10-14, [대형 기획 12] K-3 후속): 배경/제목을 현재 캐릭터 퍼스널 컬러로.
@@ -164,10 +194,15 @@ func _ready() -> void:
 	if _is_skill_event:
 		_setup_skill_event(skill_candidates)
 	else:
-		# N-5(b): "위험을 감수하기" 상황을 매번 무작위로 고른다(보물/도박/탐색/함정
-		# 해체 중 1개) — 다른 두 분기(스킬/스킬 강화)와 완전히 독립된 별도 굴림이라
-		# 서로 확률에 영향을 주지 않는다.
-		_challenge = EventChallengePool.CHALLENGES[randi() % EventChallengePool.CHALLENGES.size()]
+		# N-5(b)/N-6: "위험을 감수하기" 상황을 고른다(보물/도박/탐색/함정 해체 중 1개,
+		# 전용 이벤트가 있는 캐릭터는 EXCLUSIVE_EVENT_CHANCE로 그 캐릭터의 전용 이벤트로
+		# 대체) — 다른 두 분기(스킬/스킬 강화)와 완전히 독립된 별도 굴림이라 서로
+		# 확률에 영향을 주지 않는다. run_seed+방 번호로 시드해 같은 런의 같은 방이면
+		# 항상 같은 챌린지가 나오게 한다(테스트 전투/QA 시드에서도 재현 가능해야 한다는
+		# INBOX N-6 지시 반영).
+		var challenge_rng := RandomNumberGenerator.new()
+		challenge_rng.seed = challenge_seed(RunState.run_seed, RunState.rooms_cleared)
+		_challenge = EventChallengePool.pick_challenge(RunState.character_id, challenge_rng)
 		_setup_item_event()
 
 
@@ -176,6 +211,11 @@ func _ready() -> void:
 ## 그대로 동작한다(하드코딩 금지 원칙).
 func _setup_item_event() -> void:
 	title_label.text = "특수 이벤트 — %s" % _challenge["subtitle"]
+	# N-6: 전용 이벤트(이 캐릭터만 볼 수 있는 챌린지)는 제목 옆에 배지를 붙인다 —
+	# pick_challenge()가 전용 이벤트를 소유 캐릭터에게만 돌려주므로 only_characters
+	# 목록을 따로 확인할 필요 없이 현재 RunState.character_id 이름만 쓰면 된다.
+	if EventChallengePool.is_exclusive(_challenge):
+		title_label.text += "  (%s 전용)" % CharacterProfiles.get_profile(RunState.character_id)["name"]
 	prompt_label.text = _challenge["prompt"]
 	safe_button.text = "안전하게 넘어가기 (%s)" % EventChallengePool.reward_blurb(_challenge["safe_reward"])
 	risky_button.text = "위험을 감수하기 (D%d, %d+ 성공/%d+ 대성공)" % [
@@ -183,7 +223,95 @@ func _setup_item_event() -> void:
 	]
 	safe_button.pressed.connect(_on_safe_pressed)
 	risky_button.pressed.connect(_on_risky_pressed)
-	_refresh_shortcuts([safe_button, risky_button, customize_button, skill_codex_button])
+	# N-6: 이전 호출(최초 또는 _debug_force_challenge())이 만든 특별 선택지 버튼이
+	# 남아있으면 지우고 이번 _challenge에 맞게 새로 만든다.
+	if _special_button != null:
+		_special_button.queue_free()
+		_special_button = null
+	_special_button = _build_special_choice_button()
+	var offer_buttons: Array[Button] = [safe_button, risky_button]
+	if _special_button != null:
+		offer_buttons.append(_special_button)
+	offer_buttons.append(customize_button)
+	offer_buttons.append(skill_codex_button)
+	_refresh_shortcuts(offer_buttons)
+
+
+## N-6: _challenge에 special_choice가 있으면 그 상태(활성/잠김)에 맞는 세 번째
+## 선택지 버튼을 safe/risky 버튼 아래에 만들어 돌려준다(없으면 null, 호출부가 그대로
+## 건너뛴다). 활성(소유 캐릭터)은 굴림 없이 즉시 reward를 받는다(_on_special_pressed,
+## _grant_reward() 재사용) — 잠긴 상태는 pressed를 연결하지 않아(INBOX "Space를 눌러도
+## 실행되지 않는다") 방향키로 포커스는 갈 수 있지만 눌러도 아무 일도 안 일어나고,
+## tooltip_text로 왜 안 되는지만 짧게 안내한다(character_select.gd의 잠긴 시작 스킬
+## 슬롯과 같은 패턴).
+func _build_special_choice_button() -> Button:
+	if not EventChallengePool.has_special_choice(_challenge):
+		return null
+	var spec: Dictionary = _challenge["special_choice"]
+	var active := EventChallengePool.special_choice_active_for(_challenge, RunState.character_id)
+	var owner_names: Array[String] = []
+	for cid in EventChallengePool.special_choice_requires(_challenge):
+		owner_names.append(String(CharacterProfiles.get_profile(cid)["name"]))
+	var owner_label := "/".join(owner_names)
+
+	var btn := Button.new()
+	# RiskyButton(x 660~1020)이 DeckPanel(x 980~)과 겹치는 기존의 작은 코너 겹침과
+	# 달리, 이 버튼은 safe+risky 전체 폭(260~1020)만큼 넓어 그 겹침이 두드러진다 —
+	# DeckPanel 좌측(980)보다 20px 여유를 두고 960에서 끝나도록 폭을 줄인다.
+	btn.position = Vector2(260.0, 186.0)
+	btn.size = Vector2(700.0, 76.0)
+	btn.mouse_filter = Control.MOUSE_FILTER_STOP
+
+	var content := VBoxContainer.new()
+	content.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	content.set_anchors_preset(Control.PRESET_FULL_RECT)
+	content.alignment = BoxContainer.ALIGNMENT_CENTER
+	content.add_theme_constant_override("separation", 2)
+	btn.add_child(content)
+
+	var title_row_label := Label.new()
+	title_row_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var desc_label := Label.new()
+	desc_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	desc_label.autowrap_mode = TextServer.AUTOWRAP_WORD
+	desc_label.custom_minimum_size = Vector2(620.0, 0.0)
+	desc_label.add_theme_font_size_override("font_size", 12)
+
+	if active:
+		title_row_label.text = "%s 전용 — %s" % [owner_label, spec["label"]]
+		title_row_label.add_theme_color_override("font_color", Color(0.95, 0.85, 0.35))
+		desc_label.text = String(spec["description"])
+		desc_label.add_theme_color_override("font_color", Color(0.88, 0.88, 0.88))
+		UIKit.style_secondary_button(btn, RunState.character_id, Color(0.85, 0.68, 0.2))
+		btn.pressed.connect(_on_special_pressed)
+	else:
+		title_row_label.text = "🔒 %s 선택 가능 — %s" % [owner_label, spec["label"]]
+		title_row_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.63))
+		desc_label.text = String(spec["description"])
+		desc_label.add_theme_color_override("font_color", Color(0.5, 0.5, 0.53, 0.8))
+		UIKit.style_secondary_button(btn, RunState.character_id, Color(0.35, 0.35, 0.38))
+		btn.tooltip_text = "%s만 선택할 수 있는 특별 선택지입니다." % owner_label
+
+	content.add_child(title_row_label)
+	content.add_child(desc_label)
+	add_child(btn)
+	return btn
+
+
+## N-6: 특별 선택지(활성 상태에서만 눌릴 수 있음 — 잠긴 상태는 _build_special_choice_button()
+## 에서 pressed를 아예 연결하지 않아 이 함수가 호출될 일이 없다)를 고르면 굴림 없이
+## 즉시 그 challenge의 special_choice.reward를 받는다. _grant_reward()를 그대로
+## 재사용해 보상 화면(_show_item_offer/_show_simple_result)까지 안전/위험 성공 경로와
+## 동일하게 보여준다.
+func _on_special_pressed() -> void:
+	if _choice_made:
+		return
+	_choice_made = true
+	safe_button.hide()
+	risky_button.hide()
+	if _special_button != null:
+		_special_button.hide()
+	_grant_reward(_challenge["special_choice"]["reward"])
 
 
 ## [미니 기획 C]-1: 물음표 이벤트가 가끔 아이템 대신 스킬 후보를 제시한다. 안전/위험
@@ -687,6 +815,28 @@ func _debug_force_challenge_exploration() -> void:
 
 func _debug_force_challenge_trap_disarm() -> void:
 	_debug_force_challenge("trap_disarm")
+
+
+## N-6 QA 전용(GAME_QA_CALL) — 특별 선택지가 "활성"(소유 캐릭터) 상태로 겹침 없이
+## 보이는지 확인. "treasure"(enchantress 전용 특별 선택지 보유)를 강제하고 캐릭터를
+## enchantress로 바꾼다.
+func _debug_force_special_choice_active() -> void:
+	RunState.character_id = "enchantress"
+	_debug_force_challenge("treasure")
+
+
+## N-6 QA 전용 — 같은 "treasure" 챌린지를 비소유 캐릭터(novice)로 보면 특별 선택지가
+## "잠김"(자물쇠 문구 + 흐린 설명)으로 보이는지 확인.
+func _debug_force_special_choice_locked() -> void:
+	RunState.character_id = "novice"
+	_debug_force_challenge("treasure")
+
+
+## N-6 QA 전용 — 전용 이벤트(캐릭터만 볼 수 있는 챌린지) 화면이 제목의 "전용" 배지와
+## 함께 겹침 없이 보이는지 확인. pirate를 "보물 지도" 전용 이벤트로 강제한다.
+func _debug_force_exclusive_event() -> void:
+	RunState.character_id = "pirate"
+	_debug_force_challenge("treasure_map")
 
 
 ## N-5(b) QA 전용: "도박" 챌린지에서 대성공(roll = DC + CRIT_MARGIN)을 강제해 골드

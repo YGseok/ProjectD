@@ -5,40 +5,43 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-10-16 (214)
-- 작성자: AI 에이전트. INBOX.md "남은 이슈" 맨 위 [대형 기획 14] **N-5(c)(곡예사
-  이벤트 특화 — 밸런스 확인 + 마무리) 완료, [대형 기획 14] N-1~N-5 전체 완료**.
-  `bash scripts/qa_shot.sh balance_sim`을 foreground + timeout 600000으로 1회
-  실행해 juggler 전투력을 두 방식으로 측정했다: 기존 F-4b/F-4c 기준선(81개 조합
-  평균, 등급·기획 역사상 써오던 방식)에서는 juggler 13.98% vs novice 21.67% =
-  -7.69%p로 목표(-15%p 이내) 통과(N-5a/b 변경 전 -6.27%p 대비 +1.4%p만 악화)했지만,
-  균형 성장 정책의 "캐릭터마다 슬롯0 스킬 하나만" 고정해서 재는 J-계열 지표로는
-  -44.37%p로 크게 벗어났다 — 다만 이 지표는 juggler의 슬롯0이 N-5(a) 설계상
-  이벤트 전용 스킬(눈속임)이라 전투 보너스가 구조적으로 0인 탓이고(explosive도
-  같은 지표에서 이미 -16.92%p로 밴드를 벗어나 있어 이 축 자체의 노이즈가 큼을
-  교차 확인), "이벤트 보상은 시뮬 반영이 어려우면 한계를 문서에 명시"하라는
-  INBOX 조항대로 `docs/BALANCE_TUNING_LOG.md`에 측정 과정과 판단 근거를 그대로
-  기록했다. **판정: 1차 기준(F-4b/F-4c) 통과로 "극단적으로 낮지 않다"에 해당 —
-  곡예사 전투 보조 스킬 추가 강화는 불필요하다고 판단해 손대지 않았다.**
-  UI 확인은 셀프 피드백 루프로 진행 — 캐릭터 선택 "고유 능력" 설명(32자 예산)이
-  곡예사의 긴 concept 문구에 가려 D12가 전혀 안 보이던 실제 버그를 발견하고
-  `character_profiles.gd`의 concept 문구를 재배치해 32자 안에 "D12"가 들어오도록
-  고쳤다(`qa_out/n5c_juggler_detail.png`로 확인, 뷰포트 1028px 잘림 때문에 전체
-  확인은 `dice_test.gd` 신규 체크로 보강). DeckPanel/event.gd 버튼은 이미 D12를
-  정상 표시 중이었음을 확인만 함(`qa_out/n5c_event_juggler_d12.png`로 "위험을
-  감수하기 (D12, 3+ 성공/6+ 대성공)" 겹침 없이 렌더 확인). 스킬 도감도 juggle_
-  fortune/juggle_fortune_plus가 실제로 11항목에 포함됨을 화면(`qa_out/
-  n5c_skill_codex_juggler.png`)과 `dice_test.gd` 신규 체크 3건으로 확인. `bash
-  scripts/qa_shot.sh dice_test` 전체 결과는 "FAIL"이었으나 원인 전부 이번 변경과
-  무관함을 확인(berserker face_* 아트가 이 세션 시작 전부터 이미 새로 입고돼
-  ART-1b 관련 테스트 가정이 깨진 것 4건 + 기존 QA 뷰포트 1028px 잘림 1건 — 아래
-  "알려진 이슈"에 새로 기록). `DESIGN.md`의 "시작 스킬 선택"(13→15종, 곡예사 슬롯
-  테이블/눈속임·한탕 설명 추가)·"캐릭터 스킬 부여 이벤트"(매혹사/곡예사 고유 스킬
-  4종 — 이전까지 전혀 기술돼 있지 않던 문서 공백도 함께 메움) 절을 갱신했다.
-  전투 규칙/밸런스 수치는 건드리지 않았고 `resources/`·`docs/art/`는 읽기만 했다.
-  INBOX.md의 이 항목은 N-5가 전부 끝나 "부분 처리됨"에 진행 한 줄을 갱신했다
-  (N-6만 남아 "처리됨"으로는 못 옮김). 상세는 아래 "완료 기록 (214)" 참고.
-  **다음은 N-6(캐릭터 전용 이벤트 + 특별 선택지, INBOX.md "남은 이슈" 참고).**
+- 일시: 2026-10-16 (215)
+- 작성자: AI 에이전트. INBOX.md "남은 이슈" [대형 기획 14] **N-6(캐릭터 전용
+  이벤트 + 특별 선택지) 완료 — [대형 기획 14](N-1~N-6) 전체 완료**. 사용자가
+  설계해둔 사양(이벤트 수준 `only_characters`, 선택지 수준 `special_choice` +
+  `requires_character`, 하드코딩 금지·공용 순수 함수)을 `code/systems/
+  event_challenge_pool.gd`(`EventChallengePool`)에 그대로 구현했다 — 전용
+  이벤트 4종(보물 지도/해적, 서커스 단장/곡예사, 결투장의 부름/광전사, 수호
+  서약/수호자) + 특별 선택지 4종(기존 보물/도박/탐색/함정 해체 각각에 1개씩,
+  매혹사/견습 모험가/주술사/폭발병 전용)으로 8명 전원이 전용 콘텐츠를 최소
+  1개씩 갖는다. 선택은 `event.gd`의 신규 `challenge_seed(run_seed, room_index)`로
+  시드한 `RandomNumberGenerator` 하나를 `EventChallengePool.pick_challenge()`에
+  넘겨 결정적으로 고른다(기존 `randi() % size`는 재현 불가였음 — INBOX "테스트
+  전투/QA 시드에서도 동작 확인" 요구 반영). UI는 안전/위험 버튼 아래 세 번째
+  선택지로, 잠긴 상태(비소유 캐릭터)는 자물쇠 문구("🔒 ○○ 선택 가능")+흐린
+  효과 설명을 보여주되 `pressed`를 연결하지 않아 방향키 포커스는 가지만 Space를
+  눌러도 실행되지 않고, 활성 상태(소유 캐릭터)는 금색 테두리+"전용" 배지로
+  강조되고 즉시(굴림 없이) 보상을 받는다 — 전용 이벤트는 제목 옆에 "(○○ 전용)"
+  배지. 같은 이터레이션에서 지시받은 대로 깨진 기존 테스트
+  `_check_art1b_combat_face_art()`도 고쳤다 — berserker/guardian face_* 아트가
+  이 세션 시작 전부터 이미 입고돼 "berserker는 표정이 없다"는 하드코딩 가정이
+  깨져 FAIL이던 것을, `CharacterArt.has_all_faces()`/`load_face()`에 테스트
+  주입용 `base_dir` 매개변수(기존 `ui_kit.gd`/`skill_icon.gd` 패턴과 동일)를
+  추가하고 `CharacterPortraitPlaceholder.art_base_dir`로 연결해, user:// 임시
+  디렉터리에 만든 가짜 캐릭터 3종(5장 모두/2장만/0장)으로 특정 캐릭터의 실제
+  입고 상태에 의존하지 않고 검증하도록 바꿨다(production 경로는 여전히
+  `ResourceLoader`를 써서 동작/성능 동일, export 경고 없음). `bash scripts/
+  qa_shot.sh dice_test`를 3회 실행해 모두 동일하게 "N-6 신규 체크 전부 OK +
+  ART-1b 체크 전부 OK, 전체 'FAIL'은 이번 변경과 무관한 기존 QA 뷰포트 1028px
+  잘림 1건뿐"임을 확인했다(상세는 아래 "알려진 이슈"). 셀프 피드백 1라운드로
+  `qa_out/n6_special_locked.png`/`n6_special_active.png`/`n6_exclusive_event.png`를
+  직접 읽어 잠금/활성 두 상태가 시각적으로 뚜렷이 구분되고(잠김=회색 테두리,
+  활성=금색 테두리) 다른 UI(DeckPanel 등)와 겹치지 않음을 확인 — "상" 수준
+  문제 없이 1라운드로 종료. 전투 규칙/밸런스 수치는 건드리지 않았고
+  `resources/`·`docs/art/`는 읽기만 했다. INBOX.md의 [대형 기획 14] 항목은
+  N-6까지 전부 끝나 "처리됨"으로 옮겼다. 상세는 아래 "완료 기록 (215)" 참고.
+  **다음은 INBOX.md "남은 이슈"에 새 항목이 없으면 아래 "알려진 이슈/막힌 것"을
+  참고해 독립적으로 진행 가능한 항목을 고를 것.**
 
 ## 지금 위치
 
@@ -503,6 +506,21 @@ HP 패널·다이스 스테이지·결과 칩과 겹치지 않고 표정(happy)�
   추가돼 기존 "곡예 앙코르"와 함께 2종이 됐다. DC 공식은 아직 D6 기준(최대
   DC5)이라 D12 곡예사는 판정이 거의 항상 성공하는 불균형이 남아있음 —
   N-5(b)(판정 콘텐츠 확충 + "대성공" 단계)로 넘김.
+- **이벤트 판정 콘텐츠 + 대성공 + 캐릭터 전용/특별 선택지(2026-10-15~16
+  [대형 기획 14] N-5(b)(c)+N-6 완료, [대형 기획 14] 전체 완료)**: `EventChallengePool`
+  (`code/systems/event_challenge_pool.gd`)의 `CHALLENGES` 데이터 표가 "위험을
+  감수하기" 판정이 쓰이는 상황을 보물/도박/탐색/함정 해체 4종(N-5(b))으로 늘리고
+  "대성공"(`roll >= DC+CRIT_MARGIN`) 3단 판정을 도입한 데 이어, N-6(2026-10-16)으로
+  **전용 이벤트 4종**(`only_characters` 필드 — 보물 지도/해적, 서커스 단장/곡예사,
+  결투장의 부름/광전사, 수호 서약/수호자, 소유 캐릭터에게만 `EventChallengePool.
+  pick_challenge()`가 `EXCLUSIVE_EVENT_CHANCE`=25% 확률로 풀에 섞음)와 **특별
+  선택지 4종**(`special_choice` 필드 — 기존 보물/도박/탐색/함정 해체 각각에 1개씩,
+  매혹사/견습 모험가/주술사/폭발병 전용, 비소유 캐릭터에겐 `event.gd`가 자물쇠
+  문구+흐린 설명으로 잠가 보여주되 pressed를 연결하지 않아 실행은 안 됨)가 추가돼
+  8명 전원이 전용 이벤트 또는 특별 선택지를 최소 1개씩 갖는다. 챌린지 선택은
+  `event.challenge_seed(run_seed, room_index)`로 시드한 `RandomNumberGenerator`
+  하나로 결정적이라 테스트 전투/QA 시드에서도 재현 가능하다. 상세는 아래 "완료
+  기록 (215)" 참고.
 
 상세 변경 이력은 아래 "완료 기록"(최근 10개)과, 그보다 오래된 것은
 `docs/STATUS_ARCHIVE.md`(매 이터레이션 읽지 않는 아카이브) 참고.
@@ -559,8 +577,13 @@ juggler가 novice 대비 -44.37%p로 크게 벗어나지만 이는 juggler 슬�
 캐릭터 선택 "고유 능력" 설명이 32자 예산에 가려 D12가 안 보이던 실제 버그를
 고침, DeckPanel/event.gd/스킬 도감의 D12 반영을 화면+자동 검증으로 확인
 (상세는 완료 기록 (214), 수치 근거는 `docs/BALANCE_TUNING_LOG.md` "N-5(c)"
-절). **다음은 N-6(캐릭터 전용 이벤트/특별 선택지)** — 상세 사양은 `docs/
-feedback/INBOX.md` "남은 이슈" 참고. 한 이터레이션에 한 조각만 진행할 것.
+절). 2026-10-16(215)로 **N-6(캐릭터 전용 이벤트 + 특별 선택지) 완료 —
+[대형 기획 14](N-1~N-6) 전체 완료** — `EventChallengePool`에 `only_characters`/
+`special_choice` 데이터 필드와 공용 순수 함수(`pick_challenge()`/
+`special_choice_active_for()`/`reward_expected_value()` 등)를 추가해 전용
+이벤트 4종 + 특별 선택지 4종(8명 전원 각각 ≥1개 보유)을 구현했다(상세는 아래
+"완료 기록 (215)"). **다음은 INBOX.md "남은 이슈"에 새 항목이 없으면 아래
+"알려진 이슈/막힌 것"을 참고해 독립적으로 진행 가능한 항목을 고를 것.**
 
 남은 구조적 후보(급하지 않음): 보스 개별 6종 중 타락한 기사단장만 밴드 미달
 (`MonsterSkills.modify_monster_roll()` 파라미터화가 전제조건이라 사람 설계
@@ -1171,6 +1194,81 @@ feedback/INBOX.md` "남은 이슈" 참고. 한 이터레이션에 한 조각만 
 
 ## 완료 기록
 
+- **2026-10-16 (215)**: INBOX.md "남은 이슈" [대형 기획 14] **N-6(캐릭터 전용
+  이벤트 + 특별 선택지) 완료 — [대형 기획 14](N-1~N-6) 전체 완료**.
+  **(1) 데이터 표/공용 함수**: `code/systems/event_challenge_pool.gd`에
+  `only_characters`(challenge 수준) / `special_choice`(challenge 수준,
+  `requires_character`+`label`+`description`+`reward`) 두 필드를 추가하고,
+  이벤트별/캐릭터별 하드코딩 없이 처리하는 공용 순수 함수를 신규 구현했다 —
+  `only_characters()`/`is_exclusive()`/`common_challenges()`/
+  `exclusive_challenges_for()`/`pick_challenge()`(전용 이벤트 대체 확률
+  `EXCLUSIVE_EVENT_CHANCE`=0.25까지 포함해 rng 하나로 결정)/
+  `has_special_choice()`/`special_choice_requires()`/`special_choice_active_for()`/
+  `special_choice_challenges_for()`/`reward_expected_value()`(보상 spec의
+  "기대값" 비교 전용 추정치 — item_grade는 등급 1~4점 가중 평균, gold/pips는
+  min~max 평균). **(2) 콘텐츠 8종**: 전용 이벤트 4종(`treasure_map`/해적 —
+  "낡은 보물 지도", `circus_master`/곡예사 — "서커스 단장의 내기", `duel_arena`/
+  광전사 — "결투장의 부름", `ancient_oath`/수호자 — "오래된 성소의 수호 서약")은
+  독립된 CHALLENGES 항목으로 추가했고, 특별 선택지 4종은 기존 보물/도박/탐색/
+  함정 해체 각각에 1개씩 얹었다(treasure→enchantress "매혹의 시선", gambling→
+  novice "다재다능하게 승부", exploration→shieldbearer "저주의 눈", trap_disarm→
+  explosive "화약으로 통째로") — 각 특별 선택지의 `reward`는 그 challenge의
+  `safe_reward`와 같은 type으로 설계해 `reward_expected_value()`로 "같은
+  계열의 일반 선택지보다 분명히 크다"를 직접 비교 검증할 수 있게 했다(실측:
+  treasure 2.60 > 1.17, 나머지도 전부 2배~4배). 이로써 8명 전원이 전용/특별
+  콘텐츠를 최소 1개씩 보유(견습 모험가/매혹사/주술사/폭발병=특별 선택지,
+  해적/곡예사/광전사/수호자=전용 이벤트). **(3) 결정적 선택**: `event.gd`의
+  `_ready()`가 기존 `randi() % CHALLENGES.size()`(재현 불가) 대신 신규
+  `challenge_seed(run_seed, room_index)`로 시드한 `RandomNumberGenerator`를
+  `EventChallengePool.pick_challenge(character_id, rng)`에 넘긴다 — 같은 런의
+  같은 방이면 테스트 전투/QA 시드에서도 항상 같은 챌린지가 나온다(몬스터
+  플랜의 `ELITE_SEED_OFFSET`/던전 맵 방 선택지의 `idx*104729+7`과 겹치지 않게
+  별도 오프셋 `CHALLENGE_SEED_OFFSET`=50021 사용). **(4) UI**: `_setup_item_event()`가
+  전용 이벤트면 제목 옆에 "(○○ 전용)" 배지를 붙이고, `_build_special_choice_button()`
+  (신규)이 safe/risky 버튼 아래 세 번째 선택지를 그린다 — 잠김(비소유)은 회색
+  테두리 + "🔒 ○○ 선택 가능 — <효과>" + 흐린 설명, `pressed`를 연결하지 않아
+  방향키 포커스는 가지만 Space를 눌러도 실행되지 않는다(character_select.gd의
+  잠긴 시작 스킬 슬롯과 같은 "포커스 가능·실행 불가" 패턴). 활성(소유)은 금색
+  테두리 + "○○ 전용 — <효과>" + 선명한 설명, 누르면 `_on_special_pressed()`가
+  굴림 없이 즉시 `_grant_reward()`(기존 안전/위험 성공 경로와 동일 함수)로
+  보상을 준다. **(5) 자동 검증**: `dice_test.gd` 신규
+  `_check_n6_character_events_and_special_choices()` — 8명 커버리지/분량(전용
+  ≥4·특별 ≥4)/`pick_challenge()` 시드 100개 분포(소유 캐릭터는 10~40회, 비소유는
+  항상 0회)/`challenge_seed()` 결정성/잠긴 버튼을 실제로 눌러도 상태가 안 바뀌는지
+  (`_row_ui`/`_choice_made` 불변)/활성 버튼을 실제로 눌렀을 때 보상이 적용되는지
+  (`_row_ui.size()==1`)/보상 기대값 비교/전용 이벤트 제목 배지까지 전부 계산·
+  실제 버튼 클릭 결과로 검증(플래그만 보지 않음). `bash scripts/qa_shot.sh
+  dice_test`를 3회 실행 — N-6 신규 체크 전부 OK, 전체 "FAIL"은 아래 (6)에서
+  고친 ART-1b와 무관한 기존 QA 뷰포트 1028px 잘림 1건뿐(재확인, 이번 변경과
+  무관). **(6) 깨진 기존 테스트 수정(같은 이터레이션 추가 지시)**:
+  `_check_art1b_combat_face_art()`가 "berserker는 face_*가 하나도 없다"를
+  하드코딩으로 가정했는데, 이 세션 시작 전 아트 스레드가 실제로 berserker/
+  guardian face_*를 입고해 그 가정이 깨져 FAIL이던 것(완료 기록(214)에서 발견만
+  하고 범위 밖이라 안 고친 것)을 고쳤다 — `CharacterArt.has_all_faces()`/
+  `load_face()`에 `base_dir` 매개변수(기본값은 기존 production 경로, 테스트가
+  user:// 임시 경로를 주입 — `ui_kit.gd`/`skill_icon.gd`의 기존 base_dir 주입
+  패턴과 동일)를 추가하고, `CharacterPortraitPlaceholder.art_base_dir`(신규)로
+  연결했다. `load_face()`는 base_dir가 production 경로일 때만 기존처럼
+  `ResourceLoader`(`load()`)를 쓰고, 테스트 경로일 때만 `FileAccess.file_exists`+
+  `Image.load()`로 읽어 production 동작/성능/export 경고가 전혀 바뀌지 않는다.
+  테스트는 user://에 만든 가짜 캐릭터 3종(5장 모두/2장만/0장, `Image.create()`+
+  `save_png()`로 생성 후 정리)으로 "5장 모두 있음/일부만 있음/없음" 세 경우를
+  특정 캐릭터의 실제 입고 상태와 무관하게 검증하고, `combat_test.tscn` 통합
+  검증도 "berserker는 항상 플레이스홀더"라는 가정 대신 그 캐릭터의 실제
+  `has_all_faces()` 값과 비교하도록 바꿨다(앞으로 어떤 캐릭터가 입고돼도 깨지지
+  않음). **셀프 피드백**: `qa_out/n6_special_locked.png`(novice가 enchantress
+  전용 특별 선택지를 "🔒 매혹사 선택 가능" 회색 테두리로 봄)/
+  `n6_special_active.png`(enchantress 본인은 "매혹사 전용" 금색 테두리로
+  활성화되어 봄)/`n6_exclusive_event.png`(pirate가 "낡은 보물 지도 ...
+  (해적 전용)" 전용 이벤트를 봄) 3장을 직접 읽어 잠금/활성 상태가 테두리
+  색(회색/금색)으로 뚜렷이 구분되고, safe/risky/특별 선택지 세 버튼이 겹침
+  없이 정렬되며(특별 선택지 폭을 DeckPanel 좌측(x=980)보다 좁게 960에서
+  끝나도록 설계), 자물쇠 문구와 효과 설명이 안 잘리고 읽힘을 확인 — "상" 수준
+  문제 없이 1라운드로 종료. 전투 규칙/밸런스 수치는 건드리지 않았고
+  `resources/`·`docs/art/`는 읽기만 했다. `docs/DESIGN.md`의 "특수 이벤트" 절에
+  "캐릭터 전용 이벤트 + 특별 선택지(N-6 신규)" 단락을 추가해 전용 4종/특별
+  4종 목록과 동작 방식을 기록했다.
+
 - **2026-10-16 (214)**: INBOX.md "남은 이슈" [대형 기획 14] **N-5(c)(곡예사를 이벤트
   특화 클래스로 — 밸런스 확인 + 마무리) 완료, [대형 기획 14] N-1~N-5 전체 완료
   (N-6만 남음)**.
@@ -1754,89 +1852,27 @@ feedback/INBOX.md` "남은 이슈" 참고. 한 이터레이션에 한 조각만 
   M-6 항목을 "처리됨"으로 옮겼다. **다음은 [대형 기획 14] N-1**(INBOX.md가
   명시한 순서 — M-6 완료로 착수 조건 충족).
 
-- **2026-10-15 (205)**: INBOX.md 최우선 지시 [대형 기획 13] M-4(이벤트/상점/스토리
-  이벤트 화면 통일) 완료 — **[대형 기획 13](M-1~M-5, ART-2 포함) 전체 완료.**
-  event/shop/story_event 세 화면을 dungeon_map/combat_test와 같은 HUD·구역 패널·
-  버튼 스타일로 맞췄다. **Before**(`qa_out/m4_before_{shop,event,story}.png`):
-  버튼(안전/위험·A안/B안·던전으로 돌아가기·커스터마이징·카드 안 구매/적용/획득
-  버튼 전부)이 테두리 없는 기본 Godot 스타일(포커스된 버튼만 핑크 테두리)이라
-  던전 맵/전투의 코너 장식 있는 입체 버튼과 완전히 다른 시각 언어였고, shop
-  "보유 골드"는 평문, event/story_event의 서사 텍스트는 배경 위에 맨 글자로
-  떠 있었다. **수정**: ① 세 화면의 모든 버튼(정적 scene 버튼 + `_rebuild_items()`/
-  `_show_item_offer()`/`_show_skill_offer()`가 매번 새로 만드는 동적 버튼까지)에
-  `UIKit.style_primary_button`/`style_secondary_button`을 적용 — 각 화면의
-  "유일한 진행 행동"만 주 행동(shop "던전으로 돌아가기", event/story_event
-  "계속"), 나머지는 보조. event의 안전/위험 선택지는 서로 다른 tint(초록/
-  주황-빨강)로 의미를 구분(dungeon_map 정예 전투의 빨간 tint와 같은 패턴,
-  기존 `tint` 매개변수 재사용 — 새 매개변수 추가 없음). ② `UIKit.make_bar`/
-  `make_stat_chip`을 그대로 재사용해 shop의 평문 골드 라벨을 아이콘+큰 숫자+
-  캡션 HUD 칩으로 교체. ③ 신규 `UIKit.make_backdrop()`(제목/바디 스캐폴딩이
-  없는 순수 배경 프레임 — `make_section()`에서 스킨 적용 로직만 분리한 경량
-  버전)으로 event/story_event의 PromptLabel/Description 뒤에 구역 패널 느낌의
-  배경을 깔았다 — 기존 Label 노드는 reparent하지 않고 `move_child(panel, 1)`로
-  Background 바로 뒤에 끼워 넣어 기존 `@onready` 참조/테스트 호환성을 그대로
-  유지했다. 아이템 카드(`ItemCardStyle`)의 등급(S/A/B/C) 색 테두리 신호는
-  M-5(a) 결정대로 손대지 않고 유지. **검증**: `dice_test.gd`에 신규
-  `_check_m4_event_shop_story_ui`(14단계 — shop HUD 칩 실제 갱신(42→777
-  재호출로 확인)/버튼 `has_theme_stylebox_override` 실제 적용 여부/안전·위험
-  tint가 서로 다른 합성 텍스처인지/카드 안 동적 버튼 스타일/서사 텍스트 배경
-  프레임이 올바른 인덱스에 있는지)을 추가해 전체 PASS. 과정에서 테스트 코드
-  자체의 버그 2개를 발견·수정했다 — (1) 외부 스크립트(`dice_test.gd`)에서
-  `event._setup_skill_event()`(매개변수 타입 `Array[Dictionary]`)에 배열
-  리터럴을 직접 넘기면 GDScript가 자동으로 타입을 맞춰주지 않아 런타임
-  `SCRIPT ERROR`로 조용히 실패하는 함정(변수에 명시적으로 `Array[Dictionary]`
-  타입을 선언한 뒤 넘기는 것으로 해결 — 같은 스크립트 내부 호출(`event.gd`
-  자신의 `_debug_force_skill_event_as_guardian()` 등)은 리터럴이 그대로
-  통하는 것과 대조적이라 주의), (2) 로그 문구에서 불리언 값을 반전해서
-  출력하던 복붙 실수(검증 로직 자체는 맞았는데 사람이 읽는 메시지만 틀림) —
-  둘 다 테스트 코드 안의 버그였고 게임 로직과는 무관. **참고(세션 중 발견,
-  별도 조치 불필요로 판단)**: 전체 스위트를 반복 실행하는 과정에서 H-1
-  "일반 모드 보존" 검증이 6번 중 1번꼴로 일회성 FAIL했는데, (195)의
-  완료 기록(현재 `docs/STATUS_ARCHIVE.md`)에도 같은 테스트가 같은 패턴
-  (일회성 FAIL 후 재실행 시 항상 PASS, 원본 코드로 되돌려도 재현 안 됨)으로
-  이미 기록돼 있어 **이번 세션이 새로 만든 문제가 아니라 기존에 알려진
-  pre-existing 노이즈임을 교차 확인**(내 변경 전 커밋으로는 재현 시도
-  안 함 — 과거 기록과 패턴이 동일해 추가 검증 없이도 충분히 신뢰 가능하다고
-  판단). **셀프 피드백**: `qa_out/m4_after_{shop,event,story}.png`(기본) +
-  `m4_after_shop_partial.png`(일부 구매 가능)/`m4_after_event_pips.png`
-  (안전 선택 카드)/`m4_after_event_fail.png`(위험 실패+"계속")/
-  `m4_after_event_skill.png`(스킬 제안 카드 2장)/`m4_after_story_picked.png`
-  (선택 후 "계속") 총 9장 육안 확인 — 버튼이 전부 입체 스타일로 바뀌고
-  서사 텍스트에 배경 프레임이 생겨 던전 맵/전투와 통일됨, 레이아웃 겹침/
-  잘림 없음, 1라운드 만에 "하" 수준 문제만 남아 종료. `docs/DESIGN.md`에
-  신규 "UI" 절(공용 UI 컴포넌트 목록과 사용처 표)을 추가하고, `docs/
-  UI_REVIEW.md`에 "M-4" 절 + "[대형 기획 13] 전체 Before/After 요약" 절을
-  추가했다. INBOX.md의 [대형 기획 13] 전체 항목을 "처리됨"으로 옮겼다
-  (처리됨 13개 → 가장 오래된 "[미니 기획 E] 캐릭터별 시작 스킬 선택"을
-  `docs/INBOX_ARCHIVE.md`로 이동해 12개 유지). 전투 규칙/밸런스는 전혀
-  건드리지 않음. **다음은 [대형 기획 14](조작/선택 화면/이벤트 특화
-  클래스·전용 이벤트, N-1 → N-6) N-1부터** — INBOX.md가 명시한 순서/의존성
-  (M-4 완료 후 착수)이 이제 충족됐다.
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(214)에서 (204)를 그리로 옮겼다.)*
+이번 이터레이션(215)에서 (205)를 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 
-- **`berserker` face_* 아트가 이미 입고돼 `dice_test.gd`의 ART-1b 관련 테스트
-  4건이 FAIL로 돌아섬(2026-10-16, 214에서 발견).** 이번 세션 시작 시점에 이미
-  `resources/characters/berserker/{full,face_neutral,face_happy,face_angry,
-  face_sad,face_hurt}.png`(.import 포함) 5장이 전부 새로 입고돼 있었다(아트
-  스레드가 전달한 자산, `resources/`는 읽기만 했으므로 Work 쪽 변경 아님) —
-  `_check_art1b_combat_face_art()`가 "berserker는 아직 face_*가 없어 플레이스홀더
-  유지"를 가정한 채 하드코딩돼 있어 `CharacterArt.has_all_faces('berserker')`가
-  이제 true를 돌려주는데도 테스트는 여전히 false를 기대해 4건이 깨졌다(정작
-  기능 자체는 의도대로 동작 — ART-1b 코드가 범용이라 자동으로 원화 모드로
-  전환됐을 뿐, 회귀 아님). 같은 시점에 `resources/backgrounds/{combat,
-  dungeon_map,event,shop}.png`와 `resources/ui/icon/{attack,crown,defense,dice,
-  gold,hp,lock,pip,skull}.png`도 함께 새로 입고돼 있었다(M-5(b)/ART-1c 관련
-  미반영 자산으로 추정). **다음에 ART-1b/1c 또는 아트 반영을 다루는 이터레이션이
-  할 일**: (1) `dice_test.gd`의 "berserker는 face 없음" 가정을 가진 테스트를
-  실제 아트 유무에 맞게 갱신(또는 아트 입고 여부를 동적으로 판정하도록 재설계)
-  (2) 새로 입고된 배경/아이콘 자산이 각 화면에 실제로 올바르게 반영되는지 확인.
-  이번 이터레이션(N-5(c))은 이 발견만 기록하고 `resources/`를 읽기만 했을 뿐
-  건드리지 않았다 — 범위 밖이라 직접 고치지 않음.
+- **(215에서 절반 해결) `resources/backgrounds/`/`resources/ui/icon/`에 새로
+  입고된 자산이 각 화면에 실제로 올바르게 반영되는지는 아직 미확인.** 214에서
+  발견된 두 가지 중 (1) "berserker/guardian face_* 입고로 `dice_test.gd`의
+  ART-1b 관련 테스트 4건이 하드코딩된 가정 때문에 FAIL"은 215(N-6과 같은
+  이터레이션)에서 해결 완료 — `CharacterArt.has_all_faces()`/`load_face()`에
+  `base_dir` 매개변수를 추가해 특정 캐릭터의 실제 입고 상태에 의존하지 않는
+  테스트로 재작성했다(상세는 완료 기록(215)). **(2)는 여전히 미확인**:
+  `resources/backgrounds/{combat,dungeon_map,event,shop}.png`와
+  `resources/ui/icon/{attack,crown,defense,dice,gold,hp,lock,pip,skull}.png`가
+  이 세션(N 시리즈) 시작 전부터 새로 입고돼 있었는데(아트 스레드가 전달한
+  자산, `resources/`는 읽기만 했으므로 Work 쪽 변경 아님) M-5(b)/ART-1c 관련
+  기존 코드가 이미 "있으면 쓰고 없으면 폴백" 구조라 자동으로 반영됐을 가능성이
+  높지만, 각 화면에서 실제로 깨짐 없이 보이는지 사람 눈으로(또는 qa_shot으로)
+  아직 확인한 적 없음 — 다음에 ART-1c 또는 아트 반영을 다루는 이터레이션이
+  확인할 것.
 - **이 세션 권한 모드에서 Bash로 python/awk/node/PowerShell 스크립팅을 승인
   없이 못 쓴다(2026-10-08, F-4c 작업 중 확인).** `.claude/settings.json`의
   허용 목록이 `git`/`scripts/qa_shot.sh`/`mkdir`/`ls`/`find`/`cat`뿐이라,

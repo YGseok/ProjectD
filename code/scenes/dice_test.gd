@@ -389,6 +389,10 @@ func _ready() -> void:
 	all_pass = _check_n5c_juggler_wrapup(lines) and all_pass
 
 	lines.append("")
+	lines.append("[N-6: 캐릭터 전용 이벤트 + 특별 선택지 — 8명 전부 전용/특별 콘텐츠 ≥1개 보유, 분량(전용 ≥4종/특별 ≥4종), pick_challenge()가 소유 캐릭터에게만 전용 이벤트를 기대 확률로 섞어주고 비소유 캐릭터에게는 100개 시드 전부 0회인지, 특별 선택지가 비소유 캐릭터에서 잠김(실행해도 상태 불변)·소유 캐릭터에서 활성(안전 선택지보다 기대값이 큰 보상을 실제로 받음)인지, 전용 이벤트 화면에 '전용' 배지가 실제로 뜨는지, challenge_seed()/pick_challenge()가 같은 run_seed+방 번호에서 항상 같은 결과를 내는지]")
+	all_pass = _check_n6_character_events_and_special_choices(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -7808,53 +7812,70 @@ func _check_m3_combat_dice_stage(lines: PackedStringArray) -> bool:
 	return ok
 
 
-## ART-1b: resources/characters/novice/face_{neutral,happy,hurt,sad,angry}.png 5장이
-## 전부 입고된 뒤 전투 화면이 실제로 원화 텍스처를 쓰는지 + 5장이 아직 없는 다른
-## 캐릭터는 여전히 도형 플레이스홀더로 안전하게 폴백하는지 검증. "노드가 있는가"가
-## 아니라 실제 렌더 상태(_face_rect.visible/texture, _draw() 분기)를 확인한다.
+## ART-1b: face_{neutral,happy,hurt,sad,angry}.png 5장이 전부 입고되면 전투 화면이
+## 실제로 원화 텍스처를 쓰고, 1장이라도 없으면 도형 플레이스홀더로 안전하게 폴백하는지
+## 검증. "노드가 있는가"가 아니라 실제 렌더 상태(_face_rect.visible/texture, _draw()
+## 분기)를 확인한다.
+##
+## 2026-10-16 [대형 기획 14] N-6 인수인계 수정: 예전 버전은 "berserker는 face_*가
+## 하나도 없다"를 하드코딩으로 가정했는데, 이 세션 시작 전 아트 스레드가 실제로
+## berserker/guardian face_*를 입고해 그 가정이 깨져 4건이 FAIL로 돌아섰다(알려진
+## 이슈 (214) 기록). 특정 캐릭터의 입고 상태에 의존하는 대신, user:// 임시 디렉터리에
+## 직접 만든 가짜 캐릭터 3종(5장 모두/2장만/0장)으로 CharacterArt.has_all_faces()와
+## CharacterPortraitPlaceholder.art_base_dir(이번에 신규 추가된 테스트 주입 지점)을
+## 검증한다 — resources/는 전혀 건드리지 않는다(읽기도 안 함, 가짜 디렉터리는 전부
+## user:// 아래).
 func _check_art1b_combat_face_art(lines: PackedStringArray) -> bool:
 	var ok := true
 
-	# 1) CharacterArt.has_all_faces() 자체 — novice는 5장 다 있고(이번에 입고됨),
-	#    face_*가 하나도 없는 캐릭터(berserker, full.png만 있음)는 false.
-	var novice_has_all := CharacterArt.has_all_faces("novice")
-	ok = novice_has_all and ok
-	lines.append("  CharacterArt.has_all_faces('novice') = %s (기대 true, face_* 5장 입고됨) -> %s" % [
-		novice_has_all, "OK" if novice_has_all else "FAIL"
-	])
-	var berserker_has_all := CharacterArt.has_all_faces("berserker")
-	var berserker_fallback_ok: bool = not berserker_has_all
-	ok = berserker_fallback_ok and ok
-	lines.append("  CharacterArt.has_all_faces('berserker') = %s (기대 false, face_* 없음 — 1장이라도 없으면 전부 플레이스홀더) -> %s" % [
-		berserker_has_all, "OK" if berserker_fallback_ok else "FAIL"
-	])
+	var fake_base_dir := "user://art1b_fake_faces/%s/"
+	var fake_full_id := "qa_fake_full"
+	var fake_partial_id := "qa_fake_partial"
+	var fake_none_id := "qa_fake_none"
+	_art1b_write_fake_faces(fake_base_dir, fake_full_id, CharacterArt.FACE_EXPRESSIONS)
+	_art1b_write_fake_faces(fake_base_dir, fake_partial_id, ["neutral", "happy"])
+	DirAccess.make_dir_recursive_absolute(fake_base_dir % fake_none_id)
 
-	# 2) CharacterPortraitPlaceholder.set_character() 단위 검증 — novice는 원화 모드로
-	#    전환되고 _face_rect 텍스처가 표정마다 실제로 바뀌는지, berserker는 그대로
-	#    도형 플레이스홀더(_use_face_art=false, _face_rect 비표시)인지.
+	# 1) CharacterArt.has_all_faces(base_dir=...) 순수 함수 — 세 경우 모두.
+	var full_has_all := CharacterArt.has_all_faces(fake_full_id, fake_base_dir)
+	ok = full_has_all and ok
+	lines.append("  has_all_faces(가짜 '5장 모두') = %s (기대 true) -> %s" % [full_has_all, "OK" if full_has_all else "FAIL"])
+
+	var partial_has_all := CharacterArt.has_all_faces(fake_partial_id, fake_base_dir)
+	var partial_has_all_ok: bool = not partial_has_all
+	ok = partial_has_all_ok and ok
+	lines.append("  has_all_faces(가짜 '2장만') = %s (기대 false) -> %s" % [partial_has_all, "OK" if partial_has_all_ok else "FAIL"])
+
+	var none_has_all := CharacterArt.has_all_faces(fake_none_id, fake_base_dir)
+	var none_has_all_ok: bool = not none_has_all
+	ok = none_has_all_ok and ok
+	lines.append("  has_all_faces(가짜 '0장') = %s (기대 false) -> %s" % [none_has_all, "OK" if none_has_all_ok else "FAIL"])
+
+	# 2) CharacterPortraitPlaceholder.set_character()가 art_base_dir(신규 테스트 주입
+	#    지점)을 통해 이 가짜 디렉터리를 그대로 반영하는지 — "5장 모두"는 원화 모드 +
+	#    표정 전환, "2장만"/"0장"은 플레이스홀더 유지.
 	var portrait := CharacterPortraitPlaceholder.new()
 	add_child(portrait)
+	portrait.art_base_dir = fake_base_dir
 
-	portrait.set_character("berserker")
-	var berserker_mode_ok: bool = not portrait._use_face_art
-	ok = berserker_mode_ok and ok
-	lines.append("  set_character('berserker') 후 _use_face_art=%s (기대 false, 플레이스홀더 유지) -> %s" % [
-		portrait._use_face_art, "OK" if berserker_mode_ok else "FAIL"
-	])
-	var berserker_face_rect_hidden_ok: bool = portrait._face_rect == null or not portrait._face_rect.visible
-	ok = berserker_face_rect_hidden_ok and ok
-	lines.append("  berserker _face_rect 표시 안 됨(null 또는 visible=false) -> %s" % ("OK" if berserker_face_rect_hidden_ok else "FAIL"))
+	portrait.set_character(fake_none_id)
+	var none_mode_ok: bool = not portrait._use_face_art
+	ok = none_mode_ok and ok
+	lines.append("  set_character(가짜 '0장') 후 _use_face_art=%s (기대 false) -> %s" % [portrait._use_face_art, "OK" if none_mode_ok else "FAIL"])
 
-	portrait.set_character("novice")
-	var novice_mode_ok: bool = portrait._use_face_art
-	ok = novice_mode_ok and ok
-	lines.append("  set_character('novice') 후 _use_face_art=%s (기대 true, 원화 모드) -> %s" % [
-		portrait._use_face_art, "OK" if novice_mode_ok else "FAIL"
-	])
+	portrait.set_character(fake_partial_id)
+	var partial_mode_ok: bool = not portrait._use_face_art
+	ok = partial_mode_ok and ok
+	lines.append("  set_character(가짜 '2장만') 후 _use_face_art=%s (기대 false) -> %s" % [portrait._use_face_art, "OK" if partial_mode_ok else "FAIL"])
+
+	portrait.set_character(fake_full_id)
+	var full_mode_ok: bool = portrait._use_face_art
+	ok = full_mode_ok and ok
+	lines.append("  set_character(가짜 '5장 모두') 후 _use_face_art=%s (기대 true) -> %s" % [portrait._use_face_art, "OK" if full_mode_ok else "FAIL"])
 	var neutral_tex := portrait._face_rect.texture if portrait._face_rect != null else null
 	var neutral_tex_ok: bool = neutral_tex != null and portrait._face_rect.visible
 	ok = neutral_tex_ok and ok
-	lines.append("  novice 초기 표정(neutral) 텍스처 로드됨=%s, _face_rect.visible=%s -> %s" % [
+	lines.append("  가짜 '5장 모두' 초기 표정(neutral) 텍스처 로드됨=%s, _face_rect.visible=%s -> %s" % [
 		neutral_tex != null, portrait._face_rect.visible if portrait._face_rect != null else false,
 		"OK" if neutral_tex_ok else "FAIL"
 	])
@@ -7867,33 +7888,63 @@ func _check_art1b_combat_face_art(lines: PackedStringArray) -> bool:
 
 	remove_child(portrait)
 	portrait.free()
+	_art1b_remove_fake_faces(fake_base_dir, fake_full_id, CharacterArt.FACE_EXPRESSIONS)
+	_art1b_remove_fake_faces(fake_base_dir, fake_partial_id, ["neutral", "happy"])
+	_art1b_remove_fake_faces(fake_base_dir, fake_none_id, [])
+	DirAccess.remove_absolute("user://art1b_fake_faces")
 
-	# 3) 실제 combat_test.tscn 인스턴스에서 RunState.character_id='novice'일 때
-	#    $PlayerPortrait가 원화 모드로, '해당 캐릭터 전환'(_debug_set_character)으로
-	#    face_*가 없는 캐릭터로 바꾸면 다시 플레이스홀더로 돌아오는지.
+	# 3) 실제 combat_test.tscn 인스턴스 — production 배선(art_base_dir를 안 바꾸고
+	#    기본값=실제 resources/ 경로 그대로 씀)이 지금 그 캐릭터의 실제
+	#    CharacterArt.has_all_faces() 결과와 항상 일치하는지. 어떤 캐릭터가 입고
+	#    됐는지는 가정하지 않는다 — 입고 상태가 앞으로 바뀌어도 이 검증은 깨지지
+	#    않는다(실제 값을 기대값으로 직접 계산해서 비교).
 	var character_backup: String = RunState.character_id
 	RunState.character_id = "novice"
 	var combat_scene := load("res://code/scenes/combat_test.tscn")
 	var combat = combat_scene.instantiate()
 	add_child(combat)
 
-	var novice_combat_ok: bool = combat.player_portrait._use_face_art
+	var novice_expected := CharacterArt.has_all_faces("novice")
+	var novice_combat_ok: bool = combat.player_portrait._use_face_art == novice_expected
 	ok = novice_combat_ok and ok
-	lines.append("  combat_test 인스턴스(캐릭터=novice) PlayerPortrait._use_face_art=%s -> %s" % [
-		novice_combat_ok, "OK" if novice_combat_ok else "FAIL"
+	lines.append("  combat_test 인스턴스(캐릭터=novice) PlayerPortrait._use_face_art=%s (실제 has_all_faces=%s) -> %s" % [
+		combat.player_portrait._use_face_art, novice_expected, "OK" if novice_combat_ok else "FAIL"
 	])
 
-	combat._debug_set_character("berserker")
-	var berserker_combat_ok: bool = not combat.player_portrait._use_face_art
-	ok = berserker_combat_ok and ok
-	lines.append("  _debug_set_character('berserker') 후 PlayerPortrait._use_face_art=%s (기대 false, 다시 플레이스홀더) -> %s" % [
-		combat.player_portrait._use_face_art, "OK" if berserker_combat_ok else "FAIL"
-	])
+	for cid in ["berserker", "pirate", "guardian"]:
+		combat._debug_set_character(cid)
+		var expected := CharacterArt.has_all_faces(cid)
+		var cid_ok: bool = combat.player_portrait._use_face_art == expected
+		ok = cid_ok and ok
+		lines.append("  _debug_set_character('%s') 후 PlayerPortrait._use_face_art=%s (실제 has_all_faces=%s) -> %s" % [
+			cid, combat.player_portrait._use_face_art, expected, "OK" if cid_ok else "FAIL"
+		])
 
 	remove_child(combat)
 	combat.free()
 	RunState.character_id = character_backup
 	return ok
+
+
+## _check_art1b_combat_face_art() 전용 헬퍼 — base_dir_pattern(예: "user://.../%s/")
+## 아래 character_id 폴더를 만들고 expressions만큼 1x1 가짜 PNG(face_<표정>.png)를
+## 써넣는다. dice_test.gd의 기존 M-5/M-6 "user:// 임시 디렉터리" 패턴과 동일
+## (Image.create + save_png).
+func _art1b_write_fake_faces(base_dir_pattern: String, character_id: String, expressions: Array) -> void:
+	var dir_path := base_dir_pattern % character_id
+	DirAccess.make_dir_recursive_absolute(dir_path)
+	var img := Image.create(1, 1, false, Image.FORMAT_RGBA8)
+	img.fill(Color(1, 1, 1, 1))
+	for expression in expressions:
+		img.save_png(dir_path + "face_%s.png" % expression)
+
+
+## _art1b_write_fake_faces()가 만든 파일/디렉터리를 정리한다.
+func _art1b_remove_fake_faces(base_dir_pattern: String, character_id: String, expressions: Array) -> void:
+	var dir_path := base_dir_pattern % character_id
+	for expression in expressions:
+		DirAccess.remove_absolute(dir_path + "face_%s.png" % expression)
+	DirAccess.remove_absolute(dir_path)
 
 
 ## [미니 기획 ART-2] qa_out/art1b_novice_after_exchange.png에서 드러난 "표정 컷 아래 끝이
@@ -9426,3 +9477,163 @@ func _n5c_find_label_containing(node: Node, substring: String) -> bool:
 		if _n5c_find_label_containing(child, substring):
 			return true
 	return false
+
+
+## [대형 기획 14] N-6(2026-10-16) 검증: 캐릭터 전용 이벤트 + 특별 선택지. INBOX 지시대로
+## "계산/동작 결과"를 확인한다 — 플래그 존재 여부가 아니라 pick_challenge()의 실제 분포,
+## 버튼을 실제로 눌렀을 때 상태가 바뀌는지/안 바뀌는지, 보상 수치 비교, 8명 전부
+## 커버리지를 직접 계산/렌더해서 검증한다.
+func _check_n6_character_events_and_special_choices(lines: PackedStringArray) -> bool:
+	var ok := true
+	var event_script := load("res://code/scenes/event.gd")
+
+	var all_ids: Array[String] = []
+	for p in CharacterProfiles.PROFILES:
+		all_ids.append(String(p["id"]))
+
+	# 1) 8명 전부 전용 이벤트 또는 특별 선택지를 최소 1개 갖는지.
+	var missing: Array[String] = []
+	for cid in all_ids:
+		var has_exclusive := not EventChallengePool.exclusive_challenges_for(cid).is_empty()
+		var has_special := not EventChallengePool.special_choice_challenges_for(cid).is_empty()
+		if not (has_exclusive or has_special):
+			missing.append(cid)
+	var coverage_ok: bool = missing.is_empty()
+	ok = coverage_ok and ok
+	lines.append("  8명 전부 전용 이벤트/특별 선택지 >=1개 보유 — 미보유: %s -> %s" % [missing, "OK" if coverage_ok else "FAIL"])
+
+	# 2) 최소 분량(전용 이벤트 4종 이상, 특별 선택지 4종 이상).
+	var exclusive_count := 0
+	var special_count := 0
+	for c in EventChallengePool.CHALLENGES:
+		if EventChallengePool.is_exclusive(c):
+			exclusive_count += 1
+		if EventChallengePool.has_special_choice(c):
+			special_count += 1
+	var volume_ok: bool = exclusive_count >= 4 and special_count >= 4
+	ok = volume_ok and ok
+	lines.append("  전용 이벤트 %d종(기대 >=4) / 특별 선택지 %d종(기대 >=4) -> %s" % [
+		exclusive_count, special_count, "OK" if volume_ok else "FAIL"
+	])
+
+	# 3) pick_challenge() 분포 — 전용 이벤트가 있는 캐릭터는 시드 100개 중 기대 확률
+	#    범위(EXCLUSIVE_EVENT_CHANCE=0.25 기준 10~40회)만큼, 전용 이벤트가 없는 나머지
+	#    캐릭터는 항상 0회(어떤 챌린지를 뽑아도 그 캐릭터 소유의 전용 이벤트일 수가
+	#    없으므로 — INBOX "다른 7명은 시드 100개에서 0회"를 모든 캐릭터에 대해 일반화).
+	for cid in all_ids:
+		var exclusive_draw_count := 0
+		var rng := RandomNumberGenerator.new()
+		for seed_i in 100:
+			rng.seed = seed_i * 7919 + 13
+			var picked := EventChallengePool.pick_challenge(cid, rng)
+			if EventChallengePool.is_exclusive(picked):
+				exclusive_draw_count += 1
+		var has_own_exclusive := not EventChallengePool.exclusive_challenges_for(cid).is_empty()
+		if has_own_exclusive:
+			var in_range: bool = exclusive_draw_count >= 10 and exclusive_draw_count <= 40
+			ok = in_range and ok
+			lines.append("  pick_challenge('%s') 100회 중 전용 등장 %d회(기대 10~40, EXCLUSIVE_EVENT_CHANCE=%.2f) -> %s" % [
+				cid, exclusive_draw_count, EventChallengePool.EXCLUSIVE_EVENT_CHANCE, "OK" if in_range else "FAIL"
+			])
+		else:
+			var zero_ok: bool = exclusive_draw_count == 0
+			ok = zero_ok and ok
+			lines.append("  pick_challenge('%s') 100회 중 전용 등장 %d회(기대 0, 전용 이벤트 없는 캐릭터) -> %s" % [
+				cid, exclusive_draw_count, "OK" if zero_ok else "FAIL"
+			])
+
+	# 4) challenge_seed()/pick_challenge() 결정성 — 같은 run_seed+방 번호면 항상 같은
+	#    시드, 같은 시드면 항상 같은 챌린지(테스트 전투/QA 시드에서도 재현 가능해야
+	#    한다는 INBOX 지시 반영).
+	var seed_a: int = event_script.challenge_seed(12345, 2)
+	var seed_a2: int = event_script.challenge_seed(12345, 2)
+	var seed_determinism_ok: bool = seed_a == seed_a2
+	ok = seed_determinism_ok and ok
+	lines.append("  challenge_seed(12345,2) 두 번 호출 결과 동일(%d == %d) -> %s" % [seed_a, seed_a2, "OK" if seed_determinism_ok else "FAIL"])
+
+	var rng_a := RandomNumberGenerator.new()
+	rng_a.seed = seed_a
+	var rng_b := RandomNumberGenerator.new()
+	rng_b.seed = int(event_script.challenge_seed(12345, 2))
+	var picked_a: Dictionary = EventChallengePool.pick_challenge("pirate", rng_a)
+	var picked_b: Dictionary = EventChallengePool.pick_challenge("pirate", rng_b)
+	var reproducible_ok: bool = picked_a["id"] == picked_b["id"]
+	ok = reproducible_ok and ok
+	lines.append("  같은 run_seed+방 번호면 pick_challenge() 결과도 항상 동일('%s' == '%s') -> %s" % [
+		picked_a["id"], picked_b["id"], "OK" if reproducible_ok else "FAIL"
+	])
+
+	# 5) 특별 선택지 — 비소유 캐릭터는 잠김(눌러도 상태 불변), 소유 캐릭터는 활성
+	#    (실제로 눌렀을 때 보상이 적용되고, 그 보상 기대값이 같은 challenge의 안전
+	#    선택지보다 실제로 크다). "treasure"(enchantress 전용 특별 선택지 보유)로 확인.
+	var event_scene := load("res://code/scenes/event.tscn")
+	var ev = event_scene.instantiate()
+	add_child(ev)
+	var character_backup: String = RunState.character_id
+
+	RunState.character_id = "novice"  # "treasure"의 special_choice는 enchantress 전용
+	ev._debug_force_challenge("treasure")
+	var locked_btn: Button = ev._special_button
+	var locked_exists_ok: bool = locked_btn != null
+	ok = locked_exists_ok and ok
+	lines.append("  비소유(novice) 상태에서 특별 선택지 버튼 존재 -> %s" % ("OK" if locked_exists_ok else "FAIL"))
+	if locked_btn != null:
+		var title_lbl: Label = locked_btn.get_child(0).get_child(0) if locked_btn.get_child_count() > 0 else null
+		var lock_badge_ok: bool = title_lbl != null and String(title_lbl.text).begins_with("🔒")
+		ok = lock_badge_ok and ok
+		lines.append("  잠김 버튼 문구='%s' (🔒로 시작 기대) -> %s" % [
+			title_lbl.text if title_lbl != null else "(없음)", "OK" if lock_badge_ok else "FAIL"
+		])
+
+		var choice_made_before: bool = ev._choice_made
+		locked_btn.pressed.emit()
+		var state_unchanged_ok: bool = ev._choice_made == choice_made_before and ev._row_ui.is_empty()
+		ok = state_unchanged_ok and ok
+		lines.append("  잠긴 선택지 pressed.emit() 후 상태 불변(choice_made=%s->%s, 카드 수=%d) -> %s" % [
+			choice_made_before, ev._choice_made, ev._row_ui.size(), "OK" if state_unchanged_ok else "FAIL"
+		])
+
+	RunState.character_id = "enchantress"
+	ev._debug_force_challenge("treasure")
+	var active_btn: Button = ev._special_button
+	var active_exists_ok: bool = active_btn != null
+	ok = active_exists_ok and ok
+	lines.append("  소유(enchantress) 상태에서 특별 선택지 버튼 존재 -> %s" % ("OK" if active_exists_ok else "FAIL"))
+	if active_btn != null:
+		var title_lbl2: Label = active_btn.get_child(0).get_child(0) if active_btn.get_child_count() > 0 else null
+		var active_badge_ok: bool = title_lbl2 != null and not String(title_lbl2.text).begins_with("🔒")
+		ok = active_badge_ok and ok
+		lines.append("  활성 버튼 문구='%s' (자물쇠 없이 '전용' 표기 기대) -> %s" % [
+			title_lbl2.text if title_lbl2 != null else "(없음)", "OK" if active_badge_ok else "FAIL"
+		])
+
+		var reward_spec: Dictionary = ev._challenge["special_choice"]["reward"]
+		var safe_spec: Dictionary = ev._challenge["safe_reward"]
+		var reward_ev := EventChallengePool.reward_expected_value(reward_spec)
+		var safe_ev := EventChallengePool.reward_expected_value(safe_spec)
+		var bigger_ok: bool = reward_ev > safe_ev
+		ok = bigger_ok and ok
+		lines.append("  특별 선택지 기대값=%.2f > 안전 선택지 기대값=%.2f(둘 다 type=%s) -> %s" % [
+			reward_ev, safe_ev, reward_spec.get("type", "?"), "OK" if bigger_ok else "FAIL"
+		])
+
+		active_btn.pressed.emit()
+		var applied_ok: bool = ev._choice_made and ev._row_ui.size() == 1
+		ok = applied_ok and ok
+		lines.append("  활성 선택지 pressed.emit() 후 choice_made=%s, 카드 수=%d(기대 1, 보상 적용됨) -> %s" % [
+			ev._choice_made, ev._row_ui.size(), "OK" if applied_ok else "FAIL"
+		])
+
+	# 6) 전용 이벤트 화면 — 제목에 "전용" 배지가 실제로 뜨는지(pirate + treasure_map).
+	RunState.character_id = "pirate"
+	ev._debug_force_challenge("treasure_map")
+	var exclusive_title_ok: bool = String(ev.title_label.text).find("전용") != -1
+	ok = exclusive_title_ok and ok
+	lines.append("  전용 이벤트(pirate, treasure_map) 제목에 '전용' 배지 포함: '%s' -> %s" % [
+		ev.title_label.text, "OK" if exclusive_title_ok else "FAIL"
+	])
+
+	remove_child(ev)
+	ev.free()
+	RunState.character_id = character_backup
+	return ok
