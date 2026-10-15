@@ -217,9 +217,9 @@ ART-<분류><대상 번호 3자리>-<종류>
 | MO800 | `goblin_king` | 고블린 왕 | 인간형 | 보스 R1 | `#D9A626` | 📦 / 📝 |
 | MO801 | `ooze_lord` | 점액 군주 | 부정형 | 보스 R1 | `#4D8C59` | 📦 / 📝 |
 | MO802 | `skeleton_general` | 해골 장군 | 언데드형 | 보스 R2 | `#A69E80` | 📦 / 📝 |
-| MO803 | `frenzied_beast` | 광란의 마수 | 야수형 | 보스 R2 | `#8C3326` | 📝 / 📝 |
-| MO804 | `fallen_commander` | 타락한 기사단장 | 인간형 | 보스 R3 | `#594D73` | 📝 / 📝 |
-| MO805 | `void_eye` | 공허의 눈 | 부정형 | 보스 R3 | `#33264D` | 📝 / 📝 |
+| MO803 | `frenzied_beast` | 광란의 마수 | 야수형 | 보스 R2 | `#8C3326` | 📦 / 📝 |
+| MO804 | `fallen_commander` | 타락한 기사단장 | 인간형 | 보스 R3 | `#594D73` | 📦 / 📝 |
+| MO805 | `void_eye` | 공허의 눈 | 부정형 | 보스 R3 | `#33264D` | 📦 / 📝 |
 | MO600 | `dark_knight_elite` | 다크 나이트 | 인간형 | 정예 | `#8C40BF` | 📝 / 📝 |
 | MO601 | `goblin_chief` | 고블린 족장 | 인간형 | 정예 | `#C79438` | 📝 / 📝 |
 | MO602 | `gelatin_cube` | 젤라틴 큐브 | 부정형 | 정예 | `#80D1BF` | 📝 / 📝 |
@@ -682,6 +682,7 @@ Work는 `resources/ui/` 이미지가 있으면 StyleBoxTexture로 쓰고, 없으
 | 2026-10-16 | 스킬 아이콘 S2 시작 스킬 SK001~012 + S3 심호흡 SK300(+판) (GPT 생성, 계열별 2×2 시트 3장 + 단일 1장, 전부 1차 채택). **스킬 아이콘 37종 전량 입고** | `resources/skills/` 37장. `SkillIcon.load_external_art()`로 자동 적용 | — |
 | 2026-10-16 | ART-MO800-FULL 고블린 왕 · ART-MO801-FULL 점액 군주 (GPT 생성, 8인 라인업을 화풍 참고로 첨부. 고블린 왕은 오른쪽을 봐서 좌우 반전 — 몬스터는 왼쪽을 봄. 점액 군주는 망토 안쪽에 남은 흰 배경 조각 제거) | `resources/monsters/{goblin_king,ooze_lord}/full.png` 입고(원본 `_reference/monsters/`). 화면 표시는 Work ART-1c(몬스터 원화 경로) 대기 | — |
 | 2026-10-16 | ART-MO802-FULL 해골 장군 (GPT 생성. 찢긴 망토 구멍마다 흰 배경이 갇혀 남아 새 도구 `fill_holes.gd`로 순백 덩어리 제거 — 어두운 배경 미리보기로 확인) | `resources/monsters/skeleton_general/full.png` 입고. 화면 표시는 Work ART-1c 대기 | — |
+| 2026-10-16 | ART-MO803~805-FULL 광란의 마수·타락한 기사단장·공허의 눈 (GPT 생성, 전부 1차 채택, `fill_holes.gd`로 갇힌 흰 배경 제거). **M1 보스 6종 전신 완료** | `resources/monsters/{frenzied_beast,fallen_commander,void_eye}/full.png` 입고. 화면 표시는 Work ART-1c 대기 | `qa_out/art_boss_lineup.png` |
 
 ---
 
