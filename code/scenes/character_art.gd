@@ -27,16 +27,34 @@ const THUMB_REGION := Rect2(250, 30, 620, 792)
 const DEFAULT_FACE_CROP_RATIO := Rect2(0.26, 0.015, 0.48, 0.48)
 
 
-static func full_path(character_id: String) -> String:
-	return (BASE_DIR % character_id) + "full.png"
+static func full_path(character_id: String, base_dir: String = BASE_DIR) -> String:
+	return (base_dir % character_id) + "full.png"
 
 
-## 전신 원화. 없으면 null.
-static func load_full(character_id: String) -> Texture2D:
-	var path := full_path(character_id)
-	if not ResourceLoader.exists(path):
+## 전신 원화. 없으면 null. base_dir 의미는 face_path()/load_face()와 동일(기본값은
+## production 경로, ART-1c-2가 몬스터 전용 base_dir(res://resources/monsters/%s/,
+## CharacterArt.BASE_DIR과 다른 상수)을 넘기기 위해 매개변수화했다 — 그래서 "production
+## 경로인가"는 BASE_DIR과의 등호 비교 대신 res:// 접두어로 판단한다(아래 load_face()와
+## 동일한 이유로 동일하게 고침).
+static func load_full(character_id: String, base_dir: String = BASE_DIR) -> Texture2D:
+	var path := full_path(character_id, base_dir)
+	if base_dir.begins_with("res://"):
+		if not ResourceLoader.exists(path):
+			return null
+		return load(path) as Texture2D
+	if not FileAccess.file_exists(path):
 		return null
-	return load(path) as Texture2D
+	var img := Image.new()
+	if img.load(path) != OK:
+		return null
+	img.generate_mipmaps()
+	return ImageTexture.create_from_image(img)
+
+
+## full.png 존재 여부만(디코드 없이) 확인 — has_all_faces()와 같은 패턴(FileAccess로
+## production/테스트 경로 양쪽 공통 처리).
+static func has_full(character_id: String, base_dir: String = BASE_DIR) -> bool:
+	return FileAccess.file_exists(full_path(character_id, base_dir))
 
 
 ## 목록 카드용 썸네일(전신 원화의 상반신 부분). 원화가 없으면 null.
@@ -62,15 +80,16 @@ static func face_path(character_id: String, expression: String, base_dir: String
 
 
 ## 전투 화면용 표정 컷(ART-1b 규칙) 1장. 파일이 없으면 null(호출하는 쪽이 기존 도형
-## 플레이스홀더로 폴백). base_dir가 production 경로(기본값)면 기존과 동일하게
-## ResourceLoader(load())로 가져온다 — res:// 임포트된 리소스를 그대로 쓰므로 export
-## 경고("Loaded resource as image file...")가 없고 기존 동작과 완전히 같다. base_dir가
-## 주입된 테스트 경로(user:// 등)일 때만 FileAccess.file_exists + Image.load로 읽는다
-## (ui_kit.gd/skill_icon.gd의 base_dir 주입 패턴과 동일한 이유 — ResourceLoader는
-## .import가 없는 user:// raw PNG를 못 읽는다).
+## 플레이스홀더로 폴백). base_dir가 production 경로(res:// 접두어 — 캐릭터 BASE_DIR/
+## 몬스터 MONSTER_ART_BASE_DIR 둘 다 포함)면 기존과 동일하게 ResourceLoader(load())로
+## 가져온다 — res:// 임포트된 리소스를 그대로 쓰므로 export 경고("Loaded resource as
+## image file...")가 없고 기존 동작과 완전히 같다. base_dir가 주입된 테스트 경로
+## (user:// 등)일 때만 FileAccess.file_exists + Image.load로 읽는다(ui_kit.gd/
+## skill_icon.gd의 base_dir 주입 패턴과 동일한 이유 — ResourceLoader는 .import가 없는
+## user:// raw PNG를 못 읽는다).
 static func load_face(character_id: String, expression: String, base_dir: String = BASE_DIR) -> Texture2D:
 	var path := face_path(character_id, expression, base_dir)
-	if base_dir == BASE_DIR:
+	if base_dir.begins_with("res://"):
 		if not ResourceLoader.exists(path):
 			return null
 		return load(path) as Texture2D
@@ -101,17 +120,25 @@ static func face_crop_ratio(character_id: String) -> Rect2:
 	return profile.get("face_crop", DEFAULT_FACE_CROP_RATIO)
 
 
-## full.png에서 얼굴 비율 영역만 잘라낸 텍스처. full.png가 없으면 null.
-static func load_face_crop(character_id: String) -> Texture2D:
-	var full := load_full(character_id)
+## full.png에서 비율(ratio, 0..1) 영역만 잘라낸 텍스처 — load_face_crop()의 공용
+## 크롭 로직. full.png가 없으면 null. ART-1c-2가 몬스터 쪽(CharacterProfiles에 없는
+## id라 face_crop_ratio()를 못 씀)에서 DEFAULT_FACE_CROP_RATIO를 직접 넘겨 재사용한다
+## — 크롭 방식 자체(비율 → AtlasTexture region)는 여기 하나뿐, 새로 만들지 않는다.
+static func load_full_crop(character_id: String, ratio: Rect2, base_dir: String = BASE_DIR) -> Texture2D:
+	var full := load_full(character_id, base_dir)
 	if full == null:
 		return null
-	var ratio := face_crop_ratio(character_id)
 	var size := full.get_size()
 	var atlas := AtlasTexture.new()
 	atlas.atlas = full
 	atlas.region = Rect2(ratio.position * size, ratio.size * size)
 	return atlas
+
+
+## full.png에서 얼굴 비율 영역만 잘라낸 텍스처(캐릭터 전용 — face_crop_ratio()로 프로필
+## 오버라이드를 반영). full.png가 없으면 null.
+static func load_face_crop(character_id: String) -> Texture2D:
+	return load_full_crop(character_id, face_crop_ratio(character_id), BASE_DIR)
 
 
 ## K-2 좌측 목록용 "얼굴 중심 정사각 썸네일" — 우선순위: ① face_neutral.png

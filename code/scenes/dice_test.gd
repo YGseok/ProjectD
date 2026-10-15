@@ -401,6 +401,10 @@ func _ready() -> void:
 	all_pass = (await _check_art1c_monster_face_art(lines)) and all_pass
 
 	lines.append("")
+	lines.append("[ART-1c-2: 몬스터 face_* 없이 full.png만 있을 때 상반신 크롭 폴백 — 우선순위(face_* 5장 > full.png 크롭 > 도형 플레이스홀더), set_expression() 호출이 크롭 상태를 안전하게 무시하는지, 카탈로그 35종 전체가 실시간 입고 상태(has_full()/has_all_faces())와 항상 일치하는지, 크롭 모드 몬스터의 화면 우측 끝이 안 잘리는지]")
+	all_pass = _check_art1c2_monster_full_crop_fallback(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -8240,6 +8244,168 @@ func _check_art1c_monster_face_art(lines: PackedStringArray) -> bool:
 	remove_child(combat)
 	combat.free()
 	return ok
+
+
+## ART-1c-2(2026-10-16) — face_* 5장이 없고 full.png만 있을 때의 상반신 크롭 폴백
+## (CharacterArt.load_full_crop()/has_full() 재사용, 새 크롭 로직 없음). 우선순위
+## (face_* 5장 > full.png 크롭 > 도형 플레이스홀더), set_expression()의 안전 무시를
+## 가짜 user:// 디렉터리로 검증하고, production은 카탈로그 35종 전체를 순회해 "지금
+## 실제로 full.png가 입고된 몬스터는 크롭 모드, 없는 몬스터는 플레이스홀더"가 has_full()/
+## has_all_faces() 실시간 결과와 항상 일치하는지 본다(특정 id를 하드코딩해 "원화 없음"
+## 또는 "원화 있음"을 가정하지 않음 — ART-1c의 N-6 교훈 재적용).
+func _check_art1c2_monster_full_crop_fallback(lines: PackedStringArray) -> bool:
+	var ok := true
+
+	var fake_base_dir := "user://art1c2_fake_monster_full/%s/"
+	var fake_none_id := "qa_fake_monster_none2"
+	var fake_full_only_id := "qa_fake_monster_full_only"
+	var fake_both_id := "qa_fake_monster_face_and_full"
+
+	# "없음" — 디렉터리만 만들고 아무 파일도 안 둠.
+	DirAccess.make_dir_recursive_absolute(fake_base_dir % fake_none_id)
+	# "full.png만" — 1장짜리 가짜 전신 원화만.
+	_art1c2_write_fake_full(fake_base_dir, fake_full_only_id)
+	# "face_* 5장 + full.png 둘 다" — 우선순위 검증용(원화 표정 컷이 이겨야 함).
+	_art1b_write_fake_faces(fake_base_dir, fake_both_id, CharacterArt.FACE_EXPRESSIONS)
+	_art1c2_write_fake_full(fake_base_dir, fake_both_id)
+
+	var portrait := MonsterPortraitPlaceholder.new()
+	add_child(portrait)
+	portrait.art_base_dir = fake_base_dir
+
+	portrait.set_monster(fake_none_id)
+	var none_ok: bool = not portrait._use_face_art and not portrait._use_full_crop
+	ok = none_ok and ok
+	lines.append("  set_monster(가짜 '아무 파일도 없음') 후 _use_face_art=%s/_use_full_crop=%s (기대 둘 다 false) -> %s" % [
+		portrait._use_face_art, portrait._use_full_crop, "OK" if none_ok else "FAIL"
+	])
+
+	portrait.set_monster(fake_full_only_id)
+	var full_only_ok: bool = (not portrait._use_face_art) and portrait._use_full_crop
+	ok = full_only_ok and ok
+	lines.append("  set_monster(가짜 'full.png만') 후 _use_face_art=%s/_use_full_crop=%s (기대 false/true) -> %s" % [
+		portrait._use_face_art, portrait._use_full_crop, "OK" if full_only_ok else "FAIL"
+	])
+	var crop_tex := portrait._face_rect.texture if portrait._face_rect != null else null
+	var crop_visible_ok: bool = crop_tex != null and portrait._face_rect.visible
+	ok = crop_visible_ok and ok
+	lines.append("  'full.png만' 크롭 텍스처 로드됨=%s, _face_rect.visible=%s -> %s" % [
+		crop_tex != null, portrait._face_rect.visible if portrait._face_rect != null else false,
+		"OK" if crop_visible_ok else "FAIL"
+	])
+
+	# set_expression() 호출이 크롭 상태를 깨지 않고 안전하게 무시하는지(표정 컷이 없으므로
+	# 텍스처가 그대로 유지돼야 함) — "같은 몬스터가 set_expression()을 호출해도 full.png
+	# 폴백 상태에선 안전하게 무시" 요구사항.
+	portrait.set_expression("angry")
+	var expression_noop_ok: bool = portrait._face_rect.texture == crop_tex and portrait._use_full_crop
+	ok = expression_noop_ok and ok
+	lines.append("  'full.png만' 상태에서 set_expression('angry') 호출 후에도 텍스처 불변 + _use_full_crop 유지 -> %s" % (
+		"OK" if expression_noop_ok else "FAIL"
+	))
+
+	# 우선순위 — face_* 5장과 full.png가 둘 다 있으면 원화 표정 컷(_use_face_art)이 이김.
+	portrait.set_monster(fake_both_id)
+	var priority_ok: bool = portrait._use_face_art and not portrait._use_full_crop
+	ok = priority_ok and ok
+	lines.append("  set_monster(가짜 'face_* 5장 + full.png 둘 다') 후 _use_face_art=%s/_use_full_crop=%s (기대 true/false, face_*가 우선) -> %s" % [
+		portrait._use_face_art, portrait._use_full_crop, "OK" if priority_ok else "FAIL"
+	])
+
+	remove_child(portrait)
+	portrait.free()
+	DirAccess.remove_absolute(fake_base_dir % fake_none_id)
+	_art1c2_remove_fake_full(fake_base_dir, fake_full_only_id)
+	_art1b_remove_fake_faces(fake_base_dir, fake_both_id, CharacterArt.FACE_EXPRESSIONS)
+	_art1c2_remove_fake_full(fake_base_dir, fake_both_id)
+	DirAccess.remove_absolute("user://art1c2_fake_monster_full")
+
+	# 카탈로그 전체(일반+레거시+정예+보스, 35종)를 순회해 "지금 실제로 full.png가 입고된
+	# 몬스터는 크롭 모드, 아직 없는 몬스터는 플레이스홀더 그대로"가 항상 CharacterArt.
+	# has_full()의 실시간 결과와 정확히 일치하는지 본다 — 특정 id를 "원화 없음"으로
+	# 하드코딩해 가정하지 않는다(ART-1c의 N-6 교훈: "berserker는 face_*가 없다"는 가정이
+	# 실제 입고로 깨졌던 사고 재발 방지. 이번 이터레이션 중에도 slime/goblin/orc/skeleton
+	# 4종이 동시에 입고돼 이 가정 없는 방식이 바로 유효함이 실제로 증명됨).
+	var crop_count := 0
+	var placeholder_count := 0
+	var mismatch_ids: Array = []
+	for m in MonsterCatalog.MONSTERS:
+		var mid: String = m["id"]
+		var expected_face: bool = CharacterArt.has_all_faces(mid, MonsterPortraitPlaceholder.MONSTER_ART_BASE_DIR)
+		var expected_full: bool = CharacterArt.has_full(mid, MonsterPortraitPlaceholder.MONSTER_ART_BASE_DIR)
+		var expected_crop: bool = expected_full and not expected_face
+		var mp := MonsterPortraitPlaceholder.new()
+		add_child(mp)
+		mp.set_monster(mid)
+		var matches: bool = mp._use_face_art == expected_face and mp._use_full_crop == expected_crop
+		if not matches:
+			mismatch_ids.append(mid)
+		ok = matches and ok
+		if expected_crop:
+			crop_count += 1
+			var tex_ok: bool = mp._face_rect != null and mp._face_rect.texture != null
+			ok = tex_ok and ok
+			if not tex_ok:
+				mismatch_ids.append(mid + "(텍스처 없음)")
+		elif not expected_face:
+			placeholder_count += 1
+		remove_child(mp)
+		mp.free()
+	lines.append("  카탈로그 35종 전수 — has_all_faces()/has_full() 실시간 상태와 _use_face_art/_use_full_crop 일치: 크롭 모드=%d종, 플레이스홀더=%d종, 불일치=%s -> %s" % [
+		crop_count, placeholder_count, mismatch_ids, "OK" if mismatch_ids.is_empty() else "FAIL"
+	])
+	ok = mismatch_ids.is_empty() and ok
+
+	# 화면 우측 끝(1280px) 안에 들어오는지 — ART-1c의 _check_art1c_monster_face_art() 3)과
+	# 같은 방식(실제 combat_test.tscn 인스턴스 + 실제 scale). 지금 크롭 모드로 확인된
+	# 몬스터 중 하나를 대표로 측정(전부 같은 _face_rect 배치 로직을 공유하므로 위치
+	# 좌표 자체는 몬스터별로 달라지지 않음) — 아직 하나도 입고 전이면 이 측정은 건너뛴다.
+	var crop_sample_id := ""
+	for m in MonsterCatalog.MONSTERS:
+		var mid: String = m["id"]
+		if CharacterArt.has_full(mid, MonsterPortraitPlaceholder.MONSTER_ART_BASE_DIR) and not CharacterArt.has_all_faces(mid, MonsterPortraitPlaceholder.MONSTER_ART_BASE_DIR):
+			crop_sample_id = mid
+			break
+	if crop_sample_id != "":
+		var combat_scene := load("res://code/scenes/combat_test.tscn")
+		var combat = combat_scene.instantiate()
+		add_child(combat)
+		for scale_case in [
+			{"label": "일반(1.1배)", "scale": Vector2(1.1, 1.1)},
+			{"label": "보스(1.3배)", "scale": Vector2(1.3, 1.3)},
+		]:
+			combat.monster_portrait.scale = scale_case["scale"]
+			combat.monster_portrait.set_monster(crop_sample_id)
+			var face_rect: TextureRect = combat.monster_portrait._face_rect
+			var right_edge: float = (face_rect.get_global_transform() * Vector2(face_rect.size.x, 0)).x if face_rect != null else 9999.0
+			var right_margin_ok: bool = right_edge <= 1280.0 - 8.0
+			ok = right_margin_ok and ok
+			lines.append("  '%s' full.png 크롭 %s 오른쪽 끝 글로벌 x=%.1f (기대 <= %.1f) -> %s" % [
+				crop_sample_id, scale_case["label"], right_edge, 1280.0 - 8.0, "OK" if right_margin_ok else "FAIL"
+			])
+		remove_child(combat)
+		combat.free()
+	else:
+		lines.append("  (크롭 모드로 전환된 몬스터가 아직 없어 화면 경계 측정 건너뜀)")
+
+	return ok
+
+
+## _check_art1c2_monster_full_crop_fallback() 전용 헬퍼 — 실제 보스 원화(1181x1332)와
+## 같은 비율의 가짜 full.png를 만든다(절대 해상도는 테스트 속도를 위해 축소, 비율 기반
+## 크롭 계산은 해상도와 무관하므로 테스트 목적상 충분).
+func _art1c2_write_fake_full(base_dir_pattern: String, monster_id: String) -> void:
+	var dir_path := base_dir_pattern % monster_id
+	DirAccess.make_dir_recursive_absolute(dir_path)
+	var img := Image.create(118, 133, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0.4, 0.6, 0.8, 1.0))
+	img.save_png(dir_path + "full.png")
+
+
+func _art1c2_remove_fake_full(base_dir_pattern: String, monster_id: String) -> void:
+	var dir_path := base_dir_pattern % monster_id
+	DirAccess.remove_absolute(dir_path + "full.png")
+	DirAccess.remove_absolute(dir_path)
 
 
 ## _check_art1b_combat_face_art() 전용 헬퍼 — base_dir_pattern(예: "user://.../%s/")

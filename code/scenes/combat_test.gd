@@ -1407,6 +1407,17 @@ func _debug_show_monster_face_art_boss() -> void:
 	_debug_show_monster_face_art(true)
 
 
+## ART-1c-2 QA 전용(GAME_QA_CALL) — 실제 입고된 보스 full.png 크롭 폴백(face_* 없이
+## full.png만 있을 때)을 이 환경의 QA 캡처 폭 잘림(1028px, docs/STATUS.md "알려진
+## 이슈")에 가리지 않고 눈으로 보기 위한 0-arity 훅. GAME_QA_MONSTER_ID(보스 id)로
+## 몬스터 자체는 production _ready() 경로 그대로 구성되게 두고(이 훅은 _ready() 이후
+## GAME_QA_CALL로 호출돼 위치만 화면 중앙으로 옮긴다) — ART-1c의
+## _debug_show_monster_face_art()와 같은 목적. 실제 배치 좌표(우측 경계) 검증은
+## dice_test.gd가 수치로 담당.
+func _debug_shift_monster_portrait_center() -> void:
+	monster_portrait.position = Vector2(500, 300)
+
+
 ## dungeon_map.gd/shop.gd 등과 같은 패턴 — 지금 화면에 실제로 눌러야 할 버튼들을
 ## 화면에 보이는 순서(승리 보상 카드/건너뛰기/커스터마이징 -> "다음" -> 커스터마이징
 ## 토글 -> 덱 보기 토글)대로 모아 FocusNav.chain_linear()로 방향키 체인을 다시 잇고

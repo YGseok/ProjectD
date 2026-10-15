@@ -22,6 +22,16 @@ class_name MonsterPortraitPlaceholder
 ## 받는 범용 순수 함수라 캐릭터 전용 로직이 없음)를 MONSTER_ART_BASE_DIR로 그대로
 ## 재사용한다. set_monster()/set_expression()의 원화 전환 흐름 자체는
 ## `CharacterPortraitPlaceholder.set_character()`와 동일한 구조.
+##
+## ART-1c-2(2026-10-16, [대형 기획 13] 인수인계 — 보스 6종이 face_* 없이 full.png만
+## 입고됨): face_* 5장이 없고 full.png만 있으면, `CharacterArt.load_full_crop()`(=
+## `load_face_thumb()`가 쓰는 것과 같은 "비율 → AtlasTexture" 크롭 로직, 캐릭터
+## 전용 face_crop_ratio() 대신 몬스터는 프로필이 없으니 CharacterArt.
+## DEFAULT_FACE_CROP_RATIO를 직접 넘김)로 상반신을 잘라 같은 _face_rect에 표시한다.
+## 이 상태(_use_full_crop)는 표정별 텍스처가 없으므로 set_expression()을 호출해도
+## 텍스처를 바꾸지 않고 무시 — _draw()도 도형 플레이스홀더를 안 그리도록 함께 막는다.
+## 우선순위: face_* 5장(_use_face_art) > full.png 크롭(_use_full_crop) > 도형
+## 플레이스홀더(둘 다 false).
 
 const EYE_COLOR := Color(0.12, 0.1, 0.08)
 const MOUTH_COLOR := Color(0.25, 0.08, 0.08)
@@ -50,6 +60,9 @@ const FACE_ART_FADE_SHADER := CharacterPortraitPlaceholder.FACE_ART_FADE_SHADER
 ## 플레이스홀더 대신 _face_rect 텍스처를 보여준다(1장이라도 없으면 항상 false로 유지돼
 ## 기존 플레이스홀더 그대로).
 var _use_face_art := false
+## ART-1c-2: face_* 5장은 없지만 full.png는 있을 때 true — 상반신 크롭을 _face_rect에
+## 정적으로 보여준다(표정 전환 없음). _use_face_art가 true면 이쪽은 항상 false.
+var _use_full_crop := false
 var _monster_id := ""
 var _face_rect: TextureRect = null
 
@@ -66,10 +79,15 @@ var art_base_dir: String = MONSTER_ART_BASE_DIR
 func set_monster(monster_id: String) -> void:
 	_monster_id = monster_id
 	_use_face_art = CharacterArt.has_all_faces(monster_id, art_base_dir)
+	_use_full_crop = false
 	if _use_face_art:
 		_ensure_face_rect()
+	elif CharacterArt.has_full(monster_id, art_base_dir):
+		_use_full_crop = true
+		_ensure_face_rect()
+		_face_rect.texture = CharacterArt.load_full_crop(monster_id, CharacterArt.DEFAULT_FACE_CROP_RATIO, art_base_dir)
 	if _face_rect != null:
-		_face_rect.visible = _use_face_art
+		_face_rect.visible = _use_face_art or _use_full_crop
 	set_expression(expression)
 
 
@@ -108,7 +126,7 @@ func set_family(new_family: String) -> void:
 
 
 func _draw() -> void:
-	if _use_face_art:
+	if _use_face_art or _use_full_crop:
 		return
 	if family == "amorphous":
 		# 뿔 없이, 몸 하단에 흘러내리는 물방울 장식.

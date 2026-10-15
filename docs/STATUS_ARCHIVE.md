@@ -8,6 +8,65 @@
 
 ---
 
+- **2026-10-15 (208)**: INBOX.md 최우선 지시 [대형 기획 14](조작/선택 화면/이벤트
+  특화 클래스·전용 이벤트) 중 **N-2(캐릭터 선택 — 전신 이미지를 더 크게 보이도록
+  레이아웃 수정) 완료**. INBOX 원문: 우측 상세 패널을 좌(전신 이미지 큰 컬럼,
+  1280×720 기준 세로 560px 이상)/우(정보 구역 컬럼) 2단으로 나누고, 원화가
+  없으면 placeholder를 같은 크기 영역에 넉넉히 보여줄 것.
+  **레이아웃 재구성**(`code/scenes/character_select.gd`): 기존 `_build_detail_panel()`은
+  `_detail_sections_vbox`(5섹션: 헤더/능력치/고유 능력/시작 스킬/안내)를
+  `detail_container`에 바로 붙였는데, 이제 `columns`(HBoxContainer)를 먼저 붙이고
+  그 아래 좌(`_build_portrait_column()`, 신규)/우(`_detail_sections_vbox`,
+  `INFO_COLUMN_WIDTH=480`으로 고정)를 자식으로 둔다. **`_build_portrait_column()`**은
+  `Panel`(PanelContainer가 아니라 일반 `Panel`을 쓴 이유: PanelContainer는
+  레이아웃 패스 시점에 자식을 자동으로 리사이즈해 "전신 이미지 홀더 rect 높이
+  ≥560"이라는 테스트 기준이 레이아웃 타이밍에 따라 달라질 위험이 있음) 안에
+  고정 크기 홀더(`_detail_portrait_holder`, `FULL_ART_SIZE=Vector2(300,560)` —
+  560은 INBOX의 "세로 560px 이상" 테스트 기준을 그대로 상수화하고,
+  `DetailPanelContainer` 높이(840×580으로 확장, 아래 참고)에서 위아래 여백
+  10px씩을 뺀 값과 정확히 일치)를 만들고, 그 안에 ①퍼스널 컬러 스포트라이트
+  (`_detail_portrait_spotlight`, `CharacterTheme.get_portrait_spotlight_texture()`
+  신규 — `apply_background()`가 쓰던 비네트 텍스처를 그대로 재사용, 장식은
+  INBOX 지시대로 "스포트라이트 정도"로 약하게) ②기존 전신 원화/플레이스홀더
+  (`_detail_art`/`_detail_portrait`, 헤더 섹션에서 그대로 옮겨와 `FULL_ART_SIZE`
+  기준으로 재배치, `PORTRAIT_SCALE_FULL=2.15`로 플레이스홀더 확대)를 올린다.
+  **`.tscn` 좌표 조정**: `CardsContainer`/`DetailPanelContainer` 바닥을 640→680
+  (높이 540→580), "던전 시작" 버튼을 650~700→688~716(화면 맨 아래)으로 옮겨
+  상세 패널 세로 공간을 넓혔다 — 업적/테스트 전투 버튼(y 24~92, 상세 패널
+  시작(y=100)보다 위)은 안 건드림. **정보 컬럼 폭 축소 대응**: 840→480으로
+  좁아진 만큼 `SECTION_BODY_WRAP_WIDTH`(760→452)/`ABILITY_DESC_WRAP_WIDTH`
+  (720→412)를 비례 축소하고, 고유 능력 설명 글자수 상한 `ABILITY_DESC_MAX_CHARS`
+  (70→40, 같은 비율)와 시작 스킬 슬롯 버튼 폭(신규 `STARTING_SKILL_SLOT_WIDTH`,
+  150→140 — 3칸+separation 20이 452 폭 안에 들어오려면 144 이하 필요)도 함께
+  줄여, 좁아진 폭에서도 텍스트가 2줄 예산/패널 높이 예산을 안 넘게 했다(INBOX가
+  명시한 "필요하면 글을 더 줄이기" 경로).
+  **`_refresh_detail_panel()` 보강**: 캐릭터를 바꿀 때마다 `_detail_portrait_panel`
+  테두리를 `CharacterTheme.apply()`로, 스포트라이트 틴트를 `ui_palette().primary`로
+  다시 칠한다(기존 5섹션 테두리 갱신과 같은 패턴, 다만 `_detail_section_entries`
+  공유 리스트에는 넣지 않고 별도로 호출 — 기존 K-3 테스트가 `_detail_section_entries[1]`
+  인덱스를 직접 참조해 순서가 바뀌면 깨질 위험을 피함).
+  **테스트**(`dice_test.gd` 신규 `_check_n2_full_art_column()`): (a) 8명 전부
+  `_detail_portrait_holder.size`가 높이≥560·폭≤340인지 (b) 좁아진 정보 컬럼
+  폭에서도 8명 전부 `_detail_sections_vbox.get_combined_minimum_size().y`가
+  `detail_container.size.y`(580) 예산 안에 들어오는지(기존 K-2 체크도 같은
+  계산을 새 레이아웃 기준으로 다시 돌아 함께 PASS 확인) (c) novice/pirate 전환 시
+  `_detail_art.texture`(둘 다 non-null, 서로 다름)와 `_detail_portrait_spotlight.modulate`
+  (서로 다름)가 실제로 바뀌는지 — `bash scripts/qa_shot.sh dice_test` 전체
+  **PASS**(FAIL 0건, K-2/K-3/N-1 등 기존 회귀 포함). **셀프 피드백**: qa_shot으로
+  8명(견습 모험가/광전사/수호자/폭발병/주술사/매혹사/곡예사/해적) 전부와 시작
+  스킬 3슬롯 전부 해금 상태를 직접 캡처해 이미지로 확인 — `resources/characters/`에
+  이미 8명 전부 `full.png`가 입고돼 있어(STATUS.md 이전 기록의 "4종만 입고"는
+  이번에 확인해보니 갱신돼 있었음, Work 쪽은 `resources/`를 읽기만 함) 실제로는
+  전원 원화로 보였고, placeholder 분기는 코드 경로로만 남아 있다(원화가 없는
+  캐릭터가 생기면 바로 동작). 전신 원화가 화면에서 가장 큰 요소가 됐고, 정보
+  컬럼(헤더/능력치/고유 능력/시작 스킬 3슬롯)이 겹침·잘림 없이 들어오며, 3슬롯이
+  전부 해금된 상태(견습 모험가, 업적 2개 선해금)에서도 버튼 3개가 폭 안에
+  들어옴을 육안으로 확인 — 추가 비평 없이 1라운드로 종료. `qa_out/n2_*.png`
+  (novice/pirate/explosive/shieldbearer/juggler/all-unlocked 6장). 전투 규칙/
+  밸런스는 건드리지 않았다. INBOX.md [대형 기획 14]는 "부분 처리됨"에 두고 N-2
+  진행 기록을 반영해 한 줄 갱신(N-3~N-6 남음). **다음은 N-3(flat 버튼 전수
+  교정)**.
+
 - **2026-10-15 (207)**: INBOX.md 최우선 지시 [대형 기획 14](조작/선택 화면/이벤트
   특화 클래스·전용 이벤트) 중 **N-1(방향키+스페이스로 "진행"까지) 완료**. K-1이
   이동/선택은 방향키+스페이스로 이미 대체했지만, 사용자가 "진행까지" 마우스 없이

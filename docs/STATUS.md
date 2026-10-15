@@ -5,40 +5,39 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-10-16 (217)
-- 작성자: AI 에이전트. 세 가지 독립 작업을 한 이터레이션에서 완료했다.
-  **(A) [미니 기획 M-7](던전 맵 방 카드 MapStrip 프레임 스킨) 완료** —
-  M-6(206)이 등급 신호가 없다는 이유로 범위 밖에 남겨뒀던 방 카드에 같은
-  `UIKit.apply_card_skin()` 패턴을 연결하되, 등급색 대신 방 상태 3색
-  (현재=금색/완료=초록/미래=회색, 기존 StyleBoxFlat 폴백 테두리색 그대로
-  재사용)을 accent 틴트로 썼다 — 한 방이 선택지를 여러 개 동시에 가질 수 있어
-  "선택지 종류색" 하나를 카드 전체에 못 쓰기 때문. 선택지 칩(전투/상점/이벤트/
-  정예/스토리, 보스·정예 배지 포함)은 별도 PanelContainer라 무관하게 유지됨.
-  **(B) H-1 "일반 모드 보존" 불안정 테스트 원인 특정 + 결정화** — 2026-09-15
-  부터 "6번 중 1번꼴 일회성 FAIL"로만 기록돼 있던 것의 실제 원인을 찾았다.
-  그 검증이 `RunState.monster_plan`(매 `reset_run()`마다 `randi()`로 새
-  시드)에서 실제 몬스터를 뽑아 공격 다이스 1개를 50으로 고정해 "무조건
-  승리"를 가정했는데, 일반 20종 중 "유령"(`ghost`, 스킬 `seal`=그 턴 공격
-  다이스 중 최솟값 1개를 0으로)이 뽑히면 다이스가 1개뿐이라 그 유일한
-  다이스가 통째로 0이 돼 가정이 깨지고 있었다 — 다이스를 2개로 늘려(seal이
-  하나를 0으로 만들어도 나머지가 남음) 어떤 몬스터가 뽑혀도 결정적이게
-  고쳤다(검증 의도는 그대로 보존). `bash scripts/qa_shot.sh dice_test` 5회
-  연속 PASS로 재발 없음 확인. **(C) [미니 기획 ART-3](INBOX.md "남은 이슈",
-  아트 스레드가 우선순위 높음으로 전달한 버그 리포트) 완료** — 스킬 아이콘
-  원화가 흰 사각형으로 보이던 버그. `skill_icon.gd`의 `_draw()`가 매 프레임
-  `ImageTexture`를 새로 만들어 지역 변수로만 쥔 채 그려서, 함수가 끝나자마자
-  해제돼 RID가 무효화되던 것이 원인(아트 스레드가 정확히 진단) — 멤버 변수로
-  캐시하고(파일 존재 여부는 매번 가볍게 재확인), production 경로는
-  `character_art.gd`와 같은 `ResourceLoader`/`load()` 패턴으로 바꿔 고쳤다.
-  `qa_out/art3_skill_codex_check.png`로 흰 사각형이 아니라 실제 아이콘 아트가
-  그려지는 것을 육안 확인. 덤으로 배경/HUD 아이콘 반영(알려진 이슈 "(2)는
-  여전히 미확인")도 dungeon_map/combat/shop/event 4개 화면 캡처로 전부 정상
-  반영을 확인해 해당 항목을 제거했다. 세 작업 모두 전투 규칙/밸런스는 안
-  건드렸고 `resources/`·`docs/art/`는 읽기만 했다. INBOX.md의 [미니 기획
-  ART-3]를 "처리됨"으로 옮겼다(M-7은 INBOX 항목이 아니라 STATUS.md 큐/M-6
-  메모에서 파생된 작업이라 INBOX 변경 없음). 상세는 아래 "완료 기록 (217)"
-  참고. **다음은 INBOX.md "남은 이슈"에 새 항목이 없으면 아래 "알려진 이슈/
-  막힌 것"을 참고해 독립적으로 진행 가능한 항목을 고를 것.**
+- 일시: 2026-10-16 (218)
+- 작성자: AI 에이전트. 이번 이터레이션의 지시 대상이던 **[미니 기획 ART-1c-2]
+  (몬스터 face_* 없이 full.png만 있을 때 상반신 크롭 폴백) 완료**. 아트
+  스레드가 보스 6종을 face_* 표정 컷 없이 전신 원화(`full.png`) 하나로만
+  입고해 ART-1c(216)의 원화 경로(face_* 5장 필요)가 발동하지 않고 여전히
+  도형 플레이스홀더로 보이던 문제를 고쳤다 — `CharacterArt.load_face_thumb()`가
+  쓰던 "비율 → AtlasTexture" 크롭 로직을 `load_full_crop(character_id, ratio,
+  base_dir)`로 분리해 몬스터 쪽에서도 그대로 재사용(새 크롭 알고리즘 없음),
+  `MonsterPortraitPlaceholder`에 `_use_full_crop` 상태를 추가해 우선순위를
+  face_* 5장 > full.png 크롭 > 도형 플레이스홀더로 정리했다. 크롭 모드에서
+  `set_expression()` 호출은 안전하게 무시되고(표정 컷이 없으므로), 하단 페이드
+  셰이더·보스 1.3배 확대·화면 안 배치는 ART-1c의 기존 배치 로직을 그대로
+  공유해 추가 작업 없이 적용됐다. 덤으로 `load_face()`/`load_full()`의
+  "production 경로 판정"이 캐릭터 전용 `BASE_DIR`과의 등호 비교라 몬스터
+  전용 base_dir에서는 항상 비효율적인 FileAccess+Image.load() 경로(export
+  경고 동반)로 빠지던 버그도 `base_dir.begins_with("res://")`로 일반화해
+  함께 고쳤다. `dice_test.gd` 신규 `_check_art1c2_monster_full_crop_fallback()`가
+  가짜 user:// 디렉터리 3가지 경우 + **카탈로그 35종 전체를 특정 id 하드코딩
+  없이 순회**해 production 입고 상태(`has_all_faces()`/`has_full()`)와 항상
+  일치하는지 검증한다 — 이 "하드코딩 없는" 설계가 작업 도중 실제로 증명됐다
+  (테스트 작성 중 아트 스레드가 보스 6종 외에 일반 4종+정예 1종 full.png를
+  동시에 추가 입고해, 크롭 대상이 6종→11종으로 바뀌었는데도 수정 없이 그대로
+  PASS). `bash scripts/qa_shot.sh dice_test` 전체 PASS(FAIL 0건). 셀프 피드백
+  루프로 실제 입고된 보스 6종 + 새로 입고된 일반/정예 2종까지 총 8종을
+  QA 전용 디버그 훅(`_debug_shift_monster_portrait_center()`, 이 환경 QA 캡처
+  폭 잘림 우회용)으로 직접 캡처해 크롭이 얼굴·장식을 중심에 두고 화면 안에
+  잘 들어오는 것을 육안 확인 — 추가 조정 없이 1라운드로 종료. 전투 규칙/
+  밸런스는 건드리지 않았고 `resources/`·`docs/art/`는 읽기만 했다(아트
+  스레드가 이 세션 도중 병행 커밋한 보스 6종 + 일반/정예 5종 원화를 그대로
+  읽어 검증만 함). 상세는 아래 "완료 기록 (218)" 참고. **INBOX.md의
+  [대형 기획 13]은 이 조각이 M-5(a)/(b)·ART-2·M-6/M-7과 함께 사실상 전부
+  끝난 상태 — 다음은 INBOX.md "남은 이슈"에 새 항목이 없으면 아래 "알려진
+  이슈/막힌 것"을 참고해 독립적으로 진행 가능한 항목을 고를 것.**
 
 ## 지금 위치
 
@@ -153,9 +152,14 @@ HP 패널·다이스 스테이지·결과 칩과 겹치지 않고 표정(happy)�
 완료** — `MonsterPortraitPlaceholder.set_monster(monster_id)`가 ART-1b와 같은
 구조로(새 클래스 없이 `CharacterArt.has_all_faces()`/`load_face()`를 몬스터
 전용 base_dir로 재사용) 몬스터 쪽 face_* 5장이 전부 있으면 원화, 아니면
-기존 플레이스홀더를 쓴다. 몬스터 쪽 face_*는 아직 입고 전(`resources/
-monsters/`가 비어 있음)이라 지금은 전원 플레이스홀더 그대로 — 아트가
-입고되는 대로 코드 변경 없이 자동 적용된다. 상세는 완료 기록(216) 참고.
+기존 플레이스홀더를 쓴다.
+**ART-1c-2(2026-10-16, 218) 완료** — 아트 스레드가 face_* 없이 `full.png`만
+입고한 몬스터(보스 6종 + 일반 4종 + 정예 1종, 계속 늘어나는 중)를 위해
+"face_* 5장 > full.png 상반신 크롭(`CharacterArt.load_full_crop()`, 캐릭터
+목록 썸네일 크롭과 같은 로직 재사용) > 도형 플레이스홀더" 3단 우선순위를
+추가했다. 카탈로그 전체를 id 하드코딩 없이 순회해 입고 상태와 항상 일치하는지
+검증하는 방식이라, 아트가 더 입고돼도(실제로 이번 세션 중에도 늘어났다)
+코드 변경 없이 자동 반영된다. 상세는 완료 기록(216, 218) 참고.
 **ART-2(전투 화면 표정 컷 하단 잘림 처리) 완료(2026-10-15, 204)** — 표정 컷
 아래 20~25% 알파 그라데이션 셰이더(`code/shaders/face_art_fade.gdshader`)로
 가슴께 잘림이 일직선으로 떠 보이던 문제를 해결하고, `FACE_ART_LEFT_SHIFT` 보정
@@ -605,14 +609,17 @@ juggler가 novice 대비 -44.37%p로 크게 벗어나지만 이는 juggler 슬�
 완료 기록 (215)). **INBOX.md "부분 처리됨" [미니 기획 ART-1]의 마지막 조각
 ART-1c(몬스터 원화 경로)가 2026-10-16(216)로 완료돼 [미니 기획 ART-1] 전체가
 끝났다** — `MonsterPortraitPlaceholder.set_monster()`가 ART-1b와 같은 구조로
-몬스터 face_* 5장 유무에 따라 원화/플레이스홀더를 전환한다(몬스터 쪽 아트는
-아직 입고 전이라 지금은 전원 플레이스홀더, 코드만 준비됨, 상세는 완료 기록
+몬스터 face_* 5장 유무에 따라 원화/플레이스홀더를 전환한다(상세는 완료 기록
 (216)). **2026-10-16(217)로 [미니 기획 M-7](던전 맵 방 카드 MapStrip 프레임
 스킨, M-6이 범위 밖에 남겼던 조각) 완료 + INBOX.md "남은 이슈"의 [미니 기획
 ART-3](스킬 아이콘 흰 사각형 버그, 아트 스레드 리포트) 완료 + H-1 불안정
-테스트 원인 특정·결정화까지 함께 처리했다**(상세는 완료 기록 (217)). **다음은
-INBOX.md "남은 이슈"에 새 항목이 없으면 아래 "알려진 이슈/막힌 것"을 참고해
-독립적으로 진행 가능한 항목을 고를 것.**
+테스트 원인 특정·결정화까지 함께 처리했다**(상세는 완료 기록 (217)). **이어서
+2026-10-16(218)로 [미니 기획 ART-1c-2](face_* 없이 full.png만 있는 몬스터의
+상반신 크롭 폴백, 아트 스레드가 보스 6종을 face_* 없이 full.png만으로
+입고하며 생긴 후속 조각) 완료** — `CharacterArt.load_full_crop()`/`has_full()`
+로 "face_* 5장 > full.png 크롭 > 플레이스홀더" 우선순위를 추가했다(상세는
+완료 기록 (218)). **다음은 INBOX.md "남은 이슈"에 새 항목이 없으면 아래
+"알려진 이슈/막힌 것"을 참고해 독립적으로 진행 가능한 항목을 고를 것.**
 
 남은 구조적 후보(급하지 않음): 보스 개별 6종 중 타락한 기사단장만 밴드 미달
 (`MonsterSkills.modify_monster_roll()` 파라미터화가 전제조건이라 사람 설계
@@ -1223,6 +1230,71 @@ INBOX.md "남은 이슈"에 새 항목이 없으면 아래 "알려진 이슈/막
 
 ## 완료 기록
 
+- **2026-10-16 (218)**: INBOX.md 지시(이번 이터레이션 최우선 — "실행 순서는
+  [대형 기획 13] [미니 기획 ART-1c-2]") **몬스터 face_* 없이 full.png만 있을 때
+  상반신 크롭 폴백 완료.** 배경: ART-1c(216)가 몬스터 원화 경로(face_* 5장 →
+  원화 표정 컷)를 준비해뒀는데, 아트 스레드가 보스 6종을 face_* 없이
+  `full.png`(전신 원화) 하나로만 입고해(`resources/monsters/{goblin_king,
+  ooze_lord,skeleton_general,frenzied_beast,fallen_commander,void_eye}/full.png`)
+  지금까지는 보스가 여전히 도형 플레이스홀더로만 보이고 있었다.
+  **구현**: `CharacterArt`에 3개 함수를 신규/확장했다 — ① `load_full()`/
+  `full_path()`에 `base_dir` 매개변수 추가(기존엔 캐릭터 전용 `BASE_DIR`
+  하드코딩, `load_face()`와 동일한 패턴으로 맞춤) ② `has_full(character_id,
+  base_dir)` 신규(`has_all_faces()`와 같은 FileAccess 존재 확인) ③
+  `load_face_crop()`의 "비율(ratio) → AtlasTexture region" 크롭 로직을
+  `load_full_crop(character_id, ratio, base_dir)`로 분리해 몬스터도 같은
+  크롭 방식을 재사용(새 크롭 알고리즘을 만들지 않음 — INBOX 지시 그대로)할 수
+  있게 했다. `MonsterPortraitPlaceholder`에 `_use_full_crop` 상태를 신규
+  추가 — `set_monster()`가 `has_all_faces()`(원화 표정 컷) → `has_full()`
+  (상반신 크롭, `DEFAULT_FACE_CROP_RATIO`로 캐릭터와 동일 비율 크롭) → 플레이스홀더
+  순으로 우선순위를 매긴다. 크롭 모드는 `_face_rect`(ART-1c와 같은 노드, 하단
+  페이드 셰이더 `face_art_fade` 유지)에 정적 텍스처 하나만 넣고, `set_expression()`
+  호출은 `_use_face_art`일 때만 텍스처를 바꾸는 기존 분기 덕에 크롭 모드에서는
+  자동으로 무시된다(표정 컷이 없으므로 안전). `_draw()`도 `_use_face_art or
+  _use_full_crop`일 때 도형을 안 그리도록 함께 막았다. 보스 1.3배/일반 1.1배
+  확대·화면 안 배치(`FACE_ART_SHIFT`)·좌우 대칭은 ART-1c가 이미 만든 배치
+  로직을 그대로 공유해 추가 작업 없이 적용됨.
+  **덤으로 고친 버그**: `load_face()`/`load_full()`의 "production 경로인가"
+  판정이 `base_dir == BASE_DIR`(캐릭터 전용 상수와의 등호 비교)였는데, 몬스터
+  전용 `MONSTER_ART_BASE_DIR`은 이 등호를 절대 만족 못 해 몬스터 원화가 매번
+  "Loaded resource as image file, this will not work on export" 경고와 함께
+  FileAccess+Image.load() 경로(테스트용 경로)로 로드되고 있었다(실기능은 동작,
+  export 비효율/경고만) — `base_dir.begins_with("res://")`로 판정 기준을
+  일반화해 몬스터 production 로드도 캐릭터와 동일하게 `ResourceLoader`를 쓰도록
+  고쳤다(두 함수 다 수정, 테스트용 `user://` 경로는 기존 그대로 FileAccess 경로).
+  **테스트**(`dice_test.gd` 신규 `_check_art1c2_monster_full_crop_fallback()`):
+  가짜 user:// 디렉터리로 "없음"/"full.png만"/"face_*+full.png 둘 다"(우선순위)
+  3가지를 검증하고, set_expression() 호출 후 텍스처 불변을 확인. production은
+  **카탈로그 35종 전체를 순회**해 `has_all_faces()`/`has_full()`의 실시간 결과와
+  `_use_face_art`/`_use_full_crop`이 항상 일치하는지 검사(특정 id를 "원화 없음"
+  으로 하드코딩하지 않음 — N-6(215)이 겪은 "berserker는 face_*가 없다" 가정이
+  깨진 사고의 재발 방지 원칙을 그대로 적용). 이 원칙이 실제로 유효함이 검증
+  도중 증명됐다 — 테스트를 작성하는 사이에 아트 스레드가 보스 6종 외에
+  slime/goblin/orc/skeleton(일반 4종, MO001~004)과 dark_knight_elite(정예
+  1종)까지 동시에 `full.png`를 입고해, 카탈로그 35종 중 크롭 모드로 전환된
+  수가 작성 시점 6종에서 실행 시점 11종으로 바뀌었는데도 "하드코딩 없는" 검증
+  방식 덕에 수정 없이 그대로 PASS했다(최초 버전은 `slime`이 "원화 없음"이라고
+  하드코딩했다가 바로 이 변화로 FAIL이 나 즉시 지금 방식으로 고쳤다 — 교훈이
+  헛되지 않았음을 바로 확인). `bash scripts/qa_shot.sh dice_test` 전체 **PASS**
+  (FAIL 0건). **셀프 피드백 루프**: `_debug_shift_monster_portrait_center()`
+  신규 QA 훅(ART-1c의 `_debug_show_monster_face_art()`와 같은 목적 — 이 환경의
+  QA 캡처 폭 잘림(1028px) 때문에 production 배치 좌표(x=1170, 거의 화면 끝)가
+  캡처 밖으로 나가 눈으로 확인이 안 되는 문제를 QA 전용으로 화면 중앙으로
+  옮겨 우회)를 추가해 `GAME_QA_MONSTER_ID`로 실제 입고된 보스 6종 전부
+  (`qa_out/art1c2_{goblin_king,void_eye,ooze_lord,fallen_commander,
+  frenzied_beast,skeleton_general}_center.png`)와 새로 입고된 일반/정예
+  2종(`art1c2_goblin_normal_center.png`/`art1c2_dark_knight_elite_center.png`)을
+  직접 캡처해 읽었다 — 전부 크롭이 얼굴·크라운/투구·상반신을 중심에 두고
+  화면 안에 잘 들어오며(위쪽 잘림 없음, 하단 페이드로 자연스럽게 사라짐)
+  캐릭터 쪽 face_* 표정 컷과 같은 톤으로 보여 추가 조정 없이 1라운드로 종료
+  (`DEFAULT_FACE_CROP_RATIO`를 그대로 재사용한 것이 실제로도 잘 맞았음 — 보스
+  원화가 캐릭터 원화와 같은 1181×1332 캔버스/머리 위치 관례를 따른 덕).
+  production(비-shift) 배치에서 화면 우측 끝이 실제로 안 잘리는지는
+  `dice_test.gd`의 수치 검증(일반 1.1배 x=1240.4/보스 1.3배 x=1253.2, 둘 다
+  1272.0 이하)으로 확인. 전투 규칙/밸런스는 건드리지 않았고 `resources/`·
+  `docs/art/`는 읽기만 했다(아트 스레드가 이 세션 도중 병행 커밋한 자산을 그대로
+  읽어 검증만 함, 두 커밋은 서로 영향 없이 독립적으로 완료됨).
+
 - **2026-10-16 (217)**: 세 가지 독립 작업 — (A) **[미니 기획 M-7](던전 맵 방 카드
   프레임 스킨) 완료**: [미니 기획 M-6](206)이 등급 신호가 없다는 이유로 범위
   밖에 남겨뒀던 `dungeon_map.gd`의 `MapStrip` 방 카드에 M-6과 같은
@@ -1808,68 +1880,9 @@ INBOX.md "남은 이슈"에 새 항목이 없으면 아래 "알려진 이슈/막
   그쪽의 "부분 처리됨" 진행 기록은 그대로 둠). "완료 기록" 10개 유지를 위해
   (199)를 `docs/STATUS_ARCHIVE.md`로 옮겼다.
 
-- **2026-10-15 (208)**: INBOX.md 최우선 지시 [대형 기획 14](조작/선택 화면/이벤트
-  특화 클래스·전용 이벤트) 중 **N-2(캐릭터 선택 — 전신 이미지를 더 크게 보이도록
-  레이아웃 수정) 완료**. INBOX 원문: 우측 상세 패널을 좌(전신 이미지 큰 컬럼,
-  1280×720 기준 세로 560px 이상)/우(정보 구역 컬럼) 2단으로 나누고, 원화가
-  없으면 placeholder를 같은 크기 영역에 넉넉히 보여줄 것.
-  **레이아웃 재구성**(`code/scenes/character_select.gd`): 기존 `_build_detail_panel()`은
-  `_detail_sections_vbox`(5섹션: 헤더/능력치/고유 능력/시작 스킬/안내)를
-  `detail_container`에 바로 붙였는데, 이제 `columns`(HBoxContainer)를 먼저 붙이고
-  그 아래 좌(`_build_portrait_column()`, 신규)/우(`_detail_sections_vbox`,
-  `INFO_COLUMN_WIDTH=480`으로 고정)를 자식으로 둔다. **`_build_portrait_column()`**은
-  `Panel`(PanelContainer가 아니라 일반 `Panel`을 쓴 이유: PanelContainer는
-  레이아웃 패스 시점에 자식을 자동으로 리사이즈해 "전신 이미지 홀더 rect 높이
-  ≥560"이라는 테스트 기준이 레이아웃 타이밍에 따라 달라질 위험이 있음) 안에
-  고정 크기 홀더(`_detail_portrait_holder`, `FULL_ART_SIZE=Vector2(300,560)` —
-  560은 INBOX의 "세로 560px 이상" 테스트 기준을 그대로 상수화하고,
-  `DetailPanelContainer` 높이(840×580으로 확장, 아래 참고)에서 위아래 여백
-  10px씩을 뺀 값과 정확히 일치)를 만들고, 그 안에 ①퍼스널 컬러 스포트라이트
-  (`_detail_portrait_spotlight`, `CharacterTheme.get_portrait_spotlight_texture()`
-  신규 — `apply_background()`가 쓰던 비네트 텍스처를 그대로 재사용, 장식은
-  INBOX 지시대로 "스포트라이트 정도"로 약하게) ②기존 전신 원화/플레이스홀더
-  (`_detail_art`/`_detail_portrait`, 헤더 섹션에서 그대로 옮겨와 `FULL_ART_SIZE`
-  기준으로 재배치, `PORTRAIT_SCALE_FULL=2.15`로 플레이스홀더 확대)를 올린다.
-  **`.tscn` 좌표 조정**: `CardsContainer`/`DetailPanelContainer` 바닥을 640→680
-  (높이 540→580), "던전 시작" 버튼을 650~700→688~716(화면 맨 아래)으로 옮겨
-  상세 패널 세로 공간을 넓혔다 — 업적/테스트 전투 버튼(y 24~92, 상세 패널
-  시작(y=100)보다 위)은 안 건드림. **정보 컬럼 폭 축소 대응**: 840→480으로
-  좁아진 만큼 `SECTION_BODY_WRAP_WIDTH`(760→452)/`ABILITY_DESC_WRAP_WIDTH`
-  (720→412)를 비례 축소하고, 고유 능력 설명 글자수 상한 `ABILITY_DESC_MAX_CHARS`
-  (70→40, 같은 비율)와 시작 스킬 슬롯 버튼 폭(신규 `STARTING_SKILL_SLOT_WIDTH`,
-  150→140 — 3칸+separation 20이 452 폭 안에 들어오려면 144 이하 필요)도 함께
-  줄여, 좁아진 폭에서도 텍스트가 2줄 예산/패널 높이 예산을 안 넘게 했다(INBOX가
-  명시한 "필요하면 글을 더 줄이기" 경로).
-  **`_refresh_detail_panel()` 보강**: 캐릭터를 바꿀 때마다 `_detail_portrait_panel`
-  테두리를 `CharacterTheme.apply()`로, 스포트라이트 틴트를 `ui_palette().primary`로
-  다시 칠한다(기존 5섹션 테두리 갱신과 같은 패턴, 다만 `_detail_section_entries`
-  공유 리스트에는 넣지 않고 별도로 호출 — 기존 K-3 테스트가 `_detail_section_entries[1]`
-  인덱스를 직접 참조해 순서가 바뀌면 깨질 위험을 피함).
-  **테스트**(`dice_test.gd` 신규 `_check_n2_full_art_column()`): (a) 8명 전부
-  `_detail_portrait_holder.size`가 높이≥560·폭≤340인지 (b) 좁아진 정보 컬럼
-  폭에서도 8명 전부 `_detail_sections_vbox.get_combined_minimum_size().y`가
-  `detail_container.size.y`(580) 예산 안에 들어오는지(기존 K-2 체크도 같은
-  계산을 새 레이아웃 기준으로 다시 돌아 함께 PASS 확인) (c) novice/pirate 전환 시
-  `_detail_art.texture`(둘 다 non-null, 서로 다름)와 `_detail_portrait_spotlight.modulate`
-  (서로 다름)가 실제로 바뀌는지 — `bash scripts/qa_shot.sh dice_test` 전체
-  **PASS**(FAIL 0건, K-2/K-3/N-1 등 기존 회귀 포함). **셀프 피드백**: qa_shot으로
-  8명(견습 모험가/광전사/수호자/폭발병/주술사/매혹사/곡예사/해적) 전부와 시작
-  스킬 3슬롯 전부 해금 상태를 직접 캡처해 이미지로 확인 — `resources/characters/`에
-  이미 8명 전부 `full.png`가 입고돼 있어(STATUS.md 이전 기록의 "4종만 입고"는
-  이번에 확인해보니 갱신돼 있었음, Work 쪽은 `resources/`를 읽기만 함) 실제로는
-  전원 원화로 보였고, placeholder 분기는 코드 경로로만 남아 있다(원화가 없는
-  캐릭터가 생기면 바로 동작). 전신 원화가 화면에서 가장 큰 요소가 됐고, 정보
-  컬럼(헤더/능력치/고유 능력/시작 스킬 3슬롯)이 겹침·잘림 없이 들어오며, 3슬롯이
-  전부 해금된 상태(견습 모험가, 업적 2개 선해금)에서도 버튼 3개가 폭 안에
-  들어옴을 육안으로 확인 — 추가 비평 없이 1라운드로 종료. `qa_out/n2_*.png`
-  (novice/pirate/explosive/shieldbearer/juggler/all-unlocked 6장). 전투 규칙/
-  밸런스는 건드리지 않았다. INBOX.md [대형 기획 14]는 "부분 처리됨"에 두고 N-2
-  진행 기록을 반영해 한 줄 갱신(N-3~N-6 남음). **다음은 N-3(flat 버튼 전수
-  교정)**.
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(217)에서 (207)을 그리로 옮겼다.)*
+이번 이터레이션(218)에서 (208)을 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 
