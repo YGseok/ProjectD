@@ -113,7 +113,13 @@ func _draw_coin_stack() -> void:
 		draw_arc(Vector2(size.x * 0.5, cy), r * 0.6, 0, TAU, 16, Color(0.5, 0.38, 0.1, 0.8), 1.2)
 
 
+## [대형 기획 13] M-5(b) — resources/ui/icon/attack.png(흰 칼 실루엣)가 있으면 COLOR_COMBAT
+## 으로 칠해 쓰고, 없으면 기존 절차적 폴리곤 칼로 폴백한다.
 func _draw_sword() -> void:
+	var tex := UIKit.icon_texture("attack", COLOR_COMBAT)
+	if tex != null:
+		draw_texture_rect(tex, Rect2(Vector2.ZERO, size), false)
+		return
 	var blade := PackedVector2Array([
 		Vector2(size.x * 0.5, size.y * 0.08),
 		Vector2(size.x * 0.6, size.y * 0.6),

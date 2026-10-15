@@ -34,7 +34,8 @@ var _shortcut_buttons: Array[Button] = []
 
 func _ready() -> void:
 	# L-3(2026-10-14, [대형 기획 12] K-3 후속): 배경/제목을 현재 캐릭터 퍼스널 컬러로.
-	CharacterTheme.apply_background(self, RunState.character_id)
+	# M-5(b): resources/backgrounds/shop.png가 있으면 그 사진을 깐다(없으면 폴백).
+	CharacterTheme.apply_background(self, RunState.character_id, false, 0.25, "shop")
 	var title := get_node_or_null("Title")
 	if title is Label:
 		CharacterTheme.apply_label(title, RunState.character_id)

@@ -341,6 +341,10 @@ func _ready() -> void:
 	all_pass = _check_m5a_uikit_image_skin(lines) and all_pass
 
 	lines.append("")
+	lines.append("[M-5b: 배지/장식/아이콘/배경 이미지 스킨 검증: ui_kit.gd의 배지(turn/round/tier/codex)/장식(칩/구분선/제목 장식)/기능 아이콘 9종 + character_theme.gd의 배경 사진이 파일 유무에 따라 실제로 스킨↔폴백을 전환하는지, production 자산(이미 입고됨)으로 combat_test/dungeon_map이 실제로 스킨을 쓰는지]")
+	all_pass = _check_m5b_badges_decor_icons_backgrounds(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -7668,5 +7672,310 @@ func _check_m5a_uikit_image_skin(lines: PackedStringArray) -> bool:
 	DirAccess.remove_absolute(tmp_dir + "button")
 	DirAccess.remove_absolute(tmp_dir + "bar")
 	DirAccess.remove_absolute(tmp_dir)
+
+	return ok
+
+
+## [대형 기획 13] M-5b(2026-10-15) 검증. ui_kit.gd의 make_badge()/tier_badge_texture()/
+## make_codex_badge()/apply_chip_skin()/make_section() 제목 장식·구분선/icon_texture()와
+## character_theme.gd의 apply_background() scene_key가 "실제 노드 종류/텍스처/마진/픽셀"
+## 기준으로 스킨↔폴백을 전환하는지 확인한다(M-5a와 같은 "없음→있음→없음" user:// 임시
+## 경로 패턴 + production 자산 end-to-end 재확인).
+func _check_m5b_badges_decor_icons_backgrounds(lines: PackedStringArray) -> bool:
+	var ok := true
+	var tmp_dir := "user://m5b_test_tmp/"
+	DirAccess.make_dir_recursive_absolute(tmp_dir + "badge")
+	DirAccess.make_dir_recursive_absolute(tmp_dir + "deco")
+	DirAccess.make_dir_recursive_absolute(tmp_dir + "icon")
+
+	var scratch := Control.new()
+	add_child(scratch)
+
+	# --- 턴/라운드 배지: 없음 -> 배경 없는 Label, 있음 -> PanelContainer+StyleBoxTexture
+	#     (kind별 마진) + 캐릭터 accent 틴트.
+	var round_no_skin := UIKit.make_badge(scratch, "round", "R", "novice", tmp_dir)
+	var round_no_skin_ok: bool = round_no_skin["skinned"] == false and round_no_skin["control"] is Label
+	ok = round_no_skin_ok and ok
+	lines.append("  라운드 배지(파일 없음): skinned=%s control=%s (기대 false, Label) -> %s" % [
+		round_no_skin["skinned"], round_no_skin["control"].get_class(), "OK" if round_no_skin_ok else "FAIL"
+	])
+	(round_no_skin["control"] as Control).queue_free()
+
+	_m5a_write_solid_png(tmp_dir + "badge/round_base.png", 8, 8, Color(0, 0, 0, 1))
+	_m5a_write_solid_png(tmp_dir + "badge/round_accent.png", 8, 8, Color(1, 1, 1, 1))
+	_m5a_write_solid_png(tmp_dir + "badge/turn_base.png", 8, 8, Color(0, 0, 0, 1))
+	_m5a_write_solid_png(tmp_dir + "badge/turn_accent.png", 8, 8, Color(1, 1, 1, 1))
+
+	var round_skinned := UIKit.make_badge(scratch, "round", "R", "pirate", tmp_dir)
+	var round_panel := round_skinned["control"] as PanelContainer
+	var round_style := round_panel.get_theme_stylebox("panel") as StyleBoxTexture if round_panel != null else null
+	var round_skin_ok: bool = (
+		round_skinned["skinned"] == true and round_panel != null and round_style != null
+		and round_style.texture_margin_left == 40 and round_style.texture_margin_top == 12
+	)
+	ok = round_skin_ok and ok
+	lines.append("  라운드 배지(있음): skinned=%s margin_left=%s margin_top=%s (기대 true, 40, 12) -> %s" % [
+		round_skinned["skinned"], round_style.texture_margin_left if round_style else "(없음)",
+		round_style.texture_margin_top if round_style else "(없음)", "OK" if round_skin_ok else "FAIL"
+	])
+	var round_pixel: Color = round_style.texture.get_image().get_pixel(0, 0) if round_style else Color.BLACK
+	var pirate_accent: Color = CharacterTheme.ui_palette("pirate")["accent"]
+	var round_tint_ok: bool = _m5a_color_close(round_pixel, pirate_accent)
+	ok = round_tint_ok and ok
+	lines.append("  라운드 배지 합성 픽셀=%s == pirate accent=%s -> %s" % [round_pixel, pirate_accent, "OK" if round_tint_ok else "FAIL"])
+	round_panel.queue_free()
+
+	var turn_skinned := UIKit.make_badge(scratch, "turn", "내 공격턴", "novice", tmp_dir)
+	var turn_panel := turn_skinned["control"] as PanelContainer
+	var turn_style := turn_panel.get_theme_stylebox("panel") as StyleBoxTexture if turn_panel != null else null
+	var turn_margin_ok: bool = turn_style != null and turn_style.texture_margin_left == 44 and turn_style.texture_margin_top == 12
+	ok = turn_margin_ok and ok
+	lines.append("  턴 배지(있음) 마진: left=%s top=%s (기대 44, 12 — round과 다른 kind별 마진) -> %s" % [
+		turn_style.texture_margin_left if turn_style else "(없음)", turn_style.texture_margin_top if turn_style else "(없음)",
+		"OK" if turn_margin_ok else "FAIL"
+	])
+	var turn_label_ok: bool = (turn_skinned["label"] as Label).text == "내 공격턴"
+	ok = turn_label_ok and ok
+	lines.append("  턴 배지 글자='%s'(기대 '내 공격턴') -> %s" % [(turn_skinned["label"] as Label).text, "OK" if turn_label_ok else "FAIL"])
+	turn_panel.queue_free()
+
+	# --- 몬스터 티어 배지(badge/tier_{normal,elite,boss}.png) — 캐릭터색 틴트 없음, kind만 ---
+	var tier_no_file_ok: bool = UIKit.tier_badge_texture("boss", tmp_dir) == null
+	ok = tier_no_file_ok and ok
+	lines.append("  티어 배지(파일 없음): tier_badge_texture('boss')=%s (기대 null) -> %s" % [
+		UIKit.tier_badge_texture("boss", tmp_dir), "OK" if tier_no_file_ok else "FAIL"
+	])
+	_m5a_write_solid_png(tmp_dir + "badge/tier_boss.png", 16, 16, Color(0.9, 0.8, 0.2, 1))
+	var tier_file_tex := UIKit.tier_badge_texture("boss", tmp_dir)
+	var tier_file_ok: bool = tier_file_tex != null
+	ok = tier_file_ok and ok
+	lines.append("  티어 배지(파일 있음): tier_badge_texture('boss')=%s (기대 non-null) -> %s" % [
+		tier_file_tex, "OK" if tier_file_ok else "FAIL"
+	])
+	var tier_unknown_kind_ok: bool = UIKit.tier_badge_texture("legendary", tmp_dir) == null
+	ok = tier_unknown_kind_ok and ok
+	lines.append("  티어 배지(알 수 없는 kind): tier_badge_texture('legendary')=null -> %s" % ("OK" if tier_unknown_kind_ok else "FAIL"))
+
+	# --- 도감 상태 배지(badge/codex_base.png) — 단일 파일, 상태색 modulate ---
+	var codex_no_skin := UIKit.make_codex_badge(scratch, "보유", Color(0.95, 0.85, 0.35), tmp_dir)
+	var codex_no_skin_ok: bool = codex_no_skin.get_parent() == scratch and codex_no_skin.get_theme_color("font_color") == Color(0.95, 0.85, 0.35)
+	ok = codex_no_skin_ok and ok
+	lines.append("  도감 배지(파일 없음): 부모=scratch 직속=%s 글자색=%s(기대 상태색 그대로) -> %s" % [
+		codex_no_skin.get_parent() == scratch, codex_no_skin.get_theme_color("font_color"), "OK" if codex_no_skin_ok else "FAIL"
+	])
+	codex_no_skin.queue_free()
+
+	_m5a_write_solid_png(tmp_dir + "badge/codex_base.png", 8, 8, Color(1, 1, 1, 1))
+	var owned_color := Color(0.95, 0.85, 0.35)
+	var codex_skinned := UIKit.make_codex_badge(scratch, "보유", owned_color, tmp_dir)
+	var codex_panel := codex_skinned.get_parent() as PanelContainer
+	var codex_style := codex_panel.get_theme_stylebox("panel") as StyleBoxTexture if codex_panel != null else null
+	var codex_skin_ok: bool = (
+		codex_panel != null and codex_style != null and codex_style.modulate_color.is_equal_approx(owned_color)
+		and codex_style.texture_margin_left == 18 and codex_style.texture_margin_top == 8
+	)
+	ok = codex_skin_ok and ok
+	lines.append("  도감 배지(파일 있음): modulate_color=%s(기대 %s) margin_left=%s(기대 18) -> %s" % [
+		codex_style.modulate_color if codex_style else "(없음)", owned_color,
+		codex_style.texture_margin_left if codex_style else "(없음)", "OK" if codex_skin_ok else "FAIL"
+	])
+	var codex_text_contrast_ok: bool = codex_skinned.get_theme_color("font_color") == UIKit.contrasting_text_color(owned_color)
+	ok = codex_text_contrast_ok and ok
+	lines.append("  도감 배지 글자색(스킨 모드) == contrasting_text_color(상태색) -> %s" % ("OK" if codex_text_contrast_ok else "FAIL"))
+	codex_panel.queue_free()
+
+	# --- 칩 배경(deco/chip.png) — 단일 파일, 캐릭터 무관 ---
+	var chip_panel_a := PanelContainer.new()
+	var chip_no_skin_ok: bool = not UIKit.apply_chip_skin(chip_panel_a, tmp_dir)
+	ok = chip_no_skin_ok and ok
+	lines.append("  칩 배경(파일 없음): apply_chip_skin()=%s (기대 false) -> %s" % [not chip_no_skin_ok, "OK" if chip_no_skin_ok else "FAIL"])
+	chip_panel_a.free()
+
+	_m5a_write_solid_png(tmp_dir + "deco/chip.png", 8, 8, Color(0.5, 0.5, 0.5, 1))
+	var chip_panel_b := PanelContainer.new()
+	var chip_skin_applied: bool = UIKit.apply_chip_skin(chip_panel_b, tmp_dir)
+	var chip_style := chip_panel_b.get_theme_stylebox("panel") as StyleBoxTexture
+	var chip_skin_ok: bool = chip_skin_applied and chip_style != null and chip_style.texture_margin_left == 12 and chip_style.texture_margin_top == 10
+	ok = chip_skin_ok and ok
+	lines.append("  칩 배경(파일 있음): margin_left=%s margin_top=%s (기대 12, 10) -> %s" % [
+		chip_style.texture_margin_left if chip_style else "(없음)", chip_style.texture_margin_top if chip_style else "(없음)",
+		"OK" if chip_skin_ok else "FAIL"
+	])
+	chip_panel_b.free()
+
+	# make_stat_chip() 자체도 칩 배경이 있으면 PanelContainer로 감싸는지.
+	var stat_chip := UIKit.make_stat_chip(scratch, null, "42", "골드", "novice", tmp_dir)
+	var stat_chip_wrapped_ok: bool = stat_chip["container"] is PanelContainer
+	ok = stat_chip_wrapped_ok and ok
+	lines.append("  make_stat_chip() 칩 배경 있음: container=%s (기대 PanelContainer) -> %s" % [
+		stat_chip["container"].get_class(), "OK" if stat_chip_wrapped_ok else "FAIL"
+	])
+	(stat_chip["container"] as Control).queue_free()
+
+	# --- 섹션 제목 장식(deco/title_ornament_{left,right})/구분선(deco/divider) ---
+	var section_no_deco := UIKit.make_section(scratch, "제목", "novice", Vector2.ZERO, tmp_dir)
+	var title_row_no_deco := section_no_deco.get_child(0) as HBoxContainer
+	var no_deco_ok: bool = title_row_no_deco.get_child_count() == 1 and title_row_no_deco.get_child(0) is Label
+	ok = no_deco_ok and ok
+	lines.append("  제목 장식(파일 없음): title_row 자식 수=%d (기대 1, Label만) -> %s" % [
+		title_row_no_deco.get_child_count(), "OK" if no_deco_ok else "FAIL"
+	])
+	var divider_no_deco := section_no_deco.get_child(1)
+	var divider_no_deco_ok: bool = divider_no_deco is ColorRect
+	ok = divider_no_deco_ok and ok
+	lines.append("  구분선(파일 없음): %s (기대 ColorRect 폴백) -> %s" % [divider_no_deco.get_class(), "OK" if divider_no_deco_ok else "FAIL"])
+	(section_no_deco.get_parent() as Control).queue_free()
+
+	_m5a_write_solid_png(tmp_dir + "deco/title_ornament_left_base.png", 8, 8, Color(0, 0, 0, 1))
+	_m5a_write_solid_png(tmp_dir + "deco/title_ornament_right_base.png", 8, 8, Color(0, 0, 0, 1))
+	_m5a_write_solid_png(tmp_dir + "deco/divider_base.png", 8, 8, Color(0, 0, 0, 1))
+	_m5a_write_solid_png(tmp_dir + "deco/divider_accent.png", 8, 8, Color(1, 1, 1, 1))
+	_m5a_write_solid_png(tmp_dir + "icon/attack.png", 8, 8, Color(1, 1, 1, 1))
+
+	var section_with_deco := UIKit.make_section(scratch, "제목", "berserker", Vector2.ZERO, tmp_dir, "attack")
+	var title_row_with_deco := section_with_deco.get_child(0) as HBoxContainer
+	var with_deco_ok: bool = (
+		title_row_with_deco.get_child_count() == 4
+		and title_row_with_deco.get_child(0) is TextureRect
+		and title_row_with_deco.get_child(1) is TextureRect
+		and title_row_with_deco.get_child(2) is Label
+		and title_row_with_deco.get_child(3) is TextureRect
+	)
+	ok = with_deco_ok and ok
+	lines.append("  제목 장식(장식+아이콘 있음): title_row 자식 수=%d, 순서=[좌장식,아이콘,제목,우장식] -> %s" % [
+		title_row_with_deco.get_child_count(), "OK" if with_deco_ok else "FAIL"
+	])
+	var divider_with_deco := section_with_deco.get_child(1)
+	var divider_with_deco_ok: bool = divider_with_deco is TextureRect and (divider_with_deco as TextureRect).texture != null
+	ok = divider_with_deco_ok and ok
+	lines.append("  구분선(파일 있음): %s, texture=%s -> %s" % [
+		divider_with_deco.get_class(), (divider_with_deco as TextureRect).texture != null, "OK" if divider_with_deco_ok else "FAIL"
+	])
+	var divider_pixel: Color = (divider_with_deco as TextureRect).texture.get_image().get_pixel(0, 0)
+	var berserker_accent: Color = CharacterTheme.ui_palette("berserker")["accent"]
+	var divider_tint_ok: bool = _m5a_color_close(divider_pixel, berserker_accent)
+	ok = divider_tint_ok and ok
+	lines.append("  구분선 합성 픽셀=%s == berserker accent=%s -> %s" % [divider_pixel, berserker_accent, "OK" if divider_tint_ok else "FAIL"])
+	(section_with_deco.get_parent() as Control).queue_free()
+
+	# --- 기능 아이콘 9종 공용 로더(icon_texture) — 없음 -> null, 있음 -> tint색 그대로 ---
+	var icon_no_file_ok: bool = UIKit.icon_texture("gold", Color.WHITE, tmp_dir) == null
+	ok = icon_no_file_ok and ok
+	lines.append("  icon_texture('gold', 파일 없음) == null -> %s" % ("OK" if icon_no_file_ok else "FAIL"))
+
+	_m5a_write_solid_png(tmp_dir + "icon/gold.png", 8, 8, Color(1, 1, 1, 1))
+	var gold_tint := Color(0.2, 0.6, 0.9)
+	var gold_tex := UIKit.icon_texture("gold", gold_tint, tmp_dir)
+	var gold_pixel: Color = gold_tex.get_image().get_pixel(0, 0) if gold_tex != null else Color.BLACK
+	var icon_tint_ok: bool = gold_tex != null and _m5a_color_close(gold_pixel, gold_tint)
+	ok = icon_tint_ok and ok
+	lines.append("  icon_texture('gold', 파일 있음) 합성 픽셀=%s == tint=%s -> %s" % [gold_pixel, gold_tint, "OK" if icon_tint_ok else "FAIL"])
+
+	scratch.queue_free()
+	DirAccess.remove_absolute(tmp_dir + "badge/round_base.png")
+	DirAccess.remove_absolute(tmp_dir + "badge/round_accent.png")
+	DirAccess.remove_absolute(tmp_dir + "badge/turn_base.png")
+	DirAccess.remove_absolute(tmp_dir + "badge/turn_accent.png")
+	DirAccess.remove_absolute(tmp_dir + "badge/tier_boss.png")
+	DirAccess.remove_absolute(tmp_dir + "badge/codex_base.png")
+	DirAccess.remove_absolute(tmp_dir + "deco/chip.png")
+	DirAccess.remove_absolute(tmp_dir + "deco/title_ornament_left_base.png")
+	DirAccess.remove_absolute(tmp_dir + "deco/title_ornament_right_base.png")
+	DirAccess.remove_absolute(tmp_dir + "deco/divider_base.png")
+	DirAccess.remove_absolute(tmp_dir + "deco/divider_accent.png")
+	DirAccess.remove_absolute(tmp_dir + "icon/attack.png")
+	DirAccess.remove_absolute(tmp_dir + "icon/gold.png")
+	DirAccess.remove_absolute(tmp_dir + "badge")
+	DirAccess.remove_absolute(tmp_dir + "deco")
+	DirAccess.remove_absolute(tmp_dir + "icon")
+	DirAccess.remove_absolute(tmp_dir)
+
+	# --- 배경 사진(resources/backgrounds/<scene_key>.png) — character_theme.gd apply_background() ---
+	var bg_tmp_dir := "user://m5b_bg_test_tmp/"
+	DirAccess.make_dir_recursive_absolute(bg_tmp_dir)
+	var bg_dummy := Node2D.new()
+	var bg_dummy_rect := ColorRect.new()
+	bg_dummy_rect.name = "Background"
+	bg_dummy_rect.color = Color(0.06, 0.06, 0.08, 1)
+	bg_dummy.add_child(bg_dummy_rect)
+	add_child(bg_dummy)
+
+	CharacterTheme.apply_background(bg_dummy, "novice", false, 0.25, "dungeon_map", bg_tmp_dir)
+	var no_bg_image_ok: bool = bg_dummy_rect.get_node_or_null("SceneBackgroundImage") == null and is_equal_approx(bg_dummy_rect.color.a, 1.0)
+	ok = no_bg_image_ok and ok
+	lines.append("  배경 사진(파일 없음): SceneBackgroundImage 없음=%s ColorRect.alpha=%.1f(기대 1.0) -> %s" % [
+		bg_dummy_rect.get_node_or_null("SceneBackgroundImage") == null, bg_dummy_rect.color.a, "OK" if no_bg_image_ok else "FAIL"
+	])
+
+	_m5a_write_solid_png(bg_tmp_dir + "dungeon_map.png", 8, 8, Color(0.4, 0.2, 0.6, 1))
+	CharacterTheme.apply_background(bg_dummy, "novice", false, 0.25, "dungeon_map", bg_tmp_dir)
+	var bg_image: TextureRect = bg_dummy_rect.get_node_or_null("SceneBackgroundImage")
+	var bg_image_ok: bool = bg_image != null and bg_image.texture != null and is_equal_approx(bg_dummy_rect.color.a, 0.0)
+	ok = bg_image_ok and ok
+	lines.append("  배경 사진(파일 있음): SceneBackgroundImage=%s texture=%s ColorRect.alpha=%.1f(기대 0.0, 사진이 그대로 보이게) -> %s" % [
+		bg_image != null, bg_image.texture != null if bg_image else false, bg_dummy_rect.color.a, "OK" if bg_image_ok else "FAIL"
+	])
+
+	# scene_key가 비어있으면(배경 사진 없는 화면, 예 character_select) 기존 동작 그대로.
+	CharacterTheme.apply_background(bg_dummy, "pirate", false, 0.25, "", bg_tmp_dir)
+	var empty_key_ok: bool = bg_dummy_rect.get_node_or_null("SceneBackgroundImage") == null and is_equal_approx(bg_dummy_rect.color.a, 1.0)
+	ok = empty_key_ok and ok
+	lines.append("  scene_key 빈 문자열(기존 화면): SceneBackgroundImage 없음=%s ColorRect.alpha=%.1f(기대 1.0, 기존 폴백 유지) -> %s" % [
+		bg_dummy_rect.get_node_or_null("SceneBackgroundImage") == null, bg_dummy_rect.color.a, "OK" if empty_key_ok else "FAIL"
+	])
+
+	remove_child(bg_dummy)
+	bg_dummy.free()
+	DirAccess.remove_absolute(bg_tmp_dir + "dungeon_map.png")
+	DirAccess.remove_absolute(bg_tmp_dir)
+
+	# --- production 자산(이미 입고됨) end-to-end: combat_test/dungeon_map을 실제로
+	#     인스턴스화해 티어 배지/배경 사진/칩 배경이 실제로 스킨 모드인지 재확인.
+	var character_backup: String = RunState.character_id
+	RunState.character_id = "novice"
+	RunState.test_battle = true
+	RunState.test_monster_id = "slime"
+	RunState.test_difficulty = 0
+	var combat_scene := load("res://code/scenes/combat_test.tscn")
+	var combat = combat_scene.instantiate()
+	add_child(combat)
+
+	var prod_tier_icon_ok: bool = combat.monster_tier_icon.visible == true and combat.monster_tier_icon.texture != null
+	ok = prod_tier_icon_ok and ok
+	lines.append("  production combat_test: monster_tier_icon.visible=%s texture=%s (badge/tier_normal.png 입고됨 -> 보임 기대) -> %s" % [
+		combat.monster_tier_icon.visible, combat.monster_tier_icon.texture != null, "OK" if prod_tier_icon_ok else "FAIL"
+	])
+	var prod_tier_label_ok: bool = combat.monster_tier_label.text == "일반"
+	ok = prod_tier_label_ok and ok
+	lines.append("  production combat_test: monster_tier_label.text='%s'(기대 '일반', 아이콘이 있어도 글자는 그대로 유지) -> %s" % [
+		combat.monster_tier_label.text, "OK" if prod_tier_label_ok else "FAIL"
+	])
+	var prod_combat_bg: TextureRect = combat.get_node("Background").get_node_or_null("SceneBackgroundImage")
+	var prod_combat_bg_ok: bool = prod_combat_bg != null and prod_combat_bg.texture != null
+	ok = prod_combat_bg_ok and ok
+	lines.append("  production combat_test: 배경 SceneBackgroundImage=%s (resources/backgrounds/combat.png 입고됨) -> %s" % [
+		prod_combat_bg != null, "OK" if prod_combat_bg_ok else "FAIL"
+	])
+	remove_child(combat)
+	combat.free()
+	RunState.test_battle = false
+
+	var map_scene := load("res://code/scenes/dungeon_map.tscn")
+	var map_node = map_scene.instantiate()
+	add_child(map_node)
+	var prod_map_bg: TextureRect = map_node.get_node("Background").get_node_or_null("SceneBackgroundImage")
+	var prod_map_bg_ok: bool = prod_map_bg != null and prod_map_bg.texture != null
+	ok = prod_map_bg_ok and ok
+	lines.append("  production dungeon_map: 배경 SceneBackgroundImage=%s (resources/backgrounds/dungeon_map.png 입고됨) -> %s" % [
+		prod_map_bg != null, "OK" if prod_map_bg_ok else "FAIL"
+	])
+	var prod_gold_chip_ok: bool = map_node._hud_gold_value_label.get_parent().get_parent().get_parent() is PanelContainer
+	ok = prod_gold_chip_ok and ok
+	lines.append("  production dungeon_map: 골드 칩이 deco/chip.png 배경(PanelContainer)으로 감싸짐=%s -> %s" % [
+		prod_gold_chip_ok, "OK" if prod_gold_chip_ok else "FAIL"
+	])
+	remove_child(map_node)
+	map_node.free()
+	RunState.character_id = character_backup
 
 	return ok

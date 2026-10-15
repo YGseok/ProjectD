@@ -117,8 +117,10 @@ func _rebuild() -> void:
 	var cid := RunState.character_id
 	_add_character_section(cid)
 	_add_skills_section(cid)
-	_add_bag_section("공격 주머니", RunState.player_attack_bag, cid)
-	_add_bag_section("방어 주머니", RunState.player_defense_bag, cid)
+	# [대형 기획 13] M-5(b): icon/{attack,defense}.png가 있으면 제목 옆에 작은 칼/방패
+	# 아이콘을 덧붙인다(UIKit.make_section()의 icon_name, 없으면 기존처럼 제목 텍스트만).
+	_add_bag_section("공격 주머니", RunState.player_attack_bag, cid, "attack")
+	_add_bag_section("방어 주머니", RunState.player_defense_bag, cid, "defense")
 	# [대형 기획 13] M-1: 기존 4섹션이 이 패널(dungeon_map 기준 550px 높이)을 다 채우지
 	# 못해 아래쪽이 통째로 빈 공간이었다(INBOX M-1 비평 "빈 공간이 없게 배치"). 이벤트
 	# 주사위/인벤토리는 지금까지 DeckPanel 어디에도 없던 실제 정보라 장식용 여백 대신
@@ -271,8 +273,8 @@ func _make_inventory_chip(category: String, text: String) -> Control:
 	return pair
 
 
-func _add_bag_section(title_text: String, bag: DiceBag, cid: String) -> void:
-	var body := UIKit.make_section(_vbox, title_text, cid)
+func _add_bag_section(title_text: String, bag: DiceBag, cid: String, icon_name: String = "") -> void:
+	var body := UIKit.make_section(_vbox, title_text, cid, Vector2.ZERO, UIKit.SKIN_BASE_DIR, icon_name)
 	for faces in bag.dice:
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", CHIP_GAP)

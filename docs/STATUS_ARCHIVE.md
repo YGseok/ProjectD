@@ -8,6 +8,48 @@
 
 ---
 
+- **2026-10-14 (193)**: INBOX.md 최우선 지시 [대형 기획 12] 캐릭터 선택/스킬 도감/
+  전역 퍼스널 컬러(L-1→L-3) 중 **L-1(캐릭터 카드 자체를 눌러 선택, "선택" 버튼
+  제거) 완료**. 카드마다 있던 전용 "선택" `Button`을 지우고, 카드 패널 자체를
+  클릭/스페이스 선택 영역으로 바꿨다. 신규 `code/scenes/character_card_panel.gd`
+  (`CharacterCardPanel extends PanelContainer`)가 `activated` 시그널 하나로
+  좌클릭(`InputEventMouseButton`)과 ui_accept(스페이스/Enter)를 `_gui_input()`
+  에서 똑같이 처리하고, `mouse_entered`/`mouse_exited`로 hover 시 `modulate`를
+  살짝 밝혀 피드백을 준다(선택 강조 테두리는 기존 `_refresh_selection_highlight()`
+  가 "panel" StyleBox로 별도 관리해 서로 간섭 안 함). `character_select.gd`의
+  `_make_card()`가 `CharacterCardPanel`을 만들고 `activated`를
+  `_on_card_selected.bind(id)`에 바로 연결하며, 자식 컨트롤(hbox/portrait_holder/
+  name_vbox)의 `mouse_filter`를 전부 `IGNORE`로 비워 클릭이 항상 패널까지
+  통과하게 했다. 포커스 체인(`FocusNav`)이 Button 전용이었던 걸 범용으로
+  열어야 해서 `code/scenes/focus_nav.gd`의 `chain_linear`/`grab_first_focus`
+  매개변수를 `Array[Button]` → `Array`(비타입)로 바꾸고, `grab_first_focus`
+  내부의 `.disabled` 체크를 `ctrl is BaseButton`으로 감싸(PanelContainer엔
+  그 속성이 없음) 범용 Control도 안전하게 처리한다 — 다른 화면들(dungeon_map/
+  combat_test/event/shop/story_event/customize_panel/achievement_panel)은
+  전부 Array[Button]을 그대로 넘기므로(비타입 Array 매개변수는 더 구체적인
+  타입을 그대로 받아들임) 호출부 변경 없이 회귀 없음. `_shortcut_buttons`도
+  `Array[Button]`→`Array[Control]`로 바꿔 카드 패널과 "던전 시작"/"업적"/
+  "테스트 전투" `Button` 3개가 한 체인에 섞여 들어간다. QA 전용
+  `_debug_press_shortcut_2()`도 `.pressed.emit()`(Button 전용) 대신
+  `CharacterCardPanel.activated.emit()`으로 갱신. **검증**: `dice_test.gd`의
+  신규 `_check_l1_card_click_select()`가 character_select.tscn을 실제
+  인스턴스화해 ① 실제 `InputEventMouseButton`(좌클릭)을 카드 패널의
+  `_gui_input()`에 직접 넣어 `_selected_id`가 바뀌는지 ② 실제
+  `InputEventKey`(KEY_SPACE)로도 바뀌는지(마우스 없이) ③ 선택된 카드의 실제
+  StyleBox `border_color`가 미선택 카드와 달라지는지(금테 강조) ④ 카드 패널이
+  `focus_mode == FOCUS_ALL`인지 ⑤ 씬 전체를 재귀 탐색(`_find_button_with_text`
+  신규 헬퍼)해 "선택" 텍스트 `Button`이 하나도 남지 않았는지까지 계산/렌더
+  결과로 확인(플래그만 보지 않음). `bash scripts/qa_shot.sh dice_test` 전체
+  **PASS**(leak 경고는 `git stash`로 교차 확인한 기존 known noise, 내 변경과
+  무관 — (192) 때와 동일 패턴). `qa_out/character_select.png`(기본 화면, "선택"
+  버튼 없이 카드만)/`character_select_l1_pirate.png`(`_debug_select_pirate`로
+  8번째 카드 클릭 선택 + 테마 전환 확인)/`character_select_l1_focus.png`
+  (`_debug_press_shortcut_2`로 키보드 경로까지 금테 선택 확인) 3장으로 육안
+  검증, 레이아웃 겹침/깨짐 없음. 잠긴/사용 불가 카드는 아직 게임에 없어
+  "클릭 무시" 분기는 추가하지 않음(해당 기능이 생기면 `CharacterCardPanel`에
+  `locked: bool` 플래그를 얹는 식으로 확장 가능). 다음은 **L-2(a)**(스킬
+  도감 데이터/저장 — `SkillPool.codex_entries()` + 발견 기록 영구 저장).
+
 - **2026-10-13 (192)**: INBOX.md 최우선 지시 [대형 기획 11] 조작/UI 개편(K-1→K-4) 중
   **K-4c(외부 아트 override 경로 + 발주 목록 정리) 완료 — [대형 기획 11] 전체
   (K-1~K-4) 완료 처리**.

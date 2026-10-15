@@ -184,7 +184,8 @@ var _legend_bar_panel: PanelContainer
 
 func _ready() -> void:
 	# L-3(2026-10-14, [대형 기획 12] K-3 후속): 배경/제목을 현재 캐릭터 퍼스널 컬러로.
-	CharacterTheme.apply_background(self, RunState.character_id)
+	# M-5(b): resources/backgrounds/dungeon_map.png가 있으면 그 사진을 깐다(없으면 폴백).
+	CharacterTheme.apply_background(self, RunState.character_id, false, 0.25, "dungeon_map")
 	var title := get_node_or_null("Title")
 	if title is Label:
 		CharacterTheme.apply_label(title, RunState.character_id)
@@ -242,7 +243,7 @@ func _debug_qa_character_shieldbearer() -> void:
 ## "다시 만들기"(기존 패널 제거 후 재생성)로 충분하다.
 func _debug_set_character(character_id: String) -> void:
 	RunState.character_id = character_id
-	CharacterTheme.apply_background(self, RunState.character_id)
+	CharacterTheme.apply_background(self, RunState.character_id, false, 0.25, "dungeon_map")
 	var title := get_node_or_null("Title")
 	if title is Label:
 		CharacterTheme.apply_label(title, RunState.character_id)

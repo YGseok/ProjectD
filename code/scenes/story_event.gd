@@ -26,7 +26,8 @@ var _shortcut_buttons: Array[Button] = []
 
 func _ready() -> void:
 	# L-3(2026-10-14, [대형 기획 12] K-3 후속): 배경/제목을 현재 캐릭터 퍼스널 컬러로.
-	CharacterTheme.apply_background(self, RunState.character_id)
+	# M-5(b): story_event는 전용 배경이 없어 event.png를 공유한다(ART_RESOURCES.md 2-3).
+	CharacterTheme.apply_background(self, RunState.character_id, false, 0.25, "event")
 	CharacterTheme.apply_label(title_label, RunState.character_id)
 	_scenario = StoryEventPool.random_scenario()
 	title_label.text = _scenario["title"]

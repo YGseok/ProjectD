@@ -5,45 +5,26 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-10-15 (202)
-- 작성자: AI 에이전트. 이번 이터레이션 지시(실행 순서를 [대형 기획 13] M-5(a)
-  하나로 고정)에 따라 **UIKit 이미지 스킨 지원(M-5(a) — 패널(section/hud/
-  overlay)/버튼(primary/secondary)/HP 바)을 완료**했다. `code/systems/
-  ui_kit.gd`의 `UIKit`에 `apply_panel_skin(panel, kind, character_id, base_dir)`
-  신규 — `resources/ui/panel/<kind>_{base,accent}.png`를 로드해 accent를
-  `CharacterTheme.ui_palette()["accent"]`로 틴트한 뒤 `Image.blend_rect()`로
-  한 번만 합성해 `StyleBoxTexture`로 굽는다(base 없으면 false 반환, 호출부가
-  기존 `StyleBoxFlat` 절차적 스타일로 폴백). `make_section()`/`make_bar()`가
-  이를 써서 dungeon_map/combat_test/event/shop/story_event/deck_panel의 구역
-  패널·HUD 띠가, `CustomizePanel`/`AchievementPanel`/`SkillCodexPanel`이
-  "overlay" kind를 써서 오버레이 틀이 전부 자동으로 스킨을 받는다. "card"
-  (아이템/보상 카드)는 `ItemCardStyle`의 테두리색이 등급(S/A/B/C) 신호로 쓰이는
-  중이라 캐릭터 accent로 바꾸면 신호 충돌이 생겨 **의도적으로 보류**(사람 결정
-  필요). 버튼은 normal/hover/pressed/disabled 4상태마다 따로 구워 **상태별
-  개별 폴백**을 보장(`style_primary_button()`/`style_secondary_button()`에
-  `base_dir` 매개변수 추가, 기존 호출부는 그대로 동작). HP 바는 신규 `UIKit.
-  make_hp_bar()`(combat_test.gd의 `_build_hp_bar()`가 위임)가 프레임(base+accent
-  한 장)+채움(`hp_fill.png`, 런타임 `.modulate`로 녹→주황→빨강 착색)을
-  `NinePatchRect`로 그리며, `combat_test.gd`의 `_update_hp_bar()`는 `fill is
-  ColorRect`로 폴백(ColorRect)/스킨(NinePatchRect) 양쪽을 같은 함수로 처리하게
-  고쳤다. **실제 production 자산(이미 `resources/ui/`에 입고돼 있음)을 적용하는
-  과정에서 두 가지 회귀를 발견해 고쳤다**: ① 버튼 `StyleBoxTexture`의
-  `content_margin`을 기본값(=texture_margin, 상하 16px)에 맡겼더니 최소 높이가
-  커져 M-3이 고정 좌표(40px)로 짜둔 버튼 행이 "전투 기록" 패널과 겹치는 회귀 —
-  버튼만 `content_margin_top/bottom=4`로 분리 지정해 해결. ② `resources/ui/`
-  자산이 이미 있어 기존 5개 테스트(L-3 오버레이 패널 3종 테두리 비교, M-1/M-2
-  버튼 위계 비교)가 `StyleBoxTexture`로 바뀐 스타일에서 `.border_color`/
-  `.bg_color`(StyleBoxFlat 전용) 접근으로 크래시 — `_m5_style_fingerprint()`
-  공용 헬퍼로 두 스타일 종류를 다 받게 고침. `dice_test.gd`에 신규
-  `_check_m5a_uikit_image_skin()`(9단계, user:// 임시 경로로 "없음→있음→없음"
-  전환 + production 경로 end-to-end 검증)을 추가해 `bash scripts/qa_shot.sh
-  dice_test` 전체 **PASS**. 셀프 피드백 1라운드로 `qa_out/m5a_*.png` 7장
-  (dungeon_map/combat_test 평시·승리/customize 오버레이/shop/event/
-  character_select) 육안 확인 — 모서리 보석 장식이 보이는 입체적 스킨으로
-  바뀌었고 레이아웃 겹침/잘림 없어 추가 라운드 없이 종료. 전투 규칙/밸런스는
-  손대지 않았고 resources/·docs/art/는 읽기만 했다. **다음은 M-5(b)(배지/
-  장식/아이콘)** — 순서 끝나면 INBOX.md [대형 기획 14](N-1~N-5, M-5(a) 완료를
-  전제조건으로 명시해둔 다음 지시)로 넘어갈 것.
+- 일시: 2026-10-15 (203)
+- 작성자: AI 에이전트. 직전 이터레이션이 M-5(b) 작업 도중 사용 한도로 중단돼
+  미커밋 상태로 남긴 것을 재시도 지시로 이어받았다. **M-5(b)(배지/장식/아이콘)를
+  마무리해 [대형 기획 13](M-1~M-5) 전체를 완료 처리**했다. `git diff`로 확인한
+  결과 구현(`UIKit`의 배지/장식/9종 아이콘 공용 로더 + `CharacterTheme.
+  apply_background()`의 배경 사진 지원 + combat_test/dungeon_map/event/shop/
+  story_event/deck_panel/skill_codex_panel/character_select/achievement_icon/
+  family_icon/lock_icon/reward_icon 호출부 배선)는 이미 전부 끝나 있었고, 이번
+  이터레이션은 `bash scripts/qa_shot.sh dice_test`로 드러난 테스트 버그 2개
+  (신규 `_check_m5b_badges_decor_icons_backgrounds()`의 "제목 장식" 검증이 좌/우
+  장식 파일을 둘 다 만들어놓고 자식 수를 3개로만 기대한 것, "scene_key 빈 문자열"
+  검증이 직전 호출의 `queue_free()` 지연 해제 때문에 같은 프레임에서 FAIL난 것 —
+  후자는 `character_theme.gd`에 `remove_child()`를 추가해 트리 탈착을 동기화해
+  고침)만 고친 뒤 **전체 PASS**를 확인하고, 셀프 피드백 1라운드(`qa_out/m5b_*.png`
+  6장 육안 확인 — 배지/장식/아이콘/배경 사진이 M-5(a) 스킨과 같은 톤으로 자연스럽게
+  어울림, 레이아웃 문제 없음)로 마무리했다. 상세는 아래 "완료 기록 (203)" 참고.
+  **M-5(a)(202)/M-5(b)(203) 전체 완료 — 단, [대형 기획 13] 자체는 아직 미완료**:
+  M-5는 INBOX 원래 순서상 M-4 뒤였는데 (202) 때 사용자 지시로 순서를 바꿔 먼저
+  진행했을 뿐, **M-4(이벤트/상점/스토리 이벤트 화면 통일)가 여전히 큐에 남아있다**
+  — 다음은 M-4.
 
 ## 지금 위치
 
@@ -389,7 +370,21 @@ HP 패널·다이스 스테이지·결과 칩과 겹치지 않고 표정(happy)�
   버튼의 content_margin이 texture_margin(16px)에 자동으로 맞춰져 M-3의 고정
   좌표(40px 버튼 행)와 겹치는 회귀를 발견해 버튼만 content_margin_top/bottom=4로
   분리 설정해 고쳤다(패널은 9-slice 두께=콘텐츠 인셋이 디자인 의도라 그대로 둠).
-  상세는 아래 "완료 기록 (202)" 참고. **다음은 M-5(b)(배지/장식/아이콘)**.
+  상세는 아래 "완료 기록 (202)" 참고.
+- **UIKit 이미지 스킨 — 배지/장식/아이콘(2026-10-15 [대형 기획 13] M-5(b) 완료)**:
+  M-5(a)와 같은 "base+accent 틴트 후 굽기, 없으면 폴백" 원칙으로 배지(턴/라운드
+  `make_badge()`, 몬스터 티어 `tier_badge_texture()` — 풀컬러 완성 배지라 틴트
+  없음, 도감 상태 `make_codex_badge()` — 단일 파일+상태색 modulate)/장식(칩 배경
+  `apply_chip_skin()`, 구분선·제목 좌우 장식)/기능 아이콘 9종 공용 로더
+  (`UIKit.icon_texture(name, tint, base_dir)` — 흰 실루엣 PNG를 호출부가 넘긴
+  임의의 tint로 칠함)을 `UIKit`/`CharacterTheme`에 연결했다. `CharacterTheme.
+  apply_background()`에 `scene_key` 매개변수가 추가돼 `resources/backgrounds/
+  <scene_key>.png`가 있으면 그 사진을 깔고 퍼스널 컬러는 비네트로만 남는다
+  (dungeon_map/combat/shop/event 4종, story_event는 event를 공유). 호출부
+  11곳(combat_test/dungeon_map/event/shop/story_event/deck_panel/
+  skill_codex_panel/character_select/achievement_icon/family_icon/lock_icon/
+  reward_icon)에 전부 배선됐다. 상세는 아래 "완료 기록 (203)" 참고. **M-5(a)
+  (202)/M-5(b)(203) 완료. [대형 기획 13] 자체는 M-4가 남아 미완료 — 다음은 M-4**.
 
 상세 변경 이력은 아래 "완료 기록"(최근 10개)과, 그보다 오래된 것은
 `docs/STATUS_ARCHIVE.md`(매 이터레이션 읽지 않는 아카이브) 참고.
@@ -403,12 +398,14 @@ HP 패널·다이스 스테이지·결과 칩과 겹치지 않고 표정(happy)�
 M-1~M-5, 셀프 피드백 루프 방식)이다 — M-1(던전 맵 화면)이 2026-10-14(198)에,
 M-2(전투 화면 기본 레이아웃/HUD)가 2026-10-14(199)에, M-3(전투 화면 상태별
 연출/결과/보상 UI)가 2026-10-15(200)에, M-5(a)(UIKit 이미지 스킨 — 패널/버튼/
-HP 바)가 2026-10-15(202)에 완료됐고, 다음은 M-5(b)(배지/장식/아이콘)다.**
-M-5(a)는 원래 INBOX 순서상 M-4 뒤였으나 이번 이터레이션 지시로 M-4보다 먼저
-진행했다(사용자 지시 우선) — M-4(이벤트/상점/스토리 이벤트 화면 통일)는
-M-5(b) 다음으로 순서가 밀렸을 뿐 여전히 큐에 남아있다. M-1에서 만든
-`code/systems/ui_kit.gd`(`UIKit`)를 M-2/M-3/M-5(a)가 재사용했고 M-4/M-5(b)도
-그대로 재사용할 것(INBOX M-4 원문 "새로 복붙하지 말 것"). [대형 기획 11]
+HP 바)가 2026-10-15(202)에, M-5(b)(배지/장식/아이콘)가 2026-10-15(203)에
+완료됐고, 다음은 M-4(이벤트/상점/스토리 이벤트 화면 통일)다.**
+M-5는 원래 INBOX 순서상 M-4 뒤였으나 (202) 때 사용자 지시로 M-4보다 먼저
+진행했다(사용자 지시 우선) — M-4는 그만큼 순서가 밀렸을 뿐 여전히 큐에
+남아있다(이제 M-5가 전부 끝났으니 M-4가 [대형 기획 13]의 마지막 남은 조각).
+M-1에서 만든 `code/systems/ui_kit.gd`(`UIKit`)를 M-2/M-3/M-5(a)/M-5(b)가
+재사용했고 M-4도 그대로 재사용할 것(INBOX M-4 원문 "새로 복붙하지 말 것").
+[대형 기획 11]
 (조작/UI 개편, K-1~K-4)은 2026-10-13(192)에,
 [대형 기획 12](캐릭터 선택/스킬 도감/전역 퍼스널 컬러, L-1~L-3)는 2026-10-14(197)에
 각각 전체 완료됐다. [대형 기획 13]이 전부 끝나면 아래 번호 매긴 큐에서 고를 것.
@@ -1021,6 +1018,63 @@ M-5(b) 다음으로 순서가 밀렸을 뿐 여전히 큐에 남아있다. M-1�
 
 ## 완료 기록
 
+- **2026-10-15 (203)**: 직전 이터레이션(M-5(b))이 사용 한도로 중단된 뒤 재시도 지시로
+  이어받아 **M-5(b)(배지/장식/아이콘 — [대형 기획 13] 완료) 마무리**. 작업 트리에는 이미
+  구현이 거의 끝난 상태로 남아있었다 — 이번 이터레이션은 그 상태를 감사하고, 남은 버그
+  2개를 고치고, 전체 검증·셀프 피드백·커밋까지 끝냈다.
+  **확인한 기존 구현**(이미 커밋 안 된 상태로 작업 트리에 있었음, 새로 작성하지 않음):
+  `code/systems/ui_kit.gd`에 배지(`make_badge()`=turn/round, `tier_badge_texture()`=
+  normal/elite/boss 풀컬러 완성 배지, `make_codex_badge()`=단일 파일+상태색 modulate)/
+  장식(`apply_chip_skin()`=칩 배경, `_make_divider_control()`=구분선, `_make_title_
+  ornament_rect()`=제목 좌우 장식)/공용 아이콘 로더(`icon_texture(name, tint, base_dir)`
+  — 흰 실루엣 PNG를 호출부가 넘긴 임의의 tint로 칠함, base/accent 쌍이 아니라 단일
+  파일+런타임 틴트라 패널/버튼과 다른 패턴)가 전부 M-5(a)와 같은 "base+accent를 캐릭터
+  accent로 틴트해 굽기, 파일 없으면 폴백" 원칙으로 구현돼 있었다. `character_theme.gd`의
+  `apply_background(scene_root, character_id, animate, duration, scene_key, base_dir)`
+  신규 매개변수가 `resources/backgrounds/<scene_key>.png`를 ColorRect 위에 깔고 ColorRect
+  자체는 투명화(alpha=0)해 사진이 그대로 보이게 하는 것도 이미 돼 있었다. 호출부 배선도
+  전부 끝나 있었다: `combat_test.gd`(몬스터 티어 아이콘 `monster_tier_icon` + 턴/라운드
+  배지, `apply_background(..., "combat")`), `dungeon_map.gd`(`apply_background(...,
+  "dungeon_map")`, 골드 칩이 `make_stat_chip()`을 거쳐 자동으로 칩 배경을 받음), `event.gd`/
+  `shop.gd`(`"shop"`)/`story_event.gd`(전용 배경이 없어 `"event"`를 공유), `deck_panel.gd`
+  (공격/방어 주머니 섹션 제목에 `icon_name="attack"`/`"defense"` 전달), `skill_codex_panel.gd`
+  (상태 배지를 `UIKit.make_codex_badge()`로 교체), `character_select.gd`(HP 칩 아이콘을
+  `icon_texture("hp", ...)`로, 스탯 칩 배경을 `apply_chip_skin()`으로), `achievement_icon.
+  gd`/`family_icon.gd`/`lock_icon.gd`/`reward_icon.gd`(각각 attack/skull·crown/lock/
+  gold·pip·dice 아이콘을 이미지 우선 + 절차적 폴백으로) — 아이콘 9종(gold/pip/dice/hp/
+  defense/attack/crown/skull/lock) 전부 최소 한 곳 이상 실제로 연결돼 있었다.
+  **이번에 실제로 한 일 — 버그 2개 발견·수정**: `bash scripts/qa_shot.sh dice_test`를
+  처음 돌렸을 때 신규 `_check_m5b_badges_decor_icons_backgrounds()`에서 FAIL 2건이
+  나왔다. ① "제목 장식(장식+아이콘 있음)" 검증이 `title_ornament_left_base.png`와
+  `title_ornament_right_base.png`를 둘 다 만들어놓고도 `title_row` 자식 수를 3개
+  (좌장식+아이콘+제목)로만 기대했다 — 실제로는 우장식까지 더해 4개가 맞는 게 정상
+  (`make_section()` 구현은 옳았고, 테스트 기대값이 우장식을 빠뜨린 버그였다) → 기대값을
+  4개 + 4번째 자식이 TextureRect인지까지 검증하도록 고쳤다. ② "scene_key 빈 문자열(기존
+  화면)" 검증이 직전 호출에서 만들어둔 `SceneBackgroundImage`가 `apply_background()`의
+  `bg_image.queue_free()`(지연 해제 — 다음 프레임까지 트리에 남아있음) 때문에 같은 프레임
+  안에서 곧바로 재확인하면 아직 `get_node_or_null()`에 걸려 FAIL이 났다 — 실제 플레이에서는
+  화면마다 `scene_key`가 고정이라 이 전환(있다가 없음)이 일어날 일이 없는 구석 케이스지만,
+  정확성을 위해 `character_theme.gd`의 `apply_background()`에서 `bg_rect.remove_child(
+  bg_image)`를 `queue_free()` 앞에 추가해 트리에서는 즉시 떨어지고 메모리 해제만 다음
+  프레임으로 미루게 고쳤다(동작 자체는 바뀌지 않음, 트리 탈착 시점만 동기화). 두 수정
+  모두 `bash scripts/qa_shot.sh dice_test` **전체 PASS**(M-5a/M-5b 신규 섹션 포함, 기존
+  섹션 전부 회귀 없음)로 확인.
+  **셀프 피드백 1라운드**: `qa_out/m5b_combat_novice.png`(승리 보상 화면)/`m5b_dungeon.png`
+  (던전 맵)/`m5b_shop.png`/`m5b_event.png`/`m5b_character_select.png`/`m5b_combat_boss.png`
+  6장 육안 확인 — 던전 맵 HUD 범례(골드/눈금/다이스/미정/정예) 아이콘, `DeckPanel`의
+  "보유 스킬"/"공격 주머니"/"방어 주머니" 섹션 제목 양옆 다이아몬드 장식 + 공격/방어 작은
+  아이콘, 전투 HUD의 턴/라운드 배지(다이아몬드 장식 테두리)와 몬스터 티어 아이콘(회색
+  방패, "일반" 옆), 캐릭터 선택 화면의 빨간 하트 HP 아이콘과 잠금 스킬 슬롯의 자물쇠
+  아이콘, 상점/이벤트 배경 사진(선술집/어두운 사원) 전부 M-5(a)의 보석 장식 스킨과 같은
+  톤으로 자연스럽게 어울렸고 레이아웃 겹침/잘림 없음 — 추가 수정 없이 1라운드로 종료.
+  배경 사진 로드 시 "Loaded resource as image file, this will not work on export" 경고는
+  M-5(a)/K-4c와 동일한 기존 트레이드오프(테스트가 `user://` base_dir 주입을 요구해
+  `Image.load()` 직접 호출이 불가피)로 그대로 둠. 전투 규칙/밸런스는 손대지 않았고
+  `resources/`·`docs/art/`는 읽기만 했다. **M-5(a)/M-5(b) 전체 완료 — [대형 기획 13]
+  자체는 M-4(이벤트/상점/스토리 이벤트 화면 통일)가 아직 남아있어 미완료**. M-5는
+  원래 INBOX 순서상 M-4 뒤였으나 (202) 때 사용자 지시로 먼저 진행했을 뿐이다 —
+  **다음은 M-4**, 그 다음에야 INBOX.md [대형 기획 14](N-1~N-5)로 넘어갈 것.
+
 - **2026-10-15 (202)**: INBOX.md 최우선 지시(이번 이터레이션 직접 지시) [대형 기획 13]
   **M-5(a)(UIKit 이미지 스킨 — 패널/버튼/HP 바) 완료**. 아트 스레드가 `resources/ui/`에
   U1~U6(패널 4종/버튼 2종/HP 바/배지/장식/아이콘)를 전부 납품했지만 Work 쪽 코드는 아직
@@ -1501,51 +1555,9 @@ M-5(b) 다음으로 순서가 밀렸을 뿐 여전히 큐에 남아있다. M-1�
   볼 방법은 없다 — 다음 이터레이션에서 확인 가능. 다음은 **L-2(b)**(도감
   패널 UI, `SkillCodexPanel`).
 
-- **2026-10-14 (193)**: INBOX.md 최우선 지시 [대형 기획 12] 캐릭터 선택/스킬 도감/
-  전역 퍼스널 컬러(L-1→L-3) 중 **L-1(캐릭터 카드 자체를 눌러 선택, "선택" 버튼
-  제거) 완료**. 카드마다 있던 전용 "선택" `Button`을 지우고, 카드 패널 자체를
-  클릭/스페이스 선택 영역으로 바꿨다. 신규 `code/scenes/character_card_panel.gd`
-  (`CharacterCardPanel extends PanelContainer`)가 `activated` 시그널 하나로
-  좌클릭(`InputEventMouseButton`)과 ui_accept(스페이스/Enter)를 `_gui_input()`
-  에서 똑같이 처리하고, `mouse_entered`/`mouse_exited`로 hover 시 `modulate`를
-  살짝 밝혀 피드백을 준다(선택 강조 테두리는 기존 `_refresh_selection_highlight()`
-  가 "panel" StyleBox로 별도 관리해 서로 간섭 안 함). `character_select.gd`의
-  `_make_card()`가 `CharacterCardPanel`을 만들고 `activated`를
-  `_on_card_selected.bind(id)`에 바로 연결하며, 자식 컨트롤(hbox/portrait_holder/
-  name_vbox)의 `mouse_filter`를 전부 `IGNORE`로 비워 클릭이 항상 패널까지
-  통과하게 했다. 포커스 체인(`FocusNav`)이 Button 전용이었던 걸 범용으로
-  열어야 해서 `code/scenes/focus_nav.gd`의 `chain_linear`/`grab_first_focus`
-  매개변수를 `Array[Button]` → `Array`(비타입)로 바꾸고, `grab_first_focus`
-  내부의 `.disabled` 체크를 `ctrl is BaseButton`으로 감싸(PanelContainer엔
-  그 속성이 없음) 범용 Control도 안전하게 처리한다 — 다른 화면들(dungeon_map/
-  combat_test/event/shop/story_event/customize_panel/achievement_panel)은
-  전부 Array[Button]을 그대로 넘기므로(비타입 Array 매개변수는 더 구체적인
-  타입을 그대로 받아들임) 호출부 변경 없이 회귀 없음. `_shortcut_buttons`도
-  `Array[Button]`→`Array[Control]`로 바꿔 카드 패널과 "던전 시작"/"업적"/
-  "테스트 전투" `Button` 3개가 한 체인에 섞여 들어간다. QA 전용
-  `_debug_press_shortcut_2()`도 `.pressed.emit()`(Button 전용) 대신
-  `CharacterCardPanel.activated.emit()`으로 갱신. **검증**: `dice_test.gd`의
-  신규 `_check_l1_card_click_select()`가 character_select.tscn을 실제
-  인스턴스화해 ① 실제 `InputEventMouseButton`(좌클릭)을 카드 패널의
-  `_gui_input()`에 직접 넣어 `_selected_id`가 바뀌는지 ② 실제
-  `InputEventKey`(KEY_SPACE)로도 바뀌는지(마우스 없이) ③ 선택된 카드의 실제
-  StyleBox `border_color`가 미선택 카드와 달라지는지(금테 강조) ④ 카드 패널이
-  `focus_mode == FOCUS_ALL`인지 ⑤ 씬 전체를 재귀 탐색(`_find_button_with_text`
-  신규 헬퍼)해 "선택" 텍스트 `Button`이 하나도 남지 않았는지까지 계산/렌더
-  결과로 확인(플래그만 보지 않음). `bash scripts/qa_shot.sh dice_test` 전체
-  **PASS**(leak 경고는 `git stash`로 교차 확인한 기존 known noise, 내 변경과
-  무관 — (192) 때와 동일 패턴). `qa_out/character_select.png`(기본 화면, "선택"
-  버튼 없이 카드만)/`character_select_l1_pirate.png`(`_debug_select_pirate`로
-  8번째 카드 클릭 선택 + 테마 전환 확인)/`character_select_l1_focus.png`
-  (`_debug_press_shortcut_2`로 키보드 경로까지 금테 선택 확인) 3장으로 육안
-  검증, 레이아웃 겹침/깨짐 없음. 잠긴/사용 불가 카드는 아직 게임에 없어
-  "클릭 무시" 분기는 추가하지 않음(해당 기능이 생기면 `CharacterCardPanel`에
-  `locked: bool` 플래그를 얹는 식으로 확장 가능). 다음은 **L-2(a)**(스킬
-  도감 데이터/저장 — `SkillPool.codex_entries()` + 발견 기록 영구 저장).
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(202)에서 (192)를 그리로 옮겼다.)*
+이번 이터레이션(203)에서 (193)을 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 

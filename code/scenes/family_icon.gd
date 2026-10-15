@@ -113,7 +113,13 @@ func _draw_claw() -> void:
 
 
 ## 해골 — 둥근 두개골(원) + 눈구멍 2개(어두운 원) + 치아 줄(짧은 선 여러 개).
+## [대형 기획 13] M-5(b) — resources/ui/icon/skull.png(흰 실루엣)가 있으면 COLOR_UNDEAD로
+## 칠해 쓰고, 없으면 기존 절차적 도형으로 폴백한다.
 func _draw_skull() -> void:
+	var tex := UIKit.icon_texture("skull", COLOR_UNDEAD)
+	if tex != null:
+		draw_texture_rect(tex, Rect2(Vector2.ZERO, size), false)
+		return
 	var center := Vector2(size.x * 0.5, size.y * 0.42)
 	var r := size.x * 0.38
 	draw_circle(center, r, COLOR_UNDEAD)
@@ -129,7 +135,14 @@ func _draw_skull() -> void:
 
 
 ## 보스 전용 왕관 오버레이 — 아이콘 위쪽에 작은 삼각 톱니 3개로 근사.
+## [대형 기획 13] M-5(b) — resources/ui/icon/crown.png(흰 실루엣)가 있으면 COLOR_CROWN으로
+## 칠해 아이콘 위쪽 절반에 겹쳐 쓰고, 없으면 기존 절차적 톱니 폴리곤으로 폴백한다.
 func _draw_crown() -> void:
+	var tex := UIKit.icon_texture("crown", COLOR_CROWN)
+	if tex != null:
+		var crown_size := size.y * 0.42
+		draw_texture_rect(tex, Rect2(Vector2(size.x * 0.5 - crown_size * 0.5, 0.0), Vector2(crown_size, crown_size)), false)
+		return
 	var base_y := size.y * 0.06
 	var pts := PackedVector2Array([
 		Vector2(size.x * 0.22, base_y + size.y * 0.1),

@@ -154,7 +154,10 @@ static func apply_panel_skin(panel: Control, kind: String, character_id: String,
 ## title이 빈 문자열이면 제목 라벨 없이 틀만 만든다(헤더류 섹션에서 사용).
 ## resources/ui/panel/section_{base,accent}.png가 있으면 그 이미지 스킨을 쓰고,
 ## 없으면(기본 상태) 기존 StyleBoxFlat 절차적 스타일로 폴백한다(M-5a).
-static func make_section(parent: Node, title: String, character_id: String, position: Vector2 = Vector2.ZERO, base_dir: String = SKIN_BASE_DIR) -> VBoxContainer:
+## icon_name(M-5b): title이 있을 때 제목 왼쪽에 작은 기능 아이콘(resources/ui/icon/
+## <icon_name>.png, 흰 실루엣을 character_id accent로 착색)을 붙인다. 빈 문자열(기본값)이면
+## 지금까지처럼 아이콘 없음 — 기존 호출부는 전혀 안 바꿔도 된다.
+static func make_section(parent: Node, title: String, character_id: String, position: Vector2 = Vector2.ZERO, base_dir: String = SKIN_BASE_DIR, icon_name: String = "") -> VBoxContainer:
 	var panel := PanelContainer.new()
 	var skin_applied := apply_panel_skin(panel, "section", character_id, base_dir)
 	if not skin_applied:
@@ -184,18 +187,40 @@ static func make_section(parent: Node, title: String, character_id: String, posi
 	panel.add_child(body)
 
 	if title != "":
+		# [대형 기획 13] M-5(b) — 제목 줄 양옆에 deco/title_ornament_{left,right}가 있으면
+		# 작은 장식을, icon_name이 주어지고 해당 icon/*.png가 있으면 기능 아이콘을 덧붙인다.
+		# 둘 다 없으면 기존(제목 Label 하나만)과 완전히 동일하다.
+		var title_row := HBoxContainer.new()
+		title_row.add_theme_constant_override("separation", 5)
+		title_row.alignment = BoxContainer.ALIGNMENT_BEGIN
+		var left_orn := _make_title_ornament_rect("left", character_id, base_dir)
+		if left_orn != null:
+			title_row.add_child(left_orn)
+		if icon_name != "":
+			var icon_tex := icon_texture(icon_name, CharacterTheme.ui_palette(character_id)["accent"], base_dir)
+			if icon_tex != null:
+				var icon_rect := TextureRect.new()
+				icon_rect.texture = icon_tex
+				icon_rect.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+				icon_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+				icon_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+				icon_rect.custom_minimum_size = Vector2(16, 16)
+				icon_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				title_row.add_child(icon_rect)
 		var title_label := Label.new()
 		title_label.text = title
 		title_label.add_theme_font_size_override("font_size", 13)
 		CharacterTheme.apply_label(title_label, character_id, true)
-		body.add_child(title_label)
+		title_row.add_child(title_label)
+		var right_orn := _make_title_ornament_rect("right", character_id, base_dir)
+		if right_orn != null:
+			title_row.add_child(right_orn)
+		body.add_child(title_row)
 		# 감독 추가 비평 "제목 줄 구분선" — 제목이 있는 패널만 제목과 본문 사이에 얇은
 		# 가로선을 둬 둘을 시각적으로 분리한다(제목 없는 패널은 구분할 대상이 없어 생략).
-		var divider := ColorRect.new()
-		var palette := CharacterTheme.ui_palette(character_id)
-		divider.color = Color(palette["primary"].r, palette["primary"].g, palette["primary"].b, 0.3)
-		divider.custom_minimum_size = Vector2(0, 1)
-		body.add_child(divider)
+		# deco/divider_{base,accent}.png가 있으면 그 이미지를, 없으면 기존 ColorRect 1px
+		# 선으로 폴백한다(M-5b).
+		body.add_child(_make_divider_control(character_id, base_dir))
 	return body
 
 
@@ -229,8 +254,9 @@ static func make_bar(parent: Node, character_id: String, position: Vector2 = Vec
 
 ## HUD 바 안에 들어가는 "아이콘(선택) + 큰 숫자/값 + 짧은 캡션" 한 묶음. icon이 null이면
 ## 아이콘 없이 텍스트만. 반환값은 {container, value_label, caption_label} — 호출부가
-## 나중에 값만 바꿔 쓸 수 있게.
-static func make_stat_chip(parent: Node, icon: Control, value_text: String, caption_text: String, character_id: String) -> Dictionary:
+## 나중에 값만 바꿔 쓸 수 있게. resources/ui/deco/chip.png가 있으면 칩 배경으로 쓰고(M-5b,
+## 캐릭터색 틴트 없는 단일 파일), 없으면 기존처럼 배경 없이 텍스트만(폴백).
+static func make_stat_chip(parent: Node, icon: Control, value_text: String, caption_text: String, character_id: String, base_dir: String = SKIN_BASE_DIR) -> Dictionary:
 	var palette := CharacterTheme.ui_palette(character_id)
 	var vbox := VBoxContainer.new()
 	vbox.add_theme_constant_override("separation", 0)
@@ -255,6 +281,11 @@ static func make_stat_chip(parent: Node, icon: Control, value_text: String, capt
 	caption_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(caption_label)
 
+	var chip_panel := PanelContainer.new()
+	if apply_chip_skin(chip_panel, base_dir):
+		chip_panel.add_child(vbox)
+		parent.add_child(chip_panel)
+		return {"container": chip_panel, "value_label": value_label, "caption_label": caption_label}
 	parent.add_child(vbox)
 	return {"container": vbox, "value_label": value_label, "caption_label": caption_label}
 
@@ -550,3 +581,351 @@ static func make_hp_bar(parent: Node, width: float, height: float, character_id:
 
 	var label := _make_hp_bar_label(holder, width, height)
 	return {"fill": fill, "label": label, "skinned": true, "fill_full_width": fill_w}
+
+
+## ---------------------------------------------------------------------------
+## [대형 기획 13] M-5(b)(2026-10-15) — 배지(turn/round/tier_*/codex_base)/장식(칩 배경/
+## 구분선/제목 장식)/기능 아이콘 9종의 이미지 스킨. M-5(a)와 같은 "base+accent를 캐릭터
+## accent로 틴트해 굽는다, 파일 없으면 폴백" 원칙을 그대로 따른다. icon/*.png(흰 실루엣)
+## 만 예외 — base/accent 구분이 없는 단일 실루엣이라 호출부가 넘기는 임의의 tint색으로
+## 직접 칠한다(캐릭터 accent일 수도, 범주 고유색(RewardIcon의 COLOR_GOLD 등)일 수도 있음).
+## ---------------------------------------------------------------------------
+
+static var _icon_texture_cache: Dictionary = {}
+
+
+## resources/ui/icon/<name>.png(흰 실루엣+알파)를 tint색으로 칠해 돌려준다. 파일이 없으면
+## null — 호출부(RewardIcon/LockIcon/FamilyIcon 등)가 기존 절차적 _draw()로 폴백해야
+## 한다는 신호. tint가 캐릭터 accent가 아니라 호출부 고유색일 수 있어, 패널/버튼류와
+## 달리 character_id가 아니라 tint Color 자체를 캐시 키로 쓴다.
+static func icon_texture(name: String, tint: Color, base_dir: String = SKIN_BASE_DIR) -> Texture2D:
+	var cache_enabled: bool = base_dir == SKIN_BASE_DIR
+	var key := "%s|%s" % [name, tint.to_html(true)]
+	if cache_enabled and _icon_texture_cache.has(key):
+		return _icon_texture_cache[key]
+	var img := _load_skin_image(base_dir + "icon/" + name + ".png")
+	var tex: Texture2D = null
+	if img != null:
+		img.convert(Image.FORMAT_RGBA8)
+		_tint_rgb(img, tint)
+		tex = _texture_from_image(img)
+	if cache_enabled:
+		_icon_texture_cache[key] = tex
+	return tex
+
+
+## ---------------------------------------------------------------------------
+## 칩 배경 (deco/chip.png) — base/accent 구분 없는 단일 중립색 파일이라(ART_RESOURCES.md
+## UI350 "좌우12, 상하10", accent 변형 없음) 캐릭터별 틴트 없이 그대로 쓴다.
+## ---------------------------------------------------------------------------
+
+static var _chip_texture_cache: Texture2D = null
+static var _chip_texture_cache_dir: String = ""
+
+
+static func _cached_chip_texture(base_dir: String) -> Texture2D:
+	var cache_enabled: bool = base_dir == SKIN_BASE_DIR
+	if cache_enabled and _chip_texture_cache_dir == base_dir and _chip_texture_cache != null:
+		return _chip_texture_cache
+	var img := _load_skin_image(base_dir + "deco/chip.png")
+	var tex: Texture2D = null
+	if img != null:
+		img.convert(Image.FORMAT_RGBA8)
+		tex = _texture_from_image(img)
+	if cache_enabled:
+		_chip_texture_cache = tex
+		_chip_texture_cache_dir = base_dir
+	return tex
+
+
+## panel(PanelContainer 등)에 칩 배경 스킨을 입힌다. 파일 없으면 false(호출부가 배경 없는
+## 기존 모습으로 폴백).
+static func apply_chip_skin(panel: Control, base_dir: String = SKIN_BASE_DIR) -> bool:
+	var tex := _cached_chip_texture(base_dir)
+	if tex == null:
+		return false
+	panel.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	var style := StyleBoxTexture.new()
+	style.texture = tex
+	style.texture_margin_left = 12
+	style.texture_margin_right = 12
+	style.texture_margin_top = 10
+	style.texture_margin_bottom = 10
+	panel.add_theme_stylebox_override("panel", style)
+	return true
+
+
+## ---------------------------------------------------------------------------
+## 섹션 제목 장식 (deco/title_ornament_{left,right}_{base,accent}) — base+accent 틴트 후
+## 한 장으로 굽는 패턴(패널/HP 프레임과 동일). 캐릭터별로 다르므로 character_id를 캐시
+## 키에 포함한다. 48×24 원본을 32×16 자리에 비율 유지로 축소해 13px 제목 글자 옆에
+## 자연스럽게 들어오게 한다.
+## ---------------------------------------------------------------------------
+
+static var _title_ornament_cache: Dictionary = {}
+
+
+static func _build_title_ornament_texture(side: String, character_id: String, base_dir: String) -> Texture2D:
+	var base_img := _load_skin_image(base_dir + "deco/title_ornament_" + side + "_base.png")
+	if base_img == null:
+		return null
+	base_img.convert(Image.FORMAT_RGBA8)
+	var accent_img := _load_skin_image(base_dir + "deco/title_ornament_" + side + "_accent.png")
+	if accent_img != null:
+		var palette := CharacterTheme.ui_palette(character_id)
+		_tint_rgb(accent_img, palette["accent"])
+		base_img.blend_rect(accent_img, Rect2i(Vector2i.ZERO, accent_img.get_size()), Vector2i.ZERO)
+	return _texture_from_image(base_img)
+
+
+static func _cached_title_ornament_texture(side: String, character_id: String, base_dir: String) -> Texture2D:
+	var cache_enabled: bool = base_dir == SKIN_BASE_DIR
+	var key := "%s|%s" % [side, character_id]
+	if cache_enabled and _title_ornament_cache.has(key):
+		return _title_ornament_cache[key]
+	var tex := _build_title_ornament_texture(side, character_id, base_dir)
+	if cache_enabled:
+		_title_ornament_cache[key] = tex
+	return tex
+
+
+static func _make_title_ornament_rect(side: String, character_id: String, base_dir: String) -> TextureRect:
+	var tex := _cached_title_ornament_texture(side, character_id, base_dir)
+	if tex == null:
+		return null
+	var rect := TextureRect.new()
+	rect.texture = tex
+	rect.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	rect.custom_minimum_size = Vector2(32, 16)
+	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return rect
+
+
+## ---------------------------------------------------------------------------
+## 구분선 (deco/divider_{base,accent}) — 원본은 512×16을 좌240/중앙 보석32/우240으로
+## 디자인했지만(ART_RESOURCES.md UI351), 실제 쓰이는 패널 폭이 화면마다 달라 9-slice로
+## "가운데만 고정, 양옆만 늘어남"을 표현하려면 영역을 잘라 붙이는 복잡한 처리가 필요하다.
+## 이 선은 순수 장식(정보 전달 없음)이라 비용 대비 이득이 낮다고 판단해, 대신 전체
+## 이미지를 폭에 맞춰 균일하게 늘리는 단순한 TextureRect(STRETCH_SCALE)로 근사한다 —
+## 패널 폭이 디자인 폭(512)보다 많이 좁을 때만 가운데 보석이 약간 작아 보일 수 있다(사람
+## 피드백으로 더 다듬을 수 있는 자리).
+## ---------------------------------------------------------------------------
+
+static var _divider_texture_cache: Dictionary = {}
+
+
+static func _build_divider_texture(character_id: String, base_dir: String) -> Texture2D:
+	var base_img := _load_skin_image(base_dir + "deco/divider_base.png")
+	if base_img == null:
+		return null
+	base_img.convert(Image.FORMAT_RGBA8)
+	var accent_img := _load_skin_image(base_dir + "deco/divider_accent.png")
+	if accent_img != null:
+		var palette := CharacterTheme.ui_palette(character_id)
+		_tint_rgb(accent_img, palette["accent"])
+		base_img.blend_rect(accent_img, Rect2i(Vector2i.ZERO, accent_img.get_size()), Vector2i.ZERO)
+	return _texture_from_image(base_img)
+
+
+static func _cached_divider_texture(character_id: String, base_dir: String) -> Texture2D:
+	var cache_enabled: bool = base_dir == SKIN_BASE_DIR
+	if cache_enabled and _divider_texture_cache.has(character_id):
+		return _divider_texture_cache[character_id]
+	var tex := _build_divider_texture(character_id, base_dir)
+	if cache_enabled:
+		_divider_texture_cache[character_id] = tex
+	return tex
+
+
+## 제목 줄 아래 구분선 Control 하나를 만들어 돌려준다(아직 parent에 안 붙임 — 호출부가
+## body.add_child()). 이미지가 없으면 기존 ColorRect 1px 선(M-3 폴백)과 완전히 동일하다.
+static func _make_divider_control(character_id: String, base_dir: String) -> Control:
+	var tex := _cached_divider_texture(character_id, base_dir)
+	if tex == null:
+		var fallback := ColorRect.new()
+		var palette := CharacterTheme.ui_palette(character_id)
+		fallback.color = Color(palette["primary"].r, palette["primary"].g, palette["primary"].b, 0.3)
+		fallback.custom_minimum_size = Vector2(0, 1)
+		return fallback
+	var rect := TextureRect.new()
+	rect.texture = tex
+	rect.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	rect.stretch_mode = TextureRect.STRETCH_SCALE
+	rect.custom_minimum_size = Vector2(0, 16)
+	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return rect
+
+
+## ---------------------------------------------------------------------------
+## 턴/라운드 배지 (badge/{turn,round}_{base,accent}) — 패널과 같은 "base+accent를 캐릭터
+## accent로 틴트해 굽기" 패턴. 글자 길이가 상황마다 달라(예: "몬스터 공격턴 (내 방어턴)")
+## 고정 크기 NinePatchRect 대신 PanelContainer+StyleBoxTexture로 만들어 내용에 맞춰
+## 자연히 늘어나게 한다(M-5a 패널/버튼과 같은 이유).
+## ---------------------------------------------------------------------------
+
+const BADGE_SKIN_MARGINS := {
+	"turn": {"l": 44, "t": 12, "r": 44, "b": 12},
+	"round": {"l": 40, "t": 12, "r": 40, "b": 12},
+}
+
+static var _badge_skin_cache: Dictionary = {}
+
+
+static func _build_badge_skin_texture(kind: String, character_id: String, base_dir: String) -> Texture2D:
+	var base_img := _load_skin_image(base_dir + "badge/" + kind + "_base.png")
+	if base_img == null:
+		return null
+	base_img.convert(Image.FORMAT_RGBA8)
+	var accent_img := _load_skin_image(base_dir + "badge/" + kind + "_accent.png")
+	if accent_img != null:
+		var palette := CharacterTheme.ui_palette(character_id)
+		_tint_rgb(accent_img, palette["accent"])
+		base_img.blend_rect(accent_img, Rect2i(Vector2i.ZERO, accent_img.get_size()), Vector2i.ZERO)
+	return _texture_from_image(base_img)
+
+
+static func _cached_badge_skin_texture(kind: String, character_id: String, base_dir: String) -> Texture2D:
+	var cache_enabled: bool = base_dir == SKIN_BASE_DIR
+	var key := "%s|%s" % [kind, character_id]
+	if cache_enabled and _badge_skin_cache.has(key):
+		return _badge_skin_cache[key]
+	var tex := _build_badge_skin_texture(kind, character_id, base_dir)
+	if cache_enabled:
+		_badge_skin_cache[key] = tex
+	return tex
+
+
+## panel에 kind("turn"/"round") 배지 스킨을 입힌다. 파일 없으면 false.
+static func apply_badge_skin(panel: Control, kind: String, character_id: String, base_dir: String = SKIN_BASE_DIR) -> bool:
+	if not BADGE_SKIN_MARGINS.has(kind):
+		return false
+	var tex := _cached_badge_skin_texture(kind, character_id, base_dir)
+	if tex == null:
+		return false
+	var margins: Dictionary = BADGE_SKIN_MARGINS[kind]
+	panel.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	var style := StyleBoxTexture.new()
+	style.texture = tex
+	style.texture_margin_left = margins["l"]
+	style.texture_margin_right = margins["r"]
+	style.texture_margin_top = margins["t"]
+	style.texture_margin_bottom = margins["b"]
+	panel.add_theme_stylebox_override("panel", style)
+	return true
+
+
+## kind("turn"/"round") 배지 하나 — 배경 스킨이 있으면 PanelContainer(스킨)+Label, 없으면
+## 기존처럼 배경 없는 Label 하나만(폴백, M-2/M-3 당시와 완전히 동일한 모습). 반환값
+## {"control", "label", "skinned"} — 호출부가 label에 폰트 크기/색을 그대로 이어서 적용.
+static func make_badge(parent: Node, kind: String, text: String, character_id: String, base_dir: String = SKIN_BASE_DIR) -> Dictionary:
+	var panel := PanelContainer.new()
+	if apply_badge_skin(panel, kind, character_id, base_dir):
+		var label := Label.new()
+		label.text = text
+		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		panel.add_child(label)
+		parent.add_child(panel)
+		return {"control": panel, "label": label, "skinned": true}
+	var label := Label.new()
+	label.text = text
+	parent.add_child(label)
+	return {"control": label, "label": label, "skinned": false}
+
+
+## ---------------------------------------------------------------------------
+## 몬스터 티어 배지 (badge/tier_{normal,elite,boss}.png) — 64×64 풀컬러 완성 배지라
+## 캐릭터색 틴트를 하지 않는다("늘리지 않음", ART_RESOURCES.md UI251~253). kind별로만
+## 캐시(character_id 무관).
+## ---------------------------------------------------------------------------
+
+const TIER_BADGE_KINDS := ["normal", "elite", "boss"]
+
+static var _tier_badge_cache: Dictionary = {}
+
+
+## kind("normal"/"elite"/"boss")의 티어 배지 텍스처. 파일 없으면 null(호출부가 기존
+## 색깔 텍스트 라벨로 폴백).
+static func tier_badge_texture(kind: String, base_dir: String = SKIN_BASE_DIR) -> Texture2D:
+	if not TIER_BADGE_KINDS.has(kind):
+		return null
+	var cache_enabled: bool = base_dir == SKIN_BASE_DIR
+	var key := "%s|%s" % [kind, base_dir]
+	if cache_enabled and _tier_badge_cache.has(key):
+		return _tier_badge_cache[key]
+	var img := _load_skin_image(base_dir + "badge/tier_" + kind + ".png")
+	var tex: Texture2D = null
+	if img != null:
+		img.convert(Image.FORMAT_RGBA8)
+		tex = _texture_from_image(img)
+	if cache_enabled:
+		_tier_badge_cache[key] = tex
+	return tex
+
+
+## ---------------------------------------------------------------------------
+## 도감 상태 배지 (badge/codex_base.png) — 단일 밝은 회색 파일 하나를 상태색(보유/발견/
+## 미발견)으로 그때그때 modulate한다(ART_RESOURCES.md UI255 "코드가 상태색으로
+## modulate"). base+accent 합성이 필요 없어 원본 텍스처 자체를 한 번만 캐시하고,
+## StyleBoxTexture.modulate_color로 상태색을 입힌다 — 틴트 베이킹보다 훨씬 가볍다.
+## ---------------------------------------------------------------------------
+
+const CODEX_BADGE_MARGINS := {"l": 18, "t": 8, "r": 18, "b": 8}
+
+static var _codex_badge_texture_cache: Texture2D = null
+static var _codex_badge_texture_cache_dir: String = ""
+
+
+static func _cached_codex_badge_texture(base_dir: String) -> Texture2D:
+	var cache_enabled: bool = base_dir == SKIN_BASE_DIR
+	if cache_enabled and _codex_badge_texture_cache_dir == base_dir and _codex_badge_texture_cache != null:
+		return _codex_badge_texture_cache
+	var img := _load_skin_image(base_dir + "badge/codex_base.png")
+	var tex: Texture2D = null
+	if img != null:
+		img.convert(Image.FORMAT_RGBA8)
+		tex = _texture_from_image(img)
+	if cache_enabled:
+		_codex_badge_texture_cache = tex
+		_codex_badge_texture_cache_dir = base_dir
+	return tex
+
+
+## panel에 상태색 modulate가 적용된 codex 배지 스킨을 입힌다. 파일 없으면 false.
+static func apply_codex_badge_skin(panel: Control, state_color: Color, base_dir: String = SKIN_BASE_DIR) -> bool:
+	var tex := _cached_codex_badge_texture(base_dir)
+	if tex == null:
+		return false
+	panel.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	var style := StyleBoxTexture.new()
+	style.texture = tex
+	style.texture_margin_left = CODEX_BADGE_MARGINS["l"]
+	style.texture_margin_right = CODEX_BADGE_MARGINS["r"]
+	style.texture_margin_top = CODEX_BADGE_MARGINS["t"]
+	style.texture_margin_bottom = CODEX_BADGE_MARGINS["b"]
+	style.modulate_color = state_color
+	panel.add_theme_stylebox_override("panel", style)
+	return true
+
+
+## 상태 배지 하나 — 스킨이 있으면 PanelContainer(상태색 modulate)+대비색 글자, 없으면
+## 기존처럼 배경 없이 state_color 그대로의 글자색 Label 하나(폴백, L-2b 당시와 동일).
+static func make_codex_badge(parent: Node, text: String, state_color: Color, base_dir: String = SKIN_BASE_DIR) -> Label:
+	var panel := PanelContainer.new()
+	if apply_codex_badge_skin(panel, state_color, base_dir):
+		var label := Label.new()
+		label.text = text
+		label.add_theme_font_size_override("font_size", 11)
+		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		label.add_theme_color_override("font_color", contrasting_text_color(state_color))
+		panel.add_child(label)
+		parent.add_child(panel)
+		return label
+	var label := Label.new()
+	label.text = text
+	label.add_theme_font_size_override("font_size", 11)
+	label.add_theme_color_override("font_color", state_color)
+	parent.add_child(label)
+	return label

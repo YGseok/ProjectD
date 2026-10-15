@@ -40,17 +40,31 @@ func _ready() -> void:
 func _draw() -> void:
 	match category:
 		"gold":
-			_draw_gold()
+			if not _draw_image_icon("gold", COLOR_GOLD):
+				_draw_gold()
 		"pip":
-			_draw_die_face([Vector2(0.5, 0.5)], COLOR_PIP)
+			if not _draw_image_icon("pip", COLOR_PIP):
+				_draw_die_face([Vector2(0.5, 0.5)], COLOR_PIP)
 		"dice":
-			_draw_die_face([Vector2(0.28, 0.28), Vector2(0.5, 0.5), Vector2(0.72, 0.72)], COLOR_DICE)
+			if not _draw_image_icon("dice", COLOR_DICE):
+				_draw_die_face([Vector2(0.28, 0.28), Vector2(0.5, 0.5), Vector2(0.72, 0.72)], COLOR_DICE)
 		"mystery":
 			_draw_mystery()
 		"elite":
 			_draw_elite()
 		_:
 			pass
+
+
+## [대형 기획 13] M-5(b) — resources/ui/icon/<name>.png(흰 실루엣)가 있으면 tint색으로
+## 칠해 그 자리를 그대로 채운다. 파일이 없으면 false를 돌려줘 호출부가 기존 절차적
+## _draw_*()로 폴백하게 한다.
+func _draw_image_icon(name: String, tint: Color) -> bool:
+	var tex := UIKit.icon_texture(name, tint)
+	if tex == null:
+		return false
+	draw_texture_rect(tex, Rect2(Vector2.ZERO, size), false)
+	return true
 
 
 func _draw_gold() -> void:

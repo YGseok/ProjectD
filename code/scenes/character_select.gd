@@ -447,14 +447,27 @@ func _build_stats_section() -> void:
 	row.add_child(event_chip["chip"])
 
 	var hp_chip := _make_stat_chip()
-	var hp_icon := Label.new()
-	hp_icon.text = "♥"
-	hp_icon.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	hp_icon.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	hp_icon.set_anchors_preset(Control.PRESET_FULL_RECT)
-	hp_icon.add_theme_font_size_override("font_size", 16)
-	hp_icon.add_theme_color_override("font_color", Color(0.85, 0.3, 0.35))
-	hp_chip["icon_holder"].add_child(hp_icon)
+	# [대형 기획 13] M-5(b): icon/hp.png(흰 하트 실루엣)가 있으면 그 이미지를 빨간색으로
+	# 칠해 쓰고, 없으면 기존 "♥" 글자 아이콘 그대로(폴백).
+	var hp_icon_color := Color(0.85, 0.3, 0.35)
+	var hp_icon_tex := UIKit.icon_texture("hp", hp_icon_color)
+	if hp_icon_tex != null:
+		var hp_icon_rect := TextureRect.new()
+		hp_icon_rect.texture = hp_icon_tex
+		hp_icon_rect.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+		hp_icon_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		hp_icon_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		hp_icon_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
+		hp_chip["icon_holder"].add_child(hp_icon_rect)
+	else:
+		var hp_icon := Label.new()
+		hp_icon.text = "♥"
+		hp_icon.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		hp_icon.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		hp_icon.set_anchors_preset(Control.PRESET_FULL_RECT)
+		hp_icon.add_theme_font_size_override("font_size", 16)
+		hp_icon.add_theme_color_override("font_color", hp_icon_color)
+		hp_chip["icon_holder"].add_child(hp_icon)
 	hp_chip["label"].text = "HP %d" % DISPLAY_PLAYER_HP
 	row.add_child(hp_chip["chip"])
 
@@ -464,16 +477,19 @@ func _build_stats_section() -> void:
 ## 칩 틀 자체는 다시 만들지 않고 label.text만 _refresh_detail_panel()이 갱신).
 func _make_stat_chip() -> Dictionary:
 	var chip := PanelContainer.new()
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.16, 0.16, 0.2, 0.9)
-	style.border_color = Color(0.4, 0.4, 0.46)
-	style.set_border_width_all(1)
-	style.set_corner_radius_all(6)
-	style.content_margin_left = 8
-	style.content_margin_right = 10
-	style.content_margin_top = 4
-	style.content_margin_bottom = 4
-	chip.add_theme_stylebox_override("panel", style)
+	# [대형 기획 13] M-5(b): deco/chip.png가 있으면 그 배경 이미지를 쓰고, 없으면 기존
+	# StyleBoxFlat 절차적 칩 배경 그대로(폴백).
+	if not UIKit.apply_chip_skin(chip):
+		var style := StyleBoxFlat.new()
+		style.bg_color = Color(0.16, 0.16, 0.2, 0.9)
+		style.border_color = Color(0.4, 0.4, 0.46)
+		style.set_border_width_all(1)
+		style.set_corner_radius_all(6)
+		style.content_margin_left = 8
+		style.content_margin_right = 10
+		style.content_margin_top = 4
+		style.content_margin_bottom = 4
+		chip.add_theme_stylebox_override("panel", style)
 
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 6)

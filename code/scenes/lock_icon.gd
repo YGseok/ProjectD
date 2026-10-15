@@ -17,6 +17,12 @@ func _ready() -> void:
 
 
 func _draw() -> void:
+	# [대형 기획 13] M-5(b) — resources/ui/icon/lock.png(흰 실루엣)가 있으면 BODY_COLOR로
+	# 칠해 쓰고, 없으면 기존 절차적 자물쇠 도형으로 폴백한다.
+	var tex := UIKit.icon_texture("lock", BODY_COLOR)
+	if tex != null:
+		draw_texture_rect(tex, Rect2(Vector2.ZERO, size), false)
+		return
 	var body := Rect2(size.x * 0.18, size.y * 0.45, size.x * 0.64, size.y * 0.45)
 	draw_rect(body, BODY_COLOR, true)
 	var shackle_center := Vector2(size.x * 0.5, size.y * 0.42)

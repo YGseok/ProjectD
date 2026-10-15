@@ -128,6 +128,31 @@ static func _get_vignette_texture() -> GradientTexture2D:
 	return _vignette_texture
 
 
+## [대형 기획 13] M-5(b)(2026-10-15) — resources/backgrounds/<scene_key>.png 캐시.
+## 배경 사진은 캐릭터색 틴트를 받지 않는(원화 그대로) 단일 파일이라 scene_key별로만
+## 캐시한다(UIKit의 _cached_chip_texture 등과 같은 "캐릭터 무관 단일 파일" 패턴).
+const SCENE_BACKGROUND_BASE_DIR := "res://resources/backgrounds/"
+
+static var _scene_background_cache: Dictionary = {}
+
+
+static func _cached_scene_background_texture(scene_key: String, base_dir: String) -> Texture2D:
+	var cache_enabled: bool = base_dir == SCENE_BACKGROUND_BASE_DIR
+	if cache_enabled and _scene_background_cache.has(scene_key):
+		return _scene_background_cache[scene_key]
+	var path := base_dir + scene_key + ".png"
+	var tex: Texture2D = null
+	if FileAccess.file_exists(path):
+		var img := Image.new()
+		if img.load(path) == OK:
+			img.convert(Image.FORMAT_RGBA8)
+			img.generate_mipmaps()
+			tex = ImageTexture.create_from_image(img)
+	if cache_enabled:
+		_scene_background_cache[scene_key] = tex
+	return tex
+
+
 ## scene_root 바로 아래의 "Background"라는 이름의 ColorRect(전 화면 공통 네이밍 —
 ## dungeon_map/combat_test/event/shop/story_event/character_select.tscn 전부 이
 ## 패턴)를 찾아 캐릭터 팔레트 기준으로 물들인다: ColorRect.color를 panel_bg로,
@@ -136,11 +161,37 @@ static func _get_vignette_texture() -> GradientTexture2D:
 ## 이름의 ColorRect가 없는 씬(오버레이 패널 등)에서는 조용히 아무 일도 하지 않는다.
 ## animate=true면 짧은 Tween으로 부드럽게 전환(캐릭터 선택 화면에서 카드를 바꿀 때),
 ## false면 즉시 적용(화면 최초 진입 시 깜빡임 없이 바로 그 캐릭터 색으로 시작).
-static func apply_background(scene_root: Node, character_id: String, animate: bool = false, duration: float = 0.25) -> void:
+##
+## scene_key(M-5b): resources/backgrounds/<scene_key>.png가 있으면 ColorRect 바로
+## 위에 그 배경 사진을 풀스크린으로 깔고, ColorRect 자체는 투명하게 내려(사진이 그대로
+## 보이게) 그 위에 비네트만 덧씌운다. scene_key가 비어있거나 파일이 없으면 기존처럼
+## ColorRect 단색 + 비네트만(폴백 — 지금까지의 모든 호출부가 이 경로를 그대로 탄다).
+static func apply_background(scene_root: Node, character_id: String, animate: bool = false, duration: float = 0.25, scene_key: String = "", base_dir: String = SCENE_BACKGROUND_BASE_DIR) -> void:
 	var bg_node := scene_root.get_node_or_null("Background")
 	if not (bg_node is ColorRect):
 		return
 	var bg_rect: ColorRect = bg_node
+
+	var bg_tex: Texture2D = null
+	if scene_key != "":
+		bg_tex = _cached_scene_background_texture(scene_key, base_dir)
+	var bg_image: TextureRect = bg_rect.get_node_or_null("SceneBackgroundImage")
+	if bg_tex != null:
+		if bg_image == null:
+			bg_image = TextureRect.new()
+			bg_image.name = "SceneBackgroundImage"
+			bg_image.set_anchors_preset(Control.PRESET_FULL_RECT)
+			bg_image.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			bg_image.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			bg_image.stretch_mode = TextureRect.STRETCH_SCALE
+			bg_image.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+			bg_rect.add_child(bg_image)
+			bg_rect.move_child(bg_image, 0)
+		bg_image.texture = bg_tex
+	elif bg_image != null:
+		bg_rect.remove_child(bg_image)
+		bg_image.queue_free()
+
 	var vignette: TextureRect = bg_rect.get_node_or_null("ThemeVignette")
 	if vignette == null:
 		vignette = TextureRect.new()
@@ -153,7 +204,7 @@ static func apply_background(scene_root: Node, character_id: String, animate: bo
 
 	var palette := ui_palette(character_id)
 	var target_bg: Color = palette["panel_bg"]
-	target_bg.a = 1.0
+	target_bg.a = 0.0 if bg_tex != null else 1.0
 	var target_tint: Color = palette["primary"]
 	target_tint.a = 1.0
 

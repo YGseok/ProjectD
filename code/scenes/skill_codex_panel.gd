@@ -310,18 +310,21 @@ func _make_card(entry: Dictionary, slot_index: int, palette: Dictionary) -> Cont
 	header.add_child(name_label)
 	_name_label_by_id[skill_id] = name_label
 
-	var badge := Label.new()
+	# [대형 기획 13] M-5(b) — badge/codex_base.png가 있으면 상태색(BADGE_OWNED/DISCOVERED/
+	# UNDISCOVERED)으로 modulate된 배지 배경 위에, 없으면 기존처럼 배경 없는 색깔 텍스트
+	# 그대로(폴백, L-2b 당시와 동일). UIKit.make_codex_badge()가 두 경로 다 담당.
+	var badge_text: String
+	var badge_color: Color
 	if owned:
-		badge.text = BADGE_TEXT_OWNED
-		badge.add_theme_color_override("font_color", BADGE_OWNED)
+		badge_text = BADGE_TEXT_OWNED
+		badge_color = BADGE_OWNED
 	elif discovered:
-		badge.text = BADGE_TEXT_DISCOVERED
-		badge.add_theme_color_override("font_color", BADGE_DISCOVERED)
+		badge_text = BADGE_TEXT_DISCOVERED
+		badge_color = BADGE_DISCOVERED
 	else:
-		badge.text = BADGE_TEXT_UNDISCOVERED
-		badge.add_theme_color_override("font_color", BADGE_UNDISCOVERED)
-	badge.add_theme_font_size_override("font_size", 11)
-	vbox.add_child(badge)
+		badge_text = BADGE_TEXT_UNDISCOVERED
+		badge_color = BADGE_UNDISCOVERED
+	var badge := UIKit.make_codex_badge(vbox, badge_text, badge_color)
 	_badge_label_by_id[skill_id] = badge
 
 	var desc := Label.new()

@@ -199,6 +199,9 @@ var monster_hp_bar_full_width: float
 var turn_label: Label
 var monster_name_label: Label
 var monster_tier_label: Label
+## [대형 기획 13] M-5(b) — badge/tier_{normal,elite,boss}.png가 있으면 보이는 아이콘
+## (없으면 숨김, _apply_monster_tier_badge() 참고).
+var monster_tier_icon: TextureRect
 var monster_trait_label: Label
 var player_status_label: Label
 ## _setup_combat_hud()가 만든 패널 3개(좌/중앙/우) — QA 캐릭터 전환 훅이 다시 그릴 때
@@ -1056,6 +1059,25 @@ static func _monster_tier_color(is_elite: bool, is_boss: bool) -> Color:
 	return Color(0.6, 0.6, 0.63)
 
 
+## [대형 기획 13] M-5(b) — monster_tier_icon/monster_tier_label을 현재 monster_is_elite/
+## monster_is_boss에 맞춰 갱신한다. badge/tier_<kind>.png가 있으면 아이콘을 보이고 글자는
+## 중립색(배지가 이미 색으로 티어를 전달)으로, 없으면 아이콘을 숨기고 기존 색깔 텍스트만
+## (폴백, M-2 당시와 동일 — _monster_tier_color()가 그대로 색을 책임짐). 전투 중 몬스터
+## 설정이 바뀌는 세 지점(_setup_combat_hud/_ready/_debug_set_character)이 전부 이 한
+## 함수만 호출하면 되도록 묶었다(기존엔 두 줄씩 세 곳에 복붙돼 있었음).
+func _apply_monster_tier_badge() -> void:
+	var kind := "boss" if monster_is_boss else ("elite" if monster_is_elite else "normal")
+	var tex := UIKit.tier_badge_texture(kind)
+	if tex != null:
+		monster_tier_icon.texture = tex
+		monster_tier_icon.visible = true
+		monster_tier_label.add_theme_color_override("font_color", Color(0.85, 0.85, 0.85))
+	else:
+		monster_tier_icon.visible = false
+		monster_tier_label.add_theme_color_override("font_color", _monster_tier_color(monster_is_elite, monster_is_boss))
+	monster_tier_label.text = _monster_tier_text(monster_is_elite, monster_is_boss)
+
+
 ## [대형 기획 13] M-2(2026-10-14) — HUD 중앙 배지 위에 보이는 작은 캡션. test_battle이면
 ## 던전 진행과 무관한 난이도 지표(RunState.test_difficulty)를, 아니면 실제 라운드/방
 ## 번호를 보여준다. 전투 중 값이 바뀌지 않아(같은 전투 안에서는 방을 이동하지 않음)
@@ -1130,19 +1152,20 @@ func _setup_combat_hud() -> void:
 	center_panel.custom_minimum_size = Vector2(500, 0)
 	_hud_panels.append(center_panel)
 
-	var round_caption := Label.new()
-	round_caption.text = _round_room_caption()
+	# [대형 기획 13] M-5(b) — badge/round_*가 있으면 배지 배경으로, 없으면 기존처럼
+	# 배경 없는 캡션 Label 하나(폴백, M-2 당시와 동일).
+	var round_badge := UIKit.make_badge(center_body, "round", _round_room_caption(), cid)
+	var round_caption: Label = round_badge["label"]
 	round_caption.add_theme_font_size_override("font_size", 12)
 	round_caption.add_theme_color_override("font_color", Color(0.65, 0.65, 0.68))
 	round_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	center_body.add_child(round_caption)
 
-	turn_label = Label.new()
-	turn_label.text = "전투 시작"
+	# badge/turn_*가 있으면 배지 배경으로, 없으면 기존처럼 배경 없는 큰 글자(M-2 당시와 동일).
+	var turn_badge := UIKit.make_badge(center_body, "turn", "전투 시작", cid)
+	turn_label = turn_badge["label"]
 	turn_label.add_theme_font_size_override("font_size", 22)
 	turn_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	CharacterTheme.apply_label(turn_label, cid, true)
-	center_body.add_child(turn_label)
 
 	# --- 우: 몬스터 ---
 	var monster_body := UIKit.make_section(self, "", cid, Vector2(900, 56))
@@ -1164,11 +1187,16 @@ func _setup_combat_hud() -> void:
 	monster_name_label.clip_text = true
 	monster_name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	monster_row.add_child(monster_name_label)
+	monster_tier_icon = TextureRect.new()
+	monster_tier_icon.custom_minimum_size = Vector2(20, 20)
+	monster_tier_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	monster_tier_icon.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	monster_tier_icon.visible = false
+	monster_row.add_child(monster_tier_icon)
 	monster_tier_label = Label.new()
-	monster_tier_label.text = _monster_tier_text(monster_is_elite, monster_is_boss)
 	monster_tier_label.add_theme_font_size_override("font_size", 12)
-	monster_tier_label.add_theme_color_override("font_color", _monster_tier_color(monster_is_elite, monster_is_boss))
 	monster_row.add_child(monster_tier_label)
+	_apply_monster_tier_badge()
 
 	var monster_bar := _build_hp_bar(monster_body, MONSTER_HP_BAR_WIDTH, cid)
 	monster_hp_bar_fill = monster_bar["fill"]
@@ -1240,7 +1268,8 @@ func _ready() -> void:
 	_setup_log_panel()
 	_style_result_buttons()
 	# L-3(2026-10-14, [대형 기획 12] K-3 후속): 배경/제목을 현재 캐릭터 퍼스널 컬러로.
-	CharacterTheme.apply_background(self, RunState.character_id)
+	# M-5(b): resources/backgrounds/combat.png가 있으면 그 사진을 깐다(없으면 폴백).
+	CharacterTheme.apply_background(self, RunState.character_id, false, 0.25, "combat")
 	var title := get_node_or_null("Title")
 	if title is Label:
 		CharacterTheme.apply_label(title, RunState.character_id)
@@ -1271,8 +1300,7 @@ func _ready() -> void:
 	monster_family_icon.is_boss = monster_is_boss
 	monster_family_icon.is_elite = monster_is_elite
 	monster_name_label.text = monster_name
-	monster_tier_label.text = _monster_tier_text(monster_is_elite, monster_is_boss)
-	monster_tier_label.add_theme_color_override("font_color", _monster_tier_color(monster_is_elite, monster_is_boss))
+	_apply_monster_tier_badge()
 	monster_trait_label.text = _monster_trait_summary_text(config)
 	monster_portrait.set_body_color(monster_color if monster_color.a > 0 else Color(0.5, 0.5, 0.5))
 	monster_portrait.set_family(config.get("family", ""))
@@ -1315,7 +1343,7 @@ func _debug_qa_character_shieldbearer() -> void:
 ## 아니라 HUD 패널 3개/로그 패널/버튼 스타일까지 캐릭터가 바뀌면 전부 다시 그려야 한다.
 func _debug_set_character(character_id: String) -> void:
 	RunState.character_id = character_id
-	CharacterTheme.apply_background(self, RunState.character_id)
+	CharacterTheme.apply_background(self, RunState.character_id, false, 0.25, "combat")
 	var title := get_node_or_null("Title")
 	if title is Label:
 		CharacterTheme.apply_label(title, RunState.character_id)
@@ -1326,8 +1354,7 @@ func _debug_set_character(character_id: String) -> void:
 	monster_family_icon.is_boss = monster_is_boss
 	monster_family_icon.is_elite = monster_is_elite
 	monster_name_label.text = monster_name
-	monster_tier_label.text = _monster_tier_text(monster_is_elite, monster_is_boss)
-	monster_tier_label.add_theme_color_override("font_color", _monster_tier_color(monster_is_elite, monster_is_boss))
+	_apply_monster_tier_badge()
 	monster_trait_label.text = _monster_trait_summary_text(monster_config)
 	monster_debug_info_label.text = _monster_debug_info_text(monster_config)
 	_update_labels()
