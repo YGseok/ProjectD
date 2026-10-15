@@ -8,6 +8,61 @@
 
 ---
 
+- **2026-10-14 (196)**: INBOX.md 최우선 지시 [대형 기획 12] 캐릭터 선택/스킬 도감/
+  전역 퍼스널 컬러(L-1→L-3) 중 **L-2(c)(진입점 연결) 완료**. L-2(b)가 만든
+  재사용 가능한 `SkillCodexPanel`을 캐릭터 선택 화면 + 던전 진행 화면 5곳
+  (dungeon_map/shop/event/story_event/combat_test)에 실제로 배선했다.
+  ① **character_select.gd**: 카드 선택 시 바뀌는 우측 상세 패널의 헤더
+  섹션(`_build_header_section()`)에 "스킬 도감" 버튼을 추가 — name_vbox가
+  `SIZE_EXPAND_FILL`이라 남는 가로 공간을 먹는 성질을 이용해, 새 섹션/고정
+  좌표 없이 헤더 hbox 맨 오른쪽에 자연스럽게 자리잡는다. 눌리면
+  `skill_codex_panel.open(_selected_id, [])` — 이 화면은 런 시작 전이라
+  "보유" 개념이 없어 `owned_skill_ids`는 INBOX.md 원문대로 항상 빈 배열(카드
+  선택 전에 미리 채워둔 `RunState.skill_flags`가 있어도 패널에는 전달되지
+  않음, 테스트로 확인). 카드 체인(`_shortcut_buttons`)에도 추가돼 방향키로
+  도달 가능. ② **던전 진행 화면 4종(dungeon_map/shop/event/story_event)**:
+  화면 우상단 고정 위치(x1080-1240, y24-60 — `AchievementButton`과 같은
+  "Title 라벨의 빈 공간 위에 버튼을 얹는" 기존 패턴 재사용, 네 화면 전부
+  동일 좌표라 일관된 위치)에 "스킬 도감" 버튼을 두고, 눌리면
+  `skill_codex_panel.open(RunState.character_id, RunState.skill_flags)` —
+  "이번 회차 보유"가 반영돼야 하므로 character_select와 달리 실제
+  skill_flags를 그대로 넘긴다(INBOX.md L-2(c) 원문). `dungeon_map.gd`만
+  버튼이 방 선택지처럼 동적으로 y-스택되는 `_layout_visible_buttons()`
+  루프 안에 있으면 위치가 덮어써지므로, 그 루프가 끝난 뒤에만
+  `_shortcut_buttons`(포커스 체인용)에 추가해 고정 위치는 유지하면서
+  방향키로는 도달 가능하게 했다. 나머지 세 화면은 버튼 위치가 애초에
+  `.tscn` 고정값이라 각 `_refresh_shortcuts(...)` 호출부(선택 전/후 등
+  버튼 구성이 바뀌는 지점마다)에 `skill_codex_button`만 추가하면 됐다.
+  ③ **combat_test.gd**: 다이스 뷰포트/초상화/로그로 화면이 이미 꽉 차
+  `CustomizeToggleButton`/`DeckToggleButton` 바로 왼쪽(x835-980, y20-54,
+  Title 텍스트가 끝나는 지점 뒤의 빈 공간)에 추가. `_rebuild_shortcuts()`가
+  `deck_toggle_button` 다음에 항상 포함시키고, `_unhandled_input()`의 Esc
+  처리가 `customize_panel.visible`일 때 패스스루하던 것과 같은 이유로
+  `skill_codex_panel.visible`일 때도 패스스루하도록 가드를 추가해 패널
+  자신의 Esc 닫기와 충돌하지 않게 했다. 8종 전부 토글(다시 누르면 닫힘)
+  패턴으로 통일(achievement_button과 동일 if-visible-then-close-else-open).
+  **검증**: `dice_test.gd`의 신규 `_check_l2c_skill_codex_entry_points()`가
+  "버튼이 눌렸는가"가 아니라 실제 결과 — character_select는 캐릭터를
+  "해적"으로 바꾼 뒤 버튼을 눌러 패널의 `_character_id=="pirate"`이고
+  `_owned`가 실제로 빈 배열인지(RunState.skill_flags를 일부러 채워둔 채로
+  확인), 다시 누르면 `visible=false`로 토글되는지를 검증. 나머지 4화면
+  (dungeon_map/shop/event/story_event)은 RunState.skill_flags를 실제
+  배열로 채운 뒤 버튼을 눌러 패널의 `_character_id`/`_owned`가 그 값과
+  정확히 일치하는지, 토글 닫힘까지 공통 패턴으로 검증(한 화면당 버튼
+  wiring이 동일해 한 루프로 처리). combat_test.tscn은 `_run_battle()`이
+  `await`로 이어지는 물리 시뮬레이션을 포함해(다른 4화면과 달리 이 파일에
+  씬 인스턴스화 전례가 없음) 동기 테스트 harness에서 직접 인스턴스화하지
+  않고, `GAME_QA_CALL=_debug_press_shortcut_skill_codex`
+  스크린샷(`qa_out/l2c_combat_test_codex.png`)으로 패널이 실제로 열리고
+  "심호흡"이 보유 상태(퍼스널 컬러 테두리)로 보임을 눈으로 확인했다.
+  `bash scripts/qa_shot.sh dice_test` 전체 **PASS**(leak 경고는
+  `git stash`로 변경분을 뺀 원본 코드에서도 동일하게 재현되는 pre-existing
+  noise임을 교차 확인). 5개 화면 전부 `qa_out/l2c_*.png`로 레이아웃 겹침
+  없음 육안 확인(dungeon_map/shop/event/story_event는 우상단 버튼이
+  DeckPanel/기존 UI와 안 겹침, combat_test는 덱 보기/커스터마이징 토글
+  옆에 자연스럽게 들어감). **[대형 기획 12]는 L-3(전역 퍼스널 컬러 확장)만
+  남았다** — INBOX.md "부분 처리됨"에 진행 줄 갱신.
+
 - **2026-10-14 (195)**: INBOX.md 최우선 지시 [대형 기획 12] 캐릭터 선택/스킬 도감/
   전역 퍼스널 컬러(L-1→L-3) 중 **L-2(b)(도감 패널 UI) 완료**. 신규
   `code/scenes/skill_codex_panel.gd`(`SkillCodexPanel extends Control`,

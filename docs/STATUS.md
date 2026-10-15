@@ -5,39 +5,34 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-10-15 (205)
-- 작성자: AI 에이전트. 이번 이터레이션은 INBOX.md 최우선 지시대로 [대형 기획 13]의
-  마지막 남은 조각 **M-4(이벤트/상점/스토리 이벤트 화면 통일)를 완료** — 이로써
-  **[대형 기획 13](던전 선택~전투 UI 품질 개선, M-1~M-5 + ART-2) 전체가 완료**됐다.
-  event/shop/story_event 세 화면을 dungeon_map/combat_test와 같은 HUD·구역 패널·
-  버튼 스타일로 맞췄다. Before에는 모든 버튼(안전/위험·A안/B안·던전으로 돌아가기·
-  커스터마이징·카드 안 구매/적용/획득 버튼)이 테두리 없는 기본 Godot 스타일(포커스된
-  버튼만 핑크 테두리)이었고 shop 골드는 평문, event/story_event 서사 텍스트는 배경
-  위에 맨 글자로 떠 있었다. 세 화면의 모든 버튼에 `UIKit.style_primary_button`/
-  `style_secondary_button`을 적용(각 화면의 유일한 진행 행동만 주 행동, 나머지는
-  보조, event 안전/위험은 초록/주황-빨강 tint로 의미 구분), dungeon_map의 HUD 칩
-  패턴을 재사용해 shop 골드를 아이콘+큰 숫자 칩으로, 신규 `UIKit.make_backdrop()`
-  (제목/바디 스캐폴딩 없는 경량 배경 프레임)으로 event/story_event 서사 텍스트 뒤에
-  구역 패널 느낌의 배경을 깔았다(기존 Label은 reparent 없이 `move_child()`로 뒤에
-  끼워 넣어 기존 테스트 호환성 유지). 아이템 카드 등급색 테두리는 그대로 유지(M-5(a)
-  결정). `dice_test.gd`에 신규 `_check_m4_event_shop_story_ui`(14단계)를 추가해
-  전체 PASS — 과정에서 테스트 코드 자체의 버그 2개(외부 스크립트에서 `Array[
-  Dictionary]` 매개변수에 배열 리터럴을 직접 넘기면 자동 변환 안 되는 GDScript
-  타입 캐스팅 함정, 로그 문구 불리언 출력 반전)를 발견·수정했다(게임 로직과는
-  무관). 반복 실행 중 H-1 "일반 모드 보존"이 6번 중 1번꼴로 일회성 FAIL했는데,
-  (195)의 완료 기록(현재 STATUS_ARCHIVE.md)에도 같은 패턴이 이미 기록돼 있어
-  이번 세션이 새로 만든 문제가 아닌 pre-existing 노이즈임을 교차 확인했다(별도
-  조치 불필요로 판단). 셀프 피드백 1라운드로 `qa_out/m4_after_*.png` 9장 육안
-  확인 — 버튼이 전부 입체 스타일로 바뀌고 서사 텍스트에 배경 프레임이 생겨 던전
-  맵/전투와 통일됨, 레이아웃 겹침/잘림 없음. `docs/DESIGN.md`에 신규 "UI" 절(공용
-  UI 컴포넌트 목록과 사용처), `docs/UI_REVIEW.md`에 "M-4"/"[대형 기획 13] 전체
-  Before/After 요약" 절을 추가했다. INBOX.md의 [대형 기획 13] 전체 항목을
-  "처리됨"으로 옮기고(13개 → 가장 오래된 "[미니 기획 E]"를 INBOX_ARCHIVE.md로
-  이동해 12개 유지), STATUS.md 완료 기록도 11개 → (195)를 STATUS_ARCHIVE.md로
-  이동해 10개 유지했다. 전투 규칙/밸런스는 전혀 건드리지 않았다. 상세는 아래
-  "완료 기록 (205)" 참고. **다음은 [대형 기획 14](조작/선택 화면/이벤트 특화
-  클래스·전용 이벤트, N-1 → N-6) N-1** — INBOX.md가 명시한 "M-4 완료 후 착수"
-  조건이 이제 충족됐다.
+- 일시: 2026-10-15 (206)
+- 작성자: AI 에이전트. 이번 이터레이션은 INBOX.md "남은 이슈" 맨 위 항목이었던
+  **[미니 기획 M-6] 카드 프레임 스킨 적용을 완료**했다. M-5(a)(202)가 등급색
+  신호와의 충돌로 보류했던 `resources/ui/panel/card_{base,accent}.png`를, "accent를
+  퍼스널 컬러가 아니라 그 카드가 쓸 테두리색(등급색/강화 하이라이트/골드부족색)으로
+  modulate"하는 해법(INBOX가 이미 확정한 설계)으로 연결했다. `ui_kit.gd`에
+  `apply_card_skin(panel, tint, base_dir)`를 신규 추가하고(character_id 대신 임의의
+  tint Color를 직접 받는 `icon_texture()`류 패턴), `item_card_style.gd`의
+  `build_card()`가 등급색/HIGHLIGHT_BORDER/CARD_BORDER_UNAFFORDABLE 중 상황에 맞는
+  색을 넘겨 쓰도록 바꿨다(파일 없으면 기존 StyleBoxFlat 폴백 그대로, 호출부인
+  combat_test/shop/event 세 화면은 수정 불필요). 골드 부족 카드는 테두리색은
+  유지한 채 전체를 신규 상수로 살짝 눌러 칠해(`CARD_SKIN_UNAFFORDABLE_MODULATE`)
+  상태를 함께 전달한다. 기존 하이라이트 테스트(`_check_skill_upgrade_card_highlight`)
+  는 이제 production 경로가 StyleBoxTexture가 되므로 존재하지 않는 `base_dir`를
+  명시적으로 넘겨 "스킨 없음 폴백 계약"을 계속 검증하도록 갱신했고, 신규
+  `_check_m6_card_frame_skin()`(6단계, M-5a와 같은 "없음→있음→없음" 임시 경로
+  패턴)이 이미지 스킨 경로 자체(등급별 합성 픽셀이 실제로 다름, highlight/
+  unaffordable 틴트, production 자산 텍스처 정체성)를 검증 — `dice_test.gd` 전체
+  PASS(FAIL 0건). 셀프 피드백 1라운드: `qa_out/m6_before_{reward,shop,
+  event_item,event_skill,event_upgrade}.png` 5장을 직접 읽어 등급별 보석/체인
+  장식이 실제로 해당 색으로 물들고 중앙(무채색)은 그대로라 등급 신호가 유지됨을
+  확인, 골드 부족 카드의 눌린 톤도 눈으로 보임 — "하" 수준 문제도 없어 추가
+  라운드 없이 종료. 던전 맵 방 카드(MapStrip)는 INBOX 원문이 "구현 판단"으로
+  남긴 범위라 이번엔 손대지 않았다(등급 기반이 아니고 `build_card()`를 안 쓰는
+  별개 코드 경로). 전투 규칙/밸런스는 전혀 건드리지 않았다. INBOX.md의 M-6 항목을
+  "처리됨"으로 옮겼다. 상세는 아래 "완료 기록 (206)" 참고. **다음은
+  [대형 기획 14](조작/선택 화면/이벤트 특화 클래스·전용 이벤트, N-1 → N-6) N-1**
+  — INBOX.md가 명시한 "M-6 완료 후 착수" 순서가 이제 충족됐다.
 
 ## 지금 위치
 
@@ -419,6 +414,18 @@ HP 패널·다이스 스테이지·결과 칩과 겹치지 않고 표정(happy)�
   목록과 사용처는 `docs/DESIGN.md` "UI" 절, Before/After 상세는 `docs/
   UI_REVIEW.md` "M-4"/"[대형 기획 13] 전체 요약" 절 참고. 상세는 아래 "완료
   기록 (205)" 참고. **[대형 기획 13](M-1~M-5, ART-2 포함) 전체 완료.**
+- **카드 프레임 이미지 스킨(2026-10-15 [미니 기획 M-6] 완료)**: 보상 선택/상점/
+  이벤트 보상 카드(`item_card_style.gd` `build_card()` 공용 경로)가
+  `resources/ui/panel/card_{base,accent}.png` 스킨을 쓴다 — accent(흰색+알파
+  장식: 코너 보석+측면 체인)를 캐릭터 퍼스널 컬러가 아니라 **그 카드의 등급색
+  (S/A/B/C)·강화 하이라이트색(HIGHLIGHT_BORDER)·골드부족색(CARD_BORDER_
+  UNAFFORDABLE) 중 상황에 맞는 색으로 modulate**해 M-5(a)가 등급 신호와의
+  충돌로 보류했던 "card" kind를 연결했다. 골드 부족 카드는 테두리색은 유지한 채
+  전체를 살짝 눌러 칠해(`CARD_SKIN_UNAFFORDABLE_MODULATE`) 상태를 함께 전달.
+  `ui_kit.gd`의 신규 `apply_card_skin()`(character_id 대신 tint Color를 직접
+  받는 패턴)이 담당, 파일 없으면 기존 StyleBoxFlat 등급색 테두리로 폴백. 던전
+  맵 방 카드(MapStrip)는 등급 기반이 아니고 `build_card()`를 안 써 이번 범위
+  밖(INBOX 원문이 "구현 판단"으로 남김). 상세는 아래 "완료 기록 (206)" 참고.
 
 상세 변경 이력은 아래 "완료 기록"(최근 10개)과, 그보다 오래된 것은
 `docs/STATUS_ARCHIVE.md`(매 이터레이션 읽지 않는 아카이브) 참고.
@@ -434,11 +441,13 @@ ART-1b(201)/M-5(a)(202)/M-5(b)(203)/ART-2(204)/M-4(205) 순으로 끝났다(M-5�
 INBOX 원래 순서상 M-4 뒤였지만 (202) 때 사용자 지시로 먼저 진행됐고, M-4가
 마지막까지 남아있다가 이번에 마무리됨). [대형 기획 11](조작/UI 개편, K-1~K-4)은
 2026-10-13(192)에, [대형 기획 12](캐릭터 선택/스킬 도감/전역 퍼스널 컬러,
-L-1~L-3)는 2026-10-14(197)에 각각 전체 완료됐다.
+L-1~L-3)는 2026-10-14(197)에 각각 전체 완료됐다. **[미니 기획 M-6](카드 프레임
+스킨 적용)도 2026-10-15(206)로 완료됐다** — M-5(a)가 등급색 신호와의 충돌로
+보류했던 카드 이미지 스킨을 "accent를 등급색으로 modulate"하는 해법으로 연결.
 
 **INBOX.md 최우선 지시는 이제 [대형 기획 14](조작/선택 화면/이벤트 특화 클래스·
-전용 이벤트, N-1 → N-6, 사용자 플레이 피드백)다 — [대형 기획 13] M-4 완료로
-착수 조건이 충족됐다.** 우선 순서는 N-1(전 화면 키보드만으로 진행) →
+전용 이벤트, N-1 → N-6, 사용자 플레이 피드백)다 — INBOX가 명시한 "M-6 완료 후
+착수" 조건이 충족됐다.** 우선 순서는 N-1(전 화면 키보드만으로 진행) →
 N-2(캐릭터 선택 전신 이미지 확대) → N-3(flat 버튼 전수 교정 — M-5의 UIKit 버튼
 팩토리 재사용 필수) → N-4(능력치를 실제 다이스 칩으로) → N-5(곡예사를 이벤트
 특화 클래스로 개편, a→b→c) → N-6(캐릭터 전용 이벤트/특별 선택지). 한
@@ -1054,6 +1063,64 @@ N-2(캐릭터 선택 전신 이미지 확대) → N-3(flat 버튼 전수 교정 
 
 ## 완료 기록
 
+- **2026-10-15 (206)**: INBOX.md 최우선 지시(남은 이슈 맨 위 항목) [미니 기획 M-6]
+  카드 프레임 스킨 적용 완료 — **셀프 피드백 루프 방식**. 배경: M-5(a)(202)가
+  `resources/ui/panel/card_{base,accent}.png`를 "card" kind로 지원하려다, 카드
+  테두리가 등급(S/A/B/C) 신호로 쓰이는 것과 퍼스널 컬러 틴트가 충돌해 보류했었다.
+  **해법(INBOX가 이미 확정)**: card_accent를 캐릭터 퍼스널 컬러가 아니라 **그 카드가
+  쓸 테두리색(등급색/강화 하이라이트색/골드부족색) 그대로로 modulate**한다 — 등급
+  신호는 그대로 유지하면서 카드 아트도 쓸 수 있다. **구현**: `ui_kit.gd`에
+  `apply_card_skin(panel, tint, base_dir)`(+내부 `_build_card_skin_texture`/
+  `_cached_card_skin_texture`)를 신규 추가 — 기존 `apply_panel_skin()`과 같은
+  "base+accent를 틴트해 하나의 텍스처로 굽기" 패턴이지만, character_id가 아니라
+  호출부가 넘기는 임의의 tint Color를 직접 쓴다(`icon_texture()`와 같은 설계,
+  캐시 키도 character_id 대신 tint 색상 문자열). `item_card_style.gd`의
+  `build_card()`가 등급색/HIGHLIGHT_BORDER/CARD_BORDER_UNAFFORDABLE 중 이번에
+  쓸 색을 `apply_card_skin()`에 넘기고, 파일이 없으면(기본 상태) 기존
+  StyleBoxFlat 절차적 테두리로 그대로 폴백한다 — 호출부(combat_test/shop/event
+  세 화면의 보상·상점·이벤트 카드가 공유하는 `build_card()` 단일 경로)는 전혀
+  안 바꿔도 됨. 골드 부족(unaffordable) 카드는 테두리색은 유지하되 전체를
+  신규 상수 `CARD_SKIN_UNAFFORDABLE_MODULATE`(0.55 회색)로 살짝 눌러 칠해
+  "지금은 못 산다"는 상태를 함께 전달한다(폴백의 `CARD_BG_UNAFFORDABLE` 어둡게
+  칠하기와 같은 의도). 테스트 주입을 위해 `build_card()`에 `base_dir` 매개변수를
+  신규로 추가(기본값 `UIKit.SKIN_BASE_DIR` — 다른 UIKit 스킨 팩토리와 동일한
+  패턴). **기존 테스트 갱신**: `_check_skill_upgrade_card_highlight()`가 기본
+  호출만 쓰면 이제 production 스킨(card_base.png가 실제로 입고돼 있어)이 적용돼
+  `StyleBoxFlat`로의 캐스팅이 깨지므로, 존재하지 않는 `base_dir`를 명시적으로
+  넘겨 "스킨 없음일 때의 폴백 계약"을 그대로 계속 검증하도록 갱신(의미는 보존,
+  이미지 스킨 경로 자체의 검증은 아래 신규 테스트가 별도로 담당) — INBOX M-6
+  원문 "기존 등급 색 테스트가 깨지면 스타일박스 종류 변경에 맞춰 갱신하되
+  등급별 색이 서로 다르게 렌더되는지는 계산/픽셀로 계속 검증" 그대로 반영.
+  **신규 검증**: `dice_test.gd`의 `_check_m6_card_frame_skin()`(M-5a와 같은
+  "없음→있음→없음" user:// 임시 경로 패턴)이 (1) 파일 없음→StyleBoxFlat 폴백
+  (2) S/C 등급 카드의 합성 텍스처 픽셀이 실제로 각 등급색과 근사 일치하고 서로
+  다름 (3) highlight=true가 HIGHLIGHT_BORDER로 틴트됨 (4) unaffordable=true가
+  CARD_BORDER_UNAFFORDABLE로 틴트 + CARD_SKIN_UNAFFORDABLE_MODULATE로 눌림
+  (5) 파일 삭제 후 다시 폴백 (6) production 자산으로 등급이 다르면 실제로 다른
+  텍스처 객체가 나오고 texture_margin_left=24인지까지 6단계로 검증, 전체 PASS
+  (`bash scripts/qa_shot.sh dice_test` 결과: PASS, FAIL 0건). **셀프 피드백**:
+  `qa_out/m6_before_{reward,shop,event_item,event_skill,event_upgrade}.png`
+  5장을 직접 읽어 확인 — 전투 승리 보상 카드(B/C 등급)·상점 카드(C/B 등급,
+  골드 0이라 전부 "골드 부족" 상태)·이벤트 스킬 카드(C 등급)·스킬 강화 카드
+  (하이라이트, 금색)에서 카드 테두리의 보석/코너 장식·측면 체인 장식이 실제로
+  해당 등급/강조색으로 선명하게 물들어 보이고, 중앙 채움(card_base, 무채색
+  검정)은 그대로라 등급 신호가 또렷하게 유지됨을 확인. 상점의 골드 부족 카드는
+  같은 등급색을 유지하면서도 보상 화면의 동일 등급 카드보다 눈에 띄게 톤이
+  가라앉아 보여 의도한 "무채색 쪽으로 눌림" 효과가 실제로 보임. 하이라이트
+  카드("임기응변+")는 금색 테두리로 다른 녹색 카드들과 뚜렷이 구분됨. 레이아웃
+  겹침/잘림 없음, 1라운드 만에 "하" 수준 문제도 안 보여 추가 라운드 없이 종료.
+  (스크린샷에 보이는 카드 전체를 감싸는 밝은 핑크 테두리는 FocusNav의 기본
+  포커스 강조색으로, 이번 변경과 무관한 기존 동작.) **범위 판단**: INBOX M-6
+  원문의 "대상"은 보상/상점/이벤트 카드(`build_card()` 단일 경로)를 명시적
+  필수로, 던전 맵 방 카드(MapStrip)는 "등급이 없으니 선택지 종류색 또는
+  퍼스널 컬러 accent — 구현 판단"으로 재량에 맡겼다 — MapStrip 카드는 애초에
+  등급 기반이 아니고 `ItemCardStyle.build_card()`를 쓰지 않는 별개의 코드
+  경로(`dungeon_map.gd`의 자체 StyleBoxFlat)라 이번 "등급색 틴트" 해법과
+  직접 연결되지 않는다고 판단해 이번 조각 범위에서는 손대지 않음(필요하면
+  다음 조각으로 분리 가능). 전투 규칙/밸런스는 전혀 건드리지 않았다. INBOX.md의
+  M-6 항목을 "처리됨"으로 옮겼다. **다음은 [대형 기획 14] N-1**(INBOX.md가
+  명시한 순서 — M-6 완료로 착수 조건 충족).
+
 - **2026-10-15 (205)**: INBOX.md 최우선 지시 [대형 기획 13] M-4(이벤트/상점/스토리
   이벤트 화면 통일) 완료 — **[대형 기획 13](M-1~M-5, ART-2 포함) 전체 완료.**
   event/shop/story_event 세 화면을 dungeon_map/combat_test와 같은 HUD·구역 패널·
@@ -1541,64 +1608,9 @@ N-2(캐릭터 선택 전신 이미지 확대) → N-3(flat 버튼 전수 교정 
   K-3부터 L-3까지 전체 적용 지점을 한곳에 정리). **[대형 기획 12](L-1~L-3) 전체
   완료** — INBOX.md "부분 처리됨"에서 "처리됨"으로 이동.
 
-- **2026-10-14 (196)**: INBOX.md 최우선 지시 [대형 기획 12] 캐릭터 선택/스킬 도감/
-  전역 퍼스널 컬러(L-1→L-3) 중 **L-2(c)(진입점 연결) 완료**. L-2(b)가 만든
-  재사용 가능한 `SkillCodexPanel`을 캐릭터 선택 화면 + 던전 진행 화면 5곳
-  (dungeon_map/shop/event/story_event/combat_test)에 실제로 배선했다.
-  ① **character_select.gd**: 카드 선택 시 바뀌는 우측 상세 패널의 헤더
-  섹션(`_build_header_section()`)에 "스킬 도감" 버튼을 추가 — name_vbox가
-  `SIZE_EXPAND_FILL`이라 남는 가로 공간을 먹는 성질을 이용해, 새 섹션/고정
-  좌표 없이 헤더 hbox 맨 오른쪽에 자연스럽게 자리잡는다. 눌리면
-  `skill_codex_panel.open(_selected_id, [])` — 이 화면은 런 시작 전이라
-  "보유" 개념이 없어 `owned_skill_ids`는 INBOX.md 원문대로 항상 빈 배열(카드
-  선택 전에 미리 채워둔 `RunState.skill_flags`가 있어도 패널에는 전달되지
-  않음, 테스트로 확인). 카드 체인(`_shortcut_buttons`)에도 추가돼 방향키로
-  도달 가능. ② **던전 진행 화면 4종(dungeon_map/shop/event/story_event)**:
-  화면 우상단 고정 위치(x1080-1240, y24-60 — `AchievementButton`과 같은
-  "Title 라벨의 빈 공간 위에 버튼을 얹는" 기존 패턴 재사용, 네 화면 전부
-  동일 좌표라 일관된 위치)에 "스킬 도감" 버튼을 두고, 눌리면
-  `skill_codex_panel.open(RunState.character_id, RunState.skill_flags)` —
-  "이번 회차 보유"가 반영돼야 하므로 character_select와 달리 실제
-  skill_flags를 그대로 넘긴다(INBOX.md L-2(c) 원문). `dungeon_map.gd`만
-  버튼이 방 선택지처럼 동적으로 y-스택되는 `_layout_visible_buttons()`
-  루프 안에 있으면 위치가 덮어써지므로, 그 루프가 끝난 뒤에만
-  `_shortcut_buttons`(포커스 체인용)에 추가해 고정 위치는 유지하면서
-  방향키로는 도달 가능하게 했다. 나머지 세 화면은 버튼 위치가 애초에
-  `.tscn` 고정값이라 각 `_refresh_shortcuts(...)` 호출부(선택 전/후 등
-  버튼 구성이 바뀌는 지점마다)에 `skill_codex_button`만 추가하면 됐다.
-  ③ **combat_test.gd**: 다이스 뷰포트/초상화/로그로 화면이 이미 꽉 차
-  `CustomizeToggleButton`/`DeckToggleButton` 바로 왼쪽(x835-980, y20-54,
-  Title 텍스트가 끝나는 지점 뒤의 빈 공간)에 추가. `_rebuild_shortcuts()`가
-  `deck_toggle_button` 다음에 항상 포함시키고, `_unhandled_input()`의 Esc
-  처리가 `customize_panel.visible`일 때 패스스루하던 것과 같은 이유로
-  `skill_codex_panel.visible`일 때도 패스스루하도록 가드를 추가해 패널
-  자신의 Esc 닫기와 충돌하지 않게 했다. 8종 전부 토글(다시 누르면 닫힘)
-  패턴으로 통일(achievement_button과 동일 if-visible-then-close-else-open).
-  **검증**: `dice_test.gd`의 신규 `_check_l2c_skill_codex_entry_points()`가
-  "버튼이 눌렸는가"가 아니라 실제 결과 — character_select는 캐릭터를
-  "해적"으로 바꾼 뒤 버튼을 눌러 패널의 `_character_id=="pirate"`이고
-  `_owned`가 실제로 빈 배열인지(RunState.skill_flags를 일부러 채워둔 채로
-  확인), 다시 누르면 `visible=false`로 토글되는지를 검증. 나머지 4화면
-  (dungeon_map/shop/event/story_event)은 RunState.skill_flags를 실제
-  배열로 채운 뒤 버튼을 눌러 패널의 `_character_id`/`_owned`가 그 값과
-  정확히 일치하는지, 토글 닫힘까지 공통 패턴으로 검증(한 화면당 버튼
-  wiring이 동일해 한 루프로 처리). combat_test.tscn은 `_run_battle()`이
-  `await`로 이어지는 물리 시뮬레이션을 포함해(다른 4화면과 달리 이 파일에
-  씬 인스턴스화 전례가 없음) 동기 테스트 harness에서 직접 인스턴스화하지
-  않고, `GAME_QA_CALL=_debug_press_shortcut_skill_codex`
-  스크린샷(`qa_out/l2c_combat_test_codex.png`)으로 패널이 실제로 열리고
-  "심호흡"이 보유 상태(퍼스널 컬러 테두리)로 보임을 눈으로 확인했다.
-  `bash scripts/qa_shot.sh dice_test` 전체 **PASS**(leak 경고는
-  `git stash`로 변경분을 뺀 원본 코드에서도 동일하게 재현되는 pre-existing
-  noise임을 교차 확인). 5개 화면 전부 `qa_out/l2c_*.png`로 레이아웃 겹침
-  없음 육안 확인(dungeon_map/shop/event/story_event는 우상단 버튼이
-  DeckPanel/기존 UI와 안 겹침, combat_test는 덱 보기/커스터마이징 토글
-  옆에 자연스럽게 들어감). **[대형 기획 12]는 L-3(전역 퍼스널 컬러 확장)만
-  남았다** — INBOX.md "부분 처리됨"에 진행 줄 갱신.
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(205)에서 (195)를 그리로 옮겼다.)*
+이번 이터레이션(206)에서 (196)을 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 

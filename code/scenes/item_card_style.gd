@@ -39,6 +39,9 @@ const PREVIEW_CHIP_SIZE := 30.0
 const CARD_BG_UNAFFORDABLE := Color(0.09, 0.09, 0.1, 0.97)
 const CARD_BORDER_UNAFFORDABLE := Color(0.35, 0.32, 0.3)
 const STATUS_BADGE_COLOR := Color(0.85, 0.4, 0.4)
+## [미니 기획 M-6] 이미지 스킨 카드가 골드 부족일 때 전체를 눌러 칠하는 modulate 값
+## (CARD_BG_UNAFFORDABLE이 폴백 배경을 어둡게 칠하는 것과 같은 의도).
+const CARD_SKIN_UNAFFORDABLE_MODULATE := Color(0.55, 0.55, 0.55, 1.0)
 
 ## "강화" 카드 강조([미니 기획 D]-5, INBOX.md 2026-09-17 "좋아보여야 하니까 아이콘
 ## 테두리를 노란 색으로 두껍게 강조하면 좋을 듯" 반영). 지금 스킬 카드에는 별도
@@ -76,25 +79,42 @@ static func grade_color(grade: String) -> Color:
 ## 기획 D]-5, "스킬 강화" 카드를 시각적으로 돋보이게 하려는 용도). unaffordable과
 ## 동시에 true인 경우는 지금 호출부에 없지만(스킬 카드는 골드를 안 씀), 만약 겹치면
 ## highlight가 우선한다(강조가 목적이므로 무채색으로 죽이지 않음).
-static func build_card(item: Dictionary, extra_label_text: String = "", unaffordable: bool = false, highlight: bool = false) -> Dictionary:
+## base_dir: [미니 기획 M-6](2026-10-15) — resources/ui/panel/card_{base,accent}.png가
+## 있으면 그 이미지 프레임을 쓰고, accent(흰색+알파 장식 레이어)는 **퍼스널 컬러가 아니라
+## 지금 이 카드가 쓸 테두리색(등급색/강조색/골드 부족색)으로 modulate**한다(M-5a가
+## "card" kind를 등급 신호와의 충돌로 보류했던 것의 해법 — 등급 신호는 그대로 유지하면서
+## 카드 아트도 쓸 수 있게). 파일이 없으면(기본 상태) 기존 StyleBoxFlat 절차적 테두리로
+## 폴백 — 호출부는 거의 안 바꿔도 된다. 테스트가 "없음" 상태를 재현할 수 있도록 주입
+## 가능한 매개변수로 뒀다(UIKit의 다른 스킨 팩토리와 같은 패턴).
+static func build_card(item: Dictionary, extra_label_text: String = "", unaffordable: bool = false, highlight: bool = false, base_dir: String = UIKit.SKIN_BASE_DIR) -> Dictionary:
 	var grade: String = item.get("grade", DEFAULT_GRADE)
 	var gcolor := grade_color(grade)
+	var tint_color: Color = HIGHLIGHT_BORDER if highlight else (CARD_BORDER_UNAFFORDABLE if unaffordable else gcolor)
 
 	var card := PanelContainer.new()
-	var style := StyleBoxFlat.new()
-	style.bg_color = CARD_BG_UNAFFORDABLE if unaffordable else CARD_BG
-	if highlight:
-		style.border_color = HIGHLIGHT_BORDER
-		style.set_border_width_all(HIGHLIGHT_BORDER_WIDTH)
+	var skin_applied := UIKit.apply_card_skin(card, tint_color, base_dir)
+	if skin_applied:
+		if unaffordable:
+			# 골드 부족 카드는 등급/강조 신호(테두리색)는 유지하되 전체를 무채색 쪽으로
+			# 살짝 눌러 "지금은 못 산다"는 상태를 함께 전달한다(폴백의 CARD_BG_UNAFFORDABLE
+			# 어둡게 칠하기와 같은 의도).
+			var tex_style := card.get_theme_stylebox("panel") as StyleBoxTexture
+			tex_style.modulate_color = CARD_SKIN_UNAFFORDABLE_MODULATE
 	else:
-		style.border_color = CARD_BORDER_UNAFFORDABLE if unaffordable else gcolor
-		style.set_border_width_all(2)
-	style.set_corner_radius_all(10)
-	style.content_margin_left = 16
-	style.content_margin_right = 16
-	style.content_margin_top = 14
-	style.content_margin_bottom = 14
-	card.add_theme_stylebox_override("panel", style)
+		var style := StyleBoxFlat.new()
+		style.bg_color = CARD_BG_UNAFFORDABLE if unaffordable else CARD_BG
+		if highlight:
+			style.border_color = HIGHLIGHT_BORDER
+			style.set_border_width_all(HIGHLIGHT_BORDER_WIDTH)
+		else:
+			style.border_color = CARD_BORDER_UNAFFORDABLE if unaffordable else gcolor
+			style.set_border_width_all(2)
+		style.set_corner_radius_all(10)
+		style.content_margin_left = 16
+		style.content_margin_right = 16
+		style.content_margin_top = 14
+		style.content_margin_bottom = 14
+		card.add_theme_stylebox_override("panel", style)
 
 	var vbox := VBoxContainer.new()
 	vbox.add_theme_constant_override("separation", 8)

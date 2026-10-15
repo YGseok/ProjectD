@@ -955,3 +955,60 @@ static func make_codex_badge(parent: Node, text: String, state_color: Color, bas
 	label.add_theme_color_override("font_color", state_color)
 	parent.add_child(label)
 	return label
+
+
+## ---------------------------------------------------------------------------
+## 카드 프레임 이미지 스킨 ([미니 기획 M-6], 2026-10-15) — panel/card_{base,accent}.png.
+## 다른 패널 스킨(section/hud/overlay)은 accent를 캐릭터 퍼스널 컬러로 틴트하지만, 카드는
+## "등급(S/A/B/C) 색" 또는 강조색(강화 카드 하이라이트/골드 부족 무채색)으로 틴트한다 —
+## 등급 신호가 핵심 정보라 캐릭터색으로 바꾸면 그 신호가 사라지기 때문(M-5a가 바로 이
+## 이유로 "card" kind를 보류했던 것 — INBOX M-6이 해법을 "등급색 modulate"로 확정했다).
+## 그래서 character_id가 아니라 호출부(ItemCardStyle.build_card())가 넘기는 tint Color
+## 자체를 직접 쓴다(icon_texture()와 같은 패턴). 9-slice 마진은 PANEL_SKIN_SPECS["card"]
+## (이미 M-5a 때 정의돼 있었으나 미사용이던 값)를 그대로 쓴다.
+## ---------------------------------------------------------------------------
+
+static var _card_skin_cache: Dictionary = {}
+
+
+static func _build_card_skin_texture(tint: Color, base_dir: String) -> Texture2D:
+	var base_img := _load_skin_image(base_dir + "panel/card_base.png")
+	if base_img == null:
+		return null
+	base_img.convert(Image.FORMAT_RGBA8)
+	var accent_img := _load_skin_image(base_dir + "panel/card_accent.png")
+	if accent_img != null:
+		_tint_rgb(accent_img, tint)
+		base_img.blend_rect(accent_img, Rect2i(Vector2i.ZERO, accent_img.get_size()), Vector2i.ZERO)
+	return _texture_from_image(base_img)
+
+
+static func _cached_card_skin_texture(tint: Color, base_dir: String) -> Texture2D:
+	var cache_enabled: bool = base_dir == SKIN_BASE_DIR
+	var key := tint.to_html(true)
+	if cache_enabled and _card_skin_cache.has(key):
+		return _card_skin_cache[key]
+	var tex := _build_card_skin_texture(tint, base_dir)
+	if cache_enabled:
+		_card_skin_cache[key] = tex
+	return tex
+
+
+## panel(PanelContainer 등)에 카드 프레임 스킨을 입힌다. tint는 등급색(ItemCardStyle.
+## grade_color()) 또는 강조색(HIGHLIGHT_BORDER/CARD_BORDER_UNAFFORDABLE) — 호출부가
+## 결정해서 넘긴다. base PNG가 없으면 false(호출부가 기존 StyleBoxFlat 등급색 테두리로
+## 폴백해야 한다는 신호, 다른 apply_*_skin()과 동일한 계약).
+static func apply_card_skin(panel: Control, tint: Color, base_dir: String = SKIN_BASE_DIR) -> bool:
+	var tex := _cached_card_skin_texture(tint, base_dir)
+	if tex == null:
+		return false
+	var specs: Dictionary = PANEL_SKIN_SPECS["card"]
+	panel.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	var style := StyleBoxTexture.new()
+	style.texture = tex
+	style.texture_margin_left = specs["l"]
+	style.texture_margin_right = specs["r"]
+	style.texture_margin_top = specs["t"]
+	style.texture_margin_bottom = specs["b"]
+	panel.add_theme_stylebox_override("panel", style)
+	return true

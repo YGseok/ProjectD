@@ -353,6 +353,10 @@ func _ready() -> void:
 	all_pass = _check_m4_event_shop_story_ui(lines) and all_pass
 
 	lines.append("")
+	lines.append("[M-6: 카드 프레임 스킨 적용 검증: item_card_style.gd build_card()가 resources/ui/panel/card_{base,accent}.png 유무에 따라 StyleBoxTexture(등급/강조/골드부족색 틴트)<->StyleBoxFlat 폴백을 전환하는지, 등급별로 합성 결과가 실제로 다른지, 골드 부족 카드가 modulate로 눌려 칠해지는지]")
+	all_pass = _check_m6_card_frame_skin(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -3532,11 +3536,17 @@ func _check_skill_upgrade_event_structure(lines: PackedStringArray) -> bool:
 ## [미니 기획 D]-5 검증: item_card_style.gd build_card()의 highlight 파라미터가 실제로
 ## 테두리 색/두께를 바꾸는지 확인한다. highlight=false는 기존처럼 등급색(gcolor)+2px,
 ## highlight=true는 HIGHLIGHT_BORDER(노란색)+HIGHLIGHT_BORDER_WIDTH(4px)여야 한다.
+## [미니 기획 M-6](2026-10-15) 갱신: resources/ui/panel/card_{base,accent}.png가 입고돼
+## 기본 base_dir(production)로 부르면 이제 StyleBoxFlat이 아니라 StyleBoxTexture 이미지
+## 스킨이 적용된다 — 이 테스트는 원래부터 "폴백 StyleBoxFlat의 border_color/width 계약"을
+## 검증하려는 의도이므로, 존재하지 않는 base_dir를 명시적으로 넘겨 그 폴백 경로를 그대로
+## 계속 검증한다(이미지 스킨 경로 자체의 검증은 `_check_m6_card_frame_skin()`이 담당).
 func _check_skill_upgrade_card_highlight(lines: PackedStringArray) -> bool:
 	var ok := true
 	var sample_skill: Dictionary = SkillPool.SKILLS[0]
+	var no_skin_dir := "user://m6_highlight_fallback_nonexistent/"
 
-	var normal_built := ItemCardStyle.build_card(sample_skill)
+	var normal_built := ItemCardStyle.build_card(sample_skill, "", false, false, no_skin_dir)
 	add_child(normal_built["card"])
 	var normal_style: StyleBoxFlat = normal_built["card"].get_theme_stylebox("panel")
 	var normal_ok: bool = (
@@ -3544,13 +3554,13 @@ func _check_skill_upgrade_card_highlight(lines: PackedStringArray) -> bool:
 		and normal_style.border_width_left == 2
 	)
 	ok = normal_ok and ok
-	lines.append("  highlight=false: border_color=등급색=%s border_width=%d(기대 2) -> %s" % [
+	lines.append("  highlight=false(스킨 없음): border_color=등급색=%s border_width=%d(기대 2) -> %s" % [
 		normal_style.border_color == ItemCardStyle.grade_color(sample_skill.get("grade", ItemCardStyle.DEFAULT_GRADE)),
 		normal_style.border_width_left, "OK" if normal_ok else "FAIL"
 	])
 	normal_built["card"].queue_free()
 
-	var highlighted_built := ItemCardStyle.build_card(sample_skill, "", false, true)
+	var highlighted_built := ItemCardStyle.build_card(sample_skill, "", false, true, no_skin_dir)
 	add_child(highlighted_built["card"])
 	var highlighted_style: StyleBoxFlat = highlighted_built["card"].get_theme_stylebox("panel")
 	var highlight_ok: bool = (
@@ -3558,11 +3568,138 @@ func _check_skill_upgrade_card_highlight(lines: PackedStringArray) -> bool:
 		and highlighted_style.border_width_left == ItemCardStyle.HIGHLIGHT_BORDER_WIDTH
 	)
 	ok = highlight_ok and ok
-	lines.append("  highlight=true: border_color=%s(기대 HIGHLIGHT_BORDER) border_width=%d(기대 %d) -> %s" % [
+	lines.append("  highlight=true(스킨 없음): border_color=%s(기대 HIGHLIGHT_BORDER) border_width=%d(기대 %d) -> %s" % [
 		highlighted_style.border_color, highlighted_style.border_width_left, ItemCardStyle.HIGHLIGHT_BORDER_WIDTH,
 		"OK" if highlight_ok else "FAIL"
 	])
 	highlighted_built["card"].queue_free()
+
+	return ok
+
+
+## [미니 기획 M-6](2026-10-15) 검증: item_card_style.gd build_card()가
+## resources/ui/panel/card_{base,accent}.png 스킨 파일 유무에 따라 "StyleBoxTexture(등급/
+## 강조/골드부족색으로 틴트된 카드 프레임)" <-> "기존 StyleBoxFlat 등급색 테두리" 사이를
+## 실제로 전환하는지, 등급이 다르면 합성 텍스처도 실제로 달라지는지(픽셀/텍스처 정체성
+## 둘 다), 골드 부족 카드가 모듈레이트로 눌려 칠해지는지를 확인한다(M-5a와 같은 "없음->
+## 있음->없음" user:// 임시 경로 패턴 + production 자산 end-to-end).
+func _check_m6_card_frame_skin(lines: PackedStringArray) -> bool:
+	var ok := true
+	var tmp_dir := "user://m6_test_tmp/"
+	DirAccess.make_dir_recursive_absolute(tmp_dir + "panel")
+
+	var sample_item: Dictionary = {"name": "테스트 아이템", "description": "desc", "grade": "S"}
+
+	# --- (1) 파일 없음 -> StyleBoxFlat 폴백(기존 동작과 완전히 동일) ---
+	var no_skin_built := ItemCardStyle.build_card(sample_item, "", false, false, tmp_dir)
+	add_child(no_skin_built["card"])
+	var no_skin_is_flat: bool = no_skin_built["card"].get_theme_stylebox("panel") is StyleBoxFlat
+	ok = no_skin_is_flat and ok
+	lines.append("  (1) card_base.png 없음: 'panel' 스타일=%s (기대 StyleBoxFlat 폴백) -> %s" % [
+		no_skin_built["card"].get_theme_stylebox("panel").get_class(), "OK" if no_skin_is_flat else "FAIL"
+	])
+	no_skin_built["card"].queue_free()
+
+	# --- (2) base+accent(합성 전부 불투명) -> 등급색이 다르면 합성 텍스처 픽셀도 실제로
+	#     그 등급색과 근사 일치하고, 등급이 다르면 서로 달라야 한다(M-5a (3)과 같은 근거:
+	#     accent 알파=1이면 blend_rect가 base를 완전히 덮어써 tint색 그 자체가 나온다).
+	_m5a_write_solid_png(tmp_dir + "panel/card_base.png", 8, 8, Color(0, 0, 0, 1))
+	_m5a_write_solid_png(tmp_dir + "panel/card_accent.png", 8, 8, Color(1, 1, 1, 1))
+
+	var s_item: Dictionary = {"name": "S등급", "description": "desc", "grade": "S"}
+	var c_item: Dictionary = {"name": "C등급", "description": "desc", "grade": "C"}
+	var s_built := ItemCardStyle.build_card(s_item, "", false, false, tmp_dir)
+	add_child(s_built["card"])
+	var s_style: StyleBox = (s_built["card"] as Control).get_theme_stylebox("panel")
+	var s_is_tex: bool = s_style is StyleBoxTexture
+	ok = s_is_tex and ok
+	var s_pixel: Color = (s_style as StyleBoxTexture).texture.get_image().get_pixel(0, 0) if s_is_tex else Color.BLACK
+	var s_color_ok: bool = _m5a_color_close(s_pixel, ItemCardStyle.grade_color("S"))
+	ok = s_color_ok and ok
+	lines.append("  (2) S등급 카드: 스타일=%s 합성픽셀=%s(기대 등급색=%s) -> %s" % [
+		s_style.get_class(), s_pixel, ItemCardStyle.grade_color("S"), "OK" if (s_is_tex and s_color_ok) else "FAIL"
+	])
+	s_built["card"].queue_free()
+
+	var c_built := ItemCardStyle.build_card(c_item, "", false, false, tmp_dir)
+	add_child(c_built["card"])
+	var c_style: StyleBox = (c_built["card"] as Control).get_theme_stylebox("panel")
+	var c_pixel: Color = (c_style as StyleBoxTexture).texture.get_image().get_pixel(0, 0) if c_style is StyleBoxTexture else Color.BLACK
+	var c_color_ok: bool = _m5a_color_close(c_pixel, ItemCardStyle.grade_color("C"))
+	ok = c_color_ok and ok
+	var grades_differ_ok: bool = not _m5a_color_close(s_pixel, c_pixel)
+	ok = grades_differ_ok and ok
+	lines.append("  (2) C등급 카드: 합성픽셀=%s(기대 등급색=%s), S등급과 다름 -> %s" % [
+		c_pixel, ItemCardStyle.grade_color("C"), "OK" if (c_color_ok and grades_differ_ok) else "FAIL"
+	])
+	c_built["card"].queue_free()
+
+	# --- (3) highlight=true는 등급색 대신 HIGHLIGHT_BORDER로 틴트된다 ---
+	var hl_built := ItemCardStyle.build_card(s_item, "", false, true, tmp_dir)
+	add_child(hl_built["card"])
+	var hl_style: StyleBox = (hl_built["card"] as Control).get_theme_stylebox("panel")
+	var hl_pixel: Color = (hl_style as StyleBoxTexture).texture.get_image().get_pixel(0, 0) if hl_style is StyleBoxTexture else Color.BLACK
+	var hl_ok: bool = hl_style is StyleBoxTexture and _m5a_color_close(hl_pixel, ItemCardStyle.HIGHLIGHT_BORDER)
+	ok = hl_ok and ok
+	lines.append("  (3) highlight=true: 합성픽셀=%s(기대 HIGHLIGHT_BORDER=%s) -> %s" % [
+		hl_pixel, ItemCardStyle.HIGHLIGHT_BORDER, "OK" if hl_ok else "FAIL"
+	])
+	hl_built["card"].queue_free()
+
+	# --- (4) unaffordable=true는 등급색 틴트를 CARD_BORDER_UNAFFORDABLE로 바꾸고, 카드
+	#     전체를 CARD_SKIN_UNAFFORDABLE_MODULATE로 눌러 칠한다(골드 부족 신호).
+	var unafford_built := ItemCardStyle.build_card(s_item, "", true, false, tmp_dir)
+	add_child(unafford_built["card"])
+	var unafford_style: StyleBox = (unafford_built["card"] as Control).get_theme_stylebox("panel")
+	var unafford_is_tex: bool = unafford_style is StyleBoxTexture
+	ok = unafford_is_tex and ok
+	var unafford_pixel: Color = (unafford_style as StyleBoxTexture).texture.get_image().get_pixel(0, 0) if unafford_is_tex else Color.BLACK
+	var unafford_tint_ok: bool = _m5a_color_close(unafford_pixel, ItemCardStyle.CARD_BORDER_UNAFFORDABLE)
+	var unafford_modulate_ok: bool = unafford_is_tex and (unafford_style as StyleBoxTexture).modulate_color.is_equal_approx(ItemCardStyle.CARD_SKIN_UNAFFORDABLE_MODULATE)
+	ok = unafford_tint_ok and unafford_modulate_ok and ok
+	lines.append("  (4) unaffordable=true: 합성픽셀=%s(기대 CARD_BORDER_UNAFFORDABLE=%s) modulate=%s(기대 %s) -> %s" % [
+		unafford_pixel, ItemCardStyle.CARD_BORDER_UNAFFORDABLE,
+		(unafford_style as StyleBoxTexture).modulate_color if unafford_is_tex else "(없음)", ItemCardStyle.CARD_SKIN_UNAFFORDABLE_MODULATE,
+		"OK" if (unafford_tint_ok and unafford_modulate_ok) else "FAIL"
+	])
+	unafford_built["card"].queue_free()
+
+	# --- (5) 파일 삭제 -> 다시 StyleBoxFlat 폴백 ---
+	DirAccess.remove_absolute(tmp_dir + "panel/card_base.png")
+	DirAccess.remove_absolute(tmp_dir + "panel/card_accent.png")
+	var removed_built := ItemCardStyle.build_card(sample_item, "", false, false, tmp_dir)
+	add_child(removed_built["card"])
+	var removed_is_flat: bool = removed_built["card"].get_theme_stylebox("panel") is StyleBoxFlat
+	ok = removed_is_flat and ok
+	lines.append("  (5) card_base.png 삭제 후 다시 build_card(): 스타일=%s (기대 StyleBoxFlat로 복귀) -> %s" % [
+		removed_built["card"].get_theme_stylebox("panel").get_class(), "OK" if removed_is_flat else "FAIL"
+	])
+	removed_built["card"].queue_free()
+	DirAccess.remove_absolute(tmp_dir + "panel")
+	DirAccess.remove_absolute(tmp_dir)
+
+	# --- (6) production 자산(이미 입고됨) end-to-end: 기본 base_dir로 부르면 이제
+	#     StyleBoxTexture이고, 등급이 다르면 캐시 키(tint)가 달라 서로 다른 텍스처 객체가
+	#     나온다(실제 아트의 장식 영역 좌표를 몰라도 검증 가능한 방식).
+	var prod_s := ItemCardStyle.build_card(s_item)
+	add_child(prod_s["card"])
+	var prod_s_style: StyleBox = (prod_s["card"] as Control).get_theme_stylebox("panel")
+	var prod_c := ItemCardStyle.build_card(c_item)
+	add_child(prod_c["card"])
+	var prod_c_style: StyleBox = (prod_c["card"] as Control).get_theme_stylebox("panel")
+	var prod_is_tex: bool = prod_s_style is StyleBoxTexture and prod_c_style is StyleBoxTexture
+	ok = prod_is_tex and ok
+	var prod_tex_differ_ok: bool = prod_is_tex and (prod_s_style as StyleBoxTexture).texture != (prod_c_style as StyleBoxTexture).texture
+	ok = prod_tex_differ_ok and ok
+	var prod_margin_ok: bool = prod_is_tex and (prod_s_style as StyleBoxTexture).texture_margin_left == 24
+	ok = prod_margin_ok and ok
+	lines.append("  (6) production: S/C등급 스타일=%s/%s(기대 둘 다 StyleBoxTexture), 텍스처 서로 다름=%s, texture_margin_left=%s(기대 24) -> %s" % [
+		prod_s_style.get_class(), prod_c_style.get_class(), prod_tex_differ_ok,
+		(prod_s_style as StyleBoxTexture).texture_margin_left if prod_is_tex else "(없음)",
+		"OK" if (prod_is_tex and prod_tex_differ_ok and prod_margin_ok) else "FAIL"
+	])
+	prod_s["card"].queue_free()
+	prod_c["card"].queue_free()
 
 	return ok
 

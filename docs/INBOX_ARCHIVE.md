@@ -7,6 +7,190 @@
 
 ---
 
+- [처리됨 - 2026-09-24] 2026-09-24 방패병이 수호자랑 겹치는데 빼고, 3개의
+  캐릭터 아이디어를 더 내줄래? 이어서 스킬 작업까지 이터레이션으로 해주고,
+  외형 프롬프트를 추가해줘. 컨셉이랑 어울리면 좋겠는데, 추가하면 좋겠는
+  캐릭터는 음침 거유 캐릭터랑, 섹시하고 도발적인 캐릭터, 나머지 하나는
+  적당히 비어있는 포지션에 재미요소 맞춰서 해봐.
+
+  → **전체 완료(2026-09-24, A/B/C/D 1~7번).** A(방패병→주술사 리스킨)/
+  B(매혹사)/C(곡예사)는 (140)/(141)/(142), D-1~2(업적)/D-3(시작 스킬
+  배정)/D-4(고유 스킬)는 (143)/(144)/(145), **마지막 D-5~7은 (146)에서
+  완료** — D-5(`scripts/qa_shot.sh character_select`로 `qa_out/
+  character_select.png`/`character_select_juggler.png` 재확인, 7종
+  목록·상세 패널 겹침/잘림 없음), D-6(`docs/DESIGN.md`의 "플레이어블
+  캐릭터" 표를 5종→7종으로 갱신, 매혹사/곡예사 행 추가), D-7
+  (`character_portrait_placeholder.gd`가 `set_palette()`로 색만 받는
+  범용 구조라 코드 수정 없이 매혹사/곡예사 초상을 자동으로 얻음을 확인).
+  이걸로 [대형 기획 4] 완료 기준(A~D 전부)을 전부 충족해 이 항목을
+  "처리됨"으로 옮긴다. docs/STATUS.md 완료 기록(146) 참고.
+  D-4(2026-09-24, (145)): `skill_pool.gd`의 `UNIQUE_SKILLS`에 매혹사
+  "매혹 심화"(`charm_amplify`)/곡예사 "곡예 앙코르"(`juggle_encore`)를,
+  `UPGRADE_SKILLS`에 각각의 "+" 강화판을 INBOX.md 원문 예시 그대로 추가했다
+  (사람 결정 대기 없이 진행). 매혹 심화: `dice_bag.gd`의
+  `apply_charm_flip(values)`에 `count: int = 1` 매개변수를 추가(기존 호출부
+  호환 유지) — charm_flip이 매 턴 뒤집는 다이스 개수를 1개(기본)→2개(매혹
+  심화)→3개(매혹 심화+)로 늘린다. 곡예 앙코르: `run_state.gd`의
+  `advance_round()`(라운드 전환 시점)에 `skill_flags.has("juggle_encore")`
+  조건으로 `DiceBag.swap_random_dice()`를 한 번 더 호출(런 시작 1회뿐이던
+  juggle_swap을 라운드가 바뀔 때마다 재발동) — "+"는 같은 전환에서 2회
+  호출. 둘 다 새 메커니즘 없이 기존 헬퍼(`apply_charm_flip`/
+  `swap_random_dice`)만 재사용했다. `combat_test.gd`의 기존 `charm_flip`
+  분기에 "+ > base > 미보유" 우선순위로 count를 계산하는 3줄만 추가해
+  실전 배선을 마쳤다(spare_die/spare_die_plus와 같은 우선순위 패턴).
+  `UPGRADE_SKILLS` 배열 맨 끝(인덱스 7/8)에 추가해 기존 `dice_test.gd`의
+  `UPGRADE_SKILLS[6]` 하드코딩 검증이 안 깨지게 했다. `dice_test.gd`에
+  캐릭터 필터(매혹사/곡예사 전용 확인)·`apply_charm_flip(count=1/2/3)`
+  실제 효과·`advance_round()` 재발동 검증을 추가하고 `UPGRADE_SKILLS` 개수
+  하드코딩을 7→9로 갱신, `bash scripts/qa_shot.sh dice_test` 전체 PASS.
+  화면 레이아웃 변경은 없어 `scripts/qa_shot.sh character_select`로 기존
+  7종 목록이 정상 로드됨만 재확인. D-5(character_select QA)/D-6(DESIGN.md
+  표 갱신)/D-7(초상 확인)은 "한 이터레이션에 다 하지 말 것" 지시대로 다음
+  이터레이션으로 남긴다.
+  D-3(2026-09-24, (144)): `skill_pool.gd`의 `STARTING_SKILLS`에서
+  기존 원형 6종 중 4개의 `character_ids`에 매혹사/곡예사를 추가했다(새 원형은
+  만들지 않음, 지시대로). 매혹사(공격/방어 D4x3/D4x3, 균형형, 기믹이 공수
+  양쪽에 작용)는 원문 예시 그대로 "확장"(`start_expand`, 합계 8+)/"정예"
+  (`start_lean`, 합계 6 이하)에 추가 — 시작 합계가 6이라 "정예"가 런 시작부터
+  바로 발동하는 상태다. 곡예사(공격/방어 D4x3/D4x2, 가볍게 움직이는 컨셉)는
+  "맹공"(`start_aggro`, 공격>방어)/"수집가"(`start_hoard`, 눈금 5개 이상)에
+  추가 — 시작 다이스 구성 자체가 공격(3)>방어(2)라 "맹공"이 런 시작부터
+  바로 발동한다(캐릭터 컨셉과 우연히 잘 맞아 슬롯 0으로 배치). `STARTING_SKILLS`
+  배열 안에서의 등장 순서가 곧 슬롯 순서라(주석 참고), 매혹사는
+  [확장(슬롯0), 정예(슬롯1)], 곡예사는 [맹공(슬롯0), 수집가(슬롯1)]이 된다.
+  `combat_test.gd`의 6개 조건 분기는 전부 `RunState.skill_flags`만 검사하고
+  캐릭터 id를 하드코딩하지 않는 구조라 전투 배선은 코드 수정 없이 그대로
+  작동한다(확인만 함). `dice_test.gd`의 `_check_starting_skills` 기대값
+  맵에 enchantress/juggler 두 항목을 추가해 슬롯 순서를 검증하고,
+  `bash scripts/qa_shot.sh dice_test` 전체 PASS. `qa_out/character_select_
+  juggler_skills.png`(곡예사 상세 패널, `_debug_select_juggler` 훅 사용)로
+  "맹공"(선택됨, 금테)/"수집가"(자물쇠, 미해금) 두 슬롯이 겹침 없이 정상
+  표시됨을 확인. D-4(고유 스킬 신설)/D-5(character_select QA)/D-6(DESIGN.md
+  표 갱신)/D-7(초상 확인)은 지시대로 다음 이터레이션으로 남긴다.
+  D-1~2: `achievement_manager.gd`의 `DEFINITIONS`에 기존 5종과 같은 패턴으로
+  `clear_enchantress`("매혹사로 첫 클리어")/`clear_juggler`("곡예사로 첫
+  클리어") 업적 2종을 추가했다. `combat_test.gd`의 실제 unlock 호출부
+  (`_apply_room_advance()`)는 정적 목록이 아니라 `_character_clear_
+  achievement_id(RunState.character_id)`로 `"clear_%s" % char_id`를 즉석에서
+  조합하는 구조라 이미 7종 전부를 자동으로 커버하고 있었음(코드 수정 불필요).
+  대신 `dice_test.gd`의 회귀 검증용 하드코딩 목록 `all_clear_ids`(5종만
+  있었음)에 두 id를 추가해 "업적 정의가 7종 다 있는지" 검증을 갱신했다.
+  `bash scripts/qa_shot.sh dice_test` 전체 PASS. D-3(STARTING_SKILLS 배정)/
+  D-4(UNIQUE_SKILLS 고유 스킬)/D-5(character_select QA)/D-6(DESIGN.md 표
+  갱신)/D-7(초상 확인)은 "한 이터레이션에 다 하지 말 것" 지시대로 다음
+  이터레이션으로 남긴다.
+  **추가 지시(2026-09-24, 사람이 직접): A의 이름을 "침묵의 무녀"에서
+  "주술사"로 바꾸고, "방어형"이라는 컨셉 표현은 빼달라고 함** — id/기믹
+  (`guard_stack`)/수치는 그대로 두고 `name`을 "주술사"로, `desc`/`concept`
+  문구에서 "방어형"/"인내형" 같은 방어 아키타입 표현을 빼고 저주·술식
+  컨셉으로 재서술(예: "방어 다이스가 최댓값을 보일 때마다 저주 술식이
+  쌓여..."). `achievement_manager.gd`의 `clear_shieldbearer` title/desc,
+  `docs/DESIGN.md`의 캐릭터 표·초기 다이스 구성 절도 "주술사"로 함께
+  갱신함(사람이 직접 처리, 이터레이션 커밋 아님). 아래 B/C/D 원문 설계의
+  "침묵의 무녀"라는 이름은 이제 전부 "주술사"로 읽을 것 — 기믹/수치/id는
+  그대로이니 D를 이어갈 이터레이션은 이 이름만 바꿔서 진행하면 된다.
+  A: `character_profiles.gd`의 `id: "shieldbearer"` 항목에서 id/기믹
+  (`guard_stack`)/attack_count(3)/defense_count(4)/event_die_sides(6)는
+  전혀 건드리지 않고 `name`("방패병"→"침묵의 무녀")/`desc`/`concept`/
+  `hair_color`/`dress_color`만 아래 지시된 문구 그대로 교체했고,
+  `achievement_manager.gd`의 `clear_shieldbearer` title/desc 문구도
+  갱신했다(id는 유지). `docs/DESIGN.md`도 동기화.
+  B: `character_profiles.gd` PROFILES에 `id: "enchantress"`(매혹사,
+  `gimmick: "charm_flip"`, 공격/방어 D4x3/D4x3) 항목을 추가하고,
+  `dice_bag.gd`에 신규 `apply_charm_flip(values)`(그 턴 최저값 다이스 1개를
+  최댓값으로 교체) 헬퍼를 추가, `combat_test.gd`의 `_do_exchange()`에
+  런타임 분기를 걸어 플레이어 공격/방어턴마다 적용되게 배선했다(보너스
+  1D20 임시 주머니에는 적용 안 되게 방어적으로 처리). `skill_icon.gd`에
+  하트 모양 전용 아이콘도 추가해 자동 검증(`dice_test.gd`의
+  `_check_skill_icons`)을 통과시켰다.
+  C: `character_profiles.gd` PROFILES에 `id: "juggler"`(곡예사, `gimmick:
+  "juggle_swap"`, 공격/방어 D4x3/D4x2) 항목을 추가하고, `dice_bag.gd`에
+  신규 static `swap_random_dice(bag_a, bag_b)`(두 주머니에서 무작위
+  다이스 하나씩 골라 통째로 맞바꿈) 헬퍼를 추가했다. juggle_swap은
+  min_max_only류와 같은 "reset_run() 직후 1회 정적 적용" 패턴이라
+  combat_test.gd가 아니라 `run_state.gd`의 `_apply_character_gimmick()`
+  match 문에 분기를 걸었다(지시된 위치 그대로). `skill_icon.gd`에 교차
+  화살표 아이콘도 추가해 자동 검증을 통과시켰다.
+  `bash scripts/qa_shot.sh dice_test` 전체 PASS(신규 검증 포함),
+  `qa_out/character_select.png`/`character_select_juggler.png`로 목록에
+  새 이름/색(방패병→침묵의 무녀, 매혹사, 곡예사)이 정상 표시됨을 확인.
+  D(공통 후속)는 다음 이터레이션이 이어갈 차례 — 아래 원문 설계를 그대로
+  남겨둔다.
+  docs/STATUS.md 완료 기록(140, 141, 142)/다음 할 일 큐 -1번 참고.
+
+  **(기획자 결정 — 구체적 설계, [대형 기획 4] 캐릭터 로스터 개편: 방패병 리스킨 +
+  신규 2종)**
+
+  **A. 방패병 리스킨(삭제가 아니라 재사용)** — `character_profiles.gd`의
+  `id: "shieldbearer"` 항목은 **id/gimmick("guard_stack")/attack_count(3)/
+  defense_count(4)/event_die_sides(6)를 전부 그대로 유지**하고 `name`/`desc`/
+  `concept`/`hair_color`/`dress_color`만 바꾼다 — id를 바꾸면
+  `achievement_manager.gd`의 `clear_shieldbearer`, `skill_pool.gd`의
+  `chain_guard`/`chain_guard_plus`(character_id: "shieldbearer"), `start_wall`/
+  `start_lean`(character_ids에 "shieldbearer" 포함) 등 이미 이 id를 참조하는
+  모든 곳을 다 고쳐야 해서 위험하고 불필요하다 — **겉모습(이름/설명/색)만
+  "음침 거유" 컨셉으로 바꾸고 내부 id/기믹/수치는 절대 건드리지 않는다.**
+  새 이름: **"침묵의 무녀"**. concept: "음침하고 말이 없는 무녀 — 방어 다이스가
+  최댓값을 보여줄 때마다 수호 스택이 쌓임(기존 방패병 기믹과 완전히 동일, 이름만
+  교체)." `achievement_manager.gd`의 `clear_shieldbearer` title도 "침묵의 무녀로
+  첫 클리어"로 문구만 갱신(id는 유지).
+
+  **B. 신규 캐릭터 "매혹사"** (id: `enchantress`, 섹시·도발적 컨셉) — 신규 기믹
+  `charm_flip`: "그 턴에 굴린 다이스들 중 가장 낮은 값을 보인 다이스 딱 1개를
+  그 다이스의 최댓값으로 바꾼다(공격턴/방어턴 모두 적용, 턴마다 1개만)." 구현:
+  `dice_bag.gd`에 신규 `apply_charm_flip(values)` 헬퍼를 `apply_flat_bonus()`/
+  `apply_steady_guard()`와 같은 패턴(원본 배열 안 건드리고 보정된 새 배열 반환)
+  으로 추가 — `adjusted` 배열에서 `dice.size()` 범위 내 최솟값의 인덱스를 찾아
+  `adjusted[i] = dice[i].size()`(그 다이스의 면 개수, 즉 최댓값)로 교체. 이건
+  `steady_guard`(다크 나이트 몬스터 기믹)처럼 **런타임 매 턴 보정**이므로,
+  `combat_test.gd`에서 `player_dice_gimmick == "steady_guard"`류를 체크하는
+  것과 같은 위치에 `"charm_flip"` 분기를 추가해 공격/방어 양쪽 값 계산 직후
+  호출한다. attack_count/defense_count: 3/3(균형형 — 매혹은 공수 어디에나
+  작용하므로 몰빵 배분 불필요, 잠정값). hair_color/dress_color: 자주/붉은
+  계열, 기존 5종과 안 겹치는 톤으로 잠정 배정.
+
+  **C. 신규 캐릭터 "곡예사"** (id: `juggler`, 빈 포지션+재미요소) — 신규 기믹
+  `juggle_swap`: "런 시작 시 1회, 공격 다이스 중 무작위 하나와 방어 다이스 중
+  무작위 하나를 서로 맞바꾼다(다이스 객체 전체 — 면 구성/눈금까지 통째로 이동,
+  개수(attack_count/defense_count)는 안 바뀜)." 이건 min_max_only/
+  fixed_defense_die와 같은 **"reset_run() 직후 1회 정적 적용"** 패턴이므로,
+  `run_state.gd`의 기믹 적용 match 문(`_apply_character_gimmick()`류)에
+  `"juggle_swap"` 분기를 추가해 `player_attack_bag.dice`/
+  `player_defense_bag.dice` 배열에서 무작위 인덱스를 하나씩 골라
+  `dice[i]`끼리 교환한다(면 개수 통일된 시작 상태에서는 사실상 의미 없어
+  보일 수 있지만, 다이스 개조 아이템으로 나중에 눈금/면 개수가 달라지면 이
+  캐릭터는 "언제 어떤 다이스가 어느 역할로 굴러갈지 뒤섞여 있다"는 정체성이
+  체감됨 — 매 전투가 아니라 런 시작 1회이므로 한 런 안에서는 고정). attack_count/
+  defense_count: 3/2(가볍게 움직이는 느낌, 잠정값). hair_color/dress_color:
+  알록달록한 서커스풍 — 노랑/보라 등 대비되는 톤 잠정 배정.
+
+  **D. 공통 후속 작업** (B/C 둘 다 적용, 한 이터레이션에 다 하지 말 것):
+  1. `character_profiles.gd` PROFILES에 두 항목 추가(B/C 각각 desc/concept 문구
+     포함, 기존 5종과 같은 필드 구조).
+  2. `achievement_manager.gd`에 `clear_enchantress`/`clear_juggler` 업적 추가
+     (기존 `clear_<id>` 5종과 완전히 같은 패턴 — "최종 클리어(3라운드 전부)").
+     `combat_test.gd`의 `_apply_room_advance()`에서 이 두 id도 함께 unlock되게
+     기존 캐릭터별 unlock 목록에 추가.
+  3. `skill_pool.gd`의 `STARTING_SKILLS`(6원형: 맹공/철벽/확장/정예/수집가/강철
+     방비)에서 매혹사/곡예사에게 각 2종씩 `character_ids`를 추가 배정(새 원형을
+     만들 필요 없음 — 매혹사는 공수 겸용이니 "확장"+"정예" 같은 범용 축, 곡예사는
+     "수집가"+"확장"처럼 재미있게 배정해도 됨, 정확한 배정은 구현하는 사람이 컨셉에
+     맞게 정해도 됨).
+  4. `skill_pool.gd`의 `UNIQUE_SKILLS`/`UPGRADE_SKILLS`에 매혹사/곡예사 전용
+     고유 스킬 1종씩("+" 강화판 포함) 추가 — 기존 5종처럼 "자기 기믹과 시너지"
+     방향으로(예: 매혹사는 charm_flip 대상 다이스 개수를 1개->2개로 늘리는 스킬,
+     곡예사는 juggle_swap을 런 시작뿐 아니라 라운드가 바뀔 때마다 재발동하는
+     스킬 등 — 정확한 효과는 구현하는 사람이 기존 패턴에 맞춰 정해도 됨).
+  5. `character_select.gd`/`.tscn`: 캐릭터가 5->7종이 되므로 목록(왼쪽 세로
+     목록, 2단 레이아웃)이 7줄에서도 겹침 없이 스크롤/축소되는지 QA 확인 —
+     레이아웃이 깨지면 그때 고칠 것(미리 큰 구조를 바꾸지 말고, 실제로 깨질 때만).
+  6. `docs/DESIGN.md`의 캐릭터 표를 7종으로 갱신.
+  7. `character_portrait_placeholder.gd`는 코드 수정 없이(hair_color/dress_color
+     매개변수만 새로 넘기면 그대로 재사용됨) 매혹사/곡예사 placeholder 초상을
+     자동으로 얻는다 — 확인만 하면 됨.
+  완료 기준: A~D 전부 끝나면 이 항목을 "처리됨"으로 옮길 것. 진행 중에는 STATUS.md
+  에 A/B/C/D-N 중 몇 번까지 끝났는지 남길 것.
+
 - [처리됨 - 2026-09-17] 2026-09-17 다음 할 거리로, 직업별 여러 스킬을 만들고,
   시작할 때 시작 스킬을 하나 정하도록 하자. 최초에는 하나밖에 못고름. 나머지는
   전부 lock 걸려있음. 캐릭터별 업적 보상(해당 캐릭터로 라운드 클리어)하면
