@@ -31,3 +31,9 @@ same error mid-generation — likely a ChatGPT-side issue, not thread size. Send
 attachments finish uploading (else nothing sends; click the send button). UI kit tricks that worked:
 draw state sheets (5 button states in one image) then `tools/artgen/sheet_split.gd`; mono icons are
 cleanest as BLACK silhouettes on WHITE then inverted to white+alpha (white-on-transparent came out noisy).
+
+**Usage check (user asked to do this often, 2026-10-15):** ChatGPT shows "사용량 N% 남음 / 5시간 / HH:MM에 초기화"
+at the bottom-left of the sidebar. Read it (JS: find leaf text matching /사용량/ in nav/aside, print its block)
+**before each generation batch and whenever generation stalls or a chat fails to load** — when it's low
+(<~10%), stop and tell the user the reset time instead of retrying. Never click "크레딧 추가"/"업그레이드".
+Stalls + "대화를 불러올 수 없습니다" on 2026-10-15 were caused by the limit (3% left), not thread size.
