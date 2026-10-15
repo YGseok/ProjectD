@@ -369,6 +369,10 @@ func _ready() -> void:
 	all_pass = (await _check_n2b_full_art_rendered_height(lines)) and all_pass
 
 	lines.append("")
+	lines.append("[N-3: flat/무테두리 버튼 전수 검색 검증: character_select/dungeon_map/combat_test/event/shop/story_event/test_battle_setup 전 화면 + AchievementPanel/SkillCodexPanel/CustomizePanel 오버레이의 모든 Button이 UIKit 스타일링(또는 FaceChipStyle/_apply_selection_style 같은 전용 스킨)으로 '보이는' normal 스타일박스를 실제로 받는지]")
+	all_pass = _check_n3_button_styling(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -8222,7 +8226,7 @@ func _check_m5a_uikit_image_skin(lines: PackedStringArray) -> bool:
 	_m5a_write_solid_png(tmp_dir + "button/primary_normal_accent.png", 8, 8, Color(1, 1, 1, 1))
 	var btn := Button.new()
 	add_child(btn)
-	UIKit.style_primary_button(btn, "pirate", tmp_dir)
+	UIKit.style_primary_button(btn, "pirate", Color(0, 0, 0, 0), tmp_dir)
 	var normal_skinned_ok: bool = btn.get_theme_stylebox("normal") is StyleBoxTexture
 	ok = normal_skinned_ok and ok
 	lines.append("  (6) primary_normal_*만 있음: 'normal' 스타일=%s (기대 StyleBoxTexture) -> %s" % [
@@ -8643,5 +8647,182 @@ func _check_m5b_badges_decor_icons_backgrounds(lines: PackedStringArray) -> bool
 	remove_child(map_node)
 	map_node.free()
 	RunState.character_id = character_backup
+
+	return ok
+
+
+## btn의 "normal" 스타일박스가 실제로 "보이는" 모습인지 판정한다 — override가 전혀
+## 없으면(기본 Godot 테마에만 의존) 곧바로 false다(이 N-3 버그의 본체 — UIKit.style_*/
+## FaceChipStyle.style_button()/_apply_selection_style() 등 "스타일링 함수를 거쳤는가"가
+## 기준이지, 엔진 기본 테마가 실제로 어떻게 그려지는지는 신경 쓰지 않는다. 다른 화면들의
+## has_theme_stylebox_override("normal") 검증(M-4 등)과 같은 기준). override가 있으면
+## StyleBoxTexture는 텍스처 존재로, StyleBoxFlat은 배경 알파>0 또는 "알파 있는 테두리"로
+## "눈에 보이는지"를 판정한다.
+func _n3_button_looks_styled(btn: Button) -> bool:
+	if btn.flat:
+		return false
+	if not btn.has_theme_stylebox_override("normal"):
+		return false
+	var style := btn.get_theme_stylebox("normal")
+	if style is StyleBoxTexture:
+		return (style as StyleBoxTexture).texture != null
+	if style is StyleBoxFlat:
+		var flat := style as StyleBoxFlat
+		if flat.bg_color.a > 0.0:
+			return true
+		var has_border: bool = flat.border_width_left > 0 or flat.border_width_top > 0 \
+			or flat.border_width_right > 0 or flat.border_width_bottom > 0
+		return has_border and flat.border_color.a > 0.0
+	return false
+
+
+## node 아래 모든 Button을 재귀적으로 모아(find_children) 스타일이 안 된 것들의 이름을
+## 돌려준다. btn.get_class() != "Button"인 경우(OptionButton/CheckBox/LinkButton 등 —
+## 전부 Button의 서브클래스라 type 필터 "Button"에 함께 걸린다)는 allowlist로 건너뛴다 —
+## 이들은 엔진 기본 테마로도 이미 체크박스/드롭다운 등 자기 종류의 입체감 있는 모습을
+## 그리는 별개의 컨트롤이라, "flat/무테두리 Button"(단순 텍스트처럼 보이는 평범한 누름
+## 버튼) 버그의 대상이 아니다(test_battle_setup.gd의 OptionButton/CheckBox가 해당).
+func _n3_find_unstyled_buttons(node: Node) -> Array:
+	var result: Array = []
+	for child in node.find_children("*", "Button", true, false):
+		var btn := child as Button
+		if btn.get_class() != "Button":
+			continue
+		if not _n3_button_looks_styled(btn):
+			result.append(btn.text if btn.text != "" else String(btn.name))
+	return result
+
+
+## [대형 기획 14] N-3(2026-10-15) — 사용자 지적("스킬 도감, 업적 등의 버튼이 단순
+## 글자처럼 보인다")을 받아 "flat/무테두리 Button을 전수 검색"한 결과 실제로 UIKit
+## 스타일링을 전혀 안 받고 있던 버튼 9개를 찾았다: character_select.gd의 "던전 시작"/
+## "업적"/"테스트 전투"/"스킬 도감"(4개, M-1~M-4가 다른 화면을 전부 통일한 뒤에도 이
+## 화면만 빠져 있었음), dungeon_map.gd의 "스킬 도감"(_style_action_buttons()에서만
+## 빠져 있었음 — event/shop/story_event는 이미 스타일링하고 있었음), achievement_
+## panel.gd/skill_codex_panel.gd의 "닫기", customize_panel.gd의 "닫기"/"뒤로" 4개 +
+## 다이스 승급/눈금 적용 1단계의 가로 목록 행 버튼(이것도 FaceChipStyle 정사각 칩류와
+## 달리 스타일 호출이 애초에 없었음), test_battle_setup.gd의 "뒤로"/"전투 시작"/성장
+## 프리셋 버튼. 전부 UIKit.style_primary_button()/style_secondary_button()으로
+## 고쳤다(이 화면들이 이미 쓰던 공용 팩토리를 그대로 재사용 — 새 "make_button()" 같은
+## 별도 팩토리를 만들지 않음, 기존 호출부들과 똑같은 한 줄 패턴이면 충분했음).
+## character_select.gd의 네 버튼은 DESIGN.md가 이미 확정한 "이 화면의 공용 버튼은
+## 아직 런이 시작되지 않았으니 캐릭터 퍼스널 컬러 대신 중립색을 유지"(K-3) 규칙을
+## 지키려고 FocusNav.ACCENT_DEFAULT(포커스 강조색과 같은 중립 시안색)를 tint로 썼다
+## (style_primary_button()에 tint 매개변수를 이번에 새로 추가 — style_secondary_
+## button()에는 이미 있던 패턴을 그대로 가져왔을 뿐).
+##
+## 이 검증은 "버그가 있었다"는 사실을 안 상태로 거꾸로 짠 것이 아니라, 모든 화면/
+## 오버레이 패널을 실제로 인스턴스화해서 Button 노드를 재귀적으로 순회하는 전수
+## 검사다 — 다음에 새 버튼이 생기면서 같은 종류의 버그가 재발해도 이 테스트가 잡는다.
+func _check_n3_button_styling(lines: PackedStringArray) -> bool:
+	var ok := true
+	var character_backup := RunState.character_id
+	var test_battle_backup := RunState.test_battle
+	var test_monster_backup := RunState.test_monster_id
+	var test_difficulty_backup := RunState.test_difficulty
+	var gold_backup := RunState.gold
+	var rooms_backup := RunState.rooms_cleared
+	var pip_backup: Array[int] = RunState.pip_inventory.duplicate()
+	var die_backup: Array[int] = RunState.die_inventory.duplicate()
+
+	# --- 정적 화면 7개: 각 화면이 이미 쓰던 설정 패턴(M-1/M-2/M-4/H-2 참고)을 그대로 ---
+	RunState.character_id = "novice"
+	RunState.test_battle = false
+	RunState.gold = 42
+	RunState.rooms_cleared = 0
+
+	var static_scenes := [
+		"res://code/scenes/character_select.tscn",
+		"res://code/scenes/dungeon_map.tscn",
+		"res://code/scenes/event.tscn",
+		"res://code/scenes/shop.tscn",
+		"res://code/scenes/story_event.tscn",
+	]
+	for path in static_scenes:
+		var node: Node = (load(path) as PackedScene).instantiate()
+		add_child(node)
+		var unstyled := _n3_find_unstyled_buttons(node)
+		var scene_ok: bool = unstyled.is_empty()
+		ok = scene_ok and ok
+		lines.append("  %s: 미스타일 버튼=%s -> %s" % [
+			path.get_file(), unstyled, "OK" if scene_ok else "FAIL"
+		])
+		remove_child(node)
+		node.free()
+
+	RunState.test_battle = true
+	RunState.test_monster_id = "slime"
+	RunState.test_difficulty = 0
+	var combat_node: Node = (load("res://code/scenes/combat_test.tscn") as PackedScene).instantiate()
+	add_child(combat_node)
+	var combat_unstyled := _n3_find_unstyled_buttons(combat_node)
+	var combat_ok: bool = combat_unstyled.is_empty()
+	ok = combat_ok and ok
+	lines.append("  combat_test.tscn: 미스타일 버튼=%s -> %s" % [combat_unstyled, "OK" if combat_ok else "FAIL"])
+	remove_child(combat_node)
+	combat_node.free()
+	RunState.test_battle = false
+
+	RunState.reset_run("novice")
+	var tbs_node: Node = (load("res://code/scenes/test_battle_setup.tscn") as PackedScene).instantiate()
+	add_child(tbs_node)
+	var tbs_unstyled := _n3_find_unstyled_buttons(tbs_node)
+	var tbs_ok: bool = tbs_unstyled.is_empty()
+	ok = tbs_ok and ok
+	lines.append("  test_battle_setup.tscn: 미스타일 버튼=%s -> %s" % [tbs_unstyled, "OK" if tbs_ok else "FAIL"])
+	remove_child(tbs_node)
+	tbs_node.free()
+
+	# --- 오버레이 패널 3종: open()을 실제로 불러야 버튼이 생성된다(.tscn 없이 스크립트
+	#     하나로 완결된 Control — customize_panel.gd 클래스 주석 참고) ---
+	var achievement := AchievementPanel.new()
+	add_child(achievement)
+	achievement.open()
+	var ach_unstyled := _n3_find_unstyled_buttons(achievement)
+	var ach_ok: bool = ach_unstyled.is_empty()
+	ok = ach_ok and ok
+	lines.append("  AchievementPanel: 미스타일 버튼=%s -> %s" % [ach_unstyled, "OK" if ach_ok else "FAIL"])
+	achievement.queue_free()
+
+	var codex := SkillCodexPanel.new()
+	add_child(codex)
+	codex.open("novice", [])
+	var codex_unstyled := _n3_find_unstyled_buttons(codex)
+	var codex_ok: bool = codex_unstyled.is_empty()
+	ok = codex_ok and ok
+	lines.append("  SkillCodexPanel: 미스타일 버튼=%s -> %s" % [codex_unstyled, "OK" if codex_ok else "FAIL"])
+	codex.queue_free()
+
+	# CustomizePanel은 5단계(허브/다이스 인벤토리/다이스 자리 선택/눈금 다이스 선택/면
+	# 선택)가 전부 다른 _show_*_picker()라, 각 단계를 직접 호출해(기존 debug_open_*
+	# 헬퍼와 같은 패턴) 버튼이 생성된 상태에서 누적으로 검사한다.
+	RunState.pip_inventory = [4]
+	RunState.die_inventory = [6]
+	var cp := CustomizePanel.new()
+	add_child(cp)
+	var cp_unstyled: Array = []
+	cp.open() # _show_pip_picker()
+	cp_unstyled += _n3_find_unstyled_buttons(cp)
+	cp._show_die_inventory_picker()
+	cp_unstyled += _n3_find_unstyled_buttons(cp)
+	cp._show_die_target_picker(0)
+	cp_unstyled += _n3_find_unstyled_buttons(cp)
+	cp._show_die_picker(0)
+	cp_unstyled += _n3_find_unstyled_buttons(cp)
+	cp._show_face_picker(RunState.player_attack_bag, 0, 0)
+	cp_unstyled += _n3_find_unstyled_buttons(cp)
+	var cp_ok: bool = cp_unstyled.is_empty()
+	ok = cp_ok and ok
+	lines.append("  CustomizePanel(5단계 전체): 미스타일 버튼=%s -> %s" % [cp_unstyled, "OK" if cp_ok else "FAIL"])
+	cp.queue_free()
+
+	RunState.character_id = character_backup
+	RunState.test_battle = test_battle_backup
+	RunState.test_monster_id = test_monster_backup
+	RunState.test_difficulty = test_difficulty_backup
+	RunState.gold = gold_backup
+	RunState.rooms_cleared = rooms_backup
+	RunState.pip_inventory = pip_backup
+	RunState.die_inventory = die_backup
 
 	return ok

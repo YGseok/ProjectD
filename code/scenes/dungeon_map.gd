@@ -300,6 +300,10 @@ func _style_action_buttons() -> void:
 	# 유지 — UIKit.style_secondary_button의 tint 매개변수로 같은 틀(두께/모서리) 안에서
 	# 색만 바꾼다(이전에는 틀 자체가 다른 버튼들과 달라 "같은 버튼 스타일"이 아니었음).
 	UIKit.style_secondary_button(enter_elite_button, cid, Color(0.85, 0.2, 0.2))
+	# [대형 기획 14] N-3(2026-10-15): "스킬 도감" 버튼이 이 함수에서 빠져 있어 UIKit
+	# 스타일을 전혀 안 받고 기본 Godot 테마로만 그려지던 버그(전수 검색으로 발견 —
+	# event.gd/shop.gd/story_event.gd는 이미 전부 스타일링하고 있었음).
+	UIKit.style_secondary_button(skill_codex_button, cid)
 
 
 ## [대형 기획 13] M-1: 라운드/진행도/골드를 "아이콘 + 큰 숫자 + 짧은 캡션" 칩 3개로

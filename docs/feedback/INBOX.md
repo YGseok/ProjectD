@@ -25,14 +25,7 @@
 
 ## 남은 이슈 (미처리)
 
-- (INBOX.md [대형 기획 14] N-3 → N-6 — N-1/N-2는 2026-10-15 완료돼 "부분 처리됨"으로 옮겨짐, 상세 사양은 그 항목 참고)
-
-  **N-3. 스킬 도감·업적 등 "문자열처럼 보이는" 버튼을 버튼처럼 보이게**
-  - 사용자 지적: 스킬 도감, 업적 등의 버튼이 단순 글자처럼 보인다(배경/테두리 없는 flat 스타일 또는 대비가 약한 스타일). → 화면 전체에서 **flat/무테두리 Button을 전수 검색**
-    (`flat = true`, 스타일박스 미지정 Button, 배경 없는 상단 우측 "스킬 도감"·"업적"·"테스트 전투"·"덱 보기"·닫기 등)해서 모두 `UIKit`의 버튼 팩토리(M-5(a)에서 이미지 스킨
-    지원) 보조(secondary) 스타일로 통일한다. 정상 상태에서 "눌릴 것 같은" 외형(테두리/배경/약한 그림자/아이콘 가능), hover/pressed/disabled/focus 상태가 서로 구분되게.
-  - 아이콘+글자 형태가 필요한 곳은 `resources/ui/icon/*`(M-5에서 쓰는 아이콘) 활용. 화면별 하드코딩 금지 — 호출부는 `UIKit.make_button(...)` 류 한 줄로.
-  - 테스트: 전 씬을 인스턴스화해 `Button` 노드를 순회, 모두 `flat == false`이고 normal 스타일박스에 배경색 알파 > 0 또는 텍스처가 있는지 검사(예외는 명시적 allowlist + 사유 주석).
+- (INBOX.md [대형 기획 14] N-4 → N-6 — N-1/N-2/N-3은 2026-10-15 완료돼 "부분 처리됨"으로 옮겨짐, 상세 사양은 그 항목 참고)
 
   **N-4. 캐릭터 선택 능력치 — "×N" 대신 실제 주사위를 나열해서 보여주기**
   - 지금은 능력치 칩이 `공격 D4×3`, `방어 D4×3` 같은 문자열이다. → **실제 다이스 칩/아이콘을 개수만큼 나열**한다: 공격 주머니 `[D4][D4][D4]`, 방어 주머니 `[D4][D4][D4]`
@@ -113,6 +106,20 @@
   장식은 약하게 유지. `dice_test.gd` 신규 `_check_n2_full_art_column()`(홀더 rect 높이, 내용 높이 예산, 캐릭터 전환 시 텍스처/틴트 변화)으로 검증,
   `bash scripts/qa_shot.sh dice_test` 전체 PASS. qa_shot으로 8명 전부(확인해보니 `resources/characters/`에 이미 전원 full.png가 입고돼 있었음) + 시작
   스킬 3슬롯 전부 해금 상태를 직접 캡처해 겹침/잘림 없음을 눈으로 확인 — 1라운드로 종료. N-3~N-6은 여전히 미착수.
+
+  → **N-3 완료(2026-10-15, STATUS.md 완료 기록(210))**. 전 `.tscn`/`.gd`의 Button 생성 지점을 전수 검색해 각 화면의 `UIKit.style_*_button()` 호출과
+  대조한 결과, M-1~M-4가 이미 통일한 dungeon_map/combat_test/event/shop/story_event와 달리 스타일을 전혀 안 받던 버튼 9개를 찾았다 —
+  `character_select.gd`의 "던전 시작"/"업적"/"테스트 전투"/"스킬 도감" 4개, `dungeon_map.gd`의 "스킬 도감"(`_style_action_buttons()`에서만 누락),
+  `achievement_panel.gd`/`skill_codex_panel.gd`의 "닫기", `customize_panel.gd`의 "닫기"/"뒤로" 4개 + 다이스 승급·눈금 적용 단계의 가로 목록 행 버튼,
+  `test_battle_setup.gd`의 "뒤로"/"전투 시작"/성장 프리셋 버튼. 전부 기존 `UIKit.style_primary_button()`/`style_secondary_button()` 한 줄 패턴으로
+  통일했다(INBOX 지시대로 새 `make_button()` 팩토리는 만들지 않음). `character_select.gd`의 네 버튼은 DESIGN.md K-3 규칙("이 화면의 공용 버튼은
+  캐릭터 퍼스널 컬러 대신 중립색 유지")을 지키려고 `FocusNav.ACCENT_DEFAULT`를 tint로 넘겼다(`style_primary_button()`에 tint 매개변수 신규 추가,
+  `style_secondary_button()`에는 이미 있던 패턴). 검증은 `dice_test.gd` 신규 `_check_n3_button_styling()` — 정적 화면 7개(character_select/
+  dungeon_map/combat_test/event/shop/story_event/test_battle_setup)와 오버레이 패널 3종(AchievementPanel/SkillCodexPanel은 `open()`으로,
+  CustomizePanel은 5단계 `_show_*_picker()`를 전부 직접 호출해)을 실제로 인스턴스화해 모든 Button을 재귀 순회하고, "normal 스타일박스 override가
+  있고 실제로 보이는 모습인가"(OptionButton/CheckBox 등 Button 서브클래스는 allowlist로 제외)를 검사하는 전수 테스트 — `bash scripts/qa_shot.sh
+  dice_test` 전체 PASS(FAIL 0건, 10개 화면/패널 전부 "미스타일 버튼=[]"). 셀프 피드백 1라운드로 `qa_out/n3_*.png` 4장을 직접 읽어 던전 시작/업적/
+  테스트 전투/스킬 도감/커스터마이징 닫기 전부 테두리+장식 있는 버튼 모양으로 바뀌었음을 확인 — "상" 수준 문제 없이 종료. N-4~N-6은 여전히 미착수.
 
 - [부분 처리됨 - 2026-10-07] 2026-10-06 [미니 기획 ART-1] 원화 적용에 따른 개선 (아트
   스레드 "ProjectD Art"에서 전달).

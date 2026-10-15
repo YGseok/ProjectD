@@ -145,6 +145,11 @@ func _ready() -> void:
 
 	back_button.pressed.connect(_on_back_pressed)
 	start_button.pressed.connect(_on_start_pressed)
+	# [대형 기획 14] N-3(2026-10-15): 전수 검색에서 발견 — 이 화면은 숨김 개발용
+	# 화면이라 중립색(novice)으로 통일한다(이 화면이 다루는 "선택된 캐릭터"는 실제
+	# 진행 중인 런의 캐릭터와 무관한 둘러보기 대상이라 퍼스널 컬러를 따를 이유가 없음).
+	UIKit.style_secondary_button(back_button, "novice")
+	UIKit.style_primary_button(start_button, "novice")
 	FocusNav.chain_linear([back_button, start_button], true)
 	FocusNav.grab_first_focus([back_button, start_button])
 
@@ -348,6 +353,8 @@ func _build_growth_preset_row() -> void:
 		var button := Button.new()
 		button.text = GROWTH_PRESETS[i]["name"]
 		button.pressed.connect(_on_growth_preset_pressed.bind(i))
+		# [대형 기획 14] N-3(2026-10-15): 위 back_button/start_button과 같은 버그.
+		UIKit.style_secondary_button(button, "novice")
 		growth_preset_row.add_child(button)
 
 

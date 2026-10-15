@@ -190,6 +190,9 @@ func _rebuild() -> void:
 	_close_button.position = Vector2(575, 610)
 	_close_button.size = Vector2(130, 36)
 	_close_button.pressed.connect(close)
+	# [대형 기획 14] N-3(2026-10-15): 전수 검색에서 발견 — 이 버튼이 UIKit 스타일링을
+	# 전혀 안 받아 기본 Godot 테마로만 그려지고 있었다("단순 글자처럼 보인다").
+	UIKit.style_secondary_button(_close_button, _character_id)
 	add_child(_close_button)
 	_ui.append(_close_button)
 

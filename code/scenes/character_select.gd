@@ -206,7 +206,25 @@ func _ready() -> void:
 	achievement_button.pressed.connect(_on_achievement_pressed)
 	_setup_test_battle_button()
 	_build_detail_panel()
+	_style_header_buttons()
 	_build_cards()
+
+
+## [대형 기획 14] N-3(2026-10-15) — "던전 시작"/"업적"/"테스트 전투"/"스킬 도감" 네
+## 버튼이 전수 검색에서 UIKit 스타일링을 전혀 안 받고 기본 Godot 테마로만 그려지고
+## 있던 것(사용자 지적 "단순 글자처럼 보인다")을 발견해 고친다. 이 화면의 "공용 버튼은
+## 아직 런이 시작되지 않았으니 캐릭터 퍼스널 컬러 대신 중립색을 유지"(DESIGN.md
+## "플레이어블 캐릭터" 절 K-3 — 좌측 카드 목록/화면 공용 버튼은 중립, 우측 상세 패널만
+## 선택한 카드의 색을 따름)한다는 기존 결정을 지키려고, _selected_id의 퍼스널 컬러가
+## 아니라 FocusNav.ACCENT_DEFAULT(이 화면의 포커스 강조색과 같은 중립 시안색)를 tint로
+## 넘긴다. _skill_codex_button은 _build_detail_panel()이 먼저 만들어둬야 하므로 그
+## 호출 다음에 와야 한다.
+func _style_header_buttons() -> void:
+	var neutral := FocusNav.ACCENT_DEFAULT
+	UIKit.style_primary_button(start_button, RunState.character_id, neutral)
+	UIKit.style_secondary_button(achievement_button, RunState.character_id, neutral)
+	UIKit.style_secondary_button(test_battle_button, RunState.character_id, neutral)
+	UIKit.style_secondary_button(_skill_codex_button, RunState.character_id, neutral)
 
 
 ## [대형 기획 8] H-4: "테스트 전투" 진입 버튼 — RunState.TEST_BATTLE_ENABLED가 false면

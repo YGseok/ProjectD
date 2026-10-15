@@ -5,39 +5,38 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-10-15 (209)
-- 작성자: AI 에이전트. 이번 이터레이션은 INBOX.md "남은 이슈" 맨 위
-  **[미니 기획 N-2b](캐릭터 선택 전신 이미지를 **실제로** 더 크게, 감독이 N-2
-  직후 스크린샷을 보고 추가 지시) 완료**했다. 원인: N-2가 만든 전신 컬럼 홀더는
-  300×560이었지만 원화(약 1181×1332, `Image.get_used_rect()`로 8명 전부 실측
-  — novice 1108×1308 ~ shieldbearer(최대) 1181×1314, 세로 투명 여백이 거의 없어
-  bbox 크롭은 효과가 없음을 확인하고 폐기)가 폭 300에 맞춰 `STRETCH_KEEP_ASPECT_
-  CENTERED`로 축소되면서 "폭이 항상 병목"이 돼 실제로 그려지는 캐릭터 높이가
-  ~330~346px뿐이었다(목표 ≥520px). 해법: 8명 중 가로가 가장 넓은 shieldbearer
-  기준 필요 폭(520*1181/1314≈467.4)을 계산해 전신 홀더 폭을 300→480으로 넓히고
-  (`FULL_ART_SIZE`), 그만큼을 좌측 카드 목록(`CARD_WIDTH` 360→280, `.tscn`
-  `CardsContainer` 400→320)에서 가져와 상세 패널 전체 폭을 840→920
-  (`.tscn` `DetailPanelContainer` 420→340)으로 늘렸다(`PORTRAIT_COLUMN_WIDTH`
-  340→500, `INFO_COLUMN_WIDTH` 480→400, 그에 맞춰 autowrap 상수들도 비례
-  축소). 구현 중 실제로 터진 회귀 1건을 발견해 같이 고쳤다 — 능력치 칩 4개
-  (공격/방어/이벤트/HP)가 한 줄 `HBoxContainer`라 자연 최소 폭이 ~495px로
-  좁아진 400px 예산을 크게 넘어서면서, `_detail_sections_vbox` 전체가(그
-  안의 "스킬 도감" 버튼까지) 화면 오른쪽 밖(x=1341, 뷰포트는 1280)으로 밀려
-  잘렸다(기존 N-2 테스트는 세로 높이만 쟀을 뿐 가로 폭 초과를 못 잡았음) —
-  `_build_stats_section()`의 칩 배열을 `HBoxContainer`에서 2×2 `GridContainer`로
-  바꿔 해결. `dice_test.gd`에 신규 `_check_n2b_full_art_rendered_height()`
-  (컨테이너가 아니라 텍스처/홀더 크기로 `STRETCH_KEEP_ASPECT_CENTERED` 스케일을
-  직접 계산한 "실제 렌더 높이"가 8명 전부 ≥520px인지, 정보 컬럼 실제 폭이 예산을
-  안 넘는지, 스킬 도감 버튼이 뷰포트 안에 있는지, "던전 시작" 버튼이 전신 컬럼과
-  안 겹치는지)을 추가 — `bash scripts/qa_shot.sh dice_test` 전체 PASS(기존 N-2
-  등 회귀 포함, FAIL 0건). 셀프 피드백 1라운드로 8명 중 4명(novice/shieldbearer/
-  juggler/pirate, 가로폭 양극단 포함) + 시작 스킬 3슬롯 전부 해금 상태를
-  `qa_out/n2b_*.png`로 직접 캡처해 확인 — 전신 이미지가 머리~발끝까지 크게
-  보이고, 겹침/잘림이 전혀 없어 "상" 수준 문제 없이 1라운드로 종료. 전투 규칙/
-  밸런스는 건드리지 않았다. INBOX.md의 이 항목은 "남은 이슈"에서 "처리됨"으로
-  옮겼다(N-2와 별개 항목이라 [대형 기획 14] 자체의 "부분 처리됨" 진행 한 줄은
-  안 바꿈). 상세는 아래 "완료 기록 (209)" 참고. **다음은 N-3(flat 버튼 전수
-  교정, INBOX.md "남은 이슈" 참고).**
+- 일시: 2026-10-15 (210)
+- 작성자: AI 에이전트. 이번 이터레이션은 INBOX.md "남은 이슈"의 **[대형 기획 14]
+  N-3(스킬 도감·업적 등 "문자열처럼 보이는" 버튼을 버튼처럼 보이게) 완료**했다.
+  전 `.tscn`/`.gd`의 Button 생성 지점을 전수 검색해 각 화면의 `UIKit.style_*_
+  button()` 호출과 대조한 결과, M-1~M-4가 통일한 dungeon_map/combat_test/event/
+  shop/story_event와 달리 스타일을 전혀 안 받고 기본 Godot 테마로만 그려지던
+  버튼 9개를 찾았다 — `character_select.gd`의 "던전 시작"/"업적"/"테스트 전투"/
+  "스킬 도감" 4개, `dungeon_map.gd`의 "스킬 도감"(`_style_action_buttons()`에서만
+  누락), `achievement_panel.gd`/`skill_codex_panel.gd`의 "닫기",
+  `customize_panel.gd`의 "닫기"/"뒤로" 4개 + 다이스 승급·눈금 적용 단계의 가로
+  목록 행 버튼, `test_battle_setup.gd`의 "뒤로"/"전투 시작"/성장 프리셋 버튼.
+  전부 기존 화면들과 같은 `UIKit.style_primary_button()`/`style_secondary_
+  button()` 한 줄 패턴으로 고쳤다(INBOX 지시대로 새 팩토리를 만들지 않음).
+  `character_select.gd`의 네 버튼은 DESIGN.md가 이미 확정한 "이 화면의 공용
+  버튼은 캐릭터 퍼스널 컬러 대신 중립색 유지"(K-3) 규칙을 지키려고
+  `FocusNav.ACCENT_DEFAULT`를 tint로 넘겼다 — 이를 위해 `style_primary_button()`
+  에 `style_secondary_button()`에는 이미 있던 tint 매개변수를 새로 추가했고,
+  `base_dir`을 3번째 위치 인자로 쓰던 기존 테스트 호출부 1곳만 같이 고쳤다.
+  `dice_test.gd`에 신규 `_check_n3_button_styling()` — 7개 정적 화면과 오버레이
+  패널 3종(AchievementPanel/SkillCodexPanel은 `open()`으로, CustomizePanel은
+  5단계 `_show_*_picker()`를 전부 직접 호출해)을 실제로 인스턴스화하고, 그 안의
+  모든 Button을 재귀적으로 순회해 "normal 스타일박스 override가 있고 실제로
+  보이는 모습인가"를 검사하는 전수 테스트를 추가(특정 버그 목록이 아니라 범용
+  검사라 다음에 새 버튼이 생겨도 같은 버그를 잡는다). `bash scripts/qa_shot.sh
+  dice_test` 전체 PASS(FAIL 0건, N-3 신규 검증 10개 화면/패널 전부
+  "미스타일 버튼=[]"). 셀프 피드백 1라운드로 `qa_out/n3_*.png` 4장(던전 시작/
+  업적/테스트 전투/스킬 도감/커스터마이징 닫기)을 직접 캡처해 전부 테두리+장식
+  있는 버튼 모양으로 바뀌었음을 확인 — "상" 수준 문제 없이 종료. 전투 규칙/
+  밸런스는 건드리지 않았다. INBOX.md의 이 항목은 "부분 처리됨"에 그대로 두되
+  진행 한 줄을 갱신했다(N-4~N-6이 남아 "처리됨"으로는 못 옮김). 상세는 아래
+  "완료 기록 (210)" 참고. **다음은 N-4(캐릭터 선택 능력치를 실제 다이스 칩으로
+  나열, INBOX.md "남은 이슈" 참고).**
 
 ## 지금 위치
 
@@ -463,6 +462,18 @@ HP 패널·다이스 스테이지·결과 칩과 겹치지 않고 표정(happy)�
   `resources/characters/<id>/full.png`가 입고돼 있어 실제로는 전원 원화로
   보이고, placeholder 분기(원화 미입고 시)는 코드로만 유지된다. 자세한 내용은
   `docs/DESIGN.md` "플레이어블 캐릭터" 절 참고.
+- **flat/무테두리 버튼 전수 교정(2026-10-15 [대형 기획 14] N-3 완료)**: 전
+  화면을 전수 검색해 UIKit 스타일링을 전혀 안 받고 기본 Godot 테마로만 그려지던
+  버튼 9개(character_select의 던전 시작/업적/테스트 전투/스킬 도감, dungeon_map의
+  스킬 도감, achievement_panel/skill_codex_panel의 닫기, customize_panel의
+  닫기/뒤로 4개 + 다이스·눈금 목록 행 버튼, test_battle_setup의 뒤로/전투 시작/
+  성장 프리셋)를 찾아 전부 `UIKit.style_primary_button()`/`style_secondary_
+  button()`으로 통일했다. `character_select`의 네 버튼은 DESIGN.md K-3 규칙
+  (이 화면의 공용 버튼은 중립색 유지)을 지키려고 `FocusNav.ACCENT_DEFAULT`를
+  tint로 썼다(`style_primary_button()`에 tint 매개변수 신규 추가).
+  `dice_test.gd`의 `_check_n3_button_styling()`이 정적 화면 7개 + 오버레이
+  패널 3종을 실제로 인스턴스화해 모든 Button을 재귀 순회하는 범용 검증을
+  제공한다(특정 버그 목록이 아니라 "normal 스타일이 실제로 보이는가"를 검사).
 
 상세 변경 이력은 아래 "완료 기록"(최근 10개)과, 그보다 오래된 것은
 `docs/STATUS_ARCHIVE.md`(매 이터레이션 읽지 않는 아카이브) 참고.
@@ -495,11 +506,17 @@ L-1~L-3)는 2026-10-14(197)에 각각 전체 완료됐다. **[미니 기획 M-6]
 `STRETCH_KEEP_ASPECT_CENTERED`가 항상 폭 기준으로 축소되던 것을 홀더 폭
 300→480으로 넓혀 해결(좌측 카드 목록 폭을 줄여 확보), 그 과정에서 발견한
 "능력치 칩 한 줄이 좁아진 예산을 넘어 스킬 도감 버튼이 화면 밖으로 밀리는"
-회귀도 2×2 그리드로 고쳤다(상세는 완료 기록 (209)). 다음 우선 순서는
-N-3(flat 버튼 전수 교정 — M-5의 UIKit 버튼 팩토리 재사용 필수) → N-4(능력치를
-실제 다이스 칩으로) → N-5(곡예사를 이벤트 특화 클래스로 개편, a→b→c) →
-N-6(캐릭터 전용 이벤트/특별 선택지). 한 이터레이션에 한 조각(또는 (a)(b)(c)
-한 칸)만 진행할 것 — 상세 사양은 `docs/feedback/INBOX.md` "남은 이슈" 참고.
+회귀도 2×2 그리드로 고쳤다(상세는 완료 기록 (209)). 2026-10-15(210)로
+**N-3(flat 버튼 전수 교정) 완료** — UIKit 스타일링을 전혀 안 받던 버튼 9개
+(character_select 4개/dungeon_map 1개/achievement_panel·skill_codex_panel
+닫기 2개/customize_panel 6개/test_battle_setup 4개)를 전수 검색으로 찾아
+기존 `UIKit.style_primary_button()`/`style_secondary_button()`으로 통일하고,
+`dice_test.gd`에 전 화면/오버레이 패널을 인스턴스화해 모든 Button을 재귀
+검사하는 범용 테스트(`_check_n3_button_styling()`)를 추가했다(상세는 완료
+기록 (210)). 다음 우선 순서는 N-4(능력치를 실제 다이스 칩으로) → N-5(곡예사를
+이벤트 특화 클래스로 개편, a→b→c) → N-6(캐릭터 전용 이벤트/특별 선택지). 한
+이터레이션에 한 조각(또는 (a)(b)(c) 한 칸)만 진행할 것 — 상세 사양은
+`docs/feedback/INBOX.md` "남은 이슈" 참고.
 
 남은 구조적 후보(급하지 않음): 보스 개별 6종 중 타락한 기사단장만 밴드 미달
 (`MonsterSkills.modify_monster_roll()` 파라미터화가 전제조건이라 사람 설계
@@ -1110,6 +1127,63 @@ N-6(캐릭터 전용 이벤트/특별 선택지). 한 이터레이션에 한 조
 
 ## 완료 기록
 
+- **2026-10-15 (210)**: INBOX.md "남은 이슈" [대형 기획 14] **N-3(스킬 도감·업적
+  등 "문자열처럼 보이는" 버튼을 버튼처럼 보이게) 완료**. INBOX 원문: 화면 전체에서
+  flat/무테두리 Button을 전수 검색해 UIKit 버튼 팩토리 보조(secondary) 스타일로
+  통일하고, 전 씬을 인스턴스화해 모든 Button이 실제로 스타일을 받는지 테스트로
+  검증할 것.
+  **전수 검색 결과**: `grep`으로 전 `.tscn`의 `type="Button"` 노드와 전
+  `.gd`의 `Button.new()` 호출을 모두 뽑아 각 화면의 `UIKit.style_primary_button`/
+  `style_secondary_button` 호출과 대조한 결과, M-1~M-4가 이미 통일한 dungeon_map/
+  combat_test/event/shop/story_event 대부분과 달리 실제로 스타일을 전혀 안 받고
+  기본 Godot 테마로만 그려지던 버튼 9개를 찾았다: `character_select.gd`의 "던전
+  시작"/"업적"/"테스트 전투"/"스킬 도감"(M-1~M-4가 다른 화면을 통일한 뒤에도 이
+  화면만 빠져 있었음), `dungeon_map.gd`의 "스킬 도감"(`_style_action_buttons()`
+  에서만 누락 — 같은 버튼이 event/shop/story_event에서는 이미 스타일링되고
+  있었음), `achievement_panel.gd`/`skill_codex_panel.gd`의 "닫기",
+  `customize_panel.gd`의 "닫기"/"뒤로" 4개 + 다이스 승급·눈금 적용 1~2단계의
+  가로 목록 행 버튼(`_add_die_target_rows()`/`_add_die_rows()` — 이것만
+  FaceChipStyle 정사각 칩류와 달리 스타일 호출이 애초에 없었음),
+  `test_battle_setup.gd`의 "뒤로"/"전투 시작"/성장 프리셋 버튼 4개.
+  **수정**: 전부 각 화면이 이미 쓰던 `UIKit.style_primary_button()`/
+  `style_secondary_button()`로 통일했다 — INBOX 지시대로 새 `make_button()` 같은
+  별도 팩토리를 만들지 않고 기존 호출부들과 같은 한 줄 패턴을 그대로 반복
+  적용. `character_select.gd`의 네 버튼(던전 시작/업적/테스트 전투/스킬 도감)은
+  DESIGN.md가 이미 확정한 규칙("이 화면의 좌측 카드 목록/화면 공용 버튼은 아직
+  런이 시작되지 않았으니 캐릭터 퍼스널 컬러 대신 중립색 유지" — K-3)을 지켜야
+  해서, `FocusNav.ACCENT_DEFAULT`(이 화면의 포커스 강조색과 같은 중립 시안색)를
+  tint로 넘겼다. `style_secondary_button()`에는 이미 있던 tint 매개변수를
+  `style_primary_button()`에는 이번에 새로 추가했다(기존 호출부 중
+  `dice_test.gd` 한 곳이 `base_dir`을 3번째 위치 인자로 넘기고 있어, tint를
+  secondary와 같은 위치(2번째)에 끼워 넣고 그 호출부만 `base_dir`을 4번째로
+  미는 식으로 함께 고쳤다 — 기본값(tint 없음)을 쓰는 나머지 5개 호출부는 전부
+  그대로 둬도 됨).
+  **검증**: `dice_test.gd`에 신규 `_check_n3_button_styling()` — "버그가
+  있었다는 걸 알고 거꾸로 짠" 특정 버튼 목록 검사가 아니라, 7개 정적 화면
+  (character_select/dungeon_map/combat_test/event/shop/story_event/
+  test_battle_setup)을 전부 인스턴스화하고 오버레이 패널 3종(AchievementPanel/
+  SkillCodexPanel — `open()`을 실제로 불러야 버튼이 생성됨 / CustomizePanel —
+  5단계 `_show_*_picker()`를 전부 직접 호출해 누적 검사)까지 열어, 그 안의
+  모든 `Button`(OptionButton/CheckBox 등 서브클래스는 자기 고유의 입체감 있는
+  모습이 있어 이 버그 대상이 아니므로 allowlist로 제외)을 재귀적으로 순회하는
+  전수 검사로 짰다. 기준은 "normal 스타일박스 override가 있고(없으면 기본
+  Godot 테마에만 의존한다는 뜻 — 이번 버그의 본체), 그 스타일이 텍스처가
+  있거나 배경/테두리 알파>0인가"(M-4 등 기존 테스트의
+  `has_theme_stylebox_override("normal")` 기준과 동일선상) — 플래그가 아니라
+  실제 렌더 스타일을 검사하므로 다음에 새 버튼이 생기며 같은 버그가 재발해도
+  이 테스트가 잡는다. `bash scripts/qa_shot.sh dice_test` 전체 PASS(FAIL
+  0건, N-3 신규 검증 10개 화면/패널 전부 "미스타일 버튼=[]"). **셀프 피드백
+  1라운드**: `qa_out/n3_character_select_header.png`(던전 시작/업적/테스트
+  전투/스킬 도감 네 버튼 전부 테두리+장식 있는 버튼 모양으로 보임)/
+  `n3_achievement_panel.png`(업적 패널 "닫기"가 더는 맨글자가 아니라 패널
+  테두리색과 어울리는 버튼으로 보임)/`n3_dungeon_map_skillcodex.png`(던전
+  맵 "스킬 도감"도 동일)/`n3_customize_panel.png`(커스터마이징 패널 "닫기"도
+  동일)를 직접 읽어 확인 — "상" 수준 문제 없이 1라운드로 종료. 전투 규칙/
+  밸런스는 건드리지 않았다. INBOX.md의 이 항목은 "부분 처리됨"에 그대로 두되
+  진행 한 줄을 N-3 완료로 갱신했다([대형 기획 14] 전체는 N-4~N-6이 남아 아직
+  "처리됨"으로 못 옮김). **다음은 N-4(캐릭터 선택 능력치를 실제 다이스 칩으로
+  나열).**
+
 - **2026-10-15 (209)**: INBOX.md "남은 이슈" 맨 위 **[미니 기획 N-2b](캐릭터 선택
   전신 이미지를 **실제로** 더 크게, 감독이 N-2 직후 스크린샷을 보고 추가 지시)
   완료**. INBOX 원문: N-2가 전신 컬럼 컨테이너를 300×560으로 만들었지만 원화
@@ -1676,55 +1750,9 @@ N-6(캐릭터 전용 이벤트/특별 선택지). 한 이터레이션에 한 조
   ART-1b는 사실상 "코드 작업 완료, 입고 대기"로 전환됨. ART-1c(몬스터 원화)는
   몬스터 쪽 face_*가 아직 없어 그대로 대기.
 
-- **2026-10-15 (200)**: INBOX.md 최우선 지시 [대형 기획 13] 던전 선택~전투 UI 품질
-  개선(M-1→M-4, 셀프 피드백 루프 방식) 중 **M-3(전투 화면 상태별 연출/결과/보상
-  UI) 완료**. 직전 이터레이션이 사용 한도로 M-3 작업 도중(combat_test.gd/
-  dice_test.gd/ui_kit.gd 미커밋 변경) 끊겨, 이번엔 `git diff`로 현황을 먼저
-  파악한 뒤 이어서 끝냈다.
-  **감독 추가 비평(M-2 직후) 3가지를 먼저 반영**: ① `[QA] 공격 2D4 · 방어 1D4`
-  디버그 줄이 `OS.is_debug_build()`(에디터 실행이면 항상 true)가 아니라 명시적
-  `GAME_QA_DEBUG_UI=1` 환경변수로만 보이게(직전 이터레이션이 이미 반영, 이번에
-  `dice_test`로 재확인만) ② 3D 다이스 스테이지 확대 ③ 결과 칩을 화면 양 끝에서
-  한 줄로 정리.
-  **다이스 스테이지 확대**: `combat_test.tscn`의 `DiceViewportContainer`를
-  184~500(세로 316) -> 184~524(세로 340)로 키우고, 원인을 추적해보니
-  `SubViewport.size`(1000×420)가 컨테이너 실제 크기(1000×316)와 달라 렌더
-  텍스처가 세로로 25% 눌려 찍히고 있던 것을 `SubViewport.size`를 컨테이너와
-  정확히 같은 1000×340으로 맞춰 해소했다(스테이지가 "작다"가 아니라 "찌그러져
-  있었다"). 추가로 `Camera3D`를 원점 방향으로 18% 당겨((0,3.6,5.5) ->
-  (0,2.952,4.51), 같은 각도 유지) 체감 크기를 더 키웠다 — 물리 바닥/벽 크기는
-  그대로라 다이스 정착 판정에는 영향 없음(순수 카메라 프레이밍 변경).
-  **결과 칩 한 줄 정리**: `_show_exchange_dice_chips()`를 다시 써서 "공격" 라벨+
-  칩들, "방어" 라벨+칩들을 이어 붙인 뒤 전체 폭을 계산해 화면 중앙
-  (`EXCHANGE_ROW_CENTER_X`=640)에 좌우 대칭 정렬한다(이전엔 공격 칩이 화면
-  왼쪽, 방어 칩이 화면 오른쪽에 라벨 없이 따로 떨어져 있었음). 칩 크기는
-  44->40(여전히 2026-09-09 피드백 이전 34px보다 큼)으로 살짝 줄여 새 버튼 행
-  (526~566)과 함께 들어가게 했다.
-  **연쇄 레이아웃 재배치**: 버튼 행(다음/다시하기/설정으로) 508~548 ->
-  526~566, "전투 기록" 패널(`_setup_log_panel()`) 552 -> 572(log_label 최소
-  높이 100->80으로 줄여 패널 바닥이 화면(720) 안에 들어오게 보정),
-  `REWARD_FRAME_BOTTOM`(540->560)/`REWARD_CARD_HEIGHT`(230->250)도 로그
-  패널 이동분만큼 20px 늘림(직전 이터레이션이 M-2가 남긴 "승리 보상 화면이
-  HUD 패널과 겹침" 회귀를 REWARD_FRAME_TOP=184/보조 버튼 스타일로 이미
-  고쳐뒀던 것을 이어받아 좌표만 새 레이아웃에 맞춰 재조정).
-  **검증**: `dice_test.gd`에 신규 `_check_m3_combat_dice_stage()` — 물리 다이스
-  스폰 없이 `_show_exchange_dice_chips()`를 직접 호출해(순수 UI 함수라 가능)
-  뷰포트 크기 증가/스트레치 왜곡 없음/칩 한 줄이 x=640±2로 중앙 정렬/버튼·로그
-  패널 비겹침/보상 프레임 비겹침을 전부 렌더 노드 위치로 검증(플래그가 아니라
-  계산 결과). 처음엔 중심이 x=643.5로 3.5px 벗어나 FAIL했는데, 원인은
-  `_layout_dice_chip_row()`가 마지막 칩 뒤에도 trailing gap(7px)을 포함한
-  위치를 돌려줘 그룹 폭 계산과 실제 렌더 폭이 어긋났던 것 — 반환값에서
-  trailing gap을 빼서 고쳤다. `bash scripts/qa_shot.sh dice_test` 전체
-  **PASS**, `qa_out/m3_before_*`(3장, 문제 확인)/`m3_after_*2`(2장, 스테이지
-  확대+카메라 줌인)/`m3_reward_deck.png`(승리 보상+덱 패널 동시 노출, HUD
-  비겹침 확인)/`m3_test_loss.png`(패배 버튼 2개)로 육안 확인, 1라운드 만에
-  "하" 수준 문제(스테이지 주변 빈 공간은 M-5 아트 스킨으로 미룸)만 남는
-  결과에 도달했다. 상세는 `docs/UI_REVIEW.md` "M-3" 절 참고. **다음은
-  M-4(이벤트/상점/스토리 이벤트 화면 통일)**.
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(209)에서 (199)를 그리로 옮겼다.)*
+이번 이터레이션(210)에서 (200)을 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 

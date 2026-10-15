@@ -428,9 +428,14 @@ static func _button_state_stylebox(kind: String, state: String, tint: Color, bas
 ## 주 행동 버튼(예: "전투 방 입장") — accent색을 꽉 채운 칠 버튼. 화면에서 가장 먼저
 ## 눈에 띄어야 하는 선택지 하나에만 쓴다. resources/ui/button/primary_*가 있으면 그
 ## 이미지 스킨(상태별 폴백 포함)을 쓰고, 없으면 기존 절차적 색 채움으로 폴백한다(M-5a).
-static func style_primary_button(btn: Button, character_id: String, base_dir: String = SKIN_BASE_DIR) -> void:
+## tint가 주어지면(Color.a > 0) palette["accent"] 대신 그 색을 쓴다([대형 기획 14] N-3,
+## 2026-10-15 — character_select.gd의 "던전 시작" 버튼처럼 "이 화면의 공용 버튼은 아직
+## 런이 시작되지 않았으니 캐릭터 퍼스널 컬러 대신 중립색을 유지해야 한다"는 기존 결정
+## (DESIGN.md "플레이어블 캐릭터" 절 K-3)을 지키면서도 "주 행동"다운 꽉 채운 칠 스타일은
+## 그대로 쓰기 위해 style_secondary_button의 tint 패턴을 그대로 가져왔다).
+static func style_primary_button(btn: Button, character_id: String, tint: Color = Color(0, 0, 0, 0), base_dir: String = SKIN_BASE_DIR) -> void:
 	var palette := CharacterTheme.ui_palette(character_id)
-	var accent: Color = palette["accent"]
+	var accent: Color = tint if tint.a > 0.0 else palette["accent"]
 	var text_color := contrasting_text_color(accent)
 	var fallback_colors := {
 		"normal": accent.darkened(0.12),
