@@ -348,7 +348,7 @@ Work는 `resources/ui/` 이미지가 있으면 StyleBoxTexture로 쓰고, 없으
 | UI001 | 일반 구역 패널 | `panel/section_base.png` + `section_accent.png` | 128×128 | 24 | 📦 (2026-10-15) |
 | UI002 | 상단 HUD 띠 | `panel/hud_base.png` + `hud_accent.png` | 256×64 | **좌우 34, 상하 20** (2026-10-15 변경 — 모서리 장식 폭) | 📦 (2026-10-15) |
 | UI003 | 카드 (방·선택·보상) | `panel/card_base.png` + `card_accent.png` | 128×160 | 24 | 📦 (2026-10-15) |
-| UI004 | 오버레이 모달 (덱·도감·커스터마이즈) | `panel/overlay_base.png` + `overlay_accent.png` | 256×256 | 32 | 📝 |
+| UI004 | 오버레이 모달 (덱·도감·커스터마이즈) | `panel/overlay_base.png` + `overlay_accent.png` | 256×256 | **44** (2026-10-15 변경 — 모서리 장식 폭) | 📦 (2026-10-15) |
 | **버튼 (UI100~)** | | | | | |
 | UI100 | 주 버튼 | `button/primary_{normal,hover,pressed,disabled,focus}.png` | 128×48 | 16 | 📝 |
 | UI101 | 보조 버튼 | `button/secondary_{normal,hover,pressed,disabled,focus}.png` | 128×48 | 16 | 📝 |
@@ -654,6 +654,7 @@ Work는 `resources/ui/` 이미지가 있으면 StyleBoxTexture로 쓰고, 없으
 | 2026-10-15 | ART-UI001 일반 구역 패널 (GPT 생성 2차 — 1차는 변 중앙 장식 때문에 9-slice 불가로 재요청. 마젠타 장식을 `ui_split.gd`로 ACCENT 분리, 원본 `_reference/ui/section_raw.png`) | `resources/ui/panel/section_{base,accent}.png` 입고. 9-slice(마진 24) 늘림 테스트 통과. 화면 적용은 Work M-5(UIKit 이미지 스킨) 대기 | `qa_out/art_ui_section_nine.png` |
 | 2026-10-15 | ART-UI002 상단 HUD 띠 (GPT 생성 1차 채택. GPT가 4:1 대신 약 6.5:1로 그려서 `ui_split.gd`에 "비율 유지 + 가운데 균일 구간 잘라 붙이기" 보정 추가. 모서리 장식이 가로 약 32px라 9-slice 마진을 좌우 34 / 상하 20으로 변경) | `resources/ui/panel/hud_{base,accent}.png` 입고. 120~700px 폭 늘림 테스트 통과. 화면 적용은 Work M-5 대기 | `tools/artgen/out/ui_hud/…/nine.png` |
 | 2026-10-15 | ART-UI003 카드 (GPT 생성 2차 — 1차는 가운데가 들쭉날쭉한 투명 구멍이라 재요청. 2차는 바깥 배경이 불투명 검정이라 `ui_split.gd`에 테두리 연결 단색 배경 제거 추가) | `resources/ui/panel/card_{base,accent}.png` 입고. 9-slice(24) 세로·가로 늘림 테스트 통과. 화면 적용은 Work M-5 대기 | `tools/artgen/out/ui_card/…/nine.png` |
+| 2026-10-15 | ART-UI004 오버레이 모달 (GPT 생성 1차 채택. 모서리 장식이 약 43px라 9-slice 마진 32→44로 변경) | `resources/ui/panel/overlay_{base,accent}.png` 입고. 200~520px 늘림 테스트 통과. **U1 패널 4종 완료**. 화면 적용은 Work M-5 대기 | `tools/artgen/out/ui_overlay/…/nine44.png` |
 
 ---
 
