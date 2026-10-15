@@ -112,3 +112,22 @@ static func grab_first_focus(buttons: Array) -> void:
 			continue
 		ctrl.grab_focus()
 		return
+
+
+## [대형 기획 14] N-1 "주 행동 키" 규칙: 화면 진입/상태 전환 시 "포커스가 없거나
+## 애매하면" 그 화면의 주 행동 버튼(스타일상 강조된 버튼, 예: UIKit.style_primary_
+## button으로 칠한 버튼)에 기본 포커스가 가 있어야 한다. 대부분의 화면은 fallback_list
+## 안에 그 주 행동 버튼을 우연히 가장 먼저 넣어둬서 grab_first_focus()만으로도 이미
+## 맞았지만(dungeon_map의 "전투 입장", event/story_event의 "계속"), 전수 감사
+## (docs/UI_REVIEW.md "N-1" 절)에서 shop.gd는 리스트 순서상 상점 품목 버튼이 먼저라
+## "던전으로 돌아가기"(주 행동으로 스타일링된 버튼)가 아니라 첫 품목 버튼에 기본
+## 포커스가 가던 불일치를 찾았다. primary가 보이고 활성화돼 있으면 그쪽에 바로
+## 포커스를 주고, 아니면(아직 안 보이거나 비활성화된 상태) 기존처럼 fallback_list에서
+## 첫 유효한 컨트롤로 폴백한다 — "리스트 순서가 우연히 주 행동과 일치"하는 데
+## 의존하지 않고 모든 화면이 명시적으로 이 규칙을 지키게 한다.
+static func grab_default_focus(primary: Control, fallback_list: Array) -> void:
+	if primary != null and is_instance_valid(primary) and primary.visible:
+		if not (primary is BaseButton and (primary as BaseButton).disabled):
+			primary.grab_focus()
+			return
+	grab_first_focus(fallback_list)

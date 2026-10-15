@@ -357,6 +357,10 @@ func _ready() -> void:
 	all_pass = _check_m6_card_frame_skin(lines) and all_pass
 
 	lines.append("")
+	lines.append("[N-1: 캐릭터 선택 — 카드 목록(수직 체인)과 시작 스킬 슬롯(수평 체인)이 실제 InputEventKey(방향키)로 서로 연결되는지 검증(전수 감사에서 발견: 전에는 마우스로만 슬롯에 닿을 수 있었음), 슬롯을 고른 뒤에도 방향키 포커스가 안 끊기는지]")
+	all_pass = (await _check_n1_character_select_skill_slot_key_nav(lines)) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -6741,6 +6745,112 @@ func _find_button_with_text(root: Node, text: String) -> Button:
 	return null
 
 
+## _check_n1_character_select_skill_slot_key_nav()가 쓰는 실제 키 주입 헬퍼
+## (code/qa/visual_qa.gd의 _send_key()와 같은 이유로 press+release 둘 다 보낸다 —
+## BaseButton은 release에서야 pressed를 emit하므로 press만으로는 버튼이 안 눌린다).
+## dice_test는 실제로 돌아가는 SceneTree의 current_scene이라, add_child()로 붙인
+## character_select 인스턴스도 같은 뷰포트의 포커스 체인 안에 있어 Input.parse_input_event()가
+## 진짜 엔진 입력 파이프라인(ui_left/right/up/down/accept 액션 매칭 + focus_neighbor 이동)을
+## 그대로 거친다.
+func _n1_send_key(keycode: Key) -> void:
+	var press := InputEventKey.new()
+	press.keycode = keycode
+	press.physical_keycode = keycode
+	press.pressed = true
+	Input.parse_input_event(press)
+	var release := InputEventKey.new()
+	release.keycode = keycode
+	release.physical_keycode = keycode
+	release.pressed = false
+	Input.parse_input_event(release)
+
+
+## [대형 기획 14] N-1 전수 감사에서 발견한 버그 검증: character_select.gd의 시작 스킬
+## 슬롯(수평 체인, _starting_skill_slot_buttons)이 카드 목록(수직 체인, _shortcut_buttons)과
+## 전혀 연결돼 있지 않아 마우스로만 닿을 수 있었다. _link_cards_to_skill_slots()/
+## _restore_starting_skill_focus() 추가로 고친 뒤를 "플래그"가 아니라 실제
+## InputEventKey(방향키/스페이스)를 Input.parse_input_event()로 주입해(엔진의 진짜
+## 포커스 이동 로직을 그대로 태움) 검증한다:
+##   (1) 카드에서 -> (오른쪽)으로 슬롯[0]에 실제로 도달하는지
+##   (2) 슬롯에서 <-(왼쪽)/위/아래로 다시 카드로 돌아오는지(세 방향 전부)
+##   (3) 잠긴 슬롯을 스페이스로 "미리보기"한 뒤에도(슬롯 버튼이 전부 다시 만들어짐)
+##       방향키가 계속 먹히는지(포커스가 끊기지 않는지) — 이게 바로 두 번째로 발견한
+##       버그(_rebuild_starting_skill_slots()가 매번 버튼을 지우고 새로 만드는데 아무도
+##       새 포커스를 받지 않아 방향키가 먹통이 되던 것)
+## await를 쓰므로 호출부(_ready())는 `await _check_n1_character_select_skill_slot_key_nav(lines)`로
+## 받아야 한다.
+func _check_n1_character_select_skill_slot_key_nav(lines: PackedStringArray) -> bool:
+	var ok := true
+	var character_backup: String = RunState.character_id
+	var chosen_backup: String = RunState.chosen_starting_skill_id
+
+	var scene := load("res://code/scenes/character_select.tscn")
+	var node = scene.instantiate()
+	add_child(node)
+	await get_tree().process_frame
+
+	var viewport := get_viewport()
+	var novice_card: Control = node._card_panels.get("novice")
+
+	# (1) 카드에서 오른쪽 방향키로 슬롯[0]에 실제로 도달.
+	novice_card.grab_focus()
+	_n1_send_key(KEY_RIGHT)
+	await get_tree().process_frame
+	var slot0: Control = node._starting_skill_slot_buttons[0] if node._starting_skill_slot_buttons.size() > 0 else null
+	var reach_slot_ok: bool = slot0 != null and viewport.gui_get_focus_owner() == slot0
+	ok = reach_slot_ok and ok
+	lines.append("  (1) 카드에서 -> (오른쪽) 시작 스킬 슬롯[0]에 실제로 도달 -> %s" % (
+		"OK" if reach_slot_ok else "FAIL"
+	))
+
+	# (2) 슬롯에서 왼쪽/위/아래 세 방향 모두 카드로 돌아오는지(_link_cards_to_skill_slots()가
+	# 세 방향 전부 selected_card로 묶어뒀는지 실제로 확인).
+	var back_ok := true
+	for key in [KEY_LEFT, KEY_UP, KEY_DOWN]:
+		slot0.grab_focus()
+		_n1_send_key(key)
+		await get_tree().process_frame
+		if viewport.gui_get_focus_owner() != novice_card:
+			back_ok = false
+	ok = back_ok and ok
+	lines.append("  (2) 슬롯에서 좌/위/아래 세 방향 전부 카드로 복귀 -> %s" % ("OK" if back_ok else "FAIL"))
+
+	# (3) 잠긴 슬롯(슬롯[1], "r1_novice" 해금 전이라 잠겨 있어야 함)을 스페이스로
+	# "미리보기"하면 _rebuild_starting_skill_slots()가 버튼을 전부 새로 만드는데, 그 뒤에도
+	# 방향키가 여전히 먹히는지(포커스가 끊기지 않았는지)를 "다시 오른쪽/왼쪽을 눌러 실제로
+	# 이동하는지"로 확인한다 — 포커스가 null이 되면 아래 이동이 전부 조용히 실패한다.
+	AchievementManager._debug_reset_for_qa()
+	node._on_card_selected("novice")
+	var slot1_before: Control = node._starting_skill_slot_buttons[1] if node._starting_skill_slot_buttons.size() > 1 else null
+	var slot1_locked_ok: bool = slot1_before != null and not SkillPool.is_slot_requirement_met("novice", 1)
+	if slot1_before != null:
+		slot1_before.grab_focus()
+		_n1_send_key(KEY_SPACE)
+		await get_tree().process_frame
+	# 슬롯 버튼이 전부 새로 만들어졌으므로 "같은 인덱스"의 새 인스턴스를 다시 읽어야 한다.
+	var slot1_after: Control = node._starting_skill_slot_buttons[1] if node._starting_skill_slot_buttons.size() > 1 else null
+	var focus_survived_ok: bool = slot1_after != null and viewport.gui_get_focus_owner() == slot1_after
+	ok = slot1_locked_ok and focus_survived_ok and ok
+	lines.append("  (3) 잠긴 슬롯[1] 미리보기(슬롯 버튼 전부 재생성) 후에도 포커스 유지=%s(기대 true, 잠김 확인=%s) -> %s" % [
+		focus_survived_ok, slot1_locked_ok, "OK" if (slot1_locked_ok and focus_survived_ok) else "FAIL"
+	])
+	# 포커스가 안 끊겼다는 것을 방향키 한 번 더 눌러서 실제로 재확인(왼쪽 -> 카드로 복귀).
+	_n1_send_key(KEY_LEFT)
+	await get_tree().process_frame
+	var still_navigable_ok: bool = viewport.gui_get_focus_owner() == novice_card
+	ok = still_navigable_ok and ok
+	lines.append("  (3-확인) 미리보기 후 왼쪽 방향키가 여전히 먹혀 카드로 복귀 -> %s" % (
+		"OK" if still_navigable_ok else "FAIL"
+	))
+
+	remove_child(node)
+	node.free()
+	RunState.character_id = character_backup
+	RunState.chosen_starting_skill_id = chosen_backup
+	AchievementManager._debug_reset_for_qa()
+	return ok
+
+
 ## [대형 기획 12] L-2(a)(2026-10-14) 검증: 스킬 도감 데이터/저장. "플래그가 들어갔는가"가
 ## 아니라 (1) codex_entries()가 실제로 돌려주는 배열의 크기/순서/codex_source 분류가
 ## 기대와 일치하는지 (2) SkillCodex 저장 파일이 실제로 디스크에 쓰이고 다시 읽어도
@@ -7738,6 +7848,18 @@ func _check_m4_event_shop_story_ui(lines: PackedStringArray) -> bool:
 		shop._shortcut_buttons[0].text if shop._shortcut_buttons.size() > 0 else "<없음>",
 		"OK" if shop_card_btn_styled_ok else "FAIL"
 	])
+
+	# [대형 기획 14] N-1 전수 감사에서 발견한 버그: _shortcut_buttons는 화면에 보이는
+	# 순서(품목 카드들이 맨 앞, leave_button이 맨 뒤)라 grab_first_focus()만 쓰면 기본
+	# 포커스가 "주 행동"(leave_button, 위 shop_hierarchy_ok 검증대로 style_primary_button)이
+	# 아니라 첫 품목 버튼에 가버렸다. FocusNav.grab_default_focus()로 고쳐 기본 포커스가
+	# 명시적으로 leave_button에 가도록 보장했는지 확인 — add_child() 시점에 _ready()가
+	# 이미 한 번 불렀으므로 여기서는 그 결과(현재 포커스 소유자)를 그대로 읽는다.
+	var shop_default_focus_ok: bool = get_viewport().gui_get_focus_owner() == shop.leave_button
+	ok = shop_default_focus_ok and ok
+	lines.append("  shop: 기본 포커스 = 주 행동(던전으로 돌아가기), 품목 버튼 아님 -> %s" % (
+		"OK" if shop_default_focus_ok else "FAIL"
+	))
 
 	remove_child(shop)
 	shop.free()

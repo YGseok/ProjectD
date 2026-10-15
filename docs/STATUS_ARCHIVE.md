@@ -8,6 +8,53 @@
 
 ---
 
+- **2026-10-14 (197)**: INBOX.md 최우선 지시 [대형 기획 12] 캐릭터 선택/스킬 도감/
+  전역 퍼스널 컬러(L-1→L-3) 중 **L-3(전역 퍼스널 컬러를 배경+주요 패널로 확장)
+  완료 — [대형 기획 12] 전체(L-1~L-3) 완료 처리**. K-3(포커스 강조색·캐릭터
+  선택 상세 패널·`DeckPanel`에만 적용)를 게임 전반으로 넓히는 작업.
+  **① 배경**: `code/systems/character_theme.gd`에 신규 `apply_background(scene_root,
+  character_id, animate=false, duration=0.25)`를 추가 — 모든 전체화면 씬이
+  공유하는 "Background"라는 이름의 ColorRect(dungeon_map/combat_test/event/
+  shop/story_event/character_select.tscn 전부 동일 네이밍 컨벤션)를 찾아
+  `panel_bg`로 물들이고, 그 자식으로 (없으면 새로) 만드는 `ThemeVignette`
+  (TextureRect)에 `primary` 색을 `modulate`로 입혀 약한 방사형 그라데이션(비네트)을
+  얹는다. 비네트 텍스처 자체(흰 중심→투명 가장자리 알파 그라데이션)는 캐릭터와
+  무관하게 한 번만 만들어 캐싱하고(`_vignette_texture` static) 캐릭터색은
+  `modulate` 곱으로만 입혀, Tween으로 `modulate`만 보간하면 텍스처 재생성 없이
+  매끄러운 색 전환이 된다. 위 6개 화면의 `_ready()`에서 호출(dungeon_map/
+  combat_test/event/shop/story_event는 즉시 적용, character_select는 카드를
+  바꿀 때마다 `_refresh_detail_panel()`에서 `animate=true`로 호출해 0.25초
+  Tween으로 부드럽게 전환 — 최초 진입만 `animate=false`로 깜빡임 없이 시작).
+  **② 화면 제목**: 신규 `apply_label(label, character_id, use_accent=true)` —
+  위 6개 화면의 "Title" 라벨에 accent 색 적용. **③ 오버레이 패널 3종
+  (`CustomizePanel`/`AchievementPanel`/`SkillCodexPanel`)**: 기존엔 테두리 없는
+  단순 검정 `ColorRect` 틀이었던 것을 `Panel`+`StyleBoxFlat`(배경색 유지, 테두리
+  2px 추가)로 바꾸고 기존 `CharacterTheme.apply(panel, character_id)` 헬퍼로
+  테두리를 캐릭터 primary 색으로 칠한다(제목 라벨도 accent로). **테스트**:
+  `dice_test.gd`의 신규 `_check_l3_personal_color_background()`가 (a)
+  `apply_background()` 단위 검증(combat_test.tscn과 같은 "Background" ColorRect
+  구조를 흉내낸 더미 노드로 — combat_test 자체는 물리 await 때문에 기존 관례대로
+  직접 인스턴스화 안 함) — `ThemeVignette` 생성/`Background.color`·
+  `ThemeVignette.modulate`가 `ui_palette()` 값과 정확히 일치하는지, (b) 실제
+  화면 5개(character_select는 카드 전환, 나머지 4개는 `RunState.character_id`)
+  인스턴스의 `Background.color`가 캐릭터를 바꾸면 실제로 달라지는지(character_select는
+  Tween이 비동기라 `await get_tree().create_timer(0.35).timeout`으로 전환이
+  끝난 뒤에 확인), (c) 오버레이 패널 3종의 `Panel.border_color`가 캐릭터별로
+  바뀌는지까지 전부 PASS(처음엔 character_select 쪽이 FAIL — Tween이 끝나기 전에
+  즉시 읽어서 색이 그대로였던 버그, await 추가로 해결). `bash scripts/qa_shot.sh
+  dice_test` 전체 **PASS**. qa_shot으로 요구된 "3명 × 3화면"(해적=밝은 청록/
+  주술사=어두운 보라/견습 모험가=중립, × character_select/dungeon_map/
+  combat_test)을 `qa_out/l3_*.png`로 촬영해 육안 확인 — 배경 틴트가 또렷이
+  구분되면서도 텍스트/다이스/HP바 전부 선명하게 읽힘, 레이아웃 겹침 없음.
+  character_select/dungeon_map은 QA 전용 0-arity 디버그 훅을 새로 추가해
+  캐릭터를 바꿨다(`_debug_qa_instant_select_*`/`_debug_qa_character_*` —
+  character_select는 기존 `_debug_select_pirate`/`_debug_select_shieldbearer`가
+  이미 있었으나 Tween 애니메이션 도중 색이 찍히는 문제가 있어, `_background_themed`를
+  일부러 false로 되돌려 즉시 적용 분기를 타는 전용 변형을 추가로 만들었다).
+  `docs/DESIGN.md`에 "퍼스널 컬러 적용 범위" 절 신설(INBOX.md L-3 원문 지시대로,
+  K-3부터 L-3까지 전체 적용 지점을 한곳에 정리). **[대형 기획 12](L-1~L-3) 전체
+  완료** — INBOX.md "부분 처리됨"에서 "처리됨"으로 이동.
+
 - **2026-10-14 (196)**: INBOX.md 최우선 지시 [대형 기획 12] 캐릭터 선택/스킬 도감/
   전역 퍼스널 컬러(L-1→L-3) 중 **L-2(c)(진입점 연결) 완료**. L-2(b)가 만든
   재사용 가능한 `SkillCodexPanel`을 캐릭터 선택 화면 + 던전 진행 화면 5곳

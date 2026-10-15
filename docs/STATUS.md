@@ -5,34 +5,22 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-10-15 (206)
-- 작성자: AI 에이전트. 이번 이터레이션은 INBOX.md "남은 이슈" 맨 위 항목이었던
-  **[미니 기획 M-6] 카드 프레임 스킨 적용을 완료**했다. M-5(a)(202)가 등급색
-  신호와의 충돌로 보류했던 `resources/ui/panel/card_{base,accent}.png`를, "accent를
-  퍼스널 컬러가 아니라 그 카드가 쓸 테두리색(등급색/강화 하이라이트/골드부족색)으로
-  modulate"하는 해법(INBOX가 이미 확정한 설계)으로 연결했다. `ui_kit.gd`에
-  `apply_card_skin(panel, tint, base_dir)`를 신규 추가하고(character_id 대신 임의의
-  tint Color를 직접 받는 `icon_texture()`류 패턴), `item_card_style.gd`의
-  `build_card()`가 등급색/HIGHLIGHT_BORDER/CARD_BORDER_UNAFFORDABLE 중 상황에 맞는
-  색을 넘겨 쓰도록 바꿨다(파일 없으면 기존 StyleBoxFlat 폴백 그대로, 호출부인
-  combat_test/shop/event 세 화면은 수정 불필요). 골드 부족 카드는 테두리색은
-  유지한 채 전체를 신규 상수로 살짝 눌러 칠해(`CARD_SKIN_UNAFFORDABLE_MODULATE`)
-  상태를 함께 전달한다. 기존 하이라이트 테스트(`_check_skill_upgrade_card_highlight`)
-  는 이제 production 경로가 StyleBoxTexture가 되므로 존재하지 않는 `base_dir`를
-  명시적으로 넘겨 "스킨 없음 폴백 계약"을 계속 검증하도록 갱신했고, 신규
-  `_check_m6_card_frame_skin()`(6단계, M-5a와 같은 "없음→있음→없음" 임시 경로
-  패턴)이 이미지 스킨 경로 자체(등급별 합성 픽셀이 실제로 다름, highlight/
-  unaffordable 틴트, production 자산 텍스처 정체성)를 검증 — `dice_test.gd` 전체
-  PASS(FAIL 0건). 셀프 피드백 1라운드: `qa_out/m6_before_{reward,shop,
-  event_item,event_skill,event_upgrade}.png` 5장을 직접 읽어 등급별 보석/체인
-  장식이 실제로 해당 색으로 물들고 중앙(무채색)은 그대로라 등급 신호가 유지됨을
-  확인, 골드 부족 카드의 눌린 톤도 눈으로 보임 — "하" 수준 문제도 없어 추가
-  라운드 없이 종료. 던전 맵 방 카드(MapStrip)는 INBOX 원문이 "구현 판단"으로
-  남긴 범위라 이번엔 손대지 않았다(등급 기반이 아니고 `build_card()`를 안 쓰는
-  별개 코드 경로). 전투 규칙/밸런스는 전혀 건드리지 않았다. INBOX.md의 M-6 항목을
-  "처리됨"으로 옮겼다. 상세는 아래 "완료 기록 (206)" 참고. **다음은
-  [대형 기획 14](조작/선택 화면/이벤트 특화 클래스·전용 이벤트, N-1 → N-6) N-1**
-  — INBOX.md가 명시한 "M-6 완료 후 착수" 순서가 이제 충족됐다.
+- 일시: 2026-10-15 (207)
+- 작성자: AI 에이전트. 이번 이터레이션은 INBOX.md 최우선 지시 [대형 기획 14]의
+  **N-1(방향키+스페이스로 "진행"까지, 전 화면 키보드만으로 한 판 끝까지)을
+  완료**했다. 지시된 3단계(전수 감사 → "주 행동 키" 규칙 → 실제 InputEventKey
+  풀 시뮬 테스트) 순서대로 진행 — 전수 감사로 character_select의 "시작 스킬
+  슬롯"이 카드 목록과 전혀 연결 안 돼 마우스로만 닿을 수 있었던 버그, 슬롯을
+  고르면 포커스가 끊기는 버그, shop의 기본 포커스가 주 행동(던전으로 돌아가기)이
+  아니라 첫 품목이었던 불일치를 찾아 전부 고쳤다. 검증은 `code/qa/visual_qa.gd`에
+  신규 추가한 `GAME_QA_KEY_RUN=1` 모드(실제 `Input.parse_input_event()`로
+  캐릭터 선택→던전 맵→전투 자동 승리→보상→다음 방을 2회 반복, 21개 검증 전부
+  OK, 약 32초)와 `dice_test.gd` 신규 체크 2건으로 — 전체 `bash scripts/qa_shot.sh
+  dice_test` PASS(FAIL 0건, 2회 재확인). 전투 규칙/밸런스는 건드리지 않았다.
+  INBOX.md의 [대형 기획 14] 항목은 N-1 진행 기록을 반영해 "부분 처리됨"에 두고
+  진행 한 줄을 갱신했다(N-2~N-6 남음, 전체 항목이 끝나야 "처리됨"으로 이동).
+  상세(전수 감사 표 포함)는 아래 "완료 기록 (207)" 참고. **다음은
+  N-2(캐릭터 선택 전신 이미지 확대)**.
 
 ## 지금 위치
 
@@ -426,6 +414,22 @@ HP 패널·다이스 스테이지·결과 칩과 겹치지 않고 표정(happy)�
   받는 패턴)이 담당, 파일 없으면 기존 StyleBoxFlat 등급색 테두리로 폴백. 던전
   맵 방 카드(MapStrip)는 등급 기반이 아니고 `build_card()`를 안 써 이번 범위
   밖(INBOX 원문이 "구현 판단"으로 남김). 상세는 아래 "완료 기록 (206)" 참고.
+- **전 화면 키보드만으로 진행(2026-10-15 [대형 기획 14] N-1 완료)**: 전수 감사로
+  찾은 두 버그를 고쳤다 — ① `character_select`의 시작 스킬 슬롯(공격/방어
+  주머니 개수와 별개인 슬롯0~2)이 카드 목록(수직 체인)과 연결돼 있지 않아
+  마우스로만 닿을 수 있던 것을 `_link_cards_to_skill_slots()`(카드→오른쪽→
+  슬롯[0], 슬롯→왼쪽/위/아래→선택된 카드)로 연결 ② 슬롯을 스페이스로 고르거나
+  미리보면(`_rebuild_starting_skill_slots()`가 버튼을 매번 재생성) 아무도 새
+  포커스를 받지 않아 방향키가 먹통이 되던 것을 `_restore_starting_skill_focus()`로
+  고침. 그리고 "주 행동 키" 규칙(포커스가 없거나 애매하면 그 화면의 주 행동
+  버튼에 기본 포커스) 불일치를 하나 찾았다 — `shop`의 기본 포커스가 주 행동
+  (던전으로 돌아가기)이 아니라 첫 품목 구매 버튼이었던 것을 `FocusNav.
+  grab_default_focus(primary, fallback_list)`(신규) + `shop.gd` 배선으로 고침.
+  dungeon_map/combat_test/event/story_event는 이미 규칙을 만족하고 있었음을
+  확인만 함(전수 감사 표는 완료 기록(207) 참고). 검증은 `code/qa/visual_qa.gd`의
+  신규 `GAME_QA_KEY_RUN=1` 모드(실제 `Input.parse_input_event()`로 캐릭터
+  선택→던전 맵→전투 자동 승리→보상→다음 방을 2회 반복, 마우스 이벤트 없이) +
+  `dice_test.gd` 신규 체크 2건 — 상세는 완료 기록(207) 참고.
 
 상세 변경 이력은 아래 "완료 기록"(최근 10개)과, 그보다 오래된 것은
 `docs/STATUS_ARCHIVE.md`(매 이터레이션 읽지 않는 아카이브) 참고.
@@ -445,9 +449,12 @@ L-1~L-3)는 2026-10-14(197)에 각각 전체 완료됐다. **[미니 기획 M-6]
 스킨 적용)도 2026-10-15(206)로 완료됐다** — M-5(a)가 등급색 신호와의 충돌로
 보류했던 카드 이미지 스킨을 "accent를 등급색으로 modulate"하는 해법으로 연결.
 
-**INBOX.md 최우선 지시는 이제 [대형 기획 14](조작/선택 화면/이벤트 특화 클래스·
-전용 이벤트, N-1 → N-6, 사용자 플레이 피드백)다 — INBOX가 명시한 "M-6 완료 후
-착수" 조건이 충족됐다.** 우선 순서는 N-1(전 화면 키보드만으로 진행) →
+**INBOX.md 최우선 지시는 [대형 기획 14](조작/선택 화면/이벤트 특화 클래스·전용
+이벤트, N-1 → N-6, 사용자 플레이 피드백)다 — INBOX가 명시한 "M-6 완료 후 착수"
+조건이 충족됐다.** 2026-10-15(207)로 **N-1(전 화면 키보드만으로 진행) 완료**됐다
+— 전수 감사로 character_select 시작 스킬 슬롯이 마우스로만 닿던 버그 + 포커스
+소실 버그, shop 기본 포커스 불일치를 찾아 고치고 실제 InputEventKey 풀 시뮬
+테스트로 검증까지 마침(상세는 완료 기록 (207)). 다음 우선 순서는
 N-2(캐릭터 선택 전신 이미지 확대) → N-3(flat 버튼 전수 교정 — M-5의 UIKit 버튼
 팩토리 재사용 필수) → N-4(능력치를 실제 다이스 칩으로) → N-5(곡예사를 이벤트
 특화 클래스로 개편, a→b→c) → N-6(캐릭터 전용 이벤트/특별 선택지). 한
@@ -1063,6 +1070,108 @@ N-2(캐릭터 선택 전신 이미지 확대) → N-3(flat 버튼 전수 교정 
 
 ## 완료 기록
 
+- **2026-10-15 (207)**: INBOX.md 최우선 지시 [대형 기획 14](조작/선택 화면/이벤트
+  특화 클래스·전용 이벤트) 중 **N-1(방향키+스페이스로 "진행"까지) 완료**. K-1이
+  이동/선택은 방향키+스페이스로 이미 대체했지만, 사용자가 "진행까지" 마우스 없이
+  가능해야 한다고 다시 요청한 항목 — 전수 감사 → "주 행동 키" 규칙 적용 → 실제
+  `InputEventKey` 시퀀스로 풀 시뮬레이션, 3단계 순서로 진행.
+  **① 전수 감사**(화면/오버레이별로 코드를 직접 읽어 "마우스로만 되는 단계"를
+  찾음, 상세 표는 아래 참고): 대부분의 화면(dungeon_map/combat_test/event/shop/
+  story_event/customize_panel/achievement_panel/skill_codex_panel)은 K-1~M-5가
+  이미 완전히 키보드로 닿았다 — combat_test는 DESIGN.md가 명시한 대로 전투
+  진행 자체가 자동이라 "굴리기/교환 확정/턴 넘김" 버튼이 원래 없음. **실제로
+  찾은 버그 2개 + 불일치 1개**는 모두 character_select/shop에 있었다:
+  (1) **캐릭터 선택의 "시작 스킬 슬롯"(공격/방어 다이스 개수와 별개인 슬롯0~2
+  선택)이 카드 목록(수직 체인)과 전혀 연결돼 있지 않아 마우스로만 닿을 수
+  있었음** — `character_select.gd`의 `_starting_skill_slot_buttons`는 자기들
+  끼리만 수평 체인이고, 카드 쪽 `_shortcut_buttons`(수직 체인)와는 아무 접점이
+  없었다. (2) **그 슬롯을 하나 고르거나 미리보기하면(스페이스) 포커스가 완전히
+  끊김** — `_rebuild_starting_skill_slots()`가 슬롯 버튼을 매번 통째로 지우고
+  새로 만드는데, 그 호출이 슬롯 버튼 자신의 pressed 핸들러 안에서 일어나면
+  방금 눌렀던(포커스를 갖고 있던) 버튼이 사라지고 아무도 새 포커스를 받지
+  않아 방향키를 또 눌러도 반응이 없었다(마우스로 다시 클릭해야만 복구). (3)
+  **shop의 기본 포커스가 "주 행동"(던전으로 돌아가기, style_primary_button)이
+  아니라 첫 품목 구매 버튼이었음** — `_shortcut_buttons` 배열이 화면에 보이는
+  순서(품목들 먼저, 주 행동은 맨 끝)라 `FocusNav.grab_first_focus()`가 우연히
+  틀린 곳에 포커스를 줬다. **② "주 행동 키" 규칙**: dungeon_map(전투 입장)/
+  combat_test(보상·다음·패배 전부 리스트 첫 자리)/event·story_event(선택지
+  자체가 주 행동, 또는 "계속"이 첫 자리)는 이미 규칙을 충족하고 있었음을
+  코드로 확인만 하고 건드리지 않았다. shop만 실제로 틀려서 `code/scenes/
+  focus_nav.gd`에 신규 `grab_default_focus(primary, fallback_list)`(primary가
+  보이고 활성화돼 있으면 그쪽에, 아니면 기존 `grab_first_focus()`로 폴백)를
+  추가하고 `shop.gd`가 `leave_button`을 넘기도록 배선 — 리스트 순서(화면에
+  보이는 순서, 방향키 체인용)는 그대로 두고 "첫 포커스가 어디로 가는지"만
+  명시적으로 분리했다. **character_select 수정**: `_rebuild_starting_skill_slots()`
+  끝에 신규 `_link_cards_to_skill_slots()`(모든 카드의 오른쪽 방향키 → 슬롯[0],
+  모든 슬롯의 왼쪽/위/아래 → 지금 선택된 카드 — 좌/우와 상/하 두 체인이 각각
+  건드리는 축이 달라 서로 안 깨짐)를 추가해 버그(1)을 고쳤다. 버그(2)는
+  `_on_starting_skill_selected()`/`_on_starting_skill_locked_preview()` 끝에
+  신규 `_restore_starting_skill_focus(target_id)`(방금 고르거나 미리보던
+  스킬과 같은 인덱스의 새 슬롯 버튼에 `grab_focus()`)를 추가해 고쳤다 —
+  `_refresh_detail_panel()`(캐릭터 카드 전환)이 부르는 같은
+  `_rebuild_starting_skill_slots()` 경로에는 이 복구를 걸지 않았다(그때는
+  포커스가 여전히 카드 목록에 있어야 카드 연속 탐색이 안 끊긴다).
+  **③ 실제 InputEventKey 풀 시뮬레이션**: 처음엔 `dice_test.gd` 안에서
+  캐릭터 선택→던전 맵→전투→... 전체를 돌려보려 했으나, dice_test 자신이
+  그 실행의 `current_scene`이라 어느 화면의 "진행" 버튼이든
+  `change_scene_to_file()`을 실제로 한 번만 호출해도 dice_test 자신이
+  교체돼(SceneTree.current_scene은 전역에 하나) 테스트 하네스 전체가 사라지는
+  문제를 발견 — 그래서 `code/qa/visual_qa.gd`(Autoload, current_scene이 아니라
+  안 사라짐)에 새 모드를 추가했다. `GAME_QA_KEY_RUN=1`(`scripts/qa_shot.sh`의
+  신규 9번째 인자)이면 스크린샷 캡처 대신 `_run_key_sequence_playthrough()`가
+  실제 `Input.parse_input_event()`로 캐릭터 선택(카드 탐색 → 오른쪽으로 시작
+  스킬 슬롯 진입 확인 → 왼쪽으로 복귀 확인 → 스페이스로 확정) → 아래 방향키로
+  "던전 시작" 도달 → 던전 맵(기본 포커스가 "전투 입장"인지) → 전투 입장 →
+  **실제 물리 다이스 전투가 자동으로 승리까지 끝나길 대기**(`battle_over`/
+  `player_won` 폴링) → 보상 선택(기본 포커스 확인 후 스페이스) → "다음" 버튼
+  방향키 도달+확정 → 다음 방(RunState.rooms_cleared 실제 증가 확인)까지 2개
+  방을 반복한다. 디버깅 중 실제 버그 2개를 더 발견: (a) Godot의 `BaseButton`은
+  `ui_accept` **release**에서야 `pressed`를 emit하는데(press만으로는 CharacterCardPanel
+  같은 커스텀 `_gui_input`만 반응하고 실제 `Button`은 안 눌림) 처음엔 press만
+  보내서 "던전 시작" 버튼이 실제로는 안 눌리고 있었음 — `_send_key()`가 press+
+  release를 모두 보내도록 수정. (b) `VisualQA`의 기존 `_process()`(프레임 세서
+  캡처 루프)가 `set_process(true)`를 명시적으로 안 불러도 Godot 기본 동작으로
+  계속 돌고 있어서, `GAME_QA_FRAME`(기본 60)에 도달하는 순간 느닷없이
+  `_capture_and_quit()`이 끼어들어 `get_tree().quit()`을 불러 한창 진행 중이던
+  플레이스루 코루틴을 중간에 죽이는 문제 — key-run 모드 진입 시 `set_process(false)`를
+  명시적으로 호출하고 `_process()` 자체에도 방어적 가드를 추가해 해결. 실제
+  물리 전투 승리까지 기다리는 타임아웃도 처음엔 1200프레임(20초 가정)으로
+  잡았다가 실제로 재보니(화면 밖(-4000,-4000)에 떠서 fps가 60 미만으로 나옴)
+  부족해 4800프레임으로 늘렸다. **최종 결과**: `bash scripts/qa_shot.sh
+  character_select 60 "" "" "" "" "" "" 1` — 21개 검증 전부 OK, 실제 벽시계
+  시간 약 32초(물리 전투 2회 포함). **회귀 테스트**: `dice_test.gd`에 신규
+  `_check_n1_character_select_skill_slot_key_nav()`(실제 `InputEventKey`로
+  카드↔슬롯 교차 연결 4항목 검증, press+release 패턴은 여기서도 그대로 재사용)
+  추가, `_check_m4_event_shop_story_ui()`에 shop 기본 포커스 검증 1항목 추가 —
+  `bash scripts/qa_shot.sh dice_test` 전체 **PASS**(FAIL 0건, 2회 재확인).
+  전투 규칙/밸런스는 전혀 건드리지 않았다. **전수 감사 표(화면·상태·현재 키로
+  가능한가·부족한 것)**:
+
+  | 화면/오버레이 | 상태/조작 | 키보드로 가능한가 | 비고 |
+  |---|---|---|---|
+  | character_select | 카드 선택(좌/우/방향키+스페이스) | 가능(기존 K-1/L-1) | - |
+  | character_select | 시작 스킬 슬롯 0~2 선택/미리보기 | **불가(마우스 전용) → 이번에 수정** | `_link_cards_to_skill_slots()` 신규 |
+  | character_select | 슬롯 선택 후 계속 방향키 탐색 | **불가(포커스 소실) → 이번에 수정** | `_restore_starting_skill_focus()` 신규 |
+  | character_select | 던전 시작/업적/테스트 전투 | 가능(기존 K-1) | - |
+  | dungeon_map | 전투/상점/이벤트/스토리/정예 입장, 커스터마이징, 스킬 도감 | 가능(기존 K-1/M-1) | 기본 포커스=전투(주 행동), 기존에 이미 일치 |
+  | combat_test | 다이스 굴리기/교환 확정/턴 넘김 | **버튼 자체가 없음(자동 진행)** | DESIGN.md "전투 진행 자체는 자동" — 해당 없음 |
+  | combat_test | 승리 보상 카드/커스터마이징/건너뛰기, 승패 후 "다음"/"처음부터 다시", 덱/도감 토글 | 가능(기존 M-3) | 기본 포커스=리스트 첫 항목(주 행동), 기존에 이미 일치 |
+  | combat_test | 3D 다이스 영역 클릭 | 클릭 핸들러 없음(순수 연출) | 해당 없음 |
+  | event | 안전/위험, 스킬·강화 카드, 실패 후 계속, 커스터마이징/도감 | 가능(기존 M-4) | 선택지 자체가 주 행동 또는 "계속"이 첫 자리 |
+  | shop | 품목 구매, 커스터마이징/도감 | 가능(체인 자체는 기존) | - |
+  | shop | **기본 포커스** | **첫 품목이었음(불일치) → 이번에 수정** | `FocusNav.grab_default_focus()` 신규 + 배선 |
+  | story_event | A/B 선택, 계속, 커스터마이징/도감 | 가능(기존 M-4) | - |
+  | customize_panel | 눈금→다이스→면 3단계, 다이스 인벤토리 2단계, 닫기, Esc | 가능(기존, 매 단계 `_chain_step_focus`) | - |
+  | achievement_panel | 목록 열람(view-only), 닫기, Esc | 가능(기존) | 목록 항목 자체는 포커스 불필요 |
+  | skill_codex_panel | 3열 격자 탐색(wrap), 닫기, Esc | 가능(기존 `_chain_grid`) | - |
+  | deck_panel | (조작 없음, view-only) | 해당 없음 | - |
+  | test_battle_setup | 뒤로/전투 시작 | 가능(기존) | OptionButton 등 세부 설정은 Godot 기본 geometry 포커스에 의존(DESIGN.md가 이미 명시한 한계) — 숨김 QA/개발 화면이라 핵심 플레이 루프 밖, 이번 범위에서 보류 |
+
+  남은 "부족" 항목은 0건(위 표의 "불가"는 모두 이번에 수정 완료, test_battle_setup
+  한 줄만 의도적 보류 — 정식 플레이 흐름이 아닌 개발용 숨김 화면). INBOX.md의
+  [대형 기획 14] 항목은 N-1 완료 기록을 반영해 "부분 처리됨"에 두고(N-2~N-6
+  남음) 진행 한 줄을 갱신했다. **다음은 N-2(캐릭터 선택 전신 이미지 확대)**.
+
 - **2026-10-15 (206)**: INBOX.md 최우선 지시(남은 이슈 맨 위 항목) [미니 기획 M-6]
   카드 프레임 스킨 적용 완료 — **셀프 피드백 루프 방식**. 배경: M-5(a)(202)가
   `resources/ui/panel/card_{base,accent}.png`를 "card" kind로 지원하려다, 카드
@@ -1561,56 +1670,9 @@ N-2(캐릭터 선택 전신 이미지 확대) → N-3(flat 버튼 전수 교정 
   M-2(전투 화면 기본 레이아웃/HUD)**. INBOX.md [대형 기획 13]은 "부분 처리됨"에
   그대로 두고 진행 한 줄만 갱신.
 
-- **2026-10-14 (197)**: INBOX.md 최우선 지시 [대형 기획 12] 캐릭터 선택/스킬 도감/
-  전역 퍼스널 컬러(L-1→L-3) 중 **L-3(전역 퍼스널 컬러를 배경+주요 패널로 확장)
-  완료 — [대형 기획 12] 전체(L-1~L-3) 완료 처리**. K-3(포커스 강조색·캐릭터
-  선택 상세 패널·`DeckPanel`에만 적용)를 게임 전반으로 넓히는 작업.
-  **① 배경**: `code/systems/character_theme.gd`에 신규 `apply_background(scene_root,
-  character_id, animate=false, duration=0.25)`를 추가 — 모든 전체화면 씬이
-  공유하는 "Background"라는 이름의 ColorRect(dungeon_map/combat_test/event/
-  shop/story_event/character_select.tscn 전부 동일 네이밍 컨벤션)를 찾아
-  `panel_bg`로 물들이고, 그 자식으로 (없으면 새로) 만드는 `ThemeVignette`
-  (TextureRect)에 `primary` 색을 `modulate`로 입혀 약한 방사형 그라데이션(비네트)을
-  얹는다. 비네트 텍스처 자체(흰 중심→투명 가장자리 알파 그라데이션)는 캐릭터와
-  무관하게 한 번만 만들어 캐싱하고(`_vignette_texture` static) 캐릭터색은
-  `modulate` 곱으로만 입혀, Tween으로 `modulate`만 보간하면 텍스처 재생성 없이
-  매끄러운 색 전환이 된다. 위 6개 화면의 `_ready()`에서 호출(dungeon_map/
-  combat_test/event/shop/story_event는 즉시 적용, character_select는 카드를
-  바꿀 때마다 `_refresh_detail_panel()`에서 `animate=true`로 호출해 0.25초
-  Tween으로 부드럽게 전환 — 최초 진입만 `animate=false`로 깜빡임 없이 시작).
-  **② 화면 제목**: 신규 `apply_label(label, character_id, use_accent=true)` —
-  위 6개 화면의 "Title" 라벨에 accent 색 적용. **③ 오버레이 패널 3종
-  (`CustomizePanel`/`AchievementPanel`/`SkillCodexPanel`)**: 기존엔 테두리 없는
-  단순 검정 `ColorRect` 틀이었던 것을 `Panel`+`StyleBoxFlat`(배경색 유지, 테두리
-  2px 추가)로 바꾸고 기존 `CharacterTheme.apply(panel, character_id)` 헬퍼로
-  테두리를 캐릭터 primary 색으로 칠한다(제목 라벨도 accent로). **테스트**:
-  `dice_test.gd`의 신규 `_check_l3_personal_color_background()`가 (a)
-  `apply_background()` 단위 검증(combat_test.tscn과 같은 "Background" ColorRect
-  구조를 흉내낸 더미 노드로 — combat_test 자체는 물리 await 때문에 기존 관례대로
-  직접 인스턴스화 안 함) — `ThemeVignette` 생성/`Background.color`·
-  `ThemeVignette.modulate`가 `ui_palette()` 값과 정확히 일치하는지, (b) 실제
-  화면 5개(character_select는 카드 전환, 나머지 4개는 `RunState.character_id`)
-  인스턴스의 `Background.color`가 캐릭터를 바꾸면 실제로 달라지는지(character_select는
-  Tween이 비동기라 `await get_tree().create_timer(0.35).timeout`으로 전환이
-  끝난 뒤에 확인), (c) 오버레이 패널 3종의 `Panel.border_color`가 캐릭터별로
-  바뀌는지까지 전부 PASS(처음엔 character_select 쪽이 FAIL — Tween이 끝나기 전에
-  즉시 읽어서 색이 그대로였던 버그, await 추가로 해결). `bash scripts/qa_shot.sh
-  dice_test` 전체 **PASS**. qa_shot으로 요구된 "3명 × 3화면"(해적=밝은 청록/
-  주술사=어두운 보라/견습 모험가=중립, × character_select/dungeon_map/
-  combat_test)을 `qa_out/l3_*.png`로 촬영해 육안 확인 — 배경 틴트가 또렷이
-  구분되면서도 텍스트/다이스/HP바 전부 선명하게 읽힘, 레이아웃 겹침 없음.
-  character_select/dungeon_map은 QA 전용 0-arity 디버그 훅을 새로 추가해
-  캐릭터를 바꿨다(`_debug_qa_instant_select_*`/`_debug_qa_character_*` —
-  character_select는 기존 `_debug_select_pirate`/`_debug_select_shieldbearer`가
-  이미 있었으나 Tween 애니메이션 도중 색이 찍히는 문제가 있어, `_background_themed`를
-  일부러 false로 되돌려 즉시 적용 분기를 타는 전용 변형을 추가로 만들었다).
-  `docs/DESIGN.md`에 "퍼스널 컬러 적용 범위" 절 신설(INBOX.md L-3 원문 지시대로,
-  K-3부터 L-3까지 전체 적용 지점을 한곳에 정리). **[대형 기획 12](L-1~L-3) 전체
-  완료** — INBOX.md "부분 처리됨"에서 "처리됨"으로 이동.
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(206)에서 (196)을 그리로 옮겼다.)*
+이번 이터레이션(207)에서 (197)을 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 

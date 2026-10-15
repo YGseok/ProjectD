@@ -150,7 +150,13 @@ func _rebuild_items() -> void:
 	_shortcut_buttons.append(skill_codex_button)
 	# K-3: 포커스 강조색도 현재 캐릭터 accent로(K-1의 ACCENT_DEFAULT 대신).
 	FocusNav.chain_linear(_shortcut_buttons, false, false, false, CharacterTheme.ui_palette(RunState.character_id)["accent"])
-	FocusNav.grab_first_focus(_shortcut_buttons)
+	# [대형 기획 14] N-1: 이 화면의 "주 행동"은 품목 구매가 아니라 "던전으로 돌아가기"
+	# (leave_button, 위에서 style_primary_button으로 스타일링 — M-4 주석 참고)다.
+	# _shortcut_buttons는 화면에 보이는 순서(품목 카드들이 위, leave_button이 아래)
+	# 그대로 유지해 방향키 체인은 안 바뀌지만, 기본 포커스는 grab_default_focus()로
+	# leave_button에 명시적으로 준다(품목 버튼이 우연히 배열 맨 앞이라는 이유로
+	# 기본 포커스가 가던 것을 고침).
+	FocusNav.grab_default_focus(leave_button, _shortcut_buttons)
 
 
 func _on_buy_pressed(item: Dictionary, cost: int, target: String) -> void:

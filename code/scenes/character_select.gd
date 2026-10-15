@@ -704,8 +704,60 @@ func _rebuild_starting_skill_slots() -> void:
 	# K-3: 시작 스킬 슬롯의 포커스 테두리도 캐릭터 accent 색을 쓴다(K-1의 ACCENT_DEFAULT
 	# 대신). 상세 패널 전체가 이미 그 캐릭터 색이므로 포커스 색도 일관되게 맞춘다.
 	FocusNav.chain_linear(_starting_skill_slot_buttons, true, false, false, CharacterTheme.ui_palette(_selected_id)["accent"])
+	# [대형 기획 14] N-1 전수 감사에서 발견: 이 수평 체인이 카드 목록(수직 체인,
+	# _shortcut_buttons)과 전혀 연결돼 있지 않아 시작 스킬 슬롯이 마우스로만 닿을 수
+	# 있었다(카드 체인의 상/하 이동은 chain_linear가 설정하지만, 좌/우는 건드리지
+	# 않으므로 여기서 직접 이어도 카드 체인을 깨지 않는다). 카드 목록 쪽에서
+	# 오른쪽으로 들어오면 슬롯[0]으로, 슬롯 쪽에서 위/아래/왼쪽으로 나가면 지금 선택된
+	# 캐릭터 카드로 돌아간다 — 캐릭터를 바꿀 때마다(이 함수가 다시 불릴 때마다) 새로
+	# 만들어진 슬롯 버튼에 매번 다시 걸어야 한다.
+	_link_cards_to_skill_slots()
 
 	_update_starting_skill_description(candidates)
+
+
+## _on_starting_skill_selected()/_on_starting_skill_locked_preview()의 공통 마무리.
+## [대형 기획 14] N-1 전수 감사에서 발견: _rebuild_starting_skill_slots()는 슬롯
+## 버튼을 매번 통째로 지우고 새로 만드는데(remove_child+queue_free), 그 호출이 슬롯
+## 버튼 자신의 pressed 핸들러에서 일어나면 방금 눌렀던(그래서 포커스를 갖고 있던)
+## 버튼이 사라지고 아무도 포커스를 새로 받지 않아, 방향키를 다시 눌러도 반응이 없는
+## "키보드 진행 끊김" 상태가 됐다(마우스로 다시 클릭해야만 포커스가 생김). 방금
+## 고르거나 미리보던 스킬과 같은 슬롯에 포커스를 돌려줘 방향키 조작이 끊기지 않게
+## 한다. **_refresh_detail_panel()(캐릭터 카드를 바꿀 때)의 _rebuild_starting_skill_
+## slots() 호출에는 이 함수를 쓰지 않는다** — 그때는 포커스가 여전히 카드 목록에
+## 있어야 하므로(연속으로 카드를 훑어보는 중일 수 있음), 상세 패널로 포커스를 뺏으면
+## 카드 탐색이 끊긴다.
+func _restore_starting_skill_focus(target_id: String) -> void:
+	if _starting_skill_slot_buttons.is_empty():
+		return
+	var candidates := SkillPool.starting_skills_for_character(_selected_id)
+	for i in candidates.size():
+		if candidates[i]["id"] == target_id:
+			_starting_skill_slot_buttons[i].grab_focus()
+			return
+	_starting_skill_slot_buttons[0].grab_focus()
+
+
+## _rebuild_starting_skill_slots()가 매번 호출 — 카드 목록(수직 체인)과 시작 스킬
+## 슬롯(수평 체인)을 오갈 수 있게 바깥쪽 축만 잇는다. 어느 카드에서든 오른쪽으로
+## 슬롯[0]에 들어가고, 어느 슬롯에서든 위/아래/왼쪽으로 "지금 선택된" 카드로 나간다
+## (슬롯이 몇 개든, 어느 슬롯에 포커스가 있든 돌아갈 곳은 항상 하나로 고정해 방향키
+## 이동이 예측 가능하게 한다).
+func _link_cards_to_skill_slots() -> void:
+	if _starting_skill_slot_buttons.is_empty():
+		return
+	var selected_card: Control = _card_panels.get(_selected_id)
+	if selected_card == null or not is_instance_valid(selected_card):
+		return
+	var first_slot: Button = _starting_skill_slot_buttons[0]
+	for card in _card_panels.values():
+		if card == null or not is_instance_valid(card):
+			continue
+		card.focus_neighbor_right = card.get_path_to(first_slot)
+	for slot in _starting_skill_slot_buttons:
+		slot.focus_neighbor_left = slot.get_path_to(selected_card)
+		slot.focus_neighbor_top = slot.get_path_to(selected_card)
+		slot.focus_neighbor_bottom = slot.get_path_to(selected_card)
 
 
 ## 슬롯 해금 여부를 SkillPool.is_slot_requirement_met() 한 곳에서만 판정한다([대형 기획 5]
@@ -837,6 +889,7 @@ func _on_starting_skill_selected(id: String) -> void:
 	RunState.chosen_starting_skill_id = id
 	_preview_skill_id = ""
 	_rebuild_starting_skill_slots()
+	_restore_starting_skill_focus(id)
 
 
 ## 잠긴 슬롯을 클릭([대형 기획 5] F-1)하면 RunState.chosen_starting_skill_id는 그대로
@@ -848,6 +901,7 @@ func _on_starting_skill_locked_preview(id: String) -> void:
 	SkillCodex.mark_discovered(_selected_id, id)
 	_preview_skill_id = id
 	_rebuild_starting_skill_slots()
+	_restore_starting_skill_focus(id)
 
 
 ## 미리보기 중이면(_preview_skill_id != "") 그 스킬의 효과+해금 조건을, 아니면 현재

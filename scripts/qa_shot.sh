@@ -37,6 +37,15 @@
 #      내는지(이름/다이스 구성/디버그 정보 줄) 스크린샷으로 확인하기 위한 용도. 아직
 #      런 몬스터 계획(G-6)이 없어 평소 플레이로는 신규 몬스터를 만날 수 없으므로 이 훅이
 #      유일한 확인 경로)
+#   scripts/qa_shot.sh character_select 60 "" "" "" "" "" "" 1
+#     (9번째 인자 key_run: [대형 기획 14] N-1, 2026-10-15. "1"이면 GAME_QA_KEY_RUN=1로
+#      전달돼 code/qa/visual_qa.gd가 스크린샷 캡처 대신 "실제 InputEventKey 시퀀스로
+#      마우스 없이 한 판 진행해보기" 모드로 전환된다 — 캐릭터 선택(카드 탐색+시작 스킬
+#      슬롯 진입/복귀+확정)->던전 시작->던전 맵(기본 포커스가 주 행동인지)->전투 입장->
+#      실제 물리 전투 자동 승리 대기->보상 선택->"다음"->다음 방까지 2개 방을 반복해
+#      RunState가 실제로 바뀌는지까지 확인한다. GAME_START는 반드시 character_select여야
+#      한다(이 모드의 시작점). PNG를 저장하지 않으므로 godot 종료 코드만으로 성공/실패를
+#      판정하고, 단계별 결과는 stdout에 [KeyRun] 접두어로 출력된다)
 #
 # 동작:
 #   1) godot --headless --import  (에셋 최초 1회 import / 최신화. 이미 최신이면 빠르게 끝남)
@@ -63,6 +72,13 @@ SETTLE="${5:-}"
 CLICK_PATH="${6:-}"
 ROOM_OVERRIDE="${7:-}"
 MONSTER_ID_OVERRIDE="${8:-}"
+# 9번째 인자 key_run: [대형 기획 14] N-1 — "1"이면 GAME_QA_KEY_RUN=1로 전달됨.
+# code/qa/visual_qa.gd가 스크린샷 캡처 대신 실제 InputEventKey 시퀀스로 캐릭터
+# 선택->던전 맵->전투->보상->다음 방 흐름을 마우스 없이 진행해보는 모드로 전환된다
+# (code/qa/key_sequence_run.gd). 이 모드는 PNG를 저장하지 않으므로 아래 성공 판정도
+# "godot 종료 코드 0"만 보고 PNG 존재 여부는 건너뛴다 — 통과/실패 로그는 stdout에
+# [KeyRun] 접두어로 출력된다.
+KEY_RUN="${9:-}"
 
 if [[ -z "$SCENE_NAME" ]]; then
   echo "사용법: $0 <scene_name> [frame] [output_path]" >&2
@@ -145,9 +161,22 @@ fi
 if [[ -n "$MONSTER_ID_OVERRIDE" ]]; then
   ENV_ARGS+=(GAME_QA_MONSTER_ID="$MONSTER_ID_OVERRIDE")
 fi
+if [[ "$KEY_RUN" == "1" ]]; then
+  ENV_ARGS+=(GAME_QA_KEY_RUN="1")
+fi
 
 env "${ENV_ARGS[@]}" "${RUN_CMD[@]}"
 GODOT_EXIT=$?
+
+if [[ "$KEY_RUN" == "1" ]]; then
+  if [[ "$GODOT_EXIT" == "0" ]]; then
+    echo "[qa_shot] 키 시퀀스 플레이스루 성공 (godot exit=0)"
+    exit 0
+  else
+    echo "[qa_shot] 키 시퀀스 플레이스루 실패 (godot exit=$GODOT_EXIT) — 위 [KeyRun] 로그 참고" >&2
+    exit 1
+  fi
+fi
 
 FINAL_OUT="${OUT:-qa_out/${SCENE_NAME}.png}"
 if [[ "$FINAL_OUT" != /* ]]; then
