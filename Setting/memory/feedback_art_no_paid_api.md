@@ -25,9 +25,10 @@ coordinate clicks miss when the window resizes; another contenteditable holds a 
 ("[최우선 지시 — 기존 캐릭터 화풍 고정]…") — never touch it. GPT often fakes transparency with a
 checkerboard; postprocess removes it. User wants re-requests when style/anatomy/dice are off.
 
-**Learned 2026-10-15:** the old "Project D - Claude" thread stopped loading ("이 ChatGPT 대화를 불러올 수
-없습니다"); a fresh chat "Berserker expression bust" (briefing + 8-char lineup sheet attached) then hit the
-same error mid-generation — likely a ChatGPT-side issue, not thread size. Send key Return only after
+**Learned 2026-10-15:** "Project D - Claude" once failed to load ("이 ChatGPT 대화를 불러올 수
+없습니다") — cause was the usage limit, see below. I made a new chat as a workaround and the user objected:
+**NEVER create a new ChatGPT thread — ALL art work happens in "Project D - Claude"** (deleted the stray one,
+kept its image). If that thread won't load, check usage / ask the user. Send key Return only after
 attachments finish uploading (else nothing sends; click the send button). UI kit tricks that worked:
 draw state sheets (5 button states in one image) then `tools/artgen/sheet_split.gd`; mono icons are
 cleanest as BLACK silhouettes on WHITE then inverted to white+alpha (white-on-transparent came out noisy).

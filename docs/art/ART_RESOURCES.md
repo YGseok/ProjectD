@@ -667,7 +667,7 @@ Work는 `resources/ui/` 이미지가 있으면 StyleBoxTexture로 쓰고, 없으
 | 2026-10-15 | ART-BG001 던전 맵 배경 (GPT 생성 1차 채택 — 어두운 석판 작전 탁자 위에서 내려다본 구도, 가운데 80%는 옅은 격자만 있어 방 노드·경로를 올리기 좋음. 소품(촛불·책·룬 큐브·보라 등불)은 네 귀퉁이에만) | `resources/backgrounds/dungeon_map.png` 1600×900 입고. 화면 적용은 Work M-5 대기 | — |
 | 2026-10-15 | ART-BG002 이벤트 배경 (GPT 생성 1차 채택 — 보라 룬이 빛나는 낡은 제단 방, 천장 틈 푸른 빛, 바닥 안개. 가운데·아래는 차분하게) | `resources/backgrounds/event.png` 1600×900 입고. 특수/스토리 이벤트 공용. 화면 적용은 Work M-5 대기 | — |
 | 2026-10-15 | ART-BG003 상점 배경 (GPT 생성 1차 채택 — 선반·물약·두루마리가 양옆에, 호박색 등불 + 보라 던전빛, 맨 아래 나무 카운터. 가운데는 어두운 안쪽 벽) | `resources/backgrounds/shop.png` 1600×900 입고. **U7 배경 완료 → UI 키트 발주분 전량 입고**. 화면 적용은 Work M-5 대기 | — |
-| 2026-10-15 | ART-CH002-FACE 중 `face_neutral.png` 광전사 (GPT 생성 — 기존 ChatGPT 스레드가 커져서 열리지 않아 새 대화에 8인 라인업 시트 + 광전사 전신 + 견습 모험가 neutral(구도 템플릿)을 첨부해 요청. 견습 모험가와 머리 크기·위치 비교 확인) | `resources/characters/berserker/face_neutral.png` 입고. 나머지 4장은 ChatGPT 대화 로딩 오류로 중단 | — |
+| 2026-10-15 | ART-CH002-FACE 중 `face_neutral.png` 광전사 (GPT 생성 — 광전사 전신 + 견습 모험가 neutral(구도 템플릿) 첨부. 견습 모험가와 머리 크기·위치 비교 확인. 원본 `_reference/characters/berserker/face_neutral_raw.png`) | `resources/characters/berserker/face_neutral.png` 입고. 나머지 4장은 ChatGPT 사용량 한도로 중단(초기화 후 재개) | — |
 
 ---
 
