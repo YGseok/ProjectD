@@ -27,6 +27,13 @@
 
 (플레이해보고 느낀 점을 이 섹션에 자유롭게 적어주세요.)
 
+- 2026-10-16 [미니 기획 ART-3] 스킬 아이콘 원화가 흰 사각형으로 그려짐 (아트 스레드 "ProjectD Art"에서 전달, 우선순위 높음)
+  - 현상: `resources/skills/` 37종 입고(커밋 196f0a2) 후 스킬 도감(`qa_out/art_skill_codex.png`) 등에서 원화 대신 흰 사각형.
+  - 원인: `skill_icon.gd` `_draw()`가 매번 `_external_texture()`로 ImageTexture를 새로 만들어 지역 변수로만 쥔 채 `draw_texture_rect()` →
+    함수 종료 시 텍스처 해제 → 기록된 RID 무효 → 흰색. (같은 텍스처를 TextureRect에 넣으면 정상 — 로드는 문제 없음)
+  - 수정: 텍스처를 멤버 변수로 캐시(skill_id/external_art_base_dir 변경 시에만 재로드). res:// 경로는 ResourceLoader(load())로 읽어 export 안전하게
+    (character_art.gd 패턴), user:// 테스트 경로만 Image.load. `dice_test.gd` 6802~6808행의 "운영 경로 deep_breath 없음 → null" 가정도 갱신.
+
 ## 부분 처리됨
 
 - [부분 처리됨 - 2026-09-15] 2026-09-14 대신 해당 품목이 골드 부족인지, 이미 판매된
