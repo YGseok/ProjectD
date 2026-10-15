@@ -17,6 +17,7 @@ func _initialize() -> void:
 	var out_dir: String = a[2]
 	var mode: String = a[3] if a.size() > 3 else "split"
 	# 보이는 영역만 잘라 목표 크기로
+	_remove_outer_bg(img)
 	var used := _visible_rect(img)   # get_used_rect()는 알파 1~2짜리 잔여 픽셀까지 잡아서 너무 넓다
 	if used.size.x > 0:
 		img = img.get_region(used)
@@ -47,6 +48,34 @@ func _initialize() -> void:
 	print("[ui] ", W, "x", H, " accent px=", n)
 	_preview(base, accent, out_dir)
 	quit()
+
+
+## 바깥 배경이 불투명 단색(GPT가 검정으로 칠해 오는 경우)이면, 네 테두리에서 이어진 그 색 픽셀을 투명으로 지운다.
+func _remove_outer_bg(img: Image) -> void:
+	var w := img.get_width(); var h := img.get_height()
+	var bg := img.get_pixel(0, 0)
+	if bg.a < 0.9:
+		return
+	var seen := PackedByteArray(); seen.resize(w * h)
+	var stack := PackedInt32Array()
+	for x in w:
+		stack.append(x); stack.append((h - 1) * w + x)
+	for y in h:
+		stack.append(y * w); stack.append(y * w + w - 1)
+	var n := 0
+	while stack.size() > 0:
+		var p := stack[stack.size() - 1]; stack.remove_at(stack.size() - 1)
+		if seen[p] == 1: continue
+		seen[p] = 1
+		var x := p % w; var y := p / w
+		var c := img.get_pixel(x, y)
+		if Vector3(c.r - bg.r, c.g - bg.g, c.b - bg.b).length() > 0.08: continue
+		img.set_pixel(x, y, Color(c.r, c.g, c.b, 0.0)); n += 1
+		if x > 0: stack.append(p - 1)
+		if x < w - 1: stack.append(p + 1)
+		if y > 0: stack.append(p - w)
+		if y < h - 1: stack.append(p + w)
+	print("[ui] 불투명 바깥 배경 제거: ", n, "px (", bg.to_html(false), ")")
 
 
 func _visible_rect(img: Image) -> Rect2i:
