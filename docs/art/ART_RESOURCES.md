@@ -314,20 +314,20 @@ ID는 기본 스킬 하나당 번호 하나(`-ICON`), "+" 강화판은 같은 �
 | SK010 | `start_lean` | 정예 | 공방 강화 · `#9966D9` | 공용 시작 | 공+방 다이스 합계 7개 이하면 전체 +1 | 📝 / — |
 | SK011 | `start_overflow` | 과적 | 공방 강화 · `#9966D9` | 공용 시작 | 다이스 6개로 꽉 찬 주머니는 결과값 +1 | 📝 / — |
 | SK012 | `start_diverse` | 잡화점 | 공방 강화 · `#9966D9` | 공용 시작 | 면 개수 종류 3종 이상이면 전체 +1 | 📝 / — |
-| SK013 | `start_gambler` | 승부사 | 이벤트 판정 · `#A680D9` | 매혹사 시작 | 위험 감수 판정 DC −1 | 📝 / — |
+| SK013 | `start_gambler` | 승부사 | 이벤트 판정 · `#A680D9` | 매혹사 시작 | 위험 감수 판정 DC −1 | 📦 / — |
 | SK300 | `deep_breath` (`deep_breath_plus`) | 심호흡 | 방어 강화 · `#4D8CD9` | 공용 획득 | 매 전투 첫 방어턴 방어값 +1 | 📝 / 📝 |
-| SK301 | `spare_die` (`spare_die_plus`) | 여분 | 재굴림 · `#40BF8C` | 공용 획득 | 여분 다이스로 가장 낮은 공격값을 대체 | 📝 / 📝 |
-| SK600 | `frenzy_deepen` (`_plus`) | 광기 심화 | 폭발 스택 · `#F28C26` | 광전사 | 폭발 스택 보너스 1D20을 두 번 굴려 높은 값 | 📝 / 📝 |
-| SK601 | `chain_explosion` (`_plus`) | 연쇄 폭발 | 폭발 스택 · `#F28C26` | 폭발병 | 폭발 스택 임계치 3→2 | 📝 / 📝 |
-| SK602 | `guard_deepen` (`_plus`) | 수호 심화 | 수호 스택 · `#8C99A6` | 수호자 | 수호 스택 보너스 1D20을 두 번 굴려 높은 값 | 📝 / 📝 |
-| SK603 | `chain_guard` (`_plus`) | 연쇄 방어 | 수호 스택 · `#8C99A6` | 주술사 | 수호 스택 임계치 3→2 | 📝 / 📝 |
-| SK604 | `versatile_surge` (`_plus`) | 임기응변 | 이중 스택 · `#F28C26`+`#8C99A6` 반반 | 견습 모험가 | 공격·방어 최댓값마다 각각 스택, 3스택 보너스턴 | 📝 / 📝 |
-| SK605 | `charm_amplify` (`_plus`) | 매혹 심화 | 다이스 전환 · `#D94D8C` | 매혹사 | 매혹 효과가 최저 다이스 2개에 적용 | 📝 / 📝 |
-| SK606 | `juggle_encore` (`_plus`) | 곡예 앙코르 | 다이스 교환 · `#E6BF26` | 곡예사 | 라운드마다 공/방 다이스 1개씩 다시 맞교환 | 📝 / 📝 |
-| SK607 | `broadside` (`_plus`) | 일제 사격 | 주기 공격 · `#26A699` | 해적 | 함포 주기 3→2턴 / +: 고정 피해 강화 | ✅ / 📝 |
-| SK608 | `start_sleight` | 눈속임 | 이벤트 판정 · `#A680D9` | 곡예사 시작(슬롯0) | 위험 감수 판정 DC −1(최저 DC 2). 눈속임·소매치기 손동작 뉘앙스 | 📝 / — |
-| SK609 | `start_fortune` | 한탕 | 이벤트 판정 · `#A680D9` | 곡예사 시작(슬롯1) | 위험 감수 판정 성공 시 골드 추가. 골드·한탕 뉘앙스 | 📝 / — |
-| SK610 | `juggle_fortune` (`juggle_fortune_plus`) | 곡예 흥행 | 이벤트 판정 · `#A680D9` | 곡예사 | 이벤트 주사위 굴림 +1(+판 +2, 상한은 면 수). 곡예사 이벤트 주사위는 **D12** | 📝 / 📝 |
+| SK301 | `spare_die` (`spare_die_plus`) | 여분 | 재굴림 · `#40BF8C` | 공용 획득 | 여분 다이스로 가장 낮은 공격값을 대체 | 📦 / 📦 |
+| SK600 | `frenzy_deepen` (`_plus`) | 광기 심화 | 폭발 스택 · `#F28C26` | 광전사 | 폭발 스택 보너스 1D20을 두 번 굴려 높은 값 | 📦 / 📦 |
+| SK601 | `chain_explosion` (`_plus`) | 연쇄 폭발 | 폭발 스택 · `#F28C26` | 폭발병 | 폭발 스택 임계치 3→2 | 📦 / 📦 |
+| SK602 | `guard_deepen` (`_plus`) | 수호 심화 | 수호 스택 · `#8C99A6` | 수호자 | 수호 스택 보너스 1D20을 두 번 굴려 높은 값 | 📦 / 📦 |
+| SK603 | `chain_guard` (`_plus`) | 연쇄 방어 | 수호 스택 · `#8C99A6` | 주술사 | 수호 스택 임계치 3→2 | 📦 / 📦 |
+| SK604 | `versatile_surge` (`_plus`) | 임기응변 | 이중 스택 · `#F28C26`+`#8C99A6` 반반 | 견습 모험가 | 공격·방어 최댓값마다 각각 스택, 3스택 보너스턴 | 📦 / 📦 |
+| SK605 | `charm_amplify` (`_plus`) | 매혹 심화 | 다이스 전환 · `#D94D8C` | 매혹사 | 매혹 효과가 최저 다이스 2개에 적용 | 📦 / 📦 |
+| SK606 | `juggle_encore` (`_plus`) | 곡예 앙코르 | 다이스 교환 · `#E6BF26` | 곡예사 | 라운드마다 공/방 다이스 1개씩 다시 맞교환 | 📦 / 📦 |
+| SK607 | `broadside` (`_plus`) | 일제 사격 | 주기 공격 · `#26A699` | 해적 | 함포 주기 3→2턴 / +: 고정 피해 강화 | ✅ / 📦 |
+| SK608 | `start_sleight` | 눈속임 | 이벤트 판정 · `#A680D9` | 곡예사 시작(슬롯0) | 위험 감수 판정 DC −1(최저 DC 2). 눈속임·소매치기 손동작 뉘앙스 | 📦 / — |
+| SK609 | `start_fortune` | 한탕 | 이벤트 판정 · `#A680D9` | 곡예사 시작(슬롯1) | 위험 감수 판정 성공 시 골드 추가. 골드·한탕 뉘앙스 | 📦 / — |
+| SK610 | `juggle_fortune` (`juggle_fortune_plus`) | 곡예 흥행 | 이벤트 판정 · `#A680D9` | 곡예사 | 이벤트 주사위 굴림 +1(+판 +2, 상한은 면 수). 곡예사 이벤트 주사위는 **D12** | 📦 / 📦 |
 
 **발주 우선순위** (Work 제안과 같음): S1 캐릭터 전용 고유 스킬 SK600~610 (20장 — SK608~610은 2026-10-16 Work 추가 발주, 곡예사 개편: 커밋 fed5040/7835bde/1aad99d. 곡예사의 기존 시작 스킬 맹공·수집가는 곡예사 후보에서 빠짐, 공용으로는 유지) → S2 시작 스킬 SK001~013 (13장)
 → S3 공용 획득 SK300~301 (4장). 실제 디자인은 **모티프 11종**이라, 모티프마다 베이스 1장을 먼저 잡고
@@ -678,6 +678,7 @@ Work는 `resources/ui/` 이미지가 있으면 StyleBoxTexture로 쓰고, 없으
 | 2026-10-16 | ART-CH006-FACE 매혹사 표정 5장 (GPT 생성, "Project D - Claude" 스레드, 견습 모험가 neutral을 구도 템플릿으로 첨부. 5장 머리 위치·구도 일치 확인) | `resources/characters/enchantress/face_*.png` 입고(원본 `_reference/characters/enchantress/`). Work ART-1b 로직으로 전투 화면 자동 적용 | `qa_out/art_enchantress_face_set.png` |
 | 2026-10-16 | ART-CH007-FACE 곡예사 표정 5장 (GPT 생성, "Project D - Claude" 스레드, 견습 모험가 neutral을 구도 템플릿으로 첨부. 5장 머리 위치·구도 일치 확인) | `resources/characters/juggler/face_*.png` 입고(원본 `_reference/characters/juggler/`). Work ART-1b 로직으로 전투 화면 자동 적용 | `qa_out/art_juggler_face_set.png` |
 | 2026-10-16 | ART-CH008-FACE 해적 표정 5장 (GPT 생성, "Project D - Claude" 스레드, 견습 모험가 neutral을 구도 템플릿으로 첨부. 5장 머리 위치·구도 일치 확인) | `resources/characters/pirate/face_*.png` 입고(원본 `_reference/characters/pirate/`). Work ART-1b 로직으로 전투 화면 자동 적용 | `qa_out/art_pirate_face_set.png` |
+| 2026-10-16 | 스킬 아이콘 S1 캐릭터 전용 SK600~610 전량 + SK013 승부사·SK301 여분 (GPT 생성, 2×2 시트 3장으로 받아 `sheet_split.gd` + `icon_fit.gd`로 분리·256/128. 연쇄 폭발은 첫 시안이 해적 시계 폭탄과 겹쳐 X 표시 폭탄으로 재요청). **"+" 강화판 10종**은 금테+별 배지 오버레이 1장(`_reference/skills/plus_overlay.png`)을 `plus_compose.gd`로 합성해 그림 일관성 유지 | `resources/skills/<id>.png`, `<id>_plus.png` 입고(원본 `_reference/skills/*_256.png`). 32px 판독 확인. `SkillIcon.load_external_art()`로 자동 적용 | `tools/artgen/out/skills_s1/row_all.png` |
 
 ---
 
