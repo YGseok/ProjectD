@@ -17,10 +17,10 @@ func _initialize() -> void:
 	var out_dir: String = a[2]
 	var mode: String = a[3] if a.size() > 3 else "split"
 	# 보이는 영역만 잘라 목표 크기로
-	var used := img.get_used_rect()
+	var used := _visible_rect(img)   # get_used_rect()는 알파 1~2짜리 잔여 픽셀까지 잡아서 너무 넓다
 	if used.size.x > 0:
 		img = img.get_region(used)
-	img.resize(W, H, Image.INTERPOLATE_LANCZOS)
+	img = _fit_trim(img, W, H)
 	if mode == "plain":
 		img.save_png(out_dir + "/candidate.png")
 		_preview(img, null, out_dir); quit(); return
@@ -47,6 +47,37 @@ func _initialize() -> void:
 	print("[ui] ", W, "x", H, " accent px=", n)
 	_preview(base, accent, out_dir)
 	quit()
+
+
+func _visible_rect(img: Image) -> Rect2i:
+	var d := img.get_data(); var w := img.get_width(); var h := img.get_height()
+	var minx := w; var maxx := -1; var miny := h; var maxy := -1
+	for y in h:
+		for x in w:
+			if d[(y * w + x) * 4 + 3] > 25:
+				minx = mini(minx, x); maxx = maxi(maxx, x); miny = mini(miny, y); maxy = maxi(maxy, y)
+	if maxx < 0:
+		return Rect2i()
+	return Rect2i(minx, miny, maxx - minx + 1, maxy - miny + 1)
+
+
+## 비율이 목표와 다르면(GPT가 4:1을 6:1로 그리는 등) 찌그러뜨리지 않는다: 비율을 지킨 채 목표를
+## 덮도록 줄인 뒤, 남는 축은 가운데(9-slice에서 늘어나는 균일 구간)를 잘라내고 양 끝을 붙인다.
+func _fit_trim(img: Image, W: int, H: int) -> Image:
+	var s := maxf(float(W) / img.get_width(), float(H) / img.get_height())
+	img.resize(maxi(W, int(round(img.get_width() * s))), maxi(H, int(round(img.get_height() * s))), Image.INTERPOLATE_LANCZOS)
+	var w := img.get_width(); var h := img.get_height()
+	if w == W and h == H:
+		return img
+	var out := Image.create(W, H, false, Image.FORMAT_RGBA8)
+	var lw := W / 2; var th := H / 2
+	# 네 귀퉁이를 각각 원본 귀퉁이에서 가져와 붙임
+	out.blit_rect(img, Rect2i(0, 0, lw, th), Vector2i(0, 0))
+	out.blit_rect(img, Rect2i(w - (W - lw), 0, W - lw, th), Vector2i(lw, 0))
+	out.blit_rect(img, Rect2i(0, h - (H - th), lw, H - th), Vector2i(0, th))
+	out.blit_rect(img, Rect2i(w - (W - lw), h - (H - th), W - lw, H - th), Vector2i(lw, th))
+	print("[ui] 비율 보정: ", w, "x", h, " → 가운데를 잘라 ", W, "x", H)
+	return out
 
 
 func _preview(base: Image, accent, out_dir: String) -> void:
