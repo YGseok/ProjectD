@@ -205,6 +205,43 @@ K-3(포커스 강조색·캐릭터 선택 상세 패널·`DeckPanel`)에 이어 
   `text`를 그 배경 대비로 보정해 자동 보장 — 8명 전부 12~13대1로 여유 있게
   통과(계산은 `code/scenes/dice_test.gd`의 K-3/L-3 검증 참고).
 
+## UI
+
+[대형 기획 13] M-1~M-5(2026-10-14~15, M-4가 2026-10-15에 마지막으로 완료되며 전체
+마무리)로 캐릭터 선택 화면(K-2/K-3)이 먼저 확립한 "구역 패널 + 테두리 + 퍼스널 컬러 +
+버튼 위계" 시각 언어가 던전 맵 → 전투 → 이벤트/상점/스토리 이벤트 순으로 전 화면에
+퍼졌다. `code/systems/ui_kit.gd`(`UIKit`)가 이 패턴들을 공용 팩토리 함수로 제공해
+화면마다 같은 스타일 코드를 복붙하지 않게 한다 — M-5(a)/(b)로 ProjectD Art가 납품한
+`resources/ui/` 이미지 스킨(패널/버튼/HP 바/배지/장식/아이콘)도 전부 이 팩토리들
+내부에서 "있으면 쓰고, 없으면 절차적 StyleBoxFlat/ColorRect로 폴백"하므로 호출부는
+스킨 유무를 몰라도 된다.
+
+### 공용 UI 컴포넌트(`UIKit`) 목록과 사용처
+
+| 함수 | 역할 | 사용처 |
+| --- | --- | --- |
+| `make_section(parent, title, character_id, ...)` | 테두리 있는 세로 구역 패널(제목+구분선 옵션, 아이콘 옵션) | `deck_panel`(캐릭터/보유 스킬/공격·방어 주머니/인벤토리 5섹션), `combat_test`(전투 기록), `skill_codex_panel`, `customize_panel`/`achievement_panel`(오버레이 틀) |
+| `make_bar(parent, character_id, ...)` | 가로 HUD 띠(제목 없음, 얕은 패딩) | `dungeon_map`(라운드/진행도/골드 HUD, 범례), `shop`(M-4, 보유 골드 HUD 칩) |
+| `make_backdrop(parent, character_id, rect, ...)` | 제목/바디 스캐폴딩 없는 순수 배경 프레임(M-4 신규, `make_section`에서 공용 로직만 분리) | `event`/`story_event`(M-4, 서사 텍스트 PromptLabel/Description 뒤 배경 — 기존 Label은 `move_child()`로 그 앞에 끼워 넣을 뿐 reparent하지 않음) |
+| `make_stat_chip` / `make_progress_dots` | HUD 안 "아이콘+큰 숫자+캡션" 칩 / 런 진행도 점 | `dungeon_map` |
+| `style_primary_button` / `style_secondary_button` | 주/보조 버튼 위계(이미지 스킨 상태별 폴백 지원, M-5a) | `dungeon_map`(전투 입장=주, 상점/이벤트/스토리/정예/커스터마이징=보조), `combat_test`(다음=주, 나머지 5개=보조), `event`(M-4, 계속=주, 안전·위험=보조+tint로 의미 구분, 카드 안 구매·적용·획득 버튼=보조), `shop`(M-4, 던전으로 돌아가기=주, 구매/커스터마이징/스킬 도감=보조), `story_event`(M-4, 계속=주, A·B 선택지=보조) |
+| `make_hp_bar` | 프레임+채움 HP 바(비율별 녹→주황→빨강, M-5a 이미지 스킨) | `combat_test`(플레이어/몬스터) |
+| `make_badge` / `tier_badge_texture` / `make_codex_badge` | 턴·라운드 배지 / 몬스터 티어 배지(풀컬러, 안 틴트) / 도감 상태 배지(상태색 modulate) | `combat_test`, `skill_codex_panel` |
+| `apply_chip_skin` / `_make_divider_control` / `_make_title_ornament_rect` | 칩 배경 / 구분선 / 제목 좌우 장식 | `make_section`/`make_stat_chip` 내부(모든 화면 공통) |
+| `icon_texture(name, tint, ...)` | 기능 아이콘 9종(gold/pip/dice/hp/defense/attack/crown/skull/lock) 공용 로더(흰 실루엣+알파를 호출부 tint로 착색) | `reward_icon`, `family_icon`, `lock_icon`, `achievement_icon`, `make_section(icon_name=...)` |
+| `apply_panel_skin` | 위 패널류가 공유하는 저수준 스킨 적용 — 있으면 `StyleBoxTexture`, 없으면 `StyleBoxFlat` 폴백 | 위 패널 계열 전부 |
+
+`character_select`는 `CharacterCardPanel`/상세 패널 5섹션 전용 구조라 `UIKit` 팩토리
+대신 `CharacterTheme.apply()`를 직접 쓴다(K-2/K-3가 먼저 확립한 패턴 — `UIKit`은 그
+다음 M-1부터 "여러 화면이 같은 모양을 반복"하면서 공용 헬퍼로 뽑혀나온 것). 퍼스널
+컬러 팔레트·배경·라벨 틴트(`CharacterTheme`, 위 "퍼스널 컬러 적용 범위" 절 참고)와
+포커스 강조 테두리(`FocusNav.focus_style()`)는 `UIKit`과 별개 축으로 모든 화면이
+공유한다. 아이템/스킬 카드(`ItemCardStyle`)는 등급(S/A/B/C) 색 테두리가 중요한 신호라
+퍼스널 컬러로 틴트하지 않고 독립적으로 유지한다(M-5(a) 때 사람 결정 보류 사항).
+
+파일이 전혀 없는 상태(아트 미입고)에서도 위 전부가 기존 절차적 스타일 그대로 동작 —
+`resources/ui/`(M-5a/b) 자산은 "있으면 쓰고 없어도 안 깨지는" 선택적 스킨이다.
+
 ## 현재 구현 콘텐츠 (기획자 참고용)
 
 > 이 섹션은 코드를 열지 않고도 "지금 게임에 실제로 뭐가 들어있는지" 확인하기 위한

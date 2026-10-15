@@ -93,6 +93,20 @@ func _ready() -> void:
 	fail_label.hide()
 	continue_button.hide()
 	continue_button.pressed.connect(_on_continue_after_fail_pressed)
+	# [대형 기획 13] M-4 — 던전 맵/전투와 같은 버튼 위계로 통일. "계속"(실패 후 유일한
+	# 진행 행동)만 주 행동, 나머지는 보조. 안전/위험은 서로 대등한 두 선택지라 등급 대신
+	# tint로 의미(안전=초록/위험=주황-빨강)를 더한다 — dungeon_map의 정예 전투 빨간
+	# tint와 같은 패턴. 카드 안 버튼(적용/획득)들은 그릴 때마다 _show_item_offer/
+	# _show_skill_offer에서 개별 스타일링.
+	UIKit.style_secondary_button(safe_button, RunState.character_id, Color(0.3, 0.62, 0.35))
+	UIKit.style_secondary_button(risky_button, RunState.character_id, Color(0.82, 0.38, 0.18))
+	UIKit.style_primary_button(continue_button, RunState.character_id)
+	UIKit.style_secondary_button(customize_button, RunState.character_id)
+	UIKit.style_secondary_button(skill_codex_button, RunState.character_id)
+	# "상황" 배경 프레임 — 기존 PromptLabel은 그대로 두고(테스트/참조 호환) 뒤에 깔아
+	# dungeon_map/combat의 구역 패널과 시각 언어를 맞춘다(INBOX M-4 "구역 패널로 맞춘다").
+	var prompt_backdrop := UIKit.make_backdrop(self, RunState.character_id, Rect2(Vector2(32, 62), Vector2(900, 48)))
+	move_child(prompt_backdrop, 1)
 
 	var upgrade_candidates := SkillPool.available_upgrade_choices(2, RunState.character_id)
 	_is_skill_upgrade_event = not upgrade_candidates.is_empty() and randf() < SKILL_UPGRADE_EVENT_CHANCE
@@ -271,6 +285,7 @@ func _show_item_offer(item: Dictionary) -> void:
 		pip_btn.text = "눈금 획득"
 		pip_btn.custom_minimum_size = Vector2(0, 38)
 		pip_btn.pressed.connect(_on_pick_pips.bind(item))
+		UIKit.style_secondary_button(pip_btn, RunState.character_id)
 		button_row.add_child(pip_btn)
 		offer_buttons.append(pip_btn)
 	elif item.get("kind", "") == "upgrade_die":
@@ -278,6 +293,7 @@ func _show_item_offer(item: Dictionary) -> void:
 		upgrade_btn.text = "다이스 획득 (인벤토리)"
 		upgrade_btn.custom_minimum_size = Vector2(0, 38)
 		upgrade_btn.pressed.connect(_on_pick_upgrade.bind(item))
+		UIKit.style_secondary_button(upgrade_btn, RunState.character_id)
 		button_row.add_child(upgrade_btn)
 		offer_buttons.append(upgrade_btn)
 	else:
@@ -290,6 +306,7 @@ func _show_item_offer(item: Dictionary) -> void:
 		atk_btn.disabled = not atk_applicable
 		atk_btn.custom_minimum_size = Vector2(0, 38)
 		atk_btn.pressed.connect(_on_pick_pressed.bind(item, "attack"))
+		UIKit.style_secondary_button(atk_btn, RunState.character_id)
 		button_row.add_child(atk_btn)
 		offer_buttons.append(atk_btn)
 
@@ -302,6 +319,7 @@ func _show_item_offer(item: Dictionary) -> void:
 		def_btn.disabled = not def_applicable
 		def_btn.custom_minimum_size = Vector2(0, 38)
 		def_btn.pressed.connect(_on_pick_pressed.bind(item, "defense"))
+		UIKit.style_secondary_button(def_btn, RunState.character_id)
 		button_row.add_child(def_btn)
 		offer_buttons.append(def_btn)
 
@@ -343,6 +361,7 @@ func _show_skill_offer(skills: Array[Dictionary]) -> void:
 		pick_btn.text = "이 능력 익히기"
 		pick_btn.custom_minimum_size = Vector2(0, 38)
 		pick_btn.pressed.connect(_on_pick_skill_pressed.bind(skill))
+		UIKit.style_secondary_button(pick_btn, RunState.character_id)
 		var button_row: VBoxContainer = built["button_row"]
 		button_row.add_child(pick_btn)
 		offer_buttons.append(pick_btn)

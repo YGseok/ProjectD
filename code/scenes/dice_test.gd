@@ -349,6 +349,10 @@ func _ready() -> void:
 	all_pass = (await _check_art2_face_crop_fix(lines)) and all_pass
 
 	lines.append("")
+	lines.append("[M-4: 이벤트/상점/스토리 이벤트 화면 통일 검증: shop.gd HUD 골드 칩 실제 갱신 + event.gd/story_event.gd 버튼 위계(주 행동 vs 보조, 안전/위험 tint 구분) + 카드 안 동적 버튼(구매/적용/획득) 스타일링 + 서사 텍스트 배경 프레임]")
+	all_pass = _check_m4_event_shop_story_ui(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -7528,6 +7532,161 @@ func _check_art2_face_crop_fix(lines: PackedStringArray) -> bool:
 	remove_child(combat)
 	combat.free()
 	RunState.character_id = character_backup
+	return ok
+
+
+## [대형 기획 13] M-4(2026-10-15) — event.gd/shop.gd/story_event.gd를 dungeon_map/
+## combat_test와 같은 HUD·구역 패널·버튼 스타일로 맞췄는지, "속성이 설정됐는가"가
+## 아니라 ① shop의 HUD 골드 칩이 RunState.gold를 실제로 반영/갱신하는지 ② 버튼들이
+## 실제로 커스텀 stylebox override를 받았는지(has_theme_stylebox_override — 기본
+## Godot 버튼 테마 그대로 남아있지 않은지) ③ 안전/위험처럼 의미가 다른 버튼 쌍이
+## 서로 다른 tint로 구분되는지(_m5_style_fingerprint) ④ 카드 안에서 동적으로 생성되는
+## 구매/적용/획득 버튼까지 스타일링되는지 ⑤ 서사 텍스트 뒤에 배경 프레임(make_backdrop)이
+## 실제로 깔렸는지를 확인한다.
+func _check_m4_event_shop_story_ui(lines: PackedStringArray) -> bool:
+	var ok := true
+
+	var character_backup: String = RunState.character_id
+	var gold_backup := RunState.gold
+	var rooms_backup := RunState.rooms_cleared
+	RunState.character_id = "novice"
+	RunState.rooms_cleared = 0
+
+	# --- shop: HUD 골드 칩 ---
+	RunState.gold = 42
+	var shop_scene := load("res://code/scenes/shop.tscn")
+	var shop = shop_scene.instantiate()
+	add_child(shop)
+
+	var gold_hidden_ok: bool = not shop.gold_label.visible
+	ok = gold_hidden_ok and ok
+	lines.append("  shop: 기존 GoldLabel(평문) 숨김=%s (기대 true, HUD 칩이 대신함) -> %s" % [
+		gold_hidden_ok, "OK" if gold_hidden_ok else "FAIL"
+	])
+	var gold_chip_text_ok: bool = shop._hud_gold_value_label.text == "42"
+	ok = gold_chip_text_ok and ok
+	lines.append("  shop: HUD 골드 칩 = '%s' (기대 '42') -> %s" % [
+		shop._hud_gold_value_label.text, "OK" if gold_chip_text_ok else "FAIL"
+	])
+	RunState.gold = 777
+	shop._rebuild_items()
+	var gold_chip_updates_ok: bool = shop._hud_gold_value_label.text == "777"
+	ok = gold_chip_updates_ok and ok
+	lines.append("  shop: 골드를 777로 바꾸고 _rebuild_items() 재호출 후 칩 = '%s' -> %s" % [
+		shop._hud_gold_value_label.text, "OK" if gold_chip_updates_ok else "FAIL"
+	])
+
+	# 버튼 위계: "던전으로 돌아가기"(주 행동)와 "커스터마이징"(보조 행동)이 서로 다른
+	# stylebox를 받아야 한다(dungeon_map M-1과 같은 검증 방식).
+	var leave_fp: Variant = _m5_style_fingerprint(shop.leave_button.get_theme_stylebox("normal"))
+	var shop_customize_fp: Variant = _m5_style_fingerprint(shop.customize_button.get_theme_stylebox("normal"))
+	var shop_hierarchy_ok: bool = shop.leave_button.has_theme_stylebox_override("normal") \
+		and shop.customize_button.has_theme_stylebox_override("normal") and leave_fp != shop_customize_fp
+	ok = shop_hierarchy_ok and ok
+	lines.append("  shop: 던전으로 돌아가기(주)=%s 커스터마이징(보조)=%s (달라야 함, 둘 다 override) -> %s" % [
+		leave_fp, shop_customize_fp, "OK" if shop_hierarchy_ok else "FAIL"
+	])
+	var shop_codex_styled_ok: bool = shop.skill_codex_button.has_theme_stylebox_override("normal")
+	ok = shop_codex_styled_ok and ok
+	lines.append("  shop: 스킬 도감 버튼도 override 받음(기본 Godot 테마 아님) -> %s" % (
+		"OK" if shop_codex_styled_ok else "FAIL"
+	))
+	# 카드 안 동적 버튼(품목별 공격/방어 구매, 또는 upgrade_die의 단일 구매 버튼)도
+	# 스타일링되는지 — _shortcut_buttons 맨 앞이 그 버튼들이다(leave/customize/codex는
+	# 리스트 맨 끝에 붙음, shop.gd _rebuild_items() 참고).
+	var shop_card_btn_styled_ok: bool = shop._shortcut_buttons.size() > 0 \
+		and shop._shortcut_buttons[0].has_theme_stylebox_override("normal")
+	ok = shop_card_btn_styled_ok and ok
+	lines.append("  shop: 카드 안 첫 구매 버튼('%s')도 override 받음 -> %s" % [
+		shop._shortcut_buttons[0].text if shop._shortcut_buttons.size() > 0 else "<없음>",
+		"OK" if shop_card_btn_styled_ok else "FAIL"
+	])
+
+	remove_child(shop)
+	shop.free()
+
+	# --- event: 버튼 위계 + 안전/위험 tint 구분 + 배경 프레임 ---
+	var event_scene := load("res://code/scenes/event.tscn")
+	var event = event_scene.instantiate()
+	add_child(event)
+
+	var safe_styled_ok: bool = event.safe_button.has_theme_stylebox_override("normal")
+	var risky_styled_ok: bool = event.risky_button.has_theme_stylebox_override("normal")
+	ok = safe_styled_ok and risky_styled_ok and ok
+	lines.append("  event: 안전/위험 버튼 둘 다 override 받음 -> %s" % (
+		"OK" if (safe_styled_ok and risky_styled_ok) else "FAIL"
+	))
+	var safe_fp: Variant = _m5_style_fingerprint(event.safe_button.get_theme_stylebox("normal"))
+	var risky_fp: Variant = _m5_style_fingerprint(event.risky_button.get_theme_stylebox("normal"))
+	var safe_risky_distinct_ok: bool = safe_fp != risky_fp
+	ok = safe_risky_distinct_ok and ok
+	lines.append("  event: 안전(초록 tint)=%s 위험(주황 tint)=%s (의미가 다르니 달라야 함) -> %s" % [
+		safe_fp, risky_fp, "OK" if safe_risky_distinct_ok else "FAIL"
+	])
+	var continue_primary_ok: bool = event.continue_button.has_theme_stylebox_override("normal")
+	ok = continue_primary_ok and ok
+	lines.append("  event: '계속'(실패 후 유일한 진행 행동) 버튼 override 받음 -> %s" % (
+		"OK" if continue_primary_ok else "FAIL"
+	))
+
+	# 서사 텍스트("상황") 배경 프레임 — Background(0) 바로 다음(index 1)에
+	# make_backdrop()이 만든 PanelContainer가 끼워져 있어야 한다(event.gd _ready()의
+	# move_child(prompt_backdrop, 1) 참고).
+	var event_backdrop_ok: bool = event.get_child_count() > 1 and event.get_child(1) is PanelContainer
+	ok = event_backdrop_ok and ok
+	lines.append("  event: PromptLabel 뒤 배경 프레임(PanelContainer, index 1) 존재 -> %s" % (
+		"OK" if event_backdrop_ok else "FAIL"
+	))
+
+	# 카드 안 동적 버튼(스킬 획득 "이 능력 익히기") 스타일링. 고정된 스킬 2개를
+	# 직접 넘겨(_debug_force_skill_event_as_guardian()과 같은 패턴) available_choices()의
+	# 무작위 셔플을 피한다 — 이 테스트가 전역 RNG 스트림을 소비하면 다이스
+	# 테스트 스위트 뒤쪽의 "강제 고정값으로 반드시 이긴다" 류 시나리오(H-1 등, 몬스터
+	# 종류를 전역 randi()로 뽑음)가 어떤 몬스터를 뽑는지가 바뀌어, 이 M-4 검증과는
+	# 무관한 다른 검증이 간헐적으로 실패하는 부작용이 있었다(실측 확인).
+	var fixed_skill_offer: Array[Dictionary] = [SkillPool.SKILLS[0], SkillPool.SKILLS[1]]
+	event._setup_skill_event(fixed_skill_offer)
+	var event_skill_btn_styled_ok: bool = false
+	for n in event.items_root.get_children():
+		for btn in n.find_children("*", "Button", true, false):
+			if (btn as Button).text == "이 능력 익히기":
+				event_skill_btn_styled_ok = (btn as Button).has_theme_stylebox_override("normal")
+	ok = event_skill_btn_styled_ok and ok
+	lines.append("  event: 스킬 카드 '이 능력 익히기' 버튼도 override 받음 -> %s" % (
+		"OK" if event_skill_btn_styled_ok else "FAIL"
+	))
+
+	remove_child(event)
+	event.free()
+
+	# --- story_event: 버튼 위계 + 배경 프레임 ---
+	var story_scene := load("res://code/scenes/story_event.tscn")
+	var story = story_scene.instantiate()
+	add_child(story)
+
+	var story_choices_styled_ok: bool = story.choice_a_button.has_theme_stylebox_override("normal") \
+		and story.choice_b_button.has_theme_stylebox_override("normal")
+	ok = story_choices_styled_ok and ok
+	lines.append("  story_event: A/B 선택지 버튼 둘 다 override 받음 -> %s" % (
+		"OK" if story_choices_styled_ok else "FAIL"
+	))
+	var story_continue_styled_ok: bool = story.continue_button.has_theme_stylebox_override("normal")
+	ok = story_continue_styled_ok and ok
+	lines.append("  story_event: '계속' 버튼(유일한 진행 행동) override 받음 -> %s" % (
+		"OK" if story_continue_styled_ok else "FAIL"
+	))
+	var story_backdrop_ok: bool = story.get_child_count() > 1 and story.get_child(1) is PanelContainer
+	ok = story_backdrop_ok and ok
+	lines.append("  story_event: Description 뒤 배경 프레임(PanelContainer, index 1) 존재 -> %s" % (
+		"OK" if story_backdrop_ok else "FAIL"
+	))
+
+	remove_child(story)
+	story.free()
+
+	RunState.character_id = character_backup
+	RunState.gold = gold_backup
+	RunState.rooms_cleared = rooms_backup
 	return ok
 
 

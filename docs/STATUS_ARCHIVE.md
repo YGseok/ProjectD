@@ -8,6 +8,65 @@
 
 ---
 
+- **2026-10-14 (195)**: INBOX.md 최우선 지시 [대형 기획 12] 캐릭터 선택/스킬 도감/
+  전역 퍼스널 컬러(L-1→L-3) 중 **L-2(b)(도감 패널 UI) 완료**. 신규
+  `code/scenes/skill_codex_panel.gd`(`SkillCodexPanel extends Control`,
+  `achievement_panel.gd`/`customize_panel.gd`와 같은 "스크립트 하나로 완결된
+  Control, 별도 .tscn 불필요" 패턴)가 `open(character_id, owned_skill_ids)`로
+  여는 재사용 가능한 오버레이 패널이다. "보유" 여부는 패널이 `RunState`를
+  직접 읽지 않고 호출부가 넘겨주는 배열로만 판단한다(캐릭터 선택 화면은
+  빈 배열, 던전 진행 화면은 `RunState.skill_flags`를 넘기는 식으로 호출부마다
+  다른 의미를 그대로 받아들이기 위함 — L-2(c)에서 실제로 배선할 때를 대비한
+  설계, INBOX.md 원문 "선택 화면에서는 보유 0개" 반영). "발견" 여부는
+  `SkillCodex`(L-2(a))를 직접 읽는다. `SkillPool.codex_entries(character_id)`
+  (L-2(a))를 `GridContainer`(3열) 격자로 그리며, 카드 하나하나는 L-1의
+  `CharacterCardPanel`을 재사용(hover 피드백 공짜로 얻음, 클릭 동작은 연결
+  안 함 — view-only). **3상태**(우선순위: 보유 > 발견-미보유 > 미발견)를
+  아이콘 알파(1.0/0.55/0.35)·이름 텍스트(실제 이름/실제 이름/"???")·배지
+  텍스트("보유"/"발견"/"미발견", 색만이 아니라 텍스트로도 구분)·테두리
+  (accent 3px/회색 2px/어두운 회색 1px) 네 겹으로 동시에 구분한다. 미발견
+  카드의 설명 줄은 기본적으로 빈 문자열이되, `codex_source=="starting"`인
+  항목(캐릭터의 3단 해금 사다리)은 `SkillPool.unlock_requirement()`의 F-1
+  잠금 안내 문구를 그대로 재사용한다(슬롯 인덱스는 `codex_entries()` 순서가
+  아니라 `starting_skills_for_character()`에서 id로 역조회 — 더 견고함).
+  상단 요약 라벨은 `"<캐릭터명> 스킬 도감 — 보유 N개 · 발견 M / 전체 K"`(+
+  전부 발견이면 " (도감 완성)"). **격자 포커스 체인**은 `FocusNav.
+  chain_linear()`(1자 체인)로 격자의 상/하 이동을 표현할 수 없어, 이 패널
+  전용 `_chain_grid()`를 새로 뒀다 — 모든 칸이 상/하/좌/우 네 방향 전부
+  wrap(반대편 모서리로 순환)으로 다른 카드와 연결되므로, 모든 칸에 항상
+  "탈출구 아닌 다음 칸"이 있어 `FocusNav`의 `trap` 매개변수 없이도 포커스가
+  패널 밖으로 못 나간다(행 길이가 COLUMNS로 안 나누어떨어지는 마지막 행도
+  안전하게 처리). 닫기 버튼은 격자 마지막 카드 아래 한 곳에만 추가로 연결.
+  Esc로 닫힘(achievement_panel.gd와 동일한 `_unhandled_input()` 패턴).
+  **검증**: `dice_test.gd`의 신규 `_check_l2b_skill_codex_panel()`이 "novice"
+  (견습 모험가) 도감 9개 중 보유 2(확장/심호흡)·발견-미보유 2(임기응변/
+  심호흡+)·미발견-힌트없음(여분)·미발견-F1힌트있음(정예, 슬롯1) 조합을
+  실제로 만들어 ① 카드 수==`codex_entries().size()` ② 보유 카드의 배지/
+  이름/아이콘 알파가 기대값과 정확히 일치 ③ 발견-미보유 카드도 동일 ④
+  미발견 카드는 이름 "???"+배지 "미발견"+아이콘 알파 0.35+설명 빈 문자열
+  ⑤ 잠긴 시작 스킬 카드의 설명이 `unlock_requirement()` 텍스트와 정확히
+  일치 ⑥ 요약 라벨이 "보유 2개"/"발견 4 / 전체 9"를 포함 ⑦ `open()` 직후
+  첫 카드에 실제 포커스(`has_focus()`) ⑧ 첫 행의 wrap 포커스 이웃이 실제
+  NodePath로 그 행 마지막 카드를 가리킴 ⑨ `InputEventKey`(KEY_ESCAPE)를
+  실제 `_unhandled_input()`에 넣으면 `visible=false`+`closed` 시그널 1회를
+  전부 계산/렌더 결과로 검증(플래그만 보지 않음). `bash scripts/qa_shot.sh
+  dice_test` 전체 **PASS**(8회 재실행 중 7회 즉시 PASS, 1회는 L-2(b)와 무관한
+  H1 테스트("일반 모드 보존")가 1회성으로 FAIL했다가 이후 재실행 전부 PASS로
+  돌아옴 — H1은 `_ready()` 실행 순서상 L-2(b) 검증보다 먼저 실행되고 내 변경이
+  그 사이 공유 상태를 전혀 건드리지 않아, `git stash`로 변경분을 뺀 원본
+  코드로도 11회 중 아무 FAIL 없이 재현이 안 됨을 교차 확인함 — 기존에 알려진
+  "leak 경고" 부류의 pre-existing noise로 보이나, 재발하면 이 판단을 의심하고
+  다시 볼 것). `GAME_QA_CALL=_debug_show_skill_codex_panel_mixed`로 같은
+  혼합 상태를 패널에 띄워 `qa_out/skill_codex_panel_l2b.png`로 육안
+  확인 — 보유(핑크 테두리+밝은 아이콘)/발견(회색 테두리+반투명 아이콘+
+  설명)/미발견("???"+빈 원 실루엣+배지만, 시작 스킬 2곳은 잠금 안내 문구)
+  3상태가 한 화면에 동시에 다르게 보임, 1280x720 안에서 카드가 잘리지
+  않고 스크롤바만 뜸(카드 9개가 3행이라 스크롤 필요, 의도대로). L-2(c)
+  (진입점 연결 — 캐릭터 선택 화면/던전 진행 화면에 실제 버튼 배선)는 아직
+  — 이번 조각은 재사용 가능한 패널 자체만 만들었다. 다음은 **L-2(c)**.
+
+
+
 - **2026-10-14 (194)**: INBOX.md 최우선 지시 [대형 기획 12] 캐릭터 선택/스킬 도감/
   전역 퍼스널 컬러(L-1→L-3) 중 **L-2(a)(스킬 도감 데이터/저장) 완료**. 신규
   `SkillPool.codex_entries(character_id)`(순수 함수)가 그 캐릭터가 런에서

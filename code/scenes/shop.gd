@@ -26,6 +26,10 @@ const ITEM_COSTS := {
 
 var _row_ui: Array[Node] = []
 
+## [대형 기획 13] M-4 — dungeon_map.gd의 "HUD 칩" 패턴을 그대로 재사용. 기존 GoldLabel
+## (평문)은 숨기고, 아이콘+큰 숫자+캡션 칩으로 된 HUD 바가 대신 보유 골드를 보여준다.
+var _hud_gold_value_label: Label
+
 ## 던전 맵/스토리 이벤트/특수 이벤트/캐릭터 선택과 같은 패턴(FocusNav) — 카드 버튼들 +
 ## "던전으로 돌아가기" + "커스터마이징"을 화면에 나타나는 순서대로 담아 방향키(위/아래)
 ## 이동 체인으로 묶는다(INBOX.md 2026-10-13 [대형 기획 11] K-1 — 기존 숫자 단축키 대체).
@@ -42,7 +46,27 @@ func _ready() -> void:
 	leave_button.pressed.connect(_on_leave_pressed)
 	customize_button.pressed.connect(customize_panel.open)
 	skill_codex_button.pressed.connect(_on_skill_codex_pressed)
+	# [대형 기획 13] M-4 — 던전 맵/전투와 같은 버튼 위계: "던전으로 돌아가기"가 이 방의
+	# 유일한 "진행" 행동이라 주 행동(primary), 커스터마이징/스킬 도감은 보조(secondary).
+	# 품목 카드 버튼들은 _rebuild_items()에서 매번 다시 만들어지므로 거기서 개별 스타일링.
+	UIKit.style_primary_button(leave_button, RunState.character_id)
+	UIKit.style_secondary_button(customize_button, RunState.character_id)
+	UIKit.style_secondary_button(skill_codex_button, RunState.character_id)
+	_setup_hud_bar()
 	_rebuild_items()
+
+
+## [대형 기획 13] M-4 — dungeon_map.gd의 _setup_hud_bar()와 같은 패턴(공용 UIKit 헬퍼
+## 재사용). 기존 GoldLabel(평문)을 숨기고 그 자리에 아이콘+큰 숫자+캡션 칩을 놓는다.
+func _setup_hud_bar() -> void:
+	gold_label.visible = false
+	var cid := RunState.character_id
+	var bar := UIKit.make_bar(self, cid, gold_label.position)
+	var gold_icon := RewardIcon.new()
+	gold_icon.custom_minimum_size = Vector2(20, 20)
+	gold_icon.category = "gold"
+	var gold_chip := UIKit.make_stat_chip(bar, gold_icon, str(RunState.gold), "보유 골드", cid)
+	_hud_gold_value_label = gold_chip["value_label"]
 
 
 func _rebuild_items() -> void:
@@ -52,6 +76,8 @@ func _rebuild_items() -> void:
 	_shortcut_buttons.clear()
 
 	gold_label.text = "보유 골드: %d" % RunState.gold
+	if _hud_gold_value_label != null and is_instance_valid(_hud_gold_value_label):
+		_hud_gold_value_label.text = str(RunState.gold)
 
 	var card_width := 320.0
 	var card_height := 240.0
@@ -84,6 +110,7 @@ func _rebuild_items() -> void:
 			upgrade_btn.disabled = not afford
 			upgrade_btn.custom_minimum_size = Vector2(0, 38)
 			upgrade_btn.pressed.connect(_on_buy_upgrade_pressed.bind(item, cost))
+			UIKit.style_secondary_button(upgrade_btn, RunState.character_id)
 			button_row.add_child(upgrade_btn)
 			_shortcut_buttons.append(upgrade_btn)
 			continue
@@ -101,6 +128,7 @@ func _rebuild_items() -> void:
 		atk_btn.disabled = not (afford and atk_applicable)
 		atk_btn.custom_minimum_size = Vector2(0, 38)
 		atk_btn.pressed.connect(_on_buy_pressed.bind(item, cost, "attack"))
+		UIKit.style_secondary_button(atk_btn, RunState.character_id)
 		button_row.add_child(atk_btn)
 		_shortcut_buttons.append(atk_btn)
 
@@ -113,6 +141,7 @@ func _rebuild_items() -> void:
 		def_btn.disabled = not (afford and def_applicable)
 		def_btn.custom_minimum_size = Vector2(0, 38)
 		def_btn.pressed.connect(_on_buy_pressed.bind(item, cost, "defense"))
+		UIKit.style_secondary_button(def_btn, RunState.character_id)
 		button_row.add_child(def_btn)
 		_shortcut_buttons.append(def_btn)
 

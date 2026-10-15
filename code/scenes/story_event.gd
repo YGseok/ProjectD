@@ -41,6 +41,17 @@ func _ready() -> void:
 	continue_button.pressed.connect(_on_continue_pressed)
 	customize_button.pressed.connect(customize_panel.open)
 	skill_codex_button.pressed.connect(_on_skill_codex_pressed)
+	# [대형 기획 13] M-4 — event.gd와 같은 버튼 위계: "계속"만 주 행동(유일한 진행
+	# 행동), A/B 선택지는 대등한 보조 행동, 커스터마이징/스킬 도감도 보조.
+	UIKit.style_secondary_button(choice_a_button, RunState.character_id)
+	UIKit.style_secondary_button(choice_b_button, RunState.character_id)
+	UIKit.style_primary_button(continue_button, RunState.character_id)
+	UIKit.style_secondary_button(customize_button, RunState.character_id)
+	UIKit.style_secondary_button(skill_codex_button, RunState.character_id)
+	# "상황" 배경 프레임 — event.gd와 같은 패턴(UIKit.make_backdrop), Description은
+	# reparent하지 않고 그 뒤에 깐다.
+	var desc_backdrop := UIKit.make_backdrop(self, RunState.character_id, Rect2(Vector2(32, 74), Vector2(900, 72)))
+	move_child(desc_backdrop, 1)
 	_refresh_shortcuts([choice_a_button, choice_b_button, customize_button, skill_codex_button])
 
 

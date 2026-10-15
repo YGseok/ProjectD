@@ -224,6 +224,32 @@ static func make_section(parent: Node, title: String, character_id: String, posi
 	return body
 
 
+## [대형 기획 13] M-4 — 기존 Label(예: event.gd/story_event.gd의 서사 설명문)을
+## reparent하지 않고 그 뒤에 깔아 "구역 패널" 느낌을 주고 싶을 때 쓰는 순수 배경
+## 프레임. make_section()과 달리 title/body VBoxContainer 스캐폴딩이 없다 — 호출부가
+## rect(position+size)만 정해주면 되고, 기존 텍스트 노드의 부모/인덱스는 그대로 둔 채
+## move_child()로 그 앞(화면에는 뒤에 그려지도록)에 끼워 넣는 용도로 설계됐다.
+static func make_backdrop(parent: Node, character_id: String, rect: Rect2, base_dir: String = SKIN_BASE_DIR) -> PanelContainer:
+	var panel := PanelContainer.new()
+	var skin_applied := apply_panel_skin(panel, "section", character_id, base_dir)
+	if not skin_applied:
+		var style := StyleBoxFlat.new()
+		style.bg_color = SECTION_BG
+		style.set_border_width_all(SECTION_BORDER_WIDTH)
+		style.set_corner_radius_all(SECTION_CORNER)
+		style.shadow_size = SECTION_SHADOW_SIZE
+		style.shadow_color = SECTION_SHADOW_COLOR
+		style.shadow_offset = SECTION_SHADOW_OFFSET
+		panel.add_theme_stylebox_override("panel", style)
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	parent.add_child(panel)
+	if not skin_applied:
+		CharacterTheme.apply(panel, character_id, false)
+	panel.position = rect.position
+	panel.size = rect.size
+	return panel
+
+
 ## 가로 HUD 띠 — 상단에 라운드/진행도/골드 같은 칩을 나란히 두는 용도(제목 없음, 패딩만
 ## 얕게). make_section()과 같은 틀이지만 VBox 대신 HBox를 돌려준다.
 ## resources/ui/panel/hud_{base,accent}.png가 있으면 그 이미지 스킨을 쓴다(M-5a).
