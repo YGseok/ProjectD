@@ -272,7 +272,7 @@ M1과 M2는 병행 가능 — 같은 계열 보스와 대표작(예: 고블린 �
 | 전투 | `code/scenes/combat_test.tscn` | 📦 BG100 (2-6) |
 | 캐릭터 선택 | `code/scenes/character_select.tscn` | ⬜ 필요 (우선순위 낮음) |
 | 던전 맵 | `code/scenes/dungeon_map.tscn` | 📦 BG001 (2-6) |
-| 상점 | `code/scenes/shop.tscn` | 📝 BG003 (2-6) |
+| 상점 | `code/scenes/shop.tscn` | 📦 BG003 (2-6) |
 | 특수 이벤트 / 스토리 이벤트 | `event.tscn` / `story_event.tscn` | 📦 BG002 (2-6) |
 
 ### 2-4. UI 아이콘 / 다이스 — 현재 전부 절차적으로 그림
@@ -369,7 +369,7 @@ Work는 `resources/ui/` 이미지가 있으면 StyleBoxTexture로 쓰고, 없으
 | **배경 (BG 분류, 선택)** | | | | | |
 | BG001 | 던전 맵 배경 | `resources/backgrounds/dungeon_map.png` | 1280×720 이상 | — | 📦 (2026-10-15) |
 | BG002 | 이벤트 배경 | `resources/backgrounds/event.png` | 1280×720 이상 | — | 📦 (2026-10-15) |
-| BG003 | 상점 배경 | `resources/backgrounds/shop.png` | 1280×720 이상 | — | 📝 |
+| BG003 | 상점 배경 | `resources/backgrounds/shop.png` | 1280×720 이상 | — | 📦 (2026-10-15) |
 | BG100 | 전투 배경 | `resources/backgrounds/combat.png` | 1280×720 이상 | — | 📦 (2026-10-15) |
 
 **발주 우선순위** (Work 제안 순): U1 패널 4종 → U2 버튼 2세트 → U3 HP 바 → U4 배지 → U5 칩·구분선·장식 → U6 UI 아이콘 → U7 배경.
@@ -611,7 +611,7 @@ Work는 `resources/ui/` 이미지가 있으면 StyleBoxTexture로 쓰고, 없으
 | ART-SK600~607-ICON/PLUS | 캐릭터 전용 고유 스킬 아이콘 16장 (S1) | 2026-10-13 | 📝 발주 | |
 | ART-SK001~013-ICON | 시작 스킬 아이콘 13장 (S2) | 2026-10-13 | 📝 발주 | |
 | ART-SK300~301-ICON/PLUS | 공용 획득 스킬 아이콘 4장 (S3) | 2026-10-13 | 📝 발주 | |
-| ART-UI001~413, ART-BG001~003/BG100 | UI 키트 전체 (패널·버튼·HP 바·배지·장식·UI 아이콘·배경) — Work 요청 | 2026-10-14 | 📝 발주 (U1부터 단계 납품) | |
+| ART-UI001~413, ART-BG001~003/BG100 | UI 키트 전체 (패널·버튼·HP 바·배지·장식·UI 아이콘·배경) — Work 요청 | 2026-10-14 | 📦 전량 입고 2026-10-15 (UI410~413 계열 아이콘만 보류) | |
 | ART-MO001~004-FULL, ART-MO600-FULL | 몬스터 계열 대표 4종 + 다크 나이트(MO005→MO600 이관) 전신 | 2026-10-06 | 📝 발주 | |
 | ART-MO001~004-FACE, ART-MO600-FACE | 위 5종 표정 세트 | 2026-10-06 | 📝 발주 (전신 입고 후 착수) | |
 | ART-MO800~805-FULL/FACE | 보스 6종 (우선순위 M1) | 2026-10-07 | 📝 발주 | |
@@ -666,6 +666,7 @@ Work는 `resources/ui/` 이미지가 있으면 StyleBoxTexture로 쓰고, 없으
 | 2026-10-15 | ART-BG100 전투 배경 (GPT 생성 1차 채택 — 횃불·보라 마법불의 석조 던전 홀, 가운데 마법진이 주사위 판 자리. 어둡고 대비 낮게, 인물·글자 없음. 1672×941 → 16:9 1600×900) | `resources/backgrounds/combat.png` 입고(원본 `_reference/backgrounds/combat_raw.png`). 화면 적용은 Work M-5(`CharacterTheme.apply_background`) 대기 | — |
 | 2026-10-15 | ART-BG001 던전 맵 배경 (GPT 생성 1차 채택 — 어두운 석판 작전 탁자 위에서 내려다본 구도, 가운데 80%는 옅은 격자만 있어 방 노드·경로를 올리기 좋음. 소품(촛불·책·룬 큐브·보라 등불)은 네 귀퉁이에만) | `resources/backgrounds/dungeon_map.png` 1600×900 입고. 화면 적용은 Work M-5 대기 | — |
 | 2026-10-15 | ART-BG002 이벤트 배경 (GPT 생성 1차 채택 — 보라 룬이 빛나는 낡은 제단 방, 천장 틈 푸른 빛, 바닥 안개. 가운데·아래는 차분하게) | `resources/backgrounds/event.png` 1600×900 입고. 특수/스토리 이벤트 공용. 화면 적용은 Work M-5 대기 | — |
+| 2026-10-15 | ART-BG003 상점 배경 (GPT 생성 1차 채택 — 선반·물약·두루마리가 양옆에, 호박색 등불 + 보라 던전빛, 맨 아래 나무 카운터. 가운데는 어두운 안쪽 벽) | `resources/backgrounds/shop.png` 1600×900 입고. **U7 배경 완료 → UI 키트 발주분 전량 입고**. 화면 적용은 Work M-5 대기 | — |
 
 ---
 
