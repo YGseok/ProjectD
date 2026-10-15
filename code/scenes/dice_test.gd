@@ -361,6 +361,10 @@ func _ready() -> void:
 	all_pass = (await _check_n1_character_select_skill_slot_key_nav(lines)) and all_pass
 
 	lines.append("")
+	lines.append("[N-2: 캐릭터 선택 — 전신 이미지 큰 컬럼 검증: _detail_portrait_holder rect 높이가 560 이상인지, 상세 패널 내용(정보 컬럼)이 좁아진 폭에서도 8명 전부 예산 안에 들어오는지(넘치면 화면 밖으로 밀림), 캐릭터를 바꾸면 전신 이미지(원화 텍스처 또는 플레이스홀더 팔레트)가 실제로 바뀌는지]")
+	all_pass = _check_n2_full_art_column(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -6115,6 +6119,77 @@ func _check_k2_character_select_sections(lines: PackedStringArray) -> bool:
 	ok = list_fits_ok and ok
 	lines.append("  좌측 목록 결합 높이=%.1f (가시 영역=%.1f) -> %s" % [
 		node.cards_container.custom_minimum_size.y, scroll.size.y, "OK" if list_fits_ok else "FAIL"
+	])
+
+	remove_child(node)
+	node.free()
+	RunState.character_id = character_backup
+	return ok
+
+
+## N-2(2026-10-15, [대형 기획 14]) 검증. "플래그가 들어갔는가"가 아니라 "화면에 실제로
+## 보이는 레이아웃/텍스처가 바뀌는가"를 본다: (a) 8명 전부 전신 이미지 홀더
+## (_detail_portrait_holder) rect 높이가 INBOX.md N-2 테스트 기준(560) 이상이고 좌측
+## 컬럼 폭(PORTRAIT_COLUMN_WIDTH) 안에 들어오는지, (b) 정보 컬럼이 좁아진 폭(이전 840
+## -> 480)에서도 8명 전부 내용 높이가 상세 패널 예산 안에 들어오는지(K-2 체크와 같은
+## 계산이지만 N-2가 바꾼 폭/텍스트 길이 기준으로 다시 검증), (c) 캐릭터를 바꾸면 전신
+## 이미지 텍스처(둘 다 원화가 있는 novice/pirate)와 스포트라이트 틴트가 실제로
+## 달라지는지.
+func _check_n2_full_art_column(lines: PackedStringArray) -> bool:
+	var ok := true
+	var character_backup := RunState.character_id
+
+	var scene := load("res://code/scenes/character_select.tscn")
+	var node = scene.instantiate()
+	add_child(node)
+
+	var detail_height: float = node.detail_container.size.y
+
+	for profile in CharacterProfiles.PROFILES:
+		var cid: String = profile["id"]
+		node._on_card_selected(cid)
+
+		# (a) 전신 이미지 홀더 rect — 높이 ≥ 560, 폭은 좌측 컬럼 안에 들어옴.
+		var holder_size: Vector2 = node._detail_portrait_holder.size
+		var height_ok: bool = holder_size.y >= 560.0
+		var width_ok: bool = holder_size.x <= node.PORTRAIT_COLUMN_WIDTH
+		ok = height_ok and width_ok and ok
+		lines.append("  [%s] 전신 이미지 홀더 rect=%s (기대: 높이>=560, 폭<=%.0f) -> %s" % [
+			cid, holder_size, node.PORTRAIT_COLUMN_WIDTH,
+			"OK" if (height_ok and width_ok) else "FAIL"
+		])
+
+		# (b) 정보 컬럼 내용 높이가 상세 패널 예산(detail_height) 안에 들어오는지 —
+		# N-2로 폭이 좁아진(840->480) 만큼 텍스트가 더 많이 줄바꿈될 수 있어 다시 확인.
+		var content_height: float = node._detail_sections_vbox.get_combined_minimum_size().y
+		var fits_ok: bool = content_height <= detail_height
+		ok = fits_ok and ok
+		lines.append("  [%s] 정보 컬럼 내용 높이=%.1f (예산=%.1f) -> %s" % [
+			cid, content_height, detail_height, "OK" if fits_ok else "FAIL"
+		])
+
+	# (c) 캐릭터를 바꾸면 전신 이미지 텍스처/스포트라이트 틴트가 실제로 달라지는지.
+	node._on_card_selected("novice")
+	var novice_texture: Texture2D = node._detail_art.texture
+	var novice_tint: Color = node._detail_portrait_spotlight.modulate
+	var novice_art_visible: bool = node._detail_art.visible
+
+	node._on_card_selected("pirate")
+	var pirate_texture: Texture2D = node._detail_art.texture
+	var pirate_tint: Color = node._detail_portrait_spotlight.modulate
+	var pirate_art_visible: bool = node._detail_art.visible
+
+	var texture_present_ok: bool = novice_texture != null and pirate_texture != null
+	var texture_changed_ok: bool = novice_texture != pirate_texture
+	var tint_changed_ok: bool = novice_tint != pirate_tint
+	var art_visible_ok: bool = novice_art_visible and pirate_art_visible
+	ok = texture_present_ok and texture_changed_ok and tint_changed_ok and art_visible_ok and ok
+	lines.append("  캐릭터 전환 시 전신 이미지 텍스처 변경: novice!=null=%s pirate!=null=%s 서로다름=%s art.visible(둘다)=%s -> %s" % [
+		novice_texture != null, pirate_texture != null, texture_changed_ok, art_visible_ok,
+		"OK" if (texture_present_ok and texture_changed_ok and art_visible_ok) else "FAIL"
+	])
+	lines.append("  캐릭터 전환 시 스포트라이트 틴트: novice=%s pirate=%s (달라야 함) -> %s" % [
+		novice_tint, pirate_tint, "OK" if tint_changed_ok else "FAIL"
 	])
 
 	remove_child(node)

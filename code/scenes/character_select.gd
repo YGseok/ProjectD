@@ -35,31 +35,50 @@ const FACE_THUMB_SIZE := 48.0
 ## 136x248px로 그려짐)를 FACE_THUMB_SIZE 정사각 칸에 맞춰 더 작게 축소한다(기존
 ## PORTRAIT_SCALE=0.32는 92px 높이 행 기준이었음).
 const PORTRAIT_SCALE_COMPACT := 0.2
-## PORTRAIT_SCALE: 상세 패널 헤더 섹션 폴백용 — CharacterPortraitPlaceholder의 원본
-## 그리기 범위(x -68~68 / y -108~140, 세로 248)를 DETAIL_ART_SIZE.y(146)에 맞춰
-## 축소한다(146/248 ≈ 0.59, 약간의 여유를 둬 0.56로 잡음 — 가로도 136*0.56≈76으로
-## DETAIL_ART_SIZE.x(130) 안에 들어온다).
-const PORTRAIT_SCALE := 0.56
-## DETAIL_ART_SIZE: 상세 패널 헤더 섹션의 전신 원화 칸 크기(K-2로 "구역 나눈 상세 패널"의
-## 첫 섹션만 차지하도록 축소 — 예전에는 패널 전체 높이(293)를 썼지만, 이제 그 아래로
-## 능력치/고유 능력/시작 스킬/안내 섹션이 더 있어야 하므로 헤더 섹션 예산(약 150px) 안에
-## 들어오게 줄였다). 원화 비율(1181x1332 ≈ 0.89)은 그대로 유지.
-const DETAIL_ART_SIZE := Vector2(130, 146)
+## PORTRAIT_COLUMN_WIDTH/PORTRAIT_COLUMN_GAP/PORTRAIT_COLUMN_TOP_PAD: N-2(2026-10-15,
+## [대형 기획 14]) — 상세 패널(DetailPanelContainer, 폭 840)을 좌(전신 이미지 큰
+## 컬럼)/우(정보 구역 컬럼) 2단으로 나눈다(INBOX.md 원문 "전신 원화를 화면에서 가장
+## 크게 보이는 요소로"). INFO_COLUMN_WIDTH는 840 - PORTRAIT_COLUMN_WIDTH -
+## PORTRAIT_COLUMN_GAP과 정확히 일치시켰다(둘을 더하면 항상 840).
+const PORTRAIT_COLUMN_WIDTH := 340.0
+const PORTRAIT_COLUMN_GAP := 20.0
+const PORTRAIT_COLUMN_TOP_PAD := 10.0
+const INFO_COLUMN_WIDTH := 480.0
+## FULL_ART_SIZE: 좌측 전신 이미지 컬럼 안, 실제 이미지/플레이스홀더가 들어갈 칸의 크기.
+## 높이 560은 INBOX.md N-2 테스트 기준("전신 이미지 노드 rect 높이 ≥ 560")을 그대로
+## 상수로 못박았다(DetailPanelContainer 높이가 580으로 늘어난 것(.tscn 참고)에서 위아래
+## 여백 10px씩을 뺀 값). 이 칸은 홀더(Control, Container가 아님)라 레이아웃 패스
+## 타이밍과 무관하게 항상 이 값으로 고정된다(_detail_art.size처럼 기존부터 쓰던 패턴).
+const FULL_ART_SIZE := Vector2(300, 560)
+## PORTRAIT_SCALE_FULL: 전신 이미지 컬럼 폴백용 CharacterPortraitPlaceholder 확대 배율.
+## 원본 그리기 범위(세로 248, x -68~68 / y -108~140)를 FULL_ART_SIZE 안에 여유를 두고
+## 들어오도록(그려지는 실제 높이 ≈ 248*2.15 ≈ 533, 폭 ≈ 136*2.15 ≈ 292 — 둘 다
+## FULL_ART_SIZE 안에서 중앙 정렬돼 들어온다) 2.15로 잡았다(과거 PORTRAIT_SCALE(0.56,
+## K-2 당시 130x146 칸 기준)과 같은 계산 패턴 — 칸이 커진 만큼 배율만 올림).
+const PORTRAIT_SCALE_FULL := 2.15
 ## ABILITY_DESC_MAX_CHARS: 고유 능력 섹션(③) 설명을 "최대 2줄" 예산 안에 묶기 위한
 ## 문자 수 상한(K-2 원문 "최대 2줄 설명") — 섹션 폭(~300px)·폰트(13px) 기준 대략
 ## 2줄에 들어오는 길이를 감으로 잡았다. 넘치면 잘라내고 말줄임표(…)를 붙이되 전체
 ## 문장은 tooltip_text로 항상 볼 수 있게 한다.
-const ABILITY_DESC_MAX_CHARS := 70
+## N-2로 고유 능력 섹션 폭이 좁아진(아래 ABILITY_DESC_WRAP_WIDTH 참고) 만큼 "최대
+## 2줄" 예산도 비례해서 줄였다(이전 70자는 폭 720 기준 — 720->412로 줄어든 비율
+## (약 0.57)만큼 70->40으로 축소).
+const ABILITY_DESC_MAX_CHARS := 40
 ## DISPLAY_PLAYER_HP: 능력치 칩(②)의 HP 표시용 — DESIGN.md 확정값(플레이어 초기
 ## HP 20, combat_test.gd의 PLAYER_MAX_HP와 동일)을 그대로 복사한 상수다. 캐릭터마다
 ## 다른 값이 아니라 표시 전용이라 profile 필드로 두지 않았다.
 const DISPLAY_PLAYER_HP := 20
 ## SECTION_BODY_WRAP_WIDTH/ABILITY_DESC_WRAP_WIDTH: autowrap 라벨의 줄바꿈 폭을 레이아웃
 ## 패스 전에도 못박아두는 값(위 _build_starting_skill_section()/_build_note_section()/
-## _build_ability_section() 참고) — detail_container 폭(840) - 섹션 패널 좌우 여백
-## (14x2=28) 기준. 고유 능력 섹션은 아이콘(30)+separation(10)만큼 더 좁게 잡았다.
-const SECTION_BODY_WRAP_WIDTH := 760.0
-const ABILITY_DESC_WRAP_WIDTH := 720.0
+## _build_ability_section() 참고) — N-2로 우측 정보 컬럼 폭이 INFO_COLUMN_WIDTH(480)로
+## 좁아져서 기준도 거기(이전엔 detail_container 전체 폭 840)로 바뀌었다. 섹션 패널
+## 좌우 여백(14x2=28)을 뺀 값, 고유 능력 섹션은 아이콘(30)+separation(10)만큼 더 좁게.
+const SECTION_BODY_WRAP_WIDTH := 452.0
+const ABILITY_DESC_WRAP_WIDTH := 412.0
+## STARTING_SKILL_SLOT_WIDTH: 시작 스킬 슬롯 버튼 한 칸의 폭 — SECTION_BODY_WRAP_WIDTH
+## (452) 안에 최대 3칸(+separation 10 x2=20)이 들어와야 하므로 (452-20)/3 ≈ 144
+## 이하로 잡아야 한다(N-2 전에는 150이었으나 정보 컬럼이 좁아져 줄임).
+const STARTING_SKILL_SLOT_WIDTH := 140.0
 
 @onready var cards_container: Control = $CardsContainer/CardsList
 @onready var detail_container: Control = $DetailPanelContainer
@@ -84,6 +103,13 @@ var _background_themed := false
 ## _detail_sections_vbox에 순서대로 쌓이고(①헤더 ②능력치 ③고유 능력 ④시작 스킬
 ## ⑤안내), 각 섹션의 실제 내용 라벨/아이콘만 아래 필드로 보관한다.
 var _detail_sections_vbox: VBoxContainer
+## N-2(2026-10-15, [대형 기획 14]): 상세 패널 좌측 "전신 이미지 큰 컬럼"의 배경 패널 +
+## 그 안의 고정 크기 홀더(Control, Container가 아니라 자식을 자동으로 리사이즈하지
+## 않음 — 레이아웃 패스 타이밍과 무관하게 FULL_ART_SIZE를 그대로 유지하기 위함) +
+## 퍼스널 컬러 스포트라이트(CharacterTheme의 비네트 텍스처 재사용, 장식은 약하게).
+var _detail_portrait_panel: Panel
+var _detail_portrait_holder: Control
+var _detail_portrait_spotlight: TextureRect
 var _detail_portrait: CharacterPortraitPlaceholder
 ## 원화가 입고된 캐릭터는 이 TextureRect에 전신(CharacterArt.load_full)을 띄우고
 ## _detail_portrait(플레이스홀더)를 숨긴다. 원화가 없으면 반대로.
@@ -294,16 +320,75 @@ func _add_placeholder_thumb(portrait_holder: Control, profile: Dictionary) -> vo
 ## 독립된 테두리 패널이라 "제목 라벨 + 구분선/배경 패널로 시각적으로 분리"(INBOX.md
 ## 원문) 요구를 구조적으로 만족한다. 실제 텍스트는 _refresh_detail_panel()이 채운다.
 func _build_detail_panel() -> void:
+	var columns := HBoxContainer.new()
+	columns.set_anchors_preset(Control.PRESET_FULL_RECT)
+	columns.add_theme_constant_override("separation", PORTRAIT_COLUMN_GAP)
+	detail_container.add_child(columns)
+
+	_build_portrait_column(columns)
+
 	_detail_sections_vbox = VBoxContainer.new()
-	_detail_sections_vbox.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_detail_sections_vbox.custom_minimum_size = Vector2(INFO_COLUMN_WIDTH, 0)
+	_detail_sections_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_detail_sections_vbox.add_theme_constant_override("separation", 8)
-	detail_container.add_child(_detail_sections_vbox)
+	columns.add_child(_detail_sections_vbox)
 
 	_build_header_section()
 	_build_stats_section()
 	_build_ability_section()
 	_build_starting_skill_section()
 	_build_note_section()
+
+
+## N-2(2026-10-15, [대형 기획 14]): 상세 패널 좌측 "전신 이미지 큰 컬럼" — 원화가
+## 주인공이 되도록 테두리 패널 하나에 퍼스널 컬러 스포트라이트(약한 방사형 그라데이션)만
+## 깔고 그 위에 전신 원화(또는 플레이스홀더)를 크게 띄운다. INBOX.md 지시대로 장식은
+## 스포트라이트 하나뿐 — 추가 장식(바닥 그림자 등)은 넣지 않았다. 패널(Panel, 자식을
+## 자동으로 리사이즈하지 않는 단순 Control)을 쓴 이유는 PanelContainer처럼 레이아웃
+## 패스 시점에 홀더 크기를 바꿔버리면 FULL_ART_SIZE로 못박은 테스트 기준이 레이아웃
+## 타이밍에 따라 달라질 수 있기 때문.
+func _build_portrait_column(parent: Control) -> void:
+	_detail_portrait_panel = Panel.new()
+	_detail_portrait_panel.custom_minimum_size = Vector2(PORTRAIT_COLUMN_WIDTH, 0)
+	_detail_portrait_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.08, 0.08, 0.1, 0.85)
+	style.border_color = CharacterTheme.NEUTRAL_PRIMARY
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(10)
+	_detail_portrait_panel.add_theme_stylebox_override("panel", style)
+	parent.add_child(_detail_portrait_panel)
+
+	_detail_portrait_holder = Control.new()
+	_detail_portrait_holder.custom_minimum_size = FULL_ART_SIZE
+	_detail_portrait_holder.size = FULL_ART_SIZE
+	var pad_x: float = (PORTRAIT_COLUMN_WIDTH - FULL_ART_SIZE.x) / 2.0
+	_detail_portrait_holder.position = Vector2(pad_x, PORTRAIT_COLUMN_TOP_PAD)
+	_detail_portrait_panel.add_child(_detail_portrait_holder)
+
+	_detail_portrait_spotlight = TextureRect.new()
+	_detail_portrait_spotlight.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_detail_portrait_spotlight.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_detail_portrait_spotlight.stretch_mode = TextureRect.STRETCH_SCALE
+	_detail_portrait_spotlight.texture = CharacterTheme.get_portrait_spotlight_texture()
+	_detail_portrait_holder.add_child(_detail_portrait_spotlight)
+
+	_detail_portrait = CharacterPortraitPlaceholder.new()
+	_detail_portrait.scale = Vector2(PORTRAIT_SCALE_FULL, PORTRAIT_SCALE_FULL)
+	# 실루엣 그리기 범위는 원본 스케일 기준 x -68~68 / y -108~140(세로 중심 16) —
+	# PORTRAIT_SCALE_FULL을 곱한 뒤 홀더 중앙에 오도록 원점을 보정한다(_add_placeholder_thumb/
+	# 과거 헤더 섹션과 같은 계산 패턴).
+	_detail_portrait.position = Vector2(FULL_ART_SIZE.x / 2.0, FULL_ART_SIZE.y / 2.0 - 16 * PORTRAIT_SCALE_FULL)
+	_detail_portrait_holder.add_child(_detail_portrait)
+
+	_detail_art = TextureRect.new()
+	_detail_art.custom_minimum_size = FULL_ART_SIZE
+	_detail_art.size = FULL_ART_SIZE
+	_detail_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_detail_art.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	_detail_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_detail_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_detail_portrait_holder.add_child(_detail_art)
 
 
 ## 섹션 공통 틀 — title이 있으면 제목 라벨을 맨 위에 두고, 테두리+배경 패널로 감싼
@@ -356,32 +441,14 @@ func _apply_detail_section_theme(character_id: String) -> void:
 			title_label.add_theme_color_override("font_color", palette["accent"])
 
 
-## ① 헤더: 전신 원화(또는 플레이스홀더) + 이름 + 컨셉 한 줄.
+## ① 헤더: 이름 + 컨셉 한 줄 (전신 원화는 N-2로 좌측 전용 컬럼(_build_portrait_column)으로
+## 분리됐다 — "전신 원화를 화면에서 가장 크게 보이는 요소로" INBOX.md 지시 반영).
 func _build_header_section() -> void:
 	var body := _make_section("")
 
 	var hbox := HBoxContainer.new()
 	hbox.add_theme_constant_override("separation", 16)
 	body.add_child(hbox)
-
-	var portrait_holder := Control.new()
-	portrait_holder.custom_minimum_size = Vector2(DETAIL_ART_SIZE.x, DETAIL_ART_SIZE.y)
-	_detail_portrait = CharacterPortraitPlaceholder.new()
-	_detail_portrait.scale = Vector2(PORTRAIT_SCALE, PORTRAIT_SCALE)
-	# 실루엣 그리기 범위는 원본 스케일 기준 x -68~68 / y -108~140(세로 중심 16) —
-	# PORTRAIT_SCALE을 곱한 뒤 holder 중앙에 오도록 원점을 보정한다(_add_placeholder_thumb
-	# 와 같은 계산 패턴).
-	_detail_portrait.position = Vector2(DETAIL_ART_SIZE.x / 2.0, DETAIL_ART_SIZE.y / 2.0 - 16 * PORTRAIT_SCALE)
-	portrait_holder.add_child(_detail_portrait)
-	_detail_art = TextureRect.new()
-	_detail_art.custom_minimum_size = DETAIL_ART_SIZE
-	_detail_art.size = DETAIL_ART_SIZE
-	_detail_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	_detail_art.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
-	_detail_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	_detail_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	portrait_holder.add_child(_detail_art)
-	hbox.add_child(portrait_holder)
 
 	var name_vbox := VBoxContainer.new()
 	name_vbox.add_theme_constant_override("separation", 6)
@@ -646,6 +713,11 @@ func _refresh_detail_panel() -> void:
 	_detail_portrait.visible = art == null
 	_detail_placeholder_note.visible = art == null
 	_detail_note_section_panel.visible = art == null
+	# N-2: 전신 이미지 컬럼의 테두리/스포트라이트도 섹션들과 같은 캐릭터 색으로.
+	CharacterTheme.apply(_detail_portrait_panel, _selected_id, false)
+	var spotlight_tint: Color = CharacterTheme.ui_palette(_selected_id)["primary"]
+	spotlight_tint.a = 1.0
+	_detail_portrait_spotlight.modulate = spotlight_tint
 	_detail_name_label.text = profile["name"]
 
 	var concept: String = String(profile.get("concept", profile.get("desc", "")))
@@ -788,7 +860,7 @@ func _valid_or_default_starting_skill_id(character_id: String, chosen_id: String
 ## pressed 핸들러의 분기(실제로 chosen을 바꾸는지 여부)로 보장한다.
 func _make_starting_skill_slot(skill: Dictionary, unlocked: bool, slot_index: int) -> Button:
 	var button := Button.new()
-	button.custom_minimum_size = Vector2(150, 56)
+	button.custom_minimum_size = Vector2(STARTING_SKILL_SLOT_WIDTH, 56)
 	button.mouse_filter = Control.MOUSE_FILTER_STOP
 
 	var content := VBoxContainer.new()

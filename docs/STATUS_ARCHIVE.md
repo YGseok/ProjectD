@@ -8,6 +8,58 @@
 
 ---
 
+- **2026-10-14 (198)**: INBOX.md 최우선 지시 [대형 기획 13] 던전 선택~전투 UI 품질
+  개선(M-1→M-4, 셀프 피드백 루프 방식) 중 **M-1(던전 맵 화면) 완료**. 기준 화면인
+  캐릭터 선택(K-2/K-3 — 구역 패널, 테두리, 퍼스널 컬러) 수준으로 `dungeon_map`을
+  끌어올리는 작업. 절차대로 Before 캡처(6개 상태) → 이미지를 직접 읽고 비평 →
+  수정 → After 캡처 + 재비평 2라운드를 거쳤다(전체 기록은 `docs/UI_REVIEW.md`
+  "M-1" 절). **신규 공용 헬퍼** `code/systems/ui_kit.gd`(`UIKit`) — `make_section`
+  (테두리 구역 패널), `make_bar`(가로 HUD 띠), `make_stat_chip`(아이콘+큰 숫자+
+  캡션), `make_progress_dots`(진행도 점), `style_primary_button`/
+  `style_secondary_button`(주/보조 버튼 색 위계) — M-2~M-4가 재사용할 전제로
+  `CharacterTheme`/`FocusNav`와 같은 "씬 상태 없는 정적 함수" 설계로 만들었다.
+  **dungeon_map.gd 수정**: ①제목에서 "(테스트 허브)" 개발용 문구 제거(`RunState.
+  test_battle`일 때만 "(테스트 전투)" 부기) ②라운드/진행도(점 5개)/골드를 HUD 칩
+  3개로 묶은 테두리 띠 신설(`_setup_hud_bar()`, `_hud_round_value_label`/
+  `_hud_progress_dots`/`_hud_gold_value_label`을 `_update_labels()`가 매번 갱신)
+  ③범례를 `UIKit.make_bar()`로 테두리 띠화 ④기존 RoomsClearedLabel(복잡한 상태
+  분기 문구)은 지우지 않고 13px 회색 캡션으로 격하 ⑤**버튼 위계**: 전투 입장만
+  `style_primary_button`(accent 꽉 채운 칠, 64px/18px), 나머지(상점/이벤트/
+  스토리/정예/커스터마이징)는 `style_secondary_button`(어두운 배경+테두리,
+  46px/14px) — 정예는 기존 빨간 테두리 의도를 `tint` 매개변수로 유지 ⑥MapStrip
+  카드 높이를 고정 130px 대신 "그 런에서 가장 많은 선택지를 보여주는 방" 기준
+  동적 계산(`_build_map_strip()`). **deck_panel.gd 수정**(dungeon_map/shop/event/
+  story_event 공유 + combat_test 토글이라 5개 화면에 한 번에 적용됨): 기존
+  4섹션(캐릭터/보유 스킬/공격·방어 주머니)을 전부 `UIKit.make_section()`으로
+  테두리 구역 패널화하고, 캐릭터 섹션에 40×40 얼굴 썸네일(`CharacterArt.
+  load_face_thumb()`, character_select 좌측 목록과 같은 소스라 두 화면 얼굴이
+  항상 일치) 추가. 우측 패널 하단 ~200px가 빈 채로 남던 문제(Before 비평 "상"
+  항목)는 지금까지 어디에도 없던 **이벤트 주사위**(`EventDieVisual` 샘플칩)/
+  **인벤토리**(눈금·다이스 보유 개수) 정보를 "기타 정보" 섹션 하나로 묶어 채웠다
+  (섹션을 따로 쪼개면 테두리/패딩만 늘어 오히려 공간을 더 먹어 하나로 합침).
+  보유 스킬이 많아 섹션 총합이 패널 고정 높이를 넘는 런 후반 상태를 대비해
+  `_vbox`를 `ScrollContainer`로 감싸 "화면 밖으로 잘림" 대신 스크롤되게 했다.
+  **(버그 발견/수정) `FocusNav.focus_style()`의 불투명 배경**: Godot이 포커스된
+  버튼을 그릴 때 기존 스타일 위에 "focus" 스타일을 겹쳐 그리는 특성상, 기존
+  `focus_style()`의 불투명 회색 배경(`Color(0.22,0.22,0.26,0.95)`)이 새로 만든
+  주 행동 버튼의 accent 칠을 통째로 덮어버려 **화면 진입 시(첫 버튼 자동 포커스)
+  전투 버튼이 보조 버튼과 똑같이 보이는 버그**를 After 1차 캡처에서 실제로
+  발견했다 — 배경을 투명(`Color(0,0,0,0)`)으로 바꿔 테두리만으로 포커스를
+  표시하도록 수정(전 화면 공통 유틸이라 모든 화면에 일괄 적용되고, 기존
+  `border_color`만 확인하는 단위 테스트와는 무충돌). **테스트**(`dice_test.gd`의
+  `_check_m1_dungeon_map_hud_and_buttons`, "노드 존재"가 아니라 실제 렌더/계산
+  결과 검증): 제목 문자열(테스트 전투 여부에 따라 둘 다), 주/보조/정예 버튼의
+  실제 `StyleBoxFlat.bg_color`/`border_color`가 서로 다른지, HUD 칩 텍스트가
+  `RunState`를 그대로 반영하고 값 변경 후 재갱신되는지, 진행도 점 개수,
+  MapStrip 카드가 뷰포트(1280×720) 밖으로 안 나가는지, DeckPanel이 ScrollContainer+
+  섹션 5개 구조인지, `FocusNav.focus_style()` 배경 알파가 0인지까지 전부 PASS.
+  `bash scripts/qa_shot.sh dice_test` 전체 **PASS**(기존 L-1~L-3/K-1~K-4 등
+  회귀 포함). `qa_out/m1_*.png`로 6개 상태(1번째 방/2번째 방(정예 노출)/보스
+  방/라운드 2/스킬 4개 보유/해적·주술사 캐릭터색)를 직접 눈으로 비교 확인.
+  상세 비평/Before·After 요약은 `docs/UI_REVIEW.md` "M-1" 절 참고. **다음은
+  M-2(전투 화면 기본 레이아웃/HUD)**. INBOX.md [대형 기획 13]은 "부분 처리됨"에
+  그대로 두고 진행 한 줄만 갱신.
+
 - **2026-10-14 (197)**: INBOX.md 최우선 지시 [대형 기획 12] 캐릭터 선택/스킬 도감/
   전역 퍼스널 컬러(L-1→L-3) 중 **L-3(전역 퍼스널 컬러를 배경+주요 패널로 확장)
   완료 — [대형 기획 12] 전체(L-1~L-3) 완료 처리**. K-3(포커스 강조색·캐릭터

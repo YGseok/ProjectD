@@ -128,6 +128,13 @@ static func _get_vignette_texture() -> GradientTexture2D:
 	return _vignette_texture
 
 
+## N-2(2026-10-15, [대형 기획 14]): character_select.gd 상세 패널의 좌측 "전신 이미지
+## 컬럼"이 쓰는 스포트라이트 장식 — apply_background()의 비네트와 같은 그라데이션
+## 텍스처를 재사용한다(새 텍스처를 또 만들지 않고 캐시 하나를 공유).
+static func get_portrait_spotlight_texture() -> GradientTexture2D:
+	return _get_vignette_texture()
+
+
 ## [대형 기획 13] M-5(b)(2026-10-15) — resources/backgrounds/<scene_key>.png 캐시.
 ## 배경 사진은 캐릭터색 틴트를 받지 않는(원화 그대로) 단일 파일이라 scene_key별로만
 ## 캐시한다(UIKit의 _cached_chip_texture 등과 같은 "캐릭터 무관 단일 파일" 패턴).

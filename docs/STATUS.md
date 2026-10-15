@@ -5,22 +5,30 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-10-15 (207)
+- 일시: 2026-10-15 (208)
 - 작성자: AI 에이전트. 이번 이터레이션은 INBOX.md 최우선 지시 [대형 기획 14]의
-  **N-1(방향키+스페이스로 "진행"까지, 전 화면 키보드만으로 한 판 끝까지)을
-  완료**했다. 지시된 3단계(전수 감사 → "주 행동 키" 규칙 → 실제 InputEventKey
-  풀 시뮬 테스트) 순서대로 진행 — 전수 감사로 character_select의 "시작 스킬
-  슬롯"이 카드 목록과 전혀 연결 안 돼 마우스로만 닿을 수 있었던 버그, 슬롯을
-  고르면 포커스가 끊기는 버그, shop의 기본 포커스가 주 행동(던전으로 돌아가기)이
-  아니라 첫 품목이었던 불일치를 찾아 전부 고쳤다. 검증은 `code/qa/visual_qa.gd`에
-  신규 추가한 `GAME_QA_KEY_RUN=1` 모드(실제 `Input.parse_input_event()`로
-  캐릭터 선택→던전 맵→전투 자동 승리→보상→다음 방을 2회 반복, 21개 검증 전부
-  OK, 약 32초)와 `dice_test.gd` 신규 체크 2건으로 — 전체 `bash scripts/qa_shot.sh
-  dice_test` PASS(FAIL 0건, 2회 재확인). 전투 규칙/밸런스는 건드리지 않았다.
-  INBOX.md의 [대형 기획 14] 항목은 N-1 진행 기록을 반영해 "부분 처리됨"에 두고
-  진행 한 줄을 갱신했다(N-2~N-6 남음, 전체 항목이 끝나야 "처리됨"으로 이동).
-  상세(전수 감사 표 포함)는 아래 "완료 기록 (207)" 참고. **다음은
-  N-2(캐릭터 선택 전신 이미지 확대)**.
+  **N-2(캐릭터 선택 — 전신 이미지를 더 크게 보이도록 레이아웃 수정) 완료**했다.
+  상세 패널(`DetailPanelContainer`, 840×580으로 확장 — `.tscn`에서 카드/상세
+  패널 바닥을 640→680, "던전 시작" 버튼을 화면 맨 아래 688~716으로 내림)을
+  좌(전신 이미지 큰 컬럼, 폭 340 / 홀더 300×560)와 우(정보 구역 컬럼, 폭 480 —
+  헤더·능력치·고유 능력·시작 스킬·안내 5섹션)로 나누는 `_build_portrait_column()`을
+  신규 추가하고, 기존 헤더 섹션에서 전신 이미지를 빼냈다. 정보 컬럼 폭이
+  840→480으로 좁아진 만큼 autowrap 폭 상수(`SECTION_BODY_WRAP_WIDTH`/
+  `ABILITY_DESC_WRAP_WIDTH`)·고유 능력 설명 글자수 상한(`ABILITY_DESC_MAX_CHARS`
+  70→40)·시작 스킬 슬롯 버튼 폭(150→140)을 비례 축소해 8명 전부 내용이 예산 안에
+  들어오게 했다. 전신 이미지 컬럼 배경은 퍼스널 컬러 스포트라이트(기존 비네트
+  텍스처 재사용, `CharacterTheme.get_portrait_spotlight_texture()` 신규 공개
+  함수)만 깔아 장식을 약하게 유지(INBOX 지시대로 "원화가 주인공"). `dice_test.gd`에
+  신규 `_check_n2_full_art_column()`(전신 이미지 홀더 rect 높이 ≥560인지 8명
+  전부, 정보 컬럼 내용 높이가 상세 패널 예산 안에 들어오는지, 캐릭터 전환 시
+  전신 이미지 텍스처/스포트라이트 틴트가 실제로 바뀌는지)을 추가 — `bash
+  scripts/qa_shot.sh dice_test` 전체 PASS(기존 K-2/K-3 등 회귀 포함). qa_shot으로
+  8명 전부(resources/characters/에 이미 전원 full.png가 입고돼 있어 placeholder
+  분기는 코드만 유지되고 현재 실사용은 안 됨) + 시작 스킬 3슬롯 전부 해금 상태를
+  직접 눈으로 확인 — 겹침/잘림 없음. 전투 규칙/밸런스는 건드리지 않았다. INBOX.md의
+  [대형 기획 14] 항목은 N-2 진행 기록을 반영해 "부분 처리됨"에 두고 진행 한 줄을
+  갱신했다(N-3~N-6 남음, 전체 항목이 끝나야 "처리됨"으로 이동). 상세는 아래
+  "완료 기록 (208)" 참고. **다음은 N-3(flat 버튼 전수 교정)**.
 
 ## 지금 위치
 
@@ -430,6 +438,14 @@ HP 패널·다이스 스테이지·결과 칩과 겹치지 않고 표정(happy)�
   신규 `GAME_QA_KEY_RUN=1` 모드(실제 `Input.parse_input_event()`로 캐릭터
   선택→던전 맵→전투 자동 승리→보상→다음 방을 2회 반복, 마우스 이벤트 없이) +
   `dice_test.gd` 신규 체크 2건 — 상세는 완료 기록(207) 참고.
+- **전신 이미지 큰 컬럼(2026-10-15 [대형 기획 14] N-2 완료)**: 캐릭터 선택 우측
+  상세 패널이 좌(전신 이미지 컬럼, 300×560)/우(정보 구역 컬럼, 480 — 헤더/능력치/
+  고유 능력/시작 스킬/안내) 2단으로 나뉘어 전신 원화가 화면에서 가장 큰 요소가
+  됐다(`_build_portrait_column()`, `code/scenes/character_select.gd`). 배경은
+  퍼스널 컬러 스포트라이트만(`CharacterTheme.get_portrait_spotlight_texture()`).
+  8명 전부 이미 `resources/characters/<id>/full.png`가 입고돼 있어 실제로는 전원
+  원화로 보이고, placeholder 분기(원화 미입고 시)는 코드로만 유지된다. 자세한
+  내용은 `docs/DESIGN.md` "플레이어블 캐릭터" 절 참고.
 
 상세 변경 이력은 아래 "완료 기록"(최근 10개)과, 그보다 오래된 것은
 `docs/STATUS_ARCHIVE.md`(매 이터레이션 읽지 않는 아카이브) 참고.
@@ -451,15 +467,15 @@ L-1~L-3)는 2026-10-14(197)에 각각 전체 완료됐다. **[미니 기획 M-6]
 
 **INBOX.md 최우선 지시는 [대형 기획 14](조작/선택 화면/이벤트 특화 클래스·전용
 이벤트, N-1 → N-6, 사용자 플레이 피드백)다 — INBOX가 명시한 "M-6 완료 후 착수"
-조건이 충족됐다.** 2026-10-15(207)로 **N-1(전 화면 키보드만으로 진행) 완료**됐다
-— 전수 감사로 character_select 시작 스킬 슬롯이 마우스로만 닿던 버그 + 포커스
-소실 버그, shop 기본 포커스 불일치를 찾아 고치고 실제 InputEventKey 풀 시뮬
-테스트로 검증까지 마침(상세는 완료 기록 (207)). 다음 우선 순서는
-N-2(캐릭터 선택 전신 이미지 확대) → N-3(flat 버튼 전수 교정 — M-5의 UIKit 버튼
-팩토리 재사용 필수) → N-4(능력치를 실제 다이스 칩으로) → N-5(곡예사를 이벤트
-특화 클래스로 개편, a→b→c) → N-6(캐릭터 전용 이벤트/특별 선택지). 한
-이터레이션에 한 조각(또는 (a)(b)(c) 한 칸)만 진행할 것 — 상세 사양은
-`docs/feedback/INBOX.md` "남은 이슈" 맨 위 항목 참고.
+조건이 충족됐다.** 2026-10-15(207)로 **N-1(전 화면 키보드만으로 진행) 완료**,
+이어서 2026-10-15(208)로 **N-2(캐릭터 선택 전신 이미지 확대) 완료**됐다 — 상세
+패널을 좌(전신 이미지 큰 컬럼)/우(정보 구역 컬럼) 2단으로 나누고 좁아진 정보
+컬럼 폭에 맞춰 텍스트/버튼 크기를 비례 축소(상세는 완료 기록 (208)). 다음 우선
+순서는 N-3(flat 버튼 전수 교정 — M-5의 UIKit 버튼 팩토리 재사용 필수) →
+N-4(능력치를 실제 다이스 칩으로) → N-5(곡예사를 이벤트 특화 클래스로 개편,
+a→b→c) → N-6(캐릭터 전용 이벤트/특별 선택지). 한 이터레이션에 한 조각(또는
+(a)(b)(c) 한 칸)만 진행할 것 — 상세 사양은 `docs/feedback/INBOX.md` "남은 이슈"
+맨 위 항목 참고.
 
 남은 구조적 후보(급하지 않음): 보스 개별 6종 중 타락한 기사단장만 밴드 미달
 (`MonsterSkills.modify_monster_roll()` 파라미터화가 전제조건이라 사람 설계
@@ -1070,6 +1086,65 @@ N-2(캐릭터 선택 전신 이미지 확대) → N-3(flat 버튼 전수 교정 
 
 ## 완료 기록
 
+- **2026-10-15 (208)**: INBOX.md 최우선 지시 [대형 기획 14](조작/선택 화면/이벤트
+  특화 클래스·전용 이벤트) 중 **N-2(캐릭터 선택 — 전신 이미지를 더 크게 보이도록
+  레이아웃 수정) 완료**. INBOX 원문: 우측 상세 패널을 좌(전신 이미지 큰 컬럼,
+  1280×720 기준 세로 560px 이상)/우(정보 구역 컬럼) 2단으로 나누고, 원화가
+  없으면 placeholder를 같은 크기 영역에 넉넉히 보여줄 것.
+  **레이아웃 재구성**(`code/scenes/character_select.gd`): 기존 `_build_detail_panel()`은
+  `_detail_sections_vbox`(5섹션: 헤더/능력치/고유 능력/시작 스킬/안내)를
+  `detail_container`에 바로 붙였는데, 이제 `columns`(HBoxContainer)를 먼저 붙이고
+  그 아래 좌(`_build_portrait_column()`, 신규)/우(`_detail_sections_vbox`,
+  `INFO_COLUMN_WIDTH=480`으로 고정)를 자식으로 둔다. **`_build_portrait_column()`**은
+  `Panel`(PanelContainer가 아니라 일반 `Panel`을 쓴 이유: PanelContainer는
+  레이아웃 패스 시점에 자식을 자동으로 리사이즈해 "전신 이미지 홀더 rect 높이
+  ≥560"이라는 테스트 기준이 레이아웃 타이밍에 따라 달라질 위험이 있음) 안에
+  고정 크기 홀더(`_detail_portrait_holder`, `FULL_ART_SIZE=Vector2(300,560)` —
+  560은 INBOX의 "세로 560px 이상" 테스트 기준을 그대로 상수화하고,
+  `DetailPanelContainer` 높이(840×580으로 확장, 아래 참고)에서 위아래 여백
+  10px씩을 뺀 값과 정확히 일치)를 만들고, 그 안에 ①퍼스널 컬러 스포트라이트
+  (`_detail_portrait_spotlight`, `CharacterTheme.get_portrait_spotlight_texture()`
+  신규 — `apply_background()`가 쓰던 비네트 텍스처를 그대로 재사용, 장식은
+  INBOX 지시대로 "스포트라이트 정도"로 약하게) ②기존 전신 원화/플레이스홀더
+  (`_detail_art`/`_detail_portrait`, 헤더 섹션에서 그대로 옮겨와 `FULL_ART_SIZE`
+  기준으로 재배치, `PORTRAIT_SCALE_FULL=2.15`로 플레이스홀더 확대)를 올린다.
+  **`.tscn` 좌표 조정**: `CardsContainer`/`DetailPanelContainer` 바닥을 640→680
+  (높이 540→580), "던전 시작" 버튼을 650~700→688~716(화면 맨 아래)으로 옮겨
+  상세 패널 세로 공간을 넓혔다 — 업적/테스트 전투 버튼(y 24~92, 상세 패널
+  시작(y=100)보다 위)은 안 건드림. **정보 컬럼 폭 축소 대응**: 840→480으로
+  좁아진 만큼 `SECTION_BODY_WRAP_WIDTH`(760→452)/`ABILITY_DESC_WRAP_WIDTH`
+  (720→412)를 비례 축소하고, 고유 능력 설명 글자수 상한 `ABILITY_DESC_MAX_CHARS`
+  (70→40, 같은 비율)와 시작 스킬 슬롯 버튼 폭(신규 `STARTING_SKILL_SLOT_WIDTH`,
+  150→140 — 3칸+separation 20이 452 폭 안에 들어오려면 144 이하 필요)도 함께
+  줄여, 좁아진 폭에서도 텍스트가 2줄 예산/패널 높이 예산을 안 넘게 했다(INBOX가
+  명시한 "필요하면 글을 더 줄이기" 경로).
+  **`_refresh_detail_panel()` 보강**: 캐릭터를 바꿀 때마다 `_detail_portrait_panel`
+  테두리를 `CharacterTheme.apply()`로, 스포트라이트 틴트를 `ui_palette().primary`로
+  다시 칠한다(기존 5섹션 테두리 갱신과 같은 패턴, 다만 `_detail_section_entries`
+  공유 리스트에는 넣지 않고 별도로 호출 — 기존 K-3 테스트가 `_detail_section_entries[1]`
+  인덱스를 직접 참조해 순서가 바뀌면 깨질 위험을 피함).
+  **테스트**(`dice_test.gd` 신규 `_check_n2_full_art_column()`): (a) 8명 전부
+  `_detail_portrait_holder.size`가 높이≥560·폭≤340인지 (b) 좁아진 정보 컬럼
+  폭에서도 8명 전부 `_detail_sections_vbox.get_combined_minimum_size().y`가
+  `detail_container.size.y`(580) 예산 안에 들어오는지(기존 K-2 체크도 같은
+  계산을 새 레이아웃 기준으로 다시 돌아 함께 PASS 확인) (c) novice/pirate 전환 시
+  `_detail_art.texture`(둘 다 non-null, 서로 다름)와 `_detail_portrait_spotlight.modulate`
+  (서로 다름)가 실제로 바뀌는지 — `bash scripts/qa_shot.sh dice_test` 전체
+  **PASS**(FAIL 0건, K-2/K-3/N-1 등 기존 회귀 포함). **셀프 피드백**: qa_shot으로
+  8명(견습 모험가/광전사/수호자/폭발병/주술사/매혹사/곡예사/해적) 전부와 시작
+  스킬 3슬롯 전부 해금 상태를 직접 캡처해 이미지로 확인 — `resources/characters/`에
+  이미 8명 전부 `full.png`가 입고돼 있어(STATUS.md 이전 기록의 "4종만 입고"는
+  이번에 확인해보니 갱신돼 있었음, Work 쪽은 `resources/`를 읽기만 함) 실제로는
+  전원 원화로 보였고, placeholder 분기는 코드 경로로만 남아 있다(원화가 없는
+  캐릭터가 생기면 바로 동작). 전신 원화가 화면에서 가장 큰 요소가 됐고, 정보
+  컬럼(헤더/능력치/고유 능력/시작 스킬 3슬롯)이 겹침·잘림 없이 들어오며, 3슬롯이
+  전부 해금된 상태(견습 모험가, 업적 2개 선해금)에서도 버튼 3개가 폭 안에
+  들어옴을 육안으로 확인 — 추가 비평 없이 1라운드로 종료. `qa_out/n2_*.png`
+  (novice/pirate/explosive/shieldbearer/juggler/all-unlocked 6장). 전투 규칙/
+  밸런스는 건드리지 않았다. INBOX.md [대형 기획 14]는 "부분 처리됨"에 두고 N-2
+  진행 기록을 반영해 한 줄 갱신(N-3~N-6 남음). **다음은 N-3(flat 버튼 전수
+  교정)**.
+
 - **2026-10-15 (207)**: INBOX.md 최우선 지시 [대형 기획 14](조작/선택 화면/이벤트
   특화 클래스·전용 이벤트) 중 **N-1(방향키+스페이스로 "진행"까지) 완료**. K-1이
   이동/선택은 방향키+스페이스로 이미 대체했지만, 사용자가 "진행까지" 마우스 없이
@@ -1618,61 +1693,9 @@ N-2(캐릭터 선택 전신 이미지 확대) → N-3(flat 버튼 전수 교정 
   출발점으로 인계). "완료 기록" 10개 유지를 위해 (189)를 `docs/STATUS_ARCHIVE.md`
   로 옮겼다.
 
-- **2026-10-14 (198)**: INBOX.md 최우선 지시 [대형 기획 13] 던전 선택~전투 UI 품질
-  개선(M-1→M-4, 셀프 피드백 루프 방식) 중 **M-1(던전 맵 화면) 완료**. 기준 화면인
-  캐릭터 선택(K-2/K-3 — 구역 패널, 테두리, 퍼스널 컬러) 수준으로 `dungeon_map`을
-  끌어올리는 작업. 절차대로 Before 캡처(6개 상태) → 이미지를 직접 읽고 비평 →
-  수정 → After 캡처 + 재비평 2라운드를 거쳤다(전체 기록은 `docs/UI_REVIEW.md`
-  "M-1" 절). **신규 공용 헬퍼** `code/systems/ui_kit.gd`(`UIKit`) — `make_section`
-  (테두리 구역 패널), `make_bar`(가로 HUD 띠), `make_stat_chip`(아이콘+큰 숫자+
-  캡션), `make_progress_dots`(진행도 점), `style_primary_button`/
-  `style_secondary_button`(주/보조 버튼 색 위계) — M-2~M-4가 재사용할 전제로
-  `CharacterTheme`/`FocusNav`와 같은 "씬 상태 없는 정적 함수" 설계로 만들었다.
-  **dungeon_map.gd 수정**: ①제목에서 "(테스트 허브)" 개발용 문구 제거(`RunState.
-  test_battle`일 때만 "(테스트 전투)" 부기) ②라운드/진행도(점 5개)/골드를 HUD 칩
-  3개로 묶은 테두리 띠 신설(`_setup_hud_bar()`, `_hud_round_value_label`/
-  `_hud_progress_dots`/`_hud_gold_value_label`을 `_update_labels()`가 매번 갱신)
-  ③범례를 `UIKit.make_bar()`로 테두리 띠화 ④기존 RoomsClearedLabel(복잡한 상태
-  분기 문구)은 지우지 않고 13px 회색 캡션으로 격하 ⑤**버튼 위계**: 전투 입장만
-  `style_primary_button`(accent 꽉 채운 칠, 64px/18px), 나머지(상점/이벤트/
-  스토리/정예/커스터마이징)는 `style_secondary_button`(어두운 배경+테두리,
-  46px/14px) — 정예는 기존 빨간 테두리 의도를 `tint` 매개변수로 유지 ⑥MapStrip
-  카드 높이를 고정 130px 대신 "그 런에서 가장 많은 선택지를 보여주는 방" 기준
-  동적 계산(`_build_map_strip()`). **deck_panel.gd 수정**(dungeon_map/shop/event/
-  story_event 공유 + combat_test 토글이라 5개 화면에 한 번에 적용됨): 기존
-  4섹션(캐릭터/보유 스킬/공격·방어 주머니)을 전부 `UIKit.make_section()`으로
-  테두리 구역 패널화하고, 캐릭터 섹션에 40×40 얼굴 썸네일(`CharacterArt.
-  load_face_thumb()`, character_select 좌측 목록과 같은 소스라 두 화면 얼굴이
-  항상 일치) 추가. 우측 패널 하단 ~200px가 빈 채로 남던 문제(Before 비평 "상"
-  항목)는 지금까지 어디에도 없던 **이벤트 주사위**(`EventDieVisual` 샘플칩)/
-  **인벤토리**(눈금·다이스 보유 개수) 정보를 "기타 정보" 섹션 하나로 묶어 채웠다
-  (섹션을 따로 쪼개면 테두리/패딩만 늘어 오히려 공간을 더 먹어 하나로 합침).
-  보유 스킬이 많아 섹션 총합이 패널 고정 높이를 넘는 런 후반 상태를 대비해
-  `_vbox`를 `ScrollContainer`로 감싸 "화면 밖으로 잘림" 대신 스크롤되게 했다.
-  **(버그 발견/수정) `FocusNav.focus_style()`의 불투명 배경**: Godot이 포커스된
-  버튼을 그릴 때 기존 스타일 위에 "focus" 스타일을 겹쳐 그리는 특성상, 기존
-  `focus_style()`의 불투명 회색 배경(`Color(0.22,0.22,0.26,0.95)`)이 새로 만든
-  주 행동 버튼의 accent 칠을 통째로 덮어버려 **화면 진입 시(첫 버튼 자동 포커스)
-  전투 버튼이 보조 버튼과 똑같이 보이는 버그**를 After 1차 캡처에서 실제로
-  발견했다 — 배경을 투명(`Color(0,0,0,0)`)으로 바꿔 테두리만으로 포커스를
-  표시하도록 수정(전 화면 공통 유틸이라 모든 화면에 일괄 적용되고, 기존
-  `border_color`만 확인하는 단위 테스트와는 무충돌). **테스트**(`dice_test.gd`의
-  `_check_m1_dungeon_map_hud_and_buttons`, "노드 존재"가 아니라 실제 렌더/계산
-  결과 검증): 제목 문자열(테스트 전투 여부에 따라 둘 다), 주/보조/정예 버튼의
-  실제 `StyleBoxFlat.bg_color`/`border_color`가 서로 다른지, HUD 칩 텍스트가
-  `RunState`를 그대로 반영하고 값 변경 후 재갱신되는지, 진행도 점 개수,
-  MapStrip 카드가 뷰포트(1280×720) 밖으로 안 나가는지, DeckPanel이 ScrollContainer+
-  섹션 5개 구조인지, `FocusNav.focus_style()` 배경 알파가 0인지까지 전부 PASS.
-  `bash scripts/qa_shot.sh dice_test` 전체 **PASS**(기존 L-1~L-3/K-1~K-4 등
-  회귀 포함). `qa_out/m1_*.png`로 6개 상태(1번째 방/2번째 방(정예 노출)/보스
-  방/라운드 2/스킬 4개 보유/해적·주술사 캐릭터색)를 직접 눈으로 비교 확인.
-  상세 비평/Before·After 요약은 `docs/UI_REVIEW.md` "M-1" 절 참고. **다음은
-  M-2(전투 화면 기본 레이아웃/HUD)**. INBOX.md [대형 기획 13]은 "부분 처리됨"에
-  그대로 두고 진행 한 줄만 갱신.
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(207)에서 (197)을 그리로 옮겼다.)*
+이번 이터레이션(208)에서 (198)을 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 
