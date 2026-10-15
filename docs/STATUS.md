@@ -5,34 +5,33 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-10-15 (212)
-- 작성자: AI 에이전트. 이번 이터레이션은 INBOX.md "남은 이슈"의 **[대형 기획 14]
-  N-5(a)(곡예사를 이벤트 특화 클래스로 — 새 캐릭터/아트 발주 없이 기존 곡예사
-  재편) 완료**했다. 곡예사 프로필의 `event_die_sides`를 6→12로 올리고(나머지
-  7종은 그대로 D6 — 캐릭터별 이벤트 주사위 차등의 첫 실사용 사례), 시작 스킬
-  슬롯을 기존 전투 보너스형 3종(맹공→수집가→잡화점)에서 **눈속임→한탕→
-  잡화점**(이벤트 2종 신규 + 전투 보조 1종 유지)으로 재구성했다. "눈속임"은
-  "위험을 감수하기" DC -1(매혹사 "승부사"와 효과는 같지만 별도 id), "한탕"은
-  판정 성공 시 골드 +10. 고유 스킬도 1쌍 추가 — "곡예 흥행"/"곡예 흥행+"가
-  이벤트 주사위 굴림 결과에 +1/+2 보정(기존 "곡예 앙코르"는 그대로 유지, 곡예사
-  고유 스킬이 2종이 됨). `event.gd`에 신규 순수 함수 `event_roll_bonus()`/
-  `_effective_risky_roll()`을 분리해 보정+상한 계산을 결정적으로 테스트 가능하게
-  했다. `dice_test.gd`에 신규 `_check_n5a_juggler_event_specialist()`(8단계 —
-  프로필 값/RunState 복사/슬롯 순서/폴백 안전성/DC 보정/보정 함수/적용 공식/
-  골드 보너스)를 추가하고, 이번 변경으로 가정이 깨진 기존 테스트 4곳(이벤트
-  주사위 전수 검증/UPGRADE_SKILLS 개수/시작 스킬 슬롯 순서/스킬 도감
-  codex_entries 크기+순서)을 함께 갱신했다. `bash scripts/qa_shot.sh dice_test`
-  전체 PASS(FAIL 0건, 2회 재확인). 셀프 피드백 1라운드로
-  `qa_out/n5a_juggler_detail.png`(`_debug_select_juggler()` 훅)를 직접 읽어
-  D12 칩, 새 슬롯 순서(눈속임 해금/한탕·잡화점 잠김), 효과 설명 텍스트가
-  겹침 없이 보이는 것을 확인 — "상" 수준 문제 없이 종료. DESIGN.md의 이벤트
-  주사위 단락(이 조각이 직접 무효화한 서술)만 최소 수정했고, N-5(c)가 맡은
-  캐릭터 표/스킬 상세 설명 전체 갱신은 손대지 않았다. 전투 규칙/밸런스는
-  건드리지 않았다. INBOX.md의 이 항목은 "부분 처리됨"에 그대로 두되 진행
-  한 줄을 갱신했다(N-5(b)(c), N-6이 남아 "처리됨"으로는 못 옮김). 상세는
-  아래 "완료 기록 (212)" 참고. **다음은 N-5(b)(이벤트 판정 콘텐츠 확충 —
-  도박/탐색/협상/함정 해체 등 2~3종 + "대성공" 단계 도입, INBOX.md "남은
-  이슈" 참고).**
+- 일시: 2026-10-16 (213, 재시도)
+- 작성자: AI 에이전트. 직전 이터레이션(N-5(b) 1차 작업)이 사용 한도로 중단됐고,
+  이번 이터레이션은 그 미커밋 변경(`dice_test.gd`/`event.gd`/`event_item_pool.gd`/
+  `DESIGN.md`/신규 `event_challenge_pool.gd`)을 이어받아 **[대형 기획 14]
+  N-5(b)(이벤트 판정 콘텐츠 확충 + "대성공" 단계 도입) 마무리**했다. `git diff`로
+  전체 변경을 감사한 결과 구현 자체는 이미 완결돼 있었다 — "특수 이벤트"의 "위험을
+  감수하기"가 매번 보물/도박/탐색/함정 해체 4종 중 1개로 바뀌고(`EventChallengePool.
+  CHALLENGES` 데이터 표, 종류별 하드코딩 없이 공용 `tier_for_roll()`/`roll_reward()`
+  로 전부 분기), 대성공(`roll >= DC+CRIT_MARGIN`, CRIT_MARGIN=3 전종류 공통)이 D6
+  클래스(방4 이상에서 수학적으로 불가능)와 D12 곡예사(약 41.7%)를 뚜렷하게
+  갈라놓는다. `bash scripts/qa_shot.sh dice_test`를 foreground + timeout 600000으로
+  4회 반복 실행해 N-5(b) 신규 체크 전부 매번 OK를 확인했고, 전체 "FAIL" 표시는
+  이번 변경과 무관한 두 pre-existing 노이즈(QA 캡처 뷰포트 폭 1028px 잘림 — 기존
+  알려진 이슈, "일반 모드 보존" 6번에 1번꼴 일회성 FAIL — (195)/(212)에도 같은
+  패턴 기록됨, 3회 단독 재실행 전부 OK로 재확인)로 둘 다 내 diff 범위 밖임을
+  교차 확인했다. **셀프 피드백 루프로 버그 1개 발견·수정**: `qa_out/n5b_{gambling,
+  exploration,trap}_initial.png`를 직접 읽어 "위험을 감수하기" 버튼 텍스트가
+  N-5(b)에서 ", %d 이상 대성공"이 추가돼 길어지면서 `RiskyButton`의 고정 폭(event.
+  tscn, 660~1020px)을 넘어 글자가 버튼 테두리 밖/`DeckPanel` 쪽으로 흘러넘치는
+  실제 레이아웃 버그를 확인 — `event.gd`의 risky_button.text를 "위험을 감수하기
+  (이벤트 주사위 D%d, %d 이상 성공, %d 이상 대성공)"에서 "위험을 감수하기 (D%d,
+  %d+ 성공/%d+ 대성공)"로 축약해 고쳤다. 재캡처(초기 화면/대성공 결과/실패 패널티
+  3종)로 겹침/잘림 없음 2라운드 확인, `dice_test.gd`의 "대성공" 포함 체크도 OK.
+  전투 규칙/밸런스는 건드리지 않았고 `resources/`·`docs/art/`는 읽기만 했다.
+  INBOX.md의 이 항목은 "부분 처리됨"에 그대로 두되 진행 한 줄을 갱신했다(N-5(c),
+  N-6이 남아 "처리됨"으로는 못 옮김). 상세는 아래 "완료 기록 (213)" 참고.
+  **다음은 N-5(c)(밸런스 + 마무리, INBOX.md "남은 이슈" 참고).**
 
 ## 지금 위치
 
@@ -192,10 +191,17 @@ HP 패널·다이스 스테이지·결과 칩과 겹치지 않고 표정(happy)�
   2 유지 + 고정 피해를 공격 합계 전부로 강화). 획득한 스킬 id는
   `RunState.skill_flags`에 쌓이고 `combat_test.gd`의 `_do_exchange()`/
   `run_state.gd`의 `advance_round()`가 실제 효과를 적용한다.
-- **특수 이벤트(아이템 쪽)**: "안전하게 넘어가기"(C/B급 가중치 무작위 확정
-  획득)/"위험을 감수하기"(이벤트 주사위 1회 vs `DC=min(5,3+room_index/2)`,
-  성공 시 B/A/S급 가중치 무작위, 실패 시 무보상) 2택(`EventItemPool`). 아이템
-  5종 각각 1문장 flavor 문구 보유.
+- **특수 이벤트(아이템 쪽, 2026-10-15 N-5(b)로 "챌린지" 데이터 표 도입)**: "안전하게
+  넘어가기"(확정 보상)/"위험을 감수하기"(이벤트 주사위 1회 vs `DC=min(5,3+room_index/2)`,
+  굴림값이 DC+3(`EventChallengePool.CRIT_MARGIN`) 이상이면 "대성공" — 더 좋은
+  crit_reward) 2택은 그대로지만, 이제 매번 **보물/도박/탐색/함정 해체** 4종 중
+  1개를 무작위로 보여준다(`code/systems/event_challenge_pool.gd`의
+  `EventChallengePool.CHALLENGES`, 종류별 하드코딩 없이 보상 spec의 "type"만으로
+  분기). 보물은 기존 그대로(C/B급 → B/A/S급 아이템, `EventItemPool`), 도박/함정
+  해체는 실패 시 온건한 골드 손실(2~4/3~5) 패널티가 있고 탐색은 패널티 없음.
+  "눈속임"/"승부사"(DC -1), "곡예 흥행(+)"(굴림 보정), "한탕"(성공 시 골드 보너스)
+  같은 이벤트 스킬은 챌린지 종류와 무관하게 그대로 적용. 아이템 5종 각각 1문장
+  flavor 문구 보유.
 - **다이스 시스템**: `DiceBag`+`CombatMath`, D4~D20 지오메트리 구현. 재질별
   (플라스틱/나무/유리/철제) 시각 색 구분. 몬스터 다이스는 방 진행에 따라
   D4→D6→D8. `DiceBag.MAX_DICE`(=6) 캡 도달 시 "다이스 추가" 비활성화.
@@ -535,10 +541,12 @@ L-1~L-3)는 2026-10-14(197)에 각각 전체 완료됐다. **[미니 기획 M-6]
 기록 (211)). 2026-10-15(212)로 **N-5(a)(곡예사를 이벤트 특화 클래스로) 완료** —
 곡예사의 이벤트 주사위를 D12로 올리고 시작 스킬 사다리를 눈속임/한탕(이벤트
 2종)+잡화점(전투 보조 유지)으로 재구성, 고유 스킬 "곡예 흥행(+)" 1쌍 추가
-(상세는 완료 기록 (212)). 다음 우선 순서는 N-5(b)(이벤트 판정 콘텐츠 확충 +
-"대성공" 단계) → N-5(c)(밸런스+마무리) → N-6(캐릭터 전용 이벤트/특별 선택지).
-한 이터레이션에 한 조각(또는 (a)(b)(c) 한 칸)만 진행할 것 — 상세 사양은
-`docs/feedback/INBOX.md` "남은 이슈" 참고.
+(상세는 완료 기록 (212)). 2026-10-15(213)로 **N-5(b)(이벤트 판정 콘텐츠 확충 +
+"대성공" 단계) 완료** — `EventChallengePool`(신규)의 데이터 표에 도박/탐색/
+함정 해체 3종을 보물과 함께 등록하고 "대성공" 3단 판정을 공용 함수로 도입
+했다(상세는 완료 기록 (213)). 다음 우선 순서는 N-5(c)(밸런스+마무리) →
+N-6(캐릭터 전용 이벤트/특별 선택지). 한 이터레이션에 한 조각(또는 (a)(b)(c)
+한 칸)만 진행할 것 — 상세 사양은 `docs/feedback/INBOX.md` "남은 이슈" 참고.
 
 남은 구조적 후보(급하지 않음): 보스 개별 6종 중 타락한 기사단장만 밴드 미달
 (`MonsterSkills.modify_monster_roll()` 파라미터화가 전제조건이라 사람 설계
@@ -1149,6 +1157,53 @@ L-1~L-3)는 2026-10-14(197)에 각각 전체 완료됐다. **[미니 기획 M-6]
 
 ## 완료 기록
 
+- **2026-10-15/16 (213)**: 직전 이터레이션(N-5(b) 1차 작업)이 사용 한도로 중단된 뒤
+  재시도 지시로 이어받아 **N-5(b)(이벤트 판정 콘텐츠 확충 + "대성공" 단계 도입, [대형
+  기획 14]) 마무리**. 작업 트리에는 이미 구현이 거의 끝난 상태로 남아있었다 — 이번
+  이터레이션은 `git diff`로 그 상태를 전부 감사하고(코드 완결성 확인, 반쯤 끝난 조각
+  없음), 전체 검증·셀프 피드백·버그 1개 수정·커밋까지 끝냈다.
+  **확인한 기존 구현**(새로 작성하지 않음, 감사만 함): 신규 `code/systems/
+  event_challenge_pool.gd`(`EventChallengePool`)의 데이터 표 `CHALLENGES`(보물/도박/
+  탐색/함정 해체 4종, 각 항목이 safe_reward/success_reward/crit_reward/fail_penalty를
+  "type"(item_grade/gold/pips/gold_loss/none)으로만 명세), 공용 함수
+  `tier_for_roll()`(fail/success/crit 3단, `CRIT_MARGIN`=3 전종류 공통)/`roll_reward()`
+  (type별 공용 추첨)/`success_probability()`·`crit_probability()`(이론 계산).
+  `event.gd`는 `_ready()`가 매번 `CHALLENGES`에서 무작위 1개를 골라 `_challenge`에
+  저장하고, `_setup_item_event()`/`_resolve_risky()`/신규 `_grant_reward()`/
+  `_show_fail(penalty_spec)`이 전부 `_challenge`의 spec만 보고 동작해(challenge id로
+  분기하지 않음) 보물 외 종류도 코드 변경 없이 그대로 지원됨을 확인. `dice_test.gd`에
+  신규 `_check_n5b_event_challenge_variety()`(데이터 표 구조/tier_for_roll 경계/
+  roll_reward type별 범위·등급/D6 vs D12 확률 비교/화면 인스턴스화로 챌린지별 초기
+  화면·대성공 결과·패널티 실패가 실제로 렌더되는지)도 이미 작성돼 있었다.
+  **검증**: `bash scripts/qa_shot.sh dice_test` 전체 실행(600s 타임아웃 안에서
+  foreground로 4회 반복) — N-5(b) 신규 체크 전부 매번 OK. 전체 결과는 "FAIL"로
+  떴지만, 원인은 두 가지 모두 이번 변경과 무관한 **기존에 알려진 pre-existing
+  노이즈**임을 교차 확인했다: ① "스킬 도감 버튼 뷰포트 폭=1028" 체크는 STATUS.md
+  "알려진 이슈"에 이미 기록된 QA 캡처 환경 자체의 폭 잘림(실제 프로젝트 뷰포트는
+  1280)이고 내 diff 범위 밖(line 6289, N-2b 때 작성된 기존 코드)이다. ② "[일반 모드
+  보존] test_battle=false" 체크는 6번 중 1번꼴 일회성 FAIL로 (195)/(212) 완료 기록에도
+  이미 같은 패턴으로 기록된 노이즈 — 3회 단독 재실행 전부 OK로 재확인, 내 diff와도
+  거리가 멀다(line 5639, RunState.pip_inventory는 내 테스트가 건드리지 않음).
+  **셀프 피드백 2라운드, 버그 1개 발견·수정**: `qa_out/n5b_{gambling,exploration,
+  trap}_initial.png`(챌린지별 초기 화면)를 직접 읽어 — "위험을 감수하기" 버튼
+  텍스트가 N-5(b)에서 ", %d 이상 대성공" 문구가 추가돼 길어지면서 `RiskyButton`의
+  고정 폭(660~1020px, `event.tscn`)을 넘어 글자가 버튼 테두리 밖으로, `DeckPanel`
+  (x=980~) 쪽까지 흘러넘치는 실제 레이아웃 버그를 발견(캡처 폭 잘림과는 별개 —
+  Button이 clip_text/autowrap을 지원하지 않아 긴 텍스트가 그대로 밖으로 그려짐).
+  `event.gd`의 risky_button.text 포맷을 "위험을 감수하기 (이벤트 주사위 D%d, %d 이상
+  성공, %d 이상 대성공)" → "위험을 감수하기 (D%d, %d+ 성공/%d+ 대성공)"로 축약해
+  버튼 폭 안에 들어오도록 고쳤다(DC/대성공 문턱은 DC≤5라 항상 한 자리 숫자라서 D12
+  곡예사도 같은 길이 — 별도 캡처 불필요). `qa_out/n5b_gambling_initial.png`
+  재캡처로 버튼 테두리 안에 들어옴 확인 + `qa_out/n5b_gambling_crit.png`(대성공 결과,
+  "골드 31를 더 얻었다!")/`n5b_trap_fail.png`(실패 패널티, "허둥대다 금화 5를
+  떨어뜨렸다") 재캡처로 결과 화면도 겹침/잘림 없음 확인, `dice_test.gd`의
+  "대성공" 포함 여부 체크도 축약된 텍스트에서 그대로 OK — 2라운드로 종료.
+  `docs/DESIGN.md`/`code/systems/event_item_pool.gd`(`weighted_pick()` 공개 래퍼)는
+  이미 갱신돼 있던 그대로 유지. 전투 규칙/밸런스 수치는 건드리지 않았고
+  `resources/`·`docs/art/`는 읽기만 했다. INBOX.md의 이 항목은 "부분 처리됨"에 그대로
+  두되 진행 한 줄을 갱신했다(N-5(c), N-6이 남아 "처리됨"으로는 못 옮김).
+  **다음은 N-5(c)(밸런스 + 마무리, INBOX.md "남은 이슈" 참고).**
+
 - **2026-10-15 (212)**: INBOX.md "남은 이슈" [대형 기획 14] **N-5(a)(곡예사를
   이벤트 특화 클래스로) 완료**. INBOX 원문(사용자 결정 2026-10-15): "이벤트 특화
   클래스는 기존 클래스 중에서 지정 — 곡예사가 어울릴 듯"에 따라 곡예사(juggler)의
@@ -1727,66 +1782,9 @@ L-1~L-3)는 2026-10-14(197)에 각각 전체 완료됐다. **[미니 기획 M-6]
   M-4(이벤트/상점/스토리 이벤트 화면 통일)는 여전히 큐에 남아있다 — 다음은
   M-4.**
 
-- **2026-10-15 (203)**: 직전 이터레이션(M-5(b))이 사용 한도로 중단된 뒤 재시도 지시로
-  이어받아 **M-5(b)(배지/장식/아이콘 — [대형 기획 13] 완료) 마무리**. 작업 트리에는 이미
-  구현이 거의 끝난 상태로 남아있었다 — 이번 이터레이션은 그 상태를 감사하고, 남은 버그
-  2개를 고치고, 전체 검증·셀프 피드백·커밋까지 끝냈다.
-  **확인한 기존 구현**(이미 커밋 안 된 상태로 작업 트리에 있었음, 새로 작성하지 않음):
-  `code/systems/ui_kit.gd`에 배지(`make_badge()`=turn/round, `tier_badge_texture()`=
-  normal/elite/boss 풀컬러 완성 배지, `make_codex_badge()`=단일 파일+상태색 modulate)/
-  장식(`apply_chip_skin()`=칩 배경, `_make_divider_control()`=구분선, `_make_title_
-  ornament_rect()`=제목 좌우 장식)/공용 아이콘 로더(`icon_texture(name, tint, base_dir)`
-  — 흰 실루엣 PNG를 호출부가 넘긴 임의의 tint로 칠함, base/accent 쌍이 아니라 단일
-  파일+런타임 틴트라 패널/버튼과 다른 패턴)가 전부 M-5(a)와 같은 "base+accent를 캐릭터
-  accent로 틴트해 굽기, 파일 없으면 폴백" 원칙으로 구현돼 있었다. `character_theme.gd`의
-  `apply_background(scene_root, character_id, animate, duration, scene_key, base_dir)`
-  신규 매개변수가 `resources/backgrounds/<scene_key>.png`를 ColorRect 위에 깔고 ColorRect
-  자체는 투명화(alpha=0)해 사진이 그대로 보이게 하는 것도 이미 돼 있었다. 호출부 배선도
-  전부 끝나 있었다: `combat_test.gd`(몬스터 티어 아이콘 `monster_tier_icon` + 턴/라운드
-  배지, `apply_background(..., "combat")`), `dungeon_map.gd`(`apply_background(...,
-  "dungeon_map")`, 골드 칩이 `make_stat_chip()`을 거쳐 자동으로 칩 배경을 받음), `event.gd`/
-  `shop.gd`(`"shop"`)/`story_event.gd`(전용 배경이 없어 `"event"`를 공유), `deck_panel.gd`
-  (공격/방어 주머니 섹션 제목에 `icon_name="attack"`/`"defense"` 전달), `skill_codex_panel.gd`
-  (상태 배지를 `UIKit.make_codex_badge()`로 교체), `character_select.gd`(HP 칩 아이콘을
-  `icon_texture("hp", ...)`로, 스탯 칩 배경을 `apply_chip_skin()`으로), `achievement_icon.
-  gd`/`family_icon.gd`/`lock_icon.gd`/`reward_icon.gd`(각각 attack/skull·crown/lock/
-  gold·pip·dice 아이콘을 이미지 우선 + 절차적 폴백으로) — 아이콘 9종(gold/pip/dice/hp/
-  defense/attack/crown/skull/lock) 전부 최소 한 곳 이상 실제로 연결돼 있었다.
-  **이번에 실제로 한 일 — 버그 2개 발견·수정**: `bash scripts/qa_shot.sh dice_test`를
-  처음 돌렸을 때 신규 `_check_m5b_badges_decor_icons_backgrounds()`에서 FAIL 2건이
-  나왔다. ① "제목 장식(장식+아이콘 있음)" 검증이 `title_ornament_left_base.png`와
-  `title_ornament_right_base.png`를 둘 다 만들어놓고도 `title_row` 자식 수를 3개
-  (좌장식+아이콘+제목)로만 기대했다 — 실제로는 우장식까지 더해 4개가 맞는 게 정상
-  (`make_section()` 구현은 옳았고, 테스트 기대값이 우장식을 빠뜨린 버그였다) → 기대값을
-  4개 + 4번째 자식이 TextureRect인지까지 검증하도록 고쳤다. ② "scene_key 빈 문자열(기존
-  화면)" 검증이 직전 호출에서 만들어둔 `SceneBackgroundImage`가 `apply_background()`의
-  `bg_image.queue_free()`(지연 해제 — 다음 프레임까지 트리에 남아있음) 때문에 같은 프레임
-  안에서 곧바로 재확인하면 아직 `get_node_or_null()`에 걸려 FAIL이 났다 — 실제 플레이에서는
-  화면마다 `scene_key`가 고정이라 이 전환(있다가 없음)이 일어날 일이 없는 구석 케이스지만,
-  정확성을 위해 `character_theme.gd`의 `apply_background()`에서 `bg_rect.remove_child(
-  bg_image)`를 `queue_free()` 앞에 추가해 트리에서는 즉시 떨어지고 메모리 해제만 다음
-  프레임으로 미루게 고쳤다(동작 자체는 바뀌지 않음, 트리 탈착 시점만 동기화). 두 수정
-  모두 `bash scripts/qa_shot.sh dice_test` **전체 PASS**(M-5a/M-5b 신규 섹션 포함, 기존
-  섹션 전부 회귀 없음)로 확인.
-  **셀프 피드백 1라운드**: `qa_out/m5b_combat_novice.png`(승리 보상 화면)/`m5b_dungeon.png`
-  (던전 맵)/`m5b_shop.png`/`m5b_event.png`/`m5b_character_select.png`/`m5b_combat_boss.png`
-  6장 육안 확인 — 던전 맵 HUD 범례(골드/눈금/다이스/미정/정예) 아이콘, `DeckPanel`의
-  "보유 스킬"/"공격 주머니"/"방어 주머니" 섹션 제목 양옆 다이아몬드 장식 + 공격/방어 작은
-  아이콘, 전투 HUD의 턴/라운드 배지(다이아몬드 장식 테두리)와 몬스터 티어 아이콘(회색
-  방패, "일반" 옆), 캐릭터 선택 화면의 빨간 하트 HP 아이콘과 잠금 스킬 슬롯의 자물쇠
-  아이콘, 상점/이벤트 배경 사진(선술집/어두운 사원) 전부 M-5(a)의 보석 장식 스킨과 같은
-  톤으로 자연스럽게 어울렸고 레이아웃 겹침/잘림 없음 — 추가 수정 없이 1라운드로 종료.
-  배경 사진 로드 시 "Loaded resource as image file, this will not work on export" 경고는
-  M-5(a)/K-4c와 동일한 기존 트레이드오프(테스트가 `user://` base_dir 주입을 요구해
-  `Image.load()` 직접 호출이 불가피)로 그대로 둠. 전투 규칙/밸런스는 손대지 않았고
-  `resources/`·`docs/art/`는 읽기만 했다. **M-5(a)/M-5(b) 전체 완료 — [대형 기획 13]
-  자체는 M-4(이벤트/상점/스토리 이벤트 화면 통일)가 아직 남아있어 미완료**. M-5는
-  원래 INBOX 순서상 M-4 뒤였으나 (202) 때 사용자 지시로 먼저 진행했을 뿐이다 —
-  **다음은 M-4**, 그 다음에야 INBOX.md [대형 기획 14](N-1~N-5)로 넘어갈 것.
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(212)에서 (202)를 그리로 옮겼다.)*
+이번 이터레이션(213)에서 (203)을 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 

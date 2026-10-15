@@ -8,6 +8,63 @@
 
 ---
 
+- **2026-10-15 (203)**: 직전 이터레이션(M-5(b))이 사용 한도로 중단된 뒤 재시도 지시로
+  이어받아 **M-5(b)(배지/장식/아이콘 — [대형 기획 13] 완료) 마무리**. 작업 트리에는 이미
+  구현이 거의 끝난 상태로 남아있었다 — 이번 이터레이션은 그 상태를 감사하고, 남은 버그
+  2개를 고치고, 전체 검증·셀프 피드백·커밋까지 끝냈다.
+  **확인한 기존 구현**(이미 커밋 안 된 상태로 작업 트리에 있었음, 새로 작성하지 않음):
+  `code/systems/ui_kit.gd`에 배지(`make_badge()`=turn/round, `tier_badge_texture()`=
+  normal/elite/boss 풀컬러 완성 배지, `make_codex_badge()`=단일 파일+상태색 modulate)/
+  장식(`apply_chip_skin()`=칩 배경, `_make_divider_control()`=구분선, `_make_title_
+  ornament_rect()`=제목 좌우 장식)/공용 아이콘 로더(`icon_texture(name, tint, base_dir)`
+  — 흰 실루엣 PNG를 호출부가 넘긴 임의의 tint로 칠함, base/accent 쌍이 아니라 단일
+  파일+런타임 틴트라 패널/버튼과 다른 패턴)가 전부 M-5(a)와 같은 "base+accent를 캐릭터
+  accent로 틴트해 굽기, 파일 없으면 폴백" 원칙으로 구현돼 있었다. `character_theme.gd`의
+  `apply_background(scene_root, character_id, animate, duration, scene_key, base_dir)`
+  신규 매개변수가 `resources/backgrounds/<scene_key>.png`를 ColorRect 위에 깔고 ColorRect
+  자체는 투명화(alpha=0)해 사진이 그대로 보이게 하는 것도 이미 돼 있었다. 호출부 배선도
+  전부 끝나 있었다: `combat_test.gd`(몬스터 티어 아이콘 `monster_tier_icon` + 턴/라운드
+  배지, `apply_background(..., "combat")`), `dungeon_map.gd`(`apply_background(...,
+  "dungeon_map")`, 골드 칩이 `make_stat_chip()`을 거쳐 자동으로 칩 배경을 받음), `event.gd`/
+  `shop.gd`(`"shop"`)/`story_event.gd`(전용 배경이 없어 `"event"`를 공유), `deck_panel.gd`
+  (공격/방어 주머니 섹션 제목에 `icon_name="attack"`/`"defense"` 전달), `skill_codex_panel.gd`
+  (상태 배지를 `UIKit.make_codex_badge()`로 교체), `character_select.gd`(HP 칩 아이콘을
+  `icon_texture("hp", ...)`로, 스탯 칩 배경을 `apply_chip_skin()`으로), `achievement_icon.
+  gd`/`family_icon.gd`/`lock_icon.gd`/`reward_icon.gd`(각각 attack/skull·crown/lock/
+  gold·pip·dice 아이콘을 이미지 우선 + 절차적 폴백으로) — 아이콘 9종(gold/pip/dice/hp/
+  defense/attack/crown/skull/lock) 전부 최소 한 곳 이상 실제로 연결돼 있었다.
+  **이번에 실제로 한 일 — 버그 2개 발견·수정**: `bash scripts/qa_shot.sh dice_test`를
+  처음 돌렸을 때 신규 `_check_m5b_badges_decor_icons_backgrounds()`에서 FAIL 2건이
+  나왔다. ① "제목 장식(장식+아이콘 있음)" 검증이 `title_ornament_left_base.png`와
+  `title_ornament_right_base.png`를 둘 다 만들어놓고도 `title_row` 자식 수를 3개
+  (좌장식+아이콘+제목)로만 기대했다 — 실제로는 우장식까지 더해 4개가 맞는 게 정상
+  (`make_section()` 구현은 옳았고, 테스트 기대값이 우장식을 빠뜨린 버그였다) → 기대값을
+  4개 + 4번째 자식이 TextureRect인지까지 검증하도록 고쳤다. ② "scene_key 빈 문자열(기존
+  화면)" 검증이 직전 호출에서 만들어둔 `SceneBackgroundImage`가 `apply_background()`의
+  `bg_image.queue_free()`(지연 해제 — 다음 프레임까지 트리에 남아있음) 때문에 같은 프레임
+  안에서 곧바로 재확인하면 아직 `get_node_or_null()`에 걸려 FAIL이 났다 — 실제 플레이에서는
+  화면마다 `scene_key`가 고정이라 이 전환(있다가 없음)이 일어날 일이 없는 구석 케이스지만,
+  정확성을 위해 `character_theme.gd`의 `apply_background()`에서 `bg_rect.remove_child(
+  bg_image)`를 `queue_free()` 앞에 추가해 트리에서는 즉시 떨어지고 메모리 해제만 다음
+  프레임으로 미루게 고쳤다(동작 자체는 바뀌지 않음, 트리 탈착 시점만 동기화). 두 수정
+  모두 `bash scripts/qa_shot.sh dice_test` **전체 PASS**(M-5a/M-5b 신규 섹션 포함, 기존
+  섹션 전부 회귀 없음)로 확인.
+  **셀프 피드백 1라운드**: `qa_out/m5b_combat_novice.png`(승리 보상 화면)/`m5b_dungeon.png`
+  (던전 맵)/`m5b_shop.png`/`m5b_event.png`/`m5b_character_select.png`/`m5b_combat_boss.png`
+  6장 육안 확인 — 던전 맵 HUD 범례(골드/눈금/다이스/미정/정예) 아이콘, `DeckPanel`의
+  "보유 스킬"/"공격 주머니"/"방어 주머니" 섹션 제목 양옆 다이아몬드 장식 + 공격/방어 작은
+  아이콘, 전투 HUD의 턴/라운드 배지(다이아몬드 장식 테두리)와 몬스터 티어 아이콘(회색
+  방패, "일반" 옆), 캐릭터 선택 화면의 빨간 하트 HP 아이콘과 잠금 스킬 슬롯의 자물쇠
+  아이콘, 상점/이벤트 배경 사진(선술집/어두운 사원) 전부 M-5(a)의 보석 장식 스킨과 같은
+  톤으로 자연스럽게 어울렸고 레이아웃 겹침/잘림 없음 — 추가 수정 없이 1라운드로 종료.
+  배경 사진 로드 시 "Loaded resource as image file, this will not work on export" 경고는
+  M-5(a)/K-4c와 동일한 기존 트레이드오프(테스트가 `user://` base_dir 주입을 요구해
+  `Image.load()` 직접 호출이 불가피)로 그대로 둠. 전투 규칙/밸런스는 손대지 않았고
+  `resources/`·`docs/art/`는 읽기만 했다. **M-5(a)/M-5(b) 전체 완료 — [대형 기획 13]
+  자체는 M-4(이벤트/상점/스토리 이벤트 화면 통일)가 아직 남아있어 미완료**. M-5는
+  원래 INBOX 순서상 M-4 뒤였으나 (202) 때 사용자 지시로 먼저 진행했을 뿐이다 —
+  **다음은 M-4**, 그 다음에야 INBOX.md [대형 기획 14](N-1~N-5)로 넘어갈 것.
+
 - **2026-10-15 (202)**: INBOX.md 최우선 지시(이번 이터레이션 직접 지시) [대형 기획 13]
   **M-5(a)(UIKit 이미지 스킨 — 패널/버튼/HP 바) 완료**. 아트 스레드가 `resources/ui/`에
   U1~U6(패널 4종/버튼 2종/HP 바/배지/장식/아이콘)를 전부 납품했지만 Work 쪽 코드는 아직

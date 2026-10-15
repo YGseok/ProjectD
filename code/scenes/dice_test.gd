@@ -381,6 +381,10 @@ func _ready() -> void:
 	all_pass = _check_n5a_juggler_event_specialist(lines) and all_pass
 
 	lines.append("")
+	lines.append("[N-5(b): 이벤트 판정 콘텐츠 확충 + 대성공 — EventChallengePool에 도박/탐색/함정 해체 3종이 보물과 함께 데이터 표로 존재하는지, tier_for_roll()의 fail/success/crit 3단 경계, roll_reward()가 type별로 올바른 범위/등급을 추첨하는지, 챌린지별 초기 화면·대성공 보상·온건한 실패 패널티가 실제 화면에서 겹침 없이 동작하는지, D6 클래스와 D12 곡예사의 성공률/대성공률이 실제 계산으로 의미 있게 차이나는지]")
+	all_pass = _check_n5b_event_challenge_variety(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -9153,6 +9157,191 @@ func _check_n5a_juggler_event_specialist(lines: PackedStringArray) -> bool:
 
 	RunState.character_id = character_backup
 	RunState.chosen_starting_skill_id = chosen_backup
+	RunState.skill_flags = skill_flags_backup
+	RunState.rooms_cleared = rooms_backup
+	RunState.gold = gold_backup
+	RunState.event_die_sides = event_sides_backup
+	AchievementManager._debug_reset_for_qa()
+	return ok
+
+
+## [대형 기획 14] N-5(b)(INBOX.md 2026-10-15, "이벤트 판정 콘텐츠 확충 + 대성공")
+## 검증:
+## (a) EventChallengePool.CHALLENGES가 보물 포함 4종 이상이고, 각 항목이 필요한 키
+##     (subtitle/prompt/safe_reward/success_reward/crit_reward/fail_penalty)를 전부
+##     갖는지.
+## (b) tier_for_roll()의 fail/success/crit 3단 경계 — CRIT_MARGIN=3 기준 DC=5일 때
+##     roll 4=fail, 5=success, 7=success, 8=crit.
+## (c) roll_reward()가 spec의 type별로 실제 값을 추첨하는지(gold/pips는 범위 안,
+##     item_grade는 지정된 등급 집합 안, none은 "none") — 여러 회 반복해 경계값까지
+##     확인.
+## (d) D6 클래스(novice 등) vs D12 곡예사의 성공률/대성공률을 success_probability()/
+##     crit_probability()로 실제 계산해 비교 — 방 4 이상(DC5)에서 D6은 대성공이
+##     수학적으로 불가능(0%)인데 D12는 0보다 뚜렷하게 큰지, 성공률도 D12가 더 높은지.
+## (e) 화면 동작: event.tscn을 인스턴스화해 _debug_force_challenge_*()로 도박/탐색/
+##     함정 해체 각각의 초기 화면(제목/버튼 텍스트)이 실제로 바뀌는지.
+## (f) _debug_force_gambling_crit_success() — RunState.gold가 실제로 crit_reward
+##     범위(24~32) + (한탕 보유 시 FORTUNE_GOLD_BONUS) 안에서 증가하고, 굴림 결과
+##     레이블에 "대성공!"이 실제로 찍히는지(아이템 카드 없이).
+## (g) _debug_force_trap_disarm_failure() — RunState.gold가 fail_penalty 범위(3~5)
+##     안에서 실제로 감소하고(0 밑으로는 안 내려감), fail_label 문구에 패널티
+##     문장이 실제로 포함되는지.
+func _check_n5b_event_challenge_variety(lines: PackedStringArray) -> bool:
+	var ok := true
+	var character_backup := RunState.character_id
+	var skill_flags_backup: Array[String] = RunState.skill_flags.duplicate()
+	var rooms_backup := RunState.rooms_cleared
+	var gold_backup := RunState.gold
+	var event_sides_backup := RunState.event_die_sides
+
+	# (a) 데이터 표 구조.
+	var challenges: Array = EventChallengePool.CHALLENGES
+	var count_ok: bool = challenges.size() >= 4
+	ok = count_ok and ok
+	var ids: Array[String] = []
+	var keys_ok := true
+	for c in challenges:
+		ids.append(String(c.get("id", "")))
+		for key in ["subtitle", "prompt", "safe_reward", "success_reward", "crit_reward", "fail_penalty"]:
+			if not c.has(key):
+				keys_ok = false
+	ok = keys_ok and ok
+	var has_treasure: bool = ids.has("treasure")
+	var new_kinds_count: int = ids.size() - (1 if has_treasure else 0)
+	var variety_ok: bool = has_treasure and new_kinds_count >= 2
+	ok = variety_ok and ok
+	lines.append("  EventChallengePool.CHALLENGES: %d종(id=%s), 필수 키 전부 보유=%s, 보물 외 신규 %d종(기대 2종 이상) -> %s" % [
+		challenges.size(), ", ".join(ids), keys_ok, new_kinds_count, "OK" if (count_ok and keys_ok and variety_ok) else "FAIL"
+	])
+
+	# (b) tier_for_roll() 경계 — DC=5, CRIT_MARGIN=3 기준.
+	var tier4: String = EventChallengePool.tier_for_roll(4, 5)
+	var tier5: String = EventChallengePool.tier_for_roll(5, 5)
+	var tier7: String = EventChallengePool.tier_for_roll(7, 5)
+	var tier8: String = EventChallengePool.tier_for_roll(8, 5)
+	var tier_ok: bool = tier4 == "fail" and tier5 == "success" and tier7 == "success" and tier8 == "crit"
+	ok = tier_ok and ok
+	lines.append("  tier_for_roll(DC5, CRIT_MARGIN3): roll4/5/7/8=%s/%s/%s/%s(기대 fail/success/success/crit) -> %s" % [
+		tier4, tier5, tier7, tier8, "OK" if tier_ok else "FAIL"
+	])
+
+	# (c) roll_reward() — type별 실제 추첨 결과.
+	var gold_spec := {"type": "gold", "min": 10, "max": 16}
+	var gold_in_range := true
+	for i in 100:
+		var amount: int = int(EventChallengePool.roll_reward(gold_spec)["amount"])
+		if amount < 10 or amount > 16:
+			gold_in_range = false
+	ok = gold_in_range and ok
+	lines.append("  roll_reward(gold 10~16) 100회 전부 범위 안 -> %s" % ("OK" if gold_in_range else "FAIL"))
+
+	var pips_spec := {"type": "pips", "min": 7, "max": 9}
+	var pips_in_range := true
+	for i in 100:
+		var count: int = int(EventChallengePool.roll_reward(pips_spec)["count"])
+		if count < 7 or count > 9:
+			pips_in_range = false
+	ok = pips_in_range and ok
+	lines.append("  roll_reward(pips 7~9) 100회 전부 범위 안 -> %s" % ("OK" if pips_in_range else "FAIL"))
+
+	var item_spec := {"type": "item_grade", "grades": ["A", "S"], "weights": {"A": 1.0, "S": 3.0}}
+	var item_grades_ok := true
+	var item_saw_a := false
+	for i in 100:
+		var g: String = String(EventChallengePool.roll_reward(item_spec)["item"].get("grade", ""))
+		if g != "A" and g != "S":
+			item_grades_ok = false
+		if g == "A":
+			item_saw_a = true
+	ok = item_grades_ok and ok
+	ok = item_saw_a and ok
+	lines.append("  roll_reward(item_grade A/S) 100회 전부 grade=A/S, A급 목격=%s -> %s" % [item_saw_a, "OK" if (item_grades_ok and item_saw_a) else "FAIL"])
+
+	var none_result: Dictionary = EventChallengePool.roll_reward({"type": "none"})
+	var none_ok: bool = String(none_result.get("type", "")) == "none"
+	ok = none_ok and ok
+	lines.append("  roll_reward(none) -> type=%s(기대 none) -> %s" % [none_result.get("type", ""), "OK" if none_ok else "FAIL"])
+
+	# (d) D6 클래스 vs D12 곡예사 — 성공률/대성공률 이론 계산 비교(샘플링 없이 정확).
+	var dc5 := 5
+	var success_d6: float = EventChallengePool.success_probability(dc5, 6)
+	var success_d12: float = EventChallengePool.success_probability(dc5, 12)
+	var crit_d6: float = EventChallengePool.crit_probability(dc5, 6)
+	var crit_d12: float = EventChallengePool.crit_probability(dc5, 12)
+	var probability_ok: bool = success_d12 > success_d6 and crit_d6 == 0.0 and crit_d12 > 0.3
+	ok = probability_ok and ok
+	lines.append("  DC%d(방4 이상) 성공률: D6=%.3f D12=%.3f(기대 D12>D6) / 대성공률: D6=%.3f(기대 0, 최댓값 6<DC+3=8) D12=%.3f(기대 >0.3) -> %s" % [
+		dc5, success_d6, success_d12, crit_d6, crit_d12, "OK" if probability_ok else "FAIL"
+	])
+
+	# (e) 화면 동작 — 챌린지별 초기 화면.
+	AchievementManager._debug_reset_for_qa()
+	var event_scene := load("res://code/scenes/event.tscn")
+	var screen_node = event_scene.instantiate()
+	add_child(screen_node)
+	screen_node._debug_force_challenge_gambling()
+	var gambling_subtitle_ok: bool = screen_node.title_label.text.contains("적게 걸까")
+	var gambling_dc_text_ok: bool = screen_node.risky_button.text.contains("대성공")
+	ok = gambling_subtitle_ok and gambling_dc_text_ok and ok
+	lines.append("  _debug_force_challenge_gambling() -> title=\"%s\" 포함 확인=%s, risky 버튼에 \"대성공\" 포함=%s -> %s" % [
+		screen_node.title_label.text, gambling_subtitle_ok, gambling_dc_text_ok, "OK" if (gambling_subtitle_ok and gambling_dc_text_ok) else "FAIL"
+	])
+
+	screen_node._debug_force_challenge_exploration()
+	var exploration_ok: bool = screen_node.title_label.text.contains("샛길")
+	ok = exploration_ok and ok
+	lines.append("  _debug_force_challenge_exploration() -> title=\"%s\"(\"샛길\" 포함 기대) -> %s" % [screen_node.title_label.text, "OK" if exploration_ok else "FAIL"])
+
+	screen_node._debug_force_challenge_trap_disarm()
+	var trap_title_ok: bool = screen_node.title_label.text.contains("함정")
+	ok = trap_title_ok and ok
+	lines.append("  _debug_force_challenge_trap_disarm() -> title=\"%s\"(\"함정\" 포함 기대) -> %s" % [screen_node.title_label.text, "OK" if trap_title_ok else "FAIL"])
+	remove_child(screen_node)
+	screen_node.free()
+
+	# (f) 대성공 보상 — 골드 실제 증가 + "대성공!" 표시(계산 결과 검증, 플래그만 보지 않음).
+	RunState.rooms_cleared = 0
+	RunState.gold = 0
+	RunState.skill_flags = []
+	AchievementManager._debug_reset_for_qa()
+	var crit_node = event_scene.instantiate()
+	add_child(crit_node)
+	crit_node._debug_force_gambling_crit_success()
+	var crit_gold_ok: bool = RunState.gold >= 24 and RunState.gold <= 32
+	ok = crit_gold_ok and ok
+	var roll_label_text := ""
+	for child in crit_node.roll_root.get_children():
+		if child is Label:
+			roll_label_text = child.text
+	var crit_label_ok: bool = roll_label_text.contains("대성공!")
+	ok = crit_label_ok and ok
+	var crit_no_card_ok: bool = crit_node._row_ui.is_empty()
+	ok = crit_no_card_ok and ok
+	lines.append("  '도박' 대성공 강제: RunState.gold=%d(기대 24~32) 굴림 라벨=\"%s\"(\"대성공!\" 포함 기대) 아이템 카드 없음(기대 true)=%s -> %s" % [
+		RunState.gold, roll_label_text, crit_no_card_ok, "OK" if (crit_gold_ok and crit_label_ok and crit_no_card_ok) else "FAIL"
+	])
+	remove_child(crit_node)
+	crit_node.free()
+
+	# (g) 온건한 실패 패널티 — 골드 실제 감소(계산 결과 검증).
+	RunState.rooms_cleared = 0
+	RunState.gold = 10
+	RunState.skill_flags = []
+	AchievementManager._debug_reset_for_qa()
+	var fail_node = event_scene.instantiate()
+	add_child(fail_node)
+	fail_node._debug_force_trap_disarm_failure()
+	var penalty_gold_ok: bool = RunState.gold >= 5 and RunState.gold <= 7
+	ok = penalty_gold_ok and ok
+	var penalty_text_ok: bool = fail_node.fail_label.text.contains("금화")
+	ok = penalty_text_ok and ok
+	lines.append("  '함정 해체' 강제 실패(골드 10에서 시작): RunState.gold=%d(기대 5~7, 패널티 3~5) fail_label=\"%s\"(\"금화\" 포함 기대) -> %s" % [
+		RunState.gold, fail_node.fail_label.text, "OK" if (penalty_gold_ok and penalty_text_ok) else "FAIL"
+	])
+	remove_child(fail_node)
+	fail_node.free()
+
+	RunState.character_id = character_backup
 	RunState.skill_flags = skill_flags_backup
 	RunState.rooms_cleared = rooms_backup
 	RunState.gold = gold_backup

@@ -41,6 +41,21 @@ extends Node2D
 ## 보정을 더한다(_on_risky_pressed()에서만 적용 — QA 훅 _debug_force_risky_*는 결정적
 ## 재현이 목적이라 보정 없이 그대로 둠) ③ "한탕"(start_fortune)은 판정 성공 시
 ## FORTUNE_GOLD_BONUS 골드를 추가로 준다(_resolve_risky()).
+##
+## [대형 기획 14] N-5(b)(INBOX.md 2026-10-15, 이벤트 판정 콘텐츠 확충 + 대성공): 위
+## N-5(a)가 남긴 "판정이 '보물' 한 상황에만 쓰여서 D12 곡예사의 체감 이득이 성공률
+## 하나뿐"인 문제를 두 가지로 해결한다. ① systems/event_challenge_pool.gd
+## (EventChallengePool)의 데이터 표 CHALLENGES에 도박/탐색/함정 해체 3종을 추가해
+## "위험을 감수하기"가 매번 다른 상황(보물/도박/탐색/함정 해체 무작위 1개, _ready()가
+## 고름)으로 나오게 한다 — 보상 종류(아이템/골드/눈금)만 바뀌고 판정 로직은
+## EventChallengePool.tier_for_roll()/roll_reward() 하나를 전부 공유(종류별 하드코딩
+## 없음). ② tier_for_roll()이 "대성공"(roll >= DC + CRIT_MARGIN) 단계를 추가로 반환해
+## success_reward보다 더 좋은 crit_reward를 준다 — CRIT_MARGIN이 모든 종류 공통이라
+## D6 클래스는 사실상 대성공이 불가능(최댓값 6 < DC+3=8, 방 4 이상)인 반면 D12
+## 곡예사는 약 42% 확률로 대성공한다(dice_test.gd 확률 비교 검증 참고). DC 보정(눈속임/
+## 승부사)·굴림 보정(곡예 흥행(+))·성공 보너스(한탕)는 챌린지 종류와 무관하게 그대로
+## 전부 적용된다(_dc는 종류 선택 전에 한 번만 계산, event_roll_bonus/FORTUNE_GOLD_BONUS는
+## tier 분기 전에 적용).
 
 @onready var items_root: Node2D = $ItemsRoot
 @onready var roll_root: Node2D = $RollRoot
@@ -101,6 +116,13 @@ var _dc: int
 var _row_ui: Array[Node] = []
 var _shortcut_buttons: Array[Button] = []
 
+## N-5(b): 이번 인스턴스가 "위험을 감수하기" 분기로 들어갔을 때 어떤 상황(보물/도박/
+## 탐색/함정 해체)인지 — _ready()에서 EventChallengePool.CHALLENGES 중 무작위 1개로
+## 정해지고(스킬 이벤트/스킬 강화 이벤트로 빠지면 쓰이지 않음) 이후 바뀌지 않는다.
+## 기본값은 0번(treasure) — _debug_force_risky_* QA 훅이 _ready() 거치지 않고(또는
+## 거친 뒤 덮어써서) 결정적으로 재현할 때도 항상 유효한 값을 갖는다.
+var _challenge: Dictionary = EventChallengePool.CHALLENGES[0]
+
 
 func _ready() -> void:
 	# L-3(2026-10-14, [대형 기획 12] K-3 후속): 배경/제목을 현재 캐릭터 퍼스널 컬러로.
@@ -142,14 +164,23 @@ func _ready() -> void:
 	if _is_skill_event:
 		_setup_skill_event(skill_candidates)
 	else:
+		# N-5(b): "위험을 감수하기" 상황을 매번 무작위로 고른다(보물/도박/탐색/함정
+		# 해체 중 1개) — 다른 두 분기(스킬/스킬 강화)와 완전히 독립된 별도 굴림이라
+		# 서로 확률에 영향을 주지 않는다.
+		_challenge = EventChallengePool.CHALLENGES[randi() % EventChallengePool.CHALLENGES.size()]
 		_setup_item_event()
 
 
+## N-5(b): 제목/문구/보상 괄호 설명이 전부 _challenge(EventChallengePool.CHALLENGES의
+## 항목 하나)에서 나온다 — "보물"이든 새로 추가된 종류든 이 함수는 전혀 분기하지 않고
+## 그대로 동작한다(하드코딩 금지 원칙).
 func _setup_item_event() -> void:
-	title_label.text = "특수 이벤트 — 안전하게 넘어갈까, 위험을 감수할까?"
-	prompt_label.text = "이상한 기운이 느껴지는 방이다. 안전하게 지나칠 것인가, 위험을 무릅쓸 것인가?"
-	safe_button.text = "안전하게 넘어가기 (확정 C급 획득)"
-	risky_button.text = "위험을 감수하기 (이벤트 주사위 D%d, %d 이상 성공)" % [RunState.event_die_sides, _dc]
+	title_label.text = "특수 이벤트 — %s" % _challenge["subtitle"]
+	prompt_label.text = _challenge["prompt"]
+	safe_button.text = "안전하게 넘어가기 (%s)" % EventChallengePool.reward_blurb(_challenge["safe_reward"])
+	risky_button.text = "위험을 감수하기 (D%d, %d+ 성공/%d+ 대성공)" % [
+		RunState.event_die_sides, _dc, _dc + EventChallengePool.CRIT_MARGIN
+	]
 	safe_button.pressed.connect(_on_safe_pressed)
 	risky_button.pressed.connect(_on_risky_pressed)
 	_refresh_shortcuts([safe_button, risky_button, customize_button, skill_codex_button])
@@ -212,7 +243,7 @@ func _on_safe_pressed() -> void:
 	_choice_made = true
 	safe_button.hide()
 	risky_button.hide()
-	_show_item_offer(EventItemPool.random_safe_item())
+	_grant_reward(_challenge["safe_reward"])
 
 
 func _on_risky_pressed() -> void:
@@ -246,43 +277,94 @@ func _effective_risky_roll(raw_roll: int) -> int:
 ## roll을 인자로 받아 QA에서 결정적으로 강제할 수 있게 한다(아래 _debug_force_risky_*).
 ## QA 훅들은 이 함수를 직접(= _on_risky_pressed()를 거치지 않고) 불러 event_roll_bonus()
 ## 보정 없이 roll 값 그대로 판정한다 — "강제 성공/실패"의 결정성이 목적이라 의도적.
+## N-5(b): 성공/실패 2단만 있던 판정을 EventChallengePool.tier_for_roll()로 교체해
+## "fail"/"success"/"crit"(대성공) 3단으로 늘렸다. 보상도 더 이상 EventItemPool을 직접
+## 부르지 않고 _challenge의 success_reward/crit_reward를 _grant_reward()에 넘긴다 —
+## 어떤 챌린지든(보물/도박/탐색/함정 해체) 이 함수는 전혀 분기하지 않는다.
 func _resolve_risky(roll: int) -> void:
-	var success := roll >= _dc
-	_show_roll_result(roll, success)
-	if success:
-		AchievementManager.unlock("risk_taker")
-		# N-5(a) "한탕"(곡예사 전용 시작 스킬): 성공 시 추가 골드.
-		if RunState.skill_flags.has("start_fortune"):
-			RunState.gold += FORTUNE_GOLD_BONUS
-		_show_item_offer(EventItemPool.random_risky_item())
-	else:
-		_show_fail()
+	var tier := EventChallengePool.tier_for_roll(roll, _dc)
+	_show_roll_result(roll, tier)
+	if tier == "fail":
+		_show_fail(_challenge.get("fail_penalty", {"type": "none"}))
+		return
+	AchievementManager.unlock("risk_taker")
+	# N-5(a) "한탕"(곡예사 전용 시작 스킬): 성공(대성공 포함) 시 추가 골드. 챌린지
+	# 종류와 무관하게 적용(도박/탐색/함정 해체에서도 동일하게 적용되는 것이 의도).
+	if RunState.skill_flags.has("start_fortune"):
+		RunState.gold += FORTUNE_GOLD_BONUS
+	var reward_spec: Dictionary = _challenge["crit_reward"] if tier == "crit" else _challenge["success_reward"]
+	_grant_reward(reward_spec)
 
 
 ## 로마 숫자 육각 칩(EventDieVisual) + 결과 문구를 roll_root 아래에 만든다. 화면당
 ## 한 번만 호출되므로(다시 굴리는 경로가 없음) 기존 자식을 지우는 처리는 필요 없다.
-func _show_roll_result(roll: int, success: bool) -> void:
+## N-5(b): success(bool) 대신 tier(String, "fail"/"success"/"crit")를 받아 대성공을
+## 구분해 보여준다.
+func _show_roll_result(roll: int, tier: String) -> void:
 	var visual := EventDieVisual.new()
 	visual.custom_minimum_size = Vector2(56, 56)
 	visual.position = Vector2(0, 0)
 	roll_root.add_child(visual)
 	visual.value = roll
 
+	var tier_text := "대성공!" if tier == "crit" else ("성공!" if tier == "success" else "실패...")
+	var tier_color := Color(0.65, 0.85, 1.0) if tier == "crit" else (Color(0.7, 0.95, 0.6) if tier == "success" else Color(0.9, 0.5, 0.45))
+
+	# N-5(b): DC/대성공 기준은 이미 risky_button 텍스트(굴리기 전)에 나와 있어 여기서
+	# 또 반복하면 글자가 길어져 우측 패널(x≈980부터)과 겹친다 — 굴림값과 결과만 보여준다.
 	var label := Label.new()
 	label.position = Vector2(70, 14)
-	label.text = "이벤트 주사위 결과: %s (%d) — DC %d 이상 필요 → %s" % [
-		EventDieVisual._to_roman(roll), roll, _dc, "성공!" if success else "실패..."
+	label.text = "이벤트 주사위 결과: %s (%d) → %s" % [
+		EventDieVisual._to_roman(roll), roll, tier_text
 	]
 	label.add_theme_font_size_override("font_size", 18)
-	label.add_theme_color_override("font_color", Color(0.7, 0.95, 0.6) if success else Color(0.9, 0.5, 0.45))
+	label.add_theme_color_override("font_color", tier_color)
 	roll_root.add_child(label)
 
 
-func _show_fail() -> void:
-	fail_label.text = "아쉽게도 손에 넣지 못했다... 이번 기회는 여기서 끝이다."
+## N-5(b): reward spec(아이템/골드/눈금/없음, EventChallengePool.roll_reward()가 해석)을
+## 한 번 추첨해 실제로 RunState에 반영하고 화면에 보여준다. "type"으로만 분기해 챌린지
+## 종류와는 무관하다 — 새 챌린지가 생겨도 이 함수는 그대로다.
+func _grant_reward(spec: Dictionary) -> void:
+	var rolled := EventChallengePool.roll_reward(spec)
+	match String(rolled.get("type", "none")):
+		"item":
+			_show_item_offer(rolled["item"])
+		"gold":
+			var amount: int = int(rolled["amount"])
+			RunState.gold += amount
+			_show_simple_result("골드 %d를 더 얻었다!" % amount, true)
+		"pips":
+			var count: int = int(rolled["count"])
+			for i in count:
+				RunState.pip_inventory.append(randi_range(1, 6))
+			_show_simple_result("눈금 %d개를 더 얻었다!" % count, true)
+		_:
+			_show_simple_result("...하지만 손에 넣을 것이 없었다.", true)
+
+
+## _show_fail()/_grant_reward()가 공유하는 "카드 없이 문구+계속 버튼만" 결과 표시.
+## is_success는 글자 색(성공=녹/실패=빨강) 구분용.
+func _show_simple_result(text: String, is_success: bool) -> void:
+	fail_label.text = text
+	fail_label.add_theme_color_override("font_color", Color(0.7, 0.95, 0.6) if is_success else Color(0.9, 0.5, 0.45))
 	fail_label.show()
 	continue_button.show()
 	_refresh_shortcuts([continue_button, customize_button, skill_codex_button])
+
+
+## N-5(b): penalty_spec(기본값 "없음")으로 실패 패널티를 함께 처리한다 — "gold_loss"
+## 타입이면 온건한 금액만큼 골드를 깎고(0 밑으로 내려가지 않음) 문구에 덧붙인다. 기존
+## "보물" 챌린지의 fail_penalty는 "none"이라 이전과 동일하게 패널티 문구가 없다.
+func _show_fail(penalty_spec: Dictionary = {"type": "none"}) -> void:
+	var rolled := EventChallengePool.roll_reward(penalty_spec)
+	var penalty_text := ""
+	if String(rolled.get("type", "none")) == "gold_loss":
+		var amount: int = int(rolled["amount"])
+		if amount > 0:
+			RunState.gold = max(0, RunState.gold - amount)
+			penalty_text = " 허둥대다 금화 %d를 떨어뜨렸다." % amount
+	_show_simple_result("아쉽게도 손에 넣지 못했다... 이번 기회는 여기서 끝이다.%s" % penalty_text, false)
 
 
 func _on_continue_after_fail_pressed() -> void:
@@ -528,13 +610,17 @@ func _debug_pick_safe() -> void:
 
 
 ## QA 전용: 실제 randi_range() 대신 항상 최댓값(event_die_sides)을 굴린 것으로 강제해
-## "위험을 감수하기" 성공 경로(A/S급 카드 표시까지)를 결정적으로 재현한다. DC가 아무리
-## 커져도(최대 5) 이벤트 다이스 최댓값은 항상 DC 이상이므로 반드시 성공한다.
-## _clear_row_ui()를 먼저 부르는 이유: 이 인스턴스가 _ready()에서 우연히 스킬 이벤트로
-## 열렸을 수 있어서(SKILL_EVENT_CHANCE) 이미 스킬 카드가 _row_ui에 남아있을 수 있음 —
-## 이 훅은 "아이템 이벤트의 위험 감수 경로"를 결정적으로 재현하는 게 목적이라 항상
-## 깨끗한 상태에서 시작해야 dice_test.gd의 _row_ui 검증이 두 분기와 무관하게 안정된다.
+## "위험을 감수하기" 성공 경로(아이템 카드 표시까지)를 결정적으로 재현한다. DC가 아무리
+## 커져도(최대 5) 이벤트 다이스 최댓값은 항상 DC 이상이므로 반드시 성공(또는 대성공)한다.
+## N-5(b): _challenge를 "treasure"로 고정한다 — _ready()가 매번 무작위로 고르는
+## 4종 중 보물 외의 종류(도박/탐색)는 보상이 아이템이 아니라 골드/눈금이라
+## dice_test.gd의 기존 "_row_ui.size()==1(카드)" 검증이 깨진다. _clear_row_ui()를 먼저
+## 부르는 이유: 이 인스턴스가 _ready()에서 우연히 스킬 이벤트로 열렸을 수 있어서
+## (SKILL_EVENT_CHANCE) 이미 스킬 카드가 _row_ui에 남아있을 수 있음 — 이 훅은 "보물
+## 챌린지의 위험 감수 경로"를 결정적으로 재현하는 게 목적이라 항상 깨끗한 상태에서
+## 시작해야 dice_test.gd의 _row_ui 검증이 두 분기와 무관하게 안정된다.
 func _debug_force_risky_success() -> void:
+	_challenge = EventChallengePool.get_challenge("treasure")
 	_clear_row_ui()
 	_choice_made = true
 	safe_button.hide()
@@ -543,10 +629,72 @@ func _debug_force_risky_success() -> void:
 
 
 ## QA 전용: 항상 최솟값(1)을 굴린 것으로 강제해 실패 경로("아쉽게도..." + 계속 버튼)를
-## 결정적으로 재현한다. DC는 항상 3 이상이므로 1은 반드시 실패한다. _clear_row_ui() 이유는
-## _debug_force_risky_success()와 동일.
+## 결정적으로 재현한다. DC는 항상 3 이상이므로 1은 반드시 실패한다. _challenge를
+## "treasure"로 고정하는 이유/_clear_row_ui() 이유 모두 _debug_force_risky_success()와
+## 동일(보물의 fail_penalty="none"이라 패널티 문구도 기존과 동일하게 비어 있다).
 func _debug_force_risky_failure() -> void:
+	_challenge = EventChallengePool.get_challenge("treasure")
 	_clear_row_ui()
+	_choice_made = true
+	safe_button.hide()
+	risky_button.hide()
+	_resolve_risky(1)
+
+
+## N-5(b) QA 전용: _ready()가 무작위로 고르는 챌린지와 무관하게 id로 직접 지정해
+## 초기 화면(제목/문구/안전·위험 버튼 텍스트)을 재현한다. _setup_item_event()가 이미
+## _ready()에서 safe_button/risky_button에 신호를 연결해둔 상태라 중복 연결을 막기
+## 위해 먼저 해제하고 다시 연결한다.
+func _debug_force_challenge(id: String) -> void:
+	_is_skill_event = false
+	_is_skill_upgrade_event = false
+	_choice_made = false
+	_picked = false
+	fail_label.hide()
+	continue_button.hide()
+	_clear_row_ui()
+	if safe_button.pressed.is_connected(_on_safe_pressed):
+		safe_button.pressed.disconnect(_on_safe_pressed)
+	if risky_button.pressed.is_connected(_on_risky_pressed):
+		risky_button.pressed.disconnect(_on_risky_pressed)
+	safe_button.show()
+	risky_button.show()
+	_challenge = EventChallengePool.get_challenge(id)
+	_setup_item_event()
+
+
+## qa/visual_qa.gd의 GAME_QA_CALL용 인자 없는 래퍼 3개(아래) — N-5(b)로 추가된 각
+## 챌린지의 초기 화면이 겹침/잘림 없이 보이는지 확인하기 위함.
+func _debug_force_challenge_gambling() -> void:
+	_debug_force_challenge("gambling")
+
+
+func _debug_force_challenge_exploration() -> void:
+	_debug_force_challenge("exploration")
+
+
+func _debug_force_challenge_trap_disarm() -> void:
+	_debug_force_challenge("trap_disarm")
+
+
+## N-5(b) QA 전용: "도박" 챌린지에서 대성공(roll = DC + CRIT_MARGIN)을 강제해 골드
+## 보상 결과 화면(아이템 카드 없이 문구+계속 버튼만)이 겹침 없이 보이는지 확인한다.
+## _debug_force_challenge()를 먼저 거쳐 제목/문구도 "도박"으로 갱신한다 — 그냥
+## _challenge만 바꾸면 _ready()가 처음에 고른(무관계) 챌린지의 제목이 화면에 남아있는
+## 채로 결과만 도박 보상이 나와 스크린샷이 서로 다른 챌린지처럼 보이는 불일치가 있었다.
+func _debug_force_gambling_crit_success() -> void:
+	_debug_force_challenge("gambling")
+	_choice_made = true
+	safe_button.hide()
+	risky_button.hide()
+	_resolve_risky(_dc + EventChallengePool.CRIT_MARGIN)
+
+
+## N-5(b) QA 전용: "함정 해체" 챌린지에서 강제 실패(roll=1)시 온건한 골드 손실 패널티
+## 문구("...허둥대다 금화 N를 떨어뜨렸다")가 기존 실패 문구와 겹침 없이 이어지는지
+## 확인한다. 제목/문구 갱신 이유는 _debug_force_gambling_crit_success()와 동일.
+func _debug_force_trap_disarm_failure() -> void:
+	_debug_force_challenge("trap_disarm")
 	_choice_made = true
 	safe_button.hide()
 	risky_button.hide()

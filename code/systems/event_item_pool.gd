@@ -77,6 +77,12 @@ static func items_of_grade(grades: Array[String]) -> Array[Dictionary]:
 
 ## 등급별 가중치로 pool에서 무작위 1개를 뽑는다(가중치가 클수록 자주 뽑힘). pool이
 ## 비어있으면 빈 Dictionary를 돌려주지 않도록 호출부에서 항상 폴백을 준비해야 한다.
+## [대형 기획 14] N-5(b): event_challenge_pool.gd(EventChallengePool)가 이 클래스 밖에서
+## 같은 추첨 로직을 재사용하기 위한 공개 래퍼 — 내부 구현은 그대로 _weighted_pick()에 둔다.
+static func weighted_pick(pool: Array[Dictionary], weight_by_grade: Dictionary) -> Dictionary:
+	return _weighted_pick(pool, weight_by_grade)
+
+
 static func _weighted_pick(pool: Array[Dictionary], weight_by_grade: Dictionary) -> Dictionary:
 	var total_weight := 0.0
 	for item in pool:
