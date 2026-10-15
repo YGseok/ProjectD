@@ -214,8 +214,8 @@ ART-<분류><대상 번호 3자리>-<종류>
 
 | ID | id | 이름 | 계열 | 등급 | 참고 색 | FULL / FACE |
 |---|---|---|---|---|---|---|
-| MO800 | `goblin_king` | 고블린 왕 | 인간형 | 보스 R1 | `#D9A626` | 📝 / 📝 |
-| MO801 | `ooze_lord` | 점액 군주 | 부정형 | 보스 R1 | `#4D8C59` | 📝 / 📝 |
+| MO800 | `goblin_king` | 고블린 왕 | 인간형 | 보스 R1 | `#D9A626` | 📦 / 📝 |
+| MO801 | `ooze_lord` | 점액 군주 | 부정형 | 보스 R1 | `#4D8C59` | 📦 / 📝 |
 | MO802 | `skeleton_general` | 해골 장군 | 언데드형 | 보스 R2 | `#A69E80` | 📝 / 📝 |
 | MO803 | `frenzied_beast` | 광란의 마수 | 야수형 | 보스 R2 | `#8C3326` | 📝 / 📝 |
 | MO804 | `fallen_commander` | 타락한 기사단장 | 인간형 | 보스 R3 | `#594D73` | 📝 / 📝 |
@@ -680,6 +680,7 @@ Work는 `resources/ui/` 이미지가 있으면 StyleBoxTexture로 쓰고, 없으
 | 2026-10-16 | ART-CH008-FACE 해적 표정 5장 (GPT 생성, "Project D - Claude" 스레드, 견습 모험가 neutral을 구도 템플릿으로 첨부. 5장 머리 위치·구도 일치 확인) | `resources/characters/pirate/face_*.png` 입고(원본 `_reference/characters/pirate/`). Work ART-1b 로직으로 전투 화면 자동 적용 | `qa_out/art_pirate_face_set.png` |
 | 2026-10-16 | 스킬 아이콘 S1 캐릭터 전용 SK600~610 전량 + SK013 승부사·SK301 여분 (GPT 생성, 2×2 시트 3장으로 받아 `sheet_split.gd` + `icon_fit.gd`로 분리·256/128. 연쇄 폭발은 첫 시안이 해적 시계 폭탄과 겹쳐 X 표시 폭탄으로 재요청). **"+" 강화판 10종**은 금테+별 배지 오버레이 1장(`_reference/skills/plus_overlay.png`)을 `plus_compose.gd`로 합성해 그림 일관성 유지 | `resources/skills/<id>.png`, `<id>_plus.png` 입고(원본 `_reference/skills/*_256.png`). 32px 판독 확인. `SkillIcon.load_external_art()`로 자동 적용 | `tools/artgen/out/skills_s1/row_all.png` |
 | 2026-10-16 | 스킬 아이콘 S2 시작 스킬 SK001~012 + S3 심호흡 SK300(+판) (GPT 생성, 계열별 2×2 시트 3장 + 단일 1장, 전부 1차 채택). **스킬 아이콘 37종 전량 입고** | `resources/skills/` 37장. `SkillIcon.load_external_art()`로 자동 적용 | — |
+| 2026-10-16 | ART-MO800-FULL 고블린 왕 · ART-MO801-FULL 점액 군주 (GPT 생성, 8인 라인업을 화풍 참고로 첨부. 고블린 왕은 오른쪽을 봐서 좌우 반전 — 몬스터는 왼쪽을 봄. 점액 군주는 망토 안쪽에 남은 흰 배경 조각 제거) | `resources/monsters/{goblin_king,ooze_lord}/full.png` 입고(원본 `_reference/monsters/`). 화면 표시는 Work ART-1c(몬스터 원화 경로) 대기 | — |
 
 ---
 
