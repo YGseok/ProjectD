@@ -196,7 +196,7 @@ ART-<분류><대상 번호 3자리>-<종류>
 | id | 이름 | 참고 색 (머리 / 의상) | 전신 `full.png` | 표정 5종 `face_*.png` |
 |---|---|---|---|---|
 | `novice` | 견습 모험가 | `#C79EDB` / `#EB8CA8` | ✅ 적용 | ✅ ART-CH001-FACE 5/5 적용 (목록 썸네일 + 전투 화면 표정 전환, Work ART-1b 2026-10-15) |
-| `berserker` | 광전사 | `#D94033` / `#591A1A` | ✅ 적용 | 📦 ART-CH002-FACE 1/5 입고 (neutral — 선택 화면 목록 썸네일에 자동 적용, 전투는 5장 다 모이면 자동 전환) |
+| `berserker` | 광전사 | `#D94033` / `#591A1A` | ✅ 적용 | ✅ ART-CH002-FACE 5/5 입고 (목록 썸네일 + 전투 표정 자동 적용) |
 | `guardian` | 수호자 | `#668CD9` / `#40668C` | ✅ 적용 | 📝 ART-CH003-FACE |
 | `explosive` | 폭발병 | `#F28C26` / `#802E0D` | ✅ 적용 | 📝 ART-CH004-FACE |
 | `shieldbearer` | 주술사 | `#1F1429` / `#2E0A1A` | ✅ 적용 | 📝 ART-CH005-FACE (전신 입고됨 — 착수 가능) |
@@ -668,6 +668,7 @@ Work는 `resources/ui/` 이미지가 있으면 StyleBoxTexture로 쓰고, 없으
 | 2026-10-15 | ART-BG002 이벤트 배경 (GPT 생성 1차 채택 — 보라 룬이 빛나는 낡은 제단 방, 천장 틈 푸른 빛, 바닥 안개. 가운데·아래는 차분하게) | `resources/backgrounds/event.png` 1600×900 입고. 특수/스토리 이벤트 공용. 화면 적용은 Work M-5 대기 | — |
 | 2026-10-15 | ART-BG003 상점 배경 (GPT 생성 1차 채택 — 선반·물약·두루마리가 양옆에, 호박색 등불 + 보라 던전빛, 맨 아래 나무 카운터. 가운데는 어두운 안쪽 벽) | `resources/backgrounds/shop.png` 1600×900 입고. **U7 배경 완료 → UI 키트 발주분 전량 입고**. 화면 적용은 Work M-5 대기 | — |
 | 2026-10-15 | ART-CH002-FACE 중 `face_neutral.png` 광전사 (GPT 생성 — 광전사 전신 + 견습 모험가 neutral(구도 템플릿) 첨부. 견습 모험가와 머리 크기·위치 비교 확인. 원본 `_reference/characters/berserker/face_neutral_raw.png`) | `resources/characters/berserker/face_neutral.png` 입고. 나머지 4장은 ChatGPT 사용량 한도로 중단(초기화 후 재개) | — |
+| 2026-10-16 | ART-CH002-FACE 광전사 표정 5장 완성 (GPT 생성, "Project D - Claude" 스레드. neutral은 같은 스레드 버전으로 교체해 5장 구도 통일 — 원본 `_reference/characters/berserker/`) | `resources/characters/berserker/face_*.png` 입고. Work ART-1b 로직상 5장 세트가 있으면 전투 화면에 자동 적용 | `qa_out/art_berserker_face_set.png` |
 
 ---
 
