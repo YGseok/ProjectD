@@ -8,6 +8,46 @@
 
 ---
 
+- **2026-10-15 (201)**: [미니 기획 ART-1] **ART-1b(전투 화면 원화 표정 컷 연결)를
+  견습 모험가(`novice`) 1종에 대해 완료**. 아트 스레드가 `resources/characters/
+  novice/face_{neutral,happy,hurt,sad,angry}.png` 5장을 입고(커밋 `db83033`)해
+  착수 가능해졌다. `CharacterArt`(`code/scenes/character_art.gd`)에
+  `has_all_faces(character_id)`(5장이 전부 있는지, 하나라도 없으면 false) 신규
+  추가. `CharacterPortraitPlaceholder`(`code/scenes/character_portrait_
+  placeholder.gd`, 전투 화면 `$PlayerPortrait`가 쓰는 클래스, 캐릭터 선택/덱
+  패널/테스트 전투 설정 등 다른 사용처와 공유)에 `set_character(character_id)`를
+  추가 — 5장이 전부 있으면 `_use_face_art=true`로 전환해 `_face_rect`(TextureRect,
+  240×240, `TEXTURE_FILTER_LINEAR_WITH_MIPMAPS`, `STRETCH_KEEP_ASPECT_CENTERED`)를
+  만들고 `_draw()`(도형 플레이스홀더)를 건너뛴다. **기존 `set_expression()` 호출
+  지점은 전혀 안 바꿨다** — 그 함수 내부에 "원화 모드면 `_face_rect.texture`도
+  갈아끼운다" 분기만 추가(INBOX 원문 "기존 set_expression() 호출 지점에서
+  텍스처만 교체" 그대로). `set_character()`를 호출하지 않는 다른 사용처(캐릭터
+  선택 상세 패널의 `_detail_portrait`, `deck_panel.gd`/`test_battle_setup.gd`의
+  플레이스홀더)는 `_use_face_art`가 항상 false라 기존과 완전히 동일하게 동작 —
+  영향 없음. `combat_test.gd`의 `_setup_combat_hud()`(플레이어 캐릭터가 정해지는
+  지점, QA 캐릭터 전환 훅 `_debug_set_character()`도 이 함수를 재사용)에
+  `player_portrait.set_character(cid)` 한 줄만 추가해 배선 완료 — 캐릭터가
+  바뀌면(정상 플레이의 캐릭터 선택, 또는 QA 전환) 자동으로 원화/플레이스홀더가
+  갈린다.
+  **검증**: `dice_test.gd`에 신규 `_check_art1b_combat_face_art()` — ①
+  `has_all_faces('novice')`=true / `has_all_faces('berserker')`(face_* 없음,
+  full.png만)=false ② `CharacterPortraitPlaceholder` 단위: berserker로
+  `set_character()` 호출 시 플레이스홀더 유지, novice로 호출 시 원화 모드 전환
+  + `set_expression('happy')`로 실제 텍스처가 neutral과 다른 리소스로 바뀌는지
+  ③ 실제 `combat_test.tscn` 인스턴스에서 `RunState.character_id='novice'`로
+  시작하면 `PlayerPortrait._use_face_art=true`, `_debug_set_character
+  ('berserker')`로 전환하면 다시 false로 돌아오는지 — 전부 PASS,
+  `bash scripts/qa_shot.sh dice_test` 전체 스위트 **PASS**.
+  `qa_out/art1b_novice_start.png`(전투 시작 직후 neutral 원화, 좌측 HP
+  패널·중앙 다이스 스테이지와 안 겹침)/`art1b_novice_after_exchange.png`
+  (공격 적중 후 happy 표정으로 실제 전환, 화면 중앙 결과 칩 줄과도 안 겹침)/
+  `art1b_pirate_fallback.png`(face 미입고 캐릭터 — 해적으로 QA 전환, 기존 도형
+  플레이스홀더 그대로 — 회귀 없음)로 육안 확인. 전투 규칙/밸런스/resources는
+  손대지 않음. **나머지 7종은 아트 스레드가 face_* 5장을 입고하는 즉시 코드
+  변경 없이 자동 적용**(`has_all_faces()`가 범용 함수라 캐릭터 id만 바뀜) —
+  ART-1b는 사실상 "코드 작업 완료, 입고 대기"로 전환됨. ART-1c(몬스터 원화)는
+  몬스터 쪽 face_*가 아직 없어 그대로 대기.
+
 - **2026-10-15 (200)**: INBOX.md 최우선 지시 [대형 기획 13] 던전 선택~전투 UI 품질
   개선(M-1→M-4, 셀프 피드백 루프 방식) 중 **M-3(전투 화면 상태별 연출/결과/보상
   UI) 완료**. 직전 이터레이션이 사용 한도로 M-3 작업 도중(combat_test.gd/

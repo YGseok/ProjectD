@@ -106,6 +106,12 @@ const ABILITY_DESC_WRAP_WIDTH := 332.0
 ## 안에 최대 3칸(+separation 10 x2=20)이 들어와야 하므로 (SECTION_BODY_WRAP_WIDTH-20)/3
 ## 이하로 잡아야 한다. **N-2b로 (372-20)/3 ≈ 117.**
 const STARTING_SKILL_SLOT_WIDTH := 115.0
+## N-4(2026-10-15 [대형 기획 14]): 주사위 줄의 ShapeDieChip 한 칸 크기/간격 + 라벨
+## ("공격"/"방어"/"이벤트") 고정 폭. MAX_DICE(=6)개가 한 줄에 다 들어가도(6*(26+4)-4=176)
+## + 라벨(44) + 여유가 SECTION_BODY_WRAP_WIDTH(372) 예산을 넉넉히 넘지 않는다.
+const DICE_CHIP_SIZE := 26.0
+const DICE_CHIP_GAP := 4.0
+const DICE_ROW_LABEL_WIDTH := 44.0
 
 @onready var cards_container: Control = $CardsContainer/CardsList
 @onready var detail_container: Control = $DetailPanelContainer
@@ -151,10 +157,14 @@ var _detail_concept_label: Label
 ## "선택 화면에서는 보유 0개" 참고). 캐릭터를 바꿔도 버튼 자체는 다시 만들지 않는다
 ## (텍스트/클릭 대상이 _selected_id를 매번 읽으므로 그대로 재사용 가능).
 var _skill_codex_button: Button
-## ② 능력치 칩 라벨(공격/방어 다이스 개수, 이벤트 주사위 면수) — 아이콘은 생성 시
-## 한 번만 만들고 다시 안 바꾸므로 따로 보관하지 않는다.
-var _detail_attack_label: Label
-var _detail_defense_label: Label
+## ② 주사위 줄(N-4, 2026-10-15 [대형 기획 14]): "공격 D4×3" 같은 문자열 대신 실제
+## ShapeDieChip을 attack_count/defense_count만큼 나열한다. 각 row는
+## _make_dice_row()가 돌려준 {"chips": HBoxContainer(칩이 들어갈 자리, 캐릭터가
+## 바뀔 때마다 비우고 다시 채움), "bonus": Label("+n" 배지, 기본 숨김)} — 칩 틀 자체는
+## 한 번만 만들고 _refresh_dice_chips()가 내용만 다시 그린다(기존 "텍스트만 갱신"
+## 패턴과 동일한 이유).
+var _detail_attack_dice_row: Dictionary = {}
+var _detail_defense_dice_row: Dictionary = {}
 var _detail_event_die_label: Label
 var _detail_event_die_visual: EventDieVisual
 ## ③ 고유 능력 — 아이콘 + 짧은 이름(_ability_short_name) + 2줄 예산 설명(_truncate).
@@ -526,44 +536,44 @@ func _build_header_section() -> void:
 	hbox.add_child(_skill_codex_button)
 
 
-## ② 능력치 칩: 공격/방어 다이스 개수, 이벤트 주사위 면 수, (고정값) HP를 아이콘+숫자
-## 칩 형태로 나열한다(INBOX.md 원문 "숫자는 한눈에"). HP는 캐릭터마다 다르지 않고
-## 전부 DESIGN.md 확정값(20)이라 라벨을 생성 시 한 번만 설정하고 갱신하지 않는다.
-## **N-2b**: 칩 4개를 한 줄(HBoxContainer)로 나열하면 자연 최소 폭이 ~495px로, N-2b로
-## 좁아진 정보 컬럼 예산(INFO_COLUMN_WIDTH-28=372)을 크게 넘어 섹션 전체(와 그 뒤
-## 모든 섹션을 포함하는 _detail_sections_vbox)가 그만큼 화면 밖으로 밀려나는 버그를
-## 유발했다(스킬 도감 버튼이 화면 오른쪽 밖으로 잘림 — dice_test 디버그 출력으로 확인).
-## 2×2 그리드(GridContainer)로 바꿔 한 줄의 폭 요구치를 절반 수준으로 낮췄다.
+## ② 주사위 줄(N-4, 2026-10-15 [대형 기획 14]): "공격 D4×3" 같은 문자열 대신 실제
+## 다이스 칩/아이콘을 개수만큼 나열한다 — INBOX.md 원문 "실제 주사위를 나열해서
+## 보여주기", shape_die_chip.gd/event_die_visual.gd를 그대로 재사용하고 새로 그리지
+## 않는다. 공격/방어/이벤트 3줄 + (고정값) HP 한 줄 구조. 칩 내용(개수/모양/시작
+## 보너스 배지)은 캐릭터·시작 스킬 선택이 바뀔 때마다 _refresh_dice_chips()가 다시
+## 그린다 — 여기서는 "줄" 틀(라벨+칩 컨테이너+배지)만 한 번 만든다.
 func _build_stats_section() -> void:
 	var body := _make_section("능력치")
-	var row := GridContainer.new()
-	row.columns = 2
-	row.add_theme_constant_override("h_separation", 8)
-	row.add_theme_constant_override("v_separation", 6)
-	body.add_child(row)
+	var dice_rows := VBoxContainer.new()
+	dice_rows.add_theme_constant_override("separation", 6)
+	body.add_child(dice_rows)
 
-	var attack_chip := _make_stat_chip()
-	var attack_icon := RewardIcon.new()
-	attack_icon.category = "dice"
-	attack_chip["icon_holder"].add_child(attack_icon)
-	_detail_attack_label = attack_chip["label"]
-	row.add_child(attack_chip["chip"])
-
-	var defense_chip := _make_stat_chip()
-	var defense_icon := RewardIcon.new()
-	defense_icon.category = "dice"
-	defense_chip["icon_holder"].add_child(defense_icon)
-	_detail_defense_label = defense_chip["label"]
-	row.add_child(defense_chip["chip"])
+	_detail_attack_dice_row = _make_dice_row(dice_rows, "공격")
+	_detail_defense_dice_row = _make_dice_row(dice_rows, "방어")
 
 	# 이벤트 주사위(INBOX.md 2026-09-15 [미니 기획 B]-4): 공격/방어와 별개인 특수 이벤트
 	# 전용 다이스 — 로마 숫자 육각 칩(EventDieVisual)으로 일반 다이스와 구분해서 보여준다.
-	var event_chip := _make_stat_chip()
+	# N-4: "공격"/"방어"와 같은 라벨+칩 줄 구조를 맞추고, 로마 숫자만으로는 면 수가
+	# 바로 안 읽히므로 옆에 "D%d" 텍스트를 같이 둔다.
+	var event_row := HBoxContainer.new()
+	event_row.add_theme_constant_override("separation", 8)
+	dice_rows.add_child(event_row)
+
+	var event_tag := Label.new()
+	event_tag.text = "이벤트"
+	event_tag.custom_minimum_size = Vector2(DICE_ROW_LABEL_WIDTH, 0)
+	event_tag.add_theme_font_size_override("font_size", 13)
+	event_tag.add_theme_color_override("font_color", Color(0.75, 0.75, 0.75))
+	event_row.add_child(event_tag)
+
 	_detail_event_die_visual = EventDieVisual.new()
-	_detail_event_die_visual.custom_minimum_size = Vector2(22, 22)
-	event_chip["icon_holder"].add_child(_detail_event_die_visual)
-	_detail_event_die_label = event_chip["label"]
-	row.add_child(event_chip["chip"])
+	_detail_event_die_visual.custom_minimum_size = Vector2(DICE_CHIP_SIZE, DICE_CHIP_SIZE)
+	event_row.add_child(_detail_event_die_visual)
+
+	_detail_event_die_label = Label.new()
+	_detail_event_die_label.add_theme_font_size_override("font_size", 13)
+	_detail_event_die_label.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9))
+	event_row.add_child(_detail_event_die_label)
 
 	var hp_chip := _make_stat_chip()
 	# [대형 기획 13] M-5(b): icon/hp.png(흰 하트 실루엣)가 있으면 그 이미지를 빨간색으로
@@ -588,7 +598,124 @@ func _build_stats_section() -> void:
 		hp_icon.add_theme_color_override("font_color", hp_icon_color)
 		hp_chip["icon_holder"].add_child(hp_icon)
 	hp_chip["label"].text = "HP %d" % DISPLAY_PLAYER_HP
-	row.add_child(hp_chip["chip"])
+	body.add_child(hp_chip["chip"])
+
+
+## 주사위 줄 하나(라벨 + 칩이 채워질 빈 컨테이너 + "+n" 보너스 배지, 기본 숨김) 틀을
+## parent에 추가하고 {"chips": HBoxContainer, "bonus": Label}을 돌려준다. 실제 칩은
+## _refresh_dice_chips()가 캐릭터/시작 스킬이 바뀔 때마다 chips 컨테이너를 비우고
+## 다시 채운다.
+func _make_dice_row(parent: Control, label_text: String) -> Dictionary:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	parent.add_child(row)
+
+	var tag := Label.new()
+	tag.text = label_text
+	tag.custom_minimum_size = Vector2(DICE_ROW_LABEL_WIDTH, 0)
+	tag.add_theme_font_size_override("font_size", 13)
+	tag.add_theme_color_override("font_color", Color(0.75, 0.75, 0.75))
+	row.add_child(tag)
+
+	var chips := HBoxContainer.new()
+	chips.add_theme_constant_override("separation", DICE_CHIP_GAP)
+	row.add_child(chips)
+
+	var bonus := Label.new()
+	bonus.add_theme_font_size_override("font_size", 13)
+	bonus.add_theme_color_override("font_color", FaceChipStyle.MAX_FACE_BG_COLOR)
+	bonus.visible = false
+	row.add_child(bonus)
+
+	return {"chips": chips, "bonus": bonus}
+
+
+## N-4: 캐릭터(또는 캐릭터의 attack_count/defense_count/event_die_sides)가 바뀔 때마다
+## 공격/방어/이벤트 다이스 칩을 다시 그린다. "시작 보너스" 배지는 여기서 건드리지 않고
+## _refresh_dice_bonus_badges()가 따로 맡는다 — 호출 시점에 RunState.chosen_starting_
+## skill_id가 아직 새 캐릭터 기준으로 검증되지 않았을 수 있어서(_rebuild_starting_
+## skill_slots()가 그 검증을 끝낸 뒤에야 배지를 계산해야 함, 아래 참고).
+func _refresh_dice_chips(profile: Dictionary) -> void:
+	var attack_count: int = int(profile.get("attack_count", 3))
+	var defense_count: int = int(profile.get("defense_count", 3))
+	# attack_sides/defense_sides: 지금은 8명 전부 D4로 동일해 프로필에 없는 필드지만,
+	# get()의 기본값(4)으로 "면 수가 다른 시작 다이스"가 생겨도 이 함수는 손댈 필요가
+	# 없다(INBOX.md N-4 원문 "서로 다른 면 수라면 각각 다른 모양/숫자로").
+	var attack_sides: int = int(profile.get("attack_sides", 4))
+	var defense_sides: int = int(profile.get("defense_sides", 4))
+	_fill_dice_chip_row(_detail_attack_dice_row["chips"], attack_count, attack_sides)
+	_fill_dice_chip_row(_detail_defense_dice_row["chips"], defense_count, defense_sides)
+
+	var event_sides: int = int(profile.get("event_die_sides", 6))
+	_detail_event_die_label.text = "D%d" % event_sides
+	_detail_event_die_visual.value = 1
+
+
+## chips 컨테이너를 비우고 count개의 ShapeDieChip을 다시 채운다 — 각 칩은 그 다이스의
+## 면 모양(shape_sides_for_dice_sides)을 그리고, 값 칸에는 굴림 결과가 아니라 면 수
+## 자체(sides)를 보여준다(예: D4 세모 칩에 "4") — "이 주머니에 D4가 몇 개 있는지"를
+## 한눈에 보여주는 정적 미리보기이지, 전투 중 굴림 결과 칩(combat_test.gd)과는 용도가
+## 다르다.
+func _fill_dice_chip_row(container: HBoxContainer, count: int, sides: int) -> void:
+	for c in container.get_children():
+		container.remove_child(c)
+		c.queue_free()
+	var shape_sides := ShapeDieChip.shape_sides_for_dice_sides(sides)
+	for i in count:
+		var chip := ShapeDieChip.new()
+		chip.custom_minimum_size = Vector2(DICE_CHIP_SIZE, DICE_CHIP_SIZE)
+		chip.size = Vector2(DICE_CHIP_SIZE, DICE_CHIP_SIZE)
+		chip.shape_sides = shape_sides
+		chip.value = sides
+		container.add_child(chip)
+
+
+## N-4 "+n 배지": 캐릭터 선택 화면은 전투 상태(HP/골드/인벤토리/보유 재질 등)가 없는
+## "런 시작 전" 화면이라, RunState에 의존하는 시작 스킬 조건(수집가/선제/대비/황금손/
+## 과적/오뚝이/잡화점/강철 방비)은 미리 계산할 수 없다 — attack_count/defense_count
+## "개수"만으로 결정되는 4종(맹공/철벽/확장/정예)만 미리보기 배지로 보여준다.
+## combat_test.gd의 실제 전투 적용 함수를 그대로 재사용해(load() 패턴은 dice_test.gd가
+## 이미 쓰는 것과 동일) 공식을 두 곳에 중복 정의하지 않는다.
+func _static_dice_bonus(skill_id: String, attack_count: int, defense_count: int) -> Dictionary:
+	var combat_script := load("res://code/scenes/combat_test.gd")
+	var atk := 0
+	var def := 0
+	match skill_id:
+		"start_aggro":
+			atk = combat_script._aggro_bonus(attack_count, defense_count)
+		"start_wall":
+			def = combat_script._wall_bonus(attack_count, defense_count)
+		"start_expand":
+			var expand_bonus: int = combat_script._expand_bonus(attack_count, defense_count)
+			atk = expand_bonus
+			def = expand_bonus
+		"start_lean":
+			var lean_bonus: int = combat_script._lean_bonus(attack_count, defense_count)
+			atk = lean_bonus
+			def = lean_bonus
+	return {"attack": atk, "defense": def}
+
+
+## RunState.chosen_starting_skill_id가 바뀔 때마다(캐릭터 전환으로 검증된 기본값으로
+## 되돌아갈 때 포함) 공격/방어 다이스 줄의 "+n" 배지를 다시 계산한다.
+## _rebuild_starting_skill_slots()가 chosen_starting_skill_id를 검증/확정한 직후에만
+## 호출돼야 하므로(이 함수 자체는 호출 시점을 가리지 않음), 그 함수 맨 끝에서만 부른다.
+func _refresh_dice_bonus_badges() -> void:
+	var profile := CharacterProfiles.get_profile(_selected_id)
+	var attack_count: int = int(profile.get("attack_count", 3))
+	var defense_count: int = int(profile.get("defense_count", 3))
+	var bonus := _static_dice_bonus(RunState.chosen_starting_skill_id, attack_count, defense_count)
+	_set_bonus_label(_detail_attack_dice_row["bonus"], int(bonus["attack"]))
+	_set_bonus_label(_detail_defense_dice_row["bonus"], int(bonus["defense"]))
+
+
+func _set_bonus_label(label: Label, n: int) -> void:
+	if n > 0:
+		label.text = "+%d" % n
+		label.visible = true
+	else:
+		label.text = ""
+		label.visible = false
 
 
 ## 칩 하나(테두리 패널 + 아이콘 칸 + 텍스트 라벨)의 공통 틀. 아이콘은 호출하는 쪽이
@@ -776,11 +903,7 @@ func _refresh_detail_panel() -> void:
 	_detail_concept_label.text = _header_concept_line(concept)
 	_detail_concept_label.tooltip_text = concept
 
-	_detail_attack_label.text = "공격 D4×%d" % int(profile.get("attack_count", 3))
-	_detail_defense_label.text = "방어 D4×%d" % int(profile.get("defense_count", 3))
-	var event_sides: int = int(profile.get("event_die_sides", 6))
-	_detail_event_die_label.text = "이벤트 D%d" % event_sides
-	_detail_event_die_visual.value = 1
+	_refresh_dice_chips(profile)
 
 	var gimmick: String = String(profile.get("gimmick", ""))
 	_detail_skill_icon.category = gimmick
@@ -838,6 +961,9 @@ func _rebuild_starting_skill_slots() -> void:
 	_link_cards_to_skill_slots()
 
 	_update_starting_skill_description(candidates)
+	# N-4: chosen_starting_skill_id가 방금 이 캐릭터 기준으로 검증/확정됐으므로(위
+	# _valid_or_default_starting_skill_id 호출), 이 시점에만 "+n" 배지를 다시 계산한다.
+	_refresh_dice_bonus_badges()
 
 
 ## _on_starting_skill_selected()/_on_starting_skill_locked_preview()의 공통 마무리.

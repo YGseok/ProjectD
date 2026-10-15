@@ -5,38 +5,33 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-10-15 (210)
+- 일시: 2026-10-15 (211)
 - 작성자: AI 에이전트. 이번 이터레이션은 INBOX.md "남은 이슈"의 **[대형 기획 14]
-  N-3(스킬 도감·업적 등 "문자열처럼 보이는" 버튼을 버튼처럼 보이게) 완료**했다.
-  전 `.tscn`/`.gd`의 Button 생성 지점을 전수 검색해 각 화면의 `UIKit.style_*_
-  button()` 호출과 대조한 결과, M-1~M-4가 통일한 dungeon_map/combat_test/event/
-  shop/story_event와 달리 스타일을 전혀 안 받고 기본 Godot 테마로만 그려지던
-  버튼 9개를 찾았다 — `character_select.gd`의 "던전 시작"/"업적"/"테스트 전투"/
-  "스킬 도감" 4개, `dungeon_map.gd`의 "스킬 도감"(`_style_action_buttons()`에서만
-  누락), `achievement_panel.gd`/`skill_codex_panel.gd`의 "닫기",
-  `customize_panel.gd`의 "닫기"/"뒤로" 4개 + 다이스 승급·눈금 적용 단계의 가로
-  목록 행 버튼, `test_battle_setup.gd`의 "뒤로"/"전투 시작"/성장 프리셋 버튼.
-  전부 기존 화면들과 같은 `UIKit.style_primary_button()`/`style_secondary_
-  button()` 한 줄 패턴으로 고쳤다(INBOX 지시대로 새 팩토리를 만들지 않음).
-  `character_select.gd`의 네 버튼은 DESIGN.md가 이미 확정한 "이 화면의 공용
-  버튼은 캐릭터 퍼스널 컬러 대신 중립색 유지"(K-3) 규칙을 지키려고
-  `FocusNav.ACCENT_DEFAULT`를 tint로 넘겼다 — 이를 위해 `style_primary_button()`
-  에 `style_secondary_button()`에는 이미 있던 tint 매개변수를 새로 추가했고,
-  `base_dir`을 3번째 위치 인자로 쓰던 기존 테스트 호출부 1곳만 같이 고쳤다.
-  `dice_test.gd`에 신규 `_check_n3_button_styling()` — 7개 정적 화면과 오버레이
-  패널 3종(AchievementPanel/SkillCodexPanel은 `open()`으로, CustomizePanel은
-  5단계 `_show_*_picker()`를 전부 직접 호출해)을 실제로 인스턴스화하고, 그 안의
-  모든 Button을 재귀적으로 순회해 "normal 스타일박스 override가 있고 실제로
-  보이는 모습인가"를 검사하는 전수 테스트를 추가(특정 버그 목록이 아니라 범용
-  검사라 다음에 새 버튼이 생겨도 같은 버그를 잡는다). `bash scripts/qa_shot.sh
-  dice_test` 전체 PASS(FAIL 0건, N-3 신규 검증 10개 화면/패널 전부
-  "미스타일 버튼=[]"). 셀프 피드백 1라운드로 `qa_out/n3_*.png` 4장(던전 시작/
-  업적/테스트 전투/스킬 도감/커스터마이징 닫기)을 직접 캡처해 전부 테두리+장식
-  있는 버튼 모양으로 바뀌었음을 확인 — "상" 수준 문제 없이 종료. 전투 규칙/
-  밸런스는 건드리지 않았다. INBOX.md의 이 항목은 "부분 처리됨"에 그대로 두되
-  진행 한 줄을 갱신했다(N-4~N-6이 남아 "처리됨"으로는 못 옮김). 상세는 아래
-  "완료 기록 (210)" 참고. **다음은 N-4(캐릭터 선택 능력치를 실제 다이스 칩으로
-  나열, INBOX.md "남은 이슈" 참고).**
+  N-4(캐릭터 선택 능력치를 "공격 D4×3" 같은 문자열 대신 실제 다이스 칩으로
+  나열) 완료**했다. `character_select.gd`의 "능력치" 섹션 내부를 "공격"/"방어"/
+  "이벤트" 3줄(`_make_dice_row()`)로 재구성해, 각 줄에 `ShapeDieChip`을
+  attack_count/defense_count개 나열하고(기존 `shape_die_chip.gd` 재사용, 새로
+  안 그림 — 지금은 8명 전부 D4라 전부 삼각형), 이벤트 줄은 `EventDieVisual`
+  옆에 "D%d"(event_die_sides) 텍스트를 붙였다. 시작 스킬의 "시작 보너스"는
+  칩 옆 "+n" 배지로 — 캐릭터 선택 화면은 전투 상태(HP/골드/인벤토리 등)가
+  없는 "런 시작 전" 화면이라 RunState 의존 스킬은 계산 불가능하므로,
+  attack_count/defense_count "개수"만으로 정적으로 결정되는 4종(맹공/철벽/
+  확장/정예)만 신규 `_static_dice_bonus()`가 `combat_test.gd`의 실전 적용
+  함수(`_aggro_bonus`/`_wall_bonus`/`_expand_bonus`/`_lean_bonus`)를 그대로
+  재사용해 계산한다. `dice_test.gd`에 신규 `_check_n4_dice_chip_stats()` —
+  8명 전부 칩 개수/모양/숫자 일치, 이벤트 줄 텍스트 일치, `_static_dice_bonus()`
+  공식이 실전 함수와 9개 조합에서 정확히 일치, 광전사 선택 시 공격 줄 "+1"
+  배지·견습 모험가 선택 시 배지 없음까지 실제 화면 end-to-end로 검증(업적
+  해금 상태 오염 방지를 위해 테스트 시작/종료에 `AchievementManager.
+  _debug_reset_for_qa()`). `bash scripts/qa_shot.sh dice_test` 전체 PASS(FAIL
+  0건, 2회 재확인). 셀프 피드백 1라운드로 `qa_out/n4_{novice,berserker,
+  guardian,pirate}.png` 4장을 직접 읽어 다이스 칩 개수/모양이 프로필과 일치하고
+  광전사/수호자에서 "+1" 배지가 올바른 줄(공격/방어)에만 뜨는 것을 확인 —
+  "상" 수준 문제 없이 종료. 전투 규칙/밸런스는 건드리지 않았다. INBOX.md의
+  이 항목은 "부분 처리됨"에 그대로 두되 진행 한 줄을 갱신했다(N-5~N-6이 남아
+  "처리됨"으로는 못 옮김). 상세는 아래 "완료 기록 (211)" 참고. **다음은
+  N-5(a)(곡예사를 이벤트 특화 클래스로 — event_die_sides 상향 + 시작 스킬
+  이벤트 테마 재구성, INBOX.md "남은 이슈" 참고).**
 
 ## 지금 위치
 
@@ -474,6 +469,15 @@ HP 패널·다이스 스테이지·결과 칩과 겹치지 않고 표정(happy)�
   `dice_test.gd`의 `_check_n3_button_styling()`이 정적 화면 7개 + 오버레이
   패널 3종을 실제로 인스턴스화해 모든 Button을 재귀 순회하는 범용 검증을
   제공한다(특정 버그 목록이 아니라 "normal 스타일이 실제로 보이는가"를 검사).
+- **능력치 — 실제 다이스 칩 나열(2026-10-15 [대형 기획 14] N-4 완료)**:
+  캐릭터 선택 상세 패널 "능력치" 섹션이 "공격 D4×3" 문자열 대신 공격/방어/
+  이벤트 3줄로 `ShapeDieChip`(지금은 전부 D4라 삼각형)을 개수만큼 나열한다.
+  캐릭터 전환 때마다 `_refresh_dice_chips()`가 칩을, 시작 스킬 선택이 확정될
+  때마다(`_rebuild_starting_skill_slots()` 끝) `_refresh_dice_bonus_badges()`가
+  "+n" 배지를 다시 그린다 — 배지는 attack_count/defense_count만으로 정적으로
+  결정되는 4종(맹공/철벽/확장/정예)만 지원(RunState 의존 스킬은 "런 시작 전"
+  화면이라 계산 불가). `combat_test.gd`의 실전 보너스 함수를 그대로 재사용해
+  공식 중복이 없다.
 
 상세 변경 이력은 아래 "완료 기록"(최근 10개)과, 그보다 오래된 것은
 `docs/STATUS_ARCHIVE.md`(매 이터레이션 읽지 않는 아카이브) 참고.
@@ -513,10 +517,13 @@ L-1~L-3)는 2026-10-14(197)에 각각 전체 완료됐다. **[미니 기획 M-6]
 기존 `UIKit.style_primary_button()`/`style_secondary_button()`으로 통일하고,
 `dice_test.gd`에 전 화면/오버레이 패널을 인스턴스화해 모든 Button을 재귀
 검사하는 범용 테스트(`_check_n3_button_styling()`)를 추가했다(상세는 완료
-기록 (210)). 다음 우선 순서는 N-4(능력치를 실제 다이스 칩으로) → N-5(곡예사를
-이벤트 특화 클래스로 개편, a→b→c) → N-6(캐릭터 전용 이벤트/특별 선택지). 한
-이터레이션에 한 조각(또는 (a)(b)(c) 한 칸)만 진행할 것 — 상세 사양은
-`docs/feedback/INBOX.md` "남은 이슈" 참고.
+기록 (210)). 2026-10-15(211)로 **N-4(능력치를 실제 다이스 칩으로 나열) 완료** —
+"공격 D4×3" 문자열을 공격/방어/이벤트 3줄의 `ShapeDieChip` 나열로 바꾸고,
+맹공/철벽/확장/정예 4종 한정으로 "+n" 시작 보너스 배지를 붙였다(상세는 완료
+기록 (211)). 다음 우선 순서는 N-5(곡예사를 이벤트 특화 클래스로 개편,
+a→b→c) → N-6(캐릭터 전용 이벤트/특별 선택지). 한 이터레이션에 한 조각(또는
+(a)(b)(c) 한 칸)만 진행할 것 — 상세 사양은 `docs/feedback/INBOX.md` "남은
+이슈" 참고.
 
 남은 구조적 후보(급하지 않음): 보스 개별 6종 중 타락한 기사단장만 밴드 미달
 (`MonsterSkills.modify_monster_roll()` 파라미터화가 전제조건이라 사람 설계
@@ -1127,6 +1134,66 @@ L-1~L-3)는 2026-10-14(197)에 각각 전체 완료됐다. **[미니 기획 M-6]
 
 ## 완료 기록
 
+- **2026-10-15 (211)**: INBOX.md "남은 이슈" [대형 기획 14] **N-4(캐릭터 선택
+  능력치를 "×N" 문자열 대신 실제 다이스 칩으로 나열) 완료**. INBOX 원문: 공격/
+  방어 능력치 칩의 "공격 D4×3" 같은 문자열을 `shape_die_chip.gd`/
+  `event_die_visual.gd`를 재사용한 실제 다이스 칩 나열로 바꾸고, 시작 스킬의
+  "시작 보너스"는 칩 옆 "+n" 배지로 표시할 것.
+  **UI 변경(`character_select.gd`)**: `_build_stats_section()`의 "능력치" 섹션
+  내부를 "공격"/"방어"/"이벤트" 3줄(`_make_dice_row()`가 라벨+빈
+  HBoxContainer+배지 Label 틀을 한 번만 만듦) + HP 한 줄로 재구성했다. 기존
+  `_detail_attack_label`/`_detail_defense_label`(Label) 필드를
+  `_detail_attack_dice_row`/`_detail_defense_dice_row`(Dictionary
+  {"chips":HBoxContainer,"bonus":Label})로 교체. `_refresh_dice_chips(profile)`
+  (캐릭터를 바꿀 때마다 `_refresh_detail_panel()`이 호출)가
+  `_fill_dice_chip_row()`로 attack_count/defense_count개의 `ShapeDieChip`을
+  다시 채운다 — 각 칩은 `ShapeDieChip.shape_sides_for_dice_sides(sides)`로
+  면 모양(지금은 8명 전부 D4라 삼각형)을, `chip.value`에 굴림 결과 대신 면 수
+  자체(4)를 보여준다(이 주머니에 D4가 몇 개 있는지 한눈에 보여주는 정적
+  미리보기 — 전투 중 굴림 결과 칩과는 용도가 다름). 이벤트 다이스 줄은
+  `EventDieVisual`(로마 숫자 I, 기존 그대로) 옆에 "D%d"(event_die_sides) 텍스트를
+  둬 면 수가 바로 읽히게 했다. 프로필에 아직 없는 `attack_sides`/`defense_sides`
+  필드는 `get()` 기본값(4)으로 읽어, 나중에 캐릭터별로 시작 다이스 면 수가
+  달라져도(INBOX 원문이 언급한 미래 경우) 이 코드를 다시 안 고쳐도 되게 했다.
+  **"+n" 배지(제한된 범위)**: 캐릭터 선택 화면은 전투 상태(HP/골드/인벤토리/
+  재질 등)가 없는 "런 시작 전" 화면이라, RunState에 의존하는 시작 스킬 조건
+  (수집가/선제/대비/황금손/과적/오뚝이/잡화점/강철 방비)은 미리 계산할 수
+  없다 — **attack_count/defense_count "개수"만으로 정적으로 결정되는 4종
+  (맹공/철벽/확장/정예)만** 배지로 보여준다(신규 `_static_dice_bonus()`가
+  `combat_test.gd`의 실전 적용 함수 `_aggro_bonus`/`_wall_bonus`/
+  `_expand_bonus`/`_lean_bonus`를 `load()` 패턴으로 그대로 재사용 — 공식을
+  두 곳에 중복 정의하지 않음). 배지는 `RunState.chosen_starting_skill_id`가
+  확정되는 시점(`_rebuild_starting_skill_slots()` 맨 끝, 캐릭터 전환·시작
+  스킬 선택 양쪽에서 호출됨)에만 신규 `_refresh_dice_bonus_badges()`로
+  다시 계산한다 — 그보다 이른 시점(`_refresh_detail_panel()` 중간)에선
+  chosen_starting_skill_id가 아직 새 캐릭터 기준으로 검증되지 않았을 수 있어서
+  분리했다.
+  **검증**: `dice_test.gd`에 신규 `_check_n4_dice_chip_stats()` — (a) 8명 전부
+  공격/방어 칩 컨테이너 자식 개수가 프로필의 attack_count/defense_count와
+  정확히 같은지, 모든 칩의 shape_sides/value가 실제 면 수(4)와 일치하는지
+  (b) 이벤트 다이스 줄 텍스트가 event_die_sides와 일치하고 비주얼이 실제로
+  트리에 붙어 있는지 (c) `_static_dice_bonus()`가 `combat_test.gd`의 실전
+  함수와 9개 조합(경계값 포함)에서 정확히 같은 값을 내는지 (d) 실제 화면
+  end-to-end — 광전사(공격4/방어2, 슬롯0=맹공)를 고르면 공격 줄에 "+1" 배지가
+  뜨고 방어 줄은 숨겨지는지, 견습 모험가(공격3/방어3, 슬롯0=확장, 합계
+  6<8이라 보너스 없음)를 고르면 양쪽 다 숨겨지는지(업적 해금 상태가 다른
+  테스트에서 남아있어도 결과가 달라지지 않도록 `AchievementManager.
+  _debug_reset_for_qa()`로 테스트 시작/종료에 리셋). 기존 K-2 검증
+  (`_check_k2_character_select_sections`)이 참조하던 `_detail_attack_label`/
+  `_detail_defense_label`도 새 Dictionary 구조(`chips.get_child_count() > 0`)로
+  갱신. `bash scripts/qa_shot.sh dice_test` 전체 PASS(FAIL 0건, N-4 신규 검증
+  전부 OK, 2회 재확인). **셀프 피드백 1라운드**: `qa_out/n4_{novice,
+  berserker,guardian,pirate}.png` 4장을 직접 읽어 — 공격/방어 다이스가 실제
+  삼각형(D4) 칩으로 개수만큼 나열됨(견습 모험가 3/3, 광전사 4/2, 수호자 2/4,
+  해적 2/3), 이벤트 줄이 로마 숫자 칩+"D6"로 보임, 광전사는 공격 줄 끝에
+  금색 "+1" 배지(맹공, 공격4>방어2), 수호자는 방어 줄 끝에 금색 "+1" 배지
+  (철벽, 방어4>공격2), 해적은 배지 없음(선제는 정적 4종에 안 속해 의도대로
+  미표시)을 확인 — "상" 수준 문제 없이 1라운드로 종료. 전투 규칙/밸런스는
+  건드리지 않았다. INBOX.md의 이 항목은 "부분 처리됨"에 그대로 두되 진행
+  한 줄을 N-4 완료로 갱신했다([대형 기획 14] 전체는 N-5~N-6이 남아 아직
+  "처리됨"으로 못 옮김). **다음은 N-5(a)(곡예사를 이벤트 특화 클래스로 —
+  event_die_sides 상향 + 시작 스킬 이벤트 테마 재구성).**
+
 - **2026-10-15 (210)**: INBOX.md "남은 이슈" [대형 기획 14] **N-3(스킬 도감·업적
   등 "문자열처럼 보이는" 버튼을 버튼처럼 보이게) 완료**. INBOX 원문: 화면 전체에서
   flat/무테두리 Button을 전수 검색해 UIKit 버튼 팩토리 보조(secondary) 스타일로
@@ -1710,49 +1777,9 @@ L-1~L-3)는 2026-10-14(197)에 각각 전체 완료됐다. **[미니 기획 M-6]
   유지. 전투 규칙/밸런스는 손대지 않음. **다음은 M-5(b)(배지/장식/아이콘)** — INBOX.md
   "부분 처리됨"에 진행 한 줄 갱신.
 
-- **2026-10-15 (201)**: [미니 기획 ART-1] **ART-1b(전투 화면 원화 표정 컷 연결)를
-  견습 모험가(`novice`) 1종에 대해 완료**. 아트 스레드가 `resources/characters/
-  novice/face_{neutral,happy,hurt,sad,angry}.png` 5장을 입고(커밋 `db83033`)해
-  착수 가능해졌다. `CharacterArt`(`code/scenes/character_art.gd`)에
-  `has_all_faces(character_id)`(5장이 전부 있는지, 하나라도 없으면 false) 신규
-  추가. `CharacterPortraitPlaceholder`(`code/scenes/character_portrait_
-  placeholder.gd`, 전투 화면 `$PlayerPortrait`가 쓰는 클래스, 캐릭터 선택/덱
-  패널/테스트 전투 설정 등 다른 사용처와 공유)에 `set_character(character_id)`를
-  추가 — 5장이 전부 있으면 `_use_face_art=true`로 전환해 `_face_rect`(TextureRect,
-  240×240, `TEXTURE_FILTER_LINEAR_WITH_MIPMAPS`, `STRETCH_KEEP_ASPECT_CENTERED`)를
-  만들고 `_draw()`(도형 플레이스홀더)를 건너뛴다. **기존 `set_expression()` 호출
-  지점은 전혀 안 바꿨다** — 그 함수 내부에 "원화 모드면 `_face_rect.texture`도
-  갈아끼운다" 분기만 추가(INBOX 원문 "기존 set_expression() 호출 지점에서
-  텍스처만 교체" 그대로). `set_character()`를 호출하지 않는 다른 사용처(캐릭터
-  선택 상세 패널의 `_detail_portrait`, `deck_panel.gd`/`test_battle_setup.gd`의
-  플레이스홀더)는 `_use_face_art`가 항상 false라 기존과 완전히 동일하게 동작 —
-  영향 없음. `combat_test.gd`의 `_setup_combat_hud()`(플레이어 캐릭터가 정해지는
-  지점, QA 캐릭터 전환 훅 `_debug_set_character()`도 이 함수를 재사용)에
-  `player_portrait.set_character(cid)` 한 줄만 추가해 배선 완료 — 캐릭터가
-  바뀌면(정상 플레이의 캐릭터 선택, 또는 QA 전환) 자동으로 원화/플레이스홀더가
-  갈린다.
-  **검증**: `dice_test.gd`에 신규 `_check_art1b_combat_face_art()` — ①
-  `has_all_faces('novice')`=true / `has_all_faces('berserker')`(face_* 없음,
-  full.png만)=false ② `CharacterPortraitPlaceholder` 단위: berserker로
-  `set_character()` 호출 시 플레이스홀더 유지, novice로 호출 시 원화 모드 전환
-  + `set_expression('happy')`로 실제 텍스처가 neutral과 다른 리소스로 바뀌는지
-  ③ 실제 `combat_test.tscn` 인스턴스에서 `RunState.character_id='novice'`로
-  시작하면 `PlayerPortrait._use_face_art=true`, `_debug_set_character
-  ('berserker')`로 전환하면 다시 false로 돌아오는지 — 전부 PASS,
-  `bash scripts/qa_shot.sh dice_test` 전체 스위트 **PASS**.
-  `qa_out/art1b_novice_start.png`(전투 시작 직후 neutral 원화, 좌측 HP
-  패널·중앙 다이스 스테이지와 안 겹침)/`art1b_novice_after_exchange.png`
-  (공격 적중 후 happy 표정으로 실제 전환, 화면 중앙 결과 칩 줄과도 안 겹침)/
-  `art1b_pirate_fallback.png`(face 미입고 캐릭터 — 해적으로 QA 전환, 기존 도형
-  플레이스홀더 그대로 — 회귀 없음)로 육안 확인. 전투 규칙/밸런스/resources는
-  손대지 않음. **나머지 7종은 아트 스레드가 face_* 5장을 입고하는 즉시 코드
-  변경 없이 자동 적용**(`has_all_faces()`가 범용 함수라 캐릭터 id만 바뀜) —
-  ART-1b는 사실상 "코드 작업 완료, 입고 대기"로 전환됨. ART-1c(몬스터 원화)는
-  몬스터 쪽 face_*가 아직 없어 그대로 대기.
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(210)에서 (200)을 그리로 옮겼다.)*
+이번 이터레이션(211)에서 (201)을 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 

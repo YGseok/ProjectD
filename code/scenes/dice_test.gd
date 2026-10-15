@@ -373,6 +373,10 @@ func _ready() -> void:
 	all_pass = _check_n3_button_styling(lines) and all_pass
 
 	lines.append("")
+	lines.append("[N-4: 캐릭터 선택 능력치 — '공격 D4×N' 문자열 대신 ShapeDieChip이 실제 attack_count/defense_count개 렌더되는지(8명 전부), 칩 모양/숫자가 sides와 일치하는지, 이벤트 다이스 줄이 event_die_sides와 일치하는지, '시작 보너스' +n 배지가 캐릭터/시작 스킬 조합에 따라 실제로 켜지고 꺼지는지]")
+	all_pass = _check_n4_dice_chip_stats(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -6101,8 +6105,8 @@ func _check_k2_character_select_sections(lines: PackedStringArray) -> bool:
 		# 아니어야 한다.
 		var non_empty_ok: bool = (node._detail_name_label.text != ""
 			and node._detail_concept_label.text != ""
-			and node._detail_attack_label.text != ""
-			and node._detail_defense_label.text != ""
+			and node._detail_attack_dice_row["chips"].get_child_count() > 0
+			and node._detail_defense_dice_row["chips"].get_child_count() > 0
 			and node._detail_event_die_label.text != ""
 			and node._detail_ability_name_label.text != ""
 			and node._detail_skill_label.text != ""
@@ -8825,4 +8829,138 @@ func _check_n3_button_styling(lines: PackedStringArray) -> bool:
 	RunState.pip_inventory = pip_backup
 	RunState.die_inventory = die_backup
 
+	return ok
+
+
+## N-4(2026-10-15 [대형 기획 14]) 검증 — INBOX.md 원문 "지금은 능력치 칩이 '공격 D4×3'
+## 같은 문자열이다 -> 실제 다이스 칩/아이콘을 개수만큼 나열". "플래그가 들어갔는가"가
+## 아니라 "화면에 실제로 렌더된 칩 개수/모양/숫자"와 "시작 보너스 배지가 실제로
+## 켜지고 꺼지는가"를 검증한다:
+## (a) 8명 전부에서 공격/방어 다이스 칩 컨테이너의 자식 개수가 프로필의
+##     attack_count/defense_count와 정확히 같은지, 각 칩의 shape_sides/value가 실제
+##     면 수(지금은 전부 D4=4)와 일치하는지.
+## (b) 이벤트 다이스 줄의 텍스트가 event_die_sides와 일치하고 EventDieVisual이 실제로
+##     그 줄에 붙어 있는지.
+## (c) "+n" 배지 — _static_dice_bonus() 공식이 combat_test.gd의 실전 적용 함수
+##     (_aggro_bonus/_wall_bonus/_expand_bonus/_lean_bonus)와 정확히 같은 값을 내는지
+##     여러 조합으로 직접 검증.
+## (d) 실제 화면 end-to-end: 광전사(공격4/방어2, 슬롯0=맹공)를 고르면 공격 줄에 "+1"
+##     배지가 뜨고 방어 줄은 숨겨지는지, 견습 모험가(공격3/방어3, 슬롯0=확장, 합계 6<8이라
+##     보너스 없음)를 고르면 양쪽 다 숨겨지는지 — 캐릭터 전환으로 chosen_starting_
+##     skill_id가 새 캐릭터의 슬롯0으로 자동 확정되는 기존 동작(_valid_or_default_
+##     starting_skill_id)을 그대로 이용한다.
+func _check_n4_dice_chip_stats(lines: PackedStringArray) -> bool:
+	var ok := true
+	var character_backup := RunState.character_id
+	var chosen_backup := RunState.chosen_starting_skill_id
+	# (d)의 "캐릭터를 바꾸면 슬롯0으로 폴백"이 업적 해금 상태와 무관하게 항상 성립해야
+	# 하므로(슬롯2 해금 업적이 다른 테스트에서 이미 unlock된 채로 남아있으면 폴백이
+	# 아니라 그 슬롯이 그대로 선택될 수 있음), 다른 업적 테스트들과 같은 패턴으로
+	# 시작/종료에 리셋한다.
+	AchievementManager._debug_reset_for_qa()
+
+	var scene := load("res://code/scenes/character_select.tscn")
+	var node = scene.instantiate()
+	add_child(node)
+
+	# (a)+(b) 8명 전부.
+	for profile in CharacterProfiles.PROFILES:
+		var cid: String = profile["id"]
+		node._on_card_selected(cid)
+		var expected_attack: int = int(profile.get("attack_count", 3))
+		var expected_defense: int = int(profile.get("defense_count", 3))
+		var expected_event_sides: int = int(profile.get("event_die_sides", 6))
+
+		var attack_chips: Array = node._detail_attack_dice_row["chips"].get_children()
+		var defense_chips: Array = node._detail_defense_dice_row["chips"].get_children()
+		var count_ok: bool = attack_chips.size() == expected_attack and defense_chips.size() == expected_defense
+		ok = count_ok and ok
+		lines.append("  [%s] 다이스 칩 개수: 공격=%d(기대 %d) 방어=%d(기대 %d) -> %s" % [
+			cid, attack_chips.size(), expected_attack, defense_chips.size(), expected_defense,
+			"OK" if count_ok else "FAIL"
+		])
+
+		var shape_ok: bool = true
+		for chip in attack_chips:
+			if not (chip is ShapeDieChip and chip.shape_sides == 3 and chip.value == 4):
+				shape_ok = false
+		for chip in defense_chips:
+			if not (chip is ShapeDieChip and chip.shape_sides == 3 and chip.value == 4):
+				shape_ok = false
+		ok = shape_ok and ok
+		lines.append("  [%s] 다이스 칩 모양/숫자(D4 -> 삼각형+4) 전부 일치 -> %s" % [cid, "OK" if shape_ok else "FAIL"])
+
+		var event_label_ok: bool = node._detail_event_die_label.text == "D%d" % expected_event_sides
+		var event_visual_ok: bool = is_instance_valid(node._detail_event_die_visual) and node._detail_event_die_visual.get_parent() != null
+		ok = event_label_ok and event_visual_ok and ok
+		lines.append("  [%s] 이벤트 다이스 줄: 텍스트=\"%s\"(기대 D%d) 비주얼 부착=%s -> %s" % [
+			cid, node._detail_event_die_label.text, expected_event_sides, event_visual_ok,
+			"OK" if (event_label_ok and event_visual_ok) else "FAIL"
+		])
+
+	# (c) _static_dice_bonus() vs combat_test.gd 실전 함수.
+	var combat_script := load("res://code/scenes/combat_test.gd")
+	var combos := [
+		["start_aggro", 4, 2], ["start_aggro", 2, 2],
+		["start_wall", 2, 4], ["start_wall", 2, 2],
+		["start_expand", 4, 4], ["start_expand", 3, 3],
+		["start_lean", 3, 4], ["start_lean", 4, 4],
+		["", 4, 2], # 모르는/빈 id는 보너스 없음.
+	]
+	for combo in combos:
+		var skill_id: String = combo[0]
+		var atk_count: int = combo[1]
+		var def_count: int = combo[2]
+		var got: Dictionary = node._static_dice_bonus(skill_id, atk_count, def_count)
+		var expected_atk := 0
+		var expected_def := 0
+		match skill_id:
+			"start_aggro":
+				expected_atk = combat_script._aggro_bonus(atk_count, def_count)
+			"start_wall":
+				expected_def = combat_script._wall_bonus(atk_count, def_count)
+			"start_expand":
+				var eb: int = combat_script._expand_bonus(atk_count, def_count)
+				expected_atk = eb
+				expected_def = eb
+			"start_lean":
+				var lb: int = combat_script._lean_bonus(atk_count, def_count)
+				expected_atk = lb
+				expected_def = lb
+		var combo_ok: bool = int(got["attack"]) == expected_atk and int(got["defense"]) == expected_def
+		ok = combo_ok and ok
+		lines.append("  _static_dice_bonus(\"%s\", %d, %d) = {공격=%d, 방어=%d} (기대 공격=%d, 방어=%d) -> %s" % [
+			skill_id, atk_count, def_count, got["attack"], got["defense"], expected_atk, expected_def,
+			"OK" if combo_ok else "FAIL"
+		])
+
+	# (d) 실제 화면 end-to-end.
+	node._on_card_selected("berserker")
+	var berserker_skill_ok: bool = RunState.chosen_starting_skill_id == "start_aggro"
+	var berserker_attack_bonus: Label = node._detail_attack_dice_row["bonus"]
+	var berserker_defense_bonus: Label = node._detail_defense_dice_row["bonus"]
+	var berserker_ok: bool = (berserker_skill_ok and berserker_attack_bonus.visible
+		and berserker_attack_bonus.text == "+1" and not berserker_defense_bonus.visible)
+	ok = berserker_ok and ok
+	lines.append("  [berserker] 시작 스킬=%s(기대 start_aggro) 공격 배지=\"%s\"(visible=%s, 기대 +1/true) 방어 배지 visible=%s(기대 false) -> %s" % [
+		RunState.chosen_starting_skill_id, berserker_attack_bonus.text, berserker_attack_bonus.visible,
+		berserker_defense_bonus.visible, "OK" if berserker_ok else "FAIL"
+	])
+
+	node._on_card_selected("novice")
+	var novice_skill_ok: bool = RunState.chosen_starting_skill_id == "start_expand"
+	var novice_attack_bonus: Label = node._detail_attack_dice_row["bonus"]
+	var novice_defense_bonus: Label = node._detail_defense_dice_row["bonus"]
+	var novice_ok: bool = novice_skill_ok and not novice_attack_bonus.visible and not novice_defense_bonus.visible
+	ok = novice_ok and ok
+	lines.append("  [novice] 시작 스킬=%s(기대 start_expand, 합계 6<8) 공격/방어 배지 visible=%s/%s(기대 둘 다 false) -> %s" % [
+		RunState.chosen_starting_skill_id, novice_attack_bonus.visible, novice_defense_bonus.visible,
+		"OK" if novice_ok else "FAIL"
+	])
+
+	remove_child(node)
+	node.free()
+	RunState.character_id = character_backup
+	RunState.chosen_starting_skill_id = chosen_backup
+	AchievementManager._debug_reset_for_qa()
 	return ok
