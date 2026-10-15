@@ -129,16 +129,21 @@ func _add_frame(title_text: String, height: float = 420.0, subtitle_text: String
 	# Panel(테두리 있음)로 바꿔 CharacterTheme.apply()로 캐릭터 색 테두리를 입힌다
 	# (내부 배경색 0,0,0,0.9는 그대로 유지 — 가독성 핵심 영역이라 대비를 해치지 않음).
 	var bg := Panel.new()
-	var frame_style := StyleBoxFlat.new()
-	frame_style.bg_color = Color(0, 0, 0, 0.9)
-	frame_style.set_border_width_all(2)
-	frame_style.set_corner_radius_all(8)
-	bg.add_theme_stylebox_override("panel", frame_style)
+	# [대형 기획 13] M-5a(2026-10-15): resources/ui/panel/overlay_{base,accent}.png가
+	# 있으면 그 이미지 스킨을, 없으면 기존 StyleBoxFlat 절차적 테두리로 폴백.
+	var skin_applied := UIKit.apply_panel_skin(bg, "overlay", RunState.character_id)
+	if not skin_applied:
+		var frame_style := StyleBoxFlat.new()
+		frame_style.bg_color = Color(0, 0, 0, 0.9)
+		frame_style.set_border_width_all(2)
+		frame_style.set_corner_radius_all(8)
+		bg.add_theme_stylebox_override("panel", frame_style)
 	bg.position = Vector2(140, 120)
 	bg.size = Vector2(1000, height)
 	add_child(bg)
 	_ui.append(bg)
-	CharacterTheme.apply(bg, RunState.character_id, false)
+	if not skin_applied:
+		CharacterTheme.apply(bg, RunState.character_id, false)
 
 	var title := Label.new()
 	title.text = title_text

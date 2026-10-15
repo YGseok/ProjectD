@@ -56,16 +56,21 @@ func _rebuild() -> void:
 	# L-3(2026-10-14, [대형 기획 12] K-3 후속): 평범한 검정 ColorRect였던 틀을
 	# Panel(테두리 있음)로 바꿔 CharacterTheme.apply()로 캐릭터 색 테두리를 입힌다.
 	var bg := Panel.new()
-	var frame_style := StyleBoxFlat.new()
-	frame_style.bg_color = Color(0, 0, 0, 0.9)
-	frame_style.set_border_width_all(2)
-	frame_style.set_corner_radius_all(8)
-	bg.add_theme_stylebox_override("panel", frame_style)
+	# [대형 기획 13] M-5a(2026-10-15): resources/ui/panel/overlay_{base,accent}.png가
+	# 있으면 그 이미지 스킨을, 없으면 기존 StyleBoxFlat 절차적 테두리로 폴백.
+	var skin_applied := UIKit.apply_panel_skin(bg, "overlay", RunState.character_id)
+	if not skin_applied:
+		var frame_style := StyleBoxFlat.new()
+		frame_style.bg_color = Color(0, 0, 0, 0.9)
+		frame_style.set_border_width_all(2)
+		frame_style.set_corner_radius_all(8)
+		bg.add_theme_stylebox_override("panel", frame_style)
 	bg.position = Vector2(140, 80)
 	bg.size = Vector2(1000, 560)
 	add_child(bg)
 	_ui.append(bg)
-	CharacterTheme.apply(bg, RunState.character_id, false)
+	if not skin_applied:
+		CharacterTheme.apply(bg, RunState.character_id, false)
 
 	var entries := AchievementManager.get_all_for_display()
 	var unlocked_count := 0

@@ -186,8 +186,16 @@ const DICE_SPAWN_ROW_SPACING := 0.5
 var player_hp_label: Label
 var monster_hp_label: Label
 var monster_family_icon: FamilyIcon
-var player_hp_bar_fill: ColorRect
-var monster_hp_bar_fill: ColorRect
+## [대형 기획 13] M-5a(2026-10-15): UIKit.make_hp_bar()가 이미지 스킨(resources/ui/
+## bar/hp_frame_*.png + hp_fill.png)이 있으면 NinePatchRect를, 없으면 기존 ColorRect를
+## 돌려준다 — 둘 다 받을 수 있게 타입을 Control로 완화했다(_update_hp_bar()가
+## `fill is ColorRect`로 분기해 .color/.modulate 중 맞는 쪽을 칠한다).
+var player_hp_bar_fill: Control
+var monster_hp_bar_fill: Control
+## 스킨이 있으면 프레임 안쪽 홈만큼 PLAYER/MONSTER_HP_BAR_WIDTH보다 작다 — hp 비율
+## 계산의 실제 기준폭(UIKit.make_hp_bar()의 "fill_full_width" 반환값).
+var player_hp_bar_full_width: float
+var monster_hp_bar_full_width: float
 var turn_label: Label
 var monster_name_label: Label
 var monster_tier_label: Label
@@ -1058,39 +1066,14 @@ func _round_room_caption() -> String:
 	return "라운드 %d · 방 %d" % [RunState.round_index, RunState.rooms_cleared + 1]
 
 
-## HP 바 하나(배경 ColorRect + 채움 ColorRect + 그 위에 겹친 숫자 Label)를 만들어
-## parent(세로 VBoxContainer)에 붙인다. _update_hp_bar()/_update_labels()가 기존 로직
-## 그대로 fill.size.x/color와 label.text만 바꿔 쓸 수 있도록 {"fill":.., "label":..}을
-## 돌려준다(INBOX M-2 "HP 바는... 숫자를 바 위에 겹쳐 표시").
-func _build_hp_bar(parent: Node, width: float) -> Dictionary:
-	var holder := Control.new()
-	holder.custom_minimum_size = Vector2(width, HP_BAR_HEIGHT)
-	parent.add_child(holder)
-
-	var bg := ColorRect.new()
-	bg.color = Color(0.2, 0.07, 0.07)
-	bg.size = Vector2(width, HP_BAR_HEIGHT)
-	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	holder.add_child(bg)
-
-	var fill := ColorRect.new()
-	fill.color = HP_BAR_COLOR_HIGH
-	fill.size = Vector2(width, HP_BAR_HEIGHT)
-	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	holder.add_child(fill)
-
-	var label := Label.new()
-	label.size = Vector2(width, HP_BAR_HEIGHT)
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	label.add_theme_font_size_override("font_size", 15)
-	label.add_theme_color_override("font_color", Color(0.98, 0.98, 0.98))
-	label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
-	label.add_theme_constant_override("outline_size", 3)
-	holder.add_child(label)
-
-	return {"fill": fill, "label": label}
+## HP 바 하나를 만들어 parent(세로 VBoxContainer)에 붙인다. [대형 기획 13] M-5a
+## (2026-10-15)로 실제 생성은 UIKit.make_hp_bar()로 옮겼다(resources/ui/bar/
+## hp_frame_*.png + hp_fill.png가 있으면 이미지 스킨, 없으면 기존 ColorRect 폴백 —
+## 둘 다 같은 {"fill", "label", "skinned", "fill_full_width"} 형태로 돌려준다).
+## _update_hp_bar()/_update_labels()가 fill.size.x와 label.text만 바꿔 쓴다(INBOX M-2
+## "HP 바는... 숫자를 바 위에 겹쳐 표시").
+func _build_hp_bar(parent: Node, width: float, character_id: String) -> Dictionary:
+	return UIKit.make_hp_bar(parent, width, HP_BAR_HEIGHT, character_id)
 
 
 ## [대형 기획 13] M-2(2026-10-14) — 상단 HUD를 "좌=플레이어 / 중앙=턴·라운드 / 우=몬스터"
@@ -1136,9 +1119,10 @@ func _setup_combat_hud() -> void:
 	player_name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	player_row.add_child(player_name_label)
 
-	var player_bar := _build_hp_bar(player_body, PLAYER_HP_BAR_WIDTH)
+	var player_bar := _build_hp_bar(player_body, PLAYER_HP_BAR_WIDTH, cid)
 	player_hp_bar_fill = player_bar["fill"]
 	player_hp_label = player_bar["label"]
+	player_hp_bar_full_width = player_bar["fill_full_width"]
 
 	# --- 중앙: 턴 / 라운드 ---
 	var center_body := UIKit.make_section(self, "", cid, Vector2(380, 56))
@@ -1186,9 +1170,10 @@ func _setup_combat_hud() -> void:
 	monster_tier_label.add_theme_color_override("font_color", _monster_tier_color(monster_is_elite, monster_is_boss))
 	monster_row.add_child(monster_tier_label)
 
-	var monster_bar := _build_hp_bar(monster_body, MONSTER_HP_BAR_WIDTH)
+	var monster_bar := _build_hp_bar(monster_body, MONSTER_HP_BAR_WIDTH, cid)
 	monster_hp_bar_fill = monster_bar["fill"]
 	monster_hp_label = monster_bar["label"]
+	monster_hp_bar_full_width = monster_bar["fill_full_width"]
 
 	monster_trait_label = Label.new()
 	monster_trait_label.text = ""
@@ -2213,22 +2198,30 @@ func _update_labels() -> void:
 	# 보여주므로, 이 라벨은 HP 바 위에 겹쳐지는 숫자 전용("20 / 20")으로 짧아졌다.
 	player_hp_label.text = "%d / %d" % [player_hp, PLAYER_MAX_HP]
 	monster_hp_label.text = "%d / %d" % [monster_hp, monster_max_hp]
-	_update_hp_bar(player_hp_bar_fill, PLAYER_HP_BAR_WIDTH, player_hp, PLAYER_MAX_HP)
-	_update_hp_bar(monster_hp_bar_fill, MONSTER_HP_BAR_WIDTH, monster_hp, monster_max_hp)
+	_update_hp_bar(player_hp_bar_fill, player_hp_bar_full_width, player_hp, PLAYER_MAX_HP)
+	_update_hp_bar(monster_hp_bar_fill, monster_hp_bar_full_width, monster_hp, monster_max_hp)
 	_update_status_panel()
 
 
-## fill(ColorRect)의 너비를 hp/max_hp 비율만큼 줄이고(왼쪽 기준 고정, 오른쪽부터
-## 닳는 형태), 남은 비율에 따라 초록->주황->빨강으로 색을 바꾼다.
-func _update_hp_bar(fill: ColorRect, full_width: float, hp: int, max_hp: int) -> void:
+## fill(스킨이 있으면 NinePatchRect, 없으면 ColorRect — UIKit.make_hp_bar() 참고)의
+## 너비를 hp/max_hp 비율만큼 줄이고(왼쪽 기준 고정, 오른쪽부터 닳는 형태), 남은
+## 비율에 따라 초록->주황->빨강으로 색을 바꾼다. [대형 기획 13] M-5a(2026-10-15):
+## ColorRect는 .color, NinePatchRect(이미지 스킨의 흰~회색 그라데이션 채움)는
+## .modulate로 칠해야 해서 타입으로 분기한다.
+func _update_hp_bar(fill: Control, full_width: float, hp: int, max_hp: int) -> void:
 	var ratio: float = clamp(float(hp) / max_hp, 0.0, 1.0) if max_hp > 0 else 0.0
 	fill.size.x = full_width * ratio
+	var color: Color
 	if ratio > 0.5:
-		fill.color = HP_BAR_COLOR_HIGH
+		color = HP_BAR_COLOR_HIGH
 	elif ratio > 0.25:
-		fill.color = HP_BAR_COLOR_MID
+		color = HP_BAR_COLOR_MID
 	else:
-		fill.color = HP_BAR_COLOR_LOW
+		color = HP_BAR_COLOR_LOW
+	if fill is ColorRect:
+		(fill as ColorRect).color = color
+	else:
+		fill.modulate = color
 
 
 ## [대형 기획 13] M-2(2026-10-14) — INBOX M-2 "아래쪽 절반의 빈 공간... 스킬 상태 요약을

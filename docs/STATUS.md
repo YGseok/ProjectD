@@ -5,33 +5,45 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-10-15 (201)
-- 작성자: AI 에이전트. 이번 이터레이션 지시(견습 모험가 face_* 5장 입고)에 따라
-  **[미니 기획 ART-1] ART-1b(전투 화면 원화 표정 컷 연결)를 견습 모험가 1종에
-  대해 완료**했다. `CharacterArt.has_all_faces(character_id)`(face_neutral/
-  happy/hurt/sad/angry 5장이 전부 있는지, 하나라도 없으면 false) 신규 추가.
-  `CharacterPortraitPlaceholder`(전투 화면 `$PlayerPortrait`가 쓰는 클래스)에
-  `set_character(character_id)`를 추가해, 5장이 전부 있으면 `_use_face_art=true`
-  로 전환하고 내부에 `_face_rect`(TextureRect, LINEAR_WITH_MIPMAPS, 240×240,
-  KEEP_ASPECT_CENTERED)를 만들어 `_draw()`(도형 플레이스홀더)를 건너뛴다. 기존
-  `set_expression()` 호출 지점(전투 중 여러 곳)은 전혀 안 바꾸고, 그 함수 내부가
-  원화 모드일 때만 `_face_rect.texture`를 갈아끼우도록 분기만 추가했다 — 지시
-  원문("기존 set_expression() 호출 지점에서 텍스처만 교체")대로. `combat_test.gd`의
-  `_setup_combat_hud()`(캐릭터가 정해지는 지점, QA 캐릭터 전환 훅도 이 함수를
-  재사용)에 `player_portrait.set_character(cid)` 한 줄만 추가해 배선 완료.
-  캐릭터 선택 화면(`CharacterArt.load_full`/`load_face_thumb`)과 같은
-  "있으면 원화, 없으면 플레이스홀더" 패턴을 그대로 재사용했을 뿐 새 아키텍처는
-  만들지 않았다. `dice_test.gd`에 신규 `_check_art1b_combat_face_art()`(단위:
-  has_all_faces 참/거짓 + set_character 전환 + set_expression으로 텍스처가
-  실제로 바뀌는지, 통합: 실제 `combat_test.tscn` 인스턴스에서 캐릭터를 novice ->
-  face 없는 캐릭터로 바꾸면 원화->플레이스홀더로 되돌아오는지)를 추가해 전체
-  스위트 **PASS**(`qa_out/dice_test.png`). `qa_out/art1b_novice_start.png`(전투
-  시작 직후 neutral 원화, HP 패널/다이스 스테이지와 안 겹침), `art1b_novice_
-  after_exchange.png`(공격 적중 후 happy 표정으로 실제 전환, 결과 칩 줄과도 안
-  겹침), `art1b_pirate_fallback.png`(face 미입고 캐릭터는 기존 도형 플레이스홀더
-  그대로)로 육안 확인. 전투 규칙/밸런스는 손대지 않음. resources/는 읽기만 했다.
-  **다음은 ART-1b의 나머지 7종(face_* 입고되는 대로 자동 적용되므로 코드 작업은
-  끝 — 아트 입고 대기) 또는 ART-1c(몬스터 원화), 또는 [대형 기획 13] M-4.**
+- 일시: 2026-10-15 (202)
+- 작성자: AI 에이전트. 이번 이터레이션 지시(실행 순서를 [대형 기획 13] M-5(a)
+  하나로 고정)에 따라 **UIKit 이미지 스킨 지원(M-5(a) — 패널(section/hud/
+  overlay)/버튼(primary/secondary)/HP 바)을 완료**했다. `code/systems/
+  ui_kit.gd`의 `UIKit`에 `apply_panel_skin(panel, kind, character_id, base_dir)`
+  신규 — `resources/ui/panel/<kind>_{base,accent}.png`를 로드해 accent를
+  `CharacterTheme.ui_palette()["accent"]`로 틴트한 뒤 `Image.blend_rect()`로
+  한 번만 합성해 `StyleBoxTexture`로 굽는다(base 없으면 false 반환, 호출부가
+  기존 `StyleBoxFlat` 절차적 스타일로 폴백). `make_section()`/`make_bar()`가
+  이를 써서 dungeon_map/combat_test/event/shop/story_event/deck_panel의 구역
+  패널·HUD 띠가, `CustomizePanel`/`AchievementPanel`/`SkillCodexPanel`이
+  "overlay" kind를 써서 오버레이 틀이 전부 자동으로 스킨을 받는다. "card"
+  (아이템/보상 카드)는 `ItemCardStyle`의 테두리색이 등급(S/A/B/C) 신호로 쓰이는
+  중이라 캐릭터 accent로 바꾸면 신호 충돌이 생겨 **의도적으로 보류**(사람 결정
+  필요). 버튼은 normal/hover/pressed/disabled 4상태마다 따로 구워 **상태별
+  개별 폴백**을 보장(`style_primary_button()`/`style_secondary_button()`에
+  `base_dir` 매개변수 추가, 기존 호출부는 그대로 동작). HP 바는 신규 `UIKit.
+  make_hp_bar()`(combat_test.gd의 `_build_hp_bar()`가 위임)가 프레임(base+accent
+  한 장)+채움(`hp_fill.png`, 런타임 `.modulate`로 녹→주황→빨강 착색)을
+  `NinePatchRect`로 그리며, `combat_test.gd`의 `_update_hp_bar()`는 `fill is
+  ColorRect`로 폴백(ColorRect)/스킨(NinePatchRect) 양쪽을 같은 함수로 처리하게
+  고쳤다. **실제 production 자산(이미 `resources/ui/`에 입고돼 있음)을 적용하는
+  과정에서 두 가지 회귀를 발견해 고쳤다**: ① 버튼 `StyleBoxTexture`의
+  `content_margin`을 기본값(=texture_margin, 상하 16px)에 맡겼더니 최소 높이가
+  커져 M-3이 고정 좌표(40px)로 짜둔 버튼 행이 "전투 기록" 패널과 겹치는 회귀 —
+  버튼만 `content_margin_top/bottom=4`로 분리 지정해 해결. ② `resources/ui/`
+  자산이 이미 있어 기존 5개 테스트(L-3 오버레이 패널 3종 테두리 비교, M-1/M-2
+  버튼 위계 비교)가 `StyleBoxTexture`로 바뀐 스타일에서 `.border_color`/
+  `.bg_color`(StyleBoxFlat 전용) 접근으로 크래시 — `_m5_style_fingerprint()`
+  공용 헬퍼로 두 스타일 종류를 다 받게 고침. `dice_test.gd`에 신규
+  `_check_m5a_uikit_image_skin()`(9단계, user:// 임시 경로로 "없음→있음→없음"
+  전환 + production 경로 end-to-end 검증)을 추가해 `bash scripts/qa_shot.sh
+  dice_test` 전체 **PASS**. 셀프 피드백 1라운드로 `qa_out/m5a_*.png` 7장
+  (dungeon_map/combat_test 평시·승리/customize 오버레이/shop/event/
+  character_select) 육안 확인 — 모서리 보석 장식이 보이는 입체적 스킨으로
+  바뀌었고 레이아웃 겹침/잘림 없어 추가 라운드 없이 종료. 전투 규칙/밸런스는
+  손대지 않았고 resources/·docs/art/는 읽기만 했다. **다음은 M-5(b)(배지/
+  장식/아이콘)** — 순서 끝나면 INBOX.md [대형 기획 14](N-1~N-5, M-5(a) 완료를
+  전제조건으로 명시해둔 다음 지시)로 넘어갈 것.
 
 ## 지금 위치
 
@@ -362,6 +374,22 @@ HP 패널·다이스 스테이지·결과 칩과 겹치지 않고 표정(happy)�
   들어온다(M-2가 남겼던 "보상 화면이 HUD 패널과 겹침" 회귀도 함께 해소).
   자세한 내용은 `docs/UI_REVIEW.md` "M-3" 절 참고. M-4(이벤트/상점/스토리
   이벤트 화면 통일)부터는 이 HUD/다이스 스테이지를 그대로 두고 재사용한다.
+- **UIKit 이미지 스킨 — 패널/버튼/HP 바(2026-10-15 [대형 기획 13] M-5(a) 완료)**:
+  아트 스레드가 납품한 `resources/ui/`(U1~U6)이 처음으로 실제 화면에 연결됐다.
+  `UIKit.apply_panel_skin(panel, kind, character_id)`(kind: section/hud/card/
+  overlay — card는 등급색 테두리와 충돌해 보류)가 base+accent PNG를 캐릭터
+  accent색으로 틴트해 블렌딩한 뒤 하나의 `StyleBoxTexture`로 굽고, 없으면 기존
+  절차적 `StyleBoxFlat`로 폴백한다. `make_section()`/`make_bar()`(dungeon_map/
+  combat_test/event/shop/story_event/deck_panel이 공유)와 오버레이 패널 3종
+  (Customize/Achievement/SkillCodex)이 이를 쓴다. 버튼(`style_primary_button()`/
+  `style_secondary_button()`)은 normal/hover/pressed/disabled 상태마다 따로
+  굽고 상태별로 개별 폴백(일부만 있어도 됨). HP 바(`UIKit.make_hp_bar()`)는
+  프레임(base+accent 한 장)+채움(`hp_fill.png`, 런타임 `.modulate`로 녹→주황→
+  빨강 착색, 기존 로직 그대로)을 `NinePatchRect`로 그린다. 실제 자산 적용 중
+  버튼의 content_margin이 texture_margin(16px)에 자동으로 맞춰져 M-3의 고정
+  좌표(40px 버튼 행)와 겹치는 회귀를 발견해 버튼만 content_margin_top/bottom=4로
+  분리 설정해 고쳤다(패널은 9-slice 두께=콘텐츠 인셋이 디자인 의도라 그대로 둠).
+  상세는 아래 "완료 기록 (202)" 참고. **다음은 M-5(b)(배지/장식/아이콘)**.
 
 상세 변경 이력은 아래 "완료 기록"(최근 10개)과, 그보다 오래된 것은
 `docs/STATUS_ARCHIVE.md`(매 이터레이션 읽지 않는 아카이브) 참고.
@@ -372,12 +400,16 @@ HP 패널·다이스 스테이지·결과 칩과 겹치지 않고 표정(happy)�
 진행하는 것을 권장한다. 한 이터레이션에 한두 개만 진행할 것.
 
 **INBOX.md 최우선 지시는 지금 [대형 기획 13](던전 선택~전투 UI 품질 개선,
-M-1~M-4, 셀프 피드백 루프 방식)이다 — M-1(던전 맵 화면)이 2026-10-14(198)에,
+M-1~M-5, 셀프 피드백 루프 방식)이다 — M-1(던전 맵 화면)이 2026-10-14(198)에,
 M-2(전투 화면 기본 레이아웃/HUD)가 2026-10-14(199)에, M-3(전투 화면 상태별
-연출/결과/보상 UI)가 2026-10-15(200)에 완료됐고, 다음은 M-4(이벤트/상점/
-스토리 이벤트 화면 통일)다.** M-1에서 만든 `code/systems/ui_kit.gd`(`UIKit`)를
-M-2/M-3가 재사용했고 M-4도 그대로 재사용할 것(INBOX M-4 원문 "새로 복붙하지
-말 것"). [대형 기획 11](조작/UI 개편, K-1~K-4)은 2026-10-13(192)에,
+연출/결과/보상 UI)가 2026-10-15(200)에, M-5(a)(UIKit 이미지 스킨 — 패널/버튼/
+HP 바)가 2026-10-15(202)에 완료됐고, 다음은 M-5(b)(배지/장식/아이콘)다.**
+M-5(a)는 원래 INBOX 순서상 M-4 뒤였으나 이번 이터레이션 지시로 M-4보다 먼저
+진행했다(사용자 지시 우선) — M-4(이벤트/상점/스토리 이벤트 화면 통일)는
+M-5(b) 다음으로 순서가 밀렸을 뿐 여전히 큐에 남아있다. M-1에서 만든
+`code/systems/ui_kit.gd`(`UIKit`)를 M-2/M-3/M-5(a)가 재사용했고 M-4/M-5(b)도
+그대로 재사용할 것(INBOX M-4 원문 "새로 복붙하지 말 것"). [대형 기획 11]
+(조작/UI 개편, K-1~K-4)은 2026-10-13(192)에,
 [대형 기획 12](캐릭터 선택/스킬 도감/전역 퍼스널 컬러, L-1~L-3)는 2026-10-14(197)에
 각각 전체 완료됐다. [대형 기획 13]이 전부 끝나면 아래 번호 매긴 큐에서 고를 것.
 남은 구조적 후보(급하지 않음): 보스 개별 6종 중 타락한 기사단장만 밴드 미달
@@ -989,6 +1021,86 @@ M-2/M-3가 재사용했고 M-4도 그대로 재사용할 것(INBOX M-4 원문 "�
 
 ## 완료 기록
 
+- **2026-10-15 (202)**: INBOX.md 최우선 지시(이번 이터레이션 직접 지시) [대형 기획 13]
+  **M-5(a)(UIKit 이미지 스킨 — 패널/버튼/HP 바) 완료**. 아트 스레드가 `resources/ui/`에
+  U1~U6(패널 4종/버튼 2종/HP 바/배지/장식/아이콘)를 전부 납품했지만 Work 쪽 코드는 아직
+  절차적 스타일만 쓰고 있었다 — 이번 조각은 그중 "패널(section/hud/card/overlay)+버튼
+  (primary/secondary)+HP 바"를 `code/systems/ui_kit.gd`의 `UIKit`에 실제로 연결했다
+  (배지/장식/아이콘은 M-5(b)).
+  **패널**: `apply_panel_skin(panel, kind, character_id, base_dir)` 신규 — base+accent
+  PNG를 로드해 accent를 `CharacterTheme.ui_palette()["accent"]`로 틴트(`Image.set_pixel`
+  로 RGB만 곱하고 알파 유지)한 뒤 `Image.blend_rect()`로 base 위에 한 번만 합성해(패널은
+  버튼과 달리 "상태"가 없으므로 라이브 오버레이 대신 미리 굽는 쪽을 택함 — 캐릭터별로
+  한 번만 구우면 되고, 기존 `body.get_parent() == panel` 가정도 그대로 유지됨) 하나의
+  `StyleBoxTexture`로 만든다. `content_margin`은 기본값(-1)으로 남겨 `texture_margin`과
+  자동으로 같아지게 해 9-slice 테두리만큼 자식이 자연히 인셋되게 했다. base PNG가 없으면
+  false를 돌려줘 호출부가 기존 `StyleBoxFlat` 절차적 스타일로 폴백한다(`CharacterTheme.
+  apply()`는 StyleBoxFlat 전용이라 스킨 활성 시에는 호출 안 함 — 호출하면 새 StyleBoxFlat을
+  만들어 스킨을 덮어써버리므로). `make_section()`(kind="section")/`make_bar()`(kind="hud")
+  가 이 헬퍼를 쓰도록 바뀌어, dungeon_map/combat_test/event/shop/story_event/deck_panel이
+  쓰는 모든 구역 패널·HUD 띠가 자동으로 스킨을 받는다. 오버레이 패널 3종(CustomizePanel/
+  AchievementPanel/SkillCodexPanel)도 `CharacterTheme.apply(bg, ...)` 직접 호출 지점을
+  "`UIKit.apply_panel_skin(bg, "overlay", ...)` 실패 시에만 폴백"으로 1~2줄씩 바꿔 자동
+  적용되게 했다. "card" 종류(아이템/보상 카드)는 **의도적으로 보류** — `ItemCardStyle.
+  build_card()`의 테두리색이 지금 등급(S/A/B/C) 신호로 쓰이는데 캐릭터 accent로 바꾸면
+  그 신호가 사라지는 설계 충돌이 있어, 사람 결정 없이 임의로 바꾸지 않고 그대로 뒀다
+  (factory 자체는 kind="card" 스펙까지 다 만들어 둬서, 나중에 결정만 나면 한 줄로 적용
+  가능).
+  **버튼**: 패널과 달리 normal/hover/pressed/disabled 4가지 "상태"가 있어, 상태마다
+  base+accent(커스텀 tint 가능 — `style_secondary_button(..., tint)`의 위험 강조색 등도
+  팔레트 accent 대신 그대로 틴트됨)를 미리 구워 `StyleBoxTexture` 하나로 만든다(`style_
+  primary_button()`/`style_secondary_button()`이 상태별로 개별 시도 — **그 상태의 base
+  PNG가 없으면 그 상태만 기존 `StyleBoxFlat`으로 폴백**해 INBOX M-5 "파일이 일부만 있어도
+  상태별로 폴백" 요구를 만족). "focus"(5번째 상태)는 `FocusNav.focus_style()`가 전담하는
+  별도 테마 슬롯이고 버튼 아닌 Control(카드/방 선택지 등)에도 범용으로 쓰여 kind(primary/
+  secondary)별로 못 묶이므로 이번 범위에서 의도적으로 제외. 글자색 대비(INBOX "primary는
+  면 전체가 accent라 밝은 색에서 흰 글자가 안 보일 수 있음")는 기존 `contrasting_text_
+  color()`를 그대로 재사용해 스킨 여부와 무관하게 계속 보장됨(새 로직 불필요).
+  **HP 바**: `UIKit.make_hp_bar()` 신규(combat_test.gd의 `_build_hp_bar()`가 여기로 위임) —
+  프레임(base+accent, 패널과 같은 이유로 한 장으로 구워 `NinePatchRect`)과 채움(`hp_fill.png`,
+  accent 없이 흰~회색 그라데이션 하나뿐이라 그대로 `NinePatchRect`로 쓰고 `.modulate`로
+  런타임에 녹→주황→빨강 착색 — 기존 `_update_hp_bar()`의 색 전환 로직은 변경 없음, `fill is
+  ColorRect`로 분기해 폴백(ColorRect, `.color`)과 스킨(NinePatchRect, `.modulate`) 양쪽을
+  같은 함수가 처리)을 각각 그린다. 채움 위치는 프레임 9-slice 마진(좌우32/상하10)과 다른
+  "프레임 안쪽 홈"(좌22/상11/우22/하10, ART_RESOURCES.md UI200 그대로) 절대 좌표를 쓴다.
+  **레이아웃 회귀 발견 + 수정**: 버튼 `StyleBoxTexture`의 `content_margin`을 기본값(=
+  `texture_margin`, 상하 16px)에 맡겼더니 실제 자산 적용 직후 `dice_test`의 M-3 검증
+  ("'전투 기록' 패널 y=572 >= 버튼 행 바닥 y=584")이 FAIL로 잡혔다 — M-3이 버튼을 526~566
+  (40px) 고정 좌표로 깔아뒀는데, 스킨 버튼의 최소 높이가 48px+폰트로 커져 겹친 것. 원인은
+  `texture_margin`(9-slice 비늘림 구간, 순수 렌더링 값)과 `content_margin`(레이아웃이
+  요구하는 최소 여백)을 같은 값으로 둘 필요가 없다는 점 — 버튼만 `content_margin_top/
+  bottom`을 4px로 명시해(좌우는 28 유지) 기존 고정 좌표 레이아웃과 호환되게 했다(패널은
+  이 문제가 없음 — 패널의 9-slice 테두리 두께와 콘텐츠 인셋이 실제로 같아야 하는 디자인
+  의도이므로 그대로 둠).
+  **검증**: `dice_test.gd`의 신규 `_check_m5a_uikit_image_skin()`(9단계 — ① 패널 파일 없음
+  →`StyleBoxFlat` ② base만→`StyleBoxTexture`+마진24 ③ base+accent, 캐릭터(berserker/
+  pirate)별로 합성 픽셀이 실제 `ui_palette()["accent"]`와 근사 일치(8비트 양자화 오차
+  0.01 허용) + 서로 다름 ④ base 삭제→다시 `StyleBoxFlat` ⑤ hud 마진(좌우34/상하20) ⑥
+  버튼 "normal"만 있으면 그 상태만 스킨, "hover"는 폴백 + 합성 픽셀이 tint와 일치 ⑦
+  secondary 커스텀 tint도 팔레트 대신 그대로 적용 ⑧ HP 바 skinned/fallback 전환 +
+  `fill_full_width` 계산 ⑨ 실제 production `resources/ui/`로 `combat_test.tscn`을
+  instantiate해 HP 바가 실제 `NinePatchRect`이고 HP 100%/10%에서 크기·색이 기존과 동일한
+  공식으로 동작하는지, 버튼이 실제 `StyleBoxTexture`인지)가 "없음→있음→없음" user://
+  임시 경로(production `base_dir`는 캐릭터/kind/tint별로만 캐싱돼 테스트 경로는 캐시를
+  안 타 매번 실제 파일 존재를 재확인 — 캐싱이 "없음→있음" 전환을 숨기는 버그 방지)로
+  전부 검증. **실제 production 자산이 이미 입고돼 있어서 기존 5개 테스트(L-3의 오버레이
+  패널 3종 테두리 비교, M-1/M-2의 버튼 위계 비교)가 이제 `StyleBoxTexture`를 받아
+  `.border_color`/`.bg_color`(StyleBoxFlat 전용 속성) 접근으로 크래시하는 회귀를 먼저
+  잡아냈다** — `_m5_style_fingerprint(style)`(StyleBoxFlat이면 border/bg 색, StyleBoxTexture면
+  실제로 구워진 texture 객체) 공용 헬퍼로 두 스타일 종류를 다 받게 고쳤다(둘 다 "서로
+  다른 렌더 결과"라는 같은 의도를 보존). `bash scripts/qa_shot.sh dice_test` 전체 **PASS**
+  (신규 M-5a 섹션 포함, 기존 5곳 수정 포함). **셀프 피드백 1라운드**: `qa_out/m5a_dungeon_
+  map.png`/`m5a_combat_after.png`/`m5a_combat_win_after.png`/`m5a_customize.png`/
+  `m5a_shop.png`/`m5a_event.png`/`m5a_character_select.png` 7장 육안 확인 — 패널/버튼/
+  HP 바 전부 모서리 보석 장식이 보이는 입체적인 스킨으로 또렷하게 바뀌었고, 레이아웃
+  겹침/잘림 없음, character_select(스킨 미적용 대상, 자체 `_make_section` 사용)는 회귀
+  없이 그대로임을 확인 — 추가 수정 라운드 없이 1라운드로 종료(심각도 상/중 문제 없음).
+  `Image.load()`로 기 import된 PNG를 직접 읽을 때 "Loaded resource as image file, this
+  will not work on export" 경고가 뜨는데, `SkillIcon.load_external_art()`(K-4c)와 동일한
+  기존 트레이드오프 — 지금 구조(테스트에서 `user://` base_dir 주입 필요)상 불가피해 의도적으로
+  유지. 전투 규칙/밸런스는 손대지 않음. **다음은 M-5(b)(배지/장식/아이콘)** — INBOX.md
+  "부분 처리됨"에 진행 한 줄 갱신.
+
 - **2026-10-15 (201)**: [미니 기획 ART-1] **ART-1b(전투 화면 원화 표정 컷 연결)를
   견습 모험가(`novice`) 1종에 대해 완료**. 아트 스레드가 `resources/characters/
   novice/face_{neutral,happy,hurt,sad,angry}.png` 5장을 입고(커밋 `db83033`)해
@@ -1431,101 +1543,9 @@ M-2/M-3가 재사용했고 M-4도 그대로 재사용할 것(INBOX M-4 원문 "�
   `locked: bool` 플래그를 얹는 식으로 확장 가능). 다음은 **L-2(a)**(스킬
   도감 데이터/저장 — `SkillPool.codex_entries()` + 발견 기록 영구 저장).
 
-- **2026-10-13 (192)**: INBOX.md 최우선 지시 [대형 기획 11] 조작/UI 개편(K-1→K-4) 중
-  **K-4c(외부 아트 override 경로 + 발주 목록 정리) 완료 — [대형 기획 11] 전체
-  (K-1~K-4) 완료 처리**.
-  **(1) 외부 아트 override**: `code/scenes/skill_icon.gd`에 `skill_id`(스킬 id)와
-  `external_art_base_dir`(기본값 `EXTERNAL_ART_DIR`="res://resources/skills/",
-  테스트 전용 주입 지점) 프로퍼티를 추가했다. 정적 `SkillIcon.load_external_art(
-  skill_id, base_dir)`가 `base_dir + skill_id + ".png"`를 `FileAccess.file_exists()`로
-  확인해 있으면 `Image.load()` + `ImageTexture.create_from_image()`로 로드하고
-  없으면 null(에러 없이 조용히 폴백) — `ResourceLoader.exists()+load()`가 아니라
-  `Image.load()`를 직접 쓴 건 에디터 import(.import 파일) 과정 없이도 아트
-  스레드가 PNG를 커밋만 하면 바로 로드되게 하기 위함(user:// 임시 경로에서도
-  동일하게 동작해야 하는 테스트 요구와도 맞음). `_draw()`가 이제 "override 있으면
-  그 텍스처 → 없으면 motif → 없으면 category → 없으면 빈 원" 순으로 분기하고,
-  이 우선순위를 테스트가 속성이 아니라 실제로 검증할 수 있도록 `render_source()
-  -> String`("external"/"motif"/"category"/"none")을 신설해 `_draw()`도 이 함수의
-  결과를 그대로 쓴다(단일 진실 소스 — 테스트와 실제 그리기가 서로 다른 분기를
-  타다 어긋나는 일이 없게). 호출부 4곳(`item_card_style.gd`의 `build_card()`,
-  `character_select.gd`의 `_make_starting_skill_slot()` 해금/잠금 두 분기,
-  `deck_panel.gd`의 `_add_skills_section()`)에 `skill_icon.skill_id = ...`를
-  추가해 motif를 설정하던 모든 지점이 자동으로 override 경로도 함께 갖는다(새
-  화면이 생겨도 skill_id만 설정하면 override가 자동으로 적용됨). `resources/`는
-  여전히 읽기만 하고 Work 쪽이 파일을 만들지 않는다 — `resources/skills/`는
-  아직 아트가 입고되지 않아 전부 절차적 모티프 그대로 렌더됨(아래 발주 목록 참고).
-  **검증**: `dice_test.gd`의 신규 `_check_k4c_skill_icon_external_art()`가
-  resources/를 전혀 건드리지 않고 `user://k4c_test_tmp/`에 1x1 PNG를 실제로 써서
-  ① override 파일이 없을 때 `render_source()=="motif"` ② 파일을 만든 뒤
-  `=="external"`로 실제로 바뀜(계산 결과가 바뀌는지 검증, 플래그만 보지 않음)
-  ③ motif를 비워도(category도 없음) override가 있으면 여전히 "external"(우선순위
-  보장) ④ 파일을 지우면 다시 "none"으로 폴백하는지까지 확인하고, 테스트가 만든
-  임시 파일/폴더는 전부 지운다. `external_art_path()`/`load_external_art()`의
-  경로 조합과 "운영 경로엔 아직 override가 없음"도 별도로 확인. `bash scripts/
-  qa_shot.sh dice_test` 전체 **PASS**(leak 경고 2건은 내 변경 전 클린 트리에서도
-  동일하게 재현돼 기존 known noise임을 `git stash`로 교차 확인). `qa_shot.sh
-  event`/`character_select`로 회귀 없음(override 파일이 없으니 기존 절차적
-  모티프 그대로 렌더) 육안 확인.
-  **(2) 발주 목록**: K-4c 지시대로 "ProjectD Art" 스레드로 넘길 스킬 아이콘
-  발주 목록을 아래 표로 정리했다(스킬 id/이름/모티프/계열 색/설명 한 줄, 33종
-  전부 — `SkillPool.ICON_MOTIFS` 기준, 색상 hex는 `skill_icon.gd`의 모티프별
-  `COLOR_*` 상수를 그대로 변환). **전달은 INBOX.md 지시대로 이 작업(Work) 세션이
-  아니라 감독 세션이 SendMessage로 한다** — 이 표는 그 전달의 원본 자료.
-
-  | 모티프 | 색(hex) | 스킬 id | 이름 | 설명 한 줄 |
-  |---|---|---|---|---|
-  | attack_boost | #E65926 | start_aggro | 맹공 | 공격 다이스 개수 > 방어 다이스 개수면 공격 다이스 결과값 전체 +1 |
-  | attack_boost | #E65926 | start_hoard | 수집가 | 눈금 인벤토리 5개 이상 보유 시 공격 다이스 결과값 전체 +1 |
-  | attack_boost | #E65926 | start_vanguard | 선제 | 전투 첫 공격턴 한 번만 공격 다이스 결과값 전체 +2 |
-  | attack_boost | #E65926 | start_wealth | 황금손 | 보유 골드 30마다 공격 다이스 결과값 +1(최대 +2) |
-  | defense_boost | #4D8CD9 | deep_breath | 심호흡 | 전투 첫 방어턴 한 번만 방어 다이스 결과값 전체 +1 |
-  | defense_boost | #4D8CD9 | deep_breath_plus | 심호흡+ | 매 방어턴마다(첫 턴뿐 아니라) 방어 다이스 결과값 +1 |
-  | defense_boost | #4D8CD9 | start_wall | 철벽 | 방어 다이스 개수 > 공격 다이스 개수면 방어 다이스 결과값 전체 +1 |
-  | defense_boost | #4D8CD9 | start_ironclad | 강철 방비 | 철제 재질(D12/D20) 다이스를 1개 이상 보유하면 방어 다이스 결과값 전체 +1 |
-  | defense_boost | #4D8CD9 | start_bulwark | 대비 | 전투 첫 방어턴 한 번만 방어 다이스 결과값 전체 +2 |
-  | defense_boost | #4D8CD9 | start_second_wind | 오뚝이 | 플레이어 HP가 최대 HP 절반 이하면 방어 다이스 결과값 +1 |
-  | dual_boost | #9966D9 | start_expand | 확장 | 공격+방어 다이스 합계 8개 이상이면 공격/방어 다이스 결과값 전체 +1(양 턴 대칭) |
-  | dual_boost | #9966D9 | start_lean | 정예 | 공격+방어 다이스 합계 7개 이하면 공격/방어 다이스 결과값 전체 +1(확장과 반대 조건) |
-  | dual_boost | #9966D9 | start_overflow | 과적 | 공격/방어 주머니 중 MAX_DICE(6)에 꽉 찬 쪽 결과값 +1(둘 다 꽉 차면 둘 다) |
-  | dual_boost | #9966D9 | start_diverse | 잡화점 | 공격+방어 다이스의 면 개수 종류가 3종 이상이면 공격/방어 결과값 전체 +1 |
-  | reroll | #40BF8C | spare_die | 여분 | 매 공격턴 여분 다이스 1개를 더 굴려 가장 낮은 공격값을 더 높으면 대체 |
-  | reroll | #40BF8C | spare_die_plus | 여분+ | 여분 다이스 2개를 굴려 더 높은 값으로 가장 낮은 공격값을 대체 |
-  | burst_stack | #F28C26 | frenzy_deepen | 광기 심화 | 광전사 전용 — 폭발 스택 파이프라인을 새로 열고, 3스택 보너스 공격턴이 1D20 두 번 굴려 채택 |
-  | burst_stack | #F28C26 | frenzy_deepen_plus | 광기 심화+ | 보너스 공격턴이 1D20 세 번 굴려 채택으로 강화 |
-  | burst_stack | #F28C26 | chain_explosion | 연쇄 폭발 | 폭발병 전용 — 폭발 스택 임계치 3→2로 낮춤 |
-  | burst_stack | #F28C26 | chain_explosion_plus | 연쇄 폭발+ | 임계치 2 유지 + 보너스 공격턴 1D20 두 번 굴려 채택으로 강화 |
-  | guard_stack | #8C99A6 | guard_deepen | 수호 심화 | 수호자 전용 — 수호 스택 파이프라인을 새로 열고, 3스택 보너스 방어턴이 1D20 두 번 굴려 채택 |
-  | guard_stack | #8C99A6 | guard_deepen_plus | 수호 심화+ | 보너스 방어턴이 1D20 세 번 굴려 채택으로 강화 |
-  | guard_stack | #8C99A6 | chain_guard | 연쇄 방어 | 주술사 전용 — 수호 스택 임계치 3→2로 낮춤 |
-  | guard_stack | #8C99A6 | chain_guard_plus | 연쇄 방어+ | 임계치 2 유지 + 보너스 방어턴 1D20 두 번 굴려 채택으로 강화 |
-  | dual_stack | 주황#F28C26+회색#8C99A6 반반 | versatile_surge | 임기응변 | 견습 모험가 전용 — 폭발+수호 스택 파이프라인을 공격/방어 양쪽에 동시에 염 |
-  | dual_stack | 주황#F28C26+회색#8C99A6 반반 | versatile_surge_plus | 임기응변+ | 공격/방어 스택 임계치 둘 다 3→2로 낮춤 |
-  | dice_flip | #D94D8C | charm_amplify | 매혹 심화 | 매혹사 전용 — 매 턴 최저값 다이스 전환 개수를 1개→2개로 늘림 |
-  | dice_flip | #D94D8C | charm_amplify_plus | 매혹 심화+ | 전환 개수를 2개→3개로 추가 강화 |
-  | dice_swap | #E6BF26 | juggle_encore | 곡예 앙코르 | 곡예사 전용 — 라운드 전환마다 공격/방어 다이스 1개씩 재교환(1회→매 라운드) |
-  | dice_swap | #E6BF26 | juggle_encore_plus | 곡예 앙코르+ | 라운드 전환 시 다이스 교환이 1번→2번(서로 다른 쌍)으로 강화 |
-  | cycle_strike | #26A699 | broadside | 일제 사격 | 해적 전용 — 함포 일제사격 주기를 3턴→2턴으로 단축 |
-  | cycle_strike | #26A699 | broadside_plus | 일제 사격+ | 주기 2 유지 + 고정 피해를 공격 합계 절반→전부로 강화 |
-  | event_check | #A680D9 | start_gambler | 승부사 | 매혹사 전용 — 특수 이벤트 "위험을 감수하기"의 판정 DC를 1 낮춤(최저 2) |
-
-  모티프 11종 각각의 디자인 방향(던파풍 참고, 실제 에셋 복제 아님 — INBOX.md
-  원문 그대로): 정사각 아이콘 + 굵은 테두리 프레임(프레임 색 = 위 표의 계열
-  색), 어두운 그라데이션 배경 위에 크고 단순한 실루엣 모티프(공격류=칼/위쪽
-  화살표, 방어류=방패/쉐브론, 재굴림=순환 화살표, 스택류=별/겹방패, 전환=
-  뒤집히는 다이스, 교환=교차 화살표, 주기형=시계판, 이벤트=육각 판정 다이스),
-  "+" 강화판은 금색 별/"+" 모서리 배지, 잠금은 자물쇠 배지(이건 K-4b가 이미
-  코드로 구현 — 아트는 기본 아이콘만 있으면 됨). 파일 규칙은 K-4c가 구현한
-  대로 `resources/skills/<skill_id>.png`(예: `resources/skills/deep_breath.png`)
-  하나만 있으면 충분 — "+" 변형은 별도 파일(`deep_breath_plus.png`)로 완전히
-  분리해 넘겨도 되고, 베이스 이미지에 코드 쪽 배지를 얹는 방식을 원하면 그 결정도
-  가능(현재 코드는 override 이미지를 그대로 교체해서 그리므로, 배지까지 원화에
-  포함해서 넘기는 쪽이 더 간단함).
-  **INBOX.md [대형 기획 11]을 "처리됨"으로 옮겼다 — K-1~K-4(a~c) 전체 완료.**
-  "완료 기록" 10개 유지를 위해 (182)를 `docs/STATUS_ARCHIVE.md`로 옮겼다.
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(201)에서 (191)을 그리로 옮겼다.)*
+이번 이터레이션(202)에서 (192)를 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 

@@ -337,11 +337,35 @@ func _ready() -> void:
 	all_pass = _check_art1b_combat_face_art(lines) and all_pass
 
 	lines.append("")
+	lines.append("[M-5a: UIKit 이미지 스킨 지원 검증: ui_kit.gd의 패널(section/hud/overlay)/버튼(primary/secondary)/HP 바 팩토리가 resources/ui/ 스킨 파일 유무에 따라 실제로 StyleBoxTexture/NinePatchRect와 StyleBoxFlat/ColorRect 폴백 사이를 전환하는지(user:// 임시 경로로 '없음→있음→없음'), 캐릭터/틴트별로 다른 결과를 합성하는지, 실제 resources/ui/ 자산이 입고된 production 경로에서 combat_test/dungeon_map이 실제로 스킨을 쓰는지]")
+	all_pass = _check_m5a_uikit_image_skin(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
 	print(text)
 	result_label.text = text
+
+
+## [대형 기획 13] M-5a(2026-10-15) 신설 — resources/ui/ 실제 스킨 자산이 입고되면서
+## UIKit 패널/버튼 팩토리를 쓰는 화면들의 "panel"/"normal" 등 테마 스타일이 이제
+## StyleBoxFlat 대신 StyleBoxTexture일 수 있다(파일이 있으면 자동으로 이미지 스킨
+## 우선). 기존 여러 테스트가 ".border_color"/".bg_color"를 직접 읽어 "캐릭터/버튼
+## 종류가 다르면 달라야 한다"를 확인하던 방식은 StyleBoxTexture엔 그 속성이 없어
+## 크래시한다 — 두 스타일 종류 모두에서 "구분값"을 안전하게 뽑아주는 공용 헬퍼.
+## StyleBoxFlat은 border_color(테두리가 있으면)/bg_color를, StyleBoxTexture는 실제로
+## 구워진 texture 객체(apply_panel_skin()/_button_state_stylebox()가 character_id나
+## tint별로 다르게 합성하므로 식별값으로 충분)를 돌려준다.
+func _m5_style_fingerprint(style: StyleBox) -> Variant:
+	if style is StyleBoxFlat:
+		var flat := style as StyleBoxFlat
+		if flat.border_width_left > 0 or flat.border_width_top > 0:
+			return flat.border_color
+		return flat.bg_color
+	if style is StyleBoxTexture:
+		return (style as StyleBoxTexture).texture
+	return null
 
 
 func _check_range(label: String, bag: DiceBag, expect_min: int, expect_max: int, lines: PackedStringArray) -> bool:
@@ -6131,20 +6155,22 @@ func _check_l3_personal_color_background(lines: PackedStringArray) -> bool:
 			screen_label, bg_a, bg_b, "OK" if screen_changed else "FAIL"
 		])
 
-	# (c) 오버레이 패널 틀(Panel) border_color.
+	# (c) 오버레이 패널 틀(Panel) 구분값 — [대형 기획 13] M-5a(2026-10-15)로
+	# resources/ui/panel/overlay_{base,accent}.png가 입고되면 이 틀도 StyleBoxTexture로
+	# 바뀌므로 _m5_style_fingerprint()로 StyleBoxFlat/Texture 양쪽을 다 받는다.
 	RunState.character_id = "novice"
 	var customize := CustomizePanel.new()
 	add_child(customize)
 	customize.open()
-	var customize_novice_border: Color = (customize._ui[0] as Panel).get_theme_stylebox("panel").border_color
+	var customize_novice_border: Variant = _m5_style_fingerprint((customize._ui[0] as Panel).get_theme_stylebox("panel"))
 	customize.close()
 
 	RunState.character_id = "pirate"
 	customize.open()
-	var customize_pirate_border: Color = (customize._ui[0] as Panel).get_theme_stylebox("panel").border_color
+	var customize_pirate_border: Variant = _m5_style_fingerprint((customize._ui[0] as Panel).get_theme_stylebox("panel"))
 	var customize_changed: bool = customize_novice_border != customize_pirate_border
 	ok = customize_changed and ok
-	lines.append("  CustomizePanel 틀 테두리색: novice=%s pirate=%s (달라야 함) -> %s" % [
+	lines.append("  CustomizePanel 틀 구분값: novice=%s pirate=%s (달라야 함) -> %s" % [
 		customize_novice_border, customize_pirate_border, "OK" if customize_changed else "FAIL"
 	])
 	customize.close()
@@ -6155,15 +6181,15 @@ func _check_l3_personal_color_background(lines: PackedStringArray) -> bool:
 	var achievement := AchievementPanel.new()
 	add_child(achievement)
 	achievement.open()
-	var ach_novice_border: Color = (achievement._ui[0] as Panel).get_theme_stylebox("panel").border_color
+	var ach_novice_border: Variant = _m5_style_fingerprint((achievement._ui[0] as Panel).get_theme_stylebox("panel"))
 	achievement.close()
 
 	RunState.character_id = "pirate"
 	achievement.open()
-	var ach_pirate_border: Color = (achievement._ui[0] as Panel).get_theme_stylebox("panel").border_color
+	var ach_pirate_border: Variant = _m5_style_fingerprint((achievement._ui[0] as Panel).get_theme_stylebox("panel"))
 	var ach_changed: bool = ach_novice_border != ach_pirate_border
 	ok = ach_changed and ok
-	lines.append("  AchievementPanel 틀 테두리색: novice=%s pirate=%s (달라야 함) -> %s" % [
+	lines.append("  AchievementPanel 틀 구분값: novice=%s pirate=%s (달라야 함) -> %s" % [
 		ach_novice_border, ach_pirate_border, "OK" if ach_changed else "FAIL"
 	])
 	achievement.close()
@@ -6174,14 +6200,14 @@ func _check_l3_personal_color_background(lines: PackedStringArray) -> bool:
 	var codex := SkillCodexPanel.new()
 	add_child(codex)
 	codex.open("novice", [])
-	var codex_novice_border: Color = (codex._ui[0] as Panel).get_theme_stylebox("panel").border_color
+	var codex_novice_border: Variant = _m5_style_fingerprint((codex._ui[0] as Panel).get_theme_stylebox("panel"))
 	codex.close()
 
 	codex.open("pirate", [])
-	var codex_pirate_border: Color = (codex._ui[0] as Panel).get_theme_stylebox("panel").border_color
+	var codex_pirate_border: Variant = _m5_style_fingerprint((codex._ui[0] as Panel).get_theme_stylebox("panel"))
 	var codex_changed: bool = codex_novice_border != codex_pirate_border
 	ok = codex_changed and ok
-	lines.append("  SkillCodexPanel 틀 테두리색: novice=%s pirate=%s (달라야 함) -> %s" % [
+	lines.append("  SkillCodexPanel 틀 구분값: novice=%s pirate=%s (달라야 함) -> %s" % [
 		codex_novice_border, codex_pirate_border, "OK" if codex_changed else "FAIL"
 	])
 	codex.close()
@@ -6944,22 +6970,28 @@ func _check_m1_dungeon_map_hud_and_buttons(lines: PackedStringArray) -> bool:
 		title.text, "OK" if title_ok else "FAIL"
 	])
 
-	# 주 행동(전투) 버튼과 보조 행동(상점) 버튼의 normal 배경색이 달라야 한다(위계).
-	var primary_style: StyleBoxFlat = map.enter_combat_button.get_theme_stylebox("normal")
-	var secondary_style: StyleBoxFlat = map.enter_shop_button.get_theme_stylebox("normal")
-	var button_hierarchy_ok: bool = primary_style != null and secondary_style != null and primary_style.bg_color != secondary_style.bg_color
+	# 주 행동(전투) 버튼과 보조 행동(상점) 버튼의 normal이 달라야 한다(위계).
+	# [대형 기획 13] M-5a(2026-10-15): resources/ui/button/*가 입고되면 normal이
+	# StyleBoxTexture일 수 있어 _m5_style_fingerprint()로 StyleBoxFlat/Texture 양쪽을
+	# 다 받는다(실제 "원화 자체가 다른가"가 아니라 "두 버튼이 같은 렌더 결과를
+	# 공유하지 않는가"를 확인하는 게 이 테스트의 의도).
+	var primary_style: StyleBox = map.enter_combat_button.get_theme_stylebox("normal")
+	var secondary_style: StyleBox = map.enter_shop_button.get_theme_stylebox("normal")
+	var primary_fp: Variant = _m5_style_fingerprint(primary_style)
+	var secondary_fp: Variant = _m5_style_fingerprint(secondary_style)
+	var button_hierarchy_ok: bool = primary_style != null and secondary_style != null and primary_fp != secondary_fp
 	ok = button_hierarchy_ok and ok
 	lines.append("  버튼 위계: 전투 normal=%s 상점 normal=%s (달라야 함) -> %s" % [
-		primary_style.bg_color if primary_style else "null", secondary_style.bg_color if secondary_style else "null",
-		"OK" if button_hierarchy_ok else "FAIL"
+		primary_fp, secondary_fp, "OK" if button_hierarchy_ok else "FAIL"
 	])
 	# 정예 전투 버튼은 tint(빨강)를 받아 상점과도, 전투와도 달라야 한다(G-7 "빨간 테두리"
 	# 의도가 UIKit 통합 후에도 유지되는지).
-	var elite_style: StyleBoxFlat = map.enter_elite_button.get_theme_stylebox("normal")
-	var elite_distinct_ok: bool = elite_style != null and elite_style.border_color != secondary_style.border_color
+	var elite_style: StyleBox = map.enter_elite_button.get_theme_stylebox("normal")
+	var elite_fp: Variant = _m5_style_fingerprint(elite_style)
+	var elite_distinct_ok: bool = elite_style != null and elite_fp != secondary_fp
 	ok = elite_distinct_ok and ok
-	lines.append("  정예 버튼 테두리색이 일반 보조 버튼과 다름(위험 강조 유지): elite=%s secondary=%s -> %s" % [
-		elite_style.border_color if elite_style else "null", secondary_style.border_color, "OK" if elite_distinct_ok else "FAIL"
+	lines.append("  정예 버튼 구분값이 일반 보조 버튼과 다름(위험 강조 유지): elite=%s secondary=%s -> %s" % [
+		elite_fp, secondary_fp, "OK" if elite_distinct_ok else "FAIL"
 	])
 
 	# HUD 칩: 라운드/골드 값이 RunState를 그대로 반영.
@@ -7187,13 +7219,16 @@ func _check_m2_combat_hud(lines: PackedStringArray) -> bool:
 	])
 
 	# 주/보조 버튼 위계 — "다음"만 주 행동(캐릭터 accent 꽉 채움), 나머지는 보조(테두리만).
-	var next_style: StyleBoxFlat = combat.next_button.get_theme_stylebox("normal")
-	var codex_style: StyleBoxFlat = combat.skill_codex_button.get_theme_stylebox("normal")
-	var button_hierarchy_ok: bool = next_style != null and codex_style != null and next_style.bg_color != codex_style.bg_color
+	# [대형 기획 13] M-5a(2026-10-15): resources/ui/button/*가 입고되면 normal이
+	# StyleBoxTexture일 수 있어 _m5_style_fingerprint()로 양쪽을 다 받는다.
+	var next_style: StyleBox = combat.next_button.get_theme_stylebox("normal")
+	var codex_style: StyleBox = combat.skill_codex_button.get_theme_stylebox("normal")
+	var next_fp: Variant = _m5_style_fingerprint(next_style)
+	var codex_fp: Variant = _m5_style_fingerprint(codex_style)
+	var button_hierarchy_ok: bool = next_style != null and codex_style != null and next_fp != codex_fp
 	ok = button_hierarchy_ok and ok
 	lines.append("  버튼 위계: 다음(주) normal=%s 스킬도감(보조) normal=%s (달라야 함) -> %s" % [
-		next_style.bg_color if next_style else "null", codex_style.bg_color if codex_style else "null",
-		"OK" if button_hierarchy_ok else "FAIL"
+		next_fp, codex_fp, "OK" if button_hierarchy_ok else "FAIL"
 	])
 
 	# 초상화가 더는 화면 밖으로 안 나가는지 — 보스 배율(PORTRAIT_SCALE_BOSS)을 적용해도
@@ -7402,4 +7437,236 @@ func _check_art1b_combat_face_art(lines: PackedStringArray) -> bool:
 	remove_child(combat)
 	combat.free()
 	RunState.character_id = character_backup
+	return ok
+
+
+func _m5a_write_solid_png(path: String, w: int, h: int, color: Color) -> void:
+	var img := Image.create(w, h, false, Image.FORMAT_RGBA8)
+	img.fill(color)
+	img.save_png(path)
+
+
+## 8비트 PNG 왕복(set_pixel/저장/로드)의 양자화 오차(채널당 1/255 ≈ 0.0039)를 감안한
+## 느슨한 색 비교 — Color.is_equal_approx()의 기본 epsilon(1e-5)은 이 오차보다 훨씬
+## 작아 틴트 비교에 못 쓴다.
+func _m5a_color_close(a: Color, b: Color, eps: float = 0.01) -> bool:
+	return abs(a.r - b.r) <= eps and abs(a.g - b.g) <= eps and abs(a.b - b.b) <= eps
+
+
+## [대형 기획 13] M-5a(2026-10-15) 검증. ui_kit.gd의 apply_panel_skin()/
+## style_primary_button()/style_secondary_button()/make_hp_bar()가 resources/ui/
+## 이미지 스킨 파일 유무에 따라 "StyleBoxTexture(+9-slice 마진)" <-> "기존 절차적
+## StyleBoxFlat/ColorRect 폴백" 사이를 실제로 전환하는지, 캐릭터/틴트별로 다른
+## 결과를 합성하는지를 확인한다. "플래그가 들어갔는가"가 아니라 "실제 렌더 스타일
+## 종류/텍스처 픽셀"이 바뀌는지를 본다(k4c_skill_icon_external_art와 같은 "없음→
+## 있음→없음" user:// 임시 경로 패턴). 마지막으로 resources/ui/에 실제로 입고된
+## production 자산으로 combat_test/dungeon_map을 인스턴스화해 끝까지 배선됐는지도
+## 확인한다.
+func _check_m5a_uikit_image_skin(lines: PackedStringArray) -> bool:
+	var ok := true
+	var tmp_dir := "user://m5a_test_tmp/"
+	DirAccess.make_dir_recursive_absolute(tmp_dir + "panel")
+	DirAccess.make_dir_recursive_absolute(tmp_dir + "button")
+	DirAccess.make_dir_recursive_absolute(tmp_dir + "bar")
+
+	# --- (1) 패널 스킨: 없음 -> StyleBoxFlat 폴백 ---
+	var no_skin_body := UIKit.make_section(self, "", "novice", Vector2.ZERO, tmp_dir)
+	var no_skin_panel: PanelContainer = no_skin_body.get_parent()
+	var no_skin_is_flat: bool = no_skin_panel.get_theme_stylebox("panel") is StyleBoxFlat
+	ok = no_skin_is_flat and ok
+	lines.append("  (1) panel/section_base.png 없음: make_section() 'panel' 스타일 = %s (기대 StyleBoxFlat 폴백) -> %s" % [
+		no_skin_panel.get_theme_stylebox("panel").get_class(), "OK" if no_skin_is_flat else "FAIL"
+	])
+	no_skin_panel.queue_free()
+
+	# --- (2) base만 있음 -> StyleBoxTexture(9-slice 마진=24) ---
+	_m5a_write_solid_png(tmp_dir + "panel/section_base.png", 8, 8, Color(0, 0, 0, 1))
+	var base_only_body := UIKit.make_section(self, "", "novice", Vector2.ZERO, tmp_dir)
+	var base_only_panel: PanelContainer = base_only_body.get_parent()
+	var base_only_style: StyleBox = base_only_panel.get_theme_stylebox("panel")
+	var base_only_ok: bool = base_only_style is StyleBoxTexture and (base_only_style as StyleBoxTexture).texture_margin_left == 24
+	ok = base_only_ok and ok
+	lines.append("  (2) section_base.png만 있음: 스타일=%s, texture_margin_left=%s (기대 StyleBoxTexture, 24) -> %s" % [
+		base_only_style.get_class(),
+		(base_only_style as StyleBoxTexture).texture_margin_left if base_only_style is StyleBoxTexture else "(해당없음)",
+		"OK" if base_only_ok else "FAIL"
+	])
+	base_only_panel.queue_free()
+
+	# --- (3) base+accent: 캐릭터가 다르면 합성 결과(텍스처 픽셀)가 실제로 달라야 한다.
+	#     base=검정 불투명, accent=흰색 완전 불투명 -> blend_rect 결과는 accent의 알파가
+	#     1이라 base를 완전히 덮어써 tint 색 그 자체가 나온다(근사 없이 정확히 비교 가능).
+	_m5a_write_solid_png(tmp_dir + "panel/section_accent.png", 8, 8, Color(1, 1, 1, 1))
+	var tinted_a_body := UIKit.make_section(self, "", "berserker", Vector2.ZERO, tmp_dir)
+	var tinted_a_panel: PanelContainer = tinted_a_body.get_parent()
+	var tinted_a_tex: Texture2D = (tinted_a_panel.get_theme_stylebox("panel") as StyleBoxTexture).texture
+	var tinted_a_pixel: Color = tinted_a_tex.get_image().get_pixel(0, 0)
+	tinted_a_panel.queue_free()
+
+	var tinted_b_body := UIKit.make_section(self, "", "pirate", Vector2.ZERO, tmp_dir)
+	var tinted_b_panel: PanelContainer = tinted_b_body.get_parent()
+	var tinted_b_tex: Texture2D = (tinted_b_panel.get_theme_stylebox("panel") as StyleBoxTexture).texture
+	var tinted_b_pixel: Color = tinted_b_tex.get_image().get_pixel(0, 0)
+	tinted_b_panel.queue_free()
+
+	var accent_a: Color = CharacterTheme.ui_palette("berserker")["accent"]
+	var accent_b: Color = CharacterTheme.ui_palette("pirate")["accent"]
+	var tint_pixel_matches_ok: bool = _m5a_color_close(tinted_a_pixel, accent_a) and _m5a_color_close(tinted_b_pixel, accent_b)
+	ok = tint_pixel_matches_ok and ok
+	lines.append("  (3) 합성 픽셀이 실제 accent 색과 근사 일치(8비트 양자화 오차 감안): berserker 합성=%s accent=%s / pirate 합성=%s accent=%s -> %s" % [
+		tinted_a_pixel, accent_a, tinted_b_pixel, accent_b, "OK" if tint_pixel_matches_ok else "FAIL"
+	])
+	var tint_differs_ok: bool = not _m5a_color_close(tinted_a_pixel, tinted_b_pixel)
+	ok = tint_differs_ok and ok
+	lines.append("  (3) 캐릭터가 다르면 합성 텍스처도 달라짐(berserker != pirate) -> %s" % ("OK" if tint_differs_ok else "FAIL"))
+
+	# --- (4) base 삭제 -> 다시 StyleBoxFlat 폴백(캐시가 production 경로에만 적용되므로
+	#     임시 base_dir는 매번 실제 파일 존재를 다시 확인해야 한다).
+	DirAccess.remove_absolute(tmp_dir + "panel/section_base.png")
+	DirAccess.remove_absolute(tmp_dir + "panel/section_accent.png")
+	var removed_body := UIKit.make_section(self, "", "novice", Vector2.ZERO, tmp_dir)
+	var removed_panel: PanelContainer = removed_body.get_parent()
+	var removed_is_flat: bool = removed_panel.get_theme_stylebox("panel") is StyleBoxFlat
+	ok = removed_is_flat and ok
+	lines.append("  (4) section_base.png 삭제 후 다시 make_section(): 스타일=%s (기대 StyleBoxFlat로 복귀) -> %s" % [
+		removed_panel.get_theme_stylebox("panel").get_class(), "OK" if removed_is_flat else "FAIL"
+	])
+	removed_panel.queue_free()
+
+	# --- (5) hud 종류는 마진이 다르다(좌우 34, 상하 20) ---
+	_m5a_write_solid_png(tmp_dir + "panel/hud_base.png", 8, 8, Color(0.5, 0.5, 0.5, 1))
+	var hud_bar := UIKit.make_bar(self, "novice", Vector2.ZERO, tmp_dir)
+	var hud_panel: PanelContainer = hud_bar.get_parent()
+	var hud_style := hud_panel.get_theme_stylebox("panel") as StyleBoxTexture
+	var hud_margin_ok: bool = hud_style != null and hud_style.texture_margin_left == 34 and hud_style.texture_margin_top == 20
+	ok = hud_margin_ok and ok
+	lines.append("  (5) make_bar('hud') 마진: left=%s top=%s (기대 34, 20) -> %s" % [
+		hud_style.texture_margin_left if hud_style else "(없음)", hud_style.texture_margin_top if hud_style else "(없음)",
+		"OK" if hud_margin_ok else "FAIL"
+	])
+	hud_panel.queue_free()
+
+	# --- (6) 버튼 스킨: "normal" 상태만 있으면 그 상태만 스킨, 나머지는 절차적 폴백
+	#     (INBOX M-5 "버튼 상태 5종은 파일이 일부만 있어도 상태별로 폴백").
+	_m5a_write_solid_png(tmp_dir + "button/primary_normal_base.png", 8, 8, Color(0, 0, 0, 1))
+	_m5a_write_solid_png(tmp_dir + "button/primary_normal_accent.png", 8, 8, Color(1, 1, 1, 1))
+	var btn := Button.new()
+	add_child(btn)
+	UIKit.style_primary_button(btn, "pirate", tmp_dir)
+	var normal_skinned_ok: bool = btn.get_theme_stylebox("normal") is StyleBoxTexture
+	ok = normal_skinned_ok and ok
+	lines.append("  (6) primary_normal_*만 있음: 'normal' 스타일=%s (기대 StyleBoxTexture) -> %s" % [
+		btn.get_theme_stylebox("normal").get_class(), "OK" if normal_skinned_ok else "FAIL"
+	])
+	var hover_fallback_ok: bool = btn.get_theme_stylebox("hover") is StyleBoxFlat
+	ok = hover_fallback_ok and ok
+	lines.append("  (6) primary_hover_* 없음: 'hover' 스타일=%s (기대 StyleBoxFlat 폴백, 상태별 폴백) -> %s" % [
+		btn.get_theme_stylebox("hover").get_class(), "OK" if hover_fallback_ok else "FAIL"
+	])
+	var normal_tex: Texture2D = (btn.get_theme_stylebox("normal") as StyleBoxTexture).texture
+	var normal_pixel: Color = normal_tex.get_image().get_pixel(0, 0)
+	var pirate_accent: Color = CharacterTheme.ui_palette("pirate")["accent"]
+	var button_tint_ok: bool = _m5a_color_close(normal_pixel, pirate_accent)
+	ok = button_tint_ok and ok
+	lines.append("  (6) primary normal 합성 픽셀=%s == pirate accent=%s -> %s" % [
+		normal_pixel, pirate_accent, "OK" if button_tint_ok else "FAIL"
+	])
+	btn.queue_free()
+
+	# --- (7) 보조 버튼의 커스텀 tint(정예 전투 위험색 등)도 accent 대신 그대로 틴트된다.
+	_m5a_write_solid_png(tmp_dir + "button/secondary_normal_base.png", 8, 8, Color(0, 0, 0, 1))
+	_m5a_write_solid_png(tmp_dir + "button/secondary_normal_accent.png", 8, 8, Color(1, 1, 1, 1))
+	var btn2 := Button.new()
+	add_child(btn2)
+	var danger_tint := Color(0.85, 0.2, 0.2)
+	UIKit.style_secondary_button(btn2, "novice", danger_tint, tmp_dir)
+	var secondary_tex: Texture2D = (btn2.get_theme_stylebox("normal") as StyleBoxTexture).texture
+	var secondary_pixel: Color = secondary_tex.get_image().get_pixel(0, 0)
+	var secondary_tint_ok: bool = _m5a_color_close(secondary_pixel, danger_tint)
+	ok = secondary_tint_ok and ok
+	lines.append("  (7) secondary normal 합성 픽셀=%s == 커스텀 tint=%s (팔레트 대신 틴트 인자 사용) -> %s" % [
+		secondary_pixel, danger_tint, "OK" if secondary_tint_ok else "FAIL"
+	])
+	btn2.queue_free()
+
+	# --- (8) HP 바: 프레임 스킨이 있으면 NinePatchRect 채움 + fill_full_width가 프레임
+	#     안쪽 홈(좌22+우22=44)만큼 줄어들고, 없으면 기존 ColorRect + 전체 폭 그대로.
+	var hp_fallback := UIKit.make_hp_bar(self, 310.0, 28.0, "novice", tmp_dir)
+	var hp_fallback_ok: bool = not hp_fallback["skinned"] and hp_fallback["fill"] is ColorRect and hp_fallback["fill_full_width"] == 310.0
+	ok = hp_fallback_ok and ok
+	lines.append("  (8) bar/hp_frame_base.png 없음: skinned=%s fill=%s fill_full_width=%s (기대 false, ColorRect, 310) -> %s" % [
+		hp_fallback["skinned"], hp_fallback["fill"].get_class(), hp_fallback["fill_full_width"], "OK" if hp_fallback_ok else "FAIL"
+	])
+	(hp_fallback["fill"].get_parent() as Control).queue_free()
+
+	_m5a_write_solid_png(tmp_dir + "bar/hp_frame_base.png", 64, 28, Color(0.3, 0.3, 0.3, 1))
+	_m5a_write_solid_png(tmp_dir + "bar/hp_fill.png", 8, 8, Color(1, 1, 1, 1))
+	var hp_skinned := UIKit.make_hp_bar(self, 310.0, 28.0, "novice", tmp_dir)
+	var hp_skinned_ok: bool = hp_skinned["skinned"] and hp_skinned["fill"] is NinePatchRect and is_equal_approx(hp_skinned["fill_full_width"], 310.0 - 22.0 - 22.0)
+	ok = hp_skinned_ok and ok
+	lines.append("  (8) hp_frame_base.png + hp_fill.png 있음: skinned=%s fill=%s fill_full_width=%s (기대 true, NinePatchRect, %.1f) -> %s" % [
+		hp_skinned["skinned"], hp_skinned["fill"].get_class(), hp_skinned["fill_full_width"], 310.0 - 44.0, "OK" if hp_skinned_ok else "FAIL"
+	])
+	(hp_skinned["fill"].get_parent() as Control).queue_free()
+
+	# --- (9) 실제 production 경로(resources/ui/, 이미 입고됨) end-to-end: combat_test를
+	#     인스턴스화해 HP 바가 실제로 스킨 모드이고, HP 변화 후에도 비율/색이 기존처럼
+	#     동작하는지(ColorRect/NinePatchRect 양쪽 다 통과해야 하는 _update_hp_bar()의
+	#     타입 분기가 실제 화면에서도 맞는지).
+	var character_backup: String = RunState.character_id
+	RunState.character_id = "novice"
+	var combat_scene := load("res://code/scenes/combat_test.tscn")
+	var combat = combat_scene.instantiate()
+	add_child(combat)
+
+	var prod_hp_skinned_ok: bool = combat.player_hp_bar_fill is NinePatchRect
+	ok = prod_hp_skinned_ok and ok
+	lines.append("  (9) production combat_test: player_hp_bar_fill=%s (resources/ui/bar/hp_frame_base.png 입고됨 -> NinePatchRect 기대) -> %s" % [
+		combat.player_hp_bar_fill.get_class(), "OK" if prod_hp_skinned_ok else "FAIL"
+	])
+	var prod_button_skinned_ok: bool = combat.next_button.get_theme_stylebox("normal") is StyleBoxTexture
+	ok = prod_button_skinned_ok and ok
+	lines.append("  (9) production combat_test: next_button 'normal' 스타일=%s (resources/ui/button/ 입고됨 -> StyleBoxTexture 기대) -> %s" % [
+		combat.next_button.get_theme_stylebox("normal").get_class(), "OK" if prod_button_skinned_ok else "FAIL"
+	])
+
+	var full_hp_width: float = combat.player_hp_bar_full_width
+	combat.player_hp = combat.PLAYER_MAX_HP
+	combat._update_labels()
+	var full_width_ok: bool = is_equal_approx(combat.player_hp_bar_fill.size.x, full_hp_width)
+	ok = full_width_ok and ok
+	var high_color_ok: bool = combat.player_hp_bar_fill.modulate.is_equal_approx(combat.HP_BAR_COLOR_HIGH)
+	ok = high_color_ok and ok
+	lines.append("  (9) HP 100%%: fill.size.x=%.1f(기대 %.1f) modulate=%s(기대 HP_BAR_COLOR_HIGH=%s) -> %s" % [
+		combat.player_hp_bar_fill.size.x, full_hp_width, combat.player_hp_bar_fill.modulate, combat.HP_BAR_COLOR_HIGH,
+		"OK" if (full_width_ok and high_color_ok) else "FAIL"
+	])
+
+	combat.player_hp = int(combat.PLAYER_MAX_HP * 0.1)
+	combat._update_labels()
+	var low_width_ok: bool = combat.player_hp_bar_fill.size.x < full_hp_width * 0.5
+	ok = low_width_ok and ok
+	var low_color_ok: bool = combat.player_hp_bar_fill.modulate.is_equal_approx(combat.HP_BAR_COLOR_LOW)
+	ok = low_color_ok and ok
+	lines.append("  (9) HP 10%%: fill.size.x=%.1f(기대 < %.1f) modulate=%s(기대 HP_BAR_COLOR_LOW=%s) -> %s" % [
+		combat.player_hp_bar_fill.size.x, full_hp_width * 0.5, combat.player_hp_bar_fill.modulate, combat.HP_BAR_COLOR_LOW,
+		"OK" if (low_width_ok and low_color_ok) else "FAIL"
+	])
+
+	remove_child(combat)
+	combat.free()
+	RunState.character_id = character_backup
+
+	DirAccess.remove_absolute(tmp_dir + "button/primary_normal_base.png")
+	DirAccess.remove_absolute(tmp_dir + "button/primary_normal_accent.png")
+	DirAccess.remove_absolute(tmp_dir + "button/secondary_normal_base.png")
+	DirAccess.remove_absolute(tmp_dir + "button/secondary_normal_accent.png")
+	DirAccess.remove_absolute(tmp_dir + "panel/hud_base.png")
+	DirAccess.remove_absolute(tmp_dir + "bar/hp_frame_base.png")
+	DirAccess.remove_absolute(tmp_dir + "bar/hp_fill.png")
+	DirAccess.remove_absolute(tmp_dir + "panel")
+	DirAccess.remove_absolute(tmp_dir + "button")
+	DirAccess.remove_absolute(tmp_dir + "bar")
+	DirAccess.remove_absolute(tmp_dir)
+
 	return ok
