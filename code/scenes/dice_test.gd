@@ -6290,7 +6290,9 @@ func _check_n2b_full_art_rendered_height(lines: PackedStringArray) -> bool:
 	# 스킬 도감 버튼(헤더 섹션 맨 오른쪽, 정보 컬럼 안에서 가장 밖으로 밀리기 쉬운 요소)이
 	# 실제로 화면(뷰포트) 밖으로 나가지 않는지 — 위 "정보 컬럼 실제 폭" 검사와 별개로,
 	# "그 폭 budget이 실제로 화면 안에 들어오는 좌표에 배치됐는지"까지 확인한다.
-	var viewport_width: float = node.get_viewport_rect().size.x
+	# 실제 게임 해상도(프로젝트 설정)를 기준으로 비교한다. dice_test 씬은 자체 뷰포트가
+	# 1028px 폭이라 get_viewport_rect()를 쓰면 정상 배치(x=1246)도 FAIL로 잡혔다(QA 환경 착시).
+	var viewport_width: float = float(ProjectSettings.get_setting("display/window/size/viewport_width", 1280))
 	var codex_button_rect: Rect2 = node._skill_codex_button.get_global_rect()
 	var codex_button_on_screen: bool = codex_button_rect.position.x + codex_button_rect.size.x <= viewport_width + 1.0
 	ok = codex_button_on_screen and ok
