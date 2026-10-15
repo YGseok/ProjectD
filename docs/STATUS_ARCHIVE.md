@@ -8,6 +8,64 @@
 
 ---
 
+- **2026-10-15 (206)**: INBOX.md 최우선 지시(남은 이슈 맨 위 항목) [미니 기획 M-6]
+  카드 프레임 스킨 적용 완료 — **셀프 피드백 루프 방식**. 배경: M-5(a)(202)가
+  `resources/ui/panel/card_{base,accent}.png`를 "card" kind로 지원하려다, 카드
+  테두리가 등급(S/A/B/C) 신호로 쓰이는 것과 퍼스널 컬러 틴트가 충돌해 보류했었다.
+  **해법(INBOX가 이미 확정)**: card_accent를 캐릭터 퍼스널 컬러가 아니라 **그 카드가
+  쓸 테두리색(등급색/강화 하이라이트색/골드부족색) 그대로로 modulate**한다 — 등급
+  신호는 그대로 유지하면서 카드 아트도 쓸 수 있다. **구현**: `ui_kit.gd`에
+  `apply_card_skin(panel, tint, base_dir)`(+내부 `_build_card_skin_texture`/
+  `_cached_card_skin_texture`)를 신규 추가 — 기존 `apply_panel_skin()`과 같은
+  "base+accent를 틴트해 하나의 텍스처로 굽기" 패턴이지만, character_id가 아니라
+  호출부가 넘기는 임의의 tint Color를 직접 쓴다(`icon_texture()`와 같은 설계,
+  캐시 키도 character_id 대신 tint 색상 문자열). `item_card_style.gd`의
+  `build_card()`가 등급색/HIGHLIGHT_BORDER/CARD_BORDER_UNAFFORDABLE 중 이번에
+  쓸 색을 `apply_card_skin()`에 넘기고, 파일이 없으면(기본 상태) 기존
+  StyleBoxFlat 절차적 테두리로 그대로 폴백한다 — 호출부(combat_test/shop/event
+  세 화면의 보상·상점·이벤트 카드가 공유하는 `build_card()` 단일 경로)는 전혀
+  안 바꿔도 됨. 골드 부족(unaffordable) 카드는 테두리색은 유지하되 전체를
+  신규 상수 `CARD_SKIN_UNAFFORDABLE_MODULATE`(0.55 회색)로 살짝 눌러 칠해
+  "지금은 못 산다"는 상태를 함께 전달한다(폴백의 `CARD_BG_UNAFFORDABLE` 어둡게
+  칠하기와 같은 의도). 테스트 주입을 위해 `build_card()`에 `base_dir` 매개변수를
+  신규로 추가(기본값 `UIKit.SKIN_BASE_DIR` — 다른 UIKit 스킨 팩토리와 동일한
+  패턴). **기존 테스트 갱신**: `_check_skill_upgrade_card_highlight()`가 기본
+  호출만 쓰면 이제 production 스킨(card_base.png가 실제로 입고돼 있어)이 적용돼
+  `StyleBoxFlat`로의 캐스팅이 깨지므로, 존재하지 않는 `base_dir`를 명시적으로
+  넘겨 "스킨 없음일 때의 폴백 계약"을 그대로 계속 검증하도록 갱신(의미는 보존,
+  이미지 스킨 경로 자체의 검증은 아래 신규 테스트가 별도로 담당) — INBOX M-6
+  원문 "기존 등급 색 테스트가 깨지면 스타일박스 종류 변경에 맞춰 갱신하되
+  등급별 색이 서로 다르게 렌더되는지는 계산/픽셀로 계속 검증" 그대로 반영.
+  **신규 검증**: `dice_test.gd`의 `_check_m6_card_frame_skin()`(M-5a와 같은
+  "없음→있음→없음" user:// 임시 경로 패턴)이 (1) 파일 없음→StyleBoxFlat 폴백
+  (2) S/C 등급 카드의 합성 텍스처 픽셀이 실제로 각 등급색과 근사 일치하고 서로
+  다름 (3) highlight=true가 HIGHLIGHT_BORDER로 틴트됨 (4) unaffordable=true가
+  CARD_BORDER_UNAFFORDABLE로 틴트 + CARD_SKIN_UNAFFORDABLE_MODULATE로 눌림
+  (5) 파일 삭제 후 다시 폴백 (6) production 자산으로 등급이 다르면 실제로 다른
+  텍스처 객체가 나오고 texture_margin_left=24인지까지 6단계로 검증, 전체 PASS
+  (`bash scripts/qa_shot.sh dice_test` 결과: PASS, FAIL 0건). **셀프 피드백**:
+  `qa_out/m6_before_{reward,shop,event_item,event_skill,event_upgrade}.png`
+  5장을 직접 읽어 확인 — 전투 승리 보상 카드(B/C 등급)·상점 카드(C/B 등급,
+  골드 0이라 전부 "골드 부족" 상태)·이벤트 스킬 카드(C 등급)·스킬 강화 카드
+  (하이라이트, 금색)에서 카드 테두리의 보석/코너 장식·측면 체인 장식이 실제로
+  해당 등급/강조색으로 선명하게 물들어 보이고, 중앙 채움(card_base, 무채색
+  검정)은 그대로라 등급 신호가 또렷하게 유지됨을 확인. 상점의 골드 부족 카드는
+  같은 등급색을 유지하면서도 보상 화면의 동일 등급 카드보다 눈에 띄게 톤이
+  가라앉아 보여 의도한 "무채색 쪽으로 눌림" 효과가 실제로 보임. 하이라이트
+  카드("임기응변+")는 금색 테두리로 다른 녹색 카드들과 뚜렷이 구분됨. 레이아웃
+  겹침/잘림 없음, 1라운드 만에 "하" 수준 문제도 안 보여 추가 라운드 없이 종료.
+  (스크린샷에 보이는 카드 전체를 감싸는 밝은 핑크 테두리는 FocusNav의 기본
+  포커스 강조색으로, 이번 변경과 무관한 기존 동작.) **범위 판단**: INBOX M-6
+  원문의 "대상"은 보상/상점/이벤트 카드(`build_card()` 단일 경로)를 명시적
+  필수로, 던전 맵 방 카드(MapStrip)는 "등급이 없으니 선택지 종류색 또는
+  퍼스널 컬러 accent — 구현 판단"으로 재량에 맡겼다 — MapStrip 카드는 애초에
+  등급 기반이 아니고 `ItemCardStyle.build_card()`를 쓰지 않는 별개의 코드
+  경로(`dungeon_map.gd`의 자체 StyleBoxFlat)라 이번 "등급색 틴트" 해법과
+  직접 연결되지 않는다고 판단해 이번 조각 범위에서는 손대지 않음(필요하면
+  다음 조각으로 분리 가능). 전투 규칙/밸런스는 전혀 건드리지 않았다. INBOX.md의
+  M-6 항목을 "처리됨"으로 옮겼다. **다음은 [대형 기획 14] N-1**(INBOX.md가
+  명시한 순서 — M-6 완료로 착수 조건 충족).
+
 - **2026-10-15 (205)**: INBOX.md 최우선 지시 [대형 기획 13] M-4(이벤트/상점/스토리
   이벤트 화면 통일) 완료 — **[대형 기획 13](M-1~M-5, ART-2 포함) 전체 완료.**
   event/shop/story_event 세 화면을 dungeon_map/combat_test와 같은 HUD·구역 패널·

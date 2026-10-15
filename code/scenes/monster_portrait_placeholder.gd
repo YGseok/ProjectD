@@ -14,10 +14,30 @@ class_name MonsterPortraitPlaceholder
 ## 물방울이 떨어지는 장식, "beast"=기존 뿔을 더 뾰족한 귀+송곳니 느낌으로, "undead"=눈을
 ## 채운 원이 아니라 뚫린 눈구멍(테두리만)으로. family가 빈 문자열이면(기존 호출부가
 ## family를 안 넘기는 경우) 기존 그대로(뿔 두 개 + 채운 눈) 그려 동작 보존.
+##
+## ART-1c(2026-10-16, INBOX.md [미니 기획 ART-1] — ART-1b와 같은 방식): 몬스터
+## id별 res://resources/monsters/<id>/face_{neutral,happy,hurt,sad,angry}.png 5장이
+## 전부 입고되면 원화 표정 컷으로 전환한다. 경로 존재 확인/로드는 새 클래스를 만들지
+## 않고 `CharacterArt.has_all_faces()`/`load_face()`(둘 다 character_id + base_dir를
+## 받는 범용 순수 함수라 캐릭터 전용 로직이 없음)를 MONSTER_ART_BASE_DIR로 그대로
+## 재사용한다. set_monster()/set_expression()의 원화 전환 흐름 자체는
+## `CharacterPortraitPlaceholder.set_character()`와 동일한 구조.
 
 const EYE_COLOR := Color(0.12, 0.1, 0.08)
 const MOUTH_COLOR := Color(0.25, 0.08, 0.08)
 const HORN_COLOR := Color(0.85, 0.82, 0.75)
+
+const MONSTER_ART_BASE_DIR := "res://resources/monsters/%s/"
+
+## 몬스터 쪽 표정 컷 크기는 캐릭터와 같은 정사각 구도를 그대로 쓴다(새 상수 중복 방지).
+const FACE_ART_SIZE := CharacterPortraitPlaceholder.FACE_ART_SIZE
+
+## [미니 기획 ART-1c] MonsterPortrait는 화면 우측(combat_test.tscn position.x=1170,
+## 거의 화면 끝 1280 근처)에 있어 ART-2가 플레이어 쪽(화면 좌측)에서 고친 "왼쪽으로
+## 잘림"과 반대로 "오른쪽으로 잘림" 문제가 생긴다 — 같은 보정을 반대 방향(좌측 이동,
+## 음수)으로 적용. PORTRAIT_SCALE_BOSS(1.3)까지 고려해 셀프 피드백 캡처로 확정한 값.
+const FACE_ART_SHIFT := Vector2(-56.0, 16.0)
+const FACE_ART_FADE_SHADER := CharacterPortraitPlaceholder.FACE_ART_FADE_SHADER
 
 ## "neutral" / "happy" / "hurt" / "sad" / "angry"
 @export var expression: String = "neutral"
@@ -26,9 +46,54 @@ const HORN_COLOR := Color(0.85, 0.82, 0.75)
 ## (MonsterCatalog.FAMILIES 키와 1:1 대응)
 @export var family: String = ""
 
+## ART-1c: set_monster()가 face_* 5장을 전부 찾으면 true — 이때 _draw()의 도형
+## 플레이스홀더 대신 _face_rect 텍스처를 보여준다(1장이라도 없으면 항상 false로 유지돼
+## 기존 플레이스홀더 그대로).
+var _use_face_art := false
+var _monster_id := ""
+var _face_rect: TextureRect = null
+
+## dice_test.gd가 user:// 임시 디렉터리를 주입해 "5장 모두/일부만/없음"을 실제 몬스터
+## 입고 상태와 무관하게 검증할 수 있게 한다(character_portrait_placeholder.gd의
+## art_base_dir와 동일한 패턴).
+var art_base_dir: String = MONSTER_ART_BASE_DIR
+
+
+## ART-1c: 전투 화면이 몬스터가 정해질 때 호출. face_* 5장이 전부 있으면 원화 모드로
+## 전환해 이후 set_expression() 호출마다 텍스처만 갈아끼운다. 호출하지 않는 기존
+## 사용처(없음)는 해당 없음 — _use_face_art는 기본값 false라 입고 전 몬스터는
+## 이 함수가 호출돼도 그대로 플레이스홀더로 남는다.
+func set_monster(monster_id: String) -> void:
+	_monster_id = monster_id
+	_use_face_art = CharacterArt.has_all_faces(monster_id, art_base_dir)
+	if _use_face_art:
+		_ensure_face_rect()
+	if _face_rect != null:
+		_face_rect.visible = _use_face_art
+	set_expression(expression)
+
+
+func _ensure_face_rect() -> void:
+	if _face_rect != null:
+		return
+	_face_rect = TextureRect.new()
+	_face_rect.custom_minimum_size = FACE_ART_SIZE
+	_face_rect.size = FACE_ART_SIZE
+	_face_rect.position = Vector2(-FACE_ART_SIZE.x / 2.0, -FACE_ART_SIZE.y / 2.0) + FACE_ART_SHIFT
+	_face_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_face_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_face_rect.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	_face_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var fade_material := ShaderMaterial.new()
+	fade_material.shader = FACE_ART_FADE_SHADER
+	_face_rect.material = fade_material
+	add_child(_face_rect)
+
 
 func set_expression(new_expression: String) -> void:
 	expression = new_expression
+	if _use_face_art and _face_rect != null:
+		_face_rect.texture = CharacterArt.load_face(_monster_id, expression, art_base_dir)
 	queue_redraw()
 
 
@@ -43,6 +108,8 @@ func set_family(new_family: String) -> void:
 
 
 func _draw() -> void:
+	if _use_face_art:
+		return
 	if family == "amorphous":
 		# 뿔 없이, 몸 하단에 흘러내리는 물방울 장식.
 		draw_colored_polygon(PackedVector2Array([

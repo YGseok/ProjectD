@@ -1304,6 +1304,7 @@ func _ready() -> void:
 	monster_trait_label.text = _monster_trait_summary_text(config)
 	monster_portrait.set_body_color(monster_color if monster_color.a > 0 else Color(0.5, 0.5, 0.5))
 	monster_portrait.set_family(config.get("family", ""))
+	monster_portrait.set_monster(monster_id) # ART-1c: face_* 5장이 전부 있으면 원화, 아니면 플레이스홀더 유지
 	# G-8(2026-10-07): "전용 초상화 크기(일반의 1.25배)" — 보스만 조금 크게 그린다.
 	# [대형 기획 13] M-2: INBOX M-2 "캐릭터/몬스터 그림... 크기를 키운다"에 맞춰 기준
 	# 배율 자체도 1.0 -> PORTRAIT_SCALE_NORMAL(1.1)로 올렸다(화면 밖으로 잘리지 않는
@@ -1358,6 +1359,52 @@ func _debug_set_character(character_id: String) -> void:
 	monster_trait_label.text = _monster_trait_summary_text(monster_config)
 	monster_debug_info_label.text = _monster_debug_info_text(monster_config)
 	_update_labels()
+
+
+## ART-1c QA 전용(GAME_QA_CALL) — resources/monsters/에 원화가 아직 입고되지 않아
+## (몬스터 쪽 face_* 전무) production 화면만으로는 "원화 모드일 때 실제로 어떻게
+## 보이는지" 눈으로 확인할 방법이 없다. user://(resources/ 밖) 임시 디렉터리에
+## 가짜 face_*.png 5장을 만들어 MonsterPortrait.art_base_dir에 주입 — resources/는
+## 전혀 건드리지 않는다. 일반/보스 배율 둘 다 셀프 피드백 스크린샷으로 비교하기 위해
+## 0-arity 래퍼 2개로 나눔.
+const DEBUG_FAKE_MONSTER_FACE_DIR := "user://debug_fake_monster_faces/%s/"
+const DEBUG_FAKE_MONSTER_ID := "qa_fake_monster"
+const DEBUG_FAKE_MONSTER_FACE_COLORS := {
+	"neutral": Color(0.55, 0.65, 0.78), "happy": Color(0.55, 0.78, 0.55),
+	"hurt": Color(0.8, 0.5, 0.45), "sad": Color(0.55, 0.55, 0.78), "angry": Color(0.8, 0.35, 0.35),
+}
+
+func _debug_write_fake_monster_faces() -> void:
+	var dir_path := DEBUG_FAKE_MONSTER_FACE_DIR % DEBUG_FAKE_MONSTER_ID
+	DirAccess.make_dir_recursive_absolute(dir_path)
+	for expression in CharacterArt.FACE_EXPRESSIONS:
+		var img := Image.create(240, 240, false, Image.FORMAT_RGBA8)
+		img.fill(DEBUG_FAKE_MONSTER_FACE_COLORS.get(expression, Color(0.5, 0.5, 0.5)))
+		img.save_png(dir_path + "face_%s.png" % expression)
+
+
+func _debug_show_monster_face_art(boss: bool) -> void:
+	_debug_write_fake_monster_faces()
+	monster_portrait.art_base_dir = DEBUG_FAKE_MONSTER_FACE_DIR
+	monster_is_boss = boss
+	monster_portrait.scale = Vector2(PORTRAIT_SCALE_BOSS, PORTRAIT_SCALE_BOSS) if boss else Vector2(PORTRAIT_SCALE_NORMAL, PORTRAIT_SCALE_NORMAL)
+	monster_portrait.set_monster(DEBUG_FAKE_MONSTER_ID)
+	monster_portrait.set_expression("happy")
+	# QA 전용: 이 환경의 스크린샷 캡처 폭이 이따금 1028px로 잘려(docs/STATUS.md "알려진
+	# 이슈") 실제 위치(x=1170, 1280px 화면 거의 끝)의 몬스터 포트레이트가 캡처 밖으로
+	# 나가 눈으로 확인할 수 없다. 화면 오른쪽 끝에서 안 잘리는지(실제 배치 좌표 기준)는
+	# dice_test.gd의 _check_art1c_monster_face_art()가 수치로 이미 검증하므로, 이
+	# 훅에서만 한시적으로 화면 중앙 쪽으로 옮겨 원화 자체(텍스처/표정/하단 페이드)가
+	# 제대로 보이는지만 눈으로 확인한다.
+	monster_portrait.position = Vector2(500, 300)
+
+
+func _debug_show_monster_face_art_normal() -> void:
+	_debug_show_monster_face_art(false)
+
+
+func _debug_show_monster_face_art_boss() -> void:
+	_debug_show_monster_face_art(true)
 
 
 ## dungeon_map.gd/shop.gd 등과 같은 패턴 — 지금 화면에 실제로 눌러야 할 버튼들을

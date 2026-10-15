@@ -393,6 +393,10 @@ func _ready() -> void:
 	all_pass = _check_n6_character_events_and_special_choices(lines) and all_pass
 
 	lines.append("")
+	lines.append("[ART-1c: 몬스터 원화 표정 컷 경로 검증(ART-1b와 같은 방식, CharacterArt.has_all_faces()/load_face()를 MonsterPortrait 전용 base_dir로 재사용) — 가짜 user:// 디렉터리로 5장 모두/일부만/없음 세 경우의 _use_face_art 전환과 표정별 텍스처 교체, production combat_test 인스턴스가 몬스터 입고 상태와 항상 일치하는지, 원화 모드일 때 표정 컷 우측 끝이 화면 밖으로 안 나가는지(보통/보스 배율 둘 다), 하단 페이드 셰이더가 실제로 렌더되는지]")
+	all_pass = (await _check_art1c_monster_face_art(lines)) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -7925,6 +7929,158 @@ func _check_art1b_combat_face_art(lines: PackedStringArray) -> bool:
 	remove_child(combat)
 	combat.free()
 	RunState.character_id = character_backup
+	return ok
+
+
+## ART-1c(2026-10-16) — 몬스터 쪽 원화 표정 컷 경로. ART-1b의 _check_art1b_combat_face_art()와
+## 같은 구조(가짜 user:// 디렉터리로 5장 모두/일부만/없음 세 경우 검증)지만 대상이
+## MonsterPortraitPlaceholder.set_monster()이고, 몬스터는 화면 우측(1170, 거의 화면
+## 끝)이라 표정 컷이 오른쪽으로 잘리지 않는지까지 추가로 확인한다. `_art1b_write_fake_faces()`/
+## `_art1b_remove_fake_faces()` 헬퍼는 character_id라는 매개변수 이름과 무관하게 순수하게
+## "base_dir_pattern % id 아래에 가짜 face_*.png를 만드는" 범용 함수라 그대로 재사용한다.
+func _check_art1c_monster_face_art(lines: PackedStringArray) -> bool:
+	# 3)과 4)가 await를 쓰므로(RenderingServer.frame_post_draw) 이 함수 전체를
+	# await로 불러야 한다(_check_art2_face_crop_fix와 같은 패턴).
+	var ok := true
+
+	var fake_base_dir := "user://art1c_fake_monster_faces/%s/"
+	var fake_full_id := "qa_fake_monster_full"
+	var fake_partial_id := "qa_fake_monster_partial"
+	var fake_none_id := "qa_fake_monster_none"
+	_art1b_write_fake_faces(fake_base_dir, fake_full_id, CharacterArt.FACE_EXPRESSIONS)
+	_art1b_write_fake_faces(fake_base_dir, fake_partial_id, ["neutral", "happy"])
+	DirAccess.make_dir_recursive_absolute(fake_base_dir % fake_none_id)
+
+	# 1) MonsterPortraitPlaceholder.set_monster()가 art_base_dir(신규 테스트 주입
+	#    지점)을 통해 이 가짜 디렉터리를 그대로 반영하는지 — "5장 모두"는 원화 모드 +
+	#    표정 전환, "2장만"/"0장"은 플레이스홀더 유지.
+	var portrait := MonsterPortraitPlaceholder.new()
+	add_child(portrait)
+	portrait.art_base_dir = fake_base_dir
+
+	portrait.set_monster(fake_none_id)
+	var none_mode_ok: bool = not portrait._use_face_art
+	ok = none_mode_ok and ok
+	lines.append("  set_monster(가짜 '0장') 후 _use_face_art=%s (기대 false) -> %s" % [portrait._use_face_art, "OK" if none_mode_ok else "FAIL"])
+
+	portrait.set_monster(fake_partial_id)
+	var partial_mode_ok: bool = not portrait._use_face_art
+	ok = partial_mode_ok and ok
+	lines.append("  set_monster(가짜 '2장만') 후 _use_face_art=%s (기대 false) -> %s" % [portrait._use_face_art, "OK" if partial_mode_ok else "FAIL"])
+
+	portrait.set_monster(fake_full_id)
+	var full_mode_ok: bool = portrait._use_face_art
+	ok = full_mode_ok and ok
+	lines.append("  set_monster(가짜 '5장 모두') 후 _use_face_art=%s (기대 true) -> %s" % [portrait._use_face_art, "OK" if full_mode_ok else "FAIL"])
+	var neutral_tex := portrait._face_rect.texture if portrait._face_rect != null else null
+	var neutral_tex_ok: bool = neutral_tex != null and portrait._face_rect.visible
+	ok = neutral_tex_ok and ok
+	lines.append("  가짜 '5장 모두' 초기 표정(neutral) 텍스처 로드됨=%s, _face_rect.visible=%s -> %s" % [
+		neutral_tex != null, portrait._face_rect.visible if portrait._face_rect != null else false,
+		"OK" if neutral_tex_ok else "FAIL"
+	])
+
+	portrait.set_expression("happy")
+	var happy_tex := portrait._face_rect.texture
+	var expression_switch_ok: bool = happy_tex != null and happy_tex != neutral_tex
+	ok = expression_switch_ok and ok
+	lines.append("  set_expression('happy') 후 텍스처가 neutral과 다른 리소스로 바뀜 -> %s" % ("OK" if expression_switch_ok else "FAIL"))
+
+	remove_child(portrait)
+	portrait.free()
+	_art1b_remove_fake_faces(fake_base_dir, fake_full_id, CharacterArt.FACE_EXPRESSIONS)
+	_art1b_remove_fake_faces(fake_base_dir, fake_partial_id, ["neutral", "happy"])
+	_art1b_remove_fake_faces(fake_base_dir, fake_none_id, [])
+	DirAccess.remove_absolute("user://art1c_fake_monster_faces")
+
+	# 2) 실제 combat_test.tscn 인스턴스 — production 배선(art_base_dir를 안 바꾸고
+	#    기본값=실제 resources/monsters/ 경로 그대로 씀)이 지금 그 몬스터의 실제
+	#    CharacterArt.has_all_faces() 결과와 항상 일치하는지. 어떤 몬스터가 입고됐는지는
+	#    가정하지 않는다 — 입고 상태가 앞으로 바뀌어도 이 검증은 깨지지 않는다.
+	var combat_scene := load("res://code/scenes/combat_test.tscn")
+	var combat = combat_scene.instantiate()
+	add_child(combat)
+
+	var monster_expected := CharacterArt.has_all_faces(combat.monster_id, MonsterPortraitPlaceholder.MONSTER_ART_BASE_DIR)
+	var monster_combat_ok: bool = combat.monster_portrait._use_face_art == monster_expected
+	ok = monster_combat_ok and ok
+	lines.append("  combat_test 인스턴스(몬스터=%s) MonsterPortrait._use_face_art=%s (실제 has_all_faces=%s) -> %s" % [
+		combat.monster_id, combat.monster_portrait._use_face_art, monster_expected, "OK" if monster_combat_ok else "FAIL"
+	])
+
+	# 3) 표정 컷이 화면(1280px) 밖으로 오른쪽이 안 나가는지 — 가짜 '5장 모두'를 이
+	#    production 인스턴스에 직접 주입해 실제 scale(보통 1.1/보스 1.3)이 적용된
+	#    상태에서 우측 끝 글로벌 좌표를 측정한다. ART-2가 플레이어 쪽(화면 좌측)에서
+	#    검증한 것과 대칭.
+	combat.monster_portrait.art_base_dir = fake_base_dir
+	_art1b_write_fake_faces(fake_base_dir, fake_full_id, CharacterArt.FACE_EXPRESSIONS)
+
+	for scale_case in [
+		{"label": "일반(1.1배)", "scale": Vector2(1.1, 1.1)},
+		{"label": "보스(1.3배)", "scale": Vector2(1.3, 1.3)},
+	]:
+		combat.monster_portrait.scale = scale_case["scale"]
+		combat.monster_portrait.set_monster(fake_full_id)
+		var face_rect: TextureRect = combat.monster_portrait._face_rect
+		var right_edge: float = (face_rect.get_global_transform() * Vector2(face_rect.size.x, 0)).x if face_rect != null else 9999.0
+		var right_margin_ok: bool = right_edge <= 1280.0 - 8.0
+		ok = right_margin_ok and ok
+		lines.append("  %s 표정 컷 오른쪽 끝 글로벌 x=%.1f (기대 <= %.1f, 화면 오른쪽 끝에서 안 잘리는 여백) -> %s" % [
+			scale_case["label"], right_edge, 1280.0 - 8.0, "OK" if right_margin_ok else "FAIL"
+		])
+
+	# 4) 하단 페이드 셰이더가 실제로 렌더되는지 — _check_art2_face_crop_fix()와 같은
+	#    방식(실제 쓰이는 face_rect를 독립 SubViewport로 옮겨 중간 높이 vs 바닥 근처
+	#    알파 비교). 몬스터 쪽도 같은 FACE_ART_FADE_SHADER를 그대로 재사용하므로 캐릭터
+	#    쪽과 같은 결과가 나와야 한다.
+	var material_ok: bool = (combat.monster_portrait._face_rect != null
+		and combat.monster_portrait._face_rect.material is ShaderMaterial
+		and (combat.monster_portrait._face_rect.material as ShaderMaterial).shader == MonsterPortraitPlaceholder.FACE_ART_FADE_SHADER)
+	ok = material_ok and ok
+	lines.append("  표정 컷에 하단 페이드 셰이더(FACE_ART_FADE_SHADER)가 적용됨 -> %s" % (
+		"OK" if material_ok else "FAIL"
+	))
+
+	var probe_viewport := SubViewport.new()
+	probe_viewport.size = Vector2i(240, 240)
+	probe_viewport.transparent_bg = true
+	probe_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	add_child(probe_viewport)
+
+	var render_ok := false
+	var mid_alpha := 0.0
+	var bottom_alpha := 0.0
+	var probe_face_rect: TextureRect = combat.monster_portrait._face_rect
+	if probe_face_rect != null:
+		combat.monster_portrait.remove_child(probe_face_rect)
+		probe_face_rect.position = Vector2.ZERO
+		probe_viewport.add_child(probe_face_rect)
+
+		await get_tree().process_frame
+		await get_tree().process_frame
+		await RenderingServer.frame_post_draw
+
+		var img: Image = probe_viewport.get_texture().get_image()
+		render_ok = img != null
+		if render_ok:
+			mid_alpha = img.get_pixel(120, 120).a
+			bottom_alpha = img.get_pixel(120, 238).a
+	ok = render_ok and ok
+	if render_ok:
+		var fade_ok: bool = bottom_alpha < mid_alpha * 0.3
+		ok = fade_ok and ok
+		lines.append("  렌더된 표정 컷 알파: 중간 높이=%.3f, 바닥 근처(y=238)=%.3f (기대 바닥이 중간의 30%% 미만) -> %s" % [
+			mid_alpha, bottom_alpha, "OK" if fade_ok else "FAIL"
+		])
+	else:
+		lines.append("    FAIL: SubViewport 이미지를 가져오지 못함")
+	probe_viewport.queue_free() # probe_face_rect도 함께 해제됨(재부모화돼 combat 트리 밖으로 나감)
+
+	_art1b_remove_fake_faces(fake_base_dir, fake_full_id, CharacterArt.FACE_EXPRESSIONS)
+	DirAccess.remove_absolute("user://art1c_fake_monster_faces")
+
+	remove_child(combat)
+	combat.free()
 	return ok
 
 

@@ -5,43 +5,40 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-10-16 (215)
-- 작성자: AI 에이전트. INBOX.md "남은 이슈" [대형 기획 14] **N-6(캐릭터 전용
-  이벤트 + 특별 선택지) 완료 — [대형 기획 14](N-1~N-6) 전체 완료**. 사용자가
-  설계해둔 사양(이벤트 수준 `only_characters`, 선택지 수준 `special_choice` +
-  `requires_character`, 하드코딩 금지·공용 순수 함수)을 `code/systems/
-  event_challenge_pool.gd`(`EventChallengePool`)에 그대로 구현했다 — 전용
-  이벤트 4종(보물 지도/해적, 서커스 단장/곡예사, 결투장의 부름/광전사, 수호
-  서약/수호자) + 특별 선택지 4종(기존 보물/도박/탐색/함정 해체 각각에 1개씩,
-  매혹사/견습 모험가/주술사/폭발병 전용)으로 8명 전원이 전용 콘텐츠를 최소
-  1개씩 갖는다. 선택은 `event.gd`의 신규 `challenge_seed(run_seed, room_index)`로
-  시드한 `RandomNumberGenerator` 하나를 `EventChallengePool.pick_challenge()`에
-  넘겨 결정적으로 고른다(기존 `randi() % size`는 재현 불가였음 — INBOX "테스트
-  전투/QA 시드에서도 동작 확인" 요구 반영). UI는 안전/위험 버튼 아래 세 번째
-  선택지로, 잠긴 상태(비소유 캐릭터)는 자물쇠 문구("🔒 ○○ 선택 가능")+흐린
-  효과 설명을 보여주되 `pressed`를 연결하지 않아 방향키 포커스는 가지만 Space를
-  눌러도 실행되지 않고, 활성 상태(소유 캐릭터)는 금색 테두리+"전용" 배지로
-  강조되고 즉시(굴림 없이) 보상을 받는다 — 전용 이벤트는 제목 옆에 "(○○ 전용)"
-  배지. 같은 이터레이션에서 지시받은 대로 깨진 기존 테스트
-  `_check_art1b_combat_face_art()`도 고쳤다 — berserker/guardian face_* 아트가
-  이 세션 시작 전부터 이미 입고돼 "berserker는 표정이 없다"는 하드코딩 가정이
-  깨져 FAIL이던 것을, `CharacterArt.has_all_faces()`/`load_face()`에 테스트
-  주입용 `base_dir` 매개변수(기존 `ui_kit.gd`/`skill_icon.gd` 패턴과 동일)를
-  추가하고 `CharacterPortraitPlaceholder.art_base_dir`로 연결해, user:// 임시
-  디렉터리에 만든 가짜 캐릭터 3종(5장 모두/2장만/0장)으로 특정 캐릭터의 실제
-  입고 상태에 의존하지 않고 검증하도록 바꿨다(production 경로는 여전히
-  `ResourceLoader`를 써서 동작/성능 동일, export 경고 없음). `bash scripts/
-  qa_shot.sh dice_test`를 3회 실행해 모두 동일하게 "N-6 신규 체크 전부 OK +
-  ART-1b 체크 전부 OK, 전체 'FAIL'은 이번 변경과 무관한 기존 QA 뷰포트 1028px
-  잘림 1건뿐"임을 확인했다(상세는 아래 "알려진 이슈"). 셀프 피드백 1라운드로
-  `qa_out/n6_special_locked.png`/`n6_special_active.png`/`n6_exclusive_event.png`를
-  직접 읽어 잠금/활성 두 상태가 시각적으로 뚜렷이 구분되고(잠김=회색 테두리,
-  활성=금색 테두리) 다른 UI(DeckPanel 등)와 겹치지 않음을 확인 — "상" 수준
-  문제 없이 1라운드로 종료. 전투 규칙/밸런스 수치는 건드리지 않았고
-  `resources/`·`docs/art/`는 읽기만 했다. INBOX.md의 [대형 기획 14] 항목은
-  N-6까지 전부 끝나 "처리됨"으로 옮겼다. 상세는 아래 "완료 기록 (215)" 참고.
-  **다음은 INBOX.md "남은 이슈"에 새 항목이 없으면 아래 "알려진 이슈/막힌 것"을
-  참고해 독립적으로 진행 가능한 항목을 고를 것.**
+- 일시: 2026-10-16 (216)
+- 작성자: AI 에이전트. INBOX.md "부분 처리됨" [미니 기획 ART-1] **ART-1c(몬스터
+  원화 경로) 완료 — [미니 기획 ART-1](ART-1a/1b/1c) 전체 완료**. 몬스터 원화는
+  아직 입고 전(`resources/monsters/`가 비어 있음)이라 지시대로 코드 경로만
+  준비했다. `MonsterPortraitPlaceholder.set_monster(monster_id)`를
+  ART-1b(`CharacterPortraitPlaceholder.set_character()`)와 같은 구조로 추가 —
+  새 경로-확인 클래스를 만들지 않고 `CharacterArt.has_all_faces()`/`load_face()`
+  (범용 순수 함수)를 몬스터 전용 base_dir("res://resources/monsters/%s/")로
+  재사용해 중복 구현을 피했다. face_{neutral,happy,hurt,sad,angry}.png 5장이
+  전부 있으면 원화 표정 컷(하단 페이드 셰이더까지 ART-2 셰이더 상수 재사용),
+  하나라도 없으면 기존 도형 플레이스홀더 유지 — `combat_test.gd`의 몬스터 구성
+  지점에 `monster_portrait.set_monster(monster_id)` 한 줄만 추가해 배선했다.
+  MonsterPortrait는 화면 우측 끝(x=1170, 폭 1280) 근처라 ART-2(좌측 잘림)와
+  반대 방향(우측 잘림) 문제가 있어 신규 `FACE_ART_SHIFT`로 보정 — 일반/보스
+  배율 둘 다 화면 안에 여유 있게 들어옴을 수치로 확인. `dice_test.gd` 신규
+  `_check_art1c_monster_face_art()`(ART-1b/ART-2와 같은 구조 — 가짜 user://
+  디렉터리로 5장/일부/없음 세 경우 검증 + production 인스턴스 일치 확인 +
+  오른쪽 끝 글로벌 좌표 수치 검증 + 하단 페이드 셰이더 SubViewport 렌더 알파
+  검증)로 전부 OK, `bash scripts/qa_shot.sh dice_test` 2회 실행 모두 "결과:
+  PASS"(FAIL 0건). **셀프 피드백 2라운드**: 몬스터 원화가 아직 없어 production
+  화면만으로는 원화 모드를 볼 수 없으므로 QA 전용 0-arity 훅(`_debug_show_
+  monster_face_art_normal/_boss()`, `user://`에 가짜 face_*.png 생성 —
+  `resources/`는 안 건드림)을 추가해 캡처했으나, 이 환경의 알려진 QA 캡처 폭
+  잘림(1028px)에 걸려 production 배치 좌표(x=1170>1028)의 몬스터 포트레이트가
+  캡처 밖으로 나가는 것을 1라운드에서 발견 — QA 훅에서만 한시적으로 화면
+  중앙(x=500)으로 옮겨 재캡처해 원화 텍스처/표정이 실제로 그려지는 것은 확인했지만,
+  그 디버그 좌표에서 다이스 스테이지 바닥 장식과 겹쳐 하단 페이드가 눈으로는
+  뚜렷이 안 보이는 것을 발견해(실제 배치에서는 안 겹치는 디버그 아티팩트) 2라운드로
+  SubViewport 알파 수치 검증을 테스트에 추가해 셰이더가 캐릭터 쪽과 동일하게
+  완벽히 작동함(중간 알파=1.000, 바닥 알파=0.000)을 확정했다. `resources/`·
+  `docs/art/`는 읽기만 했고 전투 규칙/밸런스는 건드리지 않았다. INBOX.md의
+  [미니 기획 ART-1] 항목을 "처리됨"으로 옮겼다. 상세는 아래 "완료 기록 (216)"
+  참고. **다음은 INBOX.md "남은 이슈"에 새 항목이 없으면 아래 "알려진 이슈/
+  막힌 것"을 참고해 독립적으로 진행 가능한 항목을 고를 것.**
 
 ## 지금 위치
 
@@ -151,7 +148,14 @@ STATUS_ARCHIVE.md`(174 이전)/위 "완료 기록 (184)~(186)" 참고.
 플레이스홀더 그대로 — `qa_out/art1b_pirate_fallback.png`로 회귀 없음 확인.
 `qa_out/art1b_novice_start.png`/`art1b_novice_after_exchange.png`로 원화가
 HP 패널·다이스 스테이지·결과 칩과 겹치지 않고 표정(happy)도 실제로 바뀌는 것
-육안 확인. ART-1c(몬스터 원화)는 몬스터 쪽 face_* 입고 전이라 여전히 대기.
+육안 확인.
+**ART-1c(몬스터 원화 경로, 2026-10-16, 216) 완료 — [미니 기획 ART-1] 전체
+완료** — `MonsterPortraitPlaceholder.set_monster(monster_id)`가 ART-1b와 같은
+구조로(새 클래스 없이 `CharacterArt.has_all_faces()`/`load_face()`를 몬스터
+전용 base_dir로 재사용) 몬스터 쪽 face_* 5장이 전부 있으면 원화, 아니면
+기존 플레이스홀더를 쓴다. 몬스터 쪽 face_*는 아직 입고 전(`resources/
+monsters/`가 비어 있음)이라 지금은 전원 플레이스홀더 그대로 — 아트가
+입고되는 대로 코드 변경 없이 자동 적용된다. 상세는 완료 기록(216) 참고.
 **ART-2(전투 화면 표정 컷 하단 잘림 처리) 완료(2026-10-15, 204)** — 표정 컷
 아래 20~25% 알파 그라데이션 셰이더(`code/shaders/face_art_fade.gdshader`)로
 가슴께 잘림이 일직선으로 떠 보이던 문제를 해결하고, `FACE_ART_LEFT_SHIFT` 보정
@@ -581,9 +585,14 @@ juggler가 novice 대비 -44.37%p로 크게 벗어나지만 이는 juggler 슬�
 [대형 기획 14](N-1~N-6) 전체 완료** — `EventChallengePool`에 `only_characters`/
 `special_choice` 데이터 필드와 공용 순수 함수(`pick_challenge()`/
 `special_choice_active_for()`/`reward_expected_value()` 등)를 추가해 전용
-이벤트 4종 + 특별 선택지 4종(8명 전원 각각 ≥1개 보유)을 구현했다(상세는 아래
-"완료 기록 (215)"). **다음은 INBOX.md "남은 이슈"에 새 항목이 없으면 아래
-"알려진 이슈/막힌 것"을 참고해 독립적으로 진행 가능한 항목을 고를 것.**
+이벤트 4종 + 특별 선택지 4종(8명 전원 각각 ≥1개 보유)을 구현했다(상세는
+완료 기록 (215)). **INBOX.md "부분 처리됨" [미니 기획 ART-1]의 마지막 조각
+ART-1c(몬스터 원화 경로)가 2026-10-16(216)로 완료돼 [미니 기획 ART-1] 전체가
+끝났다** — `MonsterPortraitPlaceholder.set_monster()`가 ART-1b와 같은 구조로
+몬스터 face_* 5장 유무에 따라 원화/플레이스홀더를 전환한다(몬스터 쪽 아트는
+아직 입고 전이라 지금은 전원 플레이스홀더, 코드만 준비됨, 상세는 완료 기록
+(216)). **다음은 INBOX.md "남은 이슈"에 새 항목이 없으면 아래 "알려진
+이슈/막힌 것"을 참고해 독립적으로 진행 가능한 항목을 고를 것.**
 
 남은 구조적 후보(급하지 않음): 보스 개별 6종 중 타락한 기사단장만 밴드 미달
 (`MonsterSkills.modify_monster_roll()` 파라미터화가 전제조건이라 사람 설계
@@ -1194,6 +1203,69 @@ juggler가 novice 대비 -44.37%p로 크게 벗어나지만 이는 juggler 슬�
 
 ## 완료 기록
 
+- **2026-10-16 (216)**: INBOX.md "부분 처리됨" [미니 기획 ART-1] **ART-1c(몬스터
+  원화 경로) 완료 — [미니 기획 ART-1](ART-1a/1b/1c) 전체 완료.** 몬스터 원화는
+  아직 입고 전(`resources/monsters/`가 비어 있음)이라 **코드 경로만** 준비했다
+  (INBOX 지시대로). **구현**: `MonsterPortraitPlaceholder`(`code/scenes/
+  monster_portrait_placeholder.gd`)에 ART-1b(`CharacterPortraitPlaceholder.
+  set_character()`)와 완전히 같은 구조로 `set_monster(monster_id)`를 추가했다 —
+  새 경로-존재 확인 클래스를 만드는 대신, `CharacterArt.has_all_faces()`/
+  `load_face()`(둘 다 character_id + base_dir를 받는 범용 순수 함수라 캐릭터
+  전용 로직이 전혀 없음)를 몬스터 전용 상수 `MONSTER_ART_BASE_DIR`("res://
+  resources/monsters/%s/")로 그대로 재사용해 중복 구현을 만들지 않았다. face_
+  {neutral,happy,hurt,sad,angry}.png 5장이 전부 있으면 `_face_rect`
+  TextureRect(캐릭터와 같은 `FACE_ART_SIZE`/`FACE_ART_FADE_SHADER` 상수를
+  `MonsterPortraitPlaceholder.FACE_ART_SIZE := CharacterPortraitPlaceholder.
+  FACE_ART_SIZE`처럼 참조해 재사용)로 원화 표정 컷을 보여주고, 하나라도 없으면
+  기존 `_draw()` 도형 플레이스홀더(뿔/계열 장식)를 그대로 유지한다.
+  `combat_test.gd`의 몬스터 구성 지점(`_apply_monster_config()` 직후, 기존
+  `monster_portrait.set_body_color()`/`set_family()` 바로 다음 줄)에
+  `monster_portrait.set_monster(monster_id)` 한 줄만 추가해 배선 — `set_
+  expression()` 호출 지점 7곳은 전혀 안 바꿨다(원화 모드일 때 그 함수 내부에서만
+  분기하는 ART-1b와 동일한 설계). **화면 위치 보정**: MonsterPortrait는
+  화면 우측 끝 근처(combat_test.tscn position.x=1170, 화면 폭 1280)라 ART-2가
+  플레이어 쪽(화면 좌측)에서 고친 "잘림"과 반대 방향(오른쪽)으로 잘리는 문제가
+  있어, 신규 상수 `FACE_ART_SHIFT := Vector2(-56.0, 16.0)`(왼쪽으로 이동)로
+  보정했다 — 일반 배율(1.1배) 오른쪽 끝 글로벌 x=1240.4, 보스 배율(1.3배)
+  x=1253.2로 둘 다 화면(1280px) 안에 여유 있게 들어온다(자동 검증 수치,
+  아래 참고). **자동 검증**: `dice_test.gd` 신규 `_check_art1c_monster_face_art()`
+  (ART-1b의 `_check_art1b_combat_face_art()`/ART-2의 `_check_art2_face_crop_fix()`와
+  같은 구조·헬퍼 재사용) — ① 가짜 user:// 디렉터리로 "5장 모두/2장만/0장" 세
+  경우의 `set_monster()` 후 `_use_face_art` 전환 + `set_expression()` 텍스처
+  교체(플래그가 아니라 실제 텍스처 리소스가 바뀌는지) ② production
+  `combat_test.tscn` 인스턴스가 지금 몬스터의 실제 `has_all_faces()` 결과와
+  항상 일치하는지(어떤 몬스터가 입고됐는지 가정하지 않음 — 입고 상태가 바뀌어도
+  안 깨짐) ③ 가짜 "5장 모두"를 production 인스턴스에 직접 주입해 일반/보스
+  배율 둘 다 표정 컷 오른쪽 끝이 화면 밖으로 안 나가는지(수치로) ④ 하단 페이드
+  셰이더가 실제로 렌더되는지(SubViewport로 face_rect를 독립 렌더 — 중간
+  높이 알파=1.000, 바닥 근처(y=238) 알파=0.000로 완전히 투명해짐 확인, ART-2와
+  동일한 검증 방식) 전부 OK. `bash scripts/qa_shot.sh dice_test` 2회 실행,
+  둘 다 "결과: PASS"(FAIL 0건). **셀프 피드백**: 몬스터 쪽 원화가 아직
+  없어 production 화면만으로는 원화 모드 자체를 눈으로 볼 수 없으므로,
+  QA 전용 0-arity 훅 `_debug_show_monster_face_art_normal/_boss()`
+  (`combat_test.gd` 신규)를 추가해 `user://`(resources/ 밖) 임시 디렉터리에
+  단색 가짜 face_*.png 5장을 만들어 주입했다 — `resources/`는 전혀 건드리지
+  않음. `qa_out/art1c_fallback_unchanged.png`(몬스터 원화 없음 — 기존
+  플레이스홀더 동작 그대로, 회귀 없음 코드로 보장)/`art1c_fake_normal.png`/
+  `art1c_fake_boss.png`(가짜 원화 적용, production 배치 좌표 x=1170 기준)를
+  캡처했으나 이 환경의 알려진 QA 캡처 폭 잘림(1028px, 아래 "알려진 이슈" 참고)에
+  걸려 화면 우측(x>1028)의 몬스터 포트레이트 자체가 캡처 밖으로 나가 안 보였다
+  — 1라운드 비평에서 발견. 이 QA 전용 훅에서만 한시적으로 몬스터 포트레이트를
+  화면 중앙(x=500)으로 옮겨 재캡처(`art1c_fake_normal_centered.png`)해 원화
+  텍스처/표정이 실제로 그려지는 것 자체는 확인했지만, 화면 중앙의 다이스 스테이지
+  바닥 장식과 겹쳐 하단 페이드가 눈으로는 뚜렷이 안 보여(디버그 재배치 좌표의
+  부작용일 뿐, 실제 배치(x=1170)에서는 다이스 스테이지와 안 겹침) 2라운드로
+  위 "④ 하단 페이드 셰이더" SubViewport 알파 검증을 `_check_art1c_monster_
+  face_art()`에 추가해 수치로 확정했다(중간 1.000 vs 바닥 0.000 — 셰이더가
+  캐릭터 쪽과 동일하게 완벽히 작동, 화면 캡처로 눈에 안 보인 건 디버그 좌표의
+  겹침 아티팩트였을 뿐 실제 버그가 아니었음을 확인). 캐릭터 ART-1b 구현
+  (`CharacterPortraitPlaceholder.set_character` 등)을 재사용해 중복을 만들지
+  않았고, `resources/`·`docs/art/`는 읽기만 했다. 전투 규칙/밸런스는 건드리지
+  않았다. INBOX.md의 [미니 기획 ART-1] 항목을 "처리됨"으로 옮겼다(ART-1a/1b/1c
+  전부 완료). 신규 몬스터 목록(id/이름/계열/등급/성격/색, MO001~999 대역)을
+  아트 스레드로 전달하는 일은 아직 안 함 — 실제 몬스터 원화 발주가 필요한
+  시점(사람이 아트 제작을 시작할 때)에 "ProjectD Art" 세션으로 넘길 것.
+
 - **2026-10-16 (215)**: INBOX.md "남은 이슈" [대형 기획 14] **N-6(캐릭터 전용
   이벤트 + 특별 선택지) 완료 — [대형 기획 14](N-1~N-6) 전체 완료**.
   **(1) 데이터 표/공용 함수**: `code/systems/event_challenge_pool.gd`에
@@ -1794,67 +1866,9 @@ juggler가 novice 대비 -44.37%p로 크게 벗어나지만 이는 juggler 슬�
   [대형 기획 14] 항목은 N-1 완료 기록을 반영해 "부분 처리됨"에 두고(N-2~N-6
   남음) 진행 한 줄을 갱신했다. **다음은 N-2(캐릭터 선택 전신 이미지 확대)**.
 
-- **2026-10-15 (206)**: INBOX.md 최우선 지시(남은 이슈 맨 위 항목) [미니 기획 M-6]
-  카드 프레임 스킨 적용 완료 — **셀프 피드백 루프 방식**. 배경: M-5(a)(202)가
-  `resources/ui/panel/card_{base,accent}.png`를 "card" kind로 지원하려다, 카드
-  테두리가 등급(S/A/B/C) 신호로 쓰이는 것과 퍼스널 컬러 틴트가 충돌해 보류했었다.
-  **해법(INBOX가 이미 확정)**: card_accent를 캐릭터 퍼스널 컬러가 아니라 **그 카드가
-  쓸 테두리색(등급색/강화 하이라이트색/골드부족색) 그대로로 modulate**한다 — 등급
-  신호는 그대로 유지하면서 카드 아트도 쓸 수 있다. **구현**: `ui_kit.gd`에
-  `apply_card_skin(panel, tint, base_dir)`(+내부 `_build_card_skin_texture`/
-  `_cached_card_skin_texture`)를 신규 추가 — 기존 `apply_panel_skin()`과 같은
-  "base+accent를 틴트해 하나의 텍스처로 굽기" 패턴이지만, character_id가 아니라
-  호출부가 넘기는 임의의 tint Color를 직접 쓴다(`icon_texture()`와 같은 설계,
-  캐시 키도 character_id 대신 tint 색상 문자열). `item_card_style.gd`의
-  `build_card()`가 등급색/HIGHLIGHT_BORDER/CARD_BORDER_UNAFFORDABLE 중 이번에
-  쓸 색을 `apply_card_skin()`에 넘기고, 파일이 없으면(기본 상태) 기존
-  StyleBoxFlat 절차적 테두리로 그대로 폴백한다 — 호출부(combat_test/shop/event
-  세 화면의 보상·상점·이벤트 카드가 공유하는 `build_card()` 단일 경로)는 전혀
-  안 바꿔도 됨. 골드 부족(unaffordable) 카드는 테두리색은 유지하되 전체를
-  신규 상수 `CARD_SKIN_UNAFFORDABLE_MODULATE`(0.55 회색)로 살짝 눌러 칠해
-  "지금은 못 산다"는 상태를 함께 전달한다(폴백의 `CARD_BG_UNAFFORDABLE` 어둡게
-  칠하기와 같은 의도). 테스트 주입을 위해 `build_card()`에 `base_dir` 매개변수를
-  신규로 추가(기본값 `UIKit.SKIN_BASE_DIR` — 다른 UIKit 스킨 팩토리와 동일한
-  패턴). **기존 테스트 갱신**: `_check_skill_upgrade_card_highlight()`가 기본
-  호출만 쓰면 이제 production 스킨(card_base.png가 실제로 입고돼 있어)이 적용돼
-  `StyleBoxFlat`로의 캐스팅이 깨지므로, 존재하지 않는 `base_dir`를 명시적으로
-  넘겨 "스킨 없음일 때의 폴백 계약"을 그대로 계속 검증하도록 갱신(의미는 보존,
-  이미지 스킨 경로 자체의 검증은 아래 신규 테스트가 별도로 담당) — INBOX M-6
-  원문 "기존 등급 색 테스트가 깨지면 스타일박스 종류 변경에 맞춰 갱신하되
-  등급별 색이 서로 다르게 렌더되는지는 계산/픽셀로 계속 검증" 그대로 반영.
-  **신규 검증**: `dice_test.gd`의 `_check_m6_card_frame_skin()`(M-5a와 같은
-  "없음→있음→없음" user:// 임시 경로 패턴)이 (1) 파일 없음→StyleBoxFlat 폴백
-  (2) S/C 등급 카드의 합성 텍스처 픽셀이 실제로 각 등급색과 근사 일치하고 서로
-  다름 (3) highlight=true가 HIGHLIGHT_BORDER로 틴트됨 (4) unaffordable=true가
-  CARD_BORDER_UNAFFORDABLE로 틴트 + CARD_SKIN_UNAFFORDABLE_MODULATE로 눌림
-  (5) 파일 삭제 후 다시 폴백 (6) production 자산으로 등급이 다르면 실제로 다른
-  텍스처 객체가 나오고 texture_margin_left=24인지까지 6단계로 검증, 전체 PASS
-  (`bash scripts/qa_shot.sh dice_test` 결과: PASS, FAIL 0건). **셀프 피드백**:
-  `qa_out/m6_before_{reward,shop,event_item,event_skill,event_upgrade}.png`
-  5장을 직접 읽어 확인 — 전투 승리 보상 카드(B/C 등급)·상점 카드(C/B 등급,
-  골드 0이라 전부 "골드 부족" 상태)·이벤트 스킬 카드(C 등급)·스킬 강화 카드
-  (하이라이트, 금색)에서 카드 테두리의 보석/코너 장식·측면 체인 장식이 실제로
-  해당 등급/강조색으로 선명하게 물들어 보이고, 중앙 채움(card_base, 무채색
-  검정)은 그대로라 등급 신호가 또렷하게 유지됨을 확인. 상점의 골드 부족 카드는
-  같은 등급색을 유지하면서도 보상 화면의 동일 등급 카드보다 눈에 띄게 톤이
-  가라앉아 보여 의도한 "무채색 쪽으로 눌림" 효과가 실제로 보임. 하이라이트
-  카드("임기응변+")는 금색 테두리로 다른 녹색 카드들과 뚜렷이 구분됨. 레이아웃
-  겹침/잘림 없음, 1라운드 만에 "하" 수준 문제도 안 보여 추가 라운드 없이 종료.
-  (스크린샷에 보이는 카드 전체를 감싸는 밝은 핑크 테두리는 FocusNav의 기본
-  포커스 강조색으로, 이번 변경과 무관한 기존 동작.) **범위 판단**: INBOX M-6
-  원문의 "대상"은 보상/상점/이벤트 카드(`build_card()` 단일 경로)를 명시적
-  필수로, 던전 맵 방 카드(MapStrip)는 "등급이 없으니 선택지 종류색 또는
-  퍼스널 컬러 accent — 구현 판단"으로 재량에 맡겼다 — MapStrip 카드는 애초에
-  등급 기반이 아니고 `ItemCardStyle.build_card()`를 쓰지 않는 별개의 코드
-  경로(`dungeon_map.gd`의 자체 StyleBoxFlat)라 이번 "등급색 틴트" 해법과
-  직접 연결되지 않는다고 판단해 이번 조각 범위에서는 손대지 않음(필요하면
-  다음 조각으로 분리 가능). 전투 규칙/밸런스는 전혀 건드리지 않았다. INBOX.md의
-  M-6 항목을 "처리됨"으로 옮겼다. **다음은 [대형 기획 14] N-1**(INBOX.md가
-  명시한 순서 — M-6 완료로 착수 조건 충족).
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(215)에서 (205)를 그리로 옮겼다.)*
+이번 이터레이션(216)에서 (206)을 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 
