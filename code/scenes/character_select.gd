@@ -24,7 +24,18 @@ extends Node2D
 ## 버튼)에서 56px짜리 행(정사각 얼굴 썸네일+이름/기믹 2줄+선택 버튼)으로 축소. 8행 ×
 ## (56+12)=544 ≈ 목록 가시 영역(540px)과 거의 같아 스크롤이 사실상 필요 없다(폭 넓은
 ## 폰트/해상도에서 약간 넘쳐도 기존처럼 ScrollContainer가 받아준다).
-const CARD_WIDTH := 360.0
+## N-2b(2026-10-15, [대형 기획 14] 감독 확인): N-2는 전신 컬럼을 300×560으로 만들었지만
+## 원화(약 1181×1332, 캐릭터가 거의 전체 폭을 채움 — Image.get_used_rect()로 8명 전부
+## 확인한 실측값은 novice 1108×1308 ~ shieldbearer(최대) 1181×1314)가 폭 300에 맞춰져
+## STRETCH_KEEP_ASPECT_CENTERED가 "폭 기준"으로 축소돼 실제로 그려지는 캐릭터 높이는
+## ~330~346px뿐이었다(세로로 비어있는 투명 여백이 거의 없어 bbox 크롭으로는 해결 안 됨 —
+## 원화 자체가 이미 거의 끝까지 그려져 있음). 유일한 해법은 컬럼 폭을 넓히는 것 — 8명 중
+## 가로 폭이 가장 넓은 shieldbearer(1181×1314) 기준으로 "렌더 높이 ≥520"을 만족하려면
+## 홀더 폭이 520*1181/1314 ≈ 467.4 이상이어야 한다(폭이 좁은 enchantress/juggler는 이미
+## 세로 기준으로 꽉 차 문제없음). 좌측 카드 목록 폭을 줄여(INBOX 제안대로 360->280) 그
+## 여유를 전신 컬럼에 더한다. CARD_WIDTH는 이제 ScrollContainer(폭 300, .tscn 참고) 안
+## 카드 한 장의 실제 폭이다.
+const CARD_WIDTH := 280.0
 const CARD_HEIGHT := 56.0
 const CARD_GAP := 12.0
 ## FACE_THUMB_SIZE: 좌측 목록의 정사각 얼굴 썸네일 한 변(K-2). CharacterArt.load_face_thumb()
@@ -36,25 +47,39 @@ const FACE_THUMB_SIZE := 48.0
 ## PORTRAIT_SCALE=0.32는 92px 높이 행 기준이었음).
 const PORTRAIT_SCALE_COMPACT := 0.2
 ## PORTRAIT_COLUMN_WIDTH/PORTRAIT_COLUMN_GAP/PORTRAIT_COLUMN_TOP_PAD: N-2(2026-10-15,
-## [대형 기획 14]) — 상세 패널(DetailPanelContainer, 폭 840)을 좌(전신 이미지 큰
-## 컬럼)/우(정보 구역 컬럼) 2단으로 나눈다(INBOX.md 원문 "전신 원화를 화면에서 가장
-## 크게 보이는 요소로"). INFO_COLUMN_WIDTH는 840 - PORTRAIT_COLUMN_WIDTH -
-## PORTRAIT_COLUMN_GAP과 정확히 일치시켰다(둘을 더하면 항상 840).
-const PORTRAIT_COLUMN_WIDTH := 340.0
+## [대형 기획 14]) — 상세 패널(DetailPanelContainer, N-2b로 폭 920 — .tscn 참고)을
+## 좌(전신 이미지 큰 컬럼)/우(정보 구역 컬럼) 2단으로 나눈다(INBOX.md 원문 "전신 원화를
+## 화면에서 가장 크게 보이는 요소로"). INFO_COLUMN_WIDTH는 920 - PORTRAIT_COLUMN_WIDTH -
+## PORTRAIT_COLUMN_GAP과 정확히 일치시켰다(둘을 더하면 항상 920).
+## **N-2b(감독 확인)로 PORTRAIT_COLUMN_WIDTH 340->500, INFO_COLUMN_WIDTH 480->400** —
+## FULL_ART_SIZE.x(아래, 실제 렌더 폭)를 300->480으로 넓혀야 렌더 높이 ≥520을 만족하므로
+## (위 CARD_WIDTH 주석의 계산 참고) 그만큼 좌측 카드 목록 폭을 줄여 확보했다.
+const PORTRAIT_COLUMN_WIDTH := 500.0
 const PORTRAIT_COLUMN_GAP := 20.0
 const PORTRAIT_COLUMN_TOP_PAD := 10.0
-const INFO_COLUMN_WIDTH := 480.0
+const INFO_COLUMN_WIDTH := 400.0
 ## FULL_ART_SIZE: 좌측 전신 이미지 컬럼 안, 실제 이미지/플레이스홀더가 들어갈 칸의 크기.
-## 높이 560은 INBOX.md N-2 테스트 기준("전신 이미지 노드 rect 높이 ≥ 560")을 그대로
-## 상수로 못박았다(DetailPanelContainer 높이가 580으로 늘어난 것(.tscn 참고)에서 위아래
-## 여백 10px씩을 뺀 값). 이 칸은 홀더(Control, Container가 아님)라 레이아웃 패스
-## 타이밍과 무관하게 항상 이 값으로 고정된다(_detail_art.size처럼 기존부터 쓰던 패턴).
-const FULL_ART_SIZE := Vector2(300, 560)
+## 높이 560은 N-2 테스트 기준("전신 이미지 노드 rect 높이 ≥ 560")을 그대로 상수로
+## 못박았다(DetailPanelContainer 높이가 580으로 늘어난 것(.tscn 참고)에서 위아래 여백
+## 10px씩을 뺀 값). **N-2b로 폭 300->480** — STRETCH_KEEP_ASPECT_CENTERED는
+## min(홀더폭/텍스처폭, 홀더높이/텍스처높이)로 스케일을 정하는데, 원화(약 1181×1332,
+## 세로 투명 여백이 거의 없어 폭이 좁으면 폭이 항상 병목이 됨)가 폭 300에서는 렌더
+## 높이가 ~330~346px로 INBOX N-2b가 요구하는 "실제로 그려지는 높이 ≥520"에 크게
+## 못 미쳤다(8명 중 가로가 가장 넓은 shieldbearer(1181×1314) 기준 필요 폭 ≈
+## 520*1181/1314 ≈ 467.4). 480으로 넓히면 shieldbearer 기준 렌더 높이 ≈
+## 1314*(480/1181) ≈ 534(폭이 병목인 채로 유지, 여유 14px) — 나머지 7명은 가로가
+## 더 좁거나(enchantress/juggler) 세로/가로 비율이 비슷해 오히려 높이가 병목이 되며
+## 그 경우 홀더 높이(560)를 그대로 채운다(둘 다 ≥520을 만족). 이 칸은 홀더(Control,
+## Container가 아님)라 레이아웃 패스 타이밍과 무관하게 항상 이 값으로 고정된다
+## (_detail_art.size처럼 기존부터 쓰던 패턴). PORTRAIT_COLUMN_WIDTH(500)와의 차이
+## 20px은 위아래 패딩과 같은 비율로 좌우 패딩(각 10px)에 쓴다.
+const FULL_ART_SIZE := Vector2(480, 560)
 ## PORTRAIT_SCALE_FULL: 전신 이미지 컬럼 폴백용 CharacterPortraitPlaceholder 확대 배율.
 ## 원본 그리기 범위(세로 248, x -68~68 / y -108~140)를 FULL_ART_SIZE 안에 여유를 두고
-## 들어오도록(그려지는 실제 높이 ≈ 248*2.15 ≈ 533, 폭 ≈ 136*2.15 ≈ 292 — 둘 다
-## FULL_ART_SIZE 안에서 중앙 정렬돼 들어온다) 2.15로 잡았다(과거 PORTRAIT_SCALE(0.56,
-## K-2 당시 130x146 칸 기준)과 같은 계산 패턴 — 칸이 커진 만큼 배율만 올림).
+## 들어오도록(그려지는 실제 높이 ≈ 248*2.15 ≈ 533, 폭 ≈ 136*2.15 ≈ 292 — 세로 기준으로
+## 꽉 채우는 계산이라 N-2b로 FULL_ART_SIZE.x가 300->480으로 넓어져도(가로 여유가
+## 늘어났을 뿐) 그대로 유효) 2.15로 잡았다(과거 PORTRAIT_SCALE(0.56, K-2 당시
+## 130x146 칸 기준)과 같은 계산 패턴 — 칸이 커진 만큼 배율만 올림).
 const PORTRAIT_SCALE_FULL := 2.15
 ## ABILITY_DESC_MAX_CHARS: 고유 능력 섹션(③) 설명을 "최대 2줄" 예산 안에 묶기 위한
 ## 문자 수 상한(K-2 원문 "최대 2줄 설명") — 섹션 폭(~300px)·폰트(13px) 기준 대략
@@ -62,23 +87,25 @@ const PORTRAIT_SCALE_FULL := 2.15
 ## 문장은 tooltip_text로 항상 볼 수 있게 한다.
 ## N-2로 고유 능력 섹션 폭이 좁아진(아래 ABILITY_DESC_WRAP_WIDTH 참고) 만큼 "최대
 ## 2줄" 예산도 비례해서 줄였다(이전 70자는 폭 720 기준 — 720->412로 줄어든 비율
-## (약 0.57)만큼 70->40으로 축소).
-const ABILITY_DESC_MAX_CHARS := 40
+## (약 0.57)만큼 70->40으로 축소). **N-2b로 정보 컬럼이 다시 좁아져(480->400,
+## ABILITY_DESC_WRAP_WIDTH 412->332) 같은 비율(720 기준)로 재축소: 70*332/720 ≈ 32.**
+const ABILITY_DESC_MAX_CHARS := 32
 ## DISPLAY_PLAYER_HP: 능력치 칩(②)의 HP 표시용 — DESIGN.md 확정값(플레이어 초기
 ## HP 20, combat_test.gd의 PLAYER_MAX_HP와 동일)을 그대로 복사한 상수다. 캐릭터마다
 ## 다른 값이 아니라 표시 전용이라 profile 필드로 두지 않았다.
 const DISPLAY_PLAYER_HP := 20
 ## SECTION_BODY_WRAP_WIDTH/ABILITY_DESC_WRAP_WIDTH: autowrap 라벨의 줄바꿈 폭을 레이아웃
 ## 패스 전에도 못박아두는 값(위 _build_starting_skill_section()/_build_note_section()/
-## _build_ability_section() 참고) — N-2로 우측 정보 컬럼 폭이 INFO_COLUMN_WIDTH(480)로
+## _build_ability_section() 참고) — N-2로 우측 정보 컬럼 폭이 INFO_COLUMN_WIDTH로
 ## 좁아져서 기준도 거기(이전엔 detail_container 전체 폭 840)로 바뀌었다. 섹션 패널
 ## 좌우 여백(14x2=28)을 뺀 값, 고유 능력 섹션은 아이콘(30)+separation(10)만큼 더 좁게.
-const SECTION_BODY_WRAP_WIDTH := 452.0
-const ABILITY_DESC_WRAP_WIDTH := 412.0
+## **N-2b로 INFO_COLUMN_WIDTH 480->400 — 같은 공식으로 재계산.**
+const SECTION_BODY_WRAP_WIDTH := 372.0
+const ABILITY_DESC_WRAP_WIDTH := 332.0
 ## STARTING_SKILL_SLOT_WIDTH: 시작 스킬 슬롯 버튼 한 칸의 폭 — SECTION_BODY_WRAP_WIDTH
-## (452) 안에 최대 3칸(+separation 10 x2=20)이 들어와야 하므로 (452-20)/3 ≈ 144
-## 이하로 잡아야 한다(N-2 전에는 150이었으나 정보 컬럼이 좁아져 줄임).
-const STARTING_SKILL_SLOT_WIDTH := 140.0
+## 안에 최대 3칸(+separation 10 x2=20)이 들어와야 하므로 (SECTION_BODY_WRAP_WIDTH-20)/3
+## 이하로 잡아야 한다. **N-2b로 (372-20)/3 ≈ 117.**
+const STARTING_SKILL_SLOT_WIDTH := 115.0
 
 @onready var cards_container: Control = $CardsContainer/CardsList
 @onready var detail_container: Control = $DetailPanelContainer
@@ -482,12 +509,19 @@ func _build_header_section() -> void:
 
 
 ## ② 능력치 칩: 공격/방어 다이스 개수, 이벤트 주사위 면 수, (고정값) HP를 아이콘+숫자
-## 칩 형태로 한 줄에 나열한다(INBOX.md 원문 "숫자는 한눈에"). HP는 캐릭터마다 다르지
-## 않고 전부 DESIGN.md 확정값(20)이라 라벨을 생성 시 한 번만 설정하고 갱신하지 않는다.
+## 칩 형태로 나열한다(INBOX.md 원문 "숫자는 한눈에"). HP는 캐릭터마다 다르지 않고
+## 전부 DESIGN.md 확정값(20)이라 라벨을 생성 시 한 번만 설정하고 갱신하지 않는다.
+## **N-2b**: 칩 4개를 한 줄(HBoxContainer)로 나열하면 자연 최소 폭이 ~495px로, N-2b로
+## 좁아진 정보 컬럼 예산(INFO_COLUMN_WIDTH-28=372)을 크게 넘어 섹션 전체(와 그 뒤
+## 모든 섹션을 포함하는 _detail_sections_vbox)가 그만큼 화면 밖으로 밀려나는 버그를
+## 유발했다(스킬 도감 버튼이 화면 오른쪽 밖으로 잘림 — dice_test 디버그 출력으로 확인).
+## 2×2 그리드(GridContainer)로 바꿔 한 줄의 폭 요구치를 절반 수준으로 낮췄다.
 func _build_stats_section() -> void:
 	var body := _make_section("능력치")
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 8)
+	var row := GridContainer.new()
+	row.columns = 2
+	row.add_theme_constant_override("h_separation", 8)
+	row.add_theme_constant_override("v_separation", 6)
 	body.add_child(row)
 
 	var attack_chip := _make_stat_chip()

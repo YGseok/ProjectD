@@ -365,6 +365,10 @@ func _ready() -> void:
 	all_pass = _check_n2_full_art_column(lines) and all_pass
 
 	lines.append("")
+	lines.append("[N-2b: 캐릭터 선택 — 전신 원화 실제 렌더 높이 검증(감독 확인): 컨테이너가 아니라 STRETCH_KEEP_ASPECT_CENTERED로 실제 그려지는 텍스처 높이를 계산해 8명 전부 >=520px인지, 던전 시작 버튼이 전신 컬럼과 안 겹치는지]")
+	all_pass = (await _check_n2b_full_art_rendered_height(lines)) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -6190,6 +6194,88 @@ func _check_n2_full_art_column(lines: PackedStringArray) -> bool:
 	])
 	lines.append("  캐릭터 전환 시 스포트라이트 틴트: novice=%s pirate=%s (달라야 함) -> %s" % [
 		novice_tint, pirate_tint, "OK" if tint_changed_ok else "FAIL"
+	])
+
+	remove_child(node)
+	node.free()
+	RunState.character_id = character_backup
+	return ok
+
+
+## N-2b(2026-10-15, [대형 기획 14] 감독 확인) 검증 — N-2의 검증(위)은 "홀더 rect 높이
+## >=560"만 쟀는데, 원화(약 1181×1332 비율)가 STRETCH_KEEP_ASPECT_CENTERED로 그 홀더에
+## 맞춰지면서 실제로 "폭이 병목"이 돼 그려지는 캐릭터 높이는 ~330~346px뿐이었다(감독이
+## 스크린샷에서 직접 확인). 컨테이너가 아니라 **텍스처가 실제로 렌더되는 높이**(홀더와
+## 텍스처 크기로 STRETCH_KEEP_ASPECT_CENTERED 스케일을 직접 계산)를 8명 전부 ≥520px로
+## 검증한다. 추가로 "던전 시작" 버튼이 전신 컬럼과 겹치지 않는지(INBOX 원문)도 전역
+## rect 교차로 확인한다.
+func _check_n2b_full_art_rendered_height(lines: PackedStringArray) -> bool:
+	var ok := true
+	var character_backup := RunState.character_id
+
+	var scene := load("res://code/scenes/character_select.tscn")
+	var node = scene.instantiate()
+	add_child(node)
+	# 전신 컬럼 패널은 HBoxContainer 자식(SIZE_EXPAND_FILL)이라 레이아웃 패스를 한 번도
+	# 안 거치면 get_global_rect().size가 (가로만 있고) 세로 0으로 읽혀 아래 겹침 검사가
+	# 항상 "겹치지 않음"으로 통과해버린다(의미 없는 PASS) — 한 프레임 기다려 실제
+	# sort_children이 실행된 뒤 rect를 읽는다.
+	await get_tree().process_frame
+
+	for profile in CharacterProfiles.PROFILES:
+		var cid: String = profile["id"]
+		node._on_card_selected(cid)
+
+		var tex: Texture2D = node._detail_art.texture
+		if tex == null:
+			lines.append("  [%s] 전신 원화 없음(플레이스홀더만 사용) -> SKIP" % cid)
+			continue
+		var tex_size: Vector2 = tex.get_size()
+		var holder_size: Vector2 = node._detail_art.size
+		# STRETCH_KEEP_ASPECT_CENTERED와 동일한 계산: 두 축 스케일 중 더 작은 쪽이
+		# 실제로 쓰이고(어느 축이 "병목"인지는 텍스처 가로세로 비율에 따라 캐릭터마다
+		# 다를 수 있음), 그 스케일로 텍스처 높이를 곱한 값이 실제로 그려지는 높이다.
+		var scale_factor: float = min(holder_size.x / tex_size.x, holder_size.y / tex_size.y)
+		var rendered_height: float = tex_size.y * scale_factor
+		var height_ok: bool = rendered_height >= 520.0
+		ok = height_ok and ok
+		lines.append("  [%s] 전신 원화 실제 렌더 높이=%.1f (텍스처=%s, 홀더=%s, 기대 >=520) -> %s" % [
+			cid, rendered_height, tex_size, holder_size, "OK" if height_ok else "FAIL"
+		])
+
+		# 정보 컬럼이 자기 예산(INFO_COLUMN_WIDTH)을 실제로 넘지 않는지 — N-2b 작업 중
+		# 실제로 터진 버그(능력치 칩 4개가 한 줄 HBoxContainer라 자연 최소 폭이 예산을
+		# 크게 넘어서 _detail_sections_vbox 전체가, 그 안의 스킬 도감 버튼까지 함께
+		# 화면 오른쪽 밖으로 밀려났었음 — EXPAND_FILL 자식의 "자연 최소 폭"이 할당된
+		# 폭보다 크면 Container가 부모 rect를 넘어서도 그 폭을 그대로 써버린다)를
+		# 세로 예산(detail_height)만 재던 기존 N-2 체크가 못 잡았던 지점. 모든 자식
+		# 섹션의 실제 폭도 예산 안에 들어오는지 같이 확인한다.
+		var sections_width: float = node._detail_sections_vbox.size.x
+		var width_budget_ok: bool = sections_width <= node.INFO_COLUMN_WIDTH + 1.0
+		ok = width_budget_ok and ok
+		lines.append("  [%s] 정보 컬럼 실제 폭=%.1f (예산=%.1f) -> %s" % [
+			cid, sections_width, node.INFO_COLUMN_WIDTH, "OK" if width_budget_ok else "FAIL"
+		])
+
+	# 스킬 도감 버튼(헤더 섹션 맨 오른쪽, 정보 컬럼 안에서 가장 밖으로 밀리기 쉬운 요소)이
+	# 실제로 화면(뷰포트) 밖으로 나가지 않는지 — 위 "정보 컬럼 실제 폭" 검사와 별개로,
+	# "그 폭 budget이 실제로 화면 안에 들어오는 좌표에 배치됐는지"까지 확인한다.
+	var viewport_width: float = node.get_viewport_rect().size.x
+	var codex_button_rect: Rect2 = node._skill_codex_button.get_global_rect()
+	var codex_button_on_screen: bool = codex_button_rect.position.x + codex_button_rect.size.x <= viewport_width + 1.0
+	ok = codex_button_on_screen and ok
+	lines.append("  스킬 도감 버튼 rect=%s, 뷰포트 폭=%.0f (오른쪽 끝이 화면 안이어야 함) -> %s" % [
+		codex_button_rect, viewport_width, "OK" if codex_button_on_screen else "FAIL"
+	])
+
+	# 던전 시작 버튼이 전신 컬럼과 겹치지 않는지(INBOX N-2b 원문) — 전신 컬럼 패널의
+	# 전역 rect와 버튼의 전역 rect가 교차하면 안 된다.
+	var portrait_rect: Rect2 = node._detail_portrait_panel.get_global_rect()
+	var button_rect: Rect2 = node.start_button.get_global_rect()
+	var no_overlap: bool = not portrait_rect.intersects(button_rect)
+	ok = no_overlap and ok
+	lines.append("  전신 컬럼 rect=%s vs 던전 시작 버튼 rect=%s (겹치면 안 됨) -> %s" % [
+		portrait_rect, button_rect, "OK" if no_overlap else "FAIL"
 	])
 
 	remove_child(node)
