@@ -273,7 +273,7 @@ M1과 M2는 병행 가능 — 같은 계열 보스와 대표작(예: 고블린 �
 | 캐릭터 선택 | `code/scenes/character_select.tscn` | ⬜ 필요 (우선순위 낮음) |
 | 던전 맵 | `code/scenes/dungeon_map.tscn` | 📦 BG001 (2-6) |
 | 상점 | `code/scenes/shop.tscn` | 📝 BG003 (2-6) |
-| 특수 이벤트 / 스토리 이벤트 | `event.tscn` / `story_event.tscn` | 📝 BG002 (2-6) |
+| 특수 이벤트 / 스토리 이벤트 | `event.tscn` / `story_event.tscn` | 📦 BG002 (2-6) |
 
 ### 2-4. UI 아이콘 / 다이스 — 현재 전부 절차적으로 그림
 
@@ -368,7 +368,7 @@ Work는 `resources/ui/` 이미지가 있으면 StyleBoxTexture로 쓰고, 없으
 | UI410~413 | 몬스터 계열 아이콘 (인간형·부정형·야수형·언데드형) | `icon/family_{humanoid,amorphous,beast,undead}.png` | 64×64 | — | ➖ 보류 (2-4) |
 | **배경 (BG 분류, 선택)** | | | | | |
 | BG001 | 던전 맵 배경 | `resources/backgrounds/dungeon_map.png` | 1280×720 이상 | — | 📦 (2026-10-15) |
-| BG002 | 이벤트 배경 | `resources/backgrounds/event.png` | 1280×720 이상 | — | 📝 |
+| BG002 | 이벤트 배경 | `resources/backgrounds/event.png` | 1280×720 이상 | — | 📦 (2026-10-15) |
 | BG003 | 상점 배경 | `resources/backgrounds/shop.png` | 1280×720 이상 | — | 📝 |
 | BG100 | 전투 배경 | `resources/backgrounds/combat.png` | 1280×720 이상 | — | 📦 (2026-10-15) |
 
@@ -665,6 +665,7 @@ Work는 `resources/ui/` 이미지가 있으면 StyleBoxTexture로 쓰고, 없으
 | 2026-10-15 | ART-CH001-FACE 전투 화면 적용 (Work ART-1b, 커밋 ca74f6b — 240×240 표정 컷, set_expression()으로 전환 확인. 다른 캐릭터는 face_* 5장 세트가 들어오면 코드 수정 없이 자동 적용, 없으면 플레이스홀더) | 전투 화면 왼쪽 플레이어 초상. 표정 컷 아래 끝이 일직선으로 잘려 보여 Work에 [미니 기획 ART-2]로 개선 요청 | `qa_out/art1b_novice_after_exchange.png` |
 | 2026-10-15 | ART-BG100 전투 배경 (GPT 생성 1차 채택 — 횃불·보라 마법불의 석조 던전 홀, 가운데 마법진이 주사위 판 자리. 어둡고 대비 낮게, 인물·글자 없음. 1672×941 → 16:9 1600×900) | `resources/backgrounds/combat.png` 입고(원본 `_reference/backgrounds/combat_raw.png`). 화면 적용은 Work M-5(`CharacterTheme.apply_background`) 대기 | — |
 | 2026-10-15 | ART-BG001 던전 맵 배경 (GPT 생성 1차 채택 — 어두운 석판 작전 탁자 위에서 내려다본 구도, 가운데 80%는 옅은 격자만 있어 방 노드·경로를 올리기 좋음. 소품(촛불·책·룬 큐브·보라 등불)은 네 귀퉁이에만) | `resources/backgrounds/dungeon_map.png` 1600×900 입고. 화면 적용은 Work M-5 대기 | — |
+| 2026-10-15 | ART-BG002 이벤트 배경 (GPT 생성 1차 채택 — 보라 룬이 빛나는 낡은 제단 방, 천장 틈 푸른 빛, 바닥 안개. 가운데·아래는 차분하게) | `resources/backgrounds/event.png` 1600×900 입고. 특수/스토리 이벤트 공용. 화면 적용은 Work M-5 대기 | — |
 
 ---
 
