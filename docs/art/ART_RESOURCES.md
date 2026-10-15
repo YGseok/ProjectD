@@ -228,10 +228,10 @@ ART-<분류><대상 번호 3자리>-<종류>
 | MO605 | `dark_wolf` | 암흑 늑대 | 야수형 | 정예 | `#40404D` | 📝 / 📝 |
 | MO606 | `skeleton_knight` | 해골 기사 | 언데드형 | 정예 | `#B3AD94` | 📝 / 📝 |
 | MO607 | `lich_apprentice` | 리치 견습생 | 언데드형 | 정예 | `#734D8C` | 📝 / 📝 |
-| MO001 | `slime` | 슬라임 | 부정형 | 일반 | `#59D966` | 📝 / 📝 |
-| MO002 | `goblin` | 고블린 | 인간형 | 일반 | `#BF8C40` | 📝 / 📝 |
-| MO003 | `skeleton` | 해골 전사 | 언데드형 | 일반 | `#D9D9CC` | 📝 / 📝 |
-| MO004 | `orc` | 오크 | 야수형 | 일반 | `#4D8C4D` | 📝 / 📝 |
+| MO001 | `slime` | 슬라임 | 부정형 | 일반 | `#59D966` | 📦 / 📝 |
+| MO002 | `goblin` | 고블린 | 인간형 | 일반 | `#BF8C40` | 📦 / 📝 |
+| MO003 | `skeleton` | 해골 전사 | 언데드형 | 일반 | `#D9D9CC` | 📦 / 📝 |
+| MO004 | `orc` | 오크 | 야수형 | 일반 | `#4D8C4D` | 📦 / 📝 |
 | MO005 | `dark_knight` | 다크 나이트 (호환용) | 인간형 | 일반 | `#8C40BF` | ➖ MO600 공유 |
 | MO006 | `armored_goblin` | 아머 고블린 | 인간형 | 일반 | `#997333` | 📝 / 📝 |
 | MO007 | `shield_goblin` | 방패 고블린 | 인간형 | 일반 | `#AD8047` | 📝 / 📝 |
@@ -684,6 +684,7 @@ Work는 `resources/ui/` 이미지가 있으면 StyleBoxTexture로 쓰고, 없으
 | 2026-10-16 | ART-MO802-FULL 해골 장군 (GPT 생성. 찢긴 망토 구멍마다 흰 배경이 갇혀 남아 새 도구 `fill_holes.gd`로 순백 덩어리 제거 — 어두운 배경 미리보기로 확인) | `resources/monsters/skeleton_general/full.png` 입고. 화면 표시는 Work ART-1c 대기 | — |
 | 2026-10-16 | ART-MO803~805-FULL 광란의 마수·타락한 기사단장·공허의 눈 (GPT 생성, 전부 1차 채택, `fill_holes.gd`로 갇힌 흰 배경 제거). **M1 보스 6종 전신 완료** | `resources/monsters/{frenzied_beast,fallen_commander,void_eye}/full.png` 입고. 화면 표시는 Work ART-1c 대기 | `qa_out/art_boss_lineup.png` |
 | 2026-10-16 | 스킬 아이콘 37종 화면 적용 확인 (Work ART-3 수정 d75ae24 — SkillIcon 텍스처 멤버 캐시) | 스킬 도감 + SkillIcon 37종 렌더 확인 | `qa_out/art_skill_codex.png`, `qa_out/art_skill_icons_all.png` |
+| 2026-10-16 | ART-MO001~004-FULL 계열 대표 일반 몬스터 슬라임·고블린·해골 전사·오크 (GPT 생성, 전부 1차 채택. 보스보다 단순한 실루엣으로 요청 — 기믹 주사위: 삼킨 주사위 / 6면이 달아오른 주사위 / 모든 면이 같은 눈 / 1·6면만 있는 흑백 주사위) | `resources/monsters/{slime,goblin,skeleton,orc}/full.png` 입고. **M2 완료**. 화면 표시는 Work 몬스터 full.png 폴백 대기 | `qa_out/art_normal_reps.png` |
 
 ---
 
