@@ -350,7 +350,7 @@ Work는 `resources/ui/` 이미지가 있으면 StyleBoxTexture로 쓰고, 없으
 | UI003 | 카드 (방·선택·보상) | `panel/card_base.png` + `card_accent.png` | 128×160 | 24 | 📦 (2026-10-15) |
 | UI004 | 오버레이 모달 (덱·도감·커스터마이즈) | `panel/overlay_base.png` + `overlay_accent.png` | 256×256 | **44** (2026-10-15 변경 — 모서리 장식 폭) | 📦 (2026-10-15) |
 | **버튼 (UI100~)** | | | | | |
-| UI100 | 주 버튼 | `button/primary_{normal,hover,pressed,disabled,focus}.png` | 128×48 | 16 | 📝 |
+| UI100 | 주 버튼 | `button/primary_{normal,hover,pressed,focus}_base.png` + `_accent.png`, `primary_disabled_base.png`(accent 없음) — 버튼 면 전체가 ACCENT(퍼스널 컬러) | 128×48 | **좌우 28, 상하 16** (2026-10-15 변경) | 📦 (2026-10-15) |
 | UI101 | 보조 버튼 | `button/secondary_{normal,hover,pressed,disabled,focus}.png` | 128×48 | 16 | 📝 |
 | **바 (UI200~)** | | | | | |
 | UI200 | HP 바 | `bar/hp_frame.png` (9-slice) + `bar/hp_fill.png` (흰·회색 그라데이션, 코드가 녹→주황→빨강 착색) | 256×28 | 프레임 12 / 채움 좌우 6 | 📝 |
@@ -655,6 +655,7 @@ Work는 `resources/ui/` 이미지가 있으면 StyleBoxTexture로 쓰고, 없으
 | 2026-10-15 | ART-UI002 상단 HUD 띠 (GPT 생성 1차 채택. GPT가 4:1 대신 약 6.5:1로 그려서 `ui_split.gd`에 "비율 유지 + 가운데 균일 구간 잘라 붙이기" 보정 추가. 모서리 장식이 가로 약 32px라 9-slice 마진을 좌우 34 / 상하 20으로 변경) | `resources/ui/panel/hud_{base,accent}.png` 입고. 120~700px 폭 늘림 테스트 통과. 화면 적용은 Work M-5 대기 | `tools/artgen/out/ui_hud/…/nine.png` |
 | 2026-10-15 | ART-UI003 카드 (GPT 생성 2차 — 1차는 가운데가 들쭉날쭉한 투명 구멍이라 재요청. 2차는 바깥 배경이 불투명 검정이라 `ui_split.gd`에 테두리 연결 단색 배경 제거 추가) | `resources/ui/panel/card_{base,accent}.png` 입고. 9-slice(24) 세로·가로 늘림 테스트 통과. 화면 적용은 Work M-5 대기 | `tools/artgen/out/ui_card/…/nine.png` |
 | 2026-10-15 | ART-UI004 오버레이 모달 (GPT 생성 1차 채택. 모서리 장식이 약 43px라 9-slice 마진 32→44로 변경) | `resources/ui/panel/overlay_{base,accent}.png` 입고. 200~520px 늘림 테스트 통과. **U1 패널 4종 완료**. 화면 적용은 Work M-5 대기 | `tools/artgen/out/ui_overlay/…/nine44.png` |
+| 2026-10-15 | ART-UI100 주 버튼 5상태 (GPT 생성 1차 채택 — 한 장에 5상태를 세로로 그리게 해 일관성 확보, 새 도구 `sheet_split.gd`로 분리. 모서리 캡이 가로 약 26px라 마진 좌우 28 / 상하 16. 파일을 상태별 base+accent로 나눔) | `resources/ui/button/primary_*` 입고. 128~300px 늘림 테스트 통과. 화면 적용은 Work M-5 대기 | `tools/artgen/out/ui_btn_primary/stack.png` |
 
 ---
 
