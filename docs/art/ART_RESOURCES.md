@@ -195,7 +195,7 @@ ART-<분류><대상 번호 3자리>-<종류>
 
 | id | 이름 | 참고 색 (머리 / 의상) | 전신 `full.png` | 표정 5종 `face_*.png` |
 |---|---|---|---|---|
-| `novice` | 견습 모험가 | `#C79EDB` / `#EB8CA8` | ✅ 적용 | 📦 ART-CH001-FACE 5/5 입고 (neutral은 목록 썸네일 ✅, 전투 화면은 Work ART-1b 연결 대기) |
+| `novice` | 견습 모험가 | `#C79EDB` / `#EB8CA8` | ✅ 적용 | ✅ ART-CH001-FACE 5/5 적용 (목록 썸네일 + 전투 화면 표정 전환, Work ART-1b 2026-10-15) |
 | `berserker` | 광전사 | `#D94033` / `#591A1A` | ✅ 적용 | 📝 ART-CH002-FACE |
 | `guardian` | 수호자 | `#668CD9` / `#40668C` | ✅ 적용 | 📝 ART-CH003-FACE |
 | `explosive` | 폭발병 | `#F28C26` / `#802E0D` | ✅ 적용 | 📝 ART-CH004-FACE |
@@ -662,6 +662,7 @@ Work는 `resources/ui/` 이미지가 있으면 StyleBoxTexture로 쓰고, 없으
 | 2026-10-15 | ART-UI251~253 티어 배지 일반/정예/보스 (GPT 생성 1차 채택 — 가로 3단 시트, 같은 배율로 64×64에 맞춰 크기 위계 유지: 일반 쇠 방패·정예 금관·보스 뿔+해골 진홍) | `resources/ui/badge/tier_{normal,elite,boss}.png` 입고. 64px 판독 확인. **U4 배지 완료** | `tools/artgen/out/ui_tier/emblems_preview.png` |
 | 2026-10-15 | ART-UI350~352 스탯 칩·구분선·제목 장식 (GPT 생성 1차 채택 — 3단 시트. 구분선은 가운데 장식 32px 고정 + 양옆 선을 240px로 늘려 512×16 구성, 제목 장식은 좌우 분리 후 비율 유지) | `resources/ui/deco/` 입고. **U5 완료** | `tools/artgen/out/ui_deco/deco_preview.png` |
 | 2026-10-15 | ART-UI400~408 UI 아이콘 9종 (GPT 생성 2차 — 1차 "투명 배경에 흰 실루엣"은 배경에 흰 얼룩이 끼고 칼·자물쇠가 붙어 폐기. 2차는 **흰 바탕에 검은 실루엣**으로 받아 반전(알파=어두운 정도) → 흰색+알파, 3×3 격자 분리 후 58px로 맞춰 64×64 중앙 배치) | `resources/ui/icon/{gold,pip,dice,hp,defense,attack,crown,skull,lock}.png` 입고. 64·24px 착색 판독 확인. **U6 완료**(계열 아이콘 UI410~413은 보류 유지) | `tools/artgen/out/ui_icons/final/icons_preview.png` |
+| 2026-10-15 | ART-CH001-FACE 전투 화면 적용 (Work ART-1b, 커밋 ca74f6b — 240×240 표정 컷, set_expression()으로 전환 확인. 다른 캐릭터는 face_* 5장 세트가 들어오면 코드 수정 없이 자동 적용, 없으면 플레이스홀더) | 전투 화면 왼쪽 플레이어 초상. 표정 컷 아래 끝이 일직선으로 잘려 보여 Work에 [미니 기획 ART-2]로 개선 요청 | `qa_out/art1b_novice_after_exchange.png` |
 
 ---
 
