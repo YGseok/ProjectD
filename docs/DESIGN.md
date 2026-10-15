@@ -464,14 +464,16 @@ character_id)`는 "panel" 테마 슬롯이 있는 Control이면 한 줄로 테�
     DC를 1 낮춘다(최저 2, `event.gambler_adjusted_dc()`). 유일하게 전투가 아닌
     이벤트 축에 거는 시작 스킬.
 - **이벤트 주사위(`event_die_sides`, 2026-09-15부터)**: 공격/방어 주머니와 별개로,
-  특수 이벤트 "위험을 감수하기" 판정에 쓸 전용 다이스 면 개수가 캐릭터마다 있음
-  (`CharacterProfiles.PROFILES`, `RunState.event_die_sides`로 복사됨). 지금은 5종
-  전부 D6로 동일(INBOX.md [미니 기획 B] "직업별로 다른 이벤트 주사위" 요청의 구조만
-  먼저 열어둔 상태, 실제 차등은 이벤트 특화 캐릭터가 생기면 값만 바꾸면 됨). 화면에는
-  로마 숫자(I~VI) 육각 칩(`code/scenes/event_die_visual.gd`의 `EventDieVisual`)으로
-  표시해 일반 다이스와 구분하고 커스터마이징 대상이 아님을 암시 — 캐릭터 선택 상세
-  패널에 샘플(I)이 상시 표시됨. **이 다이스를 실제로 굴려서 판정하는 로직(난이도 체크,
-  안전/위험 선택지)은 아직 없음** — "다음 할 일 큐"의 "특수 이벤트 개편" 참고.
+  특수 이벤트 "위험을 감수하기"(`event.gd`, DC 판정에 실제로 쓰임) 판정에 쓸 전용
+  다이스 면 개수가 캐릭터마다 있음(`CharacterProfiles.PROFILES`, `RunState.
+  event_die_sides`로 복사됨). **2026-10-15 [대형 기획 14] N-5(a)로 곡예사(juggler)가
+  첫 차등 사례**가 됐다 — 곡예사만 D12, 나머지 7종은 그대로 D6(INBOX.md [미니 기획
+  B]가 열어둔 구조의 실제 첫 사용). 화면에는 로마 숫자 육각 칩(`code/scenes/
+  event_die_visual.gd`의 `EventDieVisual`)으로 표시해 일반 다이스와 구분하고
+  커스터마이징 대상이 아님을 암시 — 캐릭터 선택 상세 패널에 D%d 표기와 함께 상시
+  표시됨(N-4). DC 공식(`event.gambler_adjusted_dc()`/`difficulty_for_room()`)은 아직
+  D6 기준이라 D12인 곡예사는 거의 항상 성공하는 불균형이 있음 — 판정 콘텐츠 확충 +
+  "대성공" 단계 도입은 INBOX.md N-5(b)로 남겨둠(의도적 보류, 이번 조각 범위 밖).
 - 이 "기믹"(사실상 유일한 캐릭터별 스킬)에는 2026-09-15부터 유형별 아이콘이 붙는다
   (`code/scenes/skill_icon.gd`의 `SkillIcon`, INBOX.md 2026-09-14 "캐릭터 스킬에
   아이콘을 추가한다" 반영). 없음=빈 원, 극단(min_max_only)=빨간 다이아몬드,

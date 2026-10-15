@@ -5,33 +5,34 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-10-15 (211)
+- 일시: 2026-10-15 (212)
 - 작성자: AI 에이전트. 이번 이터레이션은 INBOX.md "남은 이슈"의 **[대형 기획 14]
-  N-4(캐릭터 선택 능력치를 "공격 D4×3" 같은 문자열 대신 실제 다이스 칩으로
-  나열) 완료**했다. `character_select.gd`의 "능력치" 섹션 내부를 "공격"/"방어"/
-  "이벤트" 3줄(`_make_dice_row()`)로 재구성해, 각 줄에 `ShapeDieChip`을
-  attack_count/defense_count개 나열하고(기존 `shape_die_chip.gd` 재사용, 새로
-  안 그림 — 지금은 8명 전부 D4라 전부 삼각형), 이벤트 줄은 `EventDieVisual`
-  옆에 "D%d"(event_die_sides) 텍스트를 붙였다. 시작 스킬의 "시작 보너스"는
-  칩 옆 "+n" 배지로 — 캐릭터 선택 화면은 전투 상태(HP/골드/인벤토리 등)가
-  없는 "런 시작 전" 화면이라 RunState 의존 스킬은 계산 불가능하므로,
-  attack_count/defense_count "개수"만으로 정적으로 결정되는 4종(맹공/철벽/
-  확장/정예)만 신규 `_static_dice_bonus()`가 `combat_test.gd`의 실전 적용
-  함수(`_aggro_bonus`/`_wall_bonus`/`_expand_bonus`/`_lean_bonus`)를 그대로
-  재사용해 계산한다. `dice_test.gd`에 신규 `_check_n4_dice_chip_stats()` —
-  8명 전부 칩 개수/모양/숫자 일치, 이벤트 줄 텍스트 일치, `_static_dice_bonus()`
-  공식이 실전 함수와 9개 조합에서 정확히 일치, 광전사 선택 시 공격 줄 "+1"
-  배지·견습 모험가 선택 시 배지 없음까지 실제 화면 end-to-end로 검증(업적
-  해금 상태 오염 방지를 위해 테스트 시작/종료에 `AchievementManager.
-  _debug_reset_for_qa()`). `bash scripts/qa_shot.sh dice_test` 전체 PASS(FAIL
-  0건, 2회 재확인). 셀프 피드백 1라운드로 `qa_out/n4_{novice,berserker,
-  guardian,pirate}.png` 4장을 직접 읽어 다이스 칩 개수/모양이 프로필과 일치하고
-  광전사/수호자에서 "+1" 배지가 올바른 줄(공격/방어)에만 뜨는 것을 확인 —
-  "상" 수준 문제 없이 종료. 전투 규칙/밸런스는 건드리지 않았다. INBOX.md의
-  이 항목은 "부분 처리됨"에 그대로 두되 진행 한 줄을 갱신했다(N-5~N-6이 남아
-  "처리됨"으로는 못 옮김). 상세는 아래 "완료 기록 (211)" 참고. **다음은
-  N-5(a)(곡예사를 이벤트 특화 클래스로 — event_die_sides 상향 + 시작 스킬
-  이벤트 테마 재구성, INBOX.md "남은 이슈" 참고).**
+  N-5(a)(곡예사를 이벤트 특화 클래스로 — 새 캐릭터/아트 발주 없이 기존 곡예사
+  재편) 완료**했다. 곡예사 프로필의 `event_die_sides`를 6→12로 올리고(나머지
+  7종은 그대로 D6 — 캐릭터별 이벤트 주사위 차등의 첫 실사용 사례), 시작 스킬
+  슬롯을 기존 전투 보너스형 3종(맹공→수집가→잡화점)에서 **눈속임→한탕→
+  잡화점**(이벤트 2종 신규 + 전투 보조 1종 유지)으로 재구성했다. "눈속임"은
+  "위험을 감수하기" DC -1(매혹사 "승부사"와 효과는 같지만 별도 id), "한탕"은
+  판정 성공 시 골드 +10. 고유 스킬도 1쌍 추가 — "곡예 흥행"/"곡예 흥행+"가
+  이벤트 주사위 굴림 결과에 +1/+2 보정(기존 "곡예 앙코르"는 그대로 유지, 곡예사
+  고유 스킬이 2종이 됨). `event.gd`에 신규 순수 함수 `event_roll_bonus()`/
+  `_effective_risky_roll()`을 분리해 보정+상한 계산을 결정적으로 테스트 가능하게
+  했다. `dice_test.gd`에 신규 `_check_n5a_juggler_event_specialist()`(8단계 —
+  프로필 값/RunState 복사/슬롯 순서/폴백 안전성/DC 보정/보정 함수/적용 공식/
+  골드 보너스)를 추가하고, 이번 변경으로 가정이 깨진 기존 테스트 4곳(이벤트
+  주사위 전수 검증/UPGRADE_SKILLS 개수/시작 스킬 슬롯 순서/스킬 도감
+  codex_entries 크기+순서)을 함께 갱신했다. `bash scripts/qa_shot.sh dice_test`
+  전체 PASS(FAIL 0건, 2회 재확인). 셀프 피드백 1라운드로
+  `qa_out/n5a_juggler_detail.png`(`_debug_select_juggler()` 훅)를 직접 읽어
+  D12 칩, 새 슬롯 순서(눈속임 해금/한탕·잡화점 잠김), 효과 설명 텍스트가
+  겹침 없이 보이는 것을 확인 — "상" 수준 문제 없이 종료. DESIGN.md의 이벤트
+  주사위 단락(이 조각이 직접 무효화한 서술)만 최소 수정했고, N-5(c)가 맡은
+  캐릭터 표/스킬 상세 설명 전체 갱신은 손대지 않았다. 전투 규칙/밸런스는
+  건드리지 않았다. INBOX.md의 이 항목은 "부분 처리됨"에 그대로 두되 진행
+  한 줄을 갱신했다(N-5(b)(c), N-6이 남아 "처리됨"으로는 못 옮김). 상세는
+  아래 "완료 기록 (212)" 참고. **다음은 N-5(b)(이벤트 판정 콘텐츠 확충 —
+  도박/탐색/협상/함정 해체 등 2~3종 + "대성공" 단계 도입, INBOX.md "남은
+  이슈" 참고).**
 
 ## 지금 위치
 
@@ -478,6 +479,17 @@ HP 패널·다이스 스테이지·결과 칩과 겹치지 않고 표정(happy)�
   결정되는 4종(맹공/철벽/확장/정예)만 지원(RunState 의존 스킬은 "런 시작 전"
   화면이라 계산 불가). `combat_test.gd`의 실전 보너스 함수를 그대로 재사용해
   공식 중복이 없다.
+- **곡예사 — 이벤트 특화 클래스(2026-10-15 [대형 기획 14] N-5(a) 완료)**:
+  곡예사(`juggler`)의 `event_die_sides`가 12(나머지 7종은 D6 그대로)로
+  올라, 캐릭터 선택 "능력치" 이벤트 줄에 "D12" 칩이 보인다. 시작 스킬 슬롯이
+  **눈속임**(`start_sleight`, "위험을 감수하기" DC -1) → **한탕**
+  (`start_fortune`, 판정 성공 시 골드 +10) → **잡화점**(`start_diverse`,
+  기존 전투 보조 유지) 순으로 바뀌었다(기존 맹공/수집가는 광전사 쪽에만
+  남고 곡예사 후보에서는 제거). 고유 스킬도 "곡예 흥행"/"곡예 흥행+"
+  (`juggle_fortune`/`juggle_fortune_plus`, 이벤트 주사위 굴림 +1/+2 보정)이
+  추가돼 기존 "곡예 앙코르"와 함께 2종이 됐다. DC 공식은 아직 D6 기준(최대
+  DC5)이라 D12 곡예사는 판정이 거의 항상 성공하는 불균형이 남아있음 —
+  N-5(b)(판정 콘텐츠 확충 + "대성공" 단계)로 넘김.
 
 상세 변경 이력은 아래 "완료 기록"(최근 10개)과, 그보다 오래된 것은
 `docs/STATUS_ARCHIVE.md`(매 이터레이션 읽지 않는 아카이브) 참고.
@@ -520,10 +532,13 @@ L-1~L-3)는 2026-10-14(197)에 각각 전체 완료됐다. **[미니 기획 M-6]
 기록 (210)). 2026-10-15(211)로 **N-4(능력치를 실제 다이스 칩으로 나열) 완료** —
 "공격 D4×3" 문자열을 공격/방어/이벤트 3줄의 `ShapeDieChip` 나열로 바꾸고,
 맹공/철벽/확장/정예 4종 한정으로 "+n" 시작 보너스 배지를 붙였다(상세는 완료
-기록 (211)). 다음 우선 순서는 N-5(곡예사를 이벤트 특화 클래스로 개편,
-a→b→c) → N-6(캐릭터 전용 이벤트/특별 선택지). 한 이터레이션에 한 조각(또는
-(a)(b)(c) 한 칸)만 진행할 것 — 상세 사양은 `docs/feedback/INBOX.md` "남은
-이슈" 참고.
+기록 (211)). 2026-10-15(212)로 **N-5(a)(곡예사를 이벤트 특화 클래스로) 완료** —
+곡예사의 이벤트 주사위를 D12로 올리고 시작 스킬 사다리를 눈속임/한탕(이벤트
+2종)+잡화점(전투 보조 유지)으로 재구성, 고유 스킬 "곡예 흥행(+)" 1쌍 추가
+(상세는 완료 기록 (212)). 다음 우선 순서는 N-5(b)(이벤트 판정 콘텐츠 확충 +
+"대성공" 단계) → N-5(c)(밸런스+마무리) → N-6(캐릭터 전용 이벤트/특별 선택지).
+한 이터레이션에 한 조각(또는 (a)(b)(c) 한 칸)만 진행할 것 — 상세 사양은
+`docs/feedback/INBOX.md` "남은 이슈" 참고.
 
 남은 구조적 후보(급하지 않음): 보스 개별 6종 중 타락한 기사단장만 밴드 미달
 (`MonsterSkills.modify_monster_roll()` 파라미터화가 전제조건이라 사람 설계
@@ -1134,6 +1149,78 @@ a→b→c) → N-6(캐릭터 전용 이벤트/특별 선택지). 한 이터레�
 
 ## 완료 기록
 
+- **2026-10-15 (212)**: INBOX.md "남은 이슈" [대형 기획 14] **N-5(a)(곡예사를
+  이벤트 특화 클래스로) 완료**. INBOX 원문(사용자 결정 2026-10-15): "이벤트 특화
+  클래스는 기존 클래스 중에서 지정 — 곡예사가 어울릴 듯"에 따라 곡예사(juggler)의
+  이벤트 주사위를 D12로 올리고, 시작 스킬 3종 중 최소 2종을 이벤트 스킬로 교체
+  (전투 보조 1종은 유지), 이벤트 계열 전용/강화 스킬 1쌍 추가. (b)(대성공 단계 +
+  판정 콘텐츠 확충)와 (c)(밸런스+마무리)는 이번 조각 범위 밖.
+  **데이터(`character_profiles.gd`)**: 곡예사 프로필의 `event_die_sides`를
+  6→12로 변경(나머지 7종은 그대로 6 — "직업별로 다른 이벤트 주사위"라는
+  [미니 기획 B] 구조의 실제 첫 차등 사례). `desc`/`concept`에 이벤트 특화
+  클래스임을 한 줄 추가.
+  **시작 스킬 사다리 재구성(`skill_pool.gd`)**: 기존 슬롯 구성(맹공→수집가→
+  잡화점, 전부 전투 보너스형)에서 곡예사를 `start_aggro`/`start_hoard`의
+  `character_ids`에서 제거하고, 곡예사 전용 신규 2종을 추가해 **눈속임→한탕→
+  잡화점**(이벤트 2종 + 전투 보조 1종 유지) 순서로 바꿨다. "눈속임"
+  (`start_sleight`): "위험을 감수하기" DC -1(최저 2) — 효과는 매혹사의
+  "승부사"(`start_gambler`)와 같지만 INBOX 지시대로 "매혹사와 공유하지 말고
+  구분"하기 위해 별도 id로 분리(`event.gd`의 DC 계산이 두 id를 OR로 함께
+  확인). "한탕"(`start_fortune`): "위험을 감수하기" 성공 시 골드
+  `FORTUNE_GOLD_BONUS`(=10, `GOLD_REWARD_BASE`=8과 비슷한 체감 크기로 잡은
+  잠정값) 추가 획득.
+  **고유 스킬 1쌍 추가**: "곡예 흥행"(`juggle_fortune`, `UNIQUE_SKILLS` 신규)이
+  "위험을 감수하기" 이벤트 주사위 굴림 결과에 +1 보정(상한: 이벤트 주사위 면
+  개수), "곡예 흥행+"(`juggle_fortune_plus`, `UPGRADE_SKILLS` 신규)은 +2로
+  강화 — INBOX 지시대로 기존 "곡예 앙코르"(`juggle_encore`)는 그대로 유지해
+  곡예사가 이제 고유 스킬 2종(juggle_encore + juggle_fortune)을 갖는다.
+  **`event.gd` 배선**: `_ready()`의 DC 계산을
+  `RunState.skill_flags.has("start_gambler") or RunState.skill_flags.has("start_sleight")`로
+  OR 확장. 신규 순수 함수 `event_roll_bonus(skill_flags)`(juggle_fortune_plus=2
+  > juggle_fortune=1 > 0)와, `_on_risky_pressed()`의 보정+상한 계산을 분리한
+  `_effective_risky_roll(raw_roll)`(물리/RNG 없이 dice_test가 결정적으로 호출
+  가능 — "곡예 흥행" 통합 검증을 위한 테스트 전용 분리가 아니라 실제 프로덕션
+  경로 자체를 이 함수로 재사용). "한탕"은 `_resolve_risky()`에서 성공 시
+  `RunState.gold += FORTUNE_GOLD_BONUS`.
+  **ICON_MOTIFS**: 신규 4개 id(start_sleight/start_fortune/juggle_fortune/
+  juggle_fortune_plus) 전부 기존 `event_check` 모티프 재사용(INBOX "이벤트
+  모티프 event_check 재사용 또는 새 모티프" 중 재사용 선택 — 효과가 전부
+  "이벤트 판정 보정"이라는 같은 범주라 새 모티프 불필요).
+  **폴백 안전성**: `start_aggro`/`start_hoard`를 곡예사 후보에서 제거해도
+  기존 `_valid_or_default_starting_skill_id()`(이미 "후보에 없으면 슬롯0"
+  로직을 갖고 있었음, 코드 변경 없음)가 그대로 안전망 역할을 한다 — 사라진
+  id를 가리키던 `chosen_starting_skill_id`는 곡예사 선택 시 자동으로 슬롯0
+  (눈속임)으로 폴백됨을 테스트로 확인.
+  **기존 테스트 갱신(회귀)**: 이번 변경으로 가정이 깨진 기존 테스트 4곳을
+  고쳤다 — `_check_event_die_sides`(곡예사만 12 기대로 변경), `_check_
+  upgrade_skill_pool`(UPGRADE_SKILLS 개수 10→11), `_check_starting_skills`
+  (곡예사 기대 슬롯 순서를 [start_sleight, start_fortune, start_diverse]로),
+  `_check_l2a_skill_codex`(codex_entries() 크기가 곡예사만 9→11, 순서도
+  전용 스킬 2종분 반영 — 다른 7명은 그대로 9).
+  **신규 검증**: `dice_test.gd`에 `_check_n5a_juggler_event_specialist()` —
+  (a) 프로필 event_die_sides(곡예사만 12) (b) `RunState.reset_run("juggler")`
+  복사 (c) 곡예사 슬롯 순서 + start_aggro/start_hoard가 광전사에게는 여전히
+  있는지(회귀) (d) 사라진 id → 슬롯0 폴백(실제 `character_select.tscn`
+  인스턴스로 `_on_card_selected()` 호출) (e) 눈속임/승부사가 `event.tscn`의
+  실제 `_dc`를 1 낮추는지(인스턴스화 + 필드 읽기) (f) `event_roll_bonus()`
+  순수 함수 0/1/2 (g) `_effective_risky_roll()`의 보정+상한 공식 4개 조합
+  (h) "한탕" 보유/미보유 각각 `_debug_force_risky_success()`로 성공을 결정적
+  재현해 `RunState.gold`가 실제로 10만큼만 느는지. `bash scripts/qa_shot.sh
+  dice_test` 전체 **PASS**(FAIL 0건, 2회 재확인). **셀프 피드백 1라운드**:
+  `qa_out/n5a_juggler_detail.png`(`_debug_select_juggler()` 훅으로 캐릭터
+  선택 상세 패널 캡처)를 직접 읽어 — "이벤트" 줄에 D12 칩이 다른 캐릭터의
+  D6과 또렷이 다르게 보이고, 시작 스킬 슬롯이 "눈속임"(해금, 금테)/"한탕"
+  (잠김)/"잡화점"(잠김) 순서로 바뀌었으며, "눈속임" 효과 설명("판정 DC가
+  1 낮아진다")이 겹침/잘림 없이 표시됨을 확인 — "상" 수준 문제 없이
+  1라운드로 종료. `docs/DESIGN.md`의 이벤트 주사위 단락(이 조각이 직접
+  무효화한 "지금은 5종 전부 D6" 서술)만 최소 수정 — 캐릭터 표/스킬 상세
+  설명 등 나머지 "현재 구현 콘텐츠" 갱신은 INBOX N-5(c)가 명시적으로 맡은
+  범위라 손대지 않았다. 전투 규칙/밸런스 수치는 건드리지 않았다. INBOX.md의
+  이 항목은 "부분 처리됨"에 그대로 두되 진행 한 줄을 갱신했다(N-5(b)(c),
+  N-6이 남아 "처리됨"으로는 못 옮김). **다음은 N-5(b)(이벤트 판정 콘텐츠
+  확충 — 도박/탐색/협상/함정 해체 등 2~3종 + "대성공" 단계 도입, INBOX.md
+  "남은 이슈" 참고).**
+
 - **2026-10-15 (211)**: INBOX.md "남은 이슈" [대형 기획 14] **N-4(캐릭터 선택
   능력치를 "×N" 문자열 대신 실제 다이스 칩으로 나열) 완료**. INBOX 원문: 공격/
   방어 능력치 칩의 "공격 D4×3" 같은 문자열을 `shape_die_chip.gd`/
@@ -1697,89 +1784,9 @@ a→b→c) → N-6(캐릭터 전용 이벤트/특별 선택지). 한 이터레�
   원래 INBOX 순서상 M-4 뒤였으나 (202) 때 사용자 지시로 먼저 진행했을 뿐이다 —
   **다음은 M-4**, 그 다음에야 INBOX.md [대형 기획 14](N-1~N-5)로 넘어갈 것.
 
-- **2026-10-15 (202)**: INBOX.md 최우선 지시(이번 이터레이션 직접 지시) [대형 기획 13]
-  **M-5(a)(UIKit 이미지 스킨 — 패널/버튼/HP 바) 완료**. 아트 스레드가 `resources/ui/`에
-  U1~U6(패널 4종/버튼 2종/HP 바/배지/장식/아이콘)를 전부 납품했지만 Work 쪽 코드는 아직
-  절차적 스타일만 쓰고 있었다 — 이번 조각은 그중 "패널(section/hud/card/overlay)+버튼
-  (primary/secondary)+HP 바"를 `code/systems/ui_kit.gd`의 `UIKit`에 실제로 연결했다
-  (배지/장식/아이콘은 M-5(b)).
-  **패널**: `apply_panel_skin(panel, kind, character_id, base_dir)` 신규 — base+accent
-  PNG를 로드해 accent를 `CharacterTheme.ui_palette()["accent"]`로 틴트(`Image.set_pixel`
-  로 RGB만 곱하고 알파 유지)한 뒤 `Image.blend_rect()`로 base 위에 한 번만 합성해(패널은
-  버튼과 달리 "상태"가 없으므로 라이브 오버레이 대신 미리 굽는 쪽을 택함 — 캐릭터별로
-  한 번만 구우면 되고, 기존 `body.get_parent() == panel` 가정도 그대로 유지됨) 하나의
-  `StyleBoxTexture`로 만든다. `content_margin`은 기본값(-1)으로 남겨 `texture_margin`과
-  자동으로 같아지게 해 9-slice 테두리만큼 자식이 자연히 인셋되게 했다. base PNG가 없으면
-  false를 돌려줘 호출부가 기존 `StyleBoxFlat` 절차적 스타일로 폴백한다(`CharacterTheme.
-  apply()`는 StyleBoxFlat 전용이라 스킨 활성 시에는 호출 안 함 — 호출하면 새 StyleBoxFlat을
-  만들어 스킨을 덮어써버리므로). `make_section()`(kind="section")/`make_bar()`(kind="hud")
-  가 이 헬퍼를 쓰도록 바뀌어, dungeon_map/combat_test/event/shop/story_event/deck_panel이
-  쓰는 모든 구역 패널·HUD 띠가 자동으로 스킨을 받는다. 오버레이 패널 3종(CustomizePanel/
-  AchievementPanel/SkillCodexPanel)도 `CharacterTheme.apply(bg, ...)` 직접 호출 지점을
-  "`UIKit.apply_panel_skin(bg, "overlay", ...)` 실패 시에만 폴백"으로 1~2줄씩 바꿔 자동
-  적용되게 했다. "card" 종류(아이템/보상 카드)는 **의도적으로 보류** — `ItemCardStyle.
-  build_card()`의 테두리색이 지금 등급(S/A/B/C) 신호로 쓰이는데 캐릭터 accent로 바꾸면
-  그 신호가 사라지는 설계 충돌이 있어, 사람 결정 없이 임의로 바꾸지 않고 그대로 뒀다
-  (factory 자체는 kind="card" 스펙까지 다 만들어 둬서, 나중에 결정만 나면 한 줄로 적용
-  가능).
-  **버튼**: 패널과 달리 normal/hover/pressed/disabled 4가지 "상태"가 있어, 상태마다
-  base+accent(커스텀 tint 가능 — `style_secondary_button(..., tint)`의 위험 강조색 등도
-  팔레트 accent 대신 그대로 틴트됨)를 미리 구워 `StyleBoxTexture` 하나로 만든다(`style_
-  primary_button()`/`style_secondary_button()`이 상태별로 개별 시도 — **그 상태의 base
-  PNG가 없으면 그 상태만 기존 `StyleBoxFlat`으로 폴백**해 INBOX M-5 "파일이 일부만 있어도
-  상태별로 폴백" 요구를 만족). "focus"(5번째 상태)는 `FocusNav.focus_style()`가 전담하는
-  별도 테마 슬롯이고 버튼 아닌 Control(카드/방 선택지 등)에도 범용으로 쓰여 kind(primary/
-  secondary)별로 못 묶이므로 이번 범위에서 의도적으로 제외. 글자색 대비(INBOX "primary는
-  면 전체가 accent라 밝은 색에서 흰 글자가 안 보일 수 있음")는 기존 `contrasting_text_
-  color()`를 그대로 재사용해 스킨 여부와 무관하게 계속 보장됨(새 로직 불필요).
-  **HP 바**: `UIKit.make_hp_bar()` 신규(combat_test.gd의 `_build_hp_bar()`가 여기로 위임) —
-  프레임(base+accent, 패널과 같은 이유로 한 장으로 구워 `NinePatchRect`)과 채움(`hp_fill.png`,
-  accent 없이 흰~회색 그라데이션 하나뿐이라 그대로 `NinePatchRect`로 쓰고 `.modulate`로
-  런타임에 녹→주황→빨강 착색 — 기존 `_update_hp_bar()`의 색 전환 로직은 변경 없음, `fill is
-  ColorRect`로 분기해 폴백(ColorRect, `.color`)과 스킨(NinePatchRect, `.modulate`) 양쪽을
-  같은 함수가 처리)을 각각 그린다. 채움 위치는 프레임 9-slice 마진(좌우32/상하10)과 다른
-  "프레임 안쪽 홈"(좌22/상11/우22/하10, ART_RESOURCES.md UI200 그대로) 절대 좌표를 쓴다.
-  **레이아웃 회귀 발견 + 수정**: 버튼 `StyleBoxTexture`의 `content_margin`을 기본값(=
-  `texture_margin`, 상하 16px)에 맡겼더니 실제 자산 적용 직후 `dice_test`의 M-3 검증
-  ("'전투 기록' 패널 y=572 >= 버튼 행 바닥 y=584")이 FAIL로 잡혔다 — M-3이 버튼을 526~566
-  (40px) 고정 좌표로 깔아뒀는데, 스킨 버튼의 최소 높이가 48px+폰트로 커져 겹친 것. 원인은
-  `texture_margin`(9-slice 비늘림 구간, 순수 렌더링 값)과 `content_margin`(레이아웃이
-  요구하는 최소 여백)을 같은 값으로 둘 필요가 없다는 점 — 버튼만 `content_margin_top/
-  bottom`을 4px로 명시해(좌우는 28 유지) 기존 고정 좌표 레이아웃과 호환되게 했다(패널은
-  이 문제가 없음 — 패널의 9-slice 테두리 두께와 콘텐츠 인셋이 실제로 같아야 하는 디자인
-  의도이므로 그대로 둠).
-  **검증**: `dice_test.gd`의 신규 `_check_m5a_uikit_image_skin()`(9단계 — ① 패널 파일 없음
-  →`StyleBoxFlat` ② base만→`StyleBoxTexture`+마진24 ③ base+accent, 캐릭터(berserker/
-  pirate)별로 합성 픽셀이 실제 `ui_palette()["accent"]`와 근사 일치(8비트 양자화 오차
-  0.01 허용) + 서로 다름 ④ base 삭제→다시 `StyleBoxFlat` ⑤ hud 마진(좌우34/상하20) ⑥
-  버튼 "normal"만 있으면 그 상태만 스킨, "hover"는 폴백 + 합성 픽셀이 tint와 일치 ⑦
-  secondary 커스텀 tint도 팔레트 대신 그대로 적용 ⑧ HP 바 skinned/fallback 전환 +
-  `fill_full_width` 계산 ⑨ 실제 production `resources/ui/`로 `combat_test.tscn`을
-  instantiate해 HP 바가 실제 `NinePatchRect`이고 HP 100%/10%에서 크기·색이 기존과 동일한
-  공식으로 동작하는지, 버튼이 실제 `StyleBoxTexture`인지)가 "없음→있음→없음" user://
-  임시 경로(production `base_dir`는 캐릭터/kind/tint별로만 캐싱돼 테스트 경로는 캐시를
-  안 타 매번 실제 파일 존재를 재확인 — 캐싱이 "없음→있음" 전환을 숨기는 버그 방지)로
-  전부 검증. **실제 production 자산이 이미 입고돼 있어서 기존 5개 테스트(L-3의 오버레이
-  패널 3종 테두리 비교, M-1/M-2의 버튼 위계 비교)가 이제 `StyleBoxTexture`를 받아
-  `.border_color`/`.bg_color`(StyleBoxFlat 전용 속성) 접근으로 크래시하는 회귀를 먼저
-  잡아냈다** — `_m5_style_fingerprint(style)`(StyleBoxFlat이면 border/bg 색, StyleBoxTexture면
-  실제로 구워진 texture 객체) 공용 헬퍼로 두 스타일 종류를 다 받게 고쳤다(둘 다 "서로
-  다른 렌더 결과"라는 같은 의도를 보존). `bash scripts/qa_shot.sh dice_test` 전체 **PASS**
-  (신규 M-5a 섹션 포함, 기존 5곳 수정 포함). **셀프 피드백 1라운드**: `qa_out/m5a_dungeon_
-  map.png`/`m5a_combat_after.png`/`m5a_combat_win_after.png`/`m5a_customize.png`/
-  `m5a_shop.png`/`m5a_event.png`/`m5a_character_select.png` 7장 육안 확인 — 패널/버튼/
-  HP 바 전부 모서리 보석 장식이 보이는 입체적인 스킨으로 또렷하게 바뀌었고, 레이아웃
-  겹침/잘림 없음, character_select(스킨 미적용 대상, 자체 `_make_section` 사용)는 회귀
-  없이 그대로임을 확인 — 추가 수정 라운드 없이 1라운드로 종료(심각도 상/중 문제 없음).
-  `Image.load()`로 기 import된 PNG를 직접 읽을 때 "Loaded resource as image file, this
-  will not work on export" 경고가 뜨는데, `SkillIcon.load_external_art()`(K-4c)와 동일한
-  기존 트레이드오프 — 지금 구조(테스트에서 `user://` base_dir 주입 필요)상 불가피해 의도적으로
-  유지. 전투 규칙/밸런스는 손대지 않음. **다음은 M-5(b)(배지/장식/아이콘)** — INBOX.md
-  "부분 처리됨"에 진행 한 줄 갱신.
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(211)에서 (201)을 그리로 옮겼다.)*
+이번 이터레이션(212)에서 (202)를 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 

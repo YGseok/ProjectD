@@ -100,6 +100,14 @@ const SKILLS: Array[Dictionary] = [
 ## 바꿔 끼우는 패턴(combat_test.gd의 player_broadside_active 분기, _cannon_volley_cycle()
 ## 참고). frenzy_deepen/chain_explosion과 달리 "스택"이 아니라 "주기"만 있어 공격/방어
 ## 분기 없이 공격 한 쪽만 건드린다.
+##
+## "juggle_fortune"(곡예 흥행): 곡예사(juggler) 전용, 2026-10-15 [대형 기획 14] N-5(a).
+## INBOX.md "전용 스킬 및 강화에도 이벤트 계열 1쌍을 추가해 곡예사의 '이벤트 정체성'이
+## 런 중간 성장에서도 이어지게(기존 juggle_encore는 유지)" 반영 — 곡예사는 이제
+## juggle_encore(전투 기믹 재발동)와 juggle_fortune(이벤트 판정 보정) 두 고유 스킬을
+## 함께 갖는다. "위험을 감수하기" 이벤트 주사위 굴림 결과에 +1 보정을 더한다(상한:
+## 이벤트 주사위 면 개수 — 다른 다이스 보정 스킬들과 같은 상한 관례). event.gd의
+## event_roll_bonus() 순수 함수로 구현(실제 굴림은 _on_risky_pressed()에서 적용).
 const UNIQUE_SKILLS: Array[Dictionary] = [
 	{
 		"id": "frenzy_deepen",
@@ -148,6 +156,12 @@ const UNIQUE_SKILLS: Array[Dictionary] = [
 		"name": "일제 사격",
 		"description": "함포 일제사격 주기가 3턴에서 2턴으로 단축된다 (해적 전용).",
 		"character_id": "pirate",
+	},
+	{
+		"id": "juggle_fortune",
+		"name": "곡예 흥행",
+		"description": "'위험을 감수하기'에서 이벤트 주사위 굴림 결과에 +1 보정이 더해진다 (상한: 이벤트 주사위 면 개수, 곡예사 전용).",
+		"character_id": "juggler",
 	},
 ]
 
@@ -228,6 +242,13 @@ const UPGRADE_SKILLS: Array[Dictionary] = [
 		"upgrades": "broadside",
 		"character_id": "pirate",
 	},
+	{
+		"id": "juggle_fortune_plus",
+		"name": "곡예 흥행+",
+		"description": "이벤트 주사위 굴림 보정이 +1에서 +2로 강화된다 (상한은 그대로 이벤트 주사위 면 개수, 곡예사 전용).",
+		"upgrades": "juggle_fortune",
+		"character_id": "juggler",
+	},
 ]
 
 
@@ -252,7 +273,11 @@ const STARTING_SKILLS: Array[Dictionary] = [
 		"id": "start_aggro",
 		"name": "맹공",
 		"description": "공격 다이스 개수가 방어 다이스 개수보다 많으면, 공격 다이스 결과값 전체가 +1 된다 (상한: 각 다이스 면 개수).",
-		"character_ids": ["berserker", "explosive", "juggler"],
+		# 2026-10-15 [대형 기획 14] N-5(a): 곡예사가 "이벤트 특화 클래스"로 재편되면서
+		# 곡예사의 시작 스킬 사다리(전투 보너스형 3종)가 이벤트 테마로 교체됐다 — 이
+		# 전투 스킬은 더는 곡예사 후보가 아니다(아래 start_hoard도 동일). 곡예사가
+		# 유지하는 전투 보조 1종은 "잡화점"(start_diverse, 곡예사 전용 id)이다.
+		"character_ids": ["berserker", "explosive"],
 	},
 	{
 		"id": "start_wall",
@@ -276,7 +301,8 @@ const STARTING_SKILLS: Array[Dictionary] = [
 		"id": "start_hoard",
 		"name": "수집가",
 		"description": "보유한 눈금 인벤토리가 5개 이상이면, 공격 다이스 결과값 전체가 +1 된다 (상한: 각 다이스 면 개수).",
-		"character_ids": ["berserker", "juggler"],
+		# N-5(a): 곡예사 제외(위 start_aggro 주석 참고).
+		"character_ids": ["berserker"],
 	},
 	{
 		"id": "start_ironclad",
@@ -320,10 +346,32 @@ const STARTING_SKILLS: Array[Dictionary] = [
 		"description": "특수 이벤트 '위험을 감수하기'의 판정 DC가 1 낮아진다 (최저 DC 2).",
 		"character_ids": ["enchantress"],
 	},
+	# 곡예사 이벤트 스킬 2종(N-5(a), 슬롯0/슬롯1) — "최소 2종을 이벤트 스킬로 교체,
+	# 전투 보조 1종은 유지" 지시 반영. 아래 "잡화점"(기존 슬롯2, 전투 보조)은 그대로
+	# 남겨 슬롯 순서가 눈속임(슬롯0) -> 한탕(슬롯1) -> 잡화점(슬롯2)이 되도록 이 두
+	# 항목을 잡화점 바로 앞에 넣는다(STARTING_SKILLS 안에서의 등장 순서 = 슬롯 순서,
+	# starting_skills_for_character() 주석 참고).
+	{
+		"id": "start_sleight",
+		"name": "눈속임",
+		"description": "특수 이벤트 '위험을 감수하기'의 판정 DC가 1 낮아진다 (최저 DC 2).",
+		# "승부사"(start_gambler, 매혹사 전용)와 효과는 같지만 INBOX.md 지시대로
+		# "매혹사와 공유하지 말고 구분"하기 위해 별도 id로 분리했다 — event.gd의
+		# DC 계산이 두 id 중 하나만 있어도(or 조건) 동일하게 -1을 적용한다.
+		"character_ids": ["juggler"],
+	},
+	{
+		"id": "start_fortune",
+		"name": "한탕",
+		"description": "특수 이벤트 '위험을 감수하기'에서 성공하면 골드를 추가로 얻는다.",
+		"character_ids": ["juggler"],
+	},
 	{
 		"id": "start_diverse",
 		"name": "잡화점",
 		"description": "공격+방어 다이스 중 서로 다른 면 개수의 종류가 3종 이상이면, 공격/방어 다이스 결과값 전체가 +1 된다 (상한: 각 다이스 면 개수).",
+		# N-5(a): 곡예사가 유지하는 유일한 "전투 보조" 시작 스킬(슬롯2) — 눈속임/한탕과
+		# 달리 전투 보너스형이라 그대로 남겨둔다.
 		"character_ids": ["juggler"],
 	},
 	# 해적([대형 기획 9] I-2, INBOX.md 2026-10-08 기획자 결정)은 슬롯 순서가
@@ -522,6 +570,13 @@ const ICON_MOTIFS: Dictionary = {
 	"broadside_plus": "cycle_strike",
 	# 전투 외 이벤트 판정 보정
 	"start_gambler": "event_check",
+	# N-5(a): 곡예사 이벤트 스킬 4종(시작 2종 + 전용/강화 1쌍) — 전부 "이벤트 판정
+	# 보정"이라는 같은 효과 범주라 start_gambler와 모티프를 공유한다(ICON_MOTIFS
+	# 주석의 "효과가 같으면 같은 모티프" 원칙).
+	"start_sleight": "event_check",
+	"start_fortune": "event_check",
+	"juggle_fortune": "event_check",
+	"juggle_fortune_plus": "event_check",
 }
 
 ## ICON_MOTIFS가 쓰는 값 전체(테스트/미리보기에서 전수 순회용). 여기 없는 문자열이

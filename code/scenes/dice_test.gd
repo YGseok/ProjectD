@@ -377,6 +377,10 @@ func _ready() -> void:
 	all_pass = _check_n4_dice_chip_stats(lines) and all_pass
 
 	lines.append("")
+	lines.append("[N-5(a): 곡예사를 이벤트 특화 클래스로 — event_die_sides=D12(나머지 7종은 D6 유지), 시작 스킬 사다리가 눈속임/한탕/잡화점(이벤트 2종+전투 보조 1종)으로 재구성, 신규 고유 스킬 곡예 흥행(+)이 이벤트 주사위 굴림을 보정, chosen_starting_skill_id가 사라진 id(start_aggro)를 가리킬 때 슬롯0으로 안전하게 폴백]")
+	all_pass = _check_n5a_juggler_event_specialist(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -2166,8 +2170,9 @@ func _check_skill_icons(lines: PackedStringArray) -> bool:
 	return ok
 
 
-## INBOX.md 2026-09-15 [미니 기획 B]-4 검증. (1) PROFILES 5종 전부 event_die_sides
-## 필드가 있고 지금은 전부 6이어야 함(DESIGN.md 확정대로 아직 캐릭터별 차등 없음).
+## INBOX.md 2026-09-15 [미니 기획 B]-4 검증. (1) PROFILES 8종 전부 event_die_sides
+## 필드이 있고, 2026-10-15 [대형 기획 14] N-5(a)부터 곡예사(juggler)만 12(나머지
+## 7종은 그대로 6)여야 함(DESIGN.md "이벤트 특화 클래스" 첫 차등 사례).
 ## (2) RunState.reset_run(id)가 이 필드를 event_die_sides로 그대로 복사하는지.
 ## (3) EventDieVisual._to_roman()이 1~6을 I~VI로, 표 밖 값은 숫자 폴백으로 바꾸는지.
 func _check_event_die_sides(lines: PackedStringArray) -> bool:
@@ -2176,9 +2181,10 @@ func _check_event_die_sides(lines: PackedStringArray) -> bool:
 
 	for profile in CharacterProfiles.PROFILES:
 		var sides: int = int(profile.get("event_die_sides", -1))
-		var sides_ok := sides == 6
+		var expected_sides: int = 12 if profile["id"] == "juggler" else 6
+		var sides_ok := sides == expected_sides
 		ok = sides_ok and ok
-		lines.append("  \"%s\" event_die_sides=%d(기대 6) -> %s" % [profile["id"], sides, "OK" if sides_ok else "FAIL"])
+		lines.append("  \"%s\" event_die_sides=%d(기대 %d) -> %s" % [profile["id"], sides, expected_sides, "OK" if sides_ok else "FAIL"])
 
 	RunState.reset_run("berserker")
 	var run_state_ok: bool = RunState.event_die_sides == 6
@@ -3377,21 +3383,22 @@ func _check_f3_e2e_flow(lines: PackedStringArray) -> bool:
 	return ok
 
 
-## [미니 기획 D]-1/2 검증: UPGRADE_SKILLS 데이터 형태(10종, "upgrades" 필드가 실제
+## [미니 기획 D]-1/2 검증: UPGRADE_SKILLS 데이터 형태(11종, "upgrades" 필드가 실제
 ## SKILLS/UNIQUE_SKILLS id를 가리키는지)와 available_upgrade_choices()/grant_upgrade()의
 ## 필터링 동작(base 미보유 시 후보 제외, "+" 이미 보유 시 후보 제외, character_id 필터,
 ## grant_upgrade가 올바른 "+"id를 추가하는지)을 검증한다.
 func _check_upgrade_skill_pool(lines: PackedStringArray) -> bool:
 	var ok := true
 
-	# (1) UPGRADE_SKILLS는 10종(SKILLS 2 + UNIQUE_SKILLS 8)이고, 각 "upgrades" 필드가
-	# 실제 존재하는 base id를 가리키며, 이름은 전부 "<base 이름>+" 형태다.
+	# (1) UPGRADE_SKILLS는 11종(SKILLS 2 + UNIQUE_SKILLS 9, 2026-10-15 [대형 기획 14]
+	# N-5(a)로 "곡예 흥행+"(juggle_fortune_plus) 추가돼 10->11)이고, 각 "upgrades"
+	# 필드가 실제 존재하는 base id를 가리키며, 이름은 전부 "<base 이름>+" 형태다.
 	var base_ids: Array = []
 	for s in SkillPool.SKILLS:
 		base_ids.append(s["id"])
 	for s in SkillPool.UNIQUE_SKILLS:
 		base_ids.append(s["id"])
-	var count_ok: bool = SkillPool.UPGRADE_SKILLS.size() == 10
+	var count_ok: bool = SkillPool.UPGRADE_SKILLS.size() == 11
 	var all_upgrades_valid := true
 	var all_names_plus := true
 	for s in SkillPool.UPGRADE_SKILLS:
@@ -3401,7 +3408,7 @@ func _check_upgrade_skill_pool(lines: PackedStringArray) -> bool:
 			all_names_plus = false
 	var data_ok: bool = count_ok and all_upgrades_valid and all_names_plus
 	ok = data_ok and ok
-	lines.append("  UPGRADE_SKILLS 데이터: 개수=%d(기대 10) upgrades 필드 전부 유효=%s 이름 전부 '+'로 끝남=%s -> %s" % [
+	lines.append("  UPGRADE_SKILLS 데이터: 개수=%d(기대 11) upgrades 필드 전부 유효=%s 이름 전부 '+'로 끝남=%s -> %s" % [
 		SkillPool.UPGRADE_SKILLS.size(), all_upgrades_valid, all_names_plus, "OK" if data_ok else "FAIL"
 	])
 
@@ -3738,7 +3745,10 @@ func _check_starting_skills(lines: PackedStringArray) -> bool:
 		"explosive": ["start_aggro", "start_expand", "start_overflow"],
 		"shieldbearer": ["start_wall", "start_lean", "start_second_wind"],
 		"enchantress": ["start_expand", "start_lean", "start_gambler"],
-		"juggler": ["start_aggro", "start_hoard", "start_diverse"],
+		# N-5(a)(2026-10-15 [대형 기획 14]): 곡예사가 이벤트 특화 클래스로 재편되며
+		# start_aggro/start_hoard 대신 눈속임/한탕(이벤트 테마)으로 교체됐다 —
+		# 전투 보조 1종(잡화점)만 유지.
+		"juggler": ["start_sleight", "start_fortune", "start_diverse"],
 		"pirate": ["start_vanguard", "start_wealth", "start_hoard"],
 	}
 	for character_id in expected.keys():
@@ -7036,9 +7046,11 @@ func _check_l2a_skill_codex(lines: PackedStringArray) -> bool:
 	SkillCodex._debug_reset_for_qa()
 	AchievementManager._debug_reset_for_qa()
 
-	# (1) codex_entries() 완전성/순서 — 8명 전부 총 9개(시작 3 + 전용 1 + 공용 2 +
+	# (1) codex_entries() 완전성/순서 — 기본 7명은 총 9개(시작 3 + 전용 1 + 공용 2 +
 	# 강화 3(공용 2 + 전용 1)), 등장 순서가 시작->전용->공용->강화이고, id 중복이 없어야
-	# 한다.
+	# 한다. **곡예사는 2026-10-15 [대형 기획 14] N-5(a)로 고유 스킬이 2종(juggle_encore
+	# + juggle_fortune)이 돼 총 11개(시작 3 + 전용 2 + 공용 2 + 강화 4(공용 2 + 전용
+	# 2))로 늘었다** — 별도 기대값으로 검증.
 	var count_ok := true
 	var order_ok := true
 	var no_dup_ok := true
@@ -7048,22 +7060,30 @@ func _check_l2a_skill_codex(lines: PackedStringArray) -> bool:
 		"common", "common",
 		"upgrade", "upgrade", "upgrade",
 	]
+	var expected_sources_juggler: Array[String] = [
+		"starting", "starting", "starting",
+		"unique", "unique",
+		"common", "common",
+		"upgrade", "upgrade", "upgrade", "upgrade",
+	]
 	for profile in CharacterProfiles.PROFILES:
 		var character_id: String = profile["id"]
 		var entries: Array[Dictionary] = SkillPool.codex_entries(character_id)
-		if entries.size() != 9:
+		var expected_size: int = 11 if character_id == "juggler" else 9
+		var expected_for_character: Array[String] = expected_sources_juggler if character_id == "juggler" else expected_sources
+		if entries.size() != expected_size:
 			count_ok = false
 		var seen: Dictionary = {}
 		for entry in entries:
 			if seen.has(entry["id"]):
 				no_dup_ok = false
 			seen[entry["id"]] = true
-		for i in min(entries.size(), expected_sources.size()):
-			if entries[i]["codex_source"] != expected_sources[i]:
+		for i in min(entries.size(), expected_for_character.size()):
+			if entries[i]["codex_source"] != expected_for_character[i]:
 				order_ok = false
 	ok = count_ok and order_ok and no_dup_ok and ok
-	lines.append("  codex_entries() 8명 전부 size()==9 -> %s" % ("OK" if count_ok else "FAIL"))
-	lines.append("  codex_entries() 순서(시작x3->전용x1->공용x2->강화x3) 8명 전부 일치 -> %s" % ("OK" if order_ok else "FAIL"))
+	lines.append("  codex_entries() 크기(7명=9, 곡예사=11) 8명 전부 일치 -> %s" % ("OK" if count_ok else "FAIL"))
+	lines.append("  codex_entries() 순서(시작->전용->공용->강화) 8명 전부 일치 -> %s" % ("OK" if order_ok else "FAIL"))
 	lines.append("  codex_entries() id 중복 없음(8명 전부) -> %s" % ("OK" if no_dup_ok else "FAIL"))
 
 	# (2) 저장/로드 왕복 — mark_discovered() 직후 _load()로 디스크에서 다시 읽어도
@@ -8962,5 +8982,180 @@ func _check_n4_dice_chip_stats(lines: PackedStringArray) -> bool:
 	node.free()
 	RunState.character_id = character_backup
 	RunState.chosen_starting_skill_id = chosen_backup
+	AchievementManager._debug_reset_for_qa()
+	return ok
+
+
+## [대형 기획 14] N-5(a)(INBOX.md 2026-10-15, "곡예사를 이벤트 특화 클래스로") 검증:
+## (a) 곡예사만 event_die_sides=12, 나머지 7종은 그대로 6.
+## (b) RunState.reset_run("juggler")가 이 값을 그대로 복사하는지.
+## (c) 곡예사의 시작 스킬 슬롯 순서가 눈속임(이벤트)->한탕(이벤트)->잡화점(전투
+##     보조) 3개로 재구성됐는지, start_aggro/start_hoard가 더는 곡예사 후보에 없는지
+##     (다른 캐릭터(광전사)에게는 여전히 있는지 — 회귀 확인).
+## (d) chosen_starting_skill_id가 사라진 id(start_aggro, 곡예사 기준)를 가리키는 채로
+##     캐릭터를 곡예사로 바꾸면 안전하게 슬롯0(눈속임)으로 폴백하는지 — "폴백 안전성"
+##     요구사항(INBOX.md N-5(a) 원문).
+## (e) "눈속임"/"승부사"가 event.gd의 실제 DC 계산(_dc)을 1 낮추는지(물리 없이
+##     event.tscn 인스턴스화 + _dc 읽기).
+## (f) event_roll_bonus() 순수 함수: 플래그 없음/juggle_fortune/juggle_fortune_plus
+##     각각 0/1/2를 돌려주는지.
+## (g) _effective_risky_roll()이 실제로 그 보정을 raw_roll에 더하고 이벤트 주사위
+##     면 개수로 상한을 거는지(여러 raw_roll/skill_flags 조합).
+## (h) "한탕"(start_fortune) — 판정 성공 시 RunState.gold가 FORTUNE_GOLD_BONUS만큼
+##     실제로 늘어나는지(계산 결과 검증, _debug_force_risky_success()로 성공 경로
+##     결정적 재현).
+func _check_n5a_juggler_event_specialist(lines: PackedStringArray) -> bool:
+	var ok := true
+	var character_backup := RunState.character_id
+	var chosen_backup := RunState.chosen_starting_skill_id
+	var skill_flags_backup: Array[String] = RunState.skill_flags.duplicate()
+	var rooms_backup := RunState.rooms_cleared
+	var gold_backup := RunState.gold
+	var event_sides_backup := RunState.event_die_sides
+
+	# (a) 프로필 event_die_sides.
+	var sides_ok := true
+	for profile in CharacterProfiles.PROFILES:
+		var expected: int = 12 if profile["id"] == "juggler" else 6
+		if int(profile.get("event_die_sides", -1)) != expected:
+			sides_ok = false
+	ok = sides_ok and ok
+	lines.append("  CharacterProfiles.PROFILES: 곡예사만 event_die_sides=12, 나머지 7종은 6 -> %s" % ("OK" if sides_ok else "FAIL"))
+
+	# (b) RunState 복사.
+	RunState.reset_run("juggler")
+	var runstate_copy_ok: bool = RunState.event_die_sides == 12
+	ok = runstate_copy_ok and ok
+	lines.append("  reset_run(\"juggler\") 후 RunState.event_die_sides=%d(기대 12) -> %s" % [
+		RunState.event_die_sides, "OK" if runstate_copy_ok else "FAIL"
+	])
+
+	# (c) 시작 스킬 슬롯 순서 + start_aggro/start_hoard 제외.
+	var juggler_candidates := SkillPool.starting_skills_for_character("juggler")
+	var juggler_ids: Array = []
+	for c in juggler_candidates:
+		juggler_ids.append(c["id"])
+	var juggler_order_ok: bool = juggler_ids == ["start_sleight", "start_fortune", "start_diverse"]
+	ok = juggler_order_ok and ok
+	lines.append("  곡예사 시작 스킬 슬롯 순서: %s (기대 [start_sleight, start_fortune, start_diverse]) -> %s" % [
+		juggler_ids, "OK" if juggler_order_ok else "FAIL"
+	])
+
+	var berserker_ids: Array = []
+	for c in SkillPool.starting_skills_for_character("berserker"):
+		berserker_ids.append(c["id"])
+	var berserker_unaffected_ok: bool = berserker_ids.has("start_aggro") and berserker_ids.has("start_hoard")
+	ok = berserker_unaffected_ok and ok
+	lines.append("  광전사 시작 스킬 후보에는 여전히 start_aggro/start_hoard 포함(회귀 확인): %s -> %s" % [
+		berserker_ids, "OK" if berserker_unaffected_ok else "FAIL"
+	])
+
+	# (d) 사라진 id -> 슬롯0 폴백.
+	var select_scene := load("res://code/scenes/character_select.tscn")
+	var select_node = select_scene.instantiate()
+	add_child(select_node)
+	AchievementManager._debug_reset_for_qa()
+	RunState.chosen_starting_skill_id = "start_aggro"
+	select_node._on_card_selected("juggler")
+	var fallback_ok: bool = RunState.chosen_starting_skill_id == "start_sleight"
+	ok = fallback_ok and ok
+	lines.append("  chosen_starting_skill_id=\"start_aggro\"(곡예사 기준 사라진 id)인 채로 곡예사 선택 -> %s(기대 start_sleight) -> %s" % [
+		RunState.chosen_starting_skill_id, "OK" if fallback_ok else "FAIL"
+	])
+	remove_child(select_node)
+	select_node.free()
+	AchievementManager._debug_reset_for_qa()
+
+	# (e) DC 계산(물리 없이 event.tscn 인스턴스화 + _dc 읽기).
+	var event_scene := load("res://code/scenes/event.tscn")
+	RunState.rooms_cleared = 0
+	RunState.skill_flags = []
+	var dc_without_node = event_scene.instantiate()
+	add_child(dc_without_node)
+	var dc_without: int = dc_without_node._dc
+	remove_child(dc_without_node)
+	dc_without_node.free()
+
+	RunState.skill_flags = ["start_sleight"]
+	var dc_with_node = event_scene.instantiate()
+	add_child(dc_with_node)
+	var dc_with: int = dc_with_node._dc
+	remove_child(dc_with_node)
+	dc_with_node.free()
+
+	var dc_ok: bool = dc_without == 3 and dc_with == 2
+	ok = dc_ok and ok
+	lines.append("  '눈속임' DC 보정(방0, base DC3): 미보유=%d(기대 3) 보유=%d(기대 2) -> %s" % [
+		dc_without, dc_with, "OK" if dc_ok else "FAIL"
+	])
+
+	# (f) event_roll_bonus() 순수 함수.
+	var event_script := load("res://code/scenes/event.gd")
+	var bonus_none: int = event_script.event_roll_bonus([])
+	var bonus_base: int = event_script.event_roll_bonus(["juggle_fortune"])
+	var bonus_plus: int = event_script.event_roll_bonus(["juggle_fortune_plus"])
+	var bonus_ok: bool = bonus_none == 0 and bonus_base == 1 and bonus_plus == 2
+	ok = bonus_ok and ok
+	lines.append("  event_roll_bonus(): 없음=%d(기대 0) juggle_fortune=%d(기대 1) juggle_fortune_plus=%d(기대 2) -> %s" % [
+		bonus_none, bonus_base, bonus_plus, "OK" if bonus_ok else "FAIL"
+	])
+
+	# (g) _effective_risky_roll() — 보정 + 상한.
+	RunState.event_die_sides = 6
+	var roll_node = event_scene.instantiate()
+	add_child(roll_node)
+	RunState.skill_flags = []
+	var roll_plain: int = roll_node._effective_risky_roll(3)
+	RunState.skill_flags = ["juggle_fortune"]
+	var roll_boosted: int = roll_node._effective_risky_roll(3)
+	RunState.skill_flags = ["juggle_fortune_plus"]
+	var roll_boosted_plus: int = roll_node._effective_risky_roll(3)
+	var roll_capped: int = roll_node._effective_risky_roll(6)
+	var roll_ok: bool = roll_plain == 3 and roll_boosted == 4 and roll_boosted_plus == 5 and roll_capped == 6
+	ok = roll_ok and ok
+	lines.append("  _effective_risky_roll(raw=3, D6): 없음=%d(기대 3) juggle_fortune=%d(기대 4) juggle_fortune_plus=%d(기대 5); raw=6 juggle_fortune_plus=%d(상한 6 기대) -> %s" % [
+		roll_plain, roll_boosted, roll_boosted_plus, roll_capped, "OK" if roll_ok else "FAIL"
+	])
+	remove_child(roll_node)
+	roll_node.free()
+
+	# (h) "한탕" 골드 보너스 — 성공 경로를 결정적으로 강제(_debug_force_risky_success()).
+	RunState.rooms_cleared = 0
+	RunState.gold = 0
+	RunState.skill_flags = ["start_fortune"]
+	AchievementManager._debug_reset_for_qa()
+	var fortune_node = event_scene.instantiate()
+	add_child(fortune_node)
+	fortune_node._debug_force_risky_success()
+	var fortune_gold_ok: bool = RunState.gold == fortune_node.FORTUNE_GOLD_BONUS
+	ok = fortune_gold_ok and ok
+	lines.append("  '한탕' 보유 + 위험 감수 강제 성공: RunState.gold=%d(기대 %d) -> %s" % [
+		RunState.gold, fortune_node.FORTUNE_GOLD_BONUS, "OK" if fortune_gold_ok else "FAIL"
+	])
+	remove_child(fortune_node)
+	fortune_node.free()
+
+	# 골드 없이(스킬 미보유)는 보너스가 없어야 한다 — 회귀 확인.
+	RunState.rooms_cleared = 0
+	RunState.gold = 0
+	RunState.skill_flags = []
+	AchievementManager._debug_reset_for_qa()
+	var no_fortune_node = event_scene.instantiate()
+	add_child(no_fortune_node)
+	no_fortune_node._debug_force_risky_success()
+	var no_fortune_gold_ok: bool = RunState.gold == 0
+	ok = no_fortune_gold_ok and ok
+	lines.append("  '한탕' 미보유 + 위험 감수 강제 성공: RunState.gold=%d(기대 0, 보너스 없음) -> %s" % [
+		RunState.gold, "OK" if no_fortune_gold_ok else "FAIL"
+	])
+	remove_child(no_fortune_node)
+	no_fortune_node.free()
+
+	RunState.character_id = character_backup
+	RunState.chosen_starting_skill_id = chosen_backup
+	RunState.skill_flags = skill_flags_backup
+	RunState.rooms_cleared = rooms_backup
+	RunState.gold = gold_backup
+	RunState.event_die_sides = event_sides_backup
 	AchievementManager._debug_reset_for_qa()
 	return ok

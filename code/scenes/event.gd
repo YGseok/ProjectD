@@ -31,6 +31,16 @@ extends Node2D
 ## _apply_skill_pick()을 그대로 재사용한다 — UPGRADE_SKILLS 항목도 SKILLS/UNIQUE_SKILLS와
 ## 같은 {id, name, description} 형태라 별도 처리가 필요 없다(강화판 자신의 "+"id를
 ## skill_flags에 추가하면 그대로 강화 완료).
+##
+## [대형 기획 14] N-5(a)(INBOX.md 2026-10-15, 곡예사를 이벤트 특화 클래스로): 곡예사
+## 전용 시작/고유 스킬 3종(눈속임/한탕/곡예 흥행(+))이 이 "위험을 감수하기" 판정에
+## 직접 끼어든다 — ① "눈속임"(start_sleight)/"승부사"(start_gambler, 매혹사)는
+## gambler_adjusted_dc() 호출 시 OR로 함께 확인해 DC를 1 낮춘다(둘 다 효과가 같아
+## 함수 자체는 그대로, 호출 조건만 확장) ② "곡예 흥행"(juggle_fortune)/"곡예 흥행+"
+## (juggle_fortune_plus)은 event_roll_bonus() 순수 함수로 주사위 굴림 결과에 +1/+2
+## 보정을 더한다(_on_risky_pressed()에서만 적용 — QA 훅 _debug_force_risky_*는 결정적
+## 재현이 목적이라 보정 없이 그대로 둠) ③ "한탕"(start_fortune)은 판정 성공 시
+## FORTUNE_GOLD_BONUS 골드를 추가로 준다(_resolve_risky()).
 
 @onready var items_root: Node2D = $ItemsRoot
 @onready var roll_root: Node2D = $RollRoot
@@ -61,6 +71,16 @@ const SKILL_EVENT_CHANCE := 0.3
 ## 사람 플레이 피드백 필요.
 const SKILL_UPGRADE_EVENT_CHANCE := 0.2
 
+## N-5(a) "한탕"(start_fortune, 곡예사 전용 시작 스킬): "위험을 감수하기" 성공 시 주는
+## 추가 골드. 전투 승리 보상(`combat_test.GOLD_REWARD_BASE`=8)과 비슷한 체감 크기로
+## 잡은 잠정값 — 실제 밸런스는 사람 플레이 피드백 필요.
+const FORTUNE_GOLD_BONUS := 10
+
+## N-5(a) "곡예 흥행"/"곡예 흥행+"(juggle_fortune/juggle_fortune_plus, 곡예사 전용
+## 고유 스킬 쌍): 이벤트 주사위 굴림 결과 보정치.
+const JUGGLE_FORTUNE_ROLL_BONUS := 1
+const JUGGLE_FORTUNE_PLUS_ROLL_BONUS := 2
+
 ## 이번 인스턴스가 스킬 강화 이벤트인지 — _ready()에서 한 번만 정해지고 이후 바뀌지
 ## 않는다. true면 _is_skill_event 여부와 무관하게 강화 카드가 표시된다.
 var _is_skill_upgrade_event := false
@@ -87,7 +107,10 @@ func _ready() -> void:
 	# M-5(b): resources/backgrounds/event.png가 있으면 그 사진을 깐다(없으면 폴백).
 	CharacterTheme.apply_background(self, RunState.character_id, false, 0.25, "event")
 	CharacterTheme.apply_label(title_label, RunState.character_id)
-	_dc = gambler_adjusted_dc(difficulty_for_room(RunState.rooms_cleared), RunState.skill_flags.has("start_gambler"))
+	# N-5(a): "눈속임"(곡예사)도 "승부사"(매혹사)와 동일하게 DC -1을 적용 — 둘 다
+	# 효과가 같아 함수는 그대로 재사용하고 OR 조건만 넓힌다(한 런에 둘 다 가질 수는
+	# 없지만(캐릭터별 전용 시작 스킬), 둘 다 없어도/둘 다 있어도 안전하게 동작).
+	_dc = gambler_adjusted_dc(difficulty_for_room(RunState.rooms_cleared), RunState.skill_flags.has("start_gambler") or RunState.skill_flags.has("start_sleight"))
 	customize_button.pressed.connect(customize_panel.open)
 	skill_codex_button.pressed.connect(_on_skill_codex_pressed)
 	fail_label.hide()
@@ -198,15 +221,39 @@ func _on_risky_pressed() -> void:
 	_choice_made = true
 	safe_button.hide()
 	risky_button.hide()
-	_resolve_risky(randi_range(1, RunState.event_die_sides))
+	_resolve_risky(_effective_risky_roll(randi_range(1, RunState.event_die_sides)))
+
+
+## N-5(a) "곡예 흥행"/"곡예 흥행+": 실제 굴림(raw_roll)에 더할 보정치. 다른 "다이스
+## 결과값 보정" 스킬들과 같은 관례로 상한(이벤트 주사위 면 개수)은 호출부
+## (_effective_risky_roll())가 min()으로 직접 건다 — 이 함수는 보정치 자체만 돌려주는
+## 순수 함수라 물리/노드 없이 바로 테스트할 수 있다.
+static func event_roll_bonus(skill_flags: Array) -> int:
+	if skill_flags.has("juggle_fortune_plus"):
+		return JUGGLE_FORTUNE_PLUS_ROLL_BONUS
+	if skill_flags.has("juggle_fortune"):
+		return JUGGLE_FORTUNE_ROLL_BONUS
+	return 0
+
+
+## _on_risky_pressed()의 보정 계산을 별도 함수로 분리 — RNG(randi_range)가 섞인
+## _on_risky_pressed() 전체를 거치지 않고도, dice_test.gd가 임의의 raw_roll 값을
+## 직접 넣어 "실제 적용되는 보정+상한 공식"이 맞는지 결정적으로 검증할 수 있게 한다.
+func _effective_risky_roll(raw_roll: int) -> int:
+	return min(RunState.event_die_sides, raw_roll + event_roll_bonus(RunState.skill_flags))
 
 
 ## roll을 인자로 받아 QA에서 결정적으로 강제할 수 있게 한다(아래 _debug_force_risky_*).
+## QA 훅들은 이 함수를 직접(= _on_risky_pressed()를 거치지 않고) 불러 event_roll_bonus()
+## 보정 없이 roll 값 그대로 판정한다 — "강제 성공/실패"의 결정성이 목적이라 의도적.
 func _resolve_risky(roll: int) -> void:
 	var success := roll >= _dc
 	_show_roll_result(roll, success)
 	if success:
 		AchievementManager.unlock("risk_taker")
+		# N-5(a) "한탕"(곡예사 전용 시작 스킬): 성공 시 추가 골드.
+		if RunState.skill_flags.has("start_fortune"):
+			RunState.gold += FORTUNE_GOLD_BONUS
 		_show_item_offer(EventItemPool.random_risky_item())
 	else:
 		_show_fail()

@@ -8,6 +8,86 @@
 
 ---
 
+- **2026-10-15 (202)**: INBOX.md 최우선 지시(이번 이터레이션 직접 지시) [대형 기획 13]
+  **M-5(a)(UIKit 이미지 스킨 — 패널/버튼/HP 바) 완료**. 아트 스레드가 `resources/ui/`에
+  U1~U6(패널 4종/버튼 2종/HP 바/배지/장식/아이콘)를 전부 납품했지만 Work 쪽 코드는 아직
+  절차적 스타일만 쓰고 있었다 — 이번 조각은 그중 "패널(section/hud/card/overlay)+버튼
+  (primary/secondary)+HP 바"를 `code/systems/ui_kit.gd`의 `UIKit`에 실제로 연결했다
+  (배지/장식/아이콘은 M-5(b)).
+  **패널**: `apply_panel_skin(panel, kind, character_id, base_dir)` 신규 — base+accent
+  PNG를 로드해 accent를 `CharacterTheme.ui_palette()["accent"]`로 틴트(`Image.set_pixel`
+  로 RGB만 곱하고 알파 유지)한 뒤 `Image.blend_rect()`로 base 위에 한 번만 합성해(패널은
+  버튼과 달리 "상태"가 없으므로 라이브 오버레이 대신 미리 굽는 쪽을 택함 — 캐릭터별로
+  한 번만 구우면 되고, 기존 `body.get_parent() == panel` 가정도 그대로 유지됨) 하나의
+  `StyleBoxTexture`로 만든다. `content_margin`은 기본값(-1)으로 남겨 `texture_margin`과
+  자동으로 같아지게 해 9-slice 테두리만큼 자식이 자연히 인셋되게 했다. base PNG가 없으면
+  false를 돌려줘 호출부가 기존 `StyleBoxFlat` 절차적 스타일로 폴백한다(`CharacterTheme.
+  apply()`는 StyleBoxFlat 전용이라 스킨 활성 시에는 호출 안 함 — 호출하면 새 StyleBoxFlat을
+  만들어 스킨을 덮어써버리므로). `make_section()`(kind="section")/`make_bar()`(kind="hud")
+  가 이 헬퍼를 쓰도록 바뀌어, dungeon_map/combat_test/event/shop/story_event/deck_panel이
+  쓰는 모든 구역 패널·HUD 띠가 자동으로 스킨을 받는다. 오버레이 패널 3종(CustomizePanel/
+  AchievementPanel/SkillCodexPanel)도 `CharacterTheme.apply(bg, ...)` 직접 호출 지점을
+  "`UIKit.apply_panel_skin(bg, "overlay", ...)` 실패 시에만 폴백"으로 1~2줄씩 바꿔 자동
+  적용되게 했다. "card" 종류(아이템/보상 카드)는 **의도적으로 보류** — `ItemCardStyle.
+  build_card()`의 테두리색이 지금 등급(S/A/B/C) 신호로 쓰이는데 캐릭터 accent로 바꾸면
+  그 신호가 사라지는 설계 충돌이 있어, 사람 결정 없이 임의로 바꾸지 않고 그대로 뒀다
+  (factory 자체는 kind="card" 스펙까지 다 만들어 둬서, 나중에 결정만 나면 한 줄로 적용
+  가능).
+  **버튼**: 패널과 달리 normal/hover/pressed/disabled 4가지 "상태"가 있어, 상태마다
+  base+accent(커스텀 tint 가능 — `style_secondary_button(..., tint)`의 위험 강조색 등도
+  팔레트 accent 대신 그대로 틴트됨)를 미리 구워 `StyleBoxTexture` 하나로 만든다(`style_
+  primary_button()`/`style_secondary_button()`이 상태별로 개별 시도 — **그 상태의 base
+  PNG가 없으면 그 상태만 기존 `StyleBoxFlat`으로 폴백**해 INBOX M-5 "파일이 일부만 있어도
+  상태별로 폴백" 요구를 만족). "focus"(5번째 상태)는 `FocusNav.focus_style()`가 전담하는
+  별도 테마 슬롯이고 버튼 아닌 Control(카드/방 선택지 등)에도 범용으로 쓰여 kind(primary/
+  secondary)별로 못 묶이므로 이번 범위에서 의도적으로 제외. 글자색 대비(INBOX "primary는
+  면 전체가 accent라 밝은 색에서 흰 글자가 안 보일 수 있음")는 기존 `contrasting_text_
+  color()`를 그대로 재사용해 스킨 여부와 무관하게 계속 보장됨(새 로직 불필요).
+  **HP 바**: `UIKit.make_hp_bar()` 신규(combat_test.gd의 `_build_hp_bar()`가 여기로 위임) —
+  프레임(base+accent, 패널과 같은 이유로 한 장으로 구워 `NinePatchRect`)과 채움(`hp_fill.png`,
+  accent 없이 흰~회색 그라데이션 하나뿐이라 그대로 `NinePatchRect`로 쓰고 `.modulate`로
+  런타임에 녹→주황→빨강 착색 — 기존 `_update_hp_bar()`의 색 전환 로직은 변경 없음, `fill is
+  ColorRect`로 분기해 폴백(ColorRect, `.color`)과 스킨(NinePatchRect, `.modulate`) 양쪽을
+  같은 함수가 처리)을 각각 그린다. 채움 위치는 프레임 9-slice 마진(좌우32/상하10)과 다른
+  "프레임 안쪽 홈"(좌22/상11/우22/하10, ART_RESOURCES.md UI200 그대로) 절대 좌표를 쓴다.
+  **레이아웃 회귀 발견 + 수정**: 버튼 `StyleBoxTexture`의 `content_margin`을 기본값(=
+  `texture_margin`, 상하 16px)에 맡겼더니 실제 자산 적용 직후 `dice_test`의 M-3 검증
+  ("'전투 기록' 패널 y=572 >= 버튼 행 바닥 y=584")이 FAIL로 잡혔다 — M-3이 버튼을 526~566
+  (40px) 고정 좌표로 깔아뒀는데, 스킨 버튼의 최소 높이가 48px+폰트로 커져 겹친 것. 원인은
+  `texture_margin`(9-slice 비늘림 구간, 순수 렌더링 값)과 `content_margin`(레이아웃이
+  요구하는 최소 여백)을 같은 값으로 둘 필요가 없다는 점 — 버튼만 `content_margin_top/
+  bottom`을 4px로 명시해(좌우는 28 유지) 기존 고정 좌표 레이아웃과 호환되게 했다(패널은
+  이 문제가 없음 — 패널의 9-slice 테두리 두께와 콘텐츠 인셋이 실제로 같아야 하는 디자인
+  의도이므로 그대로 둠).
+  **검증**: `dice_test.gd`의 신규 `_check_m5a_uikit_image_skin()`(9단계 — ① 패널 파일 없음
+  →`StyleBoxFlat` ② base만→`StyleBoxTexture`+마진24 ③ base+accent, 캐릭터(berserker/
+  pirate)별로 합성 픽셀이 실제 `ui_palette()["accent"]`와 근사 일치(8비트 양자화 오차
+  0.01 허용) + 서로 다름 ④ base 삭제→다시 `StyleBoxFlat` ⑤ hud 마진(좌우34/상하20) ⑥
+  버튼 "normal"만 있으면 그 상태만 스킨, "hover"는 폴백 + 합성 픽셀이 tint와 일치 ⑦
+  secondary 커스텀 tint도 팔레트 대신 그대로 적용 ⑧ HP 바 skinned/fallback 전환 +
+  `fill_full_width` 계산 ⑨ 실제 production `resources/ui/`로 `combat_test.tscn`을
+  instantiate해 HP 바가 실제 `NinePatchRect`이고 HP 100%/10%에서 크기·색이 기존과 동일한
+  공식으로 동작하는지, 버튼이 실제 `StyleBoxTexture`인지)가 "없음→있음→없음" user://
+  임시 경로(production `base_dir`는 캐릭터/kind/tint별로만 캐싱돼 테스트 경로는 캐시를
+  안 타 매번 실제 파일 존재를 재확인 — 캐싱이 "없음→있음" 전환을 숨기는 버그 방지)로
+  전부 검증. **실제 production 자산이 이미 입고돼 있어서 기존 5개 테스트(L-3의 오버레이
+  패널 3종 테두리 비교, M-1/M-2의 버튼 위계 비교)가 이제 `StyleBoxTexture`를 받아
+  `.border_color`/`.bg_color`(StyleBoxFlat 전용 속성) 접근으로 크래시하는 회귀를 먼저
+  잡아냈다** — `_m5_style_fingerprint(style)`(StyleBoxFlat이면 border/bg 색, StyleBoxTexture면
+  실제로 구워진 texture 객체) 공용 헬퍼로 두 스타일 종류를 다 받게 고쳤다(둘 다 "서로
+  다른 렌더 결과"라는 같은 의도를 보존). `bash scripts/qa_shot.sh dice_test` 전체 **PASS**
+  (신규 M-5a 섹션 포함, 기존 5곳 수정 포함). **셀프 피드백 1라운드**: `qa_out/m5a_dungeon_
+  map.png`/`m5a_combat_after.png`/`m5a_combat_win_after.png`/`m5a_customize.png`/
+  `m5a_shop.png`/`m5a_event.png`/`m5a_character_select.png` 7장 육안 확인 — 패널/버튼/
+  HP 바 전부 모서리 보석 장식이 보이는 입체적인 스킨으로 또렷하게 바뀌었고, 레이아웃
+  겹침/잘림 없음, character_select(스킨 미적용 대상, 자체 `_make_section` 사용)는 회귀
+  없이 그대로임을 확인 — 추가 수정 라운드 없이 1라운드로 종료(심각도 상/중 문제 없음).
+  `Image.load()`로 기 import된 PNG를 직접 읽을 때 "Loaded resource as image file, this
+  will not work on export" 경고가 뜨는데, `SkillIcon.load_external_art()`(K-4c)와 동일한
+  기존 트레이드오프 — 지금 구조(테스트에서 `user://` base_dir 주입 필요)상 불가피해 의도적으로
+  유지. 전투 규칙/밸런스는 손대지 않음. **다음은 M-5(b)(배지/장식/아이콘)** — INBOX.md
+  "부분 처리됨"에 진행 한 줄 갱신.
+
 - **2026-10-15 (201)**: [미니 기획 ART-1] **ART-1b(전투 화면 원화 표정 컷 연결)를
   견습 모험가(`novice`) 1종에 대해 완료**. 아트 스레드가 `resources/characters/
   novice/face_{neutral,happy,hurt,sad,angry}.png` 5장을 입고(커밋 `db83033`)해
