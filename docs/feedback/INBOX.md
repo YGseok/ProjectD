@@ -135,7 +135,16 @@
   - 파일 규칙(아트 스레드 확정): `resources/ui/<종류>/<이름>.png`, 크기·9-slice 마진은 `docs/art/ART_RESOURCES.md` 3-6 표를 읽어 그대로 사용
     (`resources/`, `docs/art/`는 읽기만 하고 절대 수정/추가하지 말 것). **2026-10-15 U1 패널 4종 입고 완료(`resources/ui/panel/`) — 마진이 아래 요약
     값에서 바뀜: hud는 좌우 34/상하 20, overlay는 44 (표 3-6/2-6의 값이 최종).** accent는 흰색+알파 레이어(안쪽 트림 선·모서리 보석·주사위 눈)로 퍼스널
-    컬러 modulate 후 base 위에 같은 9-slice로 겹침. 버튼(U2)/HP바/배지 등은 이후 단계 납품. 요약: 패널 section(128², 마진24)/hud(256×64, 20)/card(128×160, 24)/
+    컬러 modulate 후 base 위에 같은 9-slice로 겹침. **2026-10-15 현재 U1~U6 입고 완료(배경 U7만 미납품).** 최종 파일명/마진은 아트 스레드가
+    확정한 `docs/art/ART_RESOURCES.md` 2-6/3-6 표를 읽어 사용 — 요약(변경점 포함): 버튼 `button/{primary,secondary}_{normal,hover,pressed,focus}_{base,accent}.png`
+    + `_disabled_base.png`(accent 없음), 128×48, 마진 좌우 28/상하 16. **primary는 면 전체가 accent(퍼스널 컬러로 칠해짐)라 밝은 색(곡예사 노랑 등)에서 흰
+    글자가 안 보일 수 있음 → 버튼 글자색을 accent 휘도에 맞춰(어두운/밝은) 고르는 대비 처리 필수(대비 4.5:1 테스트로 8명 전부 검증).** secondary는 면이 어두운
+    차콜, accent는 트림/보석만. focus 상태는 바깥 밝은 링. HP 바 `bar/hp_frame_{base,accent}.png`(256×28, 마진 좌우 32/상하 10) + `hp_fill.png`(64×8, 흰~회색
+    그라데이션, 좌우 2 — 코드가 녹→주황→빨강 착색), **채움 위치는 프레임 안쪽 좌22/상11/우22/하10px**. 배지 `badge/turn`(192×40, 좌우44/상하12)/`round`(96×40, 좌우40/
+    상하12) base+accent, `codex_base`(96×28, 좌우18/상하8, 밝은 회색 → 상태색 modulate), `tier_{normal,elite,boss}`(64×64 풀컬러, 늘리지 않음). 장식 `deco/chip`
+    (64×32, 좌우12/상하10), `divider_{base,accent}`(512×16, 가로 3분할 좌240/중32 고정/우240), `title_ornament_{left,right}_{base,accent}`(48×24). 아이콘
+    `icon/{gold,pip,dice,hp,defense,attack,crown,skull,lock}.png` 64×64 흰색+알파 실루엣(코드가 착색). 순서: **패널/버튼/HP바부터 (a)로 적용, 배지/장식/아이콘은 (b)** 로
+    나눠 한 이터레이션에 한 칸씩. 요약: 패널 section(128², 마진24)/hud(256×64, 20)/card(128×160, 24)/
     overlay(256², 32), 버튼 primary·secondary 각 normal/hover/pressed/disabled/focus(128×48, 마진16), bar/hp_frame(256×28, 마진12)+hp_fill,
     badge/turn·tier_{normal,elite,boss}·round·codex_base, deco/chip·divider(가로 3분할 고정 중앙)·title_ornament, icon/{gold,pip,dice,hp,defense,attack,crown,skull,lock},
     배경 `resources/backgrounds/{dungeon_map,event,shop,combat}.png`.
