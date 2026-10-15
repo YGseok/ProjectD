@@ -8,6 +8,58 @@
 
 ---
 
+- **2026-10-15 (204)**: 세션 지시로 [대형 기획 13] M-4보다 먼저 [미니 기획 ART-2]
+  (아트 스레드 "ProjectD Art"가 전달한 "전투 화면 표정 컷 하단 잘림 처리")를
+  **완료**. 문제: ART-1b(201)로 입고된 견습 모험가 face_* 5장이 `qa_out/
+  art1b_novice_after_exchange.png`에서 상반신 표정 컷(240×240)의 아래 끝이
+  화면 중간(y≈448)에서 일직선으로 뚝 잘려 떠 보이고, 왼쪽도 화면 끝(x=0)에
+  붙어 잘리는 문제가 있었다. 원화 face_*.png 자체가 가슴께에서 끊긴 상반신
+  구도라 아래가 잘려 있는 것 자체는 아트 문제가 아니라 배치 문제.
+  **원인 분석**: `character_portrait_placeholder.gd`의 `_ensure_face_rect()`가
+  `_face_rect.position`을 `(-FACE_ART_SIZE.x/2, -FACE_ART_SIZE.y/2+16)` =
+  (-120, -104)로 중앙 정렬했는데, 실제 렌더 시 부모 `PlayerPortrait`
+  Node2D의 tscn 위치(110, 300)에 `combat_test.gd`의
+  `PORTRAIT_SCALE_NORMAL`(1.1) 스케일이 곱해져 글로벌 왼쪽 끝이
+  `110 + (-120*1.1) = -22`(화면 밖, 음수 x)로 밀려났다 — 이게 "왼쪽이 화면
+  끝에 붙어 잘림"의 실체. 아래쪽은 화면 밖으로 잘린 게 아니라, 정사각
+  텍스처(가슴께에서 끊긴 상반신)가 아무 처리 없이 그대로 그려져 생긴 하드
+  엣지였다.
+  **해결 — INBOX 개선 방향 ①(표정 컷 아래 20~25% 그라데이션 마스크, "가장
+  간단"으로 제시된 쪽) 채택**: 신규 `code/shaders/face_art_fade.gdshader`
+  (`shader_type canvas_item`)가 `fade_start=0.76` 기준
+  `smoothstep(fade_start, 1.0, UV.y)`로 텍스처 하단 ~24% 구간의 알파를
+  선형으로 0까지 줄인다. `_ensure_face_rect()`가 이 셰이더를
+  `ShaderMaterial`로 `_face_rect.material`에 입혀 가슴께 잘림이 배경에
+  자연스럽게 녹아들게 했다. 왼쪽 잘림은 신규 상수 `FACE_ART_LEFT_SHIFT`
+  (=40.0, 로컬 기준)로 `_face_rect.position`의 x 오프셋을 -120에서 -80으로
+  밀어, 글로벌 왼쪽 끝이 `110 + (-80*1.1) = 22`(요구치 16 이상)가 되도록
+  고쳤다. `set_character()`(원화 모드 전환 트리거)를 부르는 곳이
+  `combat_test.gd` 한 곳뿐이라(캐릭터 선택/덱 패널/테스트 전투 설정은
+  플레이스홀더만 쓰고 원화 모드로 전환하지 않음) 이 전투 화면 전용 보정이
+  다른 화면에 영향 없다. 개선 방향 ②(UI 키트 프레임/액자)는 몬스터 쪽 원화
+  (ART-1c)가 아직 입고 전이라 "몬스터도 같은 액자로 좌우 대칭" 요구를 지금
+  채울 수 없어 채택하지 않음 — 몬스터 원화가 들어오면 그때 재검토 가능.
+  **검증**: `dice_test.gd`에 신규 `_check_art2_face_crop_fix()`를
+  `_check_art1b_combat_face_art()` 바로 뒤에 추가 — "속성이 설정됐는가"가
+  아니라 ① 실제 production `combat_test.tscn` 인스턴스(캐릭터=novice)에서
+  `face_rect.global_position.x`가 16 이상인지(실측 22.0) ② 셰이더가 실제로
+  `FACE_ART_FADE_SHADER`로 적용됐는지 ③ 그 face_rect를 실제 캐릭터 노드에서
+  떼어 독립 `SubViewport`에 재부모화해 두 프레임 + `frame_post_draw`를
+  기다린 뒤 렌더된 이미지를 `get_image()`로 읽어 중간 높이(y=120) 알파와
+  바닥 근처(y=238) 알파를 비교(실측 중간=0.992, 바닥=0.000 — 기대치
+  "바닥이 중간의 30% 미만"을 크게 만족)해 "일직선 절단이 아니라 실제로
+  투명하게 사라짐"을 렌더 결과로 확인했다. `bash scripts/qa_shot.sh
+  dice_test` **전체 PASS**(기존 섹션 전부 회귀 없음).
+  **셀프 피드백 루프**: 1라운드 — `qa_out/combat_test.png`(전투 시작 직후,
+  neutral 표정)로 아래 끝이 부드럽게 사라지고 왼쪽에 여백이 생긴 것을 확인.
+  2라운드 — `_debug_show_test_battle_win`/`_debug_show_test_battle_lose` QA
+  훅으로 `qa_out/art2_happy_check.png`(happy)/`art2_lose_check.png`
+  (angry/sad) 추가 촬영해 다른 표정에서도 동일하게 하단 페이드와 왼쪽 여백이
+  유지됨을 확인 — 추가 수정 없이 2라운드로 종료. 전투 규칙/밸런스는
+  손대지 않았고 `resources/`·`docs/art/`는 읽기만 했다. **[대형 기획 13]
+  M-4(이벤트/상점/스토리 이벤트 화면 통일)는 여전히 큐에 남아있다 — 다음은
+  M-4.**
+
 - **2026-10-15 (203)**: 직전 이터레이션(M-5(b))이 사용 한도로 중단된 뒤 재시도 지시로
   이어받아 **M-5(b)(배지/장식/아이콘 — [대형 기획 13] 완료) 마무리**. 작업 트리에는 이미
   구현이 거의 끝난 상태로 남아있었다 — 이번 이터레이션은 그 상태를 감사하고, 남은 버그

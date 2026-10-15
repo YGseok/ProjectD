@@ -609,6 +609,18 @@ func _debug_pick_safe() -> void:
 	_on_safe_pressed()
 
 
+## QA 전용(GAME_QA_CALL) — [대형 기획 14] N-5(c) "위험을 감수하기" 버튼 텍스트가
+## 곡예사(D12)에서도 실제로 D12로 보이는지 확인하기 위한 0-arity 래퍼.
+## _setup_item_event() 전체를 다시 부르면 safe/risky 버튼의 pressed 시그널이 중복
+## 연결되므로, 프로덕션과 같은 포맷 문자열(risky_button.text 대입부, _setup_item_event()
+## 참고)만 event_die_sides=12로 다시 계산한다.
+func _debug_qa_juggler_risky_button() -> void:
+	RunState.event_die_sides = 12
+	risky_button.text = "위험을 감수하기 (D%d, %d+ 성공/%d+ 대성공)" % [
+		RunState.event_die_sides, _dc, _dc + EventChallengePool.CRIT_MARGIN
+	]
+
+
 ## QA 전용: 실제 randi_range() 대신 항상 최댓값(event_die_sides)을 굴린 것으로 강제해
 ## "위험을 감수하기" 성공 경로(아이템 카드 표시까지)를 결정적으로 재현한다. DC가 아무리
 ## 커져도(최대 5) 이벤트 다이스 최댓값은 항상 DC 이상이므로 반드시 성공(또는 대성공)한다.

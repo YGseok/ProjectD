@@ -1457,6 +1457,15 @@ func _debug_show_skill_codex_pirate() -> void:
 	_on_skill_codex_pressed()
 
 
+## QA 전용 — [대형 기획 14] N-5(c): 곡예사 도감에 눈속임/한탕/곡예 흥행(+) 4종(이벤트
+## 테마 event_check 모티프)이 실제로 그려지는지 확인한다(_debug_show_skill_codex_pirate와
+## 같은 패턴).
+func _debug_show_skill_codex_juggler() -> void:
+	SkillCodex._debug_reset_for_qa()
+	_on_card_selected("juggler")
+	_on_skill_codex_pressed()
+
+
 ## QA 전용 — 스킬 도감 패널을 연 뒤, 패널 자신의 Esc 핸들러로 실제로 닫히는지 확인한다
 ## (_debug_press_shortcut_close_achievements와 같은 패턴).
 func _debug_press_shortcut_close_skill_codex() -> void:

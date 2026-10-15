@@ -237,6 +237,15 @@ func _debug_qa_character_shieldbearer() -> void:
 	_debug_set_character("shieldbearer")
 
 
+## QA 전용(GAME_QA_CALL) — [대형 기획 14] N-5(c) DeckPanel의 "이벤트 주사위 D12" 표시를
+## 눈으로 확인하기 위한 0-arity 래퍼. `_debug_set_character()`는 배경/제목/버튼 틴트만
+## 바꿀 뿐 RunState.event_die_sides는 안 건드리므로, 먼저 `reset_run()`으로 곡예사 값
+## (12)까지 실제로 반영한다.
+func _debug_qa_character_juggler() -> void:
+	RunState.reset_run("juggler")
+	_debug_set_character("juggler")
+
+
 ## [대형 기획 13] M-1: 위 두 훅의 공용 구현 — 배경/제목뿐 아니라 HUD 바/범례 띠/행동
 ## 버튼까지 캐릭터가 바뀌면 전부 다시 그린다(M-1부터 이 요소들이 생겨 기존 두 훅만으론
 ## 부족해짐). HUD 바/범례 띠는 캐릭터가 화면 생존 중 바뀌는 일이 정상 플레이에는 없어

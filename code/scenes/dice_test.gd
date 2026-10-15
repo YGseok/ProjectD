@@ -385,6 +385,10 @@ func _ready() -> void:
 	all_pass = _check_n5b_event_challenge_variety(lines) and all_pass
 
 	lines.append("")
+	lines.append("[N-5(c): 마무리 — character_select 고유 능력 설명(32자 예산)에 D12가 실제로 보이는지, DeckPanel(던전 맵 등 5개 화면 상시)도 D12를 보여주는지, 스킬 도감에 juggle_fortune/juggle_fortune_plus가 실제로 들어있는지. 밸런스(균형 정책 기준 견습 모험가 대비) 측정 결과는 dice_test 범위 밖이라 STATUS.md 완료 기록에 수동 측정값을 남긴다]")
+	all_pass = _check_n5c_juggler_wrapup(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -9348,3 +9352,77 @@ func _check_n5b_event_challenge_variety(lines: PackedStringArray) -> bool:
 	RunState.event_die_sides = event_sides_backup
 	AchievementManager._debug_reset_for_qa()
 	return ok
+
+
+## [대형 기획 14] N-5(c)(2026-10-16) 검증: 곡예사 D12가 실제로 눈에 보이는 화면 텍스트에
+## 반영되는지(플래그/필드가 아니라 렌더된 문자열로 확인). N-4/N-5(a) 체크가 이미
+## "능력치 칩 줄의 D12 텍스트"는 검증했으므로 여기서는 (1) "고유 능력" 섹션 설명
+## (ABILITY_DESC_MAX_CHARS=32로 잘리는 지점, N-5(c)가 concept 문구를 재배치해 D12가
+## 그 예산 안에 들어오도록 고침) (2) DeckPanel(던전 맵/상점/이벤트/스토리 이벤트 상시)의
+## "이벤트 주사위 D12" 줄 (3) 스킬 도감에 juggle_fortune/juggle_fortune_plus id 자체가
+## 실제로 들어있는지(L-2(a)는 개수/순서만 쟀을 뿐 id는 확인한 적이 없음)를 본다.
+func _check_n5c_juggler_wrapup(lines: PackedStringArray) -> bool:
+	var ok := true
+	var character_backup := RunState.character_id
+	var chosen_backup := RunState.chosen_starting_skill_id
+
+	# (a) character_select 고유 능력 설명 — 32자 예산 안에 "D12"가 살아남는지.
+	var select_scene := load("res://code/scenes/character_select.tscn")
+	var select_node = select_scene.instantiate()
+	add_child(select_node)
+	select_node._on_card_selected("juggler")
+	var ability_text: String = select_node._detail_skill_label.text
+	var ability_shows_d12: bool = ability_text.findn("D12") != -1
+	ok = ability_shows_d12 and ok
+	lines.append("  character_select 고유 능력 설명(32자 예산): \"%s\" (D12 포함 기대) -> %s" % [
+		ability_text, "OK" if ability_shows_d12 else "FAIL"
+	])
+	remove_child(select_node)
+	select_node.free()
+
+	# (b) DeckPanel(던전 맵/상점/이벤트/스토리 이벤트 5개 화면이 공유) — 트리 전체에서
+	# "이벤트 주사위 D12" 라벨을 실제로 찾는다(노드 하나를 짚어둔 게 아니라 _rebuild()가
+	# 매번 새로 그리는 구조라 재귀 탐색이 가장 안전함).
+	RunState.reset_run("juggler")
+	var deck := DeckPanel.new()
+	add_child(deck)
+	var deck_has_d12: bool = _n5c_find_label_containing(deck, "이벤트 주사위 D12")
+	ok = deck_has_d12 and ok
+	lines.append("  DeckPanel(던전 맵 등 5개 화면 상시): \"이벤트 주사위 D12\" 라벨 존재 -> %s" % (
+		"OK" if deck_has_d12 else "FAIL"
+	))
+	remove_child(deck)
+	deck.free()
+
+	# (c) 스킬 도감 — juggle_fortune/juggle_fortune_plus id가 실제로 codex_entries()에
+	# 들어있는지(L-2(a)는 "개수/순서"만 쟀을 뿐 id 자체는 확인한 적이 없었음).
+	var entries := SkillPool.codex_entries("juggler")
+	var ids: Array = []
+	for e in entries:
+		ids.append(e["id"])
+	var codex_has_fortune: bool = ids.has("juggle_fortune") and ids.has("juggle_fortune_plus")
+	ok = codex_has_fortune and ok
+	lines.append("  SkillPool.codex_entries(\"juggler\")에 juggle_fortune/juggle_fortune_plus 포함: %s -> %s" % [
+		ids, "OK" if codex_has_fortune else "FAIL"
+	])
+
+	# 밸런스(균형 정책 기준 견습 모험가 대비 -15%p 이내) 확인은 qa_out/balance_sim_raw.tsv
+	# (bash scripts/qa_shot.sh balance_sim으로 재생성, 50400판 규모)를 읽어야 해서 dice_test
+	# 자동 검증 범위 밖이다 — 수동 측정 결과는 STATUS.md 완료 기록에 남긴다.
+
+	RunState.character_id = character_backup
+	RunState.chosen_starting_skill_id = chosen_backup
+	RunState.reset_run(character_backup)
+	return ok
+
+
+## 노드 서브트리 안에 text가 substring을 포함하는 Label이 하나라도 있으면 true.
+## DeckPanel처럼 _rebuild()가 매번 새 노드를 만드는 구조에서 특정 Label을 멤버
+## 변수로 짚어두지 않고도 "화면에 실제로 그 문구가 보이는가"를 확인하기 위한 범용 헬퍼.
+func _n5c_find_label_containing(node: Node, substring: String) -> bool:
+	if node is Label and String(node.text).contains(substring):
+		return true
+	for child in node.get_children():
+		if _n5c_find_label_containing(child, substring):
+			return true
+	return false

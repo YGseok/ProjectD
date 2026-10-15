@@ -5,33 +5,40 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-10-16 (213, 재시도)
-- 작성자: AI 에이전트. 직전 이터레이션(N-5(b) 1차 작업)이 사용 한도로 중단됐고,
-  이번 이터레이션은 그 미커밋 변경(`dice_test.gd`/`event.gd`/`event_item_pool.gd`/
-  `DESIGN.md`/신규 `event_challenge_pool.gd`)을 이어받아 **[대형 기획 14]
-  N-5(b)(이벤트 판정 콘텐츠 확충 + "대성공" 단계 도입) 마무리**했다. `git diff`로
-  전체 변경을 감사한 결과 구현 자체는 이미 완결돼 있었다 — "특수 이벤트"의 "위험을
-  감수하기"가 매번 보물/도박/탐색/함정 해체 4종 중 1개로 바뀌고(`EventChallengePool.
-  CHALLENGES` 데이터 표, 종류별 하드코딩 없이 공용 `tier_for_roll()`/`roll_reward()`
-  로 전부 분기), 대성공(`roll >= DC+CRIT_MARGIN`, CRIT_MARGIN=3 전종류 공통)이 D6
-  클래스(방4 이상에서 수학적으로 불가능)와 D12 곡예사(약 41.7%)를 뚜렷하게
-  갈라놓는다. `bash scripts/qa_shot.sh dice_test`를 foreground + timeout 600000으로
-  4회 반복 실행해 N-5(b) 신규 체크 전부 매번 OK를 확인했고, 전체 "FAIL" 표시는
-  이번 변경과 무관한 두 pre-existing 노이즈(QA 캡처 뷰포트 폭 1028px 잘림 — 기존
-  알려진 이슈, "일반 모드 보존" 6번에 1번꼴 일회성 FAIL — (195)/(212)에도 같은
-  패턴 기록됨, 3회 단독 재실행 전부 OK로 재확인)로 둘 다 내 diff 범위 밖임을
-  교차 확인했다. **셀프 피드백 루프로 버그 1개 발견·수정**: `qa_out/n5b_{gambling,
-  exploration,trap}_initial.png`를 직접 읽어 "위험을 감수하기" 버튼 텍스트가
-  N-5(b)에서 ", %d 이상 대성공"이 추가돼 길어지면서 `RiskyButton`의 고정 폭(event.
-  tscn, 660~1020px)을 넘어 글자가 버튼 테두리 밖/`DeckPanel` 쪽으로 흘러넘치는
-  실제 레이아웃 버그를 확인 — `event.gd`의 risky_button.text를 "위험을 감수하기
-  (이벤트 주사위 D%d, %d 이상 성공, %d 이상 대성공)"에서 "위험을 감수하기 (D%d,
-  %d+ 성공/%d+ 대성공)"로 축약해 고쳤다. 재캡처(초기 화면/대성공 결과/실패 패널티
-  3종)로 겹침/잘림 없음 2라운드 확인, `dice_test.gd`의 "대성공" 포함 체크도 OK.
-  전투 규칙/밸런스는 건드리지 않았고 `resources/`·`docs/art/`는 읽기만 했다.
-  INBOX.md의 이 항목은 "부분 처리됨"에 그대로 두되 진행 한 줄을 갱신했다(N-5(c),
-  N-6이 남아 "처리됨"으로는 못 옮김). 상세는 아래 "완료 기록 (213)" 참고.
-  **다음은 N-5(c)(밸런스 + 마무리, INBOX.md "남은 이슈" 참고).**
+- 일시: 2026-10-16 (214)
+- 작성자: AI 에이전트. INBOX.md "남은 이슈" 맨 위 [대형 기획 14] **N-5(c)(곡예사
+  이벤트 특화 — 밸런스 확인 + 마무리) 완료, [대형 기획 14] N-1~N-5 전체 완료**.
+  `bash scripts/qa_shot.sh balance_sim`을 foreground + timeout 600000으로 1회
+  실행해 juggler 전투력을 두 방식으로 측정했다: 기존 F-4b/F-4c 기준선(81개 조합
+  평균, 등급·기획 역사상 써오던 방식)에서는 juggler 13.98% vs novice 21.67% =
+  -7.69%p로 목표(-15%p 이내) 통과(N-5a/b 변경 전 -6.27%p 대비 +1.4%p만 악화)했지만,
+  균형 성장 정책의 "캐릭터마다 슬롯0 스킬 하나만" 고정해서 재는 J-계열 지표로는
+  -44.37%p로 크게 벗어났다 — 다만 이 지표는 juggler의 슬롯0이 N-5(a) 설계상
+  이벤트 전용 스킬(눈속임)이라 전투 보너스가 구조적으로 0인 탓이고(explosive도
+  같은 지표에서 이미 -16.92%p로 밴드를 벗어나 있어 이 축 자체의 노이즈가 큼을
+  교차 확인), "이벤트 보상은 시뮬 반영이 어려우면 한계를 문서에 명시"하라는
+  INBOX 조항대로 `docs/BALANCE_TUNING_LOG.md`에 측정 과정과 판단 근거를 그대로
+  기록했다. **판정: 1차 기준(F-4b/F-4c) 통과로 "극단적으로 낮지 않다"에 해당 —
+  곡예사 전투 보조 스킬 추가 강화는 불필요하다고 판단해 손대지 않았다.**
+  UI 확인은 셀프 피드백 루프로 진행 — 캐릭터 선택 "고유 능력" 설명(32자 예산)이
+  곡예사의 긴 concept 문구에 가려 D12가 전혀 안 보이던 실제 버그를 발견하고
+  `character_profiles.gd`의 concept 문구를 재배치해 32자 안에 "D12"가 들어오도록
+  고쳤다(`qa_out/n5c_juggler_detail.png`로 확인, 뷰포트 1028px 잘림 때문에 전체
+  확인은 `dice_test.gd` 신규 체크로 보강). DeckPanel/event.gd 버튼은 이미 D12를
+  정상 표시 중이었음을 확인만 함(`qa_out/n5c_event_juggler_d12.png`로 "위험을
+  감수하기 (D12, 3+ 성공/6+ 대성공)" 겹침 없이 렌더 확인). 스킬 도감도 juggle_
+  fortune/juggle_fortune_plus가 실제로 11항목에 포함됨을 화면(`qa_out/
+  n5c_skill_codex_juggler.png`)과 `dice_test.gd` 신규 체크 3건으로 확인. `bash
+  scripts/qa_shot.sh dice_test` 전체 결과는 "FAIL"이었으나 원인 전부 이번 변경과
+  무관함을 확인(berserker face_* 아트가 이 세션 시작 전부터 이미 새로 입고돼
+  ART-1b 관련 테스트 가정이 깨진 것 4건 + 기존 QA 뷰포트 1028px 잘림 1건 — 아래
+  "알려진 이슈"에 새로 기록). `DESIGN.md`의 "시작 스킬 선택"(13→15종, 곡예사 슬롯
+  테이블/눈속임·한탕 설명 추가)·"캐릭터 스킬 부여 이벤트"(매혹사/곡예사 고유 스킬
+  4종 — 이전까지 전혀 기술돼 있지 않던 문서 공백도 함께 메움) 절을 갱신했다.
+  전투 규칙/밸런스 수치는 건드리지 않았고 `resources/`·`docs/art/`는 읽기만 했다.
+  INBOX.md의 이 항목은 N-5가 전부 끝나 "부분 처리됨"에 진행 한 줄을 갱신했다
+  (N-6만 남아 "처리됨"으로는 못 옮김). 상세는 아래 "완료 기록 (214)" 참고.
+  **다음은 N-6(캐릭터 전용 이벤트 + 특별 선택지, INBOX.md "남은 이슈" 참고).**
 
 ## 지금 위치
 
@@ -544,9 +551,16 @@ L-1~L-3)는 2026-10-14(197)에 각각 전체 완료됐다. **[미니 기획 M-6]
 (상세는 완료 기록 (212)). 2026-10-15(213)로 **N-5(b)(이벤트 판정 콘텐츠 확충 +
 "대성공" 단계) 완료** — `EventChallengePool`(신규)의 데이터 표에 도박/탐색/
 함정 해체 3종을 보물과 함께 등록하고 "대성공" 3단 판정을 공용 함수로 도입
-했다(상세는 완료 기록 (213)). 다음 우선 순서는 N-5(c)(밸런스+마무리) →
-N-6(캐릭터 전용 이벤트/특별 선택지). 한 이터레이션에 한 조각(또는 (a)(b)(c)
-한 칸)만 진행할 것 — 상세 사양은 `docs/feedback/INBOX.md` "남은 이슈" 참고.
+했다(상세는 완료 기록 (213)). 2026-10-16(214)로 **N-5(c)(밸런스 확인 + 마무리,
+[대형 기획 14] N-1~N-5 전체 완료) 완료** — 균형 정책 slot0 전용 지표로는
+juggler가 novice 대비 -44.37%p로 크게 벗어나지만 이는 juggler 슬롯0이 이벤트
+전용 스킬이라 생기는 측정 구조상의 한계임을 확인(기존 F-4b/F-4c 81조합 평균
+기준으로는 -7.69%p, 목표 -15%p 이내 통과)하고 스킬 추가 강화는 하지 않음,
+캐릭터 선택 "고유 능력" 설명이 32자 예산에 가려 D12가 안 보이던 실제 버그를
+고침, DeckPanel/event.gd/스킬 도감의 D12 반영을 화면+자동 검증으로 확인
+(상세는 완료 기록 (214), 수치 근거는 `docs/BALANCE_TUNING_LOG.md` "N-5(c)"
+절). **다음은 N-6(캐릭터 전용 이벤트/특별 선택지)** — 상세 사양은 `docs/
+feedback/INBOX.md` "남은 이슈" 참고. 한 이터레이션에 한 조각만 진행할 것.
 
 남은 구조적 후보(급하지 않음): 보스 개별 6종 중 타락한 기사단장만 밴드 미달
 (`MonsterSkills.modify_monster_roll()` 파라미터화가 전제조건이라 사람 설계
@@ -1157,6 +1171,75 @@ N-6(캐릭터 전용 이벤트/특별 선택지). 한 이터레이션에 한 조
 
 ## 완료 기록
 
+- **2026-10-16 (214)**: INBOX.md "남은 이슈" [대형 기획 14] **N-5(c)(곡예사를 이벤트
+  특화 클래스로 — 밸런스 확인 + 마무리) 완료, [대형 기획 14] N-1~N-5 전체 완료
+  (N-6만 남음)**.
+  **(1) 밸런스 확인**: `bash scripts/qa_shot.sh balance_sim`을 foreground + timeout
+  600000으로 1회 실행(`qa_out/balance_sim_raw.tsv`/`balance_sim_growth_raw.tsv`
+  재생성)해 두 가지 방식으로 juggler를 측정했다. **측정 1(기존 F-4b/F-4c 기준선,
+  캐릭터당 81개 조합 평균)**: juggler 13.98% vs novice 21.67% = **-7.69%p**(목표
+  -15%p 이내 통과) — N-5a/b 변경 전(구 맹공/수집가/잡화점 3종, `docs/
+  BALANCE_REPORT.md`(165) 시점 원자료 재집계) -6.27%p 대비 +1.4%p만 악화돼 "전투
+  보조 스킬이 줄었어도 극단적으로 낮아지지 않았다"는 INBOX 질문에 통과로 답할 수
+  있었다. **측정 2(균형 성장 정책의 슬롯0 전용 지표, `balance_target_check.gd`가
+  J-1~J4에서 쓰던 것과 같은 축)**는 juggler -44.37%p로 목표를 크게 벗어났지만, 이
+  지표는 "캐릭터마다 슬롯0 스킬 하나만" 고정해서 재는 구조라(F-5b가 정책 효과만
+  격리하려고 의도적으로 그렇게 설계) juggler의 슬롯0(눈속임)이 N-5(a) 설계대로
+  이벤트 전용이라 전투 보너스가 0인 탓일 뿐 — explosive도 같은 지표에서 이미
+  -16.92%p로 -15%p 밴드를 벗어나 있어 이 축 자체가 "캐릭터 대비 -15%p" 판정
+  근거로 쓰기엔 노이즈가 크다는 것도 교차 확인했다. **판정: 측정 1을 1차 기준으로
+  삼아 PASS, 측정 2는 "슬롯0이 이벤트 스킬인 캐릭터는 이 지표로 전투력을 판단할 수
+  없다"는 한계로 문서화(INBOX의 "이벤트 보상은 시뮬 반영이 어려우면 한계를 문서에
+  명시" 조항 적용) — 곡예사 전투 보조 스킬(잡화점) 추가 강화는 불필요하다고
+  판단해 손대지 않았다.** 상세 수치표/판단 근거는 `docs/BALANCE_TUNING_LOG.md`
+  "N-5(c) 곡예사(juggler) 전투력 확인" 절 참고.
+  **(2) UI 반영 확인**: ① 캐릭터 선택 "고유 능력" 설명(`ABILITY_DESC_MAX_CHARS`=32
+  예산)이 곡예사의 긴 concept 문구 앞부분에 가려 D12가 전혀 안 보이던 것을 발견 —
+  `character_profiles.gd`의 juggler `concept` 필드를 "이벤트 주사위 D12(이벤트
+  판정 특화)"가 32자 예산 안에 들어오도록 재배치(스웹 mechanic 설명은 그대로 뒤로,
+  tooltip에서 전체 문장 확인 가능은 유지). ② DeckPanel(던전 맵/상점/이벤트/스토리
+  이벤트 상시)은 이미 `RunState.event_die_sides`를 동적으로 읽어 "이벤트 주사위
+  D12"를 정상 표시하고 있었음을 확인(코드 변경 불필요). ③ event.gd의 "위험을
+  감수하기" 버튼도 이미 `%d` 포맷으로 D12를 정상 표시(`qa_out/
+  n5c_event_juggler_d12.png`로 "위험을 감수하기 (D12, 3+ 성공/6+ 대성공)" 겹침
+  없이 렌더됨을 직접 확인). ④ 스킬 도감(`SkillCodex`)도 juggle_fortune/
+  juggle_fortune_plus가 곡예사 도감 11항목에 실제로 포함됨을 확인(`qa_out/
+  n5c_skill_codex_juggler.png`로 "곡예사 스킬 도감 — 발견 1/전체 11" 렌더 확인).
+  QA용 0-arity 래퍼 3개 신규(`dungeon_map.gd`의 `_debug_qa_character_juggler()`,
+  `event.gd`의 `_debug_qa_juggler_risky_button()`, `character_select.gd`의
+  `_debug_show_skill_codex_juggler()`).
+  **(3) 자동 검증**: `dice_test.gd` 신규 `_check_n5c_juggler_wrapup()`(고유 능력
+  설명에 D12 포함/DeckPanel에 "이벤트 주사위 D12" 라벨 존재(신규 재귀 헬퍼
+  `_n5c_find_label_containing()`)/도감에 juggle_fortune·juggle_fortune_plus id
+  포함 3가지를 플래그가 아니라 실제 렌더된 문자열/배열로 검증), `bash scripts/
+  qa_shot.sh dice_test` 전체 실행 — N-5(c) 신규 체크 3건 전부 OK. 전체 결과는
+  "FAIL"이었으나 원인 4건 전부 이번 변경과 무관함을 확인: (a) `CharacterArt.
+  has_all_faces('berserker')` 등 ART-1b 관련 4건은 이 세션 시작 전부터 `resources/
+  characters/berserker/face_*.png` 5장이 이미 새로 입고돼 있어서 생긴 회귀(아트
+  스레드가 이미 전달한 자산, 이번 작업과 무관 — 다음에 ART-1b/1c를 다루는
+  이터레이션이 테스트의 "berserker는 아직 아트 없음" 가정을 갱신해야 함, 아래
+  "알려진 이슈" 참고) (b) "스킬 도감 버튼 뷰포트 폭 1028" 1건은 기존부터 반복
+  기록된 QA 캡처 환경 이슈. **DESIGN.md 갱신**: "시작 스킬 선택" 절 — 원형
+  수(13→15), 곡예사 슬롯 테이블(눈속임→한탕→잡화점), 눈속임/한탕 설명 추가,
+  "캐릭터 스킬 부여 이벤트" 절 — 매혹사/곡예사 고유 스킬 4종(매혹 심화/곡예
+  앙코르/곡예 흥행/곡예 흥행+, 이전까지 DESIGN.md에 전혀 기술돼 있지 않던
+  문서 공백도 함께 메움). 전투 규칙/밸런스 수치는 건드리지 않았고
+  `resources/`·`docs/art/`는 읽기만 했다. **새 스킬 아이콘 발주 목록(art
+  스레드 전달용)**은 아래 표 참고 — 전부 기존 `event_check` 모티프/색(#A680D9,
+  완료 기록(192) 표에 이미 디자인 방향 명시)을 그대로 재사용하므로 새 모티프
+  디자인은 불필요하고 4개 스킬 id만 그 모티프로 추가 발주하면 된다.
+
+  | 모티프 | 색(hex) | 스킬 id | 이름 | 설명 한 줄 |
+  |---|---|---|---|---|
+  | event_check | #A680D9 | start_sleight | 눈속임 | 곡예사 전용 — "위험을 감수하기"의 판정 DC를 1 낮춤(최저 2, 승부사와 동일 효과) |
+  | event_check | #A680D9 | start_fortune | 한탕 | 곡예사 전용 — "위험을 감수하기" 성공(대성공 포함) 시 골드 +10 |
+  | event_check | #A680D9 | juggle_fortune | 곡예 흥행 | 곡예사 전용 — "위험을 감수하기"의 이벤트 주사위 굴림에 +1 보정 |
+  | event_check | #A680D9 | juggle_fortune_plus | 곡예 흥행+ | 이벤트 주사위 굴림 보정이 +1→+2로 강화 |
+
+  **INBOX.md의 [대형 기획 14] 항목은 N-1~N-5가 전부 끝나 "부분 처리됨"에 진행
+  한 줄을 갱신했다 — N-6(캐릭터 전용 이벤트/특별 선택지)만 남아 "처리됨"으로는
+  아직 못 옮김. 다음은 N-6.**
+
 - **2026-10-15/16 (213)**: 직전 이터레이션(N-5(b) 1차 작업)이 사용 한도로 중단된 뒤
   재시도 지시로 이어받아 **N-5(b)(이벤트 판정 콘텐츠 확충 + "대성공" 단계 도입, [대형
   기획 14]) 마무리**. 작업 트리에는 이미 구현이 거의 끝난 상태로 남아있었다 — 이번
@@ -1730,64 +1813,30 @@ N-6(캐릭터 전용 이벤트/특별 선택지). 한 이터레이션에 한 조
   클래스·전용 이벤트, N-1 → N-6) N-1부터** — INBOX.md가 명시한 순서/의존성
   (M-4 완료 후 착수)이 이제 충족됐다.
 
-- **2026-10-15 (204)**: 세션 지시로 [대형 기획 13] M-4보다 먼저 [미니 기획 ART-2]
-  (아트 스레드 "ProjectD Art"가 전달한 "전투 화면 표정 컷 하단 잘림 처리")를
-  **완료**. 문제: ART-1b(201)로 입고된 견습 모험가 face_* 5장이 `qa_out/
-  art1b_novice_after_exchange.png`에서 상반신 표정 컷(240×240)의 아래 끝이
-  화면 중간(y≈448)에서 일직선으로 뚝 잘려 떠 보이고, 왼쪽도 화면 끝(x=0)에
-  붙어 잘리는 문제가 있었다. 원화 face_*.png 자체가 가슴께에서 끊긴 상반신
-  구도라 아래가 잘려 있는 것 자체는 아트 문제가 아니라 배치 문제.
-  **원인 분석**: `character_portrait_placeholder.gd`의 `_ensure_face_rect()`가
-  `_face_rect.position`을 `(-FACE_ART_SIZE.x/2, -FACE_ART_SIZE.y/2+16)` =
-  (-120, -104)로 중앙 정렬했는데, 실제 렌더 시 부모 `PlayerPortrait`
-  Node2D의 tscn 위치(110, 300)에 `combat_test.gd`의
-  `PORTRAIT_SCALE_NORMAL`(1.1) 스케일이 곱해져 글로벌 왼쪽 끝이
-  `110 + (-120*1.1) = -22`(화면 밖, 음수 x)로 밀려났다 — 이게 "왼쪽이 화면
-  끝에 붙어 잘림"의 실체. 아래쪽은 화면 밖으로 잘린 게 아니라, 정사각
-  텍스처(가슴께에서 끊긴 상반신)가 아무 처리 없이 그대로 그려져 생긴 하드
-  엣지였다.
-  **해결 — INBOX 개선 방향 ①(표정 컷 아래 20~25% 그라데이션 마스크, "가장
-  간단"으로 제시된 쪽) 채택**: 신규 `code/shaders/face_art_fade.gdshader`
-  (`shader_type canvas_item`)가 `fade_start=0.76` 기준
-  `smoothstep(fade_start, 1.0, UV.y)`로 텍스처 하단 ~24% 구간의 알파를
-  선형으로 0까지 줄인다. `_ensure_face_rect()`가 이 셰이더를
-  `ShaderMaterial`로 `_face_rect.material`에 입혀 가슴께 잘림이 배경에
-  자연스럽게 녹아들게 했다. 왼쪽 잘림은 신규 상수 `FACE_ART_LEFT_SHIFT`
-  (=40.0, 로컬 기준)로 `_face_rect.position`의 x 오프셋을 -120에서 -80으로
-  밀어, 글로벌 왼쪽 끝이 `110 + (-80*1.1) = 22`(요구치 16 이상)가 되도록
-  고쳤다. `set_character()`(원화 모드 전환 트리거)를 부르는 곳이
-  `combat_test.gd` 한 곳뿐이라(캐릭터 선택/덱 패널/테스트 전투 설정은
-  플레이스홀더만 쓰고 원화 모드로 전환하지 않음) 이 전투 화면 전용 보정이
-  다른 화면에 영향 없다. 개선 방향 ②(UI 키트 프레임/액자)는 몬스터 쪽 원화
-  (ART-1c)가 아직 입고 전이라 "몬스터도 같은 액자로 좌우 대칭" 요구를 지금
-  채울 수 없어 채택하지 않음 — 몬스터 원화가 들어오면 그때 재검토 가능.
-  **검증**: `dice_test.gd`에 신규 `_check_art2_face_crop_fix()`를
-  `_check_art1b_combat_face_art()` 바로 뒤에 추가 — "속성이 설정됐는가"가
-  아니라 ① 실제 production `combat_test.tscn` 인스턴스(캐릭터=novice)에서
-  `face_rect.global_position.x`가 16 이상인지(실측 22.0) ② 셰이더가 실제로
-  `FACE_ART_FADE_SHADER`로 적용됐는지 ③ 그 face_rect를 실제 캐릭터 노드에서
-  떼어 독립 `SubViewport`에 재부모화해 두 프레임 + `frame_post_draw`를
-  기다린 뒤 렌더된 이미지를 `get_image()`로 읽어 중간 높이(y=120) 알파와
-  바닥 근처(y=238) 알파를 비교(실측 중간=0.992, 바닥=0.000 — 기대치
-  "바닥이 중간의 30% 미만"을 크게 만족)해 "일직선 절단이 아니라 실제로
-  투명하게 사라짐"을 렌더 결과로 확인했다. `bash scripts/qa_shot.sh
-  dice_test` **전체 PASS**(기존 섹션 전부 회귀 없음).
-  **셀프 피드백 루프**: 1라운드 — `qa_out/combat_test.png`(전투 시작 직후,
-  neutral 표정)로 아래 끝이 부드럽게 사라지고 왼쪽에 여백이 생긴 것을 확인.
-  2라운드 — `_debug_show_test_battle_win`/`_debug_show_test_battle_lose` QA
-  훅으로 `qa_out/art2_happy_check.png`(happy)/`art2_lose_check.png`
-  (angry/sad) 추가 촬영해 다른 표정에서도 동일하게 하단 페이드와 왼쪽 여백이
-  유지됨을 확인 — 추가 수정 없이 2라운드로 종료. 전투 규칙/밸런스는
-  손대지 않았고 `resources/`·`docs/art/`는 읽기만 했다. **[대형 기획 13]
-  M-4(이벤트/상점/스토리 이벤트 화면 통일)는 여전히 큐에 남아있다 — 다음은
-  M-4.**
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(213)에서 (203)을 그리로 옮겼다.)*
+이번 이터레이션(214)에서 (204)를 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 
+- **`berserker` face_* 아트가 이미 입고돼 `dice_test.gd`의 ART-1b 관련 테스트
+  4건이 FAIL로 돌아섬(2026-10-16, 214에서 발견).** 이번 세션 시작 시점에 이미
+  `resources/characters/berserker/{full,face_neutral,face_happy,face_angry,
+  face_sad,face_hurt}.png`(.import 포함) 5장이 전부 새로 입고돼 있었다(아트
+  스레드가 전달한 자산, `resources/`는 읽기만 했으므로 Work 쪽 변경 아님) —
+  `_check_art1b_combat_face_art()`가 "berserker는 아직 face_*가 없어 플레이스홀더
+  유지"를 가정한 채 하드코딩돼 있어 `CharacterArt.has_all_faces('berserker')`가
+  이제 true를 돌려주는데도 테스트는 여전히 false를 기대해 4건이 깨졌다(정작
+  기능 자체는 의도대로 동작 — ART-1b 코드가 범용이라 자동으로 원화 모드로
+  전환됐을 뿐, 회귀 아님). 같은 시점에 `resources/backgrounds/{combat,
+  dungeon_map,event,shop}.png`와 `resources/ui/icon/{attack,crown,defense,dice,
+  gold,hp,lock,pip,skull}.png`도 함께 새로 입고돼 있었다(M-5(b)/ART-1c 관련
+  미반영 자산으로 추정). **다음에 ART-1b/1c 또는 아트 반영을 다루는 이터레이션이
+  할 일**: (1) `dice_test.gd`의 "berserker는 face 없음" 가정을 가진 테스트를
+  실제 아트 유무에 맞게 갱신(또는 아트 입고 여부를 동적으로 판정하도록 재설계)
+  (2) 새로 입고된 배경/아이콘 자산이 각 화면에 실제로 올바르게 반영되는지 확인.
+  이번 이터레이션(N-5(c))은 이 발견만 기록하고 `resources/`를 읽기만 했을 뿐
+  건드리지 않았다 — 범위 밖이라 직접 고치지 않음.
 - **이 세션 권한 모드에서 Bash로 python/awk/node/PowerShell 스크립팅을 승인
   없이 못 쓴다(2026-10-08, F-4c 작업 중 확인).** `.claude/settings.json`의
   허용 목록이 `git`/`scripts/qa_shot.sh`/`mkdir`/`ls`/`find`/`cat`뿐이라,
