@@ -5,34 +5,33 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-10-15 (200)
-- 작성자: AI 에이전트. 직전 이터레이션이 사용 한도로 M-3 작업 도중 끊겨 미커밋
-  변경(combat_test.gd/dice_test.gd/ui_kit.gd)이 남아있던 상태를 `git diff`로
-  파악한 뒤 이어받아 **[대형 기획 13] M-3(전투 화면 상태별 연출/결과/보상 UI)를
-  완료**했다. INBOX.md "감독 추가 비평(M-2 직후)" 3가지(디버그 줄 QA 플래그화/
-  다이스 스테이지 확대/결과 칩 정리)를 먼저 반영한 뒤 Before 캡처 3장 → 수정 →
-  After 캡처 4장으로 1라운드 만에 "하" 수준 문제만 남는 결과에 도달했다.
-  **디버그 줄**: `OS.is_debug_build()`(에디터 실행이면 항상 true라 일반
-  플레이에서도 보이던 버그) 대신 명시적 `GAME_QA_DEBUG_UI=1` 환경변수로만
-  노출(직전 이터레이션이 이미 반영, 이번에 `dice_test`로 재확인).
-  **다이스 스테이지 확대**: `DiceViewportContainer`를 세로 316->340으로 키우고,
-  `SubViewport.size`(1000×420)가 컨테이너 실제 크기(1000×316)와 달라 렌더
-  텍스처가 세로로 25% 눌려 찍히던(스트레치 왜곡) 원인을 찾아 둘을 1000×340으로
-  일치시켰다 — "작다"가 아니라 "찌그러져 있었다"는 게 핵심 원인. `Camera3D`도
-  원점 방향으로 18% 당겨((0,3.6,5.5)->(0,2.952,4.51)) 체감 크기를 더 키웠다
-  (물리 바닥/벽은 그대로라 다이스 정착 판정엔 영향 없음).
-  **결과 칩 한 줄 정리**: 기존엔 공격 칩이 화면 왼쪽, 방어 칩이 화면 오른쪽에
-  라벨 없이 따로 떨어져 있었는데, `_show_exchange_dice_chips()`를 "공격" 라벨+
-  칩들+간격+"방어" 라벨+칩들을 이어 붙여 폭을 계산한 뒤 화면 중앙(x=640)에
-  좌우 대칭 정렬하도록 바꿨다. 버튼 행(508~548->526~566)/"전투 기록" 패널
-  (552->572)/`REWARD_FRAME_BOTTOM`·`REWARD_CARD_HEIGHT`(+20px)도 연쇄로
-  재배치해 겹침 없이 720px 안에 들어온다.
-  `dice_test.gd` 신규 `_check_m3_combat_dice_stage()`(물리 없이 순수 UI 함수
-  직접 호출 + 렌더 노드 위치 검증)로 전체 **PASS**, `qa_out/m3_*.png` 9장으로
-  전투 시작/교환 후/승리 보상+덱 패널 동시 노출/패배 화면 육안 확인. 상세는
-  `docs/UI_REVIEW.md` "M-3" 절과 아래 "완료 기록 (200)". **다음은 M-4(이벤트/
-  상점/스토리 이벤트 화면 통일)** — INBOX.md "부분 처리됨"의 [대형 기획 13]
-  원문 참고.
+- 일시: 2026-10-15 (201)
+- 작성자: AI 에이전트. 이번 이터레이션 지시(견습 모험가 face_* 5장 입고)에 따라
+  **[미니 기획 ART-1] ART-1b(전투 화면 원화 표정 컷 연결)를 견습 모험가 1종에
+  대해 완료**했다. `CharacterArt.has_all_faces(character_id)`(face_neutral/
+  happy/hurt/sad/angry 5장이 전부 있는지, 하나라도 없으면 false) 신규 추가.
+  `CharacterPortraitPlaceholder`(전투 화면 `$PlayerPortrait`가 쓰는 클래스)에
+  `set_character(character_id)`를 추가해, 5장이 전부 있으면 `_use_face_art=true`
+  로 전환하고 내부에 `_face_rect`(TextureRect, LINEAR_WITH_MIPMAPS, 240×240,
+  KEEP_ASPECT_CENTERED)를 만들어 `_draw()`(도형 플레이스홀더)를 건너뛴다. 기존
+  `set_expression()` 호출 지점(전투 중 여러 곳)은 전혀 안 바꾸고, 그 함수 내부가
+  원화 모드일 때만 `_face_rect.texture`를 갈아끼우도록 분기만 추가했다 — 지시
+  원문("기존 set_expression() 호출 지점에서 텍스처만 교체")대로. `combat_test.gd`의
+  `_setup_combat_hud()`(캐릭터가 정해지는 지점, QA 캐릭터 전환 훅도 이 함수를
+  재사용)에 `player_portrait.set_character(cid)` 한 줄만 추가해 배선 완료.
+  캐릭터 선택 화면(`CharacterArt.load_full`/`load_face_thumb`)과 같은
+  "있으면 원화, 없으면 플레이스홀더" 패턴을 그대로 재사용했을 뿐 새 아키텍처는
+  만들지 않았다. `dice_test.gd`에 신규 `_check_art1b_combat_face_art()`(단위:
+  has_all_faces 참/거짓 + set_character 전환 + set_expression으로 텍스처가
+  실제로 바뀌는지, 통합: 실제 `combat_test.tscn` 인스턴스에서 캐릭터를 novice ->
+  face 없는 캐릭터로 바꾸면 원화->플레이스홀더로 되돌아오는지)를 추가해 전체
+  스위트 **PASS**(`qa_out/dice_test.png`). `qa_out/art1b_novice_start.png`(전투
+  시작 직후 neutral 원화, HP 패널/다이스 스테이지와 안 겹침), `art1b_novice_
+  after_exchange.png`(공격 적중 후 happy 표정으로 실제 전환, 결과 칩 줄과도 안
+  겹침), `art1b_pirate_fallback.png`(face 미입고 캐릭터는 기존 도형 플레이스홀더
+  그대로)로 육안 확인. 전투 규칙/밸런스는 손대지 않음. resources/는 읽기만 했다.
+  **다음은 ART-1b의 나머지 7종(face_* 입고되는 대로 자동 적용되므로 코드 작업은
+  끝 — 아트 입고 대기) 또는 ART-1c(몬스터 원화), 또는 [대형 기획 13] M-4.**
 
 ## 지금 위치
 
@@ -131,8 +130,18 @@ D8>=5→7)해 일반 방3 64.2%→79.4%(통과), 정예 39.3%→59.8%(통과, �
 방3 절벽 + 정예 튜닝 시도 로그" 섹션), 코드 변경 경위는 `docs/
 STATUS_ARCHIVE.md`(174 이전)/위 "완료 기록 (184)~(186)" 참고.
 **ART-1a(아트 스레드 전달) 완료** — 캐릭터 선택 카드 목록 ScrollContainer
-전환(상세는 `docs/STATUS_ARCHIVE.md`의 완료 기록 (152)). ART-1b/1c는 원화
-파일 도착 전 상태라 여전히 대기.
+전환(상세는 `docs/STATUS_ARCHIVE.md`의 완료 기록 (152)).
+**ART-1b(전투 화면 원화 표정 컷 연결, 2026-10-15, 201) 1/N종 완료** — 견습
+모험가(`novice`) face_* 5장이 입고돼 `CombatTest`의 `$PlayerPortrait`가 원화
+모드로 전환됐다. `CharacterArt.has_all_faces(character_id)`(5장 전부 있는지)와
+`CharacterPortraitPlaceholder.set_character(character_id)`(원화 모드 전환 +
+`_face_rect` TextureRect 생성)를 신규 추가 — 기존 `set_expression()` 호출
+지점은 그대로 두고, 원화 모드일 때만 텍스처를 갈아끼우도록 그 안에서 분기한다.
+5장 중 하나라도 없는 캐릭터(나머지 7종)는 `_use_face_art=false`로 기존 도형
+플레이스홀더 그대로 — `qa_out/art1b_pirate_fallback.png`로 회귀 없음 확인.
+`qa_out/art1b_novice_start.png`/`art1b_novice_after_exchange.png`로 원화가
+HP 패널·다이스 스테이지·결과 칩과 겹치지 않고 표정(happy)도 실제로 바뀌는 것
+육안 확인. ART-1c(몬스터 원화)는 몬스터 쪽 face_* 입고 전이라 여전히 대기.
 **큐의 나머지 항목은 대부분 사람 플레이테스트/피드백 또는 설계 결정이
 필요한 상태** — 자세한 내용은 "알려진 이슈 / 막힌 것" 섹션 참고.
 
@@ -980,6 +989,46 @@ M-2/M-3가 재사용했고 M-4도 그대로 재사용할 것(INBOX M-4 원문 "�
 
 ## 완료 기록
 
+- **2026-10-15 (201)**: [미니 기획 ART-1] **ART-1b(전투 화면 원화 표정 컷 연결)를
+  견습 모험가(`novice`) 1종에 대해 완료**. 아트 스레드가 `resources/characters/
+  novice/face_{neutral,happy,hurt,sad,angry}.png` 5장을 입고(커밋 `db83033`)해
+  착수 가능해졌다. `CharacterArt`(`code/scenes/character_art.gd`)에
+  `has_all_faces(character_id)`(5장이 전부 있는지, 하나라도 없으면 false) 신규
+  추가. `CharacterPortraitPlaceholder`(`code/scenes/character_portrait_
+  placeholder.gd`, 전투 화면 `$PlayerPortrait`가 쓰는 클래스, 캐릭터 선택/덱
+  패널/테스트 전투 설정 등 다른 사용처와 공유)에 `set_character(character_id)`를
+  추가 — 5장이 전부 있으면 `_use_face_art=true`로 전환해 `_face_rect`(TextureRect,
+  240×240, `TEXTURE_FILTER_LINEAR_WITH_MIPMAPS`, `STRETCH_KEEP_ASPECT_CENTERED`)를
+  만들고 `_draw()`(도형 플레이스홀더)를 건너뛴다. **기존 `set_expression()` 호출
+  지점은 전혀 안 바꿨다** — 그 함수 내부에 "원화 모드면 `_face_rect.texture`도
+  갈아끼운다" 분기만 추가(INBOX 원문 "기존 set_expression() 호출 지점에서
+  텍스처만 교체" 그대로). `set_character()`를 호출하지 않는 다른 사용처(캐릭터
+  선택 상세 패널의 `_detail_portrait`, `deck_panel.gd`/`test_battle_setup.gd`의
+  플레이스홀더)는 `_use_face_art`가 항상 false라 기존과 완전히 동일하게 동작 —
+  영향 없음. `combat_test.gd`의 `_setup_combat_hud()`(플레이어 캐릭터가 정해지는
+  지점, QA 캐릭터 전환 훅 `_debug_set_character()`도 이 함수를 재사용)에
+  `player_portrait.set_character(cid)` 한 줄만 추가해 배선 완료 — 캐릭터가
+  바뀌면(정상 플레이의 캐릭터 선택, 또는 QA 전환) 자동으로 원화/플레이스홀더가
+  갈린다.
+  **검증**: `dice_test.gd`에 신규 `_check_art1b_combat_face_art()` — ①
+  `has_all_faces('novice')`=true / `has_all_faces('berserker')`(face_* 없음,
+  full.png만)=false ② `CharacterPortraitPlaceholder` 단위: berserker로
+  `set_character()` 호출 시 플레이스홀더 유지, novice로 호출 시 원화 모드 전환
+  + `set_expression('happy')`로 실제 텍스처가 neutral과 다른 리소스로 바뀌는지
+  ③ 실제 `combat_test.tscn` 인스턴스에서 `RunState.character_id='novice'`로
+  시작하면 `PlayerPortrait._use_face_art=true`, `_debug_set_character
+  ('berserker')`로 전환하면 다시 false로 돌아오는지 — 전부 PASS,
+  `bash scripts/qa_shot.sh dice_test` 전체 스위트 **PASS**.
+  `qa_out/art1b_novice_start.png`(전투 시작 직후 neutral 원화, 좌측 HP
+  패널·중앙 다이스 스테이지와 안 겹침)/`art1b_novice_after_exchange.png`
+  (공격 적중 후 happy 표정으로 실제 전환, 화면 중앙 결과 칩 줄과도 안 겹침)/
+  `art1b_pirate_fallback.png`(face 미입고 캐릭터 — 해적으로 QA 전환, 기존 도형
+  플레이스홀더 그대로 — 회귀 없음)로 육안 확인. 전투 규칙/밸런스/resources는
+  손대지 않음. **나머지 7종은 아트 스레드가 face_* 5장을 입고하는 즉시 코드
+  변경 없이 자동 적용**(`has_all_faces()`가 범용 함수라 캐릭터 id만 바뀜) —
+  ART-1b는 사실상 "코드 작업 완료, 입고 대기"로 전환됨. ART-1c(몬스터 원화)는
+  몬스터 쪽 face_*가 아직 없어 그대로 대기.
+
 - **2026-10-15 (200)**: INBOX.md 최우선 지시 [대형 기획 13] 던전 선택~전투 UI 품질
   개선(M-1→M-4, 셀프 피드백 루프 방식) 중 **M-3(전투 화면 상태별 연출/결과/보상
   UI) 완료**. 직전 이터레이션이 사용 한도로 M-3 작업 도중(combat_test.gd/
@@ -1474,53 +1523,9 @@ M-2/M-3가 재사용했고 M-4도 그대로 재사용할 것(INBOX M-4 원문 "�
   **INBOX.md [대형 기획 11]을 "처리됨"으로 옮겼다 — K-1~K-4(a~c) 전체 완료.**
   "완료 기록" 10개 유지를 위해 (182)를 `docs/STATUS_ARCHIVE.md`로 옮겼다.
 
-- **2026-10-13 (191)**: INBOX.md 최우선 지시 [대형 기획 11] 조작/UI 개편(K-1→K-4) 중
-  **K-4b(스킬 아이콘 모티프 전 화면 적용) 완료**. K-4a가 만든 `SkillIcon.motif`/
-  `SkillPool.icon_motif_for()`를 실제 화면 3곳에 배선했다 — INBOX.md가 요구한 6개
-  위치(캐릭터 선택 시작 스킬 슬롯/보상 선택/상점/덱·커스터마이즈 패널/전투 중 보유
-  스킬/이벤트 보상) 중 상점·전투 중 보유 스킬은 코드 구조상 이미 아래 두 지점이
-  그대로 커버해 별도 수정이 필요 없었다.
-  **(1) `item_card_style.gd`의 `build_card()`**: 아이템 딕셔너리에 `id` 필드가
-  있으면(SkillPool 스킬만 이 필드를 갖고, DiceItemPool/EventItemPool 아이템은 없음)
-  `SkillPool.icon_motif_for(id)`로 모티프를 찾아 등급 배지 옆에 `SkillIcon`을 자동으로
-  붙인다 — 이 한 곳만 고치면 "보상 선택"과 "이벤트 보상"이 둘 다 같은
-  `_show_skill_offer()`(event.gd)를 공유해서 쓰므로 자동으로 반영됨. 일반 아이템
-  카드는 `id`가 없어 회귀 없이 기존 모습 그대로 유지(테스트로 확인).
-  **(2) `character_select.gd`의 `_make_starting_skill_slot()`**: 해금된 슬롯은 이름
-  왼쪽에 모티프 아이콘, 잠긴 슬롯도 INBOX.md 지시("잠금 상태는 어둡게 + 자물쇠 배지,
-  윤곽은 보이게")대로 같은 아이콘을 `modulate.a=0.4`로 흐리게 남겨 완전히 숨기지
-  않는다.
-  **(3) `deck_panel.gd`의 `_add_skills_section()`**: `RunState.skill_flags` 각
-  항목 라벨 왼쪽에 모티프 아이콘을 붙인다. 이 패널이 dungeon_map/shop/event/
-  story_event(상시)와 combat_test(토글) 전부에 공유되는 "주요 패널"이라(K-3와 같은
-  이유), 여기 한 곳이 INBOX.md가 요구한 "상점"과 "전투 중 보유 스킬 표시" 둘 다를
-  동시에 충족한다 — 상점은 스킬을 팔지 않아 이 패널 없이는 스킬 아이콘을 볼 자리
-  자체가 없었던 화면이라, DeckPanel 공유 구조가 "새 화면을 따로 만들지 않고도
-  커버된다"는 요청(원문 "공용 헬퍼로 — 새 화면이 생겨도 한 줄로 적용되게")과 맞아
-  떨어짐. `customize_panel.gd`는 애초에 스킬을 표시하지 않아(다이스 면만 다룸)
-  변경 없음.
-  **검증**: `dice_test.gd`에 신규 `_check_k4b_skill_icon_wiring()` + 재귀 헬퍼
-  `_collect_skill_icons()`(트리를 훑어 실제 `SkillIcon` 자식 노드를 모음, "모티프
-  프로퍼티가 설정됐나"가 아니라 "그 노드가 화면 트리에 실제로 붙어있나"를 검증) —
-  ① `build_card()`에 스킬 딕셔너리를 넣으면 motif가 일치하는 `SkillIcon`이 정확히
-  1개 생기고, id 없는 일반 아이템을 넣으면 0개인지(회귀 방지) ② 시작 스킬 슬롯이
-  해금/잠금 양쪽에서 motif 아이콘을 갖고 잠금 쪽은 `modulate.a<1`인지 ③ DeckPanel에
-  `skill_flags=["deep_breath"]`를 넣으면 정확히 그 motif를 가진 아이콘이 생기는지
-  (캐릭터 기믹용 `SkillIcon`도 같은 패널에 함께 있어 "모티프가 일치하는 것만" 따로
-  필터링해서 셈 — 처음 작성 때 이걸 놓쳐 FAIL이 났던 것을 바로 고침). 전부 PASS.
-  `bash scripts/qa_shot.sh dice_test` 전체 **PASS**. 육안 확인(`qa_out/event.png` —
-  "임기응변"에 주황/회색 반반 다이아몬드, "심호흡"에 파란 방패 쉐브론 모티프가 뚜렷이
-  보임 / `qa_out/combat_test_deckpanel_skills.png` — 전투 중 토글 DeckPanel의 보유
-  스킬 4개가 서로 다른 모티프 색으로 구분됨 / `qa_out/character_select.png` — 시작
-  스킬 슬롯 "확장"에 보라 모티프 아이콘 / `qa_out/shop.png` — 스킬이 아닌 상점 아이템
-  카드에는 아이콘이 안 붙어 회귀 없음 확인). INBOX.md [대형 기획 11]은 "부분 처리됨"에
-  그대로 두고 K-4b 완료 상태로 진행 한 줄만 갱신 — 다음은 **K-4c(외부 아트 override
-  경로 — `resources/skills/<skill_id>.png` 존재 시 그 이미지 사용 + 발주 목록 정리)**.
-  "완료 기록" 10개 유지를 위해 (181)을 `docs/STATUS_ARCHIVE.md`로 옮겼다.
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(200)에서 (190)을 그리로 옮겼다.)*
+이번 이터레이션(201)에서 (191)을 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 

@@ -64,6 +64,17 @@ static func load_face(character_id: String, expression: String) -> Texture2D:
 	return load(path) as Texture2D
 
 
+## ART-1b: face_{neutral,happy,hurt,sad,angry} 5장이 전부 입고됐는지 — 전투 화면이
+## "일부만 원화로 섞이는" 상태를 막기 위해 5장 모두 있을 때만 원화 모드로 전환한다.
+const FACE_EXPRESSIONS := ["neutral", "happy", "hurt", "sad", "angry"]
+
+static func has_all_faces(character_id: String) -> bool:
+	for expression in FACE_EXPRESSIONS:
+		if not ResourceLoader.exists(face_path(character_id, expression)):
+			return false
+	return true
+
+
 ## 캐릭터 프로필의 "face_crop" 필드(Rect2, 0..1 비율)가 있으면 그것을, 없으면
 ## DEFAULT_FACE_CROP_RATIO를 돌려준다.
 static func face_crop_ratio(character_id: String) -> Rect2:

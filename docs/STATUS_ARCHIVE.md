@@ -8,6 +8,50 @@
 
 ---
 
+- **2026-10-13 (191)**: INBOX.md 최우선 지시 [대형 기획 11] 조작/UI 개편(K-1→K-4) 중
+  **K-4b(스킬 아이콘 모티프 전 화면 적용) 완료**. K-4a가 만든 `SkillIcon.motif`/
+  `SkillPool.icon_motif_for()`를 실제 화면 3곳에 배선했다 — INBOX.md가 요구한 6개
+  위치(캐릭터 선택 시작 스킬 슬롯/보상 선택/상점/덱·커스터마이즈 패널/전투 중 보유
+  스킬/이벤트 보상) 중 상점·전투 중 보유 스킬은 코드 구조상 이미 아래 두 지점이
+  그대로 커버해 별도 수정이 필요 없었다.
+  **(1) `item_card_style.gd`의 `build_card()`**: 아이템 딕셔너리에 `id` 필드가
+  있으면(SkillPool 스킬만 이 필드를 갖고, DiceItemPool/EventItemPool 아이템은 없음)
+  `SkillPool.icon_motif_for(id)`로 모티프를 찾아 등급 배지 옆에 `SkillIcon`을 자동으로
+  붙인다 — 이 한 곳만 고치면 "보상 선택"과 "이벤트 보상"이 둘 다 같은
+  `_show_skill_offer()`(event.gd)를 공유해서 쓰므로 자동으로 반영됨. 일반 아이템
+  카드는 `id`가 없어 회귀 없이 기존 모습 그대로 유지(테스트로 확인).
+  **(2) `character_select.gd`의 `_make_starting_skill_slot()`**: 해금된 슬롯은 이름
+  왼쪽에 모티프 아이콘, 잠긴 슬롯도 INBOX.md 지시("잠금 상태는 어둡게 + 자물쇠 배지,
+  윤곽은 보이게")대로 같은 아이콘을 `modulate.a=0.4`로 흐리게 남겨 완전히 숨기지
+  않는다.
+  **(3) `deck_panel.gd`의 `_add_skills_section()`**: `RunState.skill_flags` 각
+  항목 라벨 왼쪽에 모티프 아이콘을 붙인다. 이 패널이 dungeon_map/shop/event/
+  story_event(상시)와 combat_test(토글) 전부에 공유되는 "주요 패널"이라(K-3와 같은
+  이유), 여기 한 곳이 INBOX.md가 요구한 "상점"과 "전투 중 보유 스킬 표시" 둘 다를
+  동시에 충족한다 — 상점은 스킬을 팔지 않아 이 패널 없이는 스킬 아이콘을 볼 자리
+  자체가 없었던 화면이라, DeckPanel 공유 구조가 "새 화면을 따로 만들지 않고도
+  커버된다"는 요청(원문 "공용 헬퍼로 — 새 화면이 생겨도 한 줄로 적용되게")과 맞아
+  떨어짐. `customize_panel.gd`는 애초에 스킬을 표시하지 않아(다이스 면만 다룸)
+  변경 없음.
+  **검증**: `dice_test.gd`에 신규 `_check_k4b_skill_icon_wiring()` + 재귀 헬퍼
+  `_collect_skill_icons()`(트리를 훑어 실제 `SkillIcon` 자식 노드를 모음, "모티프
+  프로퍼티가 설정됐나"가 아니라 "그 노드가 화면 트리에 실제로 붙어있나"를 검증) —
+  ① `build_card()`에 스킬 딕셔너리를 넣으면 motif가 일치하는 `SkillIcon`이 정확히
+  1개 생기고, id 없는 일반 아이템을 넣으면 0개인지(회귀 방지) ② 시작 스킬 슬롯이
+  해금/잠금 양쪽에서 motif 아이콘을 갖고 잠금 쪽은 `modulate.a<1`인지 ③ DeckPanel에
+  `skill_flags=["deep_breath"]`를 넣으면 정확히 그 motif를 가진 아이콘이 생기는지
+  (캐릭터 기믹용 `SkillIcon`도 같은 패널에 함께 있어 "모티프가 일치하는 것만" 따로
+  필터링해서 셈 — 처음 작성 때 이걸 놓쳐 FAIL이 났던 것을 바로 고침). 전부 PASS.
+  `bash scripts/qa_shot.sh dice_test` 전체 **PASS**. 육안 확인(`qa_out/event.png` —
+  "임기응변"에 주황/회색 반반 다이아몬드, "심호흡"에 파란 방패 쉐브론 모티프가 뚜렷이
+  보임 / `qa_out/combat_test_deckpanel_skills.png` — 전투 중 토글 DeckPanel의 보유
+  스킬 4개가 서로 다른 모티프 색으로 구분됨 / `qa_out/character_select.png` — 시작
+  스킬 슬롯 "확장"에 보라 모티프 아이콘 / `qa_out/shop.png` — 스킬이 아닌 상점 아이템
+  카드에는 아이콘이 안 붙어 회귀 없음 확인). INBOX.md [대형 기획 11]은 "부분 처리됨"에
+  그대로 두고 K-4b 완료 상태로 진행 한 줄만 갱신 — 다음은 **K-4c(외부 아트 override
+  경로 — `resources/skills/<skill_id>.png` 존재 시 그 이미지 사용 + 발주 목록 정리)**.
+  "완료 기록" 10개 유지를 위해 (181)을 `docs/STATUS_ARCHIVE.md`로 옮겼다.
+
 - **2026-10-13 (190)**: INBOX.md 최우선 지시 [대형 기획 11] 조작/UI 개편(K-1→K-4) 중
   **K-4a(스킬 아이콘 모티프 분류표 + 그리기 함수 + 검증) 완료**. 지금까지 "스킬"
   (`SkillPool`의 SKILLS/UNIQUE_SKILLS/UPGRADE_SKILLS/STARTING_SKILLS, 33개 id)에는

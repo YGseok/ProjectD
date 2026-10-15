@@ -1199,6 +1199,7 @@ func _setup_combat_hud() -> void:
 	monster_body.add_child(monster_trait_label)
 
 	player_portrait.scale = Vector2(PORTRAIT_SCALE_NORMAL, PORTRAIT_SCALE_NORMAL)
+	player_portrait.set_character(cid) # ART-1b: face_* 5장이 전부 있으면 원화, 아니면 플레이스홀더 유지
 	monster_debug_info_label.visible = _qa_debug_ui_enabled()
 
 

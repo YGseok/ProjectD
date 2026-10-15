@@ -167,8 +167,10 @@
   사람 설계 결정은 필요 없음 — 진행 중인 F/G 순서를 깨지 않는 선에서 한 이터레이션에 한
   조각씩 끼워서 진행해도 된다.
 
-  → **ART-1a 완료(2026-10-07), ART-1b/1c는 아직**(상세는 `docs/STATUS.md` 완료
-  기록(152) 참고).
+  → **ART-1a 완료(2026-10-07), ART-1b 완료(2026-10-15, 견습 모험가 face_* 입고
+  기준 — 코드는 모든 캐릭터에 범용이라 나머지 7종도 face_*가 입고되는 대로
+  자동 적용됨), ART-1c는 아직**(몬스터 쪽 face_*가 없어 대기. 상세는
+  `docs/STATUS.md` 완료 기록(152)/(201) 참고).
 
   **ART-1a. 캐릭터 선택 목록 넘침/겹침 (버그, 원화 적용 전부터 있던 문제) — 완료됨**
   - 카드 패널 실제 높이가 `CARD_HEIGHT`(92)보다 커서 위아래 카드 테두리가 겹친다.
@@ -183,19 +185,22 @@
     select_art1a.png`(7종 겹침 없이 스크롤바 표시)/`character_select_juggler_select.png`
     (7번째 카드 실제 선택 동작 확인)로 검증.
 
-  **ART-1b. 전투 화면 상반신 표정 컷 연결 준비 (원화 도착 전 코드 경로만)**
-  - 결정 사항: 전투 화면은 **상반신 표정 컷**, 선택 화면은 전신. 파일 규칙:
-    `res://resources/characters/<캐릭터 id>/face_{neutral,happy,hurt,sad,angry}.png`
-    (768×768 PNG 투명, 5장 모두 같은 구도. 플레이어는 화면 오른쪽, 몬스터는 왼쪽을 봄).
-  - `CharacterArt`에 `load_face(id, expression)` / "5장이 모두 있는지" 검사 함수를 추가하고,
-    `combat_test.gd`의 `$PlayerPortrait`가 5장이 다 있으면 원화 표정 컷을, 하나라도 없으면
-    지금의 `CharacterPortraitPlaceholder`를 쓰게 한다(표정 일부만 원화로 섞이지 않게).
-    기존 `set_expression()` 호출 지점은 그대로 재사용.
-  - 표시 크기는 현재 플레이스홀더 영역(약 136×248, 중심 (70,270)) 부근에서 HP바·다이스
-    영역과 겹치지 않는 선으로 잡고 스크린샷으로 확인. TextureRect를 쓰면
-    `texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS`(선택 화면과 동일).
-  - 검증: 아직 face 파일이 없으므로 "파일 없음 → 플레이스홀더 유지"가 깨지지 않는지 확인하고,
-    테스트용 임시 이미지는 `resources/`에 넣지 말고 테스트 코드 안에서만 만들 것.
+  **ART-1b. 전투 화면 상반신 표정 컷 연결 — 완료(2026-10-15, 견습 모험가 기준)**
+  - 견습 모험가(`novice`) face_* 5장이 입고돼 착수. `CharacterArt.has_all_faces(id)`
+    (5장 전부 있는지)를 추가하고, `CharacterPortraitPlaceholder.set_character(id)`가
+    5장 전부 있으면 내부 `_face_rect`(TextureRect, 240×240,
+    `TEXTURE_FILTER_LINEAR_WITH_MIPMAPS`, `STRETCH_KEEP_ASPECT_CENTERED`)로 원화
+    표정 컷을, 하나라도 없으면 기존 도형 플레이스홀더를 쓴다. 기존
+    `set_expression()` 호출 지점은 전혀 안 바꾸고 그 함수 내부에서만 분기.
+    `combat_test.gd`의 `_setup_combat_hud()`(캐릭터가 정해지는 지점)에
+    `player_portrait.set_character(cid)` 한 줄만 추가해 배선.
+  - `qa_out/art1b_novice_start.png`/`art1b_novice_after_exchange.png`로 HP바·다이스
+    영역과 안 겹침 + 표정(happy) 실제 전환 확인, `art1b_pirate_fallback.png`로 face
+    미입고 캐릭터는 기존 플레이스홀더 그대로(회귀 없음) 확인.
+  - `dice_test.gd`의 `_check_art1b_combat_face_art()`로 "파일 없음 → 플레이스홀더
+    유지" + "5장 있음 → 원화 + 표정별 텍스처 전환"을 단위/통합 양쪽에서 검증, 전체
+    PASS. 나머지 7종은 아트 스레드가 face_*를 입고하는 대로 코드 변경 없이 자동
+    적용된다(`has_all_faces()`가 범용 함수). 상세는 `docs/STATUS.md` 완료 기록(201).
 
   **ART-1c. 몬스터 원화 경로 (G-1 MonsterCatalog와 함께)**
   - 몬스터도 같은 규칙: `res://resources/monsters/<몬스터 id>/full.png` + `face_*.png` 5종.

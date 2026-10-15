@@ -333,6 +333,10 @@ func _ready() -> void:
 	all_pass = _check_m3_combat_dice_stage(lines) and all_pass
 
 	lines.append("")
+	lines.append("[ART-1b: 전투 화면 원화 표정 컷 연결 검증: face_* 5장이 전부 있으면(견습 모험가) 원화 텍스처로, 1장이라도 없으면(다른 캐릭터) 플레이스홀더 그대로인지 + set_expression() 호출 시 텍스처가 실제로 바뀌는지]")
+	all_pass = _check_art1b_combat_face_art(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -7310,4 +7314,92 @@ func _check_m3_combat_dice_stage(lines: PackedStringArray) -> bool:
 
 	remove_child(combat)
 	combat.free()
+	return ok
+
+
+## ART-1b: resources/characters/novice/face_{neutral,happy,hurt,sad,angry}.png 5장이
+## 전부 입고된 뒤 전투 화면이 실제로 원화 텍스처를 쓰는지 + 5장이 아직 없는 다른
+## 캐릭터는 여전히 도형 플레이스홀더로 안전하게 폴백하는지 검증. "노드가 있는가"가
+## 아니라 실제 렌더 상태(_face_rect.visible/texture, _draw() 분기)를 확인한다.
+func _check_art1b_combat_face_art(lines: PackedStringArray) -> bool:
+	var ok := true
+
+	# 1) CharacterArt.has_all_faces() 자체 — novice는 5장 다 있고(이번에 입고됨),
+	#    face_*가 하나도 없는 캐릭터(berserker, full.png만 있음)는 false.
+	var novice_has_all := CharacterArt.has_all_faces("novice")
+	ok = novice_has_all and ok
+	lines.append("  CharacterArt.has_all_faces('novice') = %s (기대 true, face_* 5장 입고됨) -> %s" % [
+		novice_has_all, "OK" if novice_has_all else "FAIL"
+	])
+	var berserker_has_all := CharacterArt.has_all_faces("berserker")
+	var berserker_fallback_ok: bool = not berserker_has_all
+	ok = berserker_fallback_ok and ok
+	lines.append("  CharacterArt.has_all_faces('berserker') = %s (기대 false, face_* 없음 — 1장이라도 없으면 전부 플레이스홀더) -> %s" % [
+		berserker_has_all, "OK" if berserker_fallback_ok else "FAIL"
+	])
+
+	# 2) CharacterPortraitPlaceholder.set_character() 단위 검증 — novice는 원화 모드로
+	#    전환되고 _face_rect 텍스처가 표정마다 실제로 바뀌는지, berserker는 그대로
+	#    도형 플레이스홀더(_use_face_art=false, _face_rect 비표시)인지.
+	var portrait := CharacterPortraitPlaceholder.new()
+	add_child(portrait)
+
+	portrait.set_character("berserker")
+	var berserker_mode_ok: bool = not portrait._use_face_art
+	ok = berserker_mode_ok and ok
+	lines.append("  set_character('berserker') 후 _use_face_art=%s (기대 false, 플레이스홀더 유지) -> %s" % [
+		portrait._use_face_art, "OK" if berserker_mode_ok else "FAIL"
+	])
+	var berserker_face_rect_hidden_ok: bool = portrait._face_rect == null or not portrait._face_rect.visible
+	ok = berserker_face_rect_hidden_ok and ok
+	lines.append("  berserker _face_rect 표시 안 됨(null 또는 visible=false) -> %s" % ("OK" if berserker_face_rect_hidden_ok else "FAIL"))
+
+	portrait.set_character("novice")
+	var novice_mode_ok: bool = portrait._use_face_art
+	ok = novice_mode_ok and ok
+	lines.append("  set_character('novice') 후 _use_face_art=%s (기대 true, 원화 모드) -> %s" % [
+		portrait._use_face_art, "OK" if novice_mode_ok else "FAIL"
+	])
+	var neutral_tex := portrait._face_rect.texture if portrait._face_rect != null else null
+	var neutral_tex_ok: bool = neutral_tex != null and portrait._face_rect.visible
+	ok = neutral_tex_ok and ok
+	lines.append("  novice 초기 표정(neutral) 텍스처 로드됨=%s, _face_rect.visible=%s -> %s" % [
+		neutral_tex != null, portrait._face_rect.visible if portrait._face_rect != null else false,
+		"OK" if neutral_tex_ok else "FAIL"
+	])
+
+	portrait.set_expression("happy")
+	var happy_tex := portrait._face_rect.texture
+	var expression_switch_ok: bool = happy_tex != null and happy_tex != neutral_tex
+	ok = expression_switch_ok and ok
+	lines.append("  set_expression('happy') 후 텍스처가 neutral과 다른 리소스로 바뀜 -> %s" % ("OK" if expression_switch_ok else "FAIL"))
+
+	remove_child(portrait)
+	portrait.free()
+
+	# 3) 실제 combat_test.tscn 인스턴스에서 RunState.character_id='novice'일 때
+	#    $PlayerPortrait가 원화 모드로, '해당 캐릭터 전환'(_debug_set_character)으로
+	#    face_*가 없는 캐릭터로 바꾸면 다시 플레이스홀더로 돌아오는지.
+	var character_backup: String = RunState.character_id
+	RunState.character_id = "novice"
+	var combat_scene := load("res://code/scenes/combat_test.tscn")
+	var combat = combat_scene.instantiate()
+	add_child(combat)
+
+	var novice_combat_ok: bool = combat.player_portrait._use_face_art
+	ok = novice_combat_ok and ok
+	lines.append("  combat_test 인스턴스(캐릭터=novice) PlayerPortrait._use_face_art=%s -> %s" % [
+		novice_combat_ok, "OK" if novice_combat_ok else "FAIL"
+	])
+
+	combat._debug_set_character("berserker")
+	var berserker_combat_ok: bool = not combat.player_portrait._use_face_art
+	ok = berserker_combat_ok and ok
+	lines.append("  _debug_set_character('berserker') 후 PlayerPortrait._use_face_art=%s (기대 false, 다시 플레이스홀더) -> %s" % [
+		combat.player_portrait._use_face_art, "OK" if berserker_combat_ok else "FAIL"
+	])
+
+	remove_child(combat)
+	combat.free()
+	RunState.character_id = character_backup
 	return ok

@@ -18,10 +18,21 @@ const SKIN_COLOR := Color(0.96, 0.82, 0.72)
 const EYE_COLOR := Color(0.25, 0.2, 0.3)
 const MOUTH_COLOR := Color(0.55, 0.25, 0.3)
 
+## ART-1b: 전투 화면 상반신 표정 컷(원화) 크기 — 상반신 정사각 구도라 정사각으로 둔다.
+## HP 패널/다이스 스테이지와 안 겹치는 범위(INBOX "약 220~260px") 중간값.
+const FACE_ART_SIZE := Vector2(240, 240)
+
 ## "neutral" / "happy" / "hurt" / "sad" / "angry"
 @export var expression: String = "neutral"
 @export var hair_color := Color(0.78, 0.62, 0.86)
 @export var dress_color := Color(0.92, 0.55, 0.66)
+
+## ART-1b: set_character()가 face_* 5장을 전부 찾으면 true — 이때 _draw()의 도형
+## 플레이스홀더 대신 _face_rect 텍스처를 보여준다(1장이라도 없으면 항상 false로 유지돼
+## 플레이스홀더 그대로).
+var _use_face_art := false
+var _character_id := ""
+var _face_rect: TextureRect = null
 
 
 func set_palette(new_hair_color: Color, new_dress_color: Color) -> void:
@@ -30,12 +41,44 @@ func set_palette(new_hair_color: Color, new_dress_color: Color) -> void:
 	queue_redraw()
 
 
+## ART-1b: 전투 화면이 플레이어 캐릭터가 정해질 때(또는 QA로 캐릭터를 바꿀 때) 호출.
+## face_* 5장이 전부 있으면 원화 모드로 전환해 이후 set_expression() 호출마다 텍스처만
+## 갈아끼운다. 캐릭터 선택/테스트 전투 설정 등 이 함수를 부르지 않는 기존 사용처는
+## _use_face_art가 항상 false라 지금과 동일한 도형 플레이스홀더로 동작한다.
+func set_character(character_id: String) -> void:
+	_character_id = character_id
+	_use_face_art = CharacterArt.has_all_faces(character_id)
+	if _use_face_art:
+		_ensure_face_rect()
+	if _face_rect != null:
+		_face_rect.visible = _use_face_art
+	set_expression(expression)
+
+
+func _ensure_face_rect() -> void:
+	if _face_rect != null:
+		return
+	_face_rect = TextureRect.new()
+	_face_rect.custom_minimum_size = FACE_ART_SIZE
+	_face_rect.size = FACE_ART_SIZE
+	_face_rect.position = Vector2(-FACE_ART_SIZE.x / 2.0, -FACE_ART_SIZE.y / 2.0 + 16.0)
+	_face_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_face_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_face_rect.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	_face_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_face_rect)
+
+
 func set_expression(new_expression: String) -> void:
 	expression = new_expression
+	if _use_face_art and _face_rect != null:
+		_face_rect.texture = CharacterArt.load_face(_character_id, expression)
 	queue_redraw()
 
 
 func _draw() -> void:
+	if _use_face_art:
+		return
 	# 머리카락 뒷부분 (얼굴보다 넓은 타원형 블롭)
 	draw_colored_polygon(_ellipse_points(Vector2(0, -30), 68, 78), hair_color)
 	# 얼굴 (원)
