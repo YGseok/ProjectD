@@ -220,10 +220,10 @@ ART-<분류><대상 번호 3자리>-<종류>
 | MO803 | `frenzied_beast` | 광란의 마수 | 야수형 | 보스 R2 | `#8C3326` | 📦 / 📝 |
 | MO804 | `fallen_commander` | 타락한 기사단장 | 인간형 | 보스 R3 | `#594D73` | 📦 / 📝 |
 | MO805 | `void_eye` | 공허의 눈 | 부정형 | 보스 R3 | `#33264D` | 📦 / 📝 |
-| MO600 | `dark_knight_elite` | 다크 나이트 | 인간형 | 정예 | `#8C40BF` | 📝 / 📝 |
-| MO601 | `goblin_chief` | 고블린 족장 | 인간형 | 정예 | `#C79438` | 📝 / 📝 |
-| MO602 | `gelatin_cube` | 젤라틴 큐브 | 부정형 | 정예 | `#80D1BF` | 📝 / 📝 |
-| MO603 | `specter` | 망령 | 부정형 | 정예 | `#8C99AD` | 📝 / 📝 |
+| MO600 | `dark_knight_elite` | 다크 나이트 | 인간형 | 정예 | `#8C40BF` | 📦 / 📝 |
+| MO601 | `goblin_chief` | 고블린 족장 | 인간형 | 정예 | `#C79438` | 📦 / 📝 |
+| MO602 | `gelatin_cube` | 젤라틴 큐브 | 부정형 | 정예 | `#80D1BF` | 📦 / 📝 |
+| MO603 | `specter` | 망령 | 부정형 | 정예 | `#8C99AD` | 📦 / 📝 |
 | MO604 | `orc_warrior` | 오크 투사 | 야수형 | 정예 | `#387338` | 📝 / 📝 |
 | MO605 | `dark_wolf` | 암흑 늑대 | 야수형 | 정예 | `#40404D` | 📝 / 📝 |
 | MO606 | `skeleton_knight` | 해골 기사 | 언데드형 | 정예 | `#B3AD94` | 📝 / 📝 |
@@ -685,6 +685,7 @@ Work는 `resources/ui/` 이미지가 있으면 StyleBoxTexture로 쓰고, 없으
 | 2026-10-16 | ART-MO803~805-FULL 광란의 마수·타락한 기사단장·공허의 눈 (GPT 생성, 전부 1차 채택, `fill_holes.gd`로 갇힌 흰 배경 제거). **M1 보스 6종 전신 완료** | `resources/monsters/{frenzied_beast,fallen_commander,void_eye}/full.png` 입고. 화면 표시는 Work ART-1c 대기 | `qa_out/art_boss_lineup.png` |
 | 2026-10-16 | 스킬 아이콘 37종 화면 적용 확인 (Work ART-3 수정 d75ae24 — SkillIcon 텍스처 멤버 캐시) | 스킬 도감 + SkillIcon 37종 렌더 확인 | `qa_out/art_skill_codex.png`, `qa_out/art_skill_icons_all.png` |
 | 2026-10-16 | ART-MO001~004-FULL 계열 대표 일반 몬스터 슬라임·고블린·해골 전사·오크 (GPT 생성, 전부 1차 채택. 보스보다 단순한 실루엣으로 요청 — 기믹 주사위: 삼킨 주사위 / 6면이 달아오른 주사위 / 모든 면이 같은 눈 / 1·6면만 있는 흑백 주사위) | `resources/monsters/{slime,goblin,skeleton,orc}/full.png` 입고. **M2 완료**. 화면 표시는 Work 몬스터 full.png 폴백 대기 | `qa_out/art_normal_reps.png` |
+| 2026-10-16 | ART-MO600~603-FULL 정예 다크 나이트·고블린 족장·젤라틴 큐브·망령 (GPT 생성. 젤라틴 큐브는 1차 요청이 ChatGPT 콘텐츠 정책에 걸려 "옷을 갖춰 입고 젤리 큐브 위에 앉은" 구도로 재요청. 다크 나이트 원화는 MO005 `dark_knight`와 공유) | `resources/monsters/{dark_knight_elite,goblin_chief,gelatin_cube,specter}/full.png` 입고. Work 0d5ee36 폴백으로 전투 화면 상반신 크롭 자동 적용 | — |
 
 ---
 
