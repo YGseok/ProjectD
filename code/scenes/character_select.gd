@@ -120,9 +120,18 @@ const DICE_ROW_LABEL_WIDTH := 44.0
 @onready var achievement_panel: AchievementPanel = $AchievementPanel
 @onready var test_battle_button: Button = $TestBattleButton
 @onready var skill_codex_panel: SkillCodexPanel = $SkillCodexPanel
+## [대형 기획 15] Q-2(2026-10-16) — "①캐릭터 ②시작 스킬 ③던전 입장" 3단계 흐름을
+## 화면에서도 보이게 하는 작은 안내 띠. 어느 단계가 지금 활성인지는 매 프레임
+## 포커스 소유자를 확인해서(_process() 참고) 판단한다 — 카드/슬롯/시작 버튼으로
+## 가는 경로가 방향키 체인 이동/Esc/마우스 클릭 등 여러 갈래라, 전환 지점마다
+## 일일이 갱신 호출을 추가하는 대신 "지금 포커스가 어디 있는지"만 보면 항상 맞는
+## 값이 나온다.
+@onready var _step_indicator_label: RichTextLabel = $StepIndicatorLabel
 
 var _selected_id: String = CharacterProfiles.PROFILES[0]["id"]
 var _card_panels: Dictionary = {} # id -> PanelContainer (선택 강조 갱신용)
+var _current_step := 1
+var _last_rendered_step := -1
 
 ## L-3(2026-10-14, [대형 기획 12] K-3 후속): 배경을 처음 칠할 때는(화면 진입 직후)
 ## 즉시 적용하고, 그 뒤로 카드를 바꿀 때마다는 짧은 Tween으로 부드럽게 전환한다
@@ -218,6 +227,56 @@ func _ready() -> void:
 	_build_detail_panel()
 	_style_header_buttons()
 	_build_cards()
+	_update_step_indicator()
+
+
+## [대형 기획 15] Q-2 — 매 프레임 포커스 소유자를 확인해 "①캐릭터 ②시작 스킬
+## ③던전 입장" 중 지금 단계를 판단한다. 세 그룹에 속하지 않는 다른 컨트롤(업적/
+## 스킬 도감/테스트 전투 버튼 등 화면 공용 단축 버튼)에 포커스가 가 있는 동안은
+## 마지막으로 유효했던 단계를 그대로 유지한다(깜빡이며 꺼지지 않게).
+func _process(_delta: float) -> void:
+	var focus := get_viewport().gui_get_focus_owner()
+	if focus != null:
+		# _starting_skill_slot_buttons는 Array[Button]이라, Control로 받은 focus를
+		# 캐스팅 없이 그대로 .has()에 넘기면 타입 검사 오류가 난다(값 자체는 Button이어도
+		# 정적 타입이 Control이라 막힘) — Button일 때만 캐스팅해서 확인한다.
+		if focus is Button and _starting_skill_slot_buttons.has(focus as Button):
+			_current_step = 2
+		elif focus == start_button:
+			_current_step = 3
+		elif _card_panels.values().has(focus):
+			_current_step = 1
+	if _current_step != _last_rendered_step:
+		_last_rendered_step = _current_step
+		_update_step_indicator()
+
+
+func _update_step_indicator() -> void:
+	var labels := ["① 캐릭터", "② 시작 스킬", "③ 던전 입장"]
+	var parts: Array[String] = []
+	for i in labels.size():
+		if i + 1 == _current_step:
+			parts.append("[b][color=#e0c060]%s[/color][/b]" % labels[i])
+		else:
+			parts.append("[color=#808080]%s[/color]" % labels[i])
+	_step_indicator_label.text = "  →  ".join(parts)
+
+
+## [대형 기획 15] Q-2 — Esc로 "②시작 스킬" 단계에서 "①캐릭터" 단계로 한 단계
+## 되돌아간다(요구사항 "Esc는 한 단계 뒤로"). 지금 포커스가 시작 스킬 슬롯 중
+## 하나일 때만 반응하므로, 업적/스킬 도감 오버레이 패널이 열려 있을 때의 기존
+## Esc(패널 닫기) 동작과 전혀 겹치지 않는다(그때는 포커스가 슬롯에 있지 않음).
+func _unhandled_input(event: InputEvent) -> void:
+	if not event.is_action_pressed("ui_cancel"):
+		return
+	var focus := get_viewport().gui_get_focus_owner()
+	if focus == null or not (focus is Button and _starting_skill_slot_buttons.has(focus as Button)):
+		return
+	var card: Control = _card_panels.get(_selected_id)
+	if card == null or not is_instance_valid(card):
+		return
+	card.grab_focus()
+	get_viewport().set_input_as_handled()
 
 
 ## [대형 기획 14] N-3(2026-10-15) — "던전 시작"/"업적"/"테스트 전투"/"스킬 도감" 네
@@ -231,10 +290,19 @@ func _ready() -> void:
 ## 호출 다음에 와야 한다.
 func _style_header_buttons() -> void:
 	var neutral := FocusNav.ACCENT_DEFAULT
-	UIKit.style_primary_button(start_button, RunState.character_id, neutral)
 	UIKit.style_secondary_button(achievement_button, RunState.character_id, neutral)
 	UIKit.style_secondary_button(test_battle_button, RunState.character_id, neutral)
 	UIKit.style_secondary_button(_skill_codex_button, RunState.character_id, neutral)
+	_restyle_start_button()
+
+
+## [대형 기획 15] Q-2(원문 10) — "던전 입장" 버튼은 다른 화면 공용 버튼들과 달리
+## (K-3/N-3가 정한 "아직 런이 시작되지 않았으니 중립색" 원칙의 유일한 예외로 사용자가
+## 명시 지시) **지금 고른 캐릭터의 퍼스널 컬러**를 그대로 쓴다 — tint 인자를 생략하면
+## UIKit.style_primary_button()이 CharacterTheme.ui_palette(_selected_id)["accent"]를
+## 쓴다. 카드를 바꿀 때마다(_on_card_selected) 다시 불러야 색이 따라온다.
+func _restyle_start_button() -> void:
+	UIKit.style_primary_button(start_button, _selected_id)
 
 
 ## [대형 기획 8] H-4: "테스트 전투" 진입 버튼 — RunState.TEST_BATTLE_ENABLED가 false면
@@ -1139,7 +1207,13 @@ func _on_starting_skill_selected(id: String) -> void:
 	RunState.chosen_starting_skill_id = id
 	_preview_skill_id = ""
 	_rebuild_starting_skill_slots()
-	_restore_starting_skill_focus(id)
+	# [대형 기획 15] Q-2(원문 1) 요구 흐름 — 시작 스킬을 확정(클릭/스페이스)하면 포커스가
+	# 자동으로 "던전 입장" 버튼으로 넘어간다. 이전에는 여기서 _restore_starting_skill_
+	# focus(id)로 같은 슬롯에 포커스를 되돌렸는데(슬롯이 매번 새로 만들어져 포커스가
+	# 통째로 사라지는 버그를 막기 위함, 위 _restore_starting_skill_focus() 주석 참고),
+	# 이제 start_button.grab_focus()가 그 역할(어딘가에는 반드시 포커스를 줘야 함)을
+	# 대신하면서 동시에 요구된 다음 단계로의 이동까지 한 번에 해결한다.
+	start_button.grab_focus()
 
 
 ## 잠긴 슬롯을 클릭([대형 기획 5] F-1)하면 RunState.chosen_starting_skill_id는 그대로
@@ -1181,6 +1255,13 @@ func _on_card_selected(id: String) -> void:
 	_selected_id = id
 	_refresh_selection_highlight()
 	_refresh_detail_panel()
+	_restyle_start_button()
+	# [대형 기획 15] Q-2(원문 1) 요구 흐름 — 카드를 확정(클릭/스페이스)하면 포커스가
+	# 자동으로 시작 스킬 슬롯[0]으로 넘어간다. _refresh_detail_panel()이 그 바로 전에
+	# _rebuild_starting_skill_slots()를 호출해 이 캐릭터의 슬롯 후보로 다시 채워둔
+	# 상태이므로, 이 시점에는 항상 유효하다.
+	if not _starting_skill_slot_buttons.is_empty():
+		_starting_skill_slot_buttons[0].grab_focus()
 
 
 ## QA 전용(GAME_QA_CALL) — L-3 배경 전환 Tween은 실제 플레이에선 바람직하지만
@@ -1196,6 +1277,18 @@ func _debug_qa_instant_select_pirate() -> void:
 func _debug_qa_instant_select_shieldbearer() -> void:
 	_background_themed = false
 	_on_card_selected("shieldbearer")
+
+
+## QA 전용(GAME_QA_CALL) — [대형 기획 15] Q-2 흐름(카드 확정 -> 시작 스킬 확정 ->
+## 던전 입장 버튼)이 "③ 던전 입장" 단계까지 실제로 도달한 화면을 스크린샷으로 눈으로
+## 확인하기 위한 훅. 입력 파이프라인 자체는 scripts/qa_key_os_harness.ps1로 이미 실제
+## OS 키 입력으로 검증했으므로, 여기서는 같은 연결 로직(pressed.emit())을 재사용해
+## 레이아웃만 빠르게 재현한다.
+func _debug_qa_show_step3() -> void:
+	_background_themed = false
+	_on_card_selected("novice")
+	if not _starting_skill_slot_buttons.is_empty():
+		_starting_skill_slot_buttons[0].pressed.emit()
 
 
 ## 선택된 카드는 금테(업적 패널의 "해금" 카드와 같은 색 언어), 나머지는 회색 테두리로

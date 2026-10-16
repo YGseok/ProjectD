@@ -48,8 +48,25 @@ extends Node
 ##                    — dice_test.gd의 _qa_is_settled() 참고) GAME_QA_SETTLE로 기다리는
 ##                    최대 추가 프레임 수. 끝내 정지 판정을 못 받아도 이 프레임을 넘기면
 ##                    안전장치로 강제 캡처한다(무한 대기 방지).
+##   GAME_QA_FOCUS_LOG (선택, "1"이면 켜짐) [대형 기획 15] Q-2 — GAME_START 없이도(즉
+##                    평상시 실제 게임 그대로, main_scene=character_select) 매 프레임
+##                    현재 뷰포트의 gui_get_focus_owner()를 확인해 바뀔 때마다
+##                    "[FocusLog] t=<초> focus=<NodePath 또는 <none>>"을 stdout에 찍는다.
+##                    N-1(엔진 내부 Input.parse_input_event() 주입)이 "통과"했는데도
+##                    실제 플레이에서는 방향키/스페이스가 안 먹는다는 사용자 보고를
+##                    재현하려면 엔진 주입이 아니라 진짜 OS 키 입력(PowerShell
+##                    SendKeys 등)을 보내야 하는데, 그 결과를 "눈으로 보는 것" 외에
+##                    객관적으로 확인할 방법이 없었다 — 이 플래그를 켜고 실제 게임을
+##                    평소처럼 띄운 뒤(창이 화면 밖으로 옮겨지는 것은 GAME_START가
+##                    있을 때만이라 이 모드는 항상 화면에 보임) OS 레벨로 키를 보내면,
+##                    엔진이 실제로 그 입력을 받아 포커스를 옮겼는지가 로그로 그대로
+##                    드러난다(`scripts/qa_key_os_harness.ps1` 참고). _qa_active(=
+##                    GAME_START 기반 캡처 모드)와 완전히 독립적으로 동작 — 평상시
+##                    플레이에는 이 환경변수가 비어 있어 전혀 영향 없음.
 
 var _qa_active := false
+var _focus_log_enabled := false
+var _focus_log_last_owner: Control = null
 var _target_frame := 60
 var _frame_count := 0
 var _output_path := ""
@@ -74,9 +91,16 @@ var _qa_key_run_enabled := false
 
 
 func _ready() -> void:
+	var focus_log_env := OS.get_environment("GAME_QA_FOCUS_LOG")
+	_focus_log_enabled = focus_log_env == "1"
+	if _focus_log_enabled:
+		set_process(true)
+		print("[VisualQA] focus log enabled (GAME_QA_FOCUS_LOG=1)")
+
 	_scene_name = OS.get_environment("GAME_START")
 	if _scene_name.is_empty():
-		# QA 모드가 아님 -> 평상시 게임 실행. 아무것도 하지 않는다.
+		# QA 모드가 아님 -> 평상시 게임 실행. focus log만 돌 수 있고, 그 외엔 아무
+		# 동작도 하지 않는다(창도 화면 밖으로 옮기지 않음 — 진짜 실제 플레이 그대로).
 		return
 
 	_qa_active = true
@@ -85,7 +109,15 @@ func _ready() -> void:
 	# QA 모드일 때만 창을 화면 밖으로 옮긴다. 완전 headless는 이 프로젝트의
 	# SubViewport 3D 렌더링이 깨질 위험이 있어(GPU 컨텍스트 없음) 쓰지 않는다 —
 	# 대신 실제 창은 유지하되 보이지 않는 좌표로 옮겨 렌더링은 정상 동작시킨다.
-	get_window().position = Vector2i(-4000, -4000)
+	# [대형 기획 15] Q-2 — `scripts/qa_shot.sh`는 QA_SHOW_WINDOW=1이면 이미 bash
+	# 레벨에서 "화면 밖으로 옮기는 --position CLI 인자"를 안 붙이지만, 이 gd 코드가
+	# _ready()에서 무조건 다시 화면 밖으로 옮겨버려 지금까지 QA_SHOW_WINDOW=1이 실제로는
+	# 전혀 동작하지 않고 있었다(잠복 버그 — 이 환경변수를 켜고 GAME_START로 특정 화면을
+	# 열어 실제 OS 키 입력을 보내 눈으로/로그로 확인하려는 이번 하네스를 만들다가 발견).
+	# 여기서도 그 값을 직접 확인해 "보이게 해달라"는 요청을 실제로 지킨다.
+	var show_window_env := OS.get_environment("QA_SHOW_WINDOW")
+	if show_window_env != "1":
+		get_window().position = Vector2i(-4000, -4000)
 
 	var frame_env := OS.get_environment("GAME_QA_FRAME")
 	if not frame_env.is_empty() and frame_env.is_valid_int():
@@ -150,6 +182,14 @@ func _ready() -> void:
 
 
 func _process(_delta: float) -> void:
+	if _focus_log_enabled:
+		var vp := get_viewport()
+		var owner := vp.gui_get_focus_owner() if vp != null else null
+		if owner != _focus_log_last_owner:
+			_focus_log_last_owner = owner
+			var owner_desc := str(owner.get_path()) if owner != null else "<none>"
+			print("[FocusLog] t=%.2f focus=%s" % [Time.get_ticks_msec() / 1000.0, owner_desc])
+
 	if not _qa_active or _qa_key_run_enabled:
 		return
 	_frame_count += 1

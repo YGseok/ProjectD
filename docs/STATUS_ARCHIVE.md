@@ -8,6 +8,78 @@
 
 ---
 
+- **2026-10-15 (212)**: INBOX.md "남은 이슈" [대형 기획 14] **N-5(a)(곡예사를
+  이벤트 특화 클래스로) 완료**. INBOX 원문(사용자 결정 2026-10-15): "이벤트 특화
+  클래스는 기존 클래스 중에서 지정 — 곡예사가 어울릴 듯"에 따라 곡예사(juggler)의
+  이벤트 주사위를 D12로 올리고, 시작 스킬 3종 중 최소 2종을 이벤트 스킬로 교체
+  (전투 보조 1종은 유지), 이벤트 계열 전용/강화 스킬 1쌍 추가. (b)(대성공 단계 +
+  판정 콘텐츠 확충)와 (c)(밸런스+마무리)는 이번 조각 범위 밖.
+  **데이터(`character_profiles.gd`)**: 곡예사 프로필의 `event_die_sides`를
+  6→12로 변경(나머지 7종은 그대로 6 — "직업별로 다른 이벤트 주사위"라는
+  [미니 기획 B] 구조의 실제 첫 차등 사례). `desc`/`concept`에 이벤트 특화
+  클래스임을 한 줄 추가.
+  **시작 스킬 사다리 재구성(`skill_pool.gd`)**: 기존 슬롯 구성(맹공→수집가→
+  잡화점, 전부 전투 보너스형)에서 곡예사를 `start_aggro`/`start_hoard`의
+  `character_ids`에서 제거하고, 곡예사 전용 신규 2종을 추가해 **눈속임→한탕→
+  잡화점**(이벤트 2종 + 전투 보조 1종 유지) 순서로 바꿨다. "눈속임"
+  (`start_sleight`): "위험을 감수하기" DC -1(최저 2) — 효과는 매혹사의
+  "승부사"(`start_gambler`)와 같지만 INBOX 지시대로 "매혹사와 공유하지 말고
+  구분"하기 위해 별도 id로 분리(`event.gd`의 DC 계산이 두 id를 OR로 함께
+  확인). "한탕"(`start_fortune`): "위험을 감수하기" 성공 시 골드
+  `FORTUNE_GOLD_BONUS`(=10, `GOLD_REWARD_BASE`=8과 비슷한 체감 크기로 잡은
+  잠정값) 추가 획득.
+  **고유 스킬 1쌍 추가**: "곡예 흥행"(`juggle_fortune`, `UNIQUE_SKILLS` 신규)이
+  "위험을 감수하기" 이벤트 주사위 굴림 결과에 +1 보정(상한: 이벤트 주사위 면
+  개수), "곡예 흥행+"(`juggle_fortune_plus`, `UPGRADE_SKILLS` 신규)은 +2로
+  강화 — INBOX 지시대로 기존 "곡예 앙코르"(`juggle_encore`)는 그대로 유지해
+  곡예사가 이제 고유 스킬 2종(juggle_encore + juggle_fortune)을 갖는다.
+  **`event.gd` 배선**: `_ready()`의 DC 계산을
+  `RunState.skill_flags.has("start_gambler") or RunState.skill_flags.has("start_sleight")`로
+  OR 확장. 신규 순수 함수 `event_roll_bonus(skill_flags)`(juggle_fortune_plus=2
+  > juggle_fortune=1 > 0)와, `_on_risky_pressed()`의 보정+상한 계산을 분리한
+  `_effective_risky_roll(raw_roll)`(물리/RNG 없이 dice_test가 결정적으로 호출
+  가능 — "곡예 흥행" 통합 검증을 위한 테스트 전용 분리가 아니라 실제 프로덕션
+  경로 자체를 이 함수로 재사용). "한탕"은 `_resolve_risky()`에서 성공 시
+  `RunState.gold += FORTUNE_GOLD_BONUS`.
+  **ICON_MOTIFS**: 신규 4개 id(start_sleight/start_fortune/juggle_fortune/
+  juggle_fortune_plus) 전부 기존 `event_check` 모티프 재사용(INBOX "이벤트
+  모티프 event_check 재사용 또는 새 모티프" 중 재사용 선택 — 효과가 전부
+  "이벤트 판정 보정"이라는 같은 범주라 새 모티프 불필요).
+  **폴백 안전성**: `start_aggro`/`start_hoard`를 곡예사 후보에서 제거해도
+  기존 `_valid_or_default_starting_skill_id()`(이미 "후보에 없으면 슬롯0"
+  로직을 갖고 있었음, 코드 변경 없음)가 그대로 안전망 역할을 한다 — 사라진
+  id를 가리키던 `chosen_starting_skill_id`는 곡예사 선택 시 자동으로 슬롯0
+  (눈속임)으로 폴백됨을 테스트로 확인.
+  **기존 테스트 갱신(회귀)**: 이번 변경으로 가정이 깨진 기존 테스트 4곳을
+  고쳤다 — `_check_event_die_sides`(곡예사만 12 기대로 변경), `_check_
+  upgrade_skill_pool`(UPGRADE_SKILLS 개수 10→11), `_check_starting_skills`
+  (곡예사 기대 슬롯 순서를 [start_sleight, start_fortune, start_diverse]로),
+  `_check_l2a_skill_codex`(codex_entries() 크기가 곡예사만 9→11, 순서도
+  전용 스킬 2종분 반영 — 다른 7명은 그대로 9).
+  **신규 검증**: `dice_test.gd`에 `_check_n5a_juggler_event_specialist()` —
+  (a) 프로필 event_die_sides(곡예사만 12) (b) `RunState.reset_run("juggler")`
+  복사 (c) 곡예사 슬롯 순서 + start_aggro/start_hoard가 광전사에게는 여전히
+  있는지(회귀) (d) 사라진 id → 슬롯0 폴백(실제 `character_select.tscn`
+  인스턴스로 `_on_card_selected()` 호출) (e) 눈속임/승부사가 `event.tscn`의
+  실제 `_dc`를 1 낮추는지(인스턴스화 + 필드 읽기) (f) `event_roll_bonus()`
+  순수 함수 0/1/2 (g) `_effective_risky_roll()`의 보정+상한 공식 4개 조합
+  (h) "한탕" 보유/미보유 각각 `_debug_force_risky_success()`로 성공을 결정적
+  재현해 `RunState.gold`가 실제로 10만큼만 느는지. `bash scripts/qa_shot.sh
+  dice_test` 전체 **PASS**(FAIL 0건, 2회 재확인). **셀프 피드백 1라운드**:
+  `qa_out/n5a_juggler_detail.png`(`_debug_select_juggler()` 훅으로 캐릭터
+  선택 상세 패널 캡처)를 직접 읽어 — "이벤트" 줄에 D12 칩이 다른 캐릭터의
+  D6과 또렷이 다르게 보이고, 시작 스킬 슬롯이 "눈속임"(해금, 금테)/"한탕"
+  (잠김)/"잡화점"(잠김) 순서로 바뀌었으며, "눈속임" 효과 설명("판정 DC가
+  1 낮아진다")이 겹침/잘림 없이 표시됨을 확인 — "상" 수준 문제 없이
+  1라운드로 종료. `docs/DESIGN.md`의 이벤트 주사위 단락(이 조각이 직접
+  무효화한 "지금은 5종 전부 D6" 서술)만 최소 수정 — 캐릭터 표/스킬 상세
+  설명 등 나머지 "현재 구현 콘텐츠" 갱신은 INBOX N-5(c)가 명시적으로 맡은
+  범위라 손대지 않았다. 전투 규칙/밸런스 수치는 건드리지 않았다. INBOX.md의
+  이 항목은 "부분 처리됨"에 그대로 두되 진행 한 줄을 갱신했다(N-5(b)(c),
+  N-6이 남아 "처리됨"으로는 못 옮김). **다음은 N-5(b)(이벤트 판정 콘텐츠
+  확충 — 도박/탐색/협상/함정 해체 등 2~3종 + "대성공" 단계 도입, INBOX.md
+  "남은 이슈" 참고).**
+
 - **2026-10-15 (211)**: INBOX.md "남은 이슈" [대형 기획 14] **N-4(캐릭터 선택
   능력치를 "×N" 문자열 대신 실제 다이스 칩으로 나열) 완료**. INBOX 원문: 공격/
   방어 능력치 칩의 "공격 D4×3" 같은 문자열을 `shape_die_chip.gd`/

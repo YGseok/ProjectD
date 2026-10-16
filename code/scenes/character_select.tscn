@@ -33,6 +33,17 @@ horizontal_scroll_mode = 0
 
 [node name="CardsList" type="Control" parent="CardsContainer"]
 
+[node name="StepIndicatorLabel" type="RichTextLabel" parent="."]
+offset_left = 340.0
+offset_top = 66.0
+offset_right = 1260.0
+offset_bottom = 92.0
+bbcode_enabled = true
+fit_content = false
+scroll_active = false
+horizontal_alignment = 1
+vertical_alignment = 1
+
 [node name="DetailPanelContainer" type="Control" parent="."]
 offset_left = 340.0
 offset_top = 100.0
@@ -40,11 +51,11 @@ offset_right = 1260.0
 offset_bottom = 680.0
 
 [node name="StartButton" type="Button" parent="."]
-offset_left = 490.0
-offset_top = 688.0
-offset_right = 790.0
+offset_left = 470.0
+offset_top = 680.0
+offset_right = 810.0
 offset_bottom = 716.0
-text = "던전 시작"
+text = "던전 입장"
 
 [node name="AchievementButton" type="Button" parent="."]
 offset_left = 1080.0
