@@ -5,39 +5,39 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-10-16 (218)
-- 작성자: AI 에이전트. 이번 이터레이션의 지시 대상이던 **[미니 기획 ART-1c-2]
-  (몬스터 face_* 없이 full.png만 있을 때 상반신 크롭 폴백) 완료**. 아트
-  스레드가 보스 6종을 face_* 표정 컷 없이 전신 원화(`full.png`) 하나로만
-  입고해 ART-1c(216)의 원화 경로(face_* 5장 필요)가 발동하지 않고 여전히
-  도형 플레이스홀더로 보이던 문제를 고쳤다 — `CharacterArt.load_face_thumb()`가
-  쓰던 "비율 → AtlasTexture" 크롭 로직을 `load_full_crop(character_id, ratio,
-  base_dir)`로 분리해 몬스터 쪽에서도 그대로 재사용(새 크롭 알고리즘 없음),
-  `MonsterPortraitPlaceholder`에 `_use_full_crop` 상태를 추가해 우선순위를
-  face_* 5장 > full.png 크롭 > 도형 플레이스홀더로 정리했다. 크롭 모드에서
-  `set_expression()` 호출은 안전하게 무시되고(표정 컷이 없으므로), 하단 페이드
-  셰이더·보스 1.3배 확대·화면 안 배치는 ART-1c의 기존 배치 로직을 그대로
-  공유해 추가 작업 없이 적용됐다. 덤으로 `load_face()`/`load_full()`의
-  "production 경로 판정"이 캐릭터 전용 `BASE_DIR`과의 등호 비교라 몬스터
-  전용 base_dir에서는 항상 비효율적인 FileAccess+Image.load() 경로(export
-  경고 동반)로 빠지던 버그도 `base_dir.begins_with("res://")`로 일반화해
-  함께 고쳤다. `dice_test.gd` 신규 `_check_art1c2_monster_full_crop_fallback()`가
-  가짜 user:// 디렉터리 3가지 경우 + **카탈로그 35종 전체를 특정 id 하드코딩
-  없이 순회**해 production 입고 상태(`has_all_faces()`/`has_full()`)와 항상
-  일치하는지 검증한다 — 이 "하드코딩 없는" 설계가 작업 도중 실제로 증명됐다
-  (테스트 작성 중 아트 스레드가 보스 6종 외에 일반 4종+정예 1종 full.png를
-  동시에 추가 입고해, 크롭 대상이 6종→11종으로 바뀌었는데도 수정 없이 그대로
-  PASS). `bash scripts/qa_shot.sh dice_test` 전체 PASS(FAIL 0건). 셀프 피드백
-  루프로 실제 입고된 보스 6종 + 새로 입고된 일반/정예 2종까지 총 8종을
-  QA 전용 디버그 훅(`_debug_shift_monster_portrait_center()`, 이 환경 QA 캡처
-  폭 잘림 우회용)으로 직접 캡처해 크롭이 얼굴·장식을 중심에 두고 화면 안에
-  잘 들어오는 것을 육안 확인 — 추가 조정 없이 1라운드로 종료. 전투 규칙/
-  밸런스는 건드리지 않았고 `resources/`·`docs/art/`는 읽기만 했다(아트
-  스레드가 이 세션 도중 병행 커밋한 보스 6종 + 일반/정예 5종 원화를 그대로
-  읽어 검증만 함). 상세는 아래 "완료 기록 (218)" 참고. **INBOX.md의
-  [대형 기획 13]은 이 조각이 M-5(a)/(b)·ART-2·M-6/M-7과 함께 사실상 전부
-  끝난 상태 — 다음은 INBOX.md "남은 이슈"에 새 항목이 없으면 아래 "알려진
-  이슈/막힌 것"을 참고해 독립적으로 진행 가능한 항목을 고를 것.**
+- 일시: 2026-10-16 (219)
+- 작성자: AI 에이전트. 세션 프롬프트로 직접 전달된 **[대형 기획 13] [미니 기획
+  ART-1c-3](몬스터 컷 가장자리 페이드 + 경로 별칭) 완료**. 아트 스레드 요청
+  2건 — ① 몬스터 원화 컷(face_* 표정 컷/full.png 크롭 둘 다)이 위·아래·좌우
+  가장자리가 직선으로 딱 잘려 사각형 상자처럼 보임, ② `dark_knight`(MO005)가
+  `dark_knight_elite`(MO600) 원화를 경로 별칭으로 공유.
+  **실제 캡처(`qa_out/art1c3_fallen_commander_before.png`)로 원인부터 추적한
+  결과, 좌/우/상단은 예상대로 페이드가 아예 없었지만 하단 페이드(기존
+  `fade_start=0.76`, 플레이어와 공유하는 값)도 사실상 발동 안 하고 있었다** —
+  `CharacterArt.load_full_crop()`(ART-1c-2, 218)이 크롭을 AtlasTexture(원본
+  전체를 참조 + region만 지정)로 만들어서, Godot canvas_item 셰이더의 `UV`
+  빌트인이 AtlasTexture에서는 0..1 전체가 아니라 "원본 기준 region 비율
+  구간"(세로 0.015~0.495)으로만 들어와 `fade_start=0.76`이 그 범위 밖이라
+  크롭 모드에서는 하단 페이드가 원천적으로 발동 불가능했다 — "크롭이라 페이드
+  영역이 이미지 밖에 있다"는 INBOX 가설이 정확히 맞았다. `load_full_crop()`을
+  `Image.get_region()`으로 실제 픽셀을 오려낸 독립 `ImageTexture`로 바꿔(크롭
+  로직 자체는 그대로, 반환 타입만 교체) 해결했고, `face_art_fade.gdshader`에
+  `side_fade`/`top_fade` 유니폼(기본값 0.0 — 플레이어 쪽은 완전히 기존과 동일)을
+  추가해 `MonsterPortraitPlaceholder`에서만 10%씩 켰다. 별칭은
+  `MonsterCatalog.ART_ID_ALIASES`(데이터 표, `dark_knight -> dark_knight_elite`)
+  + `art_resource_id()`로, 원화 조회 4곳(has_all_faces/load_face/has_full/
+  load_full_crop) 전부 별칭 id를 보게 했다(파일 복제 없음). `dice_test.gd`
+  신규 `_check_art1c3_monster_edge_fade_and_alias()`(SubViewport 알파
+  샘플링 — 중앙 1.000·하단 0.000·상단/좌/우 0.012, 별칭 해석, 카탈로그 19종
+  전수 화면 경계)로 검증 + 기존 ART-1c-2 테스트의 별칭 인지 보정, `bash
+  scripts/qa_shot.sh dice_test` 전체 PASS(FAIL 0건). 셀프 피드백 2라운드 —
+  수정 전/후(`art1c3_fallen_commander_{before,after}.png`)로 하드 엣지가
+  사라짐을 확인하고, 요청이 명시한 "공허의 눈"/"망령"(머리카락/연기처럼 넓게
+  퍼진 몬스터)과 별칭 대상 `dark_knight`까지 추가로 캡처해 전부 자연스럽고
+  별칭 원화가 정상 렌더됨을 확인 — 추가 조정 없이 종료. 전투 규칙/밸런스는
+  건드리지 않았고 `resources/`·`docs/art/`는 읽기만 했다. 상세는 아래 "완료
+  기록 (219)" 참고. **INBOX.md "남은 이슈"에 새 항목이 없으면 다음은 아래
+  "알려진 이슈/막힌 것"을 참고해 독립적으로 진행 가능한 항목을 고를 것.**
 
 ## 지금 위치
 
@@ -160,6 +160,15 @@ HP 패널·다이스 스테이지·결과 칩과 겹치지 않고 표정(happy)�
 추가했다. 카탈로그 전체를 id 하드코딩 없이 순회해 입고 상태와 항상 일치하는지
 검증하는 방식이라, 아트가 더 입고돼도(실제로 이번 세션 중에도 늘어났다)
 코드 변경 없이 자동 반영된다. 상세는 완료 기록(216, 218) 참고.
+**ART-1c-3(2026-10-16, 219) 완료 — [대형 기획 13] 전체 완료(ART-2 포함)** —
+몬스터 컷이 사각 박스처럼 보이는 문제의 진짜 원인(`load_full_crop()`이
+AtlasTexture라 셰이더 UV가 크롭 영역 밖이라 하단 페이드조차 발동 안 하던
+버그)을 찾아 `Image.get_region()` 기반 독립 `ImageTexture`로 바꿔 고쳤고,
+`face_art_fade.gdshader`에 `side_fade`/`top_fade`(몬스터 전용, 기본값 0.0이라
+플레이어 쪽 불변)를 추가해 좌/우/상단도 자연스럽게 페이드된다.
+`MonsterCatalog.art_resource_id()`(데이터 표)로 `dark_knight`가
+`dark_knight_elite` 원화를 공유한다(파일 복제 없음). 상세는 완료 기록(219)
+참고.
 **ART-2(전투 화면 표정 컷 하단 잘림 처리) 완료(2026-10-15, 204)** — 표정 컷
 아래 20~25% 알파 그라데이션 셰이더(`code/shaders/face_art_fade.gdshader`)로
 가슴께 잘림이 일직선으로 떠 보이던 문제를 해결하고, `FACE_ART_LEFT_SHIFT` 보정
@@ -1230,6 +1239,83 @@ ART-3](스킬 아이콘 흰 사각형 버그, 아트 스레드 리포트) 완료
 
 ## 완료 기록
 
+- **2026-10-16 (219)**: INBOX.md 지시(이번 이터레이션 최우선 — "[대형 기획 13]
+  [미니 기획 ART-1c-3] 몬스터 컷 가장자리 페이드 + 경로 별칭") **완료.** 아트
+  스레드 요청 2건 — ① 몬스터 원화 컷(face_* 표정 컷/full.png 크롭 둘 다)이
+  위·아래·좌우가 직선으로 딱 잘려 사각형 상자처럼 보이는 문제, ② `dark_knight`
+  (MO005, 옛 5종 호환용)가 `dark_knight_elite`(MO600) 원화를 경로 별칭으로
+  공유하게 하는 것.
+
+  **진짜 원인 진단(① 선행 조사)**: `scripts/qa_shot.sh combat_test 90
+  qa_out/art1c3_fallen_commander_before.png _debug_shift_monster_portrait_center
+  1 "" "" fallen_commander`로 실제 보스 전투 화면을 캡처해 직접 읽어보니, 좌/우/
+  상단은 완전히 하드 컷(페이드 자체가 아예 없음)인 것은 예상대로였지만, **하단
+  페이드(`face_art_fade.gdshader`의 `fade_start=0.76`, 플레이어와 공유하는
+  기존 값)도 사실상 발동하지 않고 있었다** — 다만 플레이어 쪽(face_* 직접 로드)은
+  이미 ART-1c/ART-2에서 SubViewport 알파 샘플링으로 "정상 작동" 검증이 끝나 있어
+  의심에서 비켜나 있었다. 원인을 추적해보니 `CharacterArt.load_full_crop()`
+  (ART-1c-2, 2026-10-16(218))이 크롭을 **AtlasTexture**(원본 이미지 전체를
+  그대로 참조하고 `region`만 지정)로 만들고 있었는데, Godot의 canvas_item 셰이더는
+  AtlasTexture가 적용된 노드에서 `UV` 빌트인을 0..1 전체가 아니라 **원본 이미지
+  기준 region 비율 구간**으로 넘긴다(DEFAULT_FACE_CROP_RATIO면 세로 UV가
+  0.015~0.495 구간뿐) — `fade_start=0.76`은 이 범위 밖이라 크롭 모드에서는
+  하단 페이드가 원천적으로 발동 불가능했다(새 셰이더 알파 테스트로 바닥 알파
+  1.000=완전 불투명 확인, 재현). 즉 "크롭이라 페이드 영역이 이미지 밖에 있다"는
+  INBOX의 가설이 정확히 맞았다.
+
+  **수정**: ① `CharacterArt.load_full_crop()`을 AtlasTexture 참조 대신
+  `Image.get_region()`으로 실제 픽셀을 오려낸 독립 `ImageTexture`를 돌려주도록
+  바꿨다 — 크롭된 텍스처 자신의 UV가 이제 0..1로 크롭 영역 전체를 가리켜(face_*
+  표정 컷과 동일한 상황), 기존 하단 페이드가 크롭 모드에서도 플레이어와 동일하게
+  작동하게 됐다(코드 경로 하나뿐, 새 크롭 알고리즘 추가 없음 — INBOX "새 크롭
+  로직 없이" 원칙 유지). ② `face_art_fade.gdshader`에 `side_fade`/`top_fade`
+  유니폼 2개를 추가(기본값 0.0 — 미설정 호출부는 완전히 기존과 동일하게 동작,
+  플레이어 쪽 `CharacterPortraitPlaceholder`는 전혀 안 바꿈)하고,
+  `MonsterPortraitPlaceholder._ensure_face_rect()`에서만 `ShaderMaterial.
+  set_shader_parameter()`로 10%씩 켠다(`FACE_ART_SIDE_FADE`/`FACE_ART_TOP_FADE`
+  상수) — face_* 모드/크롭 모드 둘 다 같은 `_face_rect`/머티리얼을 공유하므로
+  한 곳에서 양쪽에 다 적용된다. ③ `MonsterCatalog.ART_ID_ALIASES`(데이터 표,
+  지금은 `dark_knight -> dark_knight_elite` 1건) + `art_resource_id()`
+  조회 함수를 추가하고, `MonsterPortraitPlaceholder`가 `_monster_id`(원래 id,
+  다른 용도)와 `_art_monster_id`(별칭 해석된 원화 조회 전용 id)를 분리해
+  `has_all_faces()`/`load_face()`/`has_full()`/`load_full_crop()` 네 호출
+  전부 별칭 id로 조회하게 했다 — 파일을 실제로 복제하지 않고 조회 경로만
+  바꿔치기(`resources/monsters/dark_knight/` 폴더는 여전히 없음, 여전히
+  `dark_knight_elite/full.png` 하나만 존재).
+
+  **테스트**(`dice_test.gd` 신규 `_check_art1c3_monster_edge_fade_and_alias()`,
+  await 필요 — SubViewport 렌더): ① 별칭 표(`art_resource_id('dark_knight')`
+  =='dark_knight_elite', 별칭 없는 id는 그대로) ② production 경로에서
+  `set_monster('dark_knight')`가 실제로 `_use_full_crop=true`가 되는지(별칭
+  경로가 실제로 로드됨) ③ 가짜 **정사각 비율**(200×200) 전용 원화로 정사각
+  크롭(96×96)을 만들어 240×240 박스에 레터박스 없이 꽉 채운 뒤(기존
+  `_art1c2_write_fake_full()`의 1181×1332 비율은 좌우 레터박스가 생겨 가장자리
+  샘플이 "셰이더 페이드"와 "레터박스의 원래 투명 영역"을 구분 못 해 이 용도엔
+  부적합 — 전용 헬퍼 `_art1c3_write_fake_square_full()` 신설) SubViewport에
+  렌더해 중앙(120,120) 알파>0.9(불투명)·하단(y=238)/상단(y=1)/좌측(x=1)/
+  우측(x=238) 네 가장자리 전부 중앙의 30% 미만(실측: 중앙 1.000, 하단 0.000,
+  상단/좌/우 0.012)인지 ④ 입고된 실제 몬스터 전체(카탈로그 35종 전수, 하드코딩
+  없이 `has_all_faces()`/`has_full()`로 "원화 있음" 판정)가 일반(1.1배)/보스
+  (1.3배) 배율 둘 다에서 화면 우측 끝(1280px) 안에 들어오는지(19종 전부 통과)
+  — `bash scripts/qa_shot.sh dice_test` 전체 **PASS**(FAIL 0건, 2회 재확인).
+  **회귀 수정**: `load_full_crop()`이 AtlasTexture에서 ImageTexture로 바뀌며
+  `_check_art1c2_monster_full_crop_fallback()`의 카탈로그 전수 비교가
+  `dark_knight`만 불일치로 FAIL했다 — 그 테스트의 기대값 계산도
+  `MonsterCatalog.art_resource_id()`를 거치도록 고쳐 PASS로 복구(동작 자체는
+  의도한 변경이므로 기대값만 별칭 인지하게 맞춤).
+  **셀프 피드백 2라운드**: 1라운드 — 위 `art1c3_fallen_commander_before.png`를
+  직접 읽어 사각 박스 문제를 확정하고 원인 진단에 사용. 2라운드(수정 후) —
+  같은 구도로 `art1c3_fallen_commander_after.png`를 재캡처해 좌/우/상단이
+  부드럽게 사라지고 하단도 바닥에 자연스럽게 녹아드는 것을 확인했고, 머리카락/
+  망토처럼 넓게 퍼진 몬스터(요청이 명시한 "공허의 눈"/"망령")와 별칭 대상
+  (legacy `dark_knight`)도 추가로 캡처(`art1c3_void_eye_after.png`/
+  `art1c3_specter_after.png`/`art1c3_dark_knight_after.png`)해 전부 하드
+  엣지 없이 자연스럽고, `dark_knight`가 실제로 다크 나이트 정예 원화(갑주
+  입은 여기사)로 정상 렌더됨을 확인 — 추가 조정 없이 2라운드로 종료.
+  전투 규칙/밸런스 수치는 건드리지 않았고 `resources/`·`docs/art/`는 읽기만
+  했다. INBOX.md에는 이 지시가 세션 프롬프트로만 전달돼 파일에 기록이 없었던
+  항목이라, "처리됨" 섹션에 신규 항목으로 추가했다(아래 INBOX.md 갱신 참고).
+
 - **2026-10-16 (218)**: INBOX.md 지시(이번 이터레이션 최우선 — "실행 순서는
   [대형 기획 13] [미니 기획 ART-1c-2]") **몬스터 face_* 없이 full.png만 있을 때
   상반신 크롭 폴백 완료.** 배경: ART-1c(216)가 몬스터 원화 경로(face_* 5장 →
@@ -1821,68 +1907,9 @@ ART-3](스킬 아이콘 흰 사각형 버그, 아트 스레드 리포트) 완료
   "처리됨"으로 못 옮김). **다음은 N-4(캐릭터 선택 능력치를 실제 다이스 칩으로
   나열).**
 
-- **2026-10-15 (209)**: INBOX.md "남은 이슈" 맨 위 **[미니 기획 N-2b](캐릭터 선택
-  전신 이미지를 **실제로** 더 크게, 감독이 N-2 직후 스크린샷을 보고 추가 지시)
-  완료**. INBOX 원문: N-2가 전신 컬럼 컨테이너를 300×560으로 만들었지만 원화
-  (1181×1332)가 폭 300에 맞춰져 실제로 그려지는 캐릭터 높이는 ~330px뿐이고
-  컬럼 위아래가 비어 있다 — 목표는 "그려지는 전신 이미지의 실제 높이 ≥520px".
-  **원인 진단**: `Image.get_used_rect()`로 8명 전부의 원화 실측 불투명 영역을
-  확인(`dice_test.gd`에 임시 디버그 출력을 추가해 측정 후 제거) — novice
-  1108×1308 ~ shieldbearer(최대) 1181×1314, 세로 투명 여백이 12~14px뿐이라
-  INBOX가 제안한 "bbox 크롭" 경로는 사실상 효과가 없음을 확인하고 폐기(크롭해도
-  거의 전체 이미지가 그대로 남음). 유일한 해법은 홀더 폭 자체를 넓히는 것 —
-  `STRETCH_KEEP_ASPECT_CENTERED`는 `scale=min(홀더폭/텍스처폭, 홀더높이/텍스처높이)`로
-  정해지는데, 원화 비율(폭/높이 ≈0.85~0.90)이 홀더 비율(300/560≈0.54)보다 훨씬
-  "가로로 넓어" 항상 폭이 병목이 됐다. 8명 중 가로가 가장 넓은 shieldbearer
-  (1181×1314) 기준 "렌더 높이 ≥520"에 필요한 최소 폭은 520*1181/1314≈467.4.
-  **레이아웃 재배분**(`code/scenes/character_select.gd`): `FULL_ART_SIZE`
-  (홀더 크기) 300→480(가로), `PORTRAIT_COLUMN_WIDTH`(패널 자체, 좌우 패딩
-  10px씩 포함) 340→500. 그 폭을 확보하기 위해 좌측 캐릭터 카드 목록을
-  `CARD_WIDTH` 360→280으로 줄이고(`.tscn`의 `CardsContainer` offset_right
-  400→320), `DetailPanelContainer`(상세 패널 전체) 폭을 840→920으로
-  늘렸다(`.tscn` offset_left 420→340, 오른쪽 끝 1260은 안 바뀜 — 화면 폭
-  1280 안에서 좌측 목록 폭만 재분배). `INFO_COLUMN_WIDTH`(우측 정보 컬럼)는
-  480→400으로 좁아져, 거기 맞춰 `SECTION_BODY_WRAP_WIDTH`(452→372)/
-  `ABILITY_DESC_WRAP_WIDTH`(412→332)/`ABILITY_DESC_MAX_CHARS`(40→32, 같은
-  비율)/`STARTING_SKILL_SLOT_WIDTH`(140→115, 3칸이 372 폭 안에 들어오게)를
-  비례 축소.
-  **구현 중 발견한 실제 회귀 1건**: 위 변경만 하고 `dice_test`를 돌렸더니
-  PASS였지만(기존 N-2 테스트는 "정보 컬럼 **세로** 높이가 예산 안인가"만 쟀음),
-  실제 스크린샷을 찍어보니 "스킬 도감" 버튼이 화면 오른쪽 밖으로 잘려 있었다.
-  원인: 능력치 칩 4개(공격/방어/이벤트/HP)가 `HBoxContainer`(한 줄)로 나열돼
-  있어 자연 최소 폭이 ~495px인데(각 칩의 패딩+아이콘+텍스트 합), 좁아진 400px
-  예산을 크게 넘어버리면 Godot의 `SIZE_EXPAND_FILL` 자식은 "할당된 폭이 자기
-  최소 폭보다 작아도 최소 폭을 그대로 써버린다"(부모 rect를 넘어서도) — 그 결과
-  `_detail_sections_vbox` 전체가 폭 495로 부풀어 뒤에 있던 스킬 도감 버튼까지
-  x=1341(뷰포트는 1280)까지 밀려났다. `dice_test.gd`로 직접 노드 rect/
-  `get_combined_minimum_size()`를 찍어 section[1](능력치)이 범인임을 특정한
-  뒤, `_build_stats_section()`의 칩 배열을 `HBoxContainer`에서 2×2
-  `GridContainer`(columns=2)로 바꿔 자연 최소 폭을 절반 수준으로 낮춰 해결.
-  **테스트**(`dice_test.gd` 신규 `_check_n2b_full_art_rendered_height()`):
-  기존 N-2 체크(컨테이너 높이만 측정)와 별개로, (a) 텍스처 크기와 홀더 크기로
-  `STRETCH_KEEP_ASPECT_CENTERED`와 동일한 스케일 계산을 직접 해 "실제로
-  그려지는 높이"가 8명 전부 ≥520px인지(실측 결과 541.4~542.2px, 여유
-  21~22px) (b) `_detail_sections_vbox.size.x`가 `INFO_COLUMN_WIDTH` 예산을
-  안 넘는지(이번 회귀를 못 잡았던 기존 테스트의 구멍을 메움) (c) 스킬 도감
-  버튼의 오른쪽 끝이 뷰포트 폭(1280) 안인지 (d) "던전 시작" 버튼이 전신 컬럼
-  패널과 전역 rect가 안 겹치는지(레이아웃 패스가 한 번도 안 된 상태에서는
-  패널 rect의 세로가 0으로 읽혀 검사가 무의미해지는 것을 발견해
-  `await get_tree().process_frame`으로 먼저 레이아웃을 강제한 뒤 측정하도록
-  고침) — `bash scripts/qa_shot.sh dice_test` 전체 PASS(FAIL 0건, 기존 N-2 등
-  회귀 포함). **셀프 피드백 1라운드**: `qa_out/n2b_*.png`로 8명 중 4명
-  (novice/shieldbearer — 가로폭 최대/juggler·pirate — 가로폭 좁음, 양 극단
-  포함) + 시작 스킬 3슬롯 전부 해금 상태를 직접 캡처해 읽음 — 전신 원화가
-  머리~발끝까지 컬럼을 꽉 채우고, 정보 컬럼(2×2 능력치 칩/고유 능력/시작
-  스킬 3슬롯/스킬 도감 버튼) 전부 화면 안에 깔끔히 들어와 겹침/잘림이 전혀
-  없음을 확인 — "상" 수준 문제가 없어 추가 라운드 없이 1라운드로 종료.
-  전투 규칙/밸런스는 건드리지 않았다. INBOX.md의 이 항목(N-2b)은 "남은
-  이슈"에서 "처리됨"으로 옮겼다(N-2/[대형 기획 14] 본체와는 별개 항목이라
-  그쪽의 "부분 처리됨" 진행 기록은 그대로 둠). "완료 기록" 10개 유지를 위해
-  (199)를 `docs/STATUS_ARCHIVE.md`로 옮겼다.
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(218)에서 (208)을 그리로 옮겼다.)*
+이번 이터레이션(219)에서 (209)를 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 

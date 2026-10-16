@@ -126,6 +126,53 @@
 
 ## 처리됨
 
+- [처리됨 - 2026-10-16] 2026-10-16 [대형 기획 13] [미니 기획 ART-1c-3] 몬스터 컷
+  가장자리 페이드 + 경로 별칭 (세션 프롬프트로 직접 전달된 아트 스레드 요청, INBOX.md
+  파일에는 사전 기록 없이 이번 이터레이션 지시로 받음).
+  요청 ① 몬스터 원화 컷(full.png 크롭 및 face 컷)이 위·아래·좌우 가장자리가 직선으로
+  딱 잘려 사각형 상자처럼 보인다 — 옆 플레이어 컷은 아래가 부드럽게 사라져서 차이가 큼.
+  하단 페이드가 거의 안 보이는 원인부터 찾고, 하단은 플레이어 컷과 같은 정도(~24%)로
+  맞추고 좌우/위에도 약 10% 알파 페이드를 추가(플레이어 쪽 기존 동작은 불변). 요청 ②
+  MonsterCatalog의 `dark_knight`(MO005)는 원장 규칙상 `resources/monsters/
+  dark_knight_elite/` 원화를 공유하므로, id 별칭 테이블(데이터 표, 하드코딩 분기 금지)로
+  `dark_knight -> dark_knight_elite`를 처리해 full.png/face_* 둘 다 별칭 경로를
+  보게 할 것.
+
+  → **완료**. `qa_out/art1c3_fallen_commander_before.png`를 먼저 캡처해 원인을
+  진단한 결과, 좌/우/상단은 예상대로 페이드가 아예 없었지만 **하단 페이드(기존
+  `fade_start=0.76`, 플레이어와 공유하는 값)도 전혀 발동하지 않고 있었다** —
+  `CharacterArt.load_full_crop()`(ART-1c-2)이 크롭을 AtlasTexture(원본 전체 참조 +
+  region만 지정)로 만들어서, Godot canvas_item 셰이더의 `UV` 빌트인이 AtlasTexture
+  에서는 0..1 전체가 아니라 "원본 기준 region 비율 구간"(세로 0.015~0.495)으로만
+  들어와 `fade_start=0.76`이 그 범위 밖이라 크롭 모드에서는 하단 페이드가 원천적으로
+  발동 불가능했다 — "크롭이라 페이드 영역이 이미지 밖에 있다"는 가설이 정확히 맞았다.
+  `load_full_crop()`을 `Image.get_region()`으로 실제 픽셀을 오려낸 독립
+  `ImageTexture`로 바꿔(크롭 로직 자체는 그대로, 반환 타입만 교체) 해결했다.
+  `face_art_fade.gdshader`에 `side_fade`/`top_fade` 유니폼(기본값 0.0 — 플레이어
+  쪽은 완전히 기존과 동일하게 동작)을 추가하고, `MonsterPortraitPlaceholder.
+  _ensure_face_rect()`에서만 10%씩 켰다(face_* 모드/크롭 모드 둘 다 같은 머티리얼을
+  공유해 한 곳에서 양쪽 다 적용). 별칭은 `MonsterCatalog.ART_ID_ALIASES`(데이터 표,
+  `dark_knight -> dark_knight_elite` 1건) + `art_resource_id()` 조회 함수로,
+  `MonsterPortraitPlaceholder`가 원화 조회 4곳(has_all_faces/load_face/has_full/
+  load_full_crop) 전부 별칭 id를 보게 했다(파일 복제 없음, `resources/monsters/
+  dark_knight/` 폴더는 여전히 없음).
+  `dice_test.gd` 신규 `_check_art1c3_monster_edge_fade_and_alias()` — 정사각
+  비율 전용 가짜 원화(`_art1c3_write_fake_square_full()`, 레터박스 없이 240×240을
+  꽉 채워 가장자리 샘플이 셰이더 페이드만 반영하게 함)를 SubViewport에 렌더해 중앙
+  알파>0.9(실측 1.000)·하단/상단/좌/우 네 가장자리 전부 중앙의 30% 미만(실측 하단
+  0.000, 상단/좌/우 0.012)인지, 별칭 해석(`art_resource_id('dark_knight')`
+  =='dark_knight_elite', `set_monster('dark_knight')`가 실제로 `_use_full_crop=true`)
+  인지, 카탈로그 35종 전수(원화 있는 19종) 화면 우측 경계 확인까지 검증. 기존
+  `_check_art1c2_monster_full_crop_fallback()`의 카탈로그 전수 비교도 별칭 인지하게
+  보정(별칭 반영 전엔 `dark_knight` 1건 FAIL). `bash scripts/qa_shot.sh dice_test`
+  전체 PASS(FAIL 0건, 2회 재확인). 셀프 피드백 2라운드 — 수정 전/후
+  (`art1c3_fallen_commander_{before,after}.png`)로 하드 엣지가 사라짐을 확인하고,
+  요청이 명시한 "공허의 눈"/"망령"(머리카락/연기처럼 넓게 퍼진 몬스터)과 별칭 대상
+  `dark_knight`까지 추가로 캡처(`art1c3_void_eye_after.png`/
+  `art1c3_specter_after.png`/`art1c3_dark_knight_after.png`)해 전부 자연스럽고
+  별칭 원화가 정상 렌더됨을 확인. 전투 규칙/밸런스 수치는 건드리지 않았고
+  `resources/`·`docs/art/`는 읽기만 했다. docs/STATUS.md 완료 기록(219) 참고.
+
 - [처리됨 - 2026-10-16] 2026-10-16 [미니 기획 ART-3] 스킬 아이콘 원화가 흰 사각형으로
   그려짐 (아트 스레드 "ProjectD Art"에서 전달, 우선순위 높음).
   현상: `resources/skills/` 37종 입고(커밋 196f0a2) 후 스킬 도감 등에서 원화 대신 흰
@@ -971,33 +1018,7 @@
   숫자만(완료 기록 178). [대형 기획 7] 전체 완료 — 조정은 이 리포트를 보고 사람이
   다음 지시로 결정한다.
 
-- [처리됨 - 2026-10-08] 2026-10-08 [대형 기획 9] 해적 컨셉 캐릭터 추가. 사용자 지시
-  원문: "해적 컨셉 캐릭터도 추가하고 싶다". 이미 사람이 설계 결정까지 해둔 것이었다.
-
-  **전체 완료(I-1~I-4, 2026-10-08).** 캐릭터 "해적"(id `pirate`, 8번째) — 컨셉: 약탈과
-  함포 사격의 호쾌한 해적 선장, 평소엔 다이스가 적지만 함포가 터질 타이밍을 재며 싸우는
-  "주기형"(쿨타임) 캐릭터(기존 "최댓값/최솟값 스택" 또는 "값 보정" 기믹들과 달리 "몇
-  턴마다 발동"하는 시간 기반 기믹의 첫 사례). **I-1(캐릭터+기믹 플러밍)**: 기믹
-  `cannon_volley`("함포 일제사격") — 플레이어 공격턴을 전투마다 세어 3번째 공격턴마다
-  (3, 6, 9…) 평소 데미지와 별도로 `ceil(공격 합계/2)`의 방어 무시 고정 피해 추가
-  (`combat_test.gd`의 `_cannon_volley_damage()`, 순수 함수로 분리해 계산 결과 직접 검증).
-  `character_profiles.gd`: `attack_count:2`/`defense_count:3`, 청록빛 흑발 #0E4A4F /
-  터콰이즈 코트 #1FA5A0(아트 스레드 퍼스널 컬러 결정, `docs/art/ART_RESOURCES.md` 참고).
-  `skill_icon.gd`에 대포/포탄 모양 신규 아이콘 카테고리 추가. **I-2(업적+시작 스킬)**:
-  업적 `r1_pirate`/`clear_pirate` 추가, `STARTING_SKILLS`에 슬롯0 선제→슬롯1 황금손→
-  슬롯2 수집가 배정. **I-3(고유 스킬)**: `UNIQUE_SKILLS`에 `broadside`("일제 사격",
-  함포 주기 3→2턴 단축), `UPGRADE_SKILLS`에 `broadside_plus`("일제 사격+", 주기 2
-  유지 + 고정 피해를 공격 합계 전부로 강화) — 기존 "+" 우선순위 패턴 그대로. **I-4
-  (마무리)**: `docs/DESIGN.md` 캐릭터 표/시작 스킬 표를 8종(8×3)으로 갱신, 밸런스
-  시뮬(`balance_sim.gd`)/리포트(`balance_report.gd`)가 `CharacterProfiles.PROFILES`
-  동적 순회 구조라 해적이 자동 반영됨을 코드로 확인(재실행 불필요), 테스트 전투 설정
-  화면 QA로 해적이 8번째로 겹침 없이 나오고 보유 스킬(일제 사격/+) 체크박스도 정상
-  노출됨을 확인. `bash scripts/qa_shot.sh dice_test` 전체 PASS.
-  **아트 스레드 인계 필요**: 캐릭터 `pirate`(해적) 신규 — full + 표정 5종, 컨셉/색
-  키워드는 위 프로필 참고.
-  상세는 `docs/STATUS.md` 완료 기록(172)~(175) 참고.
-
 *(이보다 오래된 "처리됨" 항목은 `docs/INBOX_ARCHIVE.md`에 보관돼 있음 — 이 파일에는
 최근 12개만 유지해 매 이터레이션 읽기 비용을 줄임. 이번 이터레이션(2026-10-16,
-[미니 기획 ART-3] 완료로 13개가 된 직후)에서 가장 오래된 "[대형 기획 8] 테스트
-전투"(2026-10-08) 1개 항목을 그리로 옮겼다.)*
+[미니 기획 ART-1c-3] 완료로 13개가 된 직후)에서 가장 오래된 "[대형 기획 9] 해적
+컨셉 캐릭터 추가"(2026-10-08) 1개 항목을 그리로 옮겼다.)*

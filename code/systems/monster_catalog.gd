@@ -331,6 +331,23 @@ const BOSS_ROSTER_BY_ROUND := [
 ## 늘어나도 실제 플레이/기존 회귀 테스트(dice_test.gd)가 전혀 영향받지 않게 한다.
 const LEGACY_ROOM_CYCLE_IDS := ["slime", "goblin", "skeleton", "orc", "dark_knight"]
 
+## [미니 기획 ART-1c-3] 몬스터 원화 경로 별칭(데이터 표). `dark_knight`(MO005, 옛 5종
+## 호환용 — normal_roster_ids()에서 이미 제외돼 랜덤 풀에는 안 뽑힘)는 docs/art/
+## ART_RESOURCES.md 원장 규칙상 `dark_knight_elite`(MO600)와 같은 원화를 공유한다
+## ("원화는 MO600 파일을 resources/monsters/dark_knight/에 복사해 공유" — 아직 복사
+## 전). 파일을 실제로 복제하는 대신, 몬스터 원화 경로 조회(CharacterArt.has_all_faces/
+## load_face/has_full/load_full_crop에 넘기는 id)만 이 표로 바꿔치기해 같은 효과를
+## 낸다 — 아트 자산 자체는 dark_knight_elite 폴더 하나만 유지(중복 파일 없음). 다른
+## 용도(이름/전투 수치/카탈로그 조회 등)의 id는 전혀 안 바꾼다.
+const ART_ID_ALIASES := {
+	"dark_knight": "dark_knight_elite",
+}
+
+
+## 몬스터 id를 원화 경로 조회용 id로 바꾼다 — ART_ID_ALIASES에 없으면 원래 id 그대로.
+static func art_resource_id(monster_id: String) -> String:
+	return ART_ID_ALIASES.get(monster_id, monster_id)
+
 
 ## id로 몬스터 하나를 찾는다(없으면 빈 Dictionary). G-5 QA 훅(`GAME_QA_MONSTER_ID`)과
 ## legacy_cycle_monster()가 공유하는 조회 헬퍼.

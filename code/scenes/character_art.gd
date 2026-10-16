@@ -123,16 +123,35 @@ static func face_crop_ratio(character_id: String) -> Rect2:
 ## full.png에서 비율(ratio, 0..1) 영역만 잘라낸 텍스처 — load_face_crop()의 공용
 ## 크롭 로직. full.png가 없으면 null. ART-1c-2가 몬스터 쪽(CharacterProfiles에 없는
 ## id라 face_crop_ratio()를 못 씀)에서 DEFAULT_FACE_CROP_RATIO를 직접 넘겨 재사용한다
-## — 크롭 방식 자체(비율 → AtlasTexture region)는 여기 하나뿐, 새로 만들지 않는다.
+## — 크롭 방식 자체(비율 → 잘라낸 이미지)는 여기 하나뿐, 새로 만들지 않는다.
+##
+## [미니 기획 ART-1c-3](2026-10-16) 전에는 AtlasTexture(원본 이미지 전체를 참조하고
+## region만 지정)를 썼는데, canvas_item 셰이더의 UV 빌트인이 AtlasTexture에서는 0..1
+## 전체가 아니라 "원본 이미지 기준 region 비율 구간"(예: DEFAULT_FACE_CROP_RATIO면
+## y가 0.015~0.495 구간)으로 들어와, face_art_fade 셰이더의 fade_start(=0.76)가 크롭
+## UV 범위 밖이라 전혀 발동하지 않는 버그가 있었다(몬스터 쪽 하단 페이드가 거의 안
+## 보인다는 피드백의 실제 원인 — qa_out/art1c3_fallen_commander_before.png에서 확인,
+## dice_test.gd의 SubViewport 알파 샘플링으로도 재현: 크롭 모드 바닥 알파가 1.000으로
+## 전혀 안 떨어짐). Image.get_region()으로 실제 픽셀을 오려낸 독립 ImageTexture를
+## 돌려주면 그 텍스처 자체의 UV가 0..1로 크롭 영역 전체를 가리켜(face_* 표정 컷과
+## 동일한 상황), 셰이더의 하단/좌/우/상단 페이드가 전부 의도대로 작동한다.
 static func load_full_crop(character_id: String, ratio: Rect2, base_dir: String = BASE_DIR) -> Texture2D:
 	var full := load_full(character_id, base_dir)
 	if full == null:
 		return null
-	var size := full.get_size()
-	var atlas := AtlasTexture.new()
-	atlas.atlas = full
-	atlas.region = Rect2(ratio.position * size, ratio.size * size)
-	return atlas
+	var full_image := full.get_image()
+	if full_image == null:
+		return null
+	var size := full_image.get_size()
+	var region := Rect2i(
+		Vector2i(ratio.position * Vector2(size)),
+		Vector2i(ratio.size * Vector2(size))
+	).intersection(Rect2i(Vector2i.ZERO, size))
+	if region.size.x <= 0 or region.size.y <= 0:
+		return null
+	var cropped_image := full_image.get_region(region)
+	cropped_image.generate_mipmaps()
+	return ImageTexture.create_from_image(cropped_image)
 
 
 ## full.png에서 얼굴 비율 영역만 잘라낸 텍스처(캐릭터 전용 — face_crop_ratio()로 프로필

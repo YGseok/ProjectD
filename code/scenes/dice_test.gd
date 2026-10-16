@@ -405,6 +405,10 @@ func _ready() -> void:
 	all_pass = _check_art1c2_monster_full_crop_fallback(lines) and all_pass
 
 	lines.append("")
+	lines.append("[ART-1c-3: 몬스터 컷 가장자리 페이드(하단·좌·우·위) + 경로 별칭(dark_knight -> dark_knight_elite) — SubViewport 알파 샘플링으로 중앙은 불투명/네 가장자리는 모두 거의 투명한지, MonsterCatalog.art_resource_id()가 별칭 표대로 해석하는지(별칭 없는 id는 그대로), dark_knight가 실제로 dark_knight_elite의 원화 경로를 보는지, 입고된 몬스터 전체(카탈로그 전수)가 화면 우측 끝 안에 들어오는지]")
+	all_pass = (await _check_art1c3_monster_edge_fade_and_alias(lines)) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -8325,14 +8329,17 @@ func _check_art1c2_monster_full_crop_fallback(lines: PackedStringArray) -> bool:
 	# has_full()의 실시간 결과와 정확히 일치하는지 본다 — 특정 id를 "원화 없음"으로
 	# 하드코딩해 가정하지 않는다(ART-1c의 N-6 교훈: "berserker는 face_*가 없다"는 가정이
 	# 실제 입고로 깨졌던 사고 재발 방지. 이번 이터레이션 중에도 slime/goblin/orc/skeleton
-	# 4종이 동시에 입고돼 이 가정 없는 방식이 바로 유효함이 실제로 증명됨).
+	# 4종이 동시에 입고돼 이 가정 없는 방식이 바로 유효함이 실제로 증명됨). ART-1c-3이
+	# 추가한 MonsterCatalog.art_resource_id() 별칭도 거쳐야 한다 — dark_knight는 자기
+	# 폴더가 아니라 dark_knight_elite 경로로 조회되므로, 기대값도 별칭 해석 후 id로 계산.
 	var crop_count := 0
 	var placeholder_count := 0
 	var mismatch_ids: Array = []
 	for m in MonsterCatalog.MONSTERS:
 		var mid: String = m["id"]
-		var expected_face: bool = CharacterArt.has_all_faces(mid, MonsterPortraitPlaceholder.MONSTER_ART_BASE_DIR)
-		var expected_full: bool = CharacterArt.has_full(mid, MonsterPortraitPlaceholder.MONSTER_ART_BASE_DIR)
+		var art_mid: String = MonsterCatalog.art_resource_id(mid)
+		var expected_face: bool = CharacterArt.has_all_faces(art_mid, MonsterPortraitPlaceholder.MONSTER_ART_BASE_DIR)
+		var expected_full: bool = CharacterArt.has_full(art_mid, MonsterPortraitPlaceholder.MONSTER_ART_BASE_DIR)
 		var expected_crop: bool = expected_full and not expected_face
 		var mp := MonsterPortraitPlaceholder.new()
 		add_child(mp)
@@ -8391,6 +8398,166 @@ func _check_art1c2_monster_full_crop_fallback(lines: PackedStringArray) -> bool:
 	return ok
 
 
+## [미니 기획 ART-1c-3](2026-10-16, [대형 기획 13] 인수인계) — 몬스터 컷 가장자리
+## 페이드(하단·좌·우·위) + 경로 별칭(dark_knight -> dark_knight_elite) 검증. SubViewport
+## 렌더 알파 샘플링을 쓰므로(_check_art1c_monster_face_art()와 같은 패턴) await로 불러야
+## 한다.
+func _check_art1c3_monster_edge_fade_and_alias(lines: PackedStringArray) -> bool:
+	var ok := true
+
+	# 1) 별칭 표 — dark_knight만 dark_knight_elite로 바뀌고, 별칭이 없는 id는 그대로.
+	var alias_dark_knight: String = MonsterCatalog.art_resource_id("dark_knight")
+	var alias_ok: bool = alias_dark_knight == "dark_knight_elite"
+	ok = alias_ok and ok
+	lines.append("  MonsterCatalog.art_resource_id('dark_knight') = '%s' (기대 'dark_knight_elite') -> %s" % [
+		alias_dark_knight, "OK" if alias_ok else "FAIL"
+	])
+	var alias_passthrough: String = MonsterCatalog.art_resource_id("slime")
+	var alias_passthrough_ok: bool = alias_passthrough == "slime"
+	ok = alias_passthrough_ok and ok
+	lines.append("  MonsterCatalog.art_resource_id('slime')(별칭 없음) = '%s' (기대 'slime' 그대로) -> %s" % [
+		alias_passthrough, "OK" if alias_passthrough_ok else "FAIL"
+	])
+
+	# 2) production 경로에서 실제로 별칭이 적용되는지 — dark_knight 자신의 폴더
+	#    (resources/monsters/dark_knight/)에는 원화가 없어야 하고(별칭이 필요한 이유),
+	#    MonsterPortraitPlaceholder.set_monster("dark_knight")는 그래도 dark_knight_elite
+	#    경로를 봐서 크롭 모드로 전환돼야 한다.
+	var dark_knight_own_folder_empty: bool = not CharacterArt.has_full("dark_knight", MonsterPortraitPlaceholder.MONSTER_ART_BASE_DIR)
+	var elite_has_full: bool = CharacterArt.has_full("dark_knight_elite", MonsterPortraitPlaceholder.MONSTER_ART_BASE_DIR)
+	lines.append("  전제: dark_knight 전용 폴더에 원화 없음=%s, dark_knight_elite에 full.png 있음=%s" % [
+		dark_knight_own_folder_empty, elite_has_full
+	])
+	var alias_portrait := MonsterPortraitPlaceholder.new()
+	add_child(alias_portrait)
+	alias_portrait.set_monster("dark_knight")
+	var alias_render_ok: bool = alias_portrait._use_full_crop or alias_portrait._use_face_art
+	ok = alias_render_ok and ok
+	lines.append("  set_monster('dark_knight') 후 _use_full_crop=%s/_use_face_art=%s (별칭 경로로 원화가 실제로 로드됨, 기대 둘 중 하나는 true) -> %s" % [
+		alias_portrait._use_full_crop, alias_portrait._use_face_art, "OK" if alias_render_ok else "FAIL"
+	])
+	remove_child(alias_portrait)
+	alias_portrait.free()
+
+	# 3) 가장자리 페이드 — 가짜 full.png 크롭으로 MonsterPortrait를 원화 크롭 모드로
+	#    전환하고, 실제 렌더 결과(SubViewport)에서 중앙은 불투명, 하단·좌·우·위 네
+	#    가장자리는 전부 중앙 대비 뚜렷이 낮은 알파인지 확인한다. _art1c2_write_fake_full()
+	#    (실제 보스 원화 비율 1181x1332)은 크롭 결과가 정사각이 아니라 240x240 박스 안에서
+	#    레터박스(좌우 여백)가 생겨 "가장자리 샘플"이 레터박스의 원래 투명 영역과 셰이더
+	#    페이드를 구분 못 하게 만든다 — 대신 정사각 비율의 전용 가짜 원화를 써서 크롭도
+	#    정사각(240x240을 레터박스 없이 꽉 채움)이 되게 한다.
+	var fake_base_dir := "user://art1c3_fake_monster_full/%s/"
+	var fake_id := "qa_fake_monster_edge_fade"
+	_art1c3_write_fake_square_full(fake_base_dir, fake_id)
+
+	var portrait := MonsterPortraitPlaceholder.new()
+	add_child(portrait)
+	portrait.art_base_dir = fake_base_dir
+	portrait.set_monster(fake_id)
+
+	var shader_params_ok: bool = (portrait._face_rect != null and portrait._face_rect.material is ShaderMaterial
+		and float((portrait._face_rect.material as ShaderMaterial).get_shader_parameter("side_fade")) > 0.0
+		and float((portrait._face_rect.material as ShaderMaterial).get_shader_parameter("top_fade")) > 0.0)
+	ok = shader_params_ok and ok
+	lines.append("  몬스터 표정 컷 셰이더에 side_fade/top_fade > 0.0 설정됨(캐릭터 쪽은 기본값 0.0 유지) -> %s" % (
+		"OK" if shader_params_ok else "FAIL"
+	))
+
+	var probe_viewport := SubViewport.new()
+	probe_viewport.size = Vector2i(240, 240)
+	probe_viewport.transparent_bg = true
+	probe_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	add_child(probe_viewport)
+
+	var render_ok := false
+	var center_alpha := 0.0
+	var bottom_alpha := 0.0
+	var left_alpha := 0.0
+	var right_alpha := 0.0
+	var top_alpha := 0.0
+	var probe_face_rect: TextureRect = portrait._face_rect
+	if probe_face_rect != null:
+		portrait.remove_child(probe_face_rect)
+		probe_face_rect.position = Vector2.ZERO
+		probe_viewport.add_child(probe_face_rect)
+
+		await get_tree().process_frame
+		await get_tree().process_frame
+		await RenderingServer.frame_post_draw
+
+		var img: Image = probe_viewport.get_texture().get_image()
+		render_ok = img != null
+		if render_ok:
+			center_alpha = img.get_pixel(120, 120).a
+			bottom_alpha = img.get_pixel(120, 238).a
+			top_alpha = img.get_pixel(120, 1).a
+			left_alpha = img.get_pixel(1, 120).a
+			right_alpha = img.get_pixel(238, 120).a
+	ok = render_ok and ok
+	if render_ok:
+		var center_opaque_ok: bool = center_alpha > 0.9
+		ok = center_opaque_ok and ok
+		lines.append("  렌더된 크롭 중앙(120,120) 알파=%.3f (기대 > 0.9, 불투명) -> %s" % [
+			center_alpha, "OK" if center_opaque_ok else "FAIL"
+		])
+		for edge in [
+			{"label": "하단(y=238)", "alpha": bottom_alpha},
+			{"label": "상단(y=1)", "alpha": top_alpha},
+			{"label": "좌측(x=1)", "alpha": left_alpha},
+			{"label": "우측(x=238)", "alpha": right_alpha},
+		]:
+			var edge_fade_ok: bool = edge["alpha"] < center_alpha * 0.3
+			ok = edge_fade_ok and ok
+			lines.append("  렌더된 크롭 %s 알파=%.3f (기대 중앙의 30%% 미만=%.3f) -> %s" % [
+				edge["label"], edge["alpha"], center_alpha * 0.3, "OK" if edge_fade_ok else "FAIL"
+			])
+	else:
+		lines.append("    FAIL: SubViewport 이미지를 가져오지 못함")
+	probe_viewport.queue_free() # probe_face_rect도 함께 해제됨(재부모화돼 portrait 트리 밖으로 나감)
+
+	_art1c2_remove_fake_full(fake_base_dir, fake_id) # 파일명(full.png) 규칙이 같아 기존 제거 헬퍼 재사용 가능
+	DirAccess.remove_absolute("user://art1c3_fake_monster_full")
+	remove_child(portrait)
+	portrait.free()
+
+	# 4) 입고된 실제 몬스터 전체(카탈로그 전수) — 크롭/원화 모드로 전환된 몬스터 "전부"가
+	#    화면 우측 끝(1280px) 안에 들어오는지(일반 1.1배/보스 1.3배 둘 다). ART-1c-2는
+	#    대표 1종만 쟀지만, 이번 지시는 "입고된 실제 몬스터 전체"를 요구하므로 전수로 돈다.
+	var combat_scene_all := load("res://code/scenes/combat_test.tscn")
+	var combat_all = combat_scene_all.instantiate()
+	add_child(combat_all)
+	var checked_count := 0
+	for m in MonsterCatalog.MONSTERS:
+		var mid: String = m["id"]
+		var art_id: String = MonsterCatalog.art_resource_id(mid)
+		var has_art: bool = CharacterArt.has_all_faces(art_id, MonsterPortraitPlaceholder.MONSTER_ART_BASE_DIR) \
+			or CharacterArt.has_full(art_id, MonsterPortraitPlaceholder.MONSTER_ART_BASE_DIR)
+		if not has_art:
+			continue
+		checked_count += 1
+		for scale_case in [
+			{"label": "일반(1.1배)", "scale": Vector2(1.1, 1.1)},
+			{"label": "보스(1.3배)", "scale": Vector2(1.3, 1.3)},
+		]:
+			combat_all.monster_portrait.scale = scale_case["scale"]
+			combat_all.monster_portrait.set_monster(mid)
+			var face_rect_all: TextureRect = combat_all.monster_portrait._face_rect
+			var right_edge_all: float = (face_rect_all.get_global_transform() * Vector2(face_rect_all.size.x, 0)).x if face_rect_all != null else 9999.0
+			var right_margin_ok_all: bool = right_edge_all <= 1280.0 - 8.0
+			ok = right_margin_ok_all and ok
+			if not right_margin_ok_all:
+				lines.append("  FAIL '%s'(%s) 오른쪽 끝 글로벌 x=%.1f (기대 <= %.1f)" % [
+					mid, scale_case["label"], right_edge_all, 1280.0 - 8.0
+				])
+	remove_child(combat_all)
+	combat_all.free()
+	lines.append("  카탈로그 전수 화면 경계 확인 — 원화/크롭이 있는 몬스터 %d종 전부 일반/보스 배율 양쪽에서 화면 우측 끝 안에 들어옴 -> %s" % [
+		checked_count, "OK" if ok else "FAIL(위 개별 FAIL 줄 참고)"
+	])
+
+	return ok
+
+
 ## _check_art1c2_monster_full_crop_fallback() 전용 헬퍼 — 실제 보스 원화(1181x1332)와
 ## 같은 비율의 가짜 full.png를 만든다(절대 해상도는 테스트 속도를 위해 축소, 비율 기반
 ## 크롭 계산은 해상도와 무관하므로 테스트 목적상 충분).
@@ -8406,6 +8573,19 @@ func _art1c2_remove_fake_full(base_dir_pattern: String, monster_id: String) -> v
 	var dir_path := base_dir_pattern % monster_id
 	DirAccess.remove_absolute(dir_path + "full.png")
 	DirAccess.remove_absolute(dir_path)
+
+
+## _check_art1c3_monster_edge_fade_and_alias() 전용 헬퍼 — 정사각 비율(200x200) 가짜
+## full.png. DEFAULT_FACE_CROP_RATIO(0.48x0.48, 가로/세로 같은 비율)를 정사각 원본에
+## 적용하면 크롭 결과도 정사각(96x96)이 돼, 240x240 표시 박스에 레터박스 없이 꽉 찬다 —
+## 가장자리 알파 샘플이 셰이더 페이드만 반영하도록(_art1c2_write_fake_full()의 1181x1332
+## 비율은 세로로 긴 크롭이라 좌우에 레터박스 여백이 생겨 이 용도에 안 맞음).
+func _art1c3_write_fake_square_full(base_dir_pattern: String, monster_id: String) -> void:
+	var dir_path := base_dir_pattern % monster_id
+	DirAccess.make_dir_recursive_absolute(dir_path)
+	var img := Image.create(200, 200, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0.4, 0.6, 0.8, 1.0))
+	img.save_png(dir_path + "full.png")
 
 
 ## _check_art1b_combat_face_art() 전용 헬퍼 — base_dir_pattern(예: "user://.../%s/")

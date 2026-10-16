@@ -32,6 +32,17 @@ class_name MonsterPortraitPlaceholder
 ## 텍스처를 바꾸지 않고 무시 — _draw()도 도형 플레이스홀더를 안 그리도록 함께 막는다.
 ## 우선순위: face_* 5장(_use_face_art) > full.png 크롭(_use_full_crop) > 도형
 ## 플레이스홀더(둘 다 false).
+##
+## ART-1c-3(2026-10-16, [대형 기획 13] 인수인계 — 몬스터 컷 가장자리 페이드 + 경로
+## 별칭): ① face_art_fade 셰이더에 side_fade/top_fade 유니폼을 추가(기본값 0.0이라
+## 캐릭터 쪽은 동작 불변)하고 몬스터 쪽만 _ensure_face_rect()에서 10%로 켜 좌/우/위
+## 가장자리도 하단과 같은 방식으로 투명 처리한다(qa_out/art1c3_fallen_commander_before.png
+## 에서 사각 박스처럼 보이던 문제 — 하단 페이드(fade_start=0.76, 플레이어와 공유값)
+## 자체는 셰이더 알파 수치로 정상 작동이 이미 확인돼 있었음, 다만 좌/우/위는 아예 페이드가
+## 없어 하드 컷으로 보였음). ② `MonsterCatalog.art_resource_id()`(데이터 표
+## `ART_ID_ALIASES`)로 원화 경로 조회 직전에 id를 별칭 해석한다 — `dark_knight`(MO005,
+## 옛 5종 호환용)는 `dark_knight_elite`(MO600)와 원화를 공유하는데, 파일을 실제로
+## 복제하지 않고 조회 경로만 바꿔치기한다(_art_monster_id가 _monster_id와 분리된 이유).
 
 const EYE_COLOR := Color(0.12, 0.1, 0.08)
 const MOUTH_COLOR := Color(0.25, 0.08, 0.08)
@@ -49,6 +60,11 @@ const FACE_ART_SIZE := CharacterPortraitPlaceholder.FACE_ART_SIZE
 const FACE_ART_SHIFT := Vector2(-56.0, 16.0)
 const FACE_ART_FADE_SHADER := CharacterPortraitPlaceholder.FACE_ART_FADE_SHADER
 
+## [미니 기획 ART-1c-3] 몬스터 컷만 좌/우/위 가장자리에 약 10% 알파 페이드를 켠다
+## (플레이어 쪽 face_art_fade 기본값 0.0은 그대로 둬 캐릭터 화면은 영향 없음).
+const FACE_ART_SIDE_FADE := 0.1
+const FACE_ART_TOP_FADE := 0.1
+
 ## "neutral" / "happy" / "hurt" / "sad" / "angry"
 @export var expression: String = "neutral"
 @export var body_color: Color = Color(0.5, 0.5, 0.5)
@@ -64,6 +80,10 @@ var _use_face_art := false
 ## 정적으로 보여준다(표정 전환 없음). _use_face_art가 true면 이쪽은 항상 false.
 var _use_full_crop := false
 var _monster_id := ""
+## [미니 기획 ART-1c-3] 원화 경로 조회에만 쓰는 id — MonsterCatalog.art_resource_id()로
+## 별칭(dark_knight -> dark_knight_elite)이 해석된 값. _monster_id(원래 id, 다른 용도로
+## 남겨둠)와 분리해 둔다.
+var _art_monster_id := ""
 var _face_rect: TextureRect = null
 
 ## dice_test.gd가 user:// 임시 디렉터리를 주입해 "5장 모두/일부만/없음"을 실제 몬스터
@@ -78,14 +98,15 @@ var art_base_dir: String = MONSTER_ART_BASE_DIR
 ## 이 함수가 호출돼도 그대로 플레이스홀더로 남는다.
 func set_monster(monster_id: String) -> void:
 	_monster_id = monster_id
-	_use_face_art = CharacterArt.has_all_faces(monster_id, art_base_dir)
+	_art_monster_id = MonsterCatalog.art_resource_id(monster_id)
+	_use_face_art = CharacterArt.has_all_faces(_art_monster_id, art_base_dir)
 	_use_full_crop = false
 	if _use_face_art:
 		_ensure_face_rect()
-	elif CharacterArt.has_full(monster_id, art_base_dir):
+	elif CharacterArt.has_full(_art_monster_id, art_base_dir):
 		_use_full_crop = true
 		_ensure_face_rect()
-		_face_rect.texture = CharacterArt.load_full_crop(monster_id, CharacterArt.DEFAULT_FACE_CROP_RATIO, art_base_dir)
+		_face_rect.texture = CharacterArt.load_full_crop(_art_monster_id, CharacterArt.DEFAULT_FACE_CROP_RATIO, art_base_dir)
 	if _face_rect != null:
 		_face_rect.visible = _use_face_art or _use_full_crop
 	set_expression(expression)
@@ -104,6 +125,8 @@ func _ensure_face_rect() -> void:
 	_face_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var fade_material := ShaderMaterial.new()
 	fade_material.shader = FACE_ART_FADE_SHADER
+	fade_material.set_shader_parameter("side_fade", FACE_ART_SIDE_FADE)
+	fade_material.set_shader_parameter("top_fade", FACE_ART_TOP_FADE)
 	_face_rect.material = fade_material
 	add_child(_face_rect)
 
@@ -111,7 +134,7 @@ func _ensure_face_rect() -> void:
 func set_expression(new_expression: String) -> void:
 	expression = new_expression
 	if _use_face_art and _face_rect != null:
-		_face_rect.texture = CharacterArt.load_face(_monster_id, expression, art_base_dir)
+		_face_rect.texture = CharacterArt.load_face(_art_monster_id, expression, art_base_dir)
 	queue_redraw()
 
 
