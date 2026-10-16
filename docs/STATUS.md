@@ -5,26 +5,26 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-10-17 (224)
-- 작성자: AI 에이전트. **[대형 기획 15] Q-4a(던전 맵 선택지 정리, 원문 12/13/14)
-  전체 완료.**
-  (12) 방 선택지 버튼 5종(전투/상점/이벤트/스토리/정예)을 전부 같은 크기·같은
-  스타일(`UIKit.style_secondary_button`)로 통일 — 전투만 꽉 채운 "주 행동"
-  스타일이던 것을 제거(M-1이 만든 위계를 INBOX 피드백대로 되돌림). (13) 방 카드
-  (MapStrip 상단 스트립)에서 전투/상점/이벤트/스토리/정예 선택지 칩(보상 아이콘
-  포함)을 전부 제거하고 방 번호/상태(테두리·제목색)/정예·보스 배지만 남김 —
-  아래 선택지 버튼과 중복이던 정보를 정리. (14) 보상 카테고리 아이콘(+전투/정예의
-  계열 아이콘)을 버튼 옆에 따로 띄우던 것을 버튼 자식 노드로 옮겨 "[아이콘 +
-  이름 + 보상 칩]" 한 덩어리 버튼으로 만듦 — 방향키 포커스는 여전히 버튼 단위.
-  `dice_test.gd` 신규 체크(`_check_q4a_dungeon_room_choices`) + 기존 M-1/M-7
-  테스트의 기대값을 새 레이아웃에 맞게 갱신, `bash scripts/qa_shot.sh dice_test`
-  전체 **PASS**(FAIL 0건). 셀프 피드백 — 여러 방 구성(전투만/전투+이벤트/
-  상점 포함/전투+스토리/정예/보스) 1280×720 캡처 5장을 직접 읽어 버튼 크기
-  통일·보상 칩이 버튼 안에 있음·방 카드에 칩이 없음을 확인, 정예 전투 버튼을
-  실제로 눌러 combat_test 씬 전환까지 되는지도 확인. 전투 규칙/밸런스는 건드리지
-  않았고 `resources/`·`docs/art/`는 읽기만 했다. 상세는 아래 "완료 기록 (224)"
-  참고. **다음은 INBOX.md "부분 처리됨" [대형 기획 15] Q-4b(보유 스킬 팝업 +
-  던전 포기).**
+- 일시: 2026-10-17 (225)
+- 작성자: AI 에이전트. **[대형 기획 15] Q-4b(보유 스킬 팝업 + 던전 포기, 원문
+  11/21) 전체 완료.**
+  (11) 던전 화면 5개(맵/전투/상점/이벤트/스토리)가 공유하는 `DeckPanel`의
+  "보유 스킬" 행을 클릭/Space하면 신규 공용 컴포넌트 `SkillDetailPopup`(화면
+  전체를 덮는 어두운 배경 + 이름/효과 설명 + 우상단 X)이 뜬다 — 배경 클릭/X
+  버튼/Esc 세 갈래 전부로 닫히고 닫기 버튼에 포커스 트랩. (21) 던전 맵 헤더에
+  "던전 포기" 버튼을 추가 — 신규 공용 컴포넌트 `ConfirmDialog`(예/아니오 모달,
+  기본 포커스=취소)로 확인한 뒤에만 `RunState.reset_run()`으로 골드/덱/스킬/방
+  진행을 폐기하고 캐릭터 선택 화면으로 돌아간다. 업적/스킬 도감은 해금 즉시
+  write-through 저장이라 포기와 무관하게 유지되고, 승패 집계 경로 자체를
+  타지 않아 통계도 영향받지 않음을 확인. `dice_test.gd` 신규 체크 2종
+  (`_check_q4b_skill_detail_popup`/`_check_q4b_quit_run_confirm`) 추가,
+  `bash scripts/qa_shot.sh dice_test 60 qa_out/dice_test.png "" 1` 전체
+  **PASS**(FAIL 0건). 셀프 피드백 2라운드 — 1라운드 캡처에서 팝업 X 버튼이
+  장식 버튼 스킨에 눌려 거의 안 보이는 문제를 발견해 전용 스타일로 교체,
+  2라운드 재캡처로 또렷해짐·확인 팝업 포커스·배경 어둡게 효과까지 확인.
+  전투 규칙/밸런스는 건드리지 않았고 `resources/`·`docs/art/`는 읽기만 했다.
+  상세는 아래 "완료 기록 (225)" 참고. **[대형 기획 15]의 다음은 Q-5(커스터마이징
+  분리 + UX 재설계).**
 
 ## 지금 위치
 
@@ -652,8 +652,14 @@ Q-1 → Q-11)다.** 2026-10-16(221)로 **Q-1(버그 3종 + 캡처 고정, 원문
 버튼을 전부 같은 크기(보조 버튼 스타일로 통일, 전투만 크던 위계 제거),
 방 카드(MapStrip)는 선택지 칩을 전부 빼고 방 번호/상태/정예·보스 배지만,
 보상 카테고리 아이콘(+계열 아이콘)은 버튼 옆 별도 노드 대신 버튼 자식으로
-이동(상세는 완료 기록 (224)). **다음은 Q-4b(보유 스킬 팝업 + 던전 포기,
-원문 11/21).**
+이동(상세는 완료 기록 (224)). 2026-10-17(225)로 **Q-4b(보유 스킬 팝업 +
+던전 포기, 원문 11/21) 완료** — 던전 화면 5개가 공유하는 `DeckPanel`의 보유
+스킬 행이 클릭/Space로 `SkillDetailPopup`(공용 컴포넌트, 이름+효과 설명)을
+열고, 던전 맵에 "던전 포기" 버튼 + `ConfirmDialog`(공용 컴포넌트)로 확인 후
+`RunState.reset_run()`으로 런을 폐기하고 캐릭터 선택으로 복귀한다(업적/도감은
+write-through 저장이라 영향 없음, 승패 집계 경로를 안 타 통계도 안 건드림)
+(상세는 완료 기록 (225)). **다음은 Q-5(커스터마이징을 던전 선택지에서 분리 +
+UX 재설계, 원문 15/16).**
 
 남은 구조적 후보(급하지 않음): 보스 개별 6종 중 타락한 기사단장만 밴드 미달
 (`MonsterSkills.modify_monster_roll()` 파라미터화가 전제조건이라 사람 설계
@@ -1263,6 +1269,59 @@ Q-1 → Q-11)다.** 2026-10-16(221)로 **Q-1(버그 3종 + 캡처 고정, 원문
     조정은 사람이 이 숫자를 보고 다음 지시로 결정).
 
 ## 완료 기록
+
+- **2026-10-17 (225)**: **[대형 기획 15] Q-4b(보유 스킬 팝업 + 던전 포기, 원문
+  11/21) 전체 완료.**
+  **(11) 보유 스킬 팝업** — 신규 공용 컴포넌트 `code/scenes/skill_detail_popup.gd`
+  (`SkillDetailPopup`, achievement_panel.gd/skill_codex_panel.gd와 같은 "스크립트
+  하나로 완결된 Control" 패턴)가 화면 전체(1280x720)를 덮는 어두운 backdrop(클릭
+  시 닫힘) + 중앙 박스(스킬 모티프 아이콘 + 이름(accent색) + 우상단 빨간 "X" 버튼 +
+  효과 설명)를 그린다. `deck_panel.gd`의 "보유 스킬" 섹션이 각 행을
+  `CharacterCardPanel`(L-1이 만든 "클릭/Space 둘 다 activated로 통일하는
+  PanelContainer", skill_codex_panel.gd 카드도 이미 재사용 중)로 감싸 눌리면 이
+  팝업을 연다 — DeckPanel이 dungeon_map/shop/event/story_event/combat_test 5개
+  화면 전부가 공유하는 컴포넌트라 이 한 곳만 고치면 "던전 화면들"(INBOX 원문)
+  전부에 반영된다. 팝업은 **첫 클릭 때 지연 생성**해 `get_parent()`(씬 루트)의
+  자식으로 붙인다 — `_ready()`에서 바로 만들면 combat_test.gd가 DeckPanel을 자기
+  `_ready()`/`_setup_combat_hud()` 도중 동적으로 `add_child()`하는 경합과 겹쳐
+  "Parent node is busy setting up children" 에러로 실제로 크래시하던 것을
+  1라운드 셀프 피드백(`bash scripts/qa_shot.sh dice_test`에서 발견)에서 찾아
+  지연 생성으로 고쳤다. 레어리티는 INBOX 지시대로 아직 없어 생략.
+  **(21) 던전 포기** — `dungeon_map.tscn` 헤더(상단, "스킬 도감" 버튼 왼쪽)에
+  "던전 포기" 버튼(경고색 tint, 방 선택지 목록과 분리된 위치)을 추가했고, 누르면
+  신규 공용 컴포넌트 `code/scenes/confirm_dialog.gd`(`ConfirmDialog`,
+  SkillDetailPopup과 같은 backdrop+박스 구조를 공유하는 범용 예/아니오 모달)가
+  INBOX 지정 문구("현재 진행도를 버리고 나갑니다. 지금까지 해금한 업적과 스킬
+  도감은 유지됩니다.")로 확인을 구한다. 기본 포커스는 "취소"(섣부른 확정 방지),
+  확인하면 `_abandon_run()`(= `RunState.reset_run()`)이 골드/다이스 주머니/스킬/방
+  진행을 전부 버리고 `character_select.tscn`으로 돌아간다. "패배/클리어 통계를
+  부당하게 올리거나 깎지 않는다"는 요구는 `combat_test.gd`의 승패 처리 경로
+  (`_resolve_exchange()`/`_apply_room_advance()`)를 전혀 거치지 않는 구조로
+  자연히 충족되고, "미저장 업적 저장" 요구는 `AchievementManager.unlock()`/
+  `SkillCodex.mark_discovered()` 둘 다 호출 즉시 JSON으로 write-through 저장하는
+  기존 구조라 애초에 "미저장 상태"가 존재하지 않음을 확인(새 코드 불필요).
+  **검증**: `dice_test.gd` 신규 `_check_q4b_skill_detail_popup()`(카드 activated →
+  팝업이 실제 SkillPool 이름/설명을 렌더하는지, 배경 클릭/X 버튼/Esc 세 갈래 전부
+  실제 `InputEventMouseButton`/`InputEventKey` 객체로 닫히는지, 닫기 버튼 포커스
+  트랩 4방향 자기 자신 + `has_focus()`)/`_check_q4b_quit_run_confirm()`("던전 포기"
+  버튼 포커스+확정 경로, 확인 팝업 메시지/포커스 트랩(취소↔확인 순환)/기본 포커스,
+  취소 3갈래 전부 RunState 불변, `_abandon_run()` 후 gold/rooms_cleared/
+  round_index/skill_flags 전부 초기값, 업적/도감 해금 상태가 그 전후로 유지됨까지)
+  추가 — `change_scene_to_file()`을 포함하는 `_on_quit_run_confirmed()` 전체는
+  event.gd `_apply_pick()`과 같은 이유로 테스트에서 직접 호출하지 않고
+  `_abandon_run()`만 분리해 호출(다른 테스트가 남긴 `RunState.
+  chosen_starting_skill_id` 잔여값 때문에 `reset_run()` 후 `skill_flags`가
+  안 비는 실패를 1라운드에서 발견해 백업/복원 추가). `bash scripts/qa_shot.sh
+  dice_test 60 qa_out/dice_test.png "" 1` 전체 **PASS**(FAIL 0건). 셀프 피드백
+  2라운드 — 1라운드 캡처(`qa_out/q4b_skill_popup.png`)에서 우상단 "X" 닫기
+  버튼이 `UIKit.style_secondary_button()`의 가로로 긴 장식 스킨을 36x36 정사각에
+  억지로 씌워 거의 안 보이는 문제를 발견, 전용 단색 빨간 StyleBoxFlat으로
+  바꿔 2라운드 재캡처(`qa_out/q4b_skill_popup.png`)로 또렷이 보임을 확인.
+  `qa_out/q4b_quit_confirm.png`(확인 팝업, 취소 버튼 포커스 테두리 확인)/
+  `qa_out/q4b_baseline_no_popup.png`(팝업 없는 기준 화면과 밝기 비교로 backdrop
+  어둡게 하는 효과가 실제로 눈에 보임 확인)까지 직접 읽어 확인. 전투 규칙/
+  밸런스는 건드리지 않았고 `resources/`·`docs/art/`는 읽기만 했다.
+  **[대형 기획 15]의 다음은 Q-5(커스터마이징 분리) 이후 항목.**
 
 - **2026-10-17 (224)**: **[대형 기획 15] Q-4a(던전 맵 선택지 정리, 원문 12/13/14)
   전체 완료.**
@@ -1959,84 +2018,9 @@ Q-1 → Q-11)다.** 2026-10-16(221)로 **Q-1(버그 3종 + 캡처 고정, 원문
   아트 스레드로 전달하는 일은 아직 안 함 — 실제 몬스터 원화 발주가 필요한
   시점(사람이 아트 제작을 시작할 때)에 "ProjectD Art" 세션으로 넘길 것.
 
-- **2026-10-16 (215)**: INBOX.md "남은 이슈" [대형 기획 14] **N-6(캐릭터 전용
-  이벤트 + 특별 선택지) 완료 — [대형 기획 14](N-1~N-6) 전체 완료**.
-  **(1) 데이터 표/공용 함수**: `code/systems/event_challenge_pool.gd`에
-  `only_characters`(challenge 수준) / `special_choice`(challenge 수준,
-  `requires_character`+`label`+`description`+`reward`) 두 필드를 추가하고,
-  이벤트별/캐릭터별 하드코딩 없이 처리하는 공용 순수 함수를 신규 구현했다 —
-  `only_characters()`/`is_exclusive()`/`common_challenges()`/
-  `exclusive_challenges_for()`/`pick_challenge()`(전용 이벤트 대체 확률
-  `EXCLUSIVE_EVENT_CHANCE`=0.25까지 포함해 rng 하나로 결정)/
-  `has_special_choice()`/`special_choice_requires()`/`special_choice_active_for()`/
-  `special_choice_challenges_for()`/`reward_expected_value()`(보상 spec의
-  "기대값" 비교 전용 추정치 — item_grade는 등급 1~4점 가중 평균, gold/pips는
-  min~max 평균). **(2) 콘텐츠 8종**: 전용 이벤트 4종(`treasure_map`/해적 —
-  "낡은 보물 지도", `circus_master`/곡예사 — "서커스 단장의 내기", `duel_arena`/
-  광전사 — "결투장의 부름", `ancient_oath`/수호자 — "오래된 성소의 수호 서약")은
-  독립된 CHALLENGES 항목으로 추가했고, 특별 선택지 4종은 기존 보물/도박/탐색/
-  함정 해체 각각에 1개씩 얹었다(treasure→enchantress "매혹의 시선", gambling→
-  novice "다재다능하게 승부", exploration→shieldbearer "저주의 눈", trap_disarm→
-  explosive "화약으로 통째로") — 각 특별 선택지의 `reward`는 그 challenge의
-  `safe_reward`와 같은 type으로 설계해 `reward_expected_value()`로 "같은
-  계열의 일반 선택지보다 분명히 크다"를 직접 비교 검증할 수 있게 했다(실측:
-  treasure 2.60 > 1.17, 나머지도 전부 2배~4배). 이로써 8명 전원이 전용/특별
-  콘텐츠를 최소 1개씩 보유(견습 모험가/매혹사/주술사/폭발병=특별 선택지,
-  해적/곡예사/광전사/수호자=전용 이벤트). **(3) 결정적 선택**: `event.gd`의
-  `_ready()`가 기존 `randi() % CHALLENGES.size()`(재현 불가) 대신 신규
-  `challenge_seed(run_seed, room_index)`로 시드한 `RandomNumberGenerator`를
-  `EventChallengePool.pick_challenge(character_id, rng)`에 넘긴다 — 같은 런의
-  같은 방이면 테스트 전투/QA 시드에서도 항상 같은 챌린지가 나온다(몬스터
-  플랜의 `ELITE_SEED_OFFSET`/던전 맵 방 선택지의 `idx*104729+7`과 겹치지 않게
-  별도 오프셋 `CHALLENGE_SEED_OFFSET`=50021 사용). **(4) UI**: `_setup_item_event()`가
-  전용 이벤트면 제목 옆에 "(○○ 전용)" 배지를 붙이고, `_build_special_choice_button()`
-  (신규)이 safe/risky 버튼 아래 세 번째 선택지를 그린다 — 잠김(비소유)은 회색
-  테두리 + "🔒 ○○ 선택 가능 — <효과>" + 흐린 설명, `pressed`를 연결하지 않아
-  방향키 포커스는 가지만 Space를 눌러도 실행되지 않는다(character_select.gd의
-  잠긴 시작 스킬 슬롯과 같은 "포커스 가능·실행 불가" 패턴). 활성(소유)은 금색
-  테두리 + "○○ 전용 — <효과>" + 선명한 설명, 누르면 `_on_special_pressed()`가
-  굴림 없이 즉시 `_grant_reward()`(기존 안전/위험 성공 경로와 동일 함수)로
-  보상을 준다. **(5) 자동 검증**: `dice_test.gd` 신규
-  `_check_n6_character_events_and_special_choices()` — 8명 커버리지/분량(전용
-  ≥4·특별 ≥4)/`pick_challenge()` 시드 100개 분포(소유 캐릭터는 10~40회, 비소유는
-  항상 0회)/`challenge_seed()` 결정성/잠긴 버튼을 실제로 눌러도 상태가 안 바뀌는지
-  (`_row_ui`/`_choice_made` 불변)/활성 버튼을 실제로 눌렀을 때 보상이 적용되는지
-  (`_row_ui.size()==1`)/보상 기대값 비교/전용 이벤트 제목 배지까지 전부 계산·
-  실제 버튼 클릭 결과로 검증(플래그만 보지 않음). `bash scripts/qa_shot.sh
-  dice_test`를 3회 실행 — N-6 신규 체크 전부 OK, 전체 "FAIL"은 아래 (6)에서
-  고친 ART-1b와 무관한 기존 QA 뷰포트 1028px 잘림 1건뿐(재확인, 이번 변경과
-  무관). **(6) 깨진 기존 테스트 수정(같은 이터레이션 추가 지시)**:
-  `_check_art1b_combat_face_art()`가 "berserker는 face_*가 하나도 없다"를
-  하드코딩으로 가정했는데, 이 세션 시작 전 아트 스레드가 실제로 berserker/
-  guardian face_*를 입고해 그 가정이 깨져 FAIL이던 것(완료 기록(214)에서 발견만
-  하고 범위 밖이라 안 고친 것)을 고쳤다 — `CharacterArt.has_all_faces()`/
-  `load_face()`에 `base_dir` 매개변수(기본값은 기존 production 경로, 테스트가
-  user:// 임시 경로를 주입 — `ui_kit.gd`/`skill_icon.gd`의 기존 base_dir 주입
-  패턴과 동일)를 추가하고, `CharacterPortraitPlaceholder.art_base_dir`(신규)로
-  연결했다. `load_face()`는 base_dir가 production 경로일 때만 기존처럼
-  `ResourceLoader`(`load()`)를 쓰고, 테스트 경로일 때만 `FileAccess.file_exists`+
-  `Image.load()`로 읽어 production 동작/성능/export 경고가 전혀 바뀌지 않는다.
-  테스트는 user://에 만든 가짜 캐릭터 3종(5장 모두/2장만/0장, `Image.create()`+
-  `save_png()`로 생성 후 정리)으로 "5장 모두 있음/일부만 있음/없음" 세 경우를
-  특정 캐릭터의 실제 입고 상태와 무관하게 검증하고, `combat_test.tscn` 통합
-  검증도 "berserker는 항상 플레이스홀더"라는 가정 대신 그 캐릭터의 실제
-  `has_all_faces()` 값과 비교하도록 바꿨다(앞으로 어떤 캐릭터가 입고돼도 깨지지
-  않음). **셀프 피드백**: `qa_out/n6_special_locked.png`(novice가 enchantress
-  전용 특별 선택지를 "🔒 매혹사 선택 가능" 회색 테두리로 봄)/
-  `n6_special_active.png`(enchantress 본인은 "매혹사 전용" 금색 테두리로
-  활성화되어 봄)/`n6_exclusive_event.png`(pirate가 "낡은 보물 지도 ...
-  (해적 전용)" 전용 이벤트를 봄) 3장을 직접 읽어 잠금/활성 상태가 테두리
-  색(회색/금색)으로 뚜렷이 구분되고, safe/risky/특별 선택지 세 버튼이 겹침
-  없이 정렬되며(특별 선택지 폭을 DeckPanel 좌측(x=980)보다 좁게 960에서
-  끝나도록 설계), 자물쇠 문구와 효과 설명이 안 잘리고 읽힘을 확인 — "상" 수준
-  문제 없이 1라운드로 종료. 전투 규칙/밸런스 수치는 건드리지 않았고
-  `resources/`·`docs/art/`는 읽기만 했다. `docs/DESIGN.md`의 "특수 이벤트" 절에
-  "캐릭터 전용 이벤트 + 특별 선택지(N-6 신규)" 단락을 추가해 전용 4종/특별
-  4종 목록과 동작 방식을 기록했다.
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(224)에서 (214)/(213)을 그리로 옮겼다.)*
+이번 이터레이션(225)에서 (215)를 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 

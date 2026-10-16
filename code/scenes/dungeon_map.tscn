@@ -4,6 +4,7 @@
 [ext_resource type="Script" path="res://code/scenes/deck_panel.gd" id="2_deck_panel"]
 [ext_resource type="Script" path="res://code/scenes/customize_panel.gd" id="3_customize_panel"]
 [ext_resource type="Script" path="res://code/scenes/skill_codex_panel.gd" id="4_skill_codex"]
+[ext_resource type="Script" path="res://code/scenes/confirm_dialog.gd" id="5_confirm_dialog"]
 
 [sub_resource type="LabelSettings" id="LabelSettings_title"]
 font_size = 28
@@ -114,3 +115,13 @@ text = "스킬 도감"
 
 [node name="SkillCodexPanel" type="Control" parent="."]
 script = ExtResource("4_skill_codex")
+
+[node name="QuitRunButton" type="Button" parent="."]
+offset_left = 900.0
+offset_top = 24.0
+offset_right = 1050.0
+offset_bottom = 60.0
+text = "던전 포기"
+
+[node name="QuitConfirmDialog" type="Control" parent="."]
+script = ExtResource("5_confirm_dialog")

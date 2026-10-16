@@ -159,7 +159,12 @@
 전투 진행 자체는 자동이라 "다이스를 직접 고르는" 조작은 없음), event, shop,
 story_event, customize_panel/achievement_panel(오버레이, 포커스 트랩 + Esc 닫기),
 test_battle_setup("뒤로"/"전투 시작"만 — 나머지 설정 컨트롤은 Godot 기본 포커스
-동작에 맡김). deck_panel은 view-only라 포커스 대상 자체가 없다.
+동작에 맡김). **deck_panel은 2026-10-17 [대형 기획 15] Q-4b(11)부터 "보유 스킬" 행이
+클릭/Space로 SkillDetailPopup(이름+효과 설명, 공용 컴포넌트)을 띄우는 첫 포커스
+대상이 생겼다** — 목록 안에서는 방향키(위/아래)로만 이동(wrap/trap 없음, 화면 전체
+체인과는 별개 축), 팝업 자체는 다른 오버레이와 동일하게 포커스 트랩 + Esc/배경
+클릭/X 버튼으로 닫힘. dungeon_map에는 같은 날 "던전 포기" 버튼(확인 팝업
+ConfirmDialog, 역시 포커스 트랩 + Esc/배경 클릭으로 취소)도 추가됐다.
 
 **2026-10-13 [대형 기획 11] K-3로 포커스 강조색이 캐릭터 퍼스널 컬러를 따름** —
 `FocusNav.focus_style()`의 `accent` 매개변수(K-1이 미리 열어둔 자리)에

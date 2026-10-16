@@ -152,6 +152,12 @@ const MIN_SHOP_ITEM_COST := 10
 @onready var deck_panel: DeckPanel = $DeckPanel
 @onready var skill_codex_button: Button = $SkillCodexButton
 @onready var skill_codex_panel: SkillCodexPanel = $SkillCodexPanel
+@onready var quit_run_button: Button = $QuitRunButton
+@onready var quit_confirm_dialog: ConfirmDialog = $QuitConfirmDialog
+
+## [대형 기획 15] Q-4b(21, 2026-10-17) "던전 포기" 확인 문구 — "폐기되는 것"(진행도)과
+## "유지되는 것"(업적/도감)을 명시해 INBOX 원문을 그대로 반영한다.
+const QUIT_RUN_MESSAGE := "현재 진행도를 버리고 나갑니다. 지금까지 해금한 업적과 스킬 도감은 유지됩니다."
 
 var _shop_available := true
 var _event_available := true
@@ -214,6 +220,8 @@ func _ready() -> void:
 	_style_action_buttons()
 	customize_button.pressed.connect(customize_panel.open)
 	skill_codex_button.pressed.connect(_on_skill_codex_pressed)
+	quit_run_button.pressed.connect(_on_quit_run_button_pressed)
+	quit_confirm_dialog.confirmed.connect(_on_quit_run_confirmed)
 	_setup_hud_bar()
 	_setup_reward_legend()
 	_setup_status_caption()
@@ -328,6 +336,9 @@ func _style_action_buttons() -> void:
 	# 스타일을 전혀 안 받고 기본 Godot 테마로만 그려지던 버그(전수 검색으로 발견 —
 	# event.gd/shop.gd/story_event.gd는 이미 전부 스타일링하고 있었음).
 	UIKit.style_secondary_button(skill_codex_button, cid)
+	# [대형 기획 15] Q-4b(21): "던전 포기"도 "정예 전투"와 같은 경고색 tint — 되돌릴 수
+	# 없는(진행도 폐기) 동작임을 방 선택지들과 다른 위치(헤더 줄)뿐 아니라 색으로도 구분.
+	UIKit.style_secondary_button(quit_run_button, cid, Color(0.85, 0.2, 0.2))
 
 
 ## [대형 기획 13] M-1: 라운드/진행도/골드를 "아이콘 + 큰 숫자 + 짧은 캡션" 칩 3개로
@@ -861,6 +872,9 @@ func _layout_visible_buttons() -> void:
 	# 넣지 않고 체인에만 맨 끝으로 추가한다 — 루프가 이미 끝난 뒤라 position은 그대로
 	# 유지되고, 방향키로는 여전히 도달 가능하다.
 	visible_buttons.append(skill_codex_button)
+	# [대형 기획 15] Q-4b(21): "던전 포기"도 커스터마이징/스킬 도감처럼 방 선택지가 아니라
+	# 언제든 누를 수 있는 고정 위치 버튼이라 같은 방식으로 체인 맨 끝에만 추가한다.
+	visible_buttons.append(quit_run_button)
 	_shortcut_buttons = visible_buttons
 	# K-3: 포커스 강조색도 현재 캐릭터 accent로(K-1의 ACCENT_DEFAULT 대신).
 	FocusNav.chain_linear(_shortcut_buttons, false, false, false, CharacterTheme.ui_palette(RunState.character_id)["accent"])
@@ -905,6 +919,70 @@ func _on_skill_codex_pressed() -> void:
 		skill_codex_panel.close()
 	else:
 		skill_codex_panel.open(RunState.character_id, RunState.skill_flags)
+
+
+## [대형 기획 15] Q-4b(21, 2026-10-17): "던전 포기" 버튼 — 즉시 폐기하지 않고 확인
+## 팝업(ConfirmDialog)부터 띄운다. 실제 폐기는 _on_quit_run_confirmed()에서만 일어난다.
+func _on_quit_run_button_pressed() -> void:
+	quit_confirm_dialog.open(QUIT_RUN_MESSAGE, RunState.character_id, "던전 포기", "취소")
+
+
+## 실제 폐기 로직만 분리 — dice_test.gd가 event.gd._apply_pick()과 같은 이유(이터레이션
+## 45 패턴, 아래 참고)로 change_scene_to_file() 없이 이 부분만 직접 호출해 검증할 수
+## 있게 한다.
+##
+## "포기는 패배 통계/업적을 부당하게 올리거나 깎지 않는다"(INBOX 원문): 이 경로는
+## combat_test.gd의 _resolve_exchange()/_apply_room_advance()(승/패 시 업적 unlock,
+## 골드/눈금 보상, round_index 진행)를 전혀 거치지 않고 RunState.reset_run()만 직접
+## 호출하므로, 애초에 "패배"나 "클리어"로 집계될 경로 자체를 타지 않는다 — 명시적으로
+## 막은 게 아니라 구조적으로 그 코드 경로에 도달하지 않는 것.
+##
+## "미저장 업적이 있으면 저장"(INBOX 원문): AchievementManager.unlock()/SkillCodex.
+## mark_discovered() 둘 다 호출 즉시 JSON 파일에 동기 저장하는 write-through 방식이라
+## (achievement_manager.gd/skill_codex.gd의 _save() 참고)애초에 "아직 디스크에 안 쓰인
+## 해금 상태"가 존재할 수 없다 — 그래서 이 함수가 별도로 "저장"을 호출할 필요가 없다.
+func _abandon_run() -> void:
+	RunState.reset_run()
+
+
+## 확인 시에만 실행 — _abandon_run()으로 이번 런의 골드/다이스 주머니/스킬/방 진행을
+## 전부 버리고(캐릭터는 유지, reset_run() 기본 동작) 캐릭터 선택 화면으로 돌아간다.
+## dice_test.gd의 _check_event_double_pick_guard() 주석이 설명하는 것과 같은 이유로
+## change_scene_to_file()을 포함하는 이 함수 전체는 QA 테스트 하네스에서 직접 호출하면
+## 안 되고(현재 실행 중인 dice_test 씬 자체가 바뀌어버림), 위 _abandon_run()만 따로
+## 호출해 부작용 없이 검증한다.
+func _on_quit_run_confirmed() -> void:
+	_abandon_run()
+	get_tree().change_scene_to_file("res://code/scenes/character_select.tscn")
+
+
+## QA 전용 — [대형 기획 15] Q-4b(11) "보유 스킬 팝업"을 실제 화면에서 캡처하기 위한
+## 훅. RunState.skill_flags를 채우고 DeckPanel의 보유 스킬 행을 직접 activated시켜
+## SkillDetailPopup을 연다(_debug_open_customize()가 CustomizePanel을 여는 것과 같은
+## 패턴 — DeckPanel은 dungeon_map의 자식이라 GAME_QA_CALL이 씬 루트에만 걸 수 있는
+## 제약을 이 래퍼로 우회).
+func _debug_open_skill_popup() -> void:
+	RunState.skill_flags = ["deep_breath"]
+	deck_panel._rebuild()
+	var card := deck_panel._q4b_debug_first_skill_card()
+	if card != null:
+		card.activated.emit()
+
+
+## QA 전용 — 포커스+확정 경로로 "던전 포기" 버튼까지 이어지고, 확인 팝업이 뜨는지
+## 확인한다(_debug_press_shortcut_customize와 같은 패턴).
+func _debug_press_shortcut_quit_run() -> void:
+	var btn := quit_run_button
+	btn.grab_focus()
+	btn.pressed.emit()
+
+
+## QA 전용 — 확인 팝업에서 "던전 포기"(확인) 버튼까지 눌러 실제로 RunState가 리셋되고
+## 씬이 전환되는지 확인한다.
+func _debug_confirm_quit_run() -> void:
+	_on_quit_run_button_pressed()
+	quit_confirm_dialog._confirm_button.grab_focus()
+	quit_confirm_dialog._confirm_button.pressed.emit()
 
 
 ## qa/visual_qa.gd의 GAME_QA_CALL로 호출하기 위한 QA 전용 훅. 실제 전투 승리를 끝까지

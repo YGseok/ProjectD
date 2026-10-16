@@ -441,6 +441,14 @@ func _ready() -> void:
 	all_pass = _check_q4a_dungeon_room_choices(lines) and all_pass
 
 	lines.append("")
+	lines.append("[Q-4b(11): 보유 스킬 팝업 — DeckPanel 보유 스킬 행이 CharacterCardPanel의 activated(클릭/Space 공용)로 SkillDetailPopup을 열고, 실제 렌더된 이름/설명(SkillPool.find_skill 값과 일치)을 보여주는지, 배경 클릭/X 버튼/Esc 세 갈래 전부 닫히는지, 닫기 버튼에 포커스 트랩(4방향 전부 자기 자신)이 걸려있는지]")
+	all_pass = _check_q4b_skill_detail_popup(lines) and all_pass
+
+	lines.append("")
+	lines.append("[Q-4b(21): 던전 포기 — '던전 포기' 버튼(포커스+확정)이 확인 팝업(ConfirmDialog)을 열고, 취소/배경 클릭/Esc 세 갈래 전부 RunState를 전혀 건드리지 않고 닫히는지(취소 버튼이 기본 포커스), 확인(실제로는 _abandon_run()만 직접 호출)하면 RunState.gold/rooms_cleared/round_index/skill_flags가 전부 초기값으로 리셋되는지, 그 전후로 업적/스킬 도감의 해금·발견 상태(write-through 저장)는 그대로 유지되는지]")
+	all_pass = _check_q4b_quit_run_confirm(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -11161,3 +11169,248 @@ func _q4a_contains_label_text(node: Node, text: String) -> bool:
 		if _q4a_contains_label_text(c, text):
 			return true
 	return false
+
+
+## _check_q4b_skill_detail_popup() 전용 재귀 헬퍼 — 트리 안의 첫 CharacterCardPanel.
+## DeckPanel의 "보유 스킬" 섹션만 이 클래스를 쓰므로(캐릭터 정보 섹션은 평문 Label),
+## RunState.skill_flags에 스킬을 하나만 넣어두면 모호함 없이 그 행을 찾을 수 있다.
+func _q4b_find_card_panel(node: Node) -> CharacterCardPanel:
+	if node is CharacterCardPanel:
+		return node
+	for c in node.get_children():
+		var found := _q4b_find_card_panel(c)
+		if found != null:
+			return found
+	return null
+
+
+## [대형 기획 15] Q-4b(11, 2026-10-17) 검증 — INBOX 원문 "클릭/Space하면 팝업으로 스킬
+## 이름·효과 설명을 보여준다... 화면 바깥(어두운 배경) 클릭 또는 우상단 X 버튼 또는
+## Esc로 닫힘, 키보드 포커스 트랩"을 그대로 코드화한다. DeckPanel.new()로 직접
+## 인스턴스화(기존 (c) DeckPanel 테두리색 검증과 같은 패턴, 이터레이션 192 참고)해
+## _skill_popup이 실제로 get_parent()(=이 테스트 자신, dice_test)의 자식으로 붙는지까지
+## 포함해 검증한다.
+func _check_q4b_skill_detail_popup(lines: PackedStringArray) -> bool:
+	var ok := true
+	var character_backup := RunState.character_id
+	var skill_backup: Array[String] = RunState.skill_flags.duplicate()
+
+	RunState.character_id = "novice"
+	RunState.skill_flags = ["deep_breath"]
+
+	var deck := DeckPanel.new()
+	add_child(deck)
+	deck._rebuild()
+
+	var card := _q4b_find_card_panel(deck)
+	var card_found_ok: bool = card != null
+	ok = card_found_ok and ok
+	lines.append("  보유 스킬 'deep_breath' 행이 CharacterCardPanel(클릭/Space 공용 activated)로 렌더됨 -> %s" % (
+		"OK" if card_found_ok else "FAIL"
+	))
+
+	# _ensure_skill_popup()이 지연 생성이라(combat_test.gd가 DeckPanel을 자기 _ready()
+	# 도중 동적으로 add_child()하는 경합을 피하기 위함, deck_panel.gd 클래스 주석 참고)
+	# 첫 activated 전에는 deck._skill_popup이 아직 null이다 — 활성화 이후에 조회한다.
+	if card_found_ok:
+		card.activated.emit()
+	var popup: SkillDetailPopup = deck._skill_popup
+	var popup_opened_ok: bool = card_found_ok and popup != null and popup.visible
+	ok = popup_opened_ok and ok
+	lines.append("  카드 activated -> 팝업 visible=%s -> %s" % [
+		popup_opened_ok, "OK" if popup_opened_ok else "FAIL"
+	])
+
+	var popup_parent_ok: bool = popup_opened_ok and popup.get_parent() == self
+	ok = popup_parent_ok and ok
+	lines.append("  _skill_popup이 DeckPanel 형제(get_parent()의 자식)로 붙어 화면 전체(1280x720)를 덮을 수 있음 -> %s" % (
+		"OK" if popup_parent_ok else "FAIL"
+	))
+
+	var expected: Dictionary = SkillPool.find_skill("deep_breath")
+	var name_ok: bool = popup_opened_ok and popup._name_label.text == String(expected.get("name", ""))
+	var desc_ok: bool = popup_opened_ok and popup._desc_label.text == String(expected.get("description", ""))
+	ok = name_ok and desc_ok and ok
+	lines.append("  팝업 이름='%s'(기대 '%s'), 설명 일치=%s -> %s" % [
+		popup._name_label.text if popup_opened_ok else "", expected.get("name", ""), desc_ok,
+		"OK" if (name_ok and desc_ok) else "FAIL"
+	])
+
+	var close_btn: Button = popup._close_button if popup_opened_ok else null
+	var trap_ok := false
+	var focused_ok := false
+	if close_btn != null:
+		var self_path := close_btn.get_path_to(close_btn)
+		trap_ok = close_btn.focus_neighbor_top == self_path and close_btn.focus_neighbor_bottom == self_path \
+			and close_btn.focus_neighbor_left == self_path and close_btn.focus_neighbor_right == self_path
+		focused_ok = close_btn.has_focus()
+	ok = trap_ok and focused_ok and ok
+	lines.append("  닫기 버튼 포커스 트랩(4방향 전부 자기 자신)=%s, 팝업 열리면 실제 엔진 포커스(has_focus)=%s -> %s" % [
+		trap_ok, focused_ok, "OK" if (trap_ok and focused_ok) else "FAIL"
+	])
+
+	# 세 가지 닫기 경로 — 매번 다시 연다.
+	var backdrop_event := InputEventMouseButton.new()
+	backdrop_event.pressed = true
+	backdrop_event.button_index = MOUSE_BUTTON_LEFT
+	if popup_opened_ok:
+		popup.open("deep_breath", "novice")
+		popup._on_backdrop_gui_input(backdrop_event)
+	var backdrop_close_ok: bool = popup_opened_ok and not popup.visible
+	ok = backdrop_close_ok and ok
+	lines.append("  화면 바깥(어두운 배경) 클릭으로 닫힘 -> %s" % ("OK" if backdrop_close_ok else "FAIL"))
+
+	if popup_opened_ok:
+		popup.open("deep_breath", "novice")
+		popup._close_button.pressed.emit()
+	var x_close_ok: bool = popup_opened_ok and not popup.visible
+	ok = x_close_ok and ok
+	lines.append("  우상단 X 버튼으로 닫힘 -> %s" % ("OK" if x_close_ok else "FAIL"))
+
+	var esc_event := InputEventKey.new()
+	esc_event.pressed = true
+	esc_event.keycode = KEY_ESCAPE
+	if popup_opened_ok:
+		popup.open("deep_breath", "novice")
+		popup._unhandled_input(esc_event)
+	var esc_close_ok: bool = popup_opened_ok and not popup.visible
+	ok = esc_close_ok and ok
+	lines.append("  Esc로 닫힘 -> %s" % ("OK" if esc_close_ok else "FAIL"))
+
+	remove_child(deck)
+	deck.free()
+	RunState.skill_flags = skill_backup
+	RunState.character_id = character_backup
+	return ok
+
+
+## [대형 기획 15] Q-4b(21, 2026-10-17) 검증 — INBOX 원문 "포기 후 RunState 초기화,
+## 업적/도감 파일 내용 유지, 씬 전환, 팝업이 바깥 클릭/X/Esc로 닫히는지(실제 입력
+## 이벤트), 포커스 트랩"을 그대로 코드화한다. change_scene_to_file()을 포함하는
+## _on_quit_run_confirmed() 전체는 직접 호출하면 QA 중인 dice_test 씬 자체가 바뀌어버려
+## (event.gd._check_event_double_pick_guard() 주석과 같은 이유), "실제 폐기 로직"만
+## 분리한 _abandon_run()을 대신 호출해 부작용 없이 검증한다("씬 전환" 자체는 이 함수가
+## get_tree().change_scene_to_file()을 직접 부르는 한 줄짜리 코드라 그 자체는 사람이
+## 셀프 피드백 캡처로 확인).
+func _check_q4b_quit_run_confirm(lines: PackedStringArray) -> bool:
+	var ok := true
+	var character_backup := RunState.character_id
+	var gold_backup := RunState.gold
+	var rooms_backup := RunState.rooms_cleared
+	var round_backup := RunState.round_index
+	var skill_backup: Array[String] = RunState.skill_flags.duplicate()
+	# 다른 체크가 RunState.chosen_starting_skill_id를 남겨두면 reset_run()이 그 id를
+	# SkillPool.grant()로 즉시 다시 부여해 "리셋 직후 skill_flags가 비어있어야 한다"는
+	# 이 체크의 가정이 깨진다(다른 chosen_starting_skill_id 관련 체크들과 같은 이유로
+	# 백업/복원 — 이 파일 전체의 확립된 관례, 예: 이터레이션 165 부근).
+	var chosen_skill_backup := RunState.chosen_starting_skill_id
+
+	AchievementManager._debug_reset_for_qa()
+	SkillCodex._debug_reset_for_qa()
+
+	RunState.chosen_starting_skill_id = ""
+	RunState.reset_run("novice")
+	RunState.gold = 77
+	RunState.rooms_cleared = 3
+	RunState.round_index = 2
+	RunState.skill_flags = ["deep_breath", "spare_die"]
+
+	var map_scene := load("res://code/scenes/dungeon_map.tscn")
+	var map = map_scene.instantiate()
+	add_child(map)
+
+	# QA 0-arity 훅(dungeon_map.gd의 다른 _debug_press_shortcut_*()와 같은 패턴)으로
+	# "던전 포기" 버튼까지 포커스+확정 경로가 실제로 이어지는지 확인한다 — open()만
+	# 호출하는 안전한 경로라(change_scene_to_file() 없음) 테스트 스위트 안에서 직접
+	# 눌러도 된다.
+	map._debug_press_shortcut_quit_run()
+	var dialog: ConfirmDialog = map.quit_confirm_dialog
+	var opened_ok: bool = dialog.visible
+	ok = opened_ok and ok
+	lines.append("  '던전 포기' 버튼(포커스+확정) -> 확인 팝업 visible=%s -> %s" % [
+		opened_ok, "OK" if opened_ok else "FAIL"
+	])
+	var message_ok: bool = opened_ok and _q4a_contains_label_text(dialog, map.QUIT_RUN_MESSAGE)
+	ok = message_ok and ok
+	lines.append("  확인 팝업에 지정 문구('현재 진행도를 버리고...') 그대로 표시 -> %s" % (
+		"OK" if message_ok else "FAIL"
+	))
+
+	var cancel_btn: Button = dialog._cancel_button if opened_ok else null
+	var confirm_btn: Button = dialog._confirm_button if opened_ok else null
+	var trap_ok := false
+	var default_focus_ok := false
+	if cancel_btn != null and confirm_btn != null:
+		trap_ok = cancel_btn.focus_neighbor_left == cancel_btn.get_path_to(confirm_btn) \
+			and cancel_btn.focus_neighbor_right == cancel_btn.get_path_to(confirm_btn) \
+			and confirm_btn.focus_neighbor_left == confirm_btn.get_path_to(cancel_btn) \
+			and confirm_btn.focus_neighbor_right == confirm_btn.get_path_to(cancel_btn) \
+			and cancel_btn.focus_neighbor_top == cancel_btn.get_path_to(cancel_btn) \
+			and cancel_btn.focus_neighbor_bottom == cancel_btn.get_path_to(cancel_btn)
+		default_focus_ok = cancel_btn.has_focus()
+	ok = trap_ok and default_focus_ok and ok
+	lines.append("  포커스 트랩(취소<->확인 좌우 순환, 상하는 자기 자신)=%s, 기본 포커스=취소 버튼(섣부른 확정 방지)=%s -> %s" % [
+		trap_ok, default_focus_ok, "OK" if (trap_ok and default_focus_ok) else "FAIL"
+	])
+
+	# 취소(취소 버튼/배경 클릭/Esc) 세 갈래 전부 RunState를 전혀 건드리지 않아야 한다.
+	if opened_ok:
+		dialog._cancel_button.pressed.emit()
+	var cancel_preserves_ok: bool = opened_ok and not dialog.visible and RunState.gold == 77 and RunState.rooms_cleared == 3
+	ok = cancel_preserves_ok and ok
+	lines.append("  '취소' 버튼: 팝업 닫힘=%s, RunState 안 건드림(gold=%d rooms=%d) -> %s" % [
+		not dialog.visible, RunState.gold, RunState.rooms_cleared, "OK" if cancel_preserves_ok else "FAIL"
+	])
+
+	map._debug_press_shortcut_quit_run()
+	var backdrop_event := InputEventMouseButton.new()
+	backdrop_event.pressed = true
+	backdrop_event.button_index = MOUSE_BUTTON_LEFT
+	dialog._on_backdrop_gui_input(backdrop_event)
+	var backdrop_cancel_ok: bool = not dialog.visible and RunState.gold == 77 and RunState.rooms_cleared == 3
+	ok = backdrop_cancel_ok and ok
+	lines.append("  배경(바깥) 클릭도 취소와 동일(RunState 안 건드림) -> %s" % ("OK" if backdrop_cancel_ok else "FAIL"))
+
+	map._debug_press_shortcut_quit_run()
+	var esc_event := InputEventKey.new()
+	esc_event.pressed = true
+	esc_event.keycode = KEY_ESCAPE
+	dialog._unhandled_input(esc_event)
+	var esc_cancel_ok: bool = not dialog.visible and RunState.gold == 77 and RunState.rooms_cleared == 3
+	ok = esc_cancel_ok and ok
+	lines.append("  Esc도 취소와 동일(RunState 안 건드림) -> %s" % ("OK" if esc_cancel_ok else "FAIL"))
+
+	# 업적/도감은 RunState와 무관한 별도 저장소(write-through) — _abandon_run() 전에
+	# 하나씩 직접 해금/발견시켜 그 전후로 유지되는지까지 실제로 확인한다.
+	AchievementManager.unlock("first_run_start")
+	SkillCodex.mark_discovered("novice", "deep_breath")
+	var ach_before: bool = AchievementManager.is_unlocked("first_run_start")
+	var codex_before: bool = SkillCodex.is_discovered("novice", "deep_breath")
+
+	# 실제 폐기 — change_scene_to_file()을 포함하는 _on_quit_run_confirmed() 전체가 아니라
+	# _abandon_run()만 직접 호출(위 클래스 주석 참고).
+	map._abandon_run()
+	var reset_ok: bool = RunState.gold == 0 and RunState.rooms_cleared == 0 and RunState.round_index == 1 and RunState.skill_flags.is_empty()
+	ok = reset_ok and ok
+	lines.append("  '던전 포기' 확정 -> RunState 리셋: gold=%d rooms=%d round=%d skill_flags=%s(전부 초기값이어야) -> %s" % [
+		RunState.gold, RunState.rooms_cleared, RunState.round_index, RunState.skill_flags, "OK" if reset_ok else "FAIL"
+	])
+
+	var ach_preserved_ok: bool = ach_before and AchievementManager.is_unlocked("first_run_start")
+	var codex_preserved_ok: bool = codex_before and SkillCodex.is_discovered("novice", "deep_breath")
+	ok = ach_preserved_ok and codex_preserved_ok and ok
+	lines.append("  업적/스킬 도감 해금·발견 상태가 _abandon_run() 전후로 유지됨(업적=%s, 도감=%s) -> %s" % [
+		ach_preserved_ok, codex_preserved_ok, "OK" if (ach_preserved_ok and codex_preserved_ok) else "FAIL"
+	])
+
+	remove_child(map)
+	map.free()
+	AchievementManager._debug_reset_for_qa()
+	SkillCodex._debug_reset_for_qa()
+	RunState.character_id = character_backup
+	RunState.gold = gold_backup
+	RunState.rooms_cleared = rooms_backup
+	RunState.round_index = round_backup
+	RunState.skill_flags = skill_backup
+	RunState.chosen_starting_skill_id = chosen_skill_backup
+	return ok

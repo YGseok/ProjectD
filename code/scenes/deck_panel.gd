@@ -41,6 +41,32 @@ const PORTRAIT_SCALE_COMPACT := 0.17
 var _vbox: VBoxContainer
 var _last_signature := ""
 
+## [대형 기획 15] Q-4b(11, 2026-10-17): "보유 스킬" 행을 클릭/Space하면 뜨는 상세 팝업.
+## DeckPanel은 dungeon_map/shop/event/story_event/combat_test 5개 화면 전부가 공유하는
+## .tscn의 자식(parent=".")이라, DeckPanel 자신이 아니라 **그 부모(씬 루트)**의 자식으로
+## 띄워야 화면 전체를 덮는 어두운 배경이 DeckPanel의 좁은 패널 영역이 아니라 실제 화면
+## 전체(1280x720)를 덮는다 — CustomizePanel/SkillCodexPanel 등 기존 오버레이들도 전부
+## 씬 루트의 직접 자식으로 선언돼 있는 것과 같은 이유(Control의 anchor 기준이 "가장
+## 가까운 Control 조상"이 아니라 부모가 Control이 아니면 뷰포트가 된다는 Godot 규칙).
+##
+## _ready()에서 바로 만들지 않고 **첫 클릭/Space 때 지연 생성**한다(_ensure_skill_popup())
+## — combat_test.gd는 DeckPanel을 자기 _ready()/_setup_combat_hud() 도중 동적으로
+## add_child()하는데, 그 시점은 combat_test 자신이 아직 "트리에 자식을 추가하는 중"이라
+## (PackedScene.instantiate() 결과를 add_child()하는 단일 호출 안에서 자손의 _ready()가
+## 연쇄로 불림) 그 부모(get_parent())에 또 add_child()를 시도하면 Godot이 "Parent node is
+## busy setting up children" 에러로 거부한다(실제로 이 버그를 만들어 재현 확인함) — 반면
+## 실제 클릭은 씬이 완전히 자리잡은 한참 뒤에만 일어나므로, 생성 시점을 미루면 이 경합
+## 자체가 생기지 않는다.
+var _skill_popup: SkillDetailPopup = null
+
+
+## 최초 호출 때만 생성 + get_parent()에 붙이고, 그 뒤로는 기존 인스턴스를 재사용한다.
+func _ensure_skill_popup() -> SkillDetailPopup:
+	if _skill_popup == null or not is_instance_valid(_skill_popup):
+		_skill_popup = SkillDetailPopup.new()
+		get_parent().add_child(_skill_popup)
+	return _skill_popup
+
 
 func _ready() -> void:
 	var style := StyleBoxFlat.new()
@@ -77,6 +103,14 @@ func _ready() -> void:
 	_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(_vbox)
 	_rebuild()
+
+
+## _skill_popup은 DeckPanel의 자식이 아니라 형제(get_parent()의 자식)로 붙였으므로,
+## DeckPanel이 트리에서 빠질 때(dice_test.gd의 remove_child()+free() 패턴 등) 엔진이
+## 자동으로 함께 정리해주지 않는다 — 직접 해제해야 누수/잔존 노드가 안 남는다.
+func _exit_tree() -> void:
+	if _skill_popup != null and is_instance_valid(_skill_popup):
+		_skill_popup.queue_free()
 
 
 ## 커스터마이징/아이템 적용 등으로 RunState의 다이스 구성이 바뀔 수 있으므로, 매
@@ -198,6 +232,15 @@ func _add_character_section(cid: String) -> void:
 ## 상수를 전부 뒤져 이름을 찾아주므로, 이 패널은 어느 스킬이 어느 상수 출신인지 몰라도
 ## 된다 — 새 스킬 종류가 늘어도 이 코드는 그대로 유지됨. 새 위젯을 만들지 않고 캐릭터
 ## 섹션과 같은 Label 나열 패턴을 재사용했다.
+##
+## [대형 기획 15] Q-4b(11, 2026-10-17): 각 행을 CharacterCardPanel(L-1이 캐릭터 카드용으로
+## 만든 "클릭/Space 둘 다 activated로 통일하는 PanelContainer", skill_codex_panel.gd의
+## 카드도 이미 같은 클래스를 재사용 중)로 감싸 클릭/Space 둘 다에 반응하게 하고, 눌리면
+## _skill_popup.open()으로 이름+효과 설명 팝업을 띄운다. 방향키 이동은 목록 안에서만
+## 세로로 체인(wrap/trap 없음) — 화면 전체 포커스 체인(FocusNav.chain_linear로 묶인 주
+## 행동 버튼들)과는 별개 축이라, 패널 밖으로 나가거나 들어오는 경로는 Godot 기본 geometry
+## 탐색에 맡긴다(DeckPanel은 지금까지 "view-only라 포커스 대상이 없다"는 설계였으나, 이
+## 조각으로 처음 포커스 가능한 요소가 생긴다 — docs/DESIGN.md "조작" 절 갱신 참고).
 func _add_skills_section(cid: String) -> void:
 	var body := UIKit.make_section(_vbox, "보유 스킬", cid)
 
@@ -209,9 +252,23 @@ func _add_skills_section(cid: String) -> void:
 		body.add_child(empty_label)
 		return
 
+	var accent: Color = CharacterTheme.ui_palette(cid)["accent"]
+	var cards: Array[Control] = []
 	for skill_id in RunState.skill_flags:
 		var skill := SkillPool.find_skill(skill_id)
+		var card := CharacterCardPanel.new()
+		card.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		var card_style := StyleBoxFlat.new()
+		card_style.bg_color = Color(1, 1, 1, 0.04)
+		card_style.set_corner_radius_all(4)
+		card_style.content_margin_left = 4
+		card_style.content_margin_right = 4
+		card_style.content_margin_top = 2
+		card_style.content_margin_bottom = 2
+		card.add_theme_stylebox_override("panel", card_style)
+
 		var row := HBoxContainer.new()
+		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		row.add_theme_constant_override("separation", 4)
 		# K-4b: 효과 모티프 아이콘(SkillPool.icon_motif_for) — 전투 중(토글)/비전투
 		# 4개 화면 전부 이 패널을 공유하므로 여기 한 곳만 고치면 "전투 중 보유 스킬
@@ -222,13 +279,42 @@ func _add_skills_section(cid: String) -> void:
 			skill_icon.custom_minimum_size = Vector2(14, 14)
 			skill_icon.motif = motif
 			skill_icon.skill_id = skill_id
+			skill_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			row.add_child(skill_icon)
 		var skill_label := Label.new()
 		skill_label.text = "· %s" % String(skill.get("name", skill_id))
 		skill_label.add_theme_font_size_override("font_size", 12)
 		skill_label.add_theme_color_override("font_color", Color(0.75, 0.75, 0.75))
+		skill_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		row.add_child(skill_label)
-		body.add_child(row)
+		card.add_child(row)
+		card.activated.connect(_on_skill_row_activated.bind(skill_id))
+		body.add_child(card)
+		cards.append(card)
+
+	FocusNav.chain_linear(cards, false, false, false, accent)
+
+
+func _on_skill_row_activated(skill_id: String) -> void:
+	_ensure_skill_popup().open(skill_id, RunState.character_id)
+
+
+## QA 전용 — dungeon_map.gd의 _debug_open_skill_popup()이 "보유 스킬" 행을 실제로
+## activated시켜 캡처하기 위한 조회 헬퍼(재귀 탐색, dice_test.gd의
+## _q4b_find_card_panel()과 같은 이유 — GAME_QA_CALL은 씬 루트에만 걸 수 있어 DeckPanel
+## 내부 노드를 직접 못 건드림).
+func _q4b_debug_first_skill_card() -> CharacterCardPanel:
+	return _q4b_find_card_recursive(_vbox)
+
+
+func _q4b_find_card_recursive(node: Node) -> CharacterCardPanel:
+	if node is CharacterCardPanel:
+		return node
+	for c in node.get_children():
+		var found := _q4b_find_card_recursive(c)
+		if found != null:
+			return found
+	return null
 
 
 ## 이벤트 주사위(RunState.event_die_sides) + 눈금/다이스 인벤토리 — 둘 다 지금까지
