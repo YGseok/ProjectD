@@ -429,6 +429,14 @@ func _ready() -> void:
 	all_pass = (await _check_q1_event_text_layout(lines)) and all_pass
 
 	lines.append("")
+	lines.append("[Q-3(7): 시작 스킬 슬롯 아이콘 비율 — 해금/잠금 양쪽 다 아이콘 영역(icon_area) rect가 정사각이고 40px 이상인지, 8명 전부(16개 슬롯) 실제 렌더 트리에서 측정]")
+	all_pass = _check_q3_starting_skill_icon_ratio(lines) and all_pass
+
+	lines.append("")
+	lines.append("[Q-3(9): 고유 능력 텍스트 폴리싱 — 8명 전부 ability_summary 라벨이 말줄임(…) 없이, ABILITY_DESC_WRAP_WIDTH 안에서 실제 폰트 측정으로 2줄 이내에 들어오는지, 곡예사는 D12가 보이는지]")
+	all_pass = _check_q3_ability_summary_fits(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -10102,16 +10110,18 @@ func _check_n5b_event_challenge_variety(lines: PackedStringArray) -> bool:
 ## [대형 기획 14] N-5(c)(2026-10-16) 검증: 곡예사 D12가 실제로 눈에 보이는 화면 텍스트에
 ## 반영되는지(플래그/필드가 아니라 렌더된 문자열로 확인). N-4/N-5(a) 체크가 이미
 ## "능력치 칩 줄의 D12 텍스트"는 검증했으므로 여기서는 (1) "고유 능력" 섹션 설명
-## (ABILITY_DESC_MAX_CHARS=32로 잘리는 지점, N-5(c)가 concept 문구를 재배치해 D12가
-## 그 예산 안에 들어오도록 고침) (2) DeckPanel(던전 맵/상점/이벤트/스토리 이벤트 상시)의
-## "이벤트 주사위 D12" 줄 (3) 스킬 도감에 juggle_fortune/juggle_fortune_plus id 자체가
-## 실제로 들어있는지(L-2(a)는 개수/순서만 쟀을 뿐 id는 확인한 적이 없음)를 본다.
+## (2026-10-17 [대형 기획 15] Q-3(9)로 글자 수 자르기(ABILITY_DESC_MAX_CHARS) 대신
+## CharacterProfiles.PROFILES["ability_summary"]를 그대로 보여주는 방식으로 바뀜 —
+## 곡예사 ability_summary 문구 자체에 "D12"를 항상 포함하도록 손으로 썼으므로 여전히
+## 유효한 검증) (2) DeckPanel(던전 맵/상점/이벤트/스토리 이벤트 상시)의 "이벤트 주사위
+## D12" 줄 (3) 스킬 도감에 juggle_fortune/juggle_fortune_plus id 자체가 실제로
+## 들어있는지(L-2(a)는 개수/순서만 쟀을 뿐 id는 확인한 적이 없음)를 본다.
 func _check_n5c_juggler_wrapup(lines: PackedStringArray) -> bool:
 	var ok := true
 	var character_backup := RunState.character_id
 	var chosen_backup := RunState.chosen_starting_skill_id
 
-	# (a) character_select 고유 능력 설명 — 32자 예산 안에 "D12"가 살아남는지.
+	# (a) character_select 고유 능력 설명(ability_summary) — "D12"가 실제로 보이는지.
 	var select_scene := load("res://code/scenes/character_select.tscn")
 	var select_node = select_scene.instantiate()
 	add_child(select_node)
@@ -10119,7 +10129,7 @@ func _check_n5c_juggler_wrapup(lines: PackedStringArray) -> bool:
 	var ability_text: String = select_node._detail_skill_label.text
 	var ability_shows_d12: bool = ability_text.findn("D12") != -1
 	ok = ability_shows_d12 and ok
-	lines.append("  character_select 고유 능력 설명(32자 예산): \"%s\" (D12 포함 기대) -> %s" % [
+	lines.append("  character_select 고유 능력 설명(ability_summary): \"%s\" (D12 포함 기대) -> %s" % [
 		ability_text, "OK" if ability_shows_d12 else "FAIL"
 	])
 	remove_child(select_node)
@@ -10905,4 +10915,96 @@ func _check_q1_event_text_layout(lines: PackedStringArray) -> bool:
 	remove_child(story_node)
 	story_node.free()
 
+	return ok
+
+
+## [대형 기획 15] Q-3(7, 2026-10-17) 검증: "플래그가 들어갔는가"가 아니라 "실제 렌더
+## 트리의 아이콘 영역 rect"를 본다 — 시작 스킬 슬롯(해금/잠금 둘 다)의 icon_area
+## Control이 8명 전부(각 2슬롯, 총 16개)에서 정사각이고 STARTING_SKILL_ICON_SIZE(44,
+## 40~48px 예산 안)를 그대로 쓰고 있는지 확인한다. icon_area는
+## character_select.gd._make_starting_skill_slot()이 매번 custom_minimum_size를
+## 직접 못박아두므로(레이아웃 패스와 무관하게 정확) 그 값을 바로 읽으면 된다.
+func _check_q3_starting_skill_icon_ratio(lines: PackedStringArray) -> bool:
+	var ok := true
+	var character_backup := RunState.character_id
+
+	var scene := load("res://code/scenes/character_select.tscn")
+	var node = scene.instantiate()
+	add_child(node)
+
+	var checked := 0
+	var locked_checked := 0
+	for profile in CharacterProfiles.PROFILES:
+		var cid: String = profile["id"]
+		node._on_card_selected(cid)
+		for button in node._starting_skill_slot_buttons:
+			var content = button.get_child(0)
+			var icon_area = content.get_child(0)
+			var w: float = icon_area.custom_minimum_size.x
+			var h: float = icon_area.custom_minimum_size.y
+			var square_ok: bool = abs(w - h) < 0.5
+			var size_ok: bool = w >= 40.0 and w <= 48.0
+			checked += 1
+			if icon_area.get_child_count() > 1:
+				locked_checked += 1
+			if not (square_ok and size_ok):
+				ok = false
+				lines.append("  [%s] 시작 스킬 슬롯 아이콘 영역=%.1fx%.1f (기대 정사각 40~48px) -> FAIL" % [cid, w, h])
+
+	var locked_seen_ok: bool = locked_checked > 0
+	ok = locked_seen_ok and ok
+	lines.append("  시작 스킬 슬롯 아이콘 영역 %d개(8명 x 최대 2슬롯) 전수: 정사각 40~48px -> %s (잠긴 슬롯도 자물쇠 배지 포함 %d개 확인)" % [
+		checked, "OK" if ok else "FAIL", locked_checked
+	])
+
+	remove_child(node)
+	node.free()
+	RunState.character_id = character_backup
+	return ok
+
+
+## [대형 기획 15] Q-3(9, 2026-10-17) 검증: 고유 능력 설명(profile["ability_summary"])이
+## 8명 전부에서 (a) 더 이상 글자 수로 잘리지 않으므로 말줄임표(…)가 전혀 안 남아있고,
+## (b) 실제 폰트 측정(Label.get_combined_minimum_size(), autowrap 레이아웃 결과)으로
+## ABILITY_DESC_WRAP_WIDTH 안에서 2줄 예산을 넘지 않는지 확인한다. "글자 수가
+## 32 이하인가"가 아니라 "실제 렌더 높이가 2줄 치를 넘지 않는가"를 재는 것이 핵심 —
+## 숫자(D12 등)가 살아남는지는 곡예사 케이스로 별도 확인.
+func _check_q3_ability_summary_fits(lines: PackedStringArray) -> bool:
+	var ok := true
+	var character_backup := RunState.character_id
+
+	var scene := load("res://code/scenes/character_select.tscn")
+	var node = scene.instantiate()
+	add_child(node)
+
+	var label: Label = node._detail_skill_label
+	var font := label.get_theme_font("font")
+	var font_size := label.get_theme_font_size("font_size")
+	var line_height: float = font.get_height(font_size)
+	var max_height: float = line_height * 2.0 + 2.0 # 2줄 예산 + 반올림 여유
+
+	for profile in CharacterProfiles.PROFILES:
+		var cid: String = profile["id"]
+		node._on_card_selected(cid)
+
+		var text: String = label.text
+		var no_ellipsis: bool = not text.ends_with("…")
+		var h: float = label.get_combined_minimum_size().y
+		var fits_ok: bool = h <= max_height
+		var row_ok: bool = no_ellipsis and fits_ok and text != ""
+		ok = row_ok and ok
+		lines.append("  [%s] ability_summary=\"%s\" 필요 높이=%.1f(2줄 예산=%.1f) 말줄임 없음=%s -> %s" % [
+			cid, text, h, max_height, no_ellipsis, "OK" if row_ok else "FAIL"
+		])
+
+	node._on_card_selected("juggler")
+	var juggler_shows_d12: bool = label.text.findn("D12") != -1
+	ok = juggler_shows_d12 and ok
+	lines.append("  곡예사 ability_summary에 'D12' 포함(차별점이 짧은 문구에서도 보여야 함) -> %s" % (
+		"OK" if juggler_shows_d12 else "FAIL"
+	))
+
+	remove_child(node)
+	node.free()
+	RunState.character_id = character_backup
 	return ok

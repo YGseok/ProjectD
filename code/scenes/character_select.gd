@@ -81,15 +81,12 @@ const FULL_ART_SIZE := Vector2(480, 560)
 ## 늘어났을 뿐) 그대로 유효) 2.15로 잡았다(과거 PORTRAIT_SCALE(0.56, K-2 당시
 ## 130x146 칸 기준)과 같은 계산 패턴 — 칸이 커진 만큼 배율만 올림).
 const PORTRAIT_SCALE_FULL := 2.15
-## ABILITY_DESC_MAX_CHARS: 고유 능력 섹션(③) 설명을 "최대 2줄" 예산 안에 묶기 위한
-## 문자 수 상한(K-2 원문 "최대 2줄 설명") — 섹션 폭(~300px)·폰트(13px) 기준 대략
-## 2줄에 들어오는 길이를 감으로 잡았다. 넘치면 잘라내고 말줄임표(…)를 붙이되 전체
-## 문장은 tooltip_text로 항상 볼 수 있게 한다.
-## N-2로 고유 능력 섹션 폭이 좁아진(아래 ABILITY_DESC_WRAP_WIDTH 참고) 만큼 "최대
-## 2줄" 예산도 비례해서 줄였다(이전 70자는 폭 720 기준 — 720->412로 줄어든 비율
-## (약 0.57)만큼 70->40으로 축소). **N-2b로 정보 컬럼이 다시 좁아져(480->400,
-## ABILITY_DESC_WRAP_WIDTH 412->332) 같은 비율(720 기준)로 재축소: 70*332/720 ≈ 32.**
-const ABILITY_DESC_MAX_CHARS := 32
+## [대형 기획 15] Q-3(9, 2026-10-17)로 고유 능력 섹션(③) 설명은 더 이상 글자 수로
+## 잘라내지 않는다 — 대신 CharacterProfiles.PROFILES의 "ability_summary"(캐릭터마다
+## 손으로 쓴, 처음부터 2줄 예산에 맞춘 짧은 문장)를 그대로 보여준다(아래
+## _refresh_detail_panel() 참고). 예전 ABILITY_DESC_MAX_CHARS(글자 수 상한으로
+## _truncate하던 방식)는 문장 어디서 잘릴지 예측할 수 없어 핵심 수치가 잘려 나가는
+## 문제가 있어 폐기했다.
 ## DISPLAY_PLAYER_HP: 능력치 칩(②)의 HP 표시용 — DESIGN.md 확정값(플레이어 초기
 ## HP 20, combat_test.gd의 PLAYER_MAX_HP와 동일)을 그대로 복사한 상수다. 캐릭터마다
 ## 다른 값이 아니라 표시 전용이라 profile 필드로 두지 않았다.
@@ -106,6 +103,15 @@ const ABILITY_DESC_WRAP_WIDTH := 332.0
 ## 안에 최대 3칸(+separation 10 x2=20)이 들어와야 하므로 (SECTION_BODY_WRAP_WIDTH-20)/3
 ## 이하로 잡아야 한다. **N-2b로 (372-20)/3 ≈ 117.**
 const STARTING_SKILL_SLOT_WIDTH := 115.0
+## [대형 기획 15] Q-3(7, 2026-10-17): 슬롯 아이콘이 16px 가로 배치(이름과 한 줄)라
+## 작고 비율이 안 맞다는 피드백 반영 — 아이콘을 정사각 고정(40~48px 예산 안, 44로
+## 잡음)으로 키우고 이름 아래에 세로로 쌓는 배치로 바꿨다. 슬롯 높이도 그만큼
+## (icon 44 + separation 4 + name ~16 + 버튼 패딩 상하 6x2=12) 늘렸다.
+const STARTING_SKILL_ICON_SIZE := 44.0
+const STARTING_SKILL_SLOT_HEIGHT := 84.0
+## 잠긴 슬롯 아이콘 영역(44x44) 우하단에 겹쳐 그리는 작은 자물쇠 배지 — 모티프
+## 아이콘 윤곽을 완전히 가리지 않을 정도로 작게(아이콘의 약 45%).
+const STARTING_SKILL_LOCK_BADGE_SIZE := 20.0
 ## N-4(2026-10-15 [대형 기획 14]): 주사위 줄의 ShapeDieChip 한 칸 크기/간격 + 라벨
 ## ("공격"/"방어"/"이벤트") 고정 폭. MAX_DICE(=6)개가 한 줄에 다 들어가도(6*(26+4)-4=176)
 ## + 라벨(44) + 여유가 SECTION_BODY_WRAP_WIDTH(372) 예산을 넉넉히 넘지 않는다.
@@ -176,7 +182,8 @@ var _detail_attack_dice_row: Dictionary = {}
 var _detail_defense_dice_row: Dictionary = {}
 var _detail_event_die_label: Label
 var _detail_event_die_visual: EventDieVisual
-## ③ 고유 능력 — 아이콘 + 짧은 이름(_ability_short_name) + 2줄 예산 설명(_truncate).
+## ③ 고유 능력 — 아이콘 + 짧은 이름(_ability_short_name) + 2줄 예산 설명
+## (profile["ability_summary"], Q-3 이후 글자 수 자르기 대신 손으로 쓴 짧은 문장).
 var _detail_skill_icon: SkillIcon
 var _detail_ability_name_label: Label
 var _detail_skill_label: Label
@@ -821,8 +828,8 @@ func _make_stat_chip() -> Dictionary:
 	return {"chip": chip, "icon_holder": icon_holder, "label": label}
 
 
-## ③ 고유 능력: SkillIcon + 짧은 이름(_ability_short_name) + 최대 2줄 설명(_truncate로
-## ABILITY_DESC_MAX_CHARS 예산 안에 자름, 전체 문장은 tooltip_text).
+## ③ 고유 능력: SkillIcon + 짧은 이름(_ability_short_name) + 최대 2줄 설명
+## (profile["ability_summary"], 전체 문장(concept)은 tooltip_text로 볼 수 있음).
 func _build_ability_section() -> void:
 	var body := _make_section("고유 능력")
 	var row := HBoxContainer.new()
@@ -976,7 +983,9 @@ func _refresh_detail_panel() -> void:
 	var gimmick: String = String(profile.get("gimmick", ""))
 	_detail_skill_icon.category = gimmick
 	_detail_ability_name_label.text = _ability_short_name(gimmick)
-	_detail_skill_label.text = _truncate(concept, ABILITY_DESC_MAX_CHARS)
+	# Q-3(9): 글자 수로 자르던 방식 대신 캐릭터별로 짧게 손으로 쓴 ability_summary를
+	# 그대로 보여준다(말줄임 없음). 전체 문장(concept)은 여전히 tooltip으로 볼 수 있다.
+	_detail_skill_label.text = String(profile.get("ability_summary", concept))
 	_detail_skill_label.tooltip_text = concept
 
 	_preview_skill_id = "" # 캐릭터가 바뀌면 이전 캐릭터의 잠긴 슬롯 미리보기는 의미가 없다.
@@ -1104,59 +1113,55 @@ func _valid_or_default_starting_skill_id(character_id: String, chosen_id: String
 ## 바꾸는 대신 "미리보기"(_on_starting_skill_locked_preview)로 빠진다. 잠긴 슬롯은
 ## 여전히 LockIcon + 흐린 이름표로 구분해 보이지만, "선택 불가"는 이제 스타일이 아니라
 ## pressed 핸들러의 분기(실제로 chosen을 바꾸는지 여부)로 보장한다.
+## [대형 기획 15] Q-3(7, 2026-10-17): 기존엔 아이콘(16px)+이름이 한 줄에 나란히 들어가
+## 아이콘이 작고 비율도 안 맞았다 — 아이콘을 세로 배치 맨 위로 올리고 정사각
+## STARTING_SKILL_ICON_SIZE(44px, 40~48px 예산)로 고정, 이름은 그 아래 별도 줄로
+## 뒀다. 잠긴 슬롯도 모티프 아이콘 윤곽이 흐리게(alpha 0.4)라도 그대로 보이고, 그
+## 위에 작은 자물쇠 배지(우하단 모서리)를 겹쳐 "잠김"을 표시 — 두 상태가 같은 아이콘
+## 영역 구조를 공유해 슬롯 사이 비율이 흔들리지 않는다.
 func _make_starting_skill_slot(skill: Dictionary, unlocked: bool, slot_index: int) -> Button:
 	var button := Button.new()
-	button.custom_minimum_size = Vector2(STARTING_SKILL_SLOT_WIDTH, 56)
+	button.custom_minimum_size = Vector2(STARTING_SKILL_SLOT_WIDTH, STARTING_SKILL_SLOT_HEIGHT)
 	button.mouse_filter = Control.MOUSE_FILTER_STOP
 
 	var content := VBoxContainer.new()
 	content.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	content.set_anchors_preset(Control.PRESET_FULL_RECT)
 	content.alignment = BoxContainer.ALIGNMENT_CENTER
+	content.add_theme_constant_override("separation", 4)
 	button.add_child(content)
 
-	# K-4b: 효과 모티프 아이콘(SkillPool.icon_motif_for)을 이름 왼쪽에 붙인다. 잠긴
-	# 슬롯도 윤곽(실루엣)은 그대로 보이되 modulate 알파를 낮춰 "어둡게"를 표현 —
-	# INBOX.md 지시대로 자물쇠 배지는 그대로 유지하고 모티프를 완전히 숨기지 않는다.
+	var icon_area := Control.new()
+	icon_area.custom_minimum_size = Vector2(STARTING_SKILL_ICON_SIZE, STARTING_SKILL_ICON_SIZE)
+	icon_area.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	content.add_child(icon_area)
+
+	# K-4b: 효과 모티프 아이콘(SkillPool.icon_motif_for) — 잠긴 슬롯도 윤곽(실루엣)은
+	# 그대로 보이되 modulate 알파를 낮춰 "어둡게"를 표현(INBOX.md 지시대로 모티프를
+	# 완전히 숨기지 않는다).
 	var motif := SkillPool.icon_motif_for(skill["id"])
-	if unlocked:
-		var name_row := HBoxContainer.new()
-		name_row.alignment = BoxContainer.ALIGNMENT_CENTER
-		name_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		name_row.add_theme_constant_override("separation", 4)
-		if motif != "":
-			var skill_icon := SkillIcon.new()
-			skill_icon.custom_minimum_size = Vector2(16, 16)
-			skill_icon.motif = motif
-			skill_icon.skill_id = skill["id"]
-			name_row.add_child(skill_icon)
-		var name_label := Label.new()
-		name_label.text = skill["name"]
-		name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		name_label.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9))
-		name_row.add_child(name_label)
-		content.add_child(name_row)
-	else:
-		var lock_row := HBoxContainer.new()
-		lock_row.alignment = BoxContainer.ALIGNMENT_CENTER
-		lock_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		lock_row.add_theme_constant_override("separation", 4)
-		var lock_icon := LockIcon.new()
-		lock_icon.custom_minimum_size = Vector2(16, 16)
-		lock_row.add_child(lock_icon)
-		if motif != "":
-			var skill_icon := SkillIcon.new()
-			skill_icon.custom_minimum_size = Vector2(16, 16)
-			skill_icon.motif = motif
-			skill_icon.skill_id = skill["id"]
-			skill_icon.modulate = Color(1, 1, 1, 0.4)
-			lock_row.add_child(skill_icon)
-		var name_label := Label.new()
-		name_label.text = skill["name"]
-		name_label.add_theme_color_override("font_color", Color(0.55, 0.55, 0.55))
-		lock_row.add_child(name_label)
-		content.add_child(lock_row)
+	if motif != "":
+		var skill_icon := SkillIcon.new()
+		skill_icon.set_anchors_preset(Control.PRESET_FULL_RECT)
+		skill_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		skill_icon.motif = motif
+		skill_icon.skill_id = skill["id"]
+		skill_icon.modulate = Color(1, 1, 1, 1.0 if unlocked else 0.4)
+		icon_area.add_child(skill_icon)
+
+	if not unlocked:
+		var lock_badge := LockIcon.new()
+		lock_badge.custom_minimum_size = Vector2(STARTING_SKILL_LOCK_BADGE_SIZE, STARTING_SKILL_LOCK_BADGE_SIZE)
+		lock_badge.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+		icon_area.add_child(lock_badge)
 		button.tooltip_text = SkillPool.unlock_requirement(_selected_id, slot_index)["text"]
+
+	var name_label := Label.new()
+	name_label.text = skill["name"]
+	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	name_label.add_theme_font_size_override("font_size", 12)
+	name_label.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9) if unlocked else Color(0.55, 0.55, 0.55))
+	content.add_child(name_label)
 
 	var is_previewing: bool = not unlocked and skill["id"] == _preview_skill_id
 	var selected: bool = unlocked and skill["id"] == RunState.chosen_starting_skill_id
