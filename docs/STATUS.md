@@ -5,38 +5,37 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-10-16 (219)
+- 일시: 2026-10-16 (220)
 - 작성자: AI 에이전트. 세션 프롬프트로 직접 전달된 **[대형 기획 13] [미니 기획
-  ART-1c-3](몬스터 컷 가장자리 페이드 + 경로 별칭) 완료**. 아트 스레드 요청
-  2건 — ① 몬스터 원화 컷(face_* 표정 컷/full.png 크롭 둘 다)이 위·아래·좌우
-  가장자리가 직선으로 딱 잘려 사각형 상자처럼 보임, ② `dark_knight`(MO005)가
-  `dark_knight_elite`(MO600) 원화를 경로 별칭으로 공유.
-  **실제 캡처(`qa_out/art1c3_fallen_commander_before.png`)로 원인부터 추적한
-  결과, 좌/우/상단은 예상대로 페이드가 아예 없었지만 하단 페이드(기존
-  `fade_start=0.76`, 플레이어와 공유하는 값)도 사실상 발동 안 하고 있었다** —
-  `CharacterArt.load_full_crop()`(ART-1c-2, 218)이 크롭을 AtlasTexture(원본
-  전체를 참조 + region만 지정)로 만들어서, Godot canvas_item 셰이더의 `UV`
-  빌트인이 AtlasTexture에서는 0..1 전체가 아니라 "원본 기준 region 비율
-  구간"(세로 0.015~0.495)으로만 들어와 `fade_start=0.76`이 그 범위 밖이라
-  크롭 모드에서는 하단 페이드가 원천적으로 발동 불가능했다 — "크롭이라 페이드
-  영역이 이미지 밖에 있다"는 INBOX 가설이 정확히 맞았다. `load_full_crop()`을
-  `Image.get_region()`으로 실제 픽셀을 오려낸 독립 `ImageTexture`로 바꿔(크롭
-  로직 자체는 그대로, 반환 타입만 교체) 해결했고, `face_art_fade.gdshader`에
-  `side_fade`/`top_fade` 유니폼(기본값 0.0 — 플레이어 쪽은 완전히 기존과 동일)을
-  추가해 `MonsterPortraitPlaceholder`에서만 10%씩 켰다. 별칭은
-  `MonsterCatalog.ART_ID_ALIASES`(데이터 표, `dark_knight -> dark_knight_elite`)
-  + `art_resource_id()`로, 원화 조회 4곳(has_all_faces/load_face/has_full/
-  load_full_crop) 전부 별칭 id를 보게 했다(파일 복제 없음). `dice_test.gd`
-  신규 `_check_art1c3_monster_edge_fade_and_alias()`(SubViewport 알파
-  샘플링 — 중앙 1.000·하단 0.000·상단/좌/우 0.012, 별칭 해석, 카탈로그 19종
-  전수 화면 경계)로 검증 + 기존 ART-1c-2 테스트의 별칭 인지 보정, `bash
-  scripts/qa_shot.sh dice_test` 전체 PASS(FAIL 0건). 셀프 피드백 2라운드 —
-  수정 전/후(`art1c3_fallen_commander_{before,after}.png`)로 하드 엣지가
-  사라짐을 확인하고, 요청이 명시한 "공허의 눈"/"망령"(머리카락/연기처럼 넓게
-  퍼진 몬스터)과 별칭 대상 `dark_knight`까지 추가로 캡처해 전부 자연스럽고
-  별칭 원화가 정상 렌더됨을 확인 — 추가 조정 없이 종료. 전투 규칙/밸런스는
-  건드리지 않았고 `resources/`·`docs/art/`는 읽기만 했다. 상세는 아래 "완료
-  기록 (219)" 참고. **INBOX.md "남은 이슈"에 새 항목이 없으면 다음은 아래
+  ART-1c-4](어두운 몬스터 외곽 글로우 + 주사위 줄 라벨 대비 확인) 완료**.
+  아트 스레드가 몬스터 전신 34세트를 전량 입고(219)한 뒤 감독이 combat_test
+  캡처로 발견한 두 가지 가시성 문제.
+  **① 어두운 몬스터 외곽 글로우**: `CharacterArt.average_opaque_luminance()`
+  (불투명 픽셀만의 평균 상대 휘도, 신규)가 `DARK_PORTRAIT_LUMINANCE_THRESHOLD`
+  (=0.22)보다 낮으면 "어두운 컷"으로 판정하는 몬스터 id 비의존 공용 로직을
+  추가하고, `MonsterPortraitPlaceholder`가 어두울 때만 확대 복제 TextureRect
+  (`_glow_rect`, GLOW_SCALE=1.18, 본체보다 먼저 그려 가장자리만 노출)를 밝은
+  보라/회백 톤·알파 0.32로 깐다. 입고된 34종(카탈로그 35종 전수 — dark_knight
+  별칭 포함) 중 **shadow(그림자, 휘도 0.119) 1종만** 기준 미달로 글로우 대상.
+  구현 중 `face_art_fade.gdshader`가 fragment()에서 `COLOR`를 텍스처 샘플만
+  으로 덮어써 Godot 기본 modulate 곱셈을 무시하던 버그를 SubViewport 렌더
+  테스트로 발견·수정(`texture(TEXTURE, UV) * COLOR`) — modulate를 안 쓰는
+  기존 `_face_rect` 호출부는 항등원이라 완전히 그대로 동작(회귀 없음, 기존
+  ART-1c/1c-2/1c-3 테스트 전부 그대로 PASS).
+  **② 라벨 대비**: 실제 캡처(`qa_out/art1c4_shadow_attack_before.png`)로
+  "공격"/"방어" 라벨이 몬스터 색(그림자 기준 거의 검정)을 그대로 텍스트 색으로
+  쓰고 있어 어두운 배경에서 거의 안 보이는 걸 확인 — `combat_test.gd`에
+  `ATTACK_LABEL_COLOR`(금색)/`DEFENSE_LABEL_COLOR`(밝은 회백) 고정 상수를
+  추가해 라벨은 몬스터 색과 완전히 무관하게 이 값만 쓰도록 분리했다(다이스
+  3D 색/칩 테두리는 기존 atk_tint/def_tint 그대로 유지). 어두운 배경 기준
+  대비비 13.4:1/13.8:1로 WCAG AA(4.5:1) 기준을 넉넉히 통과.
+  `dice_test.gd` 신규 `_check_art1c4_monster_dark_glow()`(await, SubViewport)/
+  `_check_art1c4_dice_label_contrast()`로 검증, `bash scripts/qa_shot.sh
+  dice_test` 전체 PASS(FAIL 0건, 909개 OK). 셀프 피드백 2라운드 — 라벨 수정
+  전/후, 글로우 ON/OFF(GLOW_ALPHA=0 임시 A/B, 커밋 전 원복) A/B, 밝은 몬스터
+  (슬라임) 회귀 없음까지 전부 캡처로 직접 확인. 전투 규칙/밸런스는 건드리지
+  않았고 `resources/`·`docs/art/`는 읽기만 했다. 상세는 아래 "완료 기록
+  (220)" 참고. **INBOX.md "남은 이슈"에 새 항목이 없으면 다음은 아래
   "알려진 이슈/막힌 것"을 참고해 독립적으로 진행 가능한 항목을 고를 것.**
 
 ## 지금 위치
@@ -169,6 +168,18 @@ AtlasTexture라 셰이더 UV가 크롭 영역 밖이라 하단 페이드조차 �
 `MonsterCatalog.art_resource_id()`(데이터 표)로 `dark_knight`가
 `dark_knight_elite` 원화를 공유한다(파일 복제 없음). 상세는 완료 기록(219)
 참고.
+**ART-1c-4(어두운 몬스터 외곽 글로우 + 라벨 대비, 2026-10-16, 220) 완료** —
+`CharacterArt.average_opaque_luminance()`/`full_crop_luminance()`(신규)가
+불투명 픽셀만의 평균 휘도로 "어두운 컷"을 판정(`DARK_PORTRAIT_LUMINANCE_
+THRESHOLD=0.22`, 몬스터 id 하드코딩 없음)하고, `MonsterPortraitPlaceholder`가
+어두울 때만 확대 복제 TextureRect(`_glow_rect`)로 옅은 보라빛 림 라이트를
+깐다 — 입고 34종 중 shadow(휘도 0.119) 1종만 대상, 카탈로그 전수 휘도표는
+완료 기록(220) 참고. 구현 중 `face_art_fade.gdshader`가 modulate를 무시하던
+버그(COLOR를 텍스처 샘플만으로 덮어씀)도 함께 고쳤다(`texture(TEXTURE, UV) *
+COLOR`). 전투 결과 줄 "공격"/"방어" 라벨은 몬스터 색 대신
+`ATTACK_LABEL_COLOR`(금색)/`DEFENSE_LABEL_COLOR`(밝은 회백) 고정값을 쓰도록
+`combat_test.gd`를 고쳐 어두운 몬스터와 짝지어도 안 보이지 않게 했다(대비비
+13.4:1/13.8:1).
 **ART-2(전투 화면 표정 컷 하단 잘림 처리) 완료(2026-10-15, 204)** — 표정 컷
 아래 20~25% 알파 그라데이션 셰이더(`code/shaders/face_art_fade.gdshader`)로
 가슴께 잘림이 일직선으로 떠 보이던 문제를 해결하고, `FACE_ART_LEFT_SHIFT` 보정
@@ -627,8 +638,13 @@ ART-3](스킬 아이콘 흰 사각형 버그, 아트 스레드 리포트) 완료
 상반신 크롭 폴백, 아트 스레드가 보스 6종을 face_* 없이 full.png만으로
 입고하며 생긴 후속 조각) 완료** — `CharacterArt.load_full_crop()`/`has_full()`
 로 "face_* 5장 > full.png 크롭 > 플레이스홀더" 우선순위를 추가했다(상세는
-완료 기록 (218)). **다음은 INBOX.md "남은 이슈"에 새 항목이 없으면 아래
-"알려진 이슈/막힌 것"을 참고해 독립적으로 진행 가능한 항목을 고를 것.**
+완료 기록 (218)). **2026-10-16(219)로 [미니 기획 ART-1c-3](몬스터 컷
+가장자리 페이드 + 경로 별칭) 완료**(상세는 완료 기록 (219)). **2026-10-16
+(220)로 [미니 기획 ART-1c-4](어두운 몬스터 외곽 글로우 + 주사위 줄 라벨
+대비) 완료** — 입고 34종 중 shadow 1종만 글로우 대상, "공격"/"방어" 라벨을
+몬스터 색과 무관한 고정 팔레트로 분리(상세는 완료 기록 (220)). **다음은
+INBOX.md "남은 이슈"에 새 항목이 없으면 아래 "알려진 이슈/막힌 것"을
+참고해 독립적으로 진행 가능한 항목을 고를 것.**
 
 남은 구조적 후보(급하지 않음): 보스 개별 6종 중 타락한 기사단장만 밴드 미달
 (`MonsterSkills.modify_monster_roll()` 파라미터화가 전제조건이라 사람 설계
@@ -1238,6 +1254,136 @@ ART-3](스킬 아이콘 흰 사각형 버그, 아트 스레드 리포트) 완료
     조정은 사람이 이 숫자를 보고 다음 지시로 결정).
 
 ## 완료 기록
+
+- **2026-10-16 (220)**: 세션 프롬프트로 직접 전달된 **[대형 기획 13] [미니 기획
+  ART-1c-4] 어두운 몬스터 외곽 글로우 + 주사위 줄 라벨 대비 확인 완료**
+  (INBOX.md 파일에는 사전 기록 없이 이번 이터레이션 지시로 받음 — ART-1c-3와
+  같은 패턴). 아트 스레드가 몬스터 전신 34세트를 전량 입고(219)한 뒤 감독이
+  combat_test 캡처로 발견한 두 가지 가시성 문제.
+
+  **① 어두운 몬스터 외곽 글로우**: shadow(그림자, MO012)처럼 컷 자체가 거의
+  검은 실루엣인 몬스터는 어두운 전투 배경(돌바닥/비네트)과 구분이 잘 안
+  된다(감독 확인). 해법은 "몬스터별 하드코딩 금지 — 컷 이미지의 평균 휘도
+  (불투명 픽셀 기준)가 임계값보다 낮을 때만 자동으로 켜지는 데이터/공용
+  로직"이라는 지시대로 구현했다.
+  - `CharacterArt.load_full_crop()`의 크롭 로직을 `_crop_image()`(Image 반환,
+    텍스처로 감싸기 전)로 분리하고, 신규 `CharacterArt.average_opaque_
+    luminance(image, alpha_threshold=0.5, stride=1)`(불투명 픽셀만의 평균
+    상대 휘도, ITU-R BT.709 계수 0.2126/0.7152/0.0722 — 알파가 낮은 레터박스/
+    투명 배경 픽셀은 평균에서 제외)와 `CharacterArt.full_crop_luminance()`
+    (크롭+휘도 계산을 한 번에)를 추가했다. 기준값은 `CharacterArt.
+    DARK_PORTRAIT_LUMINANCE_THRESHOLD = 0.22`(상수 1곳).
+  - `MonsterPortraitPlaceholder.set_monster()`가 대표 텍스처(크롭 모드면
+    크롭 결과, face_art 모드면 neutral 표정)로 1회만 판정해 `_is_dark_portrait`
+    에 저장하고, 어두울 때만 `_glow_rect`(확대 복제 TextureRect, `GLOW_SCALE
+    =1.18`)를 만들어 본체 `_face_rect`보다 먼저(= 뒤에) 그린다 — 중심부는
+    본체에 그대로 덮이고 가장자리 margin(약 9%)만 노출돼 옅은 림 라이트처럼
+    보인다. 셰이더 블러 근사 대신 "뒤에 확대한 복제 TextureRect" 쪽을
+    택함(지시가 둘 중 더 간단한 쪽을 허용). 글로우 색은 밝은 보라/회백
+    (`GLOW_COLOR = Color(0.78, 0.7, 0.95)`, 배경 마법진/비네트 톤과 어울림),
+    알파 0.32(지시 범위 0.25~0.4 안)로 `modulate`에 설정. `_glow_rect`도
+    `_face_rect`와 같은 `face_art_fade` 셰이더(side/top fade)를 별도
+    ShaderMaterial 인스턴스로 적용해 본체와 같은 모양으로 가장자리에서
+    옅어진다. 밝은 몬스터는 `_glow_rect`가 아예 안 만들어지거나(한 번도
+    어두웠던 적 없으면) `visible=false`로만 남아 화면이 기존과 완전히 동일.
+  - **셰이더 버그 발견·수정**: 구현 중 SubViewport 렌더 테스트로 글로우
+    중앙 알파가 기대(GLOW_ALPHA=0.32)와 달리 1.000(완전 불투명)으로 나오는
+    걸 발견 — `face_art_fade.gdshader`의 fragment()가 `COLOR`를
+    `texture(TEXTURE, UV)` 결과만으로 덮어써서, Godot 기본 파이프라인이
+    fragment() 진입 시 `COLOR`에 미리 넣어주는 "정점색 × 노드 modulate/
+    self_modulate" 값이 통째로 무시되고 있었다(모듈레이트를 아예 안 쓰던
+    `_face_rect`에서는 지금까지 안 드러났던 잠복 버그). `vec4 tex_color =
+    texture(TEXTURE, UV) * COLOR;`로 고쳐 Godot 기본 modulate 곱셈을
+    되살렸다 — modulate를 안 쓰는 기존 호출부(`_face_rect`, 기본값 흰색
+    불투명)는 곱해도 항등원이라 결과가 완전히 그대로(회귀 없음 — 기존
+    ART-1c/ART-1c-2/ART-1c-3 테스트 전부 그대로 PASS로 확인).
+  - **카탈로그 전수 휘도표**(입고된 34종 + dark_knight 별칭 = 35개 id,
+    `full_crop_luminance()` 결과 그대로, 기준 < 0.22 = 글로우 대상):
+
+    | id | 이름 | 휘도 | 글로우 |
+    |---|---|---|---|
+    | slime | 슬라임 | 0.731 | - |
+    | goblin | 고블린 | 0.600 | - |
+    | skeleton | 해골 전사 | 0.571 | - |
+    | orc | 오크 | 0.439 | - |
+    | dark_knight | 다크 나이트 | 0.390 | - |
+    | armored_goblin | 아머 고블린 | 0.416 | - |
+    | shield_goblin | 방패 고블린 | 0.422 | - |
+    | bandit | 산적 | 0.320 | - |
+    | guard_soldier | 경비병 | 0.432 | - |
+    | poison_slime | 독 슬라임 | 0.580 | - |
+    | ghost | 유령 | 0.760 | - |
+    | **shadow** | **그림자** | **0.119** | **글로우** |
+    | mist | 안개 | 0.518 | - |
+    | wolf | 늑대 | 0.515 | - |
+    | mad_dog | 광견 | 0.418 | - |
+    | boar | 멧돼지 | 0.346 | - |
+    | dire_spider | 독거미 | 0.329 | - |
+    | ghoul | 구울 | 0.415 | - |
+    | zombie | 좀비 | 0.453 | - |
+    | skeleton_archer | 해골 궁수 | 0.532 | - |
+    | wraith_soldier | 망령 병사 | 0.519 | - |
+    | dark_knight_elite | 다크 나이트 | 0.390 | - |
+    | goblin_chief | 고블린 족장 | 0.517 | - |
+    | gelatin_cube | 젤라틴 큐브 | 0.684 | - |
+    | specter | 망령 | 0.579 | - |
+    | orc_warrior | 오크 투사 | 0.326 | - |
+    | dark_wolf | 암흑 늑대 | 0.298 | - |
+    | skeleton_knight | 해골 기사 | 0.559 | - |
+    | lich_apprentice | 리치 견습생 | 0.435 | - |
+    | goblin_king | 고블린 왕 | 0.584 | - |
+    | ooze_lord | 점액 군주 | 0.593 | - |
+    | skeleton_general | 해골 장군 | 0.415 | - |
+    | frenzied_beast | 광란의 마수 | 0.417 | - |
+    | fallen_commander | 타락한 기사단장 | 0.393 | - |
+    | void_eye | 공허의 눈 | 0.346 | - |
+
+    shadow(0.119)만 뚜렷이 낮고, 다음으로 낮은 dark_wolf(0.298)·bandit
+    (0.320)·orc_warrior(0.326)·dire_spider(0.329)·void_eye/boar(0.346)와도
+    임계값(0.22) 기준으로 명확히 분리된다 — "공허의 눈"/"망령"(INBOX 원문이
+    예시로 든 넓게 퍼진 실루엣 몬스터)은 실측 휘도가 0.346/0.579로 글로우
+    대상이 아니었다(퍼진 실루엣≠어두운 색, 둘은 별개 속성임을 수치로 확인).
+
+  **② 주사위 결과 줄 라벨 대비**: `scripts/qa_shot.sh combat_test 90
+  qa_out/art1c4_shadow_attack_before.png "" 1 "" "" shadow`로 실제 캡처해
+  확인한 결과, "공격"/"방어" 라벨이 그 교환에서 몬스터 쪽 다이스를 가리키는
+  라벨은 `monster_color`(그림자 기준 `Color(0.2,0.2,0.25)`, 거의 검정)를
+  텍스트 색으로 그대로 썼던 게 원인 — `combat_test.gd`의 기존
+  `_add_exchange_group_label()`이 `atk_color`/`def_color`(다이스 3D 색/칩
+  테두리에도 같이 쓰이는 값)를 텍스트 색으로도 재사용하고 있었다. 신규
+  `ATTACK_LABEL_COLOR`(금색 `Color(1.0, 0.82, 0.3)`, "공격"=능동적으로
+  때리는 쪽이라 눈에 띄게)/`DEFENSE_LABEL_COLOR`(밝은 회백 `Color(0.85,
+  0.85, 0.85)`, 기존 폴백값 그대로)를 추가해 "공격"/"방어" 라벨은 몬스터
+  색과 완전히 무관하게 이 고정값만 쓰도록 분리했다(다이스 3D 색/칩 테두리는
+  기존 `atk_tint`/`def_tint` 그대로 유지 — 그쪽은 이미 밝은 칩 배경 위의
+  테두리라 가독성 문제가 없었음, `_layout_dice_chip_row()` 불변). 어두운
+  배경 기준(`Color(0.05,0.05,0.05)`) 대비비는 공격 13.4:1/방어 13.8:1로
+  WCAG AA(4.5:1) 기준을 넉넉히 통과(`CharacterTheme.contrast_ratio()` 재사용,
+  새 계산 로직 추가 없음).
+
+  **테스트**(`dice_test.gd` 신규 `_check_art1c4_monster_dark_glow()`(await,
+  SubViewport 사용)/`_check_art1c4_dice_label_contrast()`): ① 휘도 함수
+  단위 검증(합성 어두운 이미지(0.05,0.05,0.05)/밝은 이미지(0.9,0.9,0.9)/
+  투명 픽셀 50%+불투명 밝은 픽셀 50% 혼합(평균이 투명 픽셀에 안 끌려
+  내려가는지)) ② 카탈로그 전수 휘도표 출력(위 표 그대로) ③ 실제 production
+  자산(그림자=글로우 켜짐·visible=true, 슬라임=글로우 노드 자체가 없음,
+  밝은 몬스터는 `_face_rect` 셰이더 파라미터(side_fade)까지 불변 재확인)
+  ④ 합성 정사각 가짜 원화(레터박스 없음, `_art1c3_write_fake_square_full()`
+  과 같은 패턴)로 글로우 레이어 자체를 SubViewport에 렌더해 중앙 알파
+  0.322≈GLOW_ALPHA(0.32)·가장자리 margin(본체 밖) 알파 0.098>0.02(완전
+  투명 아님) 확인 ⑤ 라벨 색 상수 두 개의 대비비 계산(13.4:1/13.8:1) + 실제
+  `_show_exchange_dice_chips()`를 어두운 monster_color로 직접 호출해 '공격'/
+  '방어' 라벨 font_color가 상수와 정확히 일치(==)하는지 확인. `bash
+  scripts/qa_shot.sh dice_test` 전체 PASS(FAIL 0건, 909개 OK, 전체 재확인).
+  **셀프 피드백 2라운드** — 라벨 수정 전(`art1c4_shadow_attack_before.png`,
+  "방어" 라벨이 안 보임 재현)/후(`art1c4_shadow_attack_after.png`, 금색
+  "공격"·흰색 "방어" 둘 다 또렷)로 라벨 문제 확인·해결, 글로우
+  ON(`art1c4_shadow_centered.png`) vs GLOW_ALPHA=0 임시 A/B
+  (`art1c4_shadow_centered_noglow.png`, 캡처 후 즉시 0.32로 원복·커밋에 안
+  들어감)로 그림자 실루엣 가장자리에 옅은 보라빛 림 라이트가 실제로 보이는지
+  직접 비교 확인, `art1c4_slime_check.png`(밝은 몬스터)로 회귀 없음 확인.
+  전투 규칙/밸런스 수치는 전혀 건드리지 않았고 `resources/`·`docs/art/`는
+  읽기만 했다.
 
 - **2026-10-16 (219)**: INBOX.md 지시(이번 이터레이션 최우선 — "[대형 기획 13]
   [미니 기획 ART-1c-3] 몬스터 컷 가장자리 페이드 + 경로 별칭") **완료.** 아트
@@ -1850,66 +1996,9 @@ ART-3](스킬 아이콘 흰 사각형 버그, 아트 스레드 리포트) 완료
   "처리됨"으로 못 옮김). **다음은 N-5(a)(곡예사를 이벤트 특화 클래스로 —
   event_die_sides 상향 + 시작 스킬 이벤트 테마 재구성).**
 
-- **2026-10-15 (210)**: INBOX.md "남은 이슈" [대형 기획 14] **N-3(스킬 도감·업적
-  등 "문자열처럼 보이는" 버튼을 버튼처럼 보이게) 완료**. INBOX 원문: 화면 전체에서
-  flat/무테두리 Button을 전수 검색해 UIKit 버튼 팩토리 보조(secondary) 스타일로
-  통일하고, 전 씬을 인스턴스화해 모든 Button이 실제로 스타일을 받는지 테스트로
-  검증할 것.
-  **전수 검색 결과**: `grep`으로 전 `.tscn`의 `type="Button"` 노드와 전
-  `.gd`의 `Button.new()` 호출을 모두 뽑아 각 화면의 `UIKit.style_primary_button`/
-  `style_secondary_button` 호출과 대조한 결과, M-1~M-4가 이미 통일한 dungeon_map/
-  combat_test/event/shop/story_event 대부분과 달리 실제로 스타일을 전혀 안 받고
-  기본 Godot 테마로만 그려지던 버튼 9개를 찾았다: `character_select.gd`의 "던전
-  시작"/"업적"/"테스트 전투"/"스킬 도감"(M-1~M-4가 다른 화면을 통일한 뒤에도 이
-  화면만 빠져 있었음), `dungeon_map.gd`의 "스킬 도감"(`_style_action_buttons()`
-  에서만 누락 — 같은 버튼이 event/shop/story_event에서는 이미 스타일링되고
-  있었음), `achievement_panel.gd`/`skill_codex_panel.gd`의 "닫기",
-  `customize_panel.gd`의 "닫기"/"뒤로" 4개 + 다이스 승급·눈금 적용 1~2단계의
-  가로 목록 행 버튼(`_add_die_target_rows()`/`_add_die_rows()` — 이것만
-  FaceChipStyle 정사각 칩류와 달리 스타일 호출이 애초에 없었음),
-  `test_battle_setup.gd`의 "뒤로"/"전투 시작"/성장 프리셋 버튼 4개.
-  **수정**: 전부 각 화면이 이미 쓰던 `UIKit.style_primary_button()`/
-  `style_secondary_button()`로 통일했다 — INBOX 지시대로 새 `make_button()` 같은
-  별도 팩토리를 만들지 않고 기존 호출부들과 같은 한 줄 패턴을 그대로 반복
-  적용. `character_select.gd`의 네 버튼(던전 시작/업적/테스트 전투/스킬 도감)은
-  DESIGN.md가 이미 확정한 규칙("이 화면의 좌측 카드 목록/화면 공용 버튼은 아직
-  런이 시작되지 않았으니 캐릭터 퍼스널 컬러 대신 중립색 유지" — K-3)을 지켜야
-  해서, `FocusNav.ACCENT_DEFAULT`(이 화면의 포커스 강조색과 같은 중립 시안색)를
-  tint로 넘겼다. `style_secondary_button()`에는 이미 있던 tint 매개변수를
-  `style_primary_button()`에는 이번에 새로 추가했다(기존 호출부 중
-  `dice_test.gd` 한 곳이 `base_dir`을 3번째 위치 인자로 넘기고 있어, tint를
-  secondary와 같은 위치(2번째)에 끼워 넣고 그 호출부만 `base_dir`을 4번째로
-  미는 식으로 함께 고쳤다 — 기본값(tint 없음)을 쓰는 나머지 5개 호출부는 전부
-  그대로 둬도 됨).
-  **검증**: `dice_test.gd`에 신규 `_check_n3_button_styling()` — "버그가
-  있었다는 걸 알고 거꾸로 짠" 특정 버튼 목록 검사가 아니라, 7개 정적 화면
-  (character_select/dungeon_map/combat_test/event/shop/story_event/
-  test_battle_setup)을 전부 인스턴스화하고 오버레이 패널 3종(AchievementPanel/
-  SkillCodexPanel — `open()`을 실제로 불러야 버튼이 생성됨 / CustomizePanel —
-  5단계 `_show_*_picker()`를 전부 직접 호출해 누적 검사)까지 열어, 그 안의
-  모든 `Button`(OptionButton/CheckBox 등 서브클래스는 자기 고유의 입체감 있는
-  모습이 있어 이 버그 대상이 아니므로 allowlist로 제외)을 재귀적으로 순회하는
-  전수 검사로 짰다. 기준은 "normal 스타일박스 override가 있고(없으면 기본
-  Godot 테마에만 의존한다는 뜻 — 이번 버그의 본체), 그 스타일이 텍스처가
-  있거나 배경/테두리 알파>0인가"(M-4 등 기존 테스트의
-  `has_theme_stylebox_override("normal")` 기준과 동일선상) — 플래그가 아니라
-  실제 렌더 스타일을 검사하므로 다음에 새 버튼이 생기며 같은 버그가 재발해도
-  이 테스트가 잡는다. `bash scripts/qa_shot.sh dice_test` 전체 PASS(FAIL
-  0건, N-3 신규 검증 10개 화면/패널 전부 "미스타일 버튼=[]"). **셀프 피드백
-  1라운드**: `qa_out/n3_character_select_header.png`(던전 시작/업적/테스트
-  전투/스킬 도감 네 버튼 전부 테두리+장식 있는 버튼 모양으로 보임)/
-  `n3_achievement_panel.png`(업적 패널 "닫기"가 더는 맨글자가 아니라 패널
-  테두리색과 어울리는 버튼으로 보임)/`n3_dungeon_map_skillcodex.png`(던전
-  맵 "스킬 도감"도 동일)/`n3_customize_panel.png`(커스터마이징 패널 "닫기"도
-  동일)를 직접 읽어 확인 — "상" 수준 문제 없이 1라운드로 종료. 전투 규칙/
-  밸런스는 건드리지 않았다. INBOX.md의 이 항목은 "부분 처리됨"에 그대로 두되
-  진행 한 줄을 N-3 완료로 갱신했다([대형 기획 14] 전체는 N-4~N-6이 남아 아직
-  "처리됨"으로 못 옮김). **다음은 N-4(캐릭터 선택 능력치를 실제 다이스 칩으로
-  나열).**
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(219)에서 (209)를 그리로 옮겼다.)*
+이번 이터레이션(220)에서 (210)을 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 

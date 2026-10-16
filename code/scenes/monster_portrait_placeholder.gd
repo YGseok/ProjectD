@@ -43,6 +43,17 @@ class_name MonsterPortraitPlaceholder
 ## `ART_ID_ALIASES`)로 원화 경로 조회 직전에 id를 별칭 해석한다 — `dark_knight`(MO005,
 ## 옛 5종 호환용)는 `dark_knight_elite`(MO600)와 원화를 공유하는데, 파일을 실제로
 ## 복제하지 않고 조회 경로만 바꿔치기한다(_art_monster_id가 _monster_id와 분리된 이유).
+##
+## ART-1c-4(2026-10-16, 몬스터 전신 34세트 전량 입고 후 감독 지시 — 어두운 몬스터
+## 외곽 글로우): shadow(MO012)처럼 컷 자체가 거의 검은 실루엣인 몬스터는 어두운 전투
+## 배경에서 윤곽이 잘 안 보인다. `CharacterArt.full_crop_luminance()`(불투명 픽셀만의
+## 평균 상대 휘도)가 `CharacterArt.DARK_PORTRAIT_LUMINANCE_THRESHOLD`보다 낮을 때만
+## 자동으로 켜지는 "뒤에 확대한 복제 TextureRect" 방식 — 몬스터 id 하드코딩 없음(순전히
+## 컷의 밝기로만 판정). `_glow_rect`를 `_face_rect`보다 먼저(= 뒤에) 그려 중심부는
+## 원래 컷에 그대로 덮이고, GLOW_SCALE만큼 커진 가장자리 부분만 보여 옅은 림 라이트처럼
+## 보인다(셰이더 블러 대신 "확대 복제" 쪽을 택함 — 과업 지시가 둘 중 더 간단한 쪽을
+## 허용). 밝은 몬스터는 `_glow_rect`가 아예 안 만들어지거나(한 번도 어두웠던 적 없으면)
+## visible=false로 남아 기존 화면과 완전히 동일하다.
 
 const EYE_COLOR := Color(0.12, 0.1, 0.08)
 const MOUTH_COLOR := Color(0.25, 0.08, 0.08)
@@ -65,6 +76,20 @@ const FACE_ART_FADE_SHADER := CharacterPortraitPlaceholder.FACE_ART_FADE_SHADER
 const FACE_ART_SIDE_FADE := 0.1
 const FACE_ART_TOP_FADE := 0.1
 
+## [미니 기획 ART-1c-4] 외곽 글로우(림 라이트) 상수. GLOW_SCALE은 _face_rect보다 몇 %
+## 더 키워 뒤에 깔지(가장자리에 보이는 "두께") — 중심부는 어차피 _face_rect에 덮여 안
+## 보이므로 전체 텍스처가 아니라 가장자리 margin만 실질적으로 노출된다. GLOW_COLOR는
+## 배경 마법진/비네트와 어울리는 밝은 보라/회백 톤(캐릭터 퍼스널 컬러와는 무관 —
+## 몬스터는 퍼스널 컬러 대상이 아님, DESIGN.md "퍼스널 컬러 적용 범위" 참고), GLOW_ALPHA는
+## 과업 지시 범위(0.25~0.4) 안의 값.
+const GLOW_SCALE := 1.18
+const GLOW_COLOR := Color(0.78, 0.7, 0.95)
+const GLOW_ALPHA := 0.32
+## average_opaque_luminance()에 넘기는 알파 컷오프/샘플 간격 — full_crop_luminance()
+## 기본값과 동일(한 곳에만 있는 상수를 두 곳에 안 흩어지게 로컬로 재선언하지 않고
+## CharacterArt 쪽 기본값을 그대로 쓴다. 여기 선언하지 않는 이유 — 기본값 변경 시
+## 한 곳만 고치면 되게).
+
 ## "neutral" / "happy" / "hurt" / "sad" / "angry"
 @export var expression: String = "neutral"
 @export var body_color: Color = Color(0.5, 0.5, 0.5)
@@ -85,6 +110,13 @@ var _monster_id := ""
 ## 남겨둠)와 분리해 둔다.
 var _art_monster_id := ""
 var _face_rect: TextureRect = null
+## [미니 기획 ART-1c-4] 어두운 컷일 때만 만들어지는 외곽 글로우(림 라이트) 노드. 밝은
+## 몬스터는 끝까지 null로 남아 기존 화면과 완전히 동일하다.
+var _glow_rect: TextureRect = null
+## _texture_is_dark()로 한 번 계산해둔 "이 몬스터가 어두운 컷인가" — set_monster()가
+## neutral/크롭 텍스처 기준으로 1회만 계산하고, 표정이 바뀌어도(set_expression()) 다시
+## 계산하지 않는다(어둡다/밝다는 몬스터 단위 판정이지 표정 단위가 아님).
+var _is_dark_portrait := false
 
 ## dice_test.gd가 user:// 임시 디렉터리를 주입해 "5장 모두/일부만/없음"을 실제 몬스터
 ## 입고 상태와 무관하게 검증할 수 있게 한다(character_portrait_placeholder.gd의
@@ -101,14 +133,19 @@ func set_monster(monster_id: String) -> void:
 	_art_monster_id = MonsterCatalog.art_resource_id(monster_id)
 	_use_face_art = CharacterArt.has_all_faces(_art_monster_id, art_base_dir)
 	_use_full_crop = false
+	var representative_tex: Texture2D = null
 	if _use_face_art:
 		_ensure_face_rect()
+		representative_tex = CharacterArt.load_face(_art_monster_id, "neutral", art_base_dir)
 	elif CharacterArt.has_full(_art_monster_id, art_base_dir):
 		_use_full_crop = true
 		_ensure_face_rect()
-		_face_rect.texture = CharacterArt.load_full_crop(_art_monster_id, CharacterArt.DEFAULT_FACE_CROP_RATIO, art_base_dir)
+		representative_tex = CharacterArt.load_full_crop(_art_monster_id, CharacterArt.DEFAULT_FACE_CROP_RATIO, art_base_dir)
+		_face_rect.texture = representative_tex
 	if _face_rect != null:
 		_face_rect.visible = _use_face_art or _use_full_crop
+	_is_dark_portrait = _texture_is_dark(representative_tex)
+	_update_glow()
 	set_expression(expression)
 
 
@@ -131,10 +168,63 @@ func _ensure_face_rect() -> void:
 	add_child(_face_rect)
 
 
+## [미니 기획 ART-1c-4] _face_rect보다 "뒤에"(먼저 그려지게, move_child로 인덱스 0) 두는
+## 확대 복제 TextureRect. _face_rect와 같은 가장자리 페이드 셰이더를 쓰므로(별도
+## ShaderMaterial 인스턴스) 글로우도 본체 실루엣과 같은 모양으로 가장자리에서 옅어진다 —
+## 색/알파는 modulate로만 준다(셰이더 유니폼과 무관).
+func _ensure_glow_rect() -> void:
+	if _glow_rect != null:
+		return
+	var glow_size := FACE_ART_SIZE * GLOW_SCALE
+	_glow_rect = TextureRect.new()
+	_glow_rect.custom_minimum_size = glow_size
+	_glow_rect.size = glow_size
+	_glow_rect.position = FACE_ART_SHIFT - glow_size / 2.0
+	_glow_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_glow_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_glow_rect.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	_glow_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_glow_rect.modulate = Color(GLOW_COLOR.r, GLOW_COLOR.g, GLOW_COLOR.b, GLOW_ALPHA)
+	var glow_material := ShaderMaterial.new()
+	glow_material.shader = FACE_ART_FADE_SHADER
+	glow_material.set_shader_parameter("side_fade", FACE_ART_SIDE_FADE)
+	glow_material.set_shader_parameter("top_fade", FACE_ART_TOP_FADE)
+	_glow_rect.material = glow_material
+	add_child(_glow_rect)
+	move_child(_glow_rect, 0) # _face_rect보다 먼저 그려지게(= 뒤에 깔리게).
+
+
+## tex의 불투명 픽셀 평균 휘도가 DARK_PORTRAIT_LUMINANCE_THRESHOLD보다 낮으면 true.
+## tex가 null이면(원화 없음, 도형 플레이스홀더 모드) false — 플레이스홀더는 글로우
+## 대상이 아니다.
+func _texture_is_dark(tex: Texture2D) -> bool:
+	if tex == null:
+		return false
+	var image := tex.get_image()
+	if image == null:
+		return false
+	return CharacterArt.average_opaque_luminance(image) < CharacterArt.DARK_PORTRAIT_LUMINANCE_THRESHOLD
+
+
+## _is_dark_portrait에 맞춰 글로우를 켜고(없으면 만들고 텍스처를 _face_rect와 맞춤)
+## 끈다. 밝은 몬스터(_is_dark_portrait=false)는 글로우 노드를 아예 만들지 않거나(한 번도
+## 어두웠던 적이 없으면) visible=false로만 남겨 화면이 기존과 완전히 같다.
+func _update_glow() -> void:
+	if not _is_dark_portrait:
+		if _glow_rect != null:
+			_glow_rect.visible = false
+		return
+	_ensure_glow_rect()
+	_glow_rect.texture = _face_rect.texture if _face_rect != null else null
+	_glow_rect.visible = _face_rect != null and _face_rect.visible
+
+
 func set_expression(new_expression: String) -> void:
 	expression = new_expression
 	if _use_face_art and _face_rect != null:
 		_face_rect.texture = CharacterArt.load_face(_art_monster_id, expression, art_base_dir)
+		if _is_dark_portrait and _glow_rect != null:
+			_glow_rect.texture = _face_rect.texture
 	queue_redraw()
 
 

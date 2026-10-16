@@ -8,6 +8,63 @@
 
 ---
 
+- **2026-10-15 (210)**: INBOX.md "남은 이슈" [대형 기획 14] **N-3(스킬 도감·업적
+  등 "문자열처럼 보이는" 버튼을 버튼처럼 보이게) 완료**. INBOX 원문: 화면 전체에서
+  flat/무테두리 Button을 전수 검색해 UIKit 버튼 팩토리 보조(secondary) 스타일로
+  통일하고, 전 씬을 인스턴스화해 모든 Button이 실제로 스타일을 받는지 테스트로
+  검증할 것.
+  **전수 검색 결과**: `grep`으로 전 `.tscn`의 `type="Button"` 노드와 전
+  `.gd`의 `Button.new()` 호출을 모두 뽑아 각 화면의 `UIKit.style_primary_button`/
+  `style_secondary_button` 호출과 대조한 결과, M-1~M-4가 이미 통일한 dungeon_map/
+  combat_test/event/shop/story_event 대부분과 달리 실제로 스타일을 전혀 안 받고
+  기본 Godot 테마로만 그려지던 버튼 9개를 찾았다: `character_select.gd`의 "던전
+  시작"/"업적"/"테스트 전투"/"스킬 도감"(M-1~M-4가 다른 화면을 통일한 뒤에도 이
+  화면만 빠져 있었음), `dungeon_map.gd`의 "스킬 도감"(`_style_action_buttons()`
+  에서만 누락 — 같은 버튼이 event/shop/story_event에서는 이미 스타일링되고
+  있었음), `achievement_panel.gd`/`skill_codex_panel.gd`의 "닫기",
+  `customize_panel.gd`의 "닫기"/"뒤로" 4개 + 다이스 승급·눈금 적용 1~2단계의
+  가로 목록 행 버튼(`_add_die_target_rows()`/`_add_die_rows()` — 이것만
+  FaceChipStyle 정사각 칩류와 달리 스타일 호출이 애초에 없었음),
+  `test_battle_setup.gd`의 "뒤로"/"전투 시작"/성장 프리셋 버튼 4개.
+  **수정**: 전부 각 화면이 이미 쓰던 `UIKit.style_primary_button()`/
+  `style_secondary_button()`로 통일했다 — INBOX 지시대로 새 `make_button()` 같은
+  별도 팩토리를 만들지 않고 기존 호출부들과 같은 한 줄 패턴을 그대로 반복
+  적용. `character_select.gd`의 네 버튼(던전 시작/업적/테스트 전투/스킬 도감)은
+  DESIGN.md가 이미 확정한 규칙("이 화면의 좌측 카드 목록/화면 공용 버튼은 아직
+  런이 시작되지 않았으니 캐릭터 퍼스널 컬러 대신 중립색 유지" — K-3)을 지켜야
+  해서, `FocusNav.ACCENT_DEFAULT`(이 화면의 포커스 강조색과 같은 중립 시안색)를
+  tint로 넘겼다. `style_secondary_button()`에는 이미 있던 tint 매개변수를
+  `style_primary_button()`에는 이번에 새로 추가했다(기존 호출부 중
+  `dice_test.gd` 한 곳이 `base_dir`을 3번째 위치 인자로 넘기고 있어, tint를
+  secondary와 같은 위치(2번째)에 끼워 넣고 그 호출부만 `base_dir`을 4번째로
+  미는 식으로 함께 고쳤다 — 기본값(tint 없음)을 쓰는 나머지 5개 호출부는 전부
+  그대로 둬도 됨).
+  **검증**: `dice_test.gd`에 신규 `_check_n3_button_styling()` — "버그가
+  있었다는 걸 알고 거꾸로 짠" 특정 버튼 목록 검사가 아니라, 7개 정적 화면
+  (character_select/dungeon_map/combat_test/event/shop/story_event/
+  test_battle_setup)을 전부 인스턴스화하고 오버레이 패널 3종(AchievementPanel/
+  SkillCodexPanel — `open()`을 실제로 불러야 버튼이 생성됨 / CustomizePanel —
+  5단계 `_show_*_picker()`를 전부 직접 호출해 누적 검사)까지 열어, 그 안의
+  모든 `Button`(OptionButton/CheckBox 등 서브클래스는 자기 고유의 입체감 있는
+  모습이 있어 이 버그 대상이 아니므로 allowlist로 제외)을 재귀적으로 순회하는
+  전수 검사로 짰다. 기준은 "normal 스타일박스 override가 있고(없으면 기본
+  Godot 테마에만 의존한다는 뜻 — 이번 버그의 본체), 그 스타일이 텍스처가
+  있거나 배경/테두리 알파>0인가"(M-4 등 기존 테스트의
+  `has_theme_stylebox_override("normal")` 기준과 동일선상) — 플래그가 아니라
+  실제 렌더 스타일을 검사하므로 다음에 새 버튼이 생기며 같은 버그가 재발해도
+  이 테스트가 잡는다. `bash scripts/qa_shot.sh dice_test` 전체 PASS(FAIL
+  0건, N-3 신규 검증 10개 화면/패널 전부 "미스타일 버튼=[]"). **셀프 피드백
+  1라운드**: `qa_out/n3_character_select_header.png`(던전 시작/업적/테스트
+  전투/스킬 도감 네 버튼 전부 테두리+장식 있는 버튼 모양으로 보임)/
+  `n3_achievement_panel.png`(업적 패널 "닫기"가 더는 맨글자가 아니라 패널
+  테두리색과 어울리는 버튼으로 보임)/`n3_dungeon_map_skillcodex.png`(던전
+  맵 "스킬 도감"도 동일)/`n3_customize_panel.png`(커스터마이징 패널 "닫기"도
+  동일)를 직접 읽어 확인 — "상" 수준 문제 없이 1라운드로 종료. 전투 규칙/
+  밸런스는 건드리지 않았다. INBOX.md의 이 항목은 "부분 처리됨"에 그대로 두되
+  진행 한 줄을 N-3 완료로 갱신했다([대형 기획 14] 전체는 N-4~N-6이 남아 아직
+  "처리됨"으로 못 옮김). **다음은 N-4(캐릭터 선택 능력치를 실제 다이스 칩으로
+  나열).**
+
 - **2026-10-15 (209)**: INBOX.md "남은 이슈" 맨 위 **[미니 기획 N-2b](캐릭터 선택
   전신 이미지를 **실제로** 더 크게, 감독이 N-2 직후 스크린샷을 보고 추가 지시)
   완료**. INBOX 원문: N-2가 전신 컬럼 컨테이너를 300×560으로 만들었지만 원화

@@ -136,6 +136,16 @@ static func face_crop_ratio(character_id: String) -> Rect2:
 ## 돌려주면 그 텍스처 자체의 UV가 0..1로 크롭 영역 전체를 가리켜(face_* 표정 컷과
 ## 동일한 상황), 셰이더의 하단/좌/우/상단 페이드가 전부 의도대로 작동한다.
 static func load_full_crop(character_id: String, ratio: Rect2, base_dir: String = BASE_DIR) -> Texture2D:
+	var cropped_image := _crop_image(character_id, ratio, base_dir)
+	if cropped_image == null:
+		return null
+	cropped_image.generate_mipmaps()
+	return ImageTexture.create_from_image(cropped_image)
+
+
+## load_full_crop()/full_crop_luminance() 공용 — 비율(ratio, 0..1) 영역만 실제 픽셀로
+## 오려낸 Image(텍스처로 감싸기 전). full.png가 없으면 null.
+static func _crop_image(character_id: String, ratio: Rect2, base_dir: String = BASE_DIR) -> Image:
 	var full := load_full(character_id, base_dir)
 	if full == null:
 		return null
@@ -149,9 +159,53 @@ static func load_full_crop(character_id: String, ratio: Rect2, base_dir: String 
 	).intersection(Rect2i(Vector2i.ZERO, size))
 	if region.size.x <= 0 or region.size.y <= 0:
 		return null
-	var cropped_image := full_image.get_region(region)
-	cropped_image.generate_mipmaps()
-	return ImageTexture.create_from_image(cropped_image)
+	return full_image.get_region(region)
+
+
+## [미니 기획 ART-1c-4] 어두운 몬스터 외곽 글로우 판정 기준값(0..1 상대 휘도, ITU-R
+## BT.709 계수). 이 값보다 평균 휘도가 낮으면 "어두운 컷"으로 보고 외곽에 옅은 림
+## 라이트를 깐다(MonsterPortraitPlaceholder._texture_is_dark() 참고) — 몬스터별
+## 하드코딩 없이 이 하나의 상수만으로 전체 카탈로그를 판정한다. 값 근거는
+## docs/STATUS.md 완료 기록의 카탈로그 전수 휘도표(어두운 쪽 shadow/mist/ghost류와
+## 밝은 쪽 대다수 사이에 뚜렷한 간격이 있던 지점으로 선택).
+const DARK_PORTRAIT_LUMINANCE_THRESHOLD := 0.22
+
+## 이미지의 "불투명 픽셀만" 평균 상대 휘도(0=검정, 1=흰색)를 구한다. 알파가
+## alpha_threshold 미만인 픽셀(크롭 과정에서 생기는 투명 배경/레터박스)은 평균 계산에서
+## 제외한다 — 안 그러면 투명 배경이 전부 검정(0,0,0,0)으로 저장된 PNG는 몬스터 실루엣이
+## 밝아도 평균이 크게 낮아져 오판한다. 성능을 위해 stride(기본 1=전체 픽셀)로 샘플
+## 간격을 띄울 수 있다 — 큰 원화 이미지를 매 몬스터 교체 시 1회만 계산하면 되므로
+## 기본값은 정밀도를 우선하고, 호출하는 쪽(full_crop_luminance())이 필요시 더 크게 넘긴다.
+## 불투명 픽셀이 하나도 없으면(크롭 결과가 전부 투명 등) 1.0(밝음, 글로우 없음)을 돌려줘
+## 안전하게 폴백한다.
+static func average_opaque_luminance(image: Image, alpha_threshold: float = 0.5, stride: int = 1) -> float:
+	if image == null:
+		return 1.0
+	var size := image.get_size()
+	var step: int = max(1, stride)
+	var total := 0.0
+	var count := 0
+	var y := 0
+	while y < size.y:
+		var x := 0
+		while x < size.x:
+			var c := image.get_pixel(x, y)
+			if c.a >= alpha_threshold:
+				total += 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b
+				count += 1
+			x += step
+		y += step
+	if count == 0:
+		return 1.0
+	return total / count
+
+
+## full.png의 ratio 크롭 영역에 대한 average_opaque_luminance() — MonsterPortrait가
+## 실제로 표시하는 크롭과 동일한 픽셀을 본다(별도 이미지 로드/계산 로직 없음).
+## full.png가 없으면 1.0(밝음, 글로우 없음)을 돌려준다. stride=3 기본값은 320x320 안팎인
+## 크롭 이미지 기준 체감 속도와 정밀도 사이의 절충(몬스터 교체 시 1회만 계산).
+static func full_crop_luminance(character_id: String, ratio: Rect2, base_dir: String = BASE_DIR, stride: int = 3) -> float:
+	return average_opaque_luminance(_crop_image(character_id, ratio, base_dir), 0.5, stride)
 
 
 ## full.png에서 얼굴 비율 영역만 잘라낸 텍스처(캐릭터 전용 — face_crop_ratio()로 프로필

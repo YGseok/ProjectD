@@ -17,7 +17,15 @@ uniform float side_fade : hint_range(0.0, 0.5) = 0.0;
 uniform float top_fade : hint_range(0.0, 0.5) = 0.0;
 
 void fragment() {
-	vec4 tex_color = texture(TEXTURE, UV);
+	// [미니 기획 ART-1c-4] COLOR는 fragment() 진입 시점에 이미 "정점색 * 노드 modulate/
+	// self_modulate"가 들어있다(Godot 기본 파이프라인) — 커스텀 fragment()가 COLOR를
+	// 텍스처 샘플만으로 덮어쓰면 이 곱셈이 통째로 사라진다. 지금까지는 이 셰이더를 쓰는
+	// 노드(_face_rect)가 modulate를 건드리지 않아(기본값 흰색 불투명) 안 드러났지만,
+	// 외곽 글로우(_glow_rect)가 modulate로 색/알파(0.25~0.4)를 주면서 실제로 무시되는
+	// 버그가 발견됐다(렌더 테스트: 기대 알파 0.32인데 실측 1.000). tex_color에 COLOR를
+	// 곱해 Godot 기본 동작을 그대로 보존한다 — modulate를 안 쓰는 기존 호출부(기본값
+	// 흰색 불투명)는 곱해도 항등원이라 결과가 완전히 그대로다.
+	vec4 tex_color = texture(TEXTURE, UV) * COLOR;
 	float fade_bottom = 1.0 - smoothstep(fade_start, 1.0, UV.y);
 	float fade_top = top_fade > 0.0 ? smoothstep(0.0, top_fade, UV.y) : 1.0;
 	float fade_left = side_fade > 0.0 ? smoothstep(0.0, side_fade, UV.x) : 1.0;

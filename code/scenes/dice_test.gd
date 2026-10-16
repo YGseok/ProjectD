@@ -409,6 +409,14 @@ func _ready() -> void:
 	all_pass = (await _check_art1c3_monster_edge_fade_and_alias(lines)) and all_pass
 
 	lines.append("")
+	lines.append("[ART-1c-4: 어두운 몬스터 외곽 글로우 — CharacterArt.average_opaque_luminance()가 합성 어두운/밝은 이미지를 올바르게 판정하는지, 카탈로그 전수(입고된 34종) 휘도표, 실제 어두운 몬스터(그림자)가 글로우를 켜고 밝은 몬스터는 끝까지 안 켜지는지, 글로우 영역 실제 렌더 알파(SubViewport)가 투명하지 않은지]")
+	all_pass = (await _check_art1c4_monster_dark_glow(lines)) and all_pass
+
+	lines.append("")
+	lines.append("[ART-1c-4: 전투 결과 줄 '공격'/'방어' 라벨 대비 — 라벨 색이 몬스터 색과 무관한 고정 팔레트(공격=금색/방어=밝은 회백)인지, 어두운 배경 대비 WCAG AA(4.5:1) 이상인지]")
+	all_pass = _check_art1c4_dice_label_contrast(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -10298,4 +10306,266 @@ func _check_n6_character_events_and_special_choices(lines: PackedStringArray) ->
 	remove_child(ev)
 	ev.free()
 	RunState.character_id = character_backup
+	return ok
+
+
+## [미니 기획 ART-1c-4] 어두운 몬스터 외곽 글로우 검증 — ① CharacterArt.
+## average_opaque_luminance()가 투명 픽셀을 제외하고 올바르게 판정하는지(합성 어두운/
+## 밝은 이미지, 실제 원화와 무관해 결정적), ② 카탈로그 전수(입고된 몬스터 전체)의
+## 휘도표를 찍어(docs/STATUS.md 완료 기록에 그대로 옮겨 적음), ③ 실제 production
+## 자산(설계 문서가 예시로 든 "그림자"=어두움 / "슬라임"=밝음)으로
+## MonsterPortraitPlaceholder.set_monster()가 글로우를 올바르게 켜고 끄는지, ④ 합성
+## 정사각 가짜 원화(레터박스 없음, _check_art1c3와 같은 패턴)로 글로우 레이어 자체를
+## SubViewport에 렌더해 실제 알파가 완전 투명이 아닌지 확인한다. SubViewport를 쓰므로
+## await로 불러야 한다.
+func _check_art1c4_monster_dark_glow(lines: PackedStringArray) -> bool:
+	var ok := true
+
+	# 1) 휘도 함수 단위 검증 — 합성 이미지(실제 원화와 무관, 결정적).
+	var dark_img := Image.create(8, 8, false, Image.FORMAT_RGBA8)
+	dark_img.fill(Color(0.05, 0.05, 0.05, 1.0))
+	var dark_luminance: float = CharacterArt.average_opaque_luminance(dark_img)
+	var dark_ok: bool = dark_luminance < CharacterArt.DARK_PORTRAIT_LUMINANCE_THRESHOLD
+	ok = dark_ok and ok
+	lines.append("  합성 어두운 이미지(0.05,0.05,0.05) 평균 휘도=%.4f (기대 < %.2f) -> %s" % [
+		dark_luminance, CharacterArt.DARK_PORTRAIT_LUMINANCE_THRESHOLD, "OK" if dark_ok else "FAIL"
+	])
+
+	var bright_img := Image.create(8, 8, false, Image.FORMAT_RGBA8)
+	bright_img.fill(Color(0.9, 0.9, 0.9, 1.0))
+	var bright_luminance: float = CharacterArt.average_opaque_luminance(bright_img)
+	var bright_ok: bool = bright_luminance >= CharacterArt.DARK_PORTRAIT_LUMINANCE_THRESHOLD
+	ok = bright_ok and ok
+	lines.append("  합성 밝은 이미지(0.9,0.9,0.9) 평균 휘도=%.4f (기대 >= %.2f) -> %s" % [
+		bright_luminance, CharacterArt.DARK_PORTRAIT_LUMINANCE_THRESHOLD, "OK" if bright_ok else "FAIL"
+	])
+
+	# 투명 픽셀 제외 검증 — 절반은 완전 투명한 검정(크롭 레터박스를 흉내), 절반은 불투명한
+	# 밝은 색. 평균이 "밝은 색" 값과 거의 같아야 한다(투명 검정에 끌려 내려가면 안 됨).
+	var mixed_img := Image.create(4, 4, false, Image.FORMAT_RGBA8)
+	for y in range(4):
+		for x in range(4):
+			if x < 2:
+				mixed_img.set_pixel(x, y, Color(0, 0, 0, 0)) # 투명(레터박스 흉내)
+			else:
+				mixed_img.set_pixel(x, y, Color(0.8, 0.8, 0.8, 1.0)) # 불투명 밝음
+	var mixed_luminance: float = CharacterArt.average_opaque_luminance(mixed_img)
+	var mixed_ok: bool = absf(mixed_luminance - 0.8) < 0.01
+	ok = mixed_ok and ok
+	lines.append("  투명 픽셀 50%% + 불투명 밝은 픽셀(0.8) 50%% 평균 휘도=%.4f (기대 ≈0.8, 투명 픽셀이 평균을 안 끌어내림) -> %s" % [
+		mixed_luminance, "OK" if mixed_ok else "FAIL"
+	])
+
+	# 2) 카탈로그 전수 휘도표 — 입고된 몬스터 전체(full.png가 있는 id, 별칭 해석 포함,
+	#    face_* 5장이 있는 몬스터는 아직 없어 전부 크롭 경로).
+	lines.append("  [카탈로그 전수 휘도표 (불투명 픽셀 평균 상대 휘도, 기준 < %.2f = 글로우 대상)]" % CharacterArt.DARK_PORTRAIT_LUMINANCE_THRESHOLD)
+	var dark_ids: Array = []
+	var catalog_count := 0
+	for m in MonsterCatalog.MONSTERS:
+		var mid: String = m["id"]
+		var art_id: String = MonsterCatalog.art_resource_id(mid)
+		if not CharacterArt.has_full(art_id, MonsterPortraitPlaceholder.MONSTER_ART_BASE_DIR):
+			continue
+		if CharacterArt.has_all_faces(art_id, MonsterPortraitPlaceholder.MONSTER_ART_BASE_DIR):
+			continue # face_* 있으면 full.png 크롭 경로를 안 쓰므로 이 표에서는 제외(현재 없음)
+		catalog_count += 1
+		var luminance: float = CharacterArt.full_crop_luminance(art_id, CharacterArt.DEFAULT_FACE_CROP_RATIO, MonsterPortraitPlaceholder.MONSTER_ART_BASE_DIR)
+		var is_dark: bool = luminance < CharacterArt.DARK_PORTRAIT_LUMINANCE_THRESHOLD
+		if is_dark:
+			dark_ids.append(mid)
+		lines.append("    %s (%s): 휘도=%.3f -> %s" % [mid, m["name"], luminance, "글로우" if is_dark else "-"])
+	lines.append("  카탈로그 전수 %d종 중 글로우 대상 %d종: %s" % [catalog_count, dark_ids.size(), dark_ids])
+	var catalog_nonempty_ok: bool = catalog_count > 0
+	ok = catalog_nonempty_ok and ok
+	lines.append("  (카탈로그에 원화가 1종 이상 입고돼 표가 비지 않음) -> %s" % ("OK" if catalog_nonempty_ok else "FAIL"))
+
+	# 3) 실제 production 자산 — "그림자"(설계 문서가 예시로 든 어두운 몬스터)는 글로우가
+	#    켜지고, "슬라임"(밝은 초록)은 안 켜지는지.
+	var dark_portrait := MonsterPortraitPlaceholder.new()
+	add_child(dark_portrait)
+	dark_portrait.set_monster("shadow")
+	var shadow_dark_ok: bool = dark_portrait._is_dark_portrait and dark_portrait._glow_rect != null and dark_portrait._glow_rect.visible
+	ok = shadow_dark_ok and ok
+	lines.append("  set_monster('shadow') 후 _is_dark_portrait=%s, 글로우 노드 visible=%s -> %s" % [
+		dark_portrait._is_dark_portrait,
+		(dark_portrait._glow_rect.visible if dark_portrait._glow_rect != null else "(없음)"),
+		"OK" if shadow_dark_ok else "FAIL"
+	])
+
+	var bright_portrait := MonsterPortraitPlaceholder.new()
+	add_child(bright_portrait)
+	bright_portrait.set_monster("slime")
+	var slime_bright_ok: bool = (not bright_portrait._is_dark_portrait) and (bright_portrait._glow_rect == null or not bright_portrait._glow_rect.visible)
+	ok = slime_bright_ok and ok
+	lines.append("  set_monster('slime') 후 _is_dark_portrait=%s, 글로우 노드=%s -> %s" % [
+		bright_portrait._is_dark_portrait,
+		("없음" if bright_portrait._glow_rect == null else ("visible=%s" % bright_portrait._glow_rect.visible)),
+		"OK" if slime_bright_ok else "FAIL"
+	])
+
+	# 밝은 몬스터는 _face_rect 자체도(글로우와 무관하게) 기존과 동일해야 한다 — ART-1c-3
+	# 페이드 셰이더 파라미터가 그대로인지 재확인(회귀 가드, "밝은 몬스터는 화면이 기존과
+	# 완전히 동일해야 한다"는 요구사항).
+	var bright_shader_ok: bool = (bright_portrait._face_rect != null and bright_portrait._face_rect.material is ShaderMaterial
+		and float((bright_portrait._face_rect.material as ShaderMaterial).get_shader_parameter("side_fade")) == MonsterPortraitPlaceholder.FACE_ART_SIDE_FADE)
+	ok = bright_shader_ok and ok
+	lines.append("  밝은 몬스터 _face_rect 셰이더 파라미터 불변(side_fade=%.2f) -> %s" % [
+		MonsterPortraitPlaceholder.FACE_ART_SIDE_FADE, "OK" if bright_shader_ok else "FAIL"
+	])
+
+	remove_child(dark_portrait)
+	dark_portrait.free()
+	remove_child(bright_portrait)
+	bright_portrait.free()
+
+	# 4) 합성 정사각 가짜 원화(레터박스 없음)로 글로우 레이어 자체를 SubViewport에 렌더해
+	#    실제 알파를 확인한다 — 중심(글로우 전체가 불투명 소스를 그대로 보여주는 지점)은
+	#    GLOW_ALPHA에 근접, 본체(_face_rect)에 안 덮이는 가장자리 margin도 완전 투명(0)은
+	#    아니어야 한다(= 실제로 뭔가 보인다, 과업 지시의 "글로우 영역 픽셀이 투명이 아닌지"
+	#    요구사항).
+	var fake_base_dir := "user://art1c4_fake_monster_dark/%s/"
+	var fake_id := "qa_fake_monster_dark_glow"
+	_art1c4_write_fake_square_full_dark(fake_base_dir, fake_id)
+
+	var glow_portrait := MonsterPortraitPlaceholder.new()
+	add_child(glow_portrait)
+	glow_portrait.art_base_dir = fake_base_dir
+	glow_portrait.set_monster(fake_id)
+
+	var synthetic_dark_ok: bool = glow_portrait._is_dark_portrait and glow_portrait._glow_rect != null
+	ok = synthetic_dark_ok and ok
+	lines.append("  합성 어두운 가짜 원화(0.05,0.05,0.05) set_monster() 후 글로우 생성됨 -> %s" % (
+		"OK" if synthetic_dark_ok else "FAIL"
+	))
+
+	var render_ok := false
+	var center_alpha := 0.0
+	var margin_alpha := 0.0
+	if glow_portrait._glow_rect != null:
+		var glow_box_size: Vector2 = MonsterPortraitPlaceholder.FACE_ART_SIZE * MonsterPortraitPlaceholder.GLOW_SCALE
+		var probe_viewport := SubViewport.new()
+		probe_viewport.size = Vector2i(ceili(glow_box_size.x), ceili(glow_box_size.y))
+		probe_viewport.transparent_bg = true
+		probe_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+		add_child(probe_viewport)
+
+		var probe_glow_rect: TextureRect = glow_portrait._glow_rect
+		glow_portrait.remove_child(probe_glow_rect)
+		probe_glow_rect.position = Vector2.ZERO
+		probe_viewport.add_child(probe_glow_rect)
+
+		await get_tree().process_frame
+		await get_tree().process_frame
+		await RenderingServer.frame_post_draw
+
+		var img: Image = probe_viewport.get_texture().get_image()
+		render_ok = img != null
+		if render_ok:
+			var cx := int(glow_box_size.x / 2.0)
+			var cy := int(glow_box_size.y / 2.0)
+			center_alpha = img.get_pixel(cx, cy).a
+			# 본체(_face_rect, 240x240)에 덮이는 범위를 벗어난 margin 지점 — 글로우
+			# 박스 왼쪽 끝에서 10px(= GLOW_SCALE이 벌려놓은 여백 안쪽, _face_rect가 안
+			# 닿는 영역).
+			margin_alpha = img.get_pixel(10, cy).a
+		probe_viewport.queue_free()
+	ok = render_ok and ok
+	if render_ok:
+		var center_ok: bool = absf(center_alpha - MonsterPortraitPlaceholder.GLOW_ALPHA) < 0.05
+		ok = center_ok and ok
+		lines.append("  글로우 레이어 중앙 알파=%.3f (기대 ≈ GLOW_ALPHA=%.2f) -> %s" % [
+			center_alpha, MonsterPortraitPlaceholder.GLOW_ALPHA, "OK" if center_ok else "FAIL"
+		])
+		var margin_ok: bool = margin_alpha > 0.02
+		ok = margin_ok and ok
+		lines.append("  글로우 레이어 가장자리 margin(본체 밖) 알파=%.3f (기대 > 0.02, 완전 투명 아님) -> %s" % [
+			margin_alpha, "OK" if margin_ok else "FAIL"
+		])
+	else:
+		lines.append("    FAIL: SubViewport 이미지를 가져오지 못함")
+
+	_art1c2_remove_fake_full(fake_base_dir, fake_id) # 파일명(full.png) 규칙 공유 — 기존 제거 헬퍼 재사용
+	DirAccess.remove_absolute("user://art1c4_fake_monster_dark")
+	remove_child(glow_portrait)
+	glow_portrait.free()
+
+	return ok
+
+
+## _check_art1c4_monster_dark_glow() 전용 헬퍼 — _art1c3_write_fake_square_full()과
+## 같은 정사각(레터박스 없음) 가짜 full.png지만 평균 휘도가 DARK_PORTRAIT_LUMINANCE_
+## THRESHOLD보다 뚜렷이 낮은 어두운 색(0.05,0.05,0.05)을 쓴다.
+func _art1c4_write_fake_square_full_dark(base_dir_pattern: String, monster_id: String) -> void:
+	var dir_path := base_dir_pattern % monster_id
+	DirAccess.make_dir_recursive_absolute(dir_path)
+	var img := Image.create(200, 200, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0.05, 0.05, 0.05, 1.0))
+	img.save_png(dir_path + "full.png")
+
+
+## [미니 기획 ART-1c-4] 전투 결과 줄 "공격"/"방어" 라벨 색 검증 — 어두운 몬스터(그림자,
+## monster_color=Color(0.2,0.2,0.25))가 선택된 전투에서도 라벨이 ATTACK_LABEL_COLOR/
+## DEFENSE_LABEL_COLOR 고정값을 그대로 쓰는지(몬스터 색에 더는 좌우되지 않는지), 두 색
+## 다 어두운 배경 기준 WCAG AA(4.5:1) 이상 대비인지 계산으로 확인한다. combat_test의
+## 실제 _show_exchange_dice_chips()를 직접 호출해(물리 스폰 없이) 검증 — 감독 캡처
+## (qa_out/art1c4_shadow_attack_before.png)에서 라벨이 안 보이던 실제 재현 경로.
+func _check_art1c4_dice_label_contrast(lines: PackedStringArray) -> bool:
+	var ok := true
+	var dark_reference := Color(0.05, 0.05, 0.05) # 전투 배경/패널의 어두운 쪽 대표값
+	var combat_script := load("res://code/scenes/combat_test.gd")
+	var attack_label_color: Color = combat_script.ATTACK_LABEL_COLOR
+	var defense_label_color: Color = combat_script.DEFENSE_LABEL_COLOR
+
+	var attack_contrast: float = CharacterTheme.contrast_ratio(attack_label_color, dark_reference)
+	var attack_contrast_ok: bool = attack_contrast >= 4.5
+	ok = attack_contrast_ok and ok
+	lines.append("  ATTACK_LABEL_COLOR(%s) vs 어두운 배경 대비비=%.1f:1 (기대 >= 4.5:1) -> %s" % [
+		attack_label_color, attack_contrast, "OK" if attack_contrast_ok else "FAIL"
+	])
+
+	var defense_contrast: float = CharacterTheme.contrast_ratio(defense_label_color, dark_reference)
+	var defense_contrast_ok: bool = defense_contrast >= 4.5
+	ok = defense_contrast_ok and ok
+	lines.append("  DEFENSE_LABEL_COLOR(%s) vs 어두운 배경 대비비=%.1f:1 (기대 >= 4.5:1) -> %s" % [
+		defense_label_color, defense_contrast, "OK" if defense_contrast_ok else "FAIL"
+	])
+
+	# 실제 호출 경로 — 어두운 몬스터(그림자) 색을 tint로 넘겨도 라벨 색이 영향받지 않는지.
+	var combat_scene := load("res://code/scenes/combat_test.tscn")
+	var combat = combat_scene.instantiate()
+	add_child(combat)
+	var shadow_tint := Color(0.2, 0.2, 0.25) # MonsterCatalog "shadow"의 실제 color 필드
+	var atk_bag := DiceBag.new(4, 3)
+	var def_bag := DiceBag.new(4, 1)
+	combat._show_exchange_dice_chips(atk_bag, [2, 3, 2], def_bag, [1], shadow_tint, shadow_tint)
+
+	var attack_label: Label = null
+	var defense_label: Label = null
+	for node in combat._exchange_chip_nodes:
+		if node is Label:
+			if node.text == "공격":
+				attack_label = node
+			elif node.text == "방어":
+				defense_label = node
+
+	var labels_found_ok: bool = attack_label != null and defense_label != null
+	ok = labels_found_ok and ok
+	lines.append("  _show_exchange_dice_chips(어두운 monster_color 전달) 후 '공격'/'방어' 라벨 노드 둘 다 발견됨 -> %s" % (
+		"OK" if labels_found_ok else "FAIL"
+	))
+	if labels_found_ok:
+		var attack_color_ok: bool = attack_label.get_theme_color("font_color") == attack_label_color
+		ok = attack_color_ok and ok
+		lines.append("  '공격' 라벨 font_color=%s (기대 ATTACK_LABEL_COLOR, 몬스터 색과 무관) -> %s" % [
+			attack_label.get_theme_color("font_color"), "OK" if attack_color_ok else "FAIL"
+		])
+		var defense_color_ok: bool = defense_label.get_theme_color("font_color") == defense_label_color
+		ok = defense_color_ok and ok
+		lines.append("  '방어' 라벨 font_color=%s (기대 DEFENSE_LABEL_COLOR, 몬스터 색과 무관) -> %s" % [
+			defense_label.get_theme_color("font_color"), "OK" if defense_color_ok else "FAIL"
+		])
+
+	remove_child(combat)
+	combat.free()
+
 	return ok

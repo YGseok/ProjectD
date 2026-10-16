@@ -261,6 +261,19 @@ const HP_BAR_COLOR_HIGH := Color(0.35, 0.85, 0.35)
 const HP_BAR_COLOR_MID := Color(0.95, 0.75, 0.25)
 const HP_BAR_COLOR_LOW := Color(0.9, 0.25, 0.25)
 
+## [미니 기획 ART-1c-4] 교환 결과 줄의 "공격"/"방어" 라벨 전용 고정 색. 예전엔
+## _add_exchange_group_label()이 atk_color/def_color(= 몬스터 색/기본값)를 그대로
+## 텍스트에 썼는데, 어두운 몬스터(그림자 등)의 monster_color가 거의 검정이라 전투
+## 배경(어두운 돌바닥)과 겹쳐 라벨이 안 보이는 문제가 감독 캡처로 확인됐다
+## (qa_out/art1c4_shadow_attack_before.png). 라벨은 "이번 교환에서 누가 때리고
+## 누가 막는가"라는 역할 표시일 뿐 "그 다이스가 누구 색인가"와는 무관한 정보이므로,
+## 다이스 3D 색/칩 테두리(atk_color/def_color, _layout_dice_chip_row()에서 그대로
+## 유지)와 분리해 텍스트 전용 고정 팔레트를 쓴다 — "공격"은 능동적으로 때리는 쪽이라
+## 금색으로 눈에 띄게, "방어"는 어두운 패널 배경에서도 WCAG AA(4.5:1) 이상 대비를
+## 보장하는 밝은 회백색(기존 폴백값 그대로, 몬스터 색과 무관하게 항상 이 색).
+const ATTACK_LABEL_COLOR := Color(1.0, 0.82, 0.3)
+const DEFENSE_LABEL_COLOR := Color(0.85, 0.85, 0.85)
+
 var monster_hp: int
 var monster_max_hp: int
 var monster_attack_bag: DiceBag
@@ -2220,10 +2233,10 @@ func _show_exchange_dice_chips(atk_bag: DiceBag, atk_values: Array, def_bag: Dic
 	var def_width := _dice_row_width(def_bag.dice.size())
 	var total_width := EXCHANGE_LABEL_WIDTH + atk_width + EXCHANGE_GROUP_GAP + EXCHANGE_LABEL_WIDTH + def_width
 	var x := EXCHANGE_ROW_CENTER_X - total_width / 2.0
-	x = _add_exchange_group_label("공격", x, atk_tint)
+	x = _add_exchange_group_label("공격", x, ATTACK_LABEL_COLOR)
 	x = _layout_dice_chip_row(atk_bag, atk_values, x, atk_tint)
 	x += EXCHANGE_GROUP_GAP
-	x = _add_exchange_group_label("방어", x, def_tint)
+	x = _add_exchange_group_label("방어", x, DEFENSE_LABEL_COLOR)
 	_layout_dice_chip_row(def_bag, def_values, x, def_tint)
 
 
@@ -2234,12 +2247,13 @@ func _dice_row_width(count: int) -> float:
 
 
 ## "공격"/"방어" 라벨을 x 위치에 그리고, 다음 칩이 시작할 x(라벨 폭만큼 이동한 값)를
-## 돌려준다.
-func _add_exchange_group_label(text: String, x: float, tint: Color) -> float:
+## 돌려준다. label_color는 ATTACK_LABEL_COLOR/DEFENSE_LABEL_COLOR 중 하나(몬스터 색과
+## 무관한 고정값 — 위 상수 주석 참고).
+func _add_exchange_group_label(text: String, x: float, label_color: Color) -> float:
 	var label := Label.new()
 	label.text = text
 	label.add_theme_font_size_override("font_size", 15)
-	label.add_theme_color_override("font_color", tint if tint.a > 0 else Color(0.85, 0.85, 0.85))
+	label.add_theme_color_override("font_color", label_color)
 	label.custom_minimum_size = Vector2(EXCHANGE_LABEL_WIDTH - 6.0, EXCHANGE_CHIP_SIZE)
 	label.size = Vector2(EXCHANGE_LABEL_WIDTH - 6.0, EXCHANGE_CHIP_SIZE)
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
