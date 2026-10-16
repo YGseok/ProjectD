@@ -180,7 +180,11 @@ func _ready() -> void:
 	UIKit.style_secondary_button(skill_codex_button, RunState.character_id)
 	# "상황" 배경 프레임 — 기존 PromptLabel은 그대로 두고(테스트/참조 호환) 뒤에 깔아
 	# dungeon_map/combat의 구역 패널과 시각 언어를 맞춘다(INBOX M-4 "구역 패널로 맞춘다").
-	var prompt_backdrop := UIKit.make_backdrop(self, RunState.character_id, Rect2(Vector2(32, 62), Vector2(900, 48)))
+	# [대형 기획 15] Q-1(23, 2026-10-16): 프레임 높이를 48->74로 키웠다 — PromptLabel이
+	# EventChallengePool의 긴 prompt(최대 2줄, 실측 49px)를 autowrap으로 담도록
+	# PromptLabel 자체도 60px로 키웠는데(이 밑 event.tscn의 offset_top/bottom 참고),
+	# 프레임이 그대로 48이면 2줄짜리 prompt가 프레임 밖으로 삐져나와 보인다.
+	var prompt_backdrop := UIKit.make_backdrop(self, RunState.character_id, Rect2(Vector2(32, 62), Vector2(900, 74)))
 	move_child(prompt_backdrop, 1)
 
 	var upgrade_candidates := SkillPool.available_upgrade_choices(2, RunState.character_id)
@@ -837,6 +841,14 @@ func _debug_force_special_choice_locked() -> void:
 func _debug_force_exclusive_event() -> void:
 	RunState.character_id = "pirate"
 	_debug_force_challenge("treasure_map")
+
+
+## [대형 기획 15] Q-1(23) QA 전용 — 전용 챌린지 중 prompt가 가장 긴 "circus_master"
+## (곡예사 전용, dice_test.gd _check_q1_event_text_layout()의 실측 최대 필요 높이
+## 49.0의 출처)를 강제로 보여준다. _debug_force_exclusive_event()와 같은 패턴.
+func _debug_force_circus_master_event() -> void:
+	RunState.character_id = "juggler"
+	_debug_force_challenge("circus_master")
 
 
 ## N-5(b) QA 전용: "도박" 챌린지에서 대성공(roll = DC + CRIT_MARGIN)을 강제해 골드

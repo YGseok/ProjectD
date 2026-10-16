@@ -8,6 +8,66 @@
 
 ---
 
+- **2026-10-15 (211)**: INBOX.md "남은 이슈" [대형 기획 14] **N-4(캐릭터 선택
+  능력치를 "×N" 문자열 대신 실제 다이스 칩으로 나열) 완료**. INBOX 원문: 공격/
+  방어 능력치 칩의 "공격 D4×3" 같은 문자열을 `shape_die_chip.gd`/
+  `event_die_visual.gd`를 재사용한 실제 다이스 칩 나열로 바꾸고, 시작 스킬의
+  "시작 보너스"는 칩 옆 "+n" 배지로 표시할 것.
+  **UI 변경(`character_select.gd`)**: `_build_stats_section()`의 "능력치" 섹션
+  내부를 "공격"/"방어"/"이벤트" 3줄(`_make_dice_row()`가 라벨+빈
+  HBoxContainer+배지 Label 틀을 한 번만 만듦) + HP 한 줄로 재구성했다. 기존
+  `_detail_attack_label`/`_detail_defense_label`(Label) 필드를
+  `_detail_attack_dice_row`/`_detail_defense_dice_row`(Dictionary
+  {"chips":HBoxContainer,"bonus":Label})로 교체. `_refresh_dice_chips(profile)`
+  (캐릭터를 바꿀 때마다 `_refresh_detail_panel()`이 호출)가
+  `_fill_dice_chip_row()`로 attack_count/defense_count개의 `ShapeDieChip`을
+  다시 채운다 — 각 칩은 `ShapeDieChip.shape_sides_for_dice_sides(sides)`로
+  면 모양(지금은 8명 전부 D4라 삼각형)을, `chip.value`에 굴림 결과 대신 면 수
+  자체(4)를 보여준다(이 주머니에 D4가 몇 개 있는지 한눈에 보여주는 정적
+  미리보기 — 전투 중 굴림 결과 칩과는 용도가 다름). 이벤트 다이스 줄은
+  `EventDieVisual`(로마 숫자 I, 기존 그대로) 옆에 "D%d"(event_die_sides) 텍스트를
+  둬 면 수가 바로 읽히게 했다. 프로필에 아직 없는 `attack_sides`/`defense_sides`
+  필드는 `get()` 기본값(4)으로 읽어, 나중에 캐릭터별로 시작 다이스 면 수가
+  달라져도(INBOX 원문이 언급한 미래 경우) 이 코드를 다시 안 고쳐도 되게 했다.
+  **"+n" 배지(제한된 범위)**: 캐릭터 선택 화면은 전투 상태(HP/골드/인벤토리/
+  재질 등)가 없는 "런 시작 전" 화면이라, RunState에 의존하는 시작 스킬 조건
+  (수집가/선제/대비/황금손/과적/오뚝이/잡화점/강철 방비)은 미리 계산할 수
+  없다 — **attack_count/defense_count "개수"만으로 정적으로 결정되는 4종
+  (맹공/철벽/확장/정예)만** 배지로 보여준다(신규 `_static_dice_bonus()`가
+  `combat_test.gd`의 실전 적용 함수 `_aggro_bonus`/`_wall_bonus`/
+  `_expand_bonus`/`_lean_bonus`를 `load()` 패턴으로 그대로 재사용 — 공식을
+  두 곳에 중복 정의하지 않음). 배지는 `RunState.chosen_starting_skill_id`가
+  확정되는 시점(`_rebuild_starting_skill_slots()` 맨 끝, 캐릭터 전환·시작
+  스킬 선택 양쪽에서 호출됨)에만 신규 `_refresh_dice_bonus_badges()`로
+  다시 계산한다 — 그보다 이른 시점(`_refresh_detail_panel()` 중간)에선
+  chosen_starting_skill_id가 아직 새 캐릭터 기준으로 검증되지 않았을 수 있어서
+  분리했다.
+  **검증**: `dice_test.gd`에 신규 `_check_n4_dice_chip_stats()` — (a) 8명 전부
+  공격/방어 칩 컨테이너 자식 개수가 프로필의 attack_count/defense_count와
+  정확히 같은지, 모든 칩의 shape_sides/value가 실제 면 수(4)와 일치하는지
+  (b) 이벤트 다이스 줄 텍스트가 event_die_sides와 일치하고 비주얼이 실제로
+  트리에 붙어 있는지 (c) `_static_dice_bonus()`가 `combat_test.gd`의 실전
+  함수와 9개 조합(경계값 포함)에서 정확히 같은 값을 내는지 (d) 실제 화면
+  end-to-end — 광전사(공격4/방어2, 슬롯0=맹공)를 고르면 공격 줄에 "+1" 배지가
+  뜨고 방어 줄은 숨겨지는지, 견습 모험가(공격3/방어3, 슬롯0=확장, 합계
+  6<8이라 보너스 없음)를 고르면 양쪽 다 숨겨지는지(업적 해금 상태가 다른
+  테스트에서 남아있어도 결과가 달라지지 않도록 `AchievementManager.
+  _debug_reset_for_qa()`로 테스트 시작/종료에 리셋). 기존 K-2 검증
+  (`_check_k2_character_select_sections`)이 참조하던 `_detail_attack_label`/
+  `_detail_defense_label`도 새 Dictionary 구조(`chips.get_child_count() > 0`)로
+  갱신. `bash scripts/qa_shot.sh dice_test` 전체 PASS(FAIL 0건, N-4 신규 검증
+  전부 OK, 2회 재확인). **셀프 피드백 1라운드**: `qa_out/n4_{novice,
+  berserker,guardian,pirate}.png` 4장을 직접 읽어 — 공격/방어 다이스가 실제
+  삼각형(D4) 칩으로 개수만큼 나열됨(견습 모험가 3/3, 광전사 4/2, 수호자 2/4,
+  해적 2/3), 이벤트 줄이 로마 숫자 칩+"D6"로 보임, 광전사는 공격 줄 끝에
+  금색 "+1" 배지(맹공, 공격4>방어2), 수호자는 방어 줄 끝에 금색 "+1" 배지
+  (철벽, 방어4>공격2), 해적은 배지 없음(선제는 정적 4종에 안 속해 의도대로
+  미표시)을 확인 — "상" 수준 문제 없이 1라운드로 종료. 전투 규칙/밸런스는
+  건드리지 않았다. INBOX.md의 이 항목은 "부분 처리됨"에 그대로 두되 진행
+  한 줄을 N-4 완료로 갱신했다([대형 기획 14] 전체는 N-5~N-6이 남아 아직
+  "처리됨"으로 못 옮김). **다음은 N-5(a)(곡예사를 이벤트 특화 클래스로 —
+  event_die_sides 상향 + 시작 스킬 이벤트 테마 재구성).**
+
 - **2026-10-15 (210)**: INBOX.md "남은 이슈" [대형 기획 14] **N-3(스킬 도감·업적
   등 "문자열처럼 보이는" 버튼을 버튼처럼 보이게) 완료**. INBOX 원문: 화면 전체에서
   flat/무테두리 Button을 전수 검색해 UIKit 버튼 팩토리 보조(secondary) 스타일로

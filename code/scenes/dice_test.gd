@@ -417,11 +417,39 @@ func _ready() -> void:
 	all_pass = _check_art1c4_dice_label_contrast(lines) and all_pass
 
 	lines.append("")
+	lines.append("[Q-1(17,24): 몬스터 포트레이트 티어별 배율/화면 밖 잘림 — MONSTER_PORTRAIT_SCALE_BY_TIER가 보스>정예>일반 단조 증가 + 보스가 일반 대비 >=1.4배인지, 카탈로그 전수(일반/정예/보스)를 production 배치(앵커+배율)로 실제 렌더해 _face_rect/_glow_rect 글로벌 rect가 전부 화면(1280x720) 안에 들어오는지]")
+	all_pass = _check_q1_monster_portrait_tier_bounds(lines) and all_pass
+
+	lines.append("")
+	lines.append("[Q-1(18): 전투 종료 후 다이스 결과 칩 줄이 보상/패배 버튼과 안 겹치는지 — battle_over가 true가 되는 시점(_maybe_finish_battle, 승리/패배 공통)에 _exchange_chip_nodes가 실제로 비워지는지, 비워진 뒤 남은 노드가 없어 보상 액션 버튼과 rect 교차가 0인지(승리/패배 둘 다)]")
+	all_pass = (await _check_q1_reward_chip_overlap(lines)) and all_pass
+
+	lines.append("")
+	lines.append("[Q-1(23): 이벤트 텍스트가 UI(배경 프레임/버튼)에 맞게 들어가는지 — event.gd PromptLabel이 EventChallengePool 전수 prompt(+스킬 이벤트 2종)에서 autowrap으로 배경 프레임 폭 안에 들어오고 버튼과 안 겹치는지, story_event.gd Description이 시나리오 8종 전수에서 같은 조건 + 배경 프레임 안에서 수직 중앙 정렬되는지, 실제 Label 노드의 autowrap 레이아웃(get_combined_minimum_size)으로 측정]")
+	all_pass = (await _check_q1_event_text_layout(lines)) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
 	print(text)
 	result_label.text = text
+
+
+## [대형 기획 15] Q-1 공통 전제(2026-10-16) — visual_qa.gd는 GAME_QA_FRAME에 도달하면
+## (GAME_QA_SETTLE 없이는) 현재 씬의 진행 상태와 무관하게 캡처+quit()한다. 이 테스트
+## 스위트가 await로 여러 프레임에 걸쳐 끝나는 체크(Q-1(18)/(23) 등)가 늘면서 기본
+## 프레임(60)으로는 끝까지 못 돌고 중간에 잘려 "결과: PASS/FAIL" 줄조차 못 찍는 사고가
+## 실제로 있었다(원인 파악에 한 이터레이션 상당 소모). `scripts/qa_shot.sh dice_test`
+## 호출 시 5번째 인자(settle)에 "1"을 주면 이 함수가 true가 될 때까지(결과가 실제로
+## 찍힐 때까지) 캡처를 미뤄, 앞으로 체크가 더 늘어도 프레임 수를 손으로 다시 맞출
+## 필요가 없다.
+func _qa_is_settled() -> bool:
+	# result_label의 초기 텍스트가 "(로딩 중...)"(dice_test.tscn, 빈 문자열이 아님)라
+	# is_empty()로는 처음부터 항상 true가 되는 버그가 있었다(실제로 겪음 — settle=1로
+	# 돌려도 프레임 60에서 바로 "정지"로 오판해 캡처, 테스트는 아직 중간이라 "결과:" 줄도
+	# 없이 잘림) — 최종 줄에 항상 들어가는 "결과:" 포함 여부로 판정한다.
+	return result_label.text.contains("결과:")
 
 
 ## [대형 기획 13] M-5a(2026-10-15) 신설 — resources/ui/ 실제 스킨 자산이 입고되면서
@@ -7871,15 +7899,11 @@ func _check_m2_combat_hud(lines: PackedStringArray) -> bool:
 		next_fp, codex_fp, "OK" if button_hierarchy_ok else "FAIL"
 	])
 
-	# 초상화가 더는 화면 밖으로 안 나가는지 — 보스 배율(PORTRAIT_SCALE_BOSS)을 적용해도
-	# 몬스터 포트레이트의 가장 넓은 지점(ellipse radius_x=66)이 뷰포트(1280) 안에 있어야 함.
-	var monster_portrait: Node2D = combat.get_node("MonsterPortrait")
-	var boss_right_edge: float = monster_portrait.position.x + 66.0 * combat.PORTRAIT_SCALE_BOSS
-	var portrait_within_viewport_ok: bool = boss_right_edge < 1280.0
-	ok = portrait_within_viewport_ok and ok
-	lines.append("  보스 배율 몬스터 포트레이트 우측 끝 x=%.1f (기대 <1280, 화면 밖으로 안 나감) -> %s" % [
-		boss_right_edge, "OK" if portrait_within_viewport_ok else "FAIL"
-	])
+	# "몬스터 포트레이트가 화면 밖으로 안 나가는지"는 [대형 기획 15] Q-1(17,24)로
+	# _check_q1_monster_portrait_tier_bounds()가 대체했다(이 자리의 옛 체크는 거의 안
+	# 쓰이는 도형 플레이스홀더의 ellipse radius=66 + 삭제된 PORTRAIT_SCALE_BOSS 상수를
+	# 썼던 것 — 실제 원화 _face_rect/_glow_rect를 카탈로그 전수로 재는 새 체크가 완전히
+	# 상위 호환이라 중복 제거).
 
 	remove_child(combat)
 	combat.free()
@@ -10567,5 +10591,318 @@ func _check_art1c4_dice_label_contrast(lines: PackedStringArray) -> bool:
 
 	remove_child(combat)
 	combat.free()
+	return ok
+
+
+## [대형 기획 15] Q-1(17, 24, 2026-10-16) — 몬스터 포트레이트 배율/화면 밖 잘림 검증.
+## 사용자 피드백(17) "몬스터 이미지가 잘린다"/(24) "보스가 다른 몬스터와 사이즈가 비슷해
+## 위상이 안 높아 보인다" — 기존 유일한 검증(_check_m3_combat_dice_stage의 "ellipse
+## radius_x=66" 체크)은 지금은 거의 안 쓰이는 도형 플레이스홀더 경로만 쟀을 뿐, 실제
+## 원화(_face_rect)/글로우(_glow_rect)가 production 배치 좌표에서 화면 밖으로 나가는지는
+## 한 번도 검증된 적이 없었다. combat_test.gd의 _apply_monster_portrait_tier()(production이
+## 실제로 쓰는 바로 그 함수)를 카탈로그 전수(일반/정예/보스 전부)에 실제로 호출해
+## _face_rect.get_global_rect()(그리고 보이면 _glow_rect도)가 화면(1280x720) 안에 드는지
+## 전부 측정한다 — "_debug_shift_monster_portrait_center로 화면 중앙에 옮긴 뒤" 보는 게
+## 아니라 실제 프로덕션 앵커(MONSTER_PORTRAIT_BASE_POSITION)+배율 그대로다.
+func _check_q1_monster_portrait_tier_bounds(lines: PackedStringArray) -> bool:
+	var ok := true
+	var combat_script := load("res://code/scenes/combat_test.gd")
+	var scale_by_tier: Dictionary = combat_script.MONSTER_PORTRAIT_SCALE_BY_TIER
+
+	var normal_s: float = scale_by_tier.get("normal", 1.0)
+	var elite_s: float = scale_by_tier.get("elite", 1.0)
+	var boss_s: float = scale_by_tier.get("boss", 1.0)
+	var monotonic_ok: bool = boss_s > elite_s and elite_s > normal_s
+	ok = monotonic_ok and ok
+	lines.append("  티어별 배율 상수: 일반=%.2f 정예=%.2f 보스=%.2f (보스>정예>일반이어야 함) -> %s" % [
+		normal_s, elite_s, boss_s, "OK" if monotonic_ok else "FAIL"
+	])
+	var const_ratio_ok: bool = normal_s > 0.0 and (boss_s / normal_s) >= 1.4
+	ok = const_ratio_ok and ok
+	lines.append("  보스/일반 배율 비=%.2f (기대 >= 1.4) -> %s" % [
+		(boss_s / normal_s) if normal_s > 0.0 else -1.0, "OK" if const_ratio_ok else "FAIL"
+	])
+
+	var combat_scene := load("res://code/scenes/combat_test.tscn")
+	var combat = combat_scene.instantiate()
+	add_child(combat)
+	var screen := Rect2(0.0, 0.0, 1280.0, 720.0)
+
+	# 실제 렌더 높이로도 "보스 > 정예 > 일반" 및 "보스 >= 일반 * 1.4"를 확인한다(상수값이
+	# 아니라 실제 노드 rect — 대표 몬스터 3종은 전부 production 원화가 입고돼 있음).
+	var rep_by_tier := {"normal": "slime", "elite": "goblin_chief", "boss": "goblin_king"}
+	var rep_heights := {}
+	for tier_key in rep_by_tier:
+		var mid: String = rep_by_tier[tier_key]
+		var is_boss: bool = tier_key == "boss"
+		var is_elite: bool = tier_key == "elite"
+		combat.monster_portrait.set_monster(mid)
+		combat._apply_monster_portrait_tier(is_elite, is_boss)
+		var fr: TextureRect = combat.monster_portrait._face_rect
+		rep_heights[tier_key] = fr.get_global_rect().size.y if fr != null else 0.0
+	var render_monotonic_ok: bool = rep_heights["boss"] > rep_heights["elite"] and rep_heights["elite"] > rep_heights["normal"]
+	ok = render_monotonic_ok and ok
+	lines.append("  실제 렌더 높이: 일반(%s)=%.1f 정예(%s)=%.1f 보스(%s)=%.1f (보스>정예>일반) -> %s" % [
+		rep_by_tier["normal"], rep_heights["normal"], rep_by_tier["elite"], rep_heights["elite"],
+		rep_by_tier["boss"], rep_heights["boss"], "OK" if render_monotonic_ok else "FAIL"
+	])
+	var render_ratio_ok: bool = rep_heights["normal"] > 0.0 and (rep_heights["boss"] / rep_heights["normal"]) >= 1.4
+	ok = render_ratio_ok and ok
+	lines.append("  실제 렌더 높이 비(보스/일반)=%.2f (기대 >= 1.4) -> %s" % [
+		(rep_heights["boss"] / rep_heights["normal"]) if rep_heights["normal"] > 0.0 else -1.0,
+		"OK" if render_ratio_ok else "FAIL"
+	])
+
+	# 카탈로그 전수(35종) — production 배치(앵커+배율)로 실제 렌더해 화면 밖 잘림이 있는지
+	# _face_rect/_glow_rect 둘 다 Rect2.encloses()로 확인한다("_debug_shift_monster_
+	# portrait_center" 같은 QA 전용 중앙 이동 없이 실제 배치 좌표 그대로).
+	var out_of_bounds: Array[String] = []
+	var checked_count := 0
+	for profile in MonsterCatalog.MONSTERS:
+		var mid: String = profile["id"]
+		var tier: String = profile.get("tier", "normal")
+		var is_boss := tier == "boss"
+		var is_elite := tier == "elite"
+		combat.monster_portrait.set_monster(mid)
+		combat._apply_monster_portrait_tier(is_elite, is_boss)
+		checked_count += 1
+		var fr: TextureRect = combat.monster_portrait._face_rect
+		if fr != null and fr.visible:
+			var r := fr.get_global_rect()
+			if not screen.encloses(r):
+				out_of_bounds.append("%s(face, tier=%s, rect=%s)" % [mid, tier, r])
+		var gr_node: TextureRect = combat.monster_portrait._glow_rect
+		if gr_node != null and gr_node.visible:
+			var gr := gr_node.get_global_rect()
+			if not screen.encloses(gr):
+				out_of_bounds.append("%s(glow, tier=%s, rect=%s)" % [mid, tier, gr])
+
+	var bounds_ok: bool = out_of_bounds.is_empty()
+	ok = bounds_ok and ok
+	lines.append("  카탈로그 전수(%d종) production 배치 화면 밖 잘림 검사 -> %s%s" % [
+		checked_count, "OK" if bounds_ok else "FAIL",
+		("" if bounds_ok else (" (잘림: " + ", ".join(out_of_bounds) + ")"))
+	])
+
+	remove_child(combat)
+	combat.free()
+
+	return ok
+
+
+## [대형 기획 15] Q-1(18, 2026-10-16) — 감독 피드백 재현: "전투 후 보상 선택을 하고
+## 나면 주사위 값(결과 칩 줄)이 버튼과 겹친다". 원인은 EXCHANGE_CHIP_Y(526)가
+## REWARD_FRAME_TOP~BOTTOM(184~560) 범위 안인데, 전투가 끝나면 더 이상 새 교환이
+## 없어 마지막 교환의 결과 칩 줄이 화면에 그대로 남아 보상 카드/버튼과 같은 자리에
+## 걸쳐 있었던 것 — `_maybe_finish_battle()`이 battle_over를 확정하는 시점에
+## `_clear_exchange_dice_chips()`를 호출하도록 고쳤다. 승리(보상 UI)/패배(다음 버튼)
+## 둘 다 같은 함수를 거치므로 한 번에 검증한다. "플래그만 보지 않는다" 원칙대로
+## _exchange_chip_nodes가 실제로 비는지 + 남는 노드가 있다면 보상 버튼과 rect 교차가
+## 없는지(이중 안전망)까지 확인한다.
+func _check_q1_reward_chip_overlap(lines: PackedStringArray) -> bool:
+	var ok := true
+
+	var character_backup := RunState.character_id
+	var test_battle_backup := RunState.test_battle
+
+	# --- 승리: 보상 UI가 뜬 상태에서 칩 줄이 비는지 ---
+	RunState.character_id = "novice"
+	RunState.test_battle = false # production의 "승리 -> 보상 UI" 경로를 타게 강제(테스트
+	# 전투 경로는 보상 카드 대신 "다시 하기"/"설정으로 돌아가기"를 보여줘 이 버그 재현과
+	# 다른 분기라 반드시 꺼둬야 한다).
+	var combat_scene := load("res://code/scenes/combat_test.tscn")
+	var combat_win = combat_scene.instantiate()
+	add_child(combat_win)
+
+	var atk_bag := DiceBag.new(4, 3)
+	var def_bag := DiceBag.new(4, 2)
+	combat_win._show_exchange_dice_chips(atk_bag, [1, 2, 3], def_bag, [4, 1], Color(0.9, 0.3, 0.3, 1), Color(0.3, 0.5, 0.9, 1))
+	var chips_before_win: int = combat_win._exchange_chip_nodes.size()
+	combat_win.battle_over = true
+	combat_win.player_won = true
+	combat_win.monster_hp = 0
+	await combat_win._maybe_finish_battle(0)
+
+	var win_chips_cleared_ok: bool = chips_before_win > 0 and combat_win._exchange_chip_nodes.is_empty()
+	ok = win_chips_cleared_ok and ok
+	lines.append("  승리(보상 UI) 전 결과 칩 %d개 -> battle_over 처리 후 %d개(기대 0) -> %s" % [
+		chips_before_win, combat_win._exchange_chip_nodes.size(), "OK" if win_chips_cleared_ok else "FAIL"
+	])
+
+	var win_reward_shown_ok: bool = combat_win._reward_action_buttons.size() > 0
+	ok = win_reward_shown_ok and ok
+	lines.append("  보상 액션 버튼 실제로 생성됨(개수=%d) -> %s" % [
+		combat_win._reward_action_buttons.size(), "OK" if win_reward_shown_ok else "FAIL"
+	])
+
+	# 이중 안전망 — 혹시 남은 칩 노드가 있어도(있으면 안 되지만) 보상 버튼과 rect가
+	# 겹치면 안 된다는 것을 노드 rect 교차 계산으로 직접 확인.
+	var win_overlap_found := false
+	for chip_node in combat_win._exchange_chip_nodes:
+		if chip_node is Control:
+			var chip_rect: Rect2 = (chip_node as Control).get_global_rect()
+			for btn in combat_win._reward_action_buttons:
+				if chip_rect.intersects(btn.get_global_rect()):
+					win_overlap_found = true
+	var win_no_overlap_ok: bool = not win_overlap_found
+	ok = win_no_overlap_ok and ok
+	lines.append("  (안전망) 남은 칩 rect와 보상 버튼 rect 교차 없음 -> %s" % (
+		"OK" if win_no_overlap_ok else "FAIL"
+	))
+
+	remove_child(combat_win)
+	combat_win.free()
+
+	# --- 패배: "처음부터 다시" 버튼이 뜬 상태에서도 칩 줄이 비는지 ---
+	var combat_lose = combat_scene.instantiate()
+	add_child(combat_lose)
+	combat_lose._show_exchange_dice_chips(atk_bag, [1, 1, 1], def_bag, [1, 1], Color(0.9, 0.3, 0.3, 1), Color(0.3, 0.5, 0.9, 1))
+	var chips_before_lose: int = combat_lose._exchange_chip_nodes.size()
+	combat_lose.battle_over = true
+	combat_lose.player_won = false
+	combat_lose.player_hp = 0
+	await combat_lose._maybe_finish_battle(0)
+
+	var lose_chips_cleared_ok: bool = chips_before_lose > 0 and combat_lose._exchange_chip_nodes.is_empty()
+	ok = lose_chips_cleared_ok and ok
+	lines.append("  패배(다음 버튼) 전 결과 칩 %d개 -> battle_over 처리 후 %d개(기대 0) -> %s" % [
+		chips_before_lose, combat_lose._exchange_chip_nodes.size(), "OK" if lose_chips_cleared_ok else "FAIL"
+	])
+
+	var lose_next_visible_ok: bool = combat_lose.next_button.visible
+	ok = lose_next_visible_ok and ok
+	lines.append("  패배 화면 '처음부터 다시' 버튼 visible=%s(기대 true) -> %s" % [
+		combat_lose.next_button.visible, "OK" if lose_next_visible_ok else "FAIL"
+	])
+
+	var lose_overlap_found := false
+	for chip_node in combat_lose._exchange_chip_nodes:
+		if chip_node is Control and (chip_node as Control).get_global_rect().intersects(combat_lose.next_button.get_global_rect()):
+			lose_overlap_found = true
+	var lose_no_overlap_ok: bool = not lose_overlap_found
+	ok = lose_no_overlap_ok and ok
+	lines.append("  (안전망) 남은 칩 rect와 '다음' 버튼 rect 교차 없음 -> %s" % (
+		"OK" if lose_no_overlap_ok else "FAIL"
+	))
+
+	remove_child(combat_lose)
+	combat_lose.free()
+
+	RunState.character_id = character_backup
+	RunState.test_battle = test_battle_backup
+	return ok
+
+
+## [대형 기획 15] Q-1(23, 2026-10-16) — 감독 재현: "'수상한 도박꾼' 이벤트에서 이벤트
+## 텍스트가 UI에 맞지 않게 들어가 있다". 실제 원인은 두 가지였다: ① event.gd의
+## PromptLabel이 autowrap_mode를 아예 안 켠 채(기본값 OFF) 폭 920(원래는 1240)짜리
+## 고정 박스에 들어있어, EventChallengePool의 실제 prompt 문구(최대 70자 이상)가 줄바꿈
+## 없이 한 줄로 그려지며 라벨 자기 박스조차 훌쩍 넘어 화면 오른쪽 밖으로 삐져나갔다.
+## ② story_event.gd의 Description은 autowrap은 있었지만 vertical_alignment가 기본값
+## (TOP)이라 자기보다 큰 배경 프레임(UIKit.make_backdrop) 안에서 텍스트가 위쪽에만
+## 붙고 아래가 텅 비어 "패널과 안 맞는" 모양이었다(`qa_out/q1_23_gambler_event.png`로
+## 직접 확인). 두 라벨 다 autowrap_mode=3(WORD_SMART)+vertical_alignment=1(CENTER)+
+## 배경 프레임과 같은 폭(920)으로 맞췄다 — 이 테스트는 "모든 이벤트 데이터를 순회해
+## 렌더된 텍스트 노드 rect가 부모 패널 rect 안인지 검사"(INBOX 원문)를 실제 Label
+## 노드로 autowrap 레이아웃까지 거쳐 측정한다(하드코딩 글자수 계산 아님).
+func _check_q1_event_text_layout(lines: PackedStringArray) -> bool:
+	var ok := true
+
+	# --- event.gd PromptLabel: EventChallengePool 전수 prompt + 스킬 이벤트 2종 ---
+	var event_scene := load("res://code/scenes/event.tscn")
+	var event_node = event_scene.instantiate()
+	add_child(event_node)
+	await get_tree().process_frame
+
+	var prompt_label: Label = event_node.prompt_label
+	var prompt_backdrop_rect := Rect2(Vector2(32, 62), Vector2(900, 74)) # event.gd _ready()의 make_backdrop 인자와 동일
+	var safe_button_rect: Rect2 = event_node.get_node("SafeButton").get_global_rect()
+
+	var prompt_texts: Array[String] = []
+	for c in EventChallengePool.CHALLENGES:
+		prompt_texts.append(c["prompt"])
+	prompt_texts.append("낯선 기운이 스며든다. 후보 중 하나를 익힐 수 있을 것 같다.")
+	prompt_texts.append("낯익은 기운이 한층 짙어진다. 후보 중 하나를 골라 더 강하게 벼릴 수 있을 것 같다.")
+
+	var worst_prompt := ""
+	var worst_prompt_height := 0.0
+	for t in prompt_texts:
+		prompt_label.text = t
+		await get_tree().process_frame
+		var h: float = prompt_label.get_combined_minimum_size().y
+		if h > worst_prompt_height:
+			worst_prompt_height = h
+			worst_prompt = t
+		var label_rect: Rect2 = prompt_label.get_global_rect()
+		# 실제 autowrap 레이아웃 결과 rect가 배경 프레임 폭을 넘지 않는지(가로 — autowrap이
+		# 켜졌으니 넘으면 안 됨), 그리고 세로로 자란 뒤에도 바로 아래 버튼과 안 겹치는지.
+		var within_backdrop_width: bool = label_rect.position.x >= prompt_backdrop_rect.position.x \
+			and label_rect.position.x + label_rect.size.x <= prompt_backdrop_rect.position.x + prompt_backdrop_rect.size.x + 1.0
+		var grown_rect := Rect2(label_rect.position, Vector2(label_rect.size.x, h))
+		var no_button_overlap: bool = not grown_rect.intersects(safe_button_rect)
+		if not (within_backdrop_width and no_button_overlap):
+			ok = false
+			lines.append("  PromptLabel '%s' -> 폭 안=%s, 버튼 비겹침=%s, 필요 높이=%.1f (FAIL)" % [
+				t.left(20) + ("..." if t.length() > 20 else ""), within_backdrop_width, no_button_overlap, h
+			])
+	var prompt_fit_ok := ok
+	lines.append("  EventChallengePool prompt %d종 + 스킬 이벤트 2종 전수: 배경 프레임 폭 안 + 버튼과 비겹침 -> %s (최대 필요 높이=%.1f, '%s')" % [
+		prompt_texts.size(), "OK" if prompt_fit_ok else "FAIL", worst_prompt_height,
+		worst_prompt.left(24) + ("..." if worst_prompt.length() > 24 else "")
+	])
+
+	var prompt_autowrap_ok: bool = prompt_label.autowrap_mode != TextServer.AUTOWRAP_OFF
+	ok = prompt_autowrap_ok and ok
+	lines.append("  PromptLabel.autowrap_mode=%d (기대 != OFF=0, 줄바꿈 없이 화면 밖으로 안 나가게) -> %s" % [
+		prompt_label.autowrap_mode, "OK" if prompt_autowrap_ok else "FAIL"
+	])
+
+	remove_child(event_node)
+	event_node.free()
+
+	# --- story_event.gd Description: 시나리오 8종 전수 ---
+	var story_scene := load("res://code/scenes/story_event.tscn")
+	var story_node = story_scene.instantiate()
+	add_child(story_node)
+	await get_tree().process_frame
+
+	var desc_label: Label = story_node.desc_label
+	var desc_backdrop_rect := Rect2(Vector2(32, 74), Vector2(900, 72)) # story_event.gd _ready()의 make_backdrop 인자와 동일
+	var choice_a_rect: Rect2 = story_node.choice_a_button.get_global_rect()
+
+	var worst_desc := ""
+	var worst_desc_height := 0.0
+	var desc_ok := true
+	for s in StoryEventPool.SCENARIOS:
+		var t: String = s["description"]
+		desc_label.text = t
+		await get_tree().process_frame
+		var h: float = desc_label.get_combined_minimum_size().y
+		if h > worst_desc_height:
+			worst_desc_height = h
+			worst_desc = t
+		var label_rect: Rect2 = desc_label.get_global_rect()
+		var within_backdrop: bool = label_rect.position.x >= desc_backdrop_rect.position.x \
+			and label_rect.position.x + label_rect.size.x <= desc_backdrop_rect.position.x + desc_backdrop_rect.size.x + 1.0
+		var grown_rect := Rect2(label_rect.position, Vector2(label_rect.size.x, h))
+		var no_overlap: bool = not grown_rect.intersects(choice_a_rect)
+		if not (within_backdrop and no_overlap):
+			desc_ok = false
+			lines.append("  Description '%s' -> 폭 안=%s, 버튼 비겹침=%s, 필요 높이=%.1f (FAIL)" % [
+				t, within_backdrop, no_overlap, h
+			])
+	ok = desc_ok and ok
+	lines.append("  StoryEventPool description %d종 전수: 배경 프레임 폭 안 + A안 버튼과 비겹침 -> %s (최대 필요 높이=%.1f, '%s')" % [
+		StoryEventPool.SCENARIOS.size(), "OK" if desc_ok else "FAIL", worst_desc_height, worst_desc
+	])
+
+	var desc_vcenter_ok: bool = desc_label.vertical_alignment == VERTICAL_ALIGNMENT_CENTER
+	ok = desc_vcenter_ok and ok
+	lines.append("  Description.vertical_alignment=%d (기대 CENTER=1, 배경 프레임 안에서 위로 쏠리지 않게) -> %s" % [
+		desc_label.vertical_alignment, "OK" if desc_vcenter_ok else "FAIL"
+	])
+
+	remove_child(story_node)
+	story_node.free()
 
 	return ok

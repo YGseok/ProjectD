@@ -108,6 +108,15 @@ fi
 
 RUN_CMD=("$GODOT_BIN" --path "$PROJECT_DIR")
 
+# [대형 기획 15] Q-1 공통 전제 — 이 환경에서 QA 캡처 폭이 이따금 1280px 대신
+# 1028px로 잘리는 현상이 여러 세션에 걸쳐 반복 기록됐다(원인 불명으로 추정 —
+# 창이 화면 밖 좌표로 옮겨질 때 멀티 모니터 배치에 따라 다른 DPI 스케일의
+# 가상 모니터에 걸쳐 창 크기가 재계산되는 것으로 의심됨, project.godot는 DPI
+# 설정이 아예 없어 엔진 기본값을 그대로 씀). project.godot의
+# viewport_width/height(1280/720)에만 의존하지 않고, 커맨드라인에서 직접
+# 창 해상도를 강제 지정해 DPI/타이밍에 따른 재계산 여지를 줄인다.
+RUN_CMD+=(--resolution 1280x720)
+
 # 캡처용 창이 작업 중인 화면에 번쩍 뜨는 것(이터레이션이 스크린샷을 찍을 때마다 팝업)을
 # 막기 위해 창을 화면 밖 좌표에 띄운다. 렌더링/스크린샷은 화면 밖에서도 정상 동작한다
 # (2026-10-15 확인). 창을 눈으로 보고 싶으면 QA_SHOW_WINDOW=1 로 실행.
@@ -183,10 +192,33 @@ if [[ "$FINAL_OUT" != /* ]]; then
   FINAL_OUT="$PROJECT_DIR/$FINAL_OUT"
 fi
 
-if [[ -f "$FINAL_OUT" && -s "$FINAL_OUT" ]]; then
-  echo "[qa_shot] 성공: $FINAL_OUT"
-  exit 0
-else
+if [[ ! -f "$FINAL_OUT" || ! -s "$FINAL_OUT" ]]; then
   echo "[qa_shot] 실패: 스크린샷 파일이 없거나 비어있습니다: $FINAL_OUT (godot exit=$GODOT_EXIT)" >&2
   exit 1
 fi
+
+# [대형 기획 15] Q-1 공통 전제 — "캡처가 항상 1280x720이어야 한다"를 스크립트가 직접
+# 검사한다. PNG 포맷은 바이트 16~23(IHDR 청크의 width/height, 각 4바이트 big-endian
+# unsigned int)에 실제 픽셀 크기를 담고 있으므로, 별도 이미지 처리 도구 없이 헤더
+# 바이트만 읽어 폭/높이를 계산한다(이 환경에서 python/awk 같은 범용 스크립팅 도구는
+# 별도 승인 없이 못 쓰지만, xxd/od는 qa_shot.sh 자신의 셸 프로세스 안에서 그냥
+# 실행되므로 문제 없음).
+EXPECTED_WIDTH=1280
+EXPECTED_HEIGHT=720
+PNG_HEADER_HEX="$(xxd -s 16 -l 8 -p "$FINAL_OUT" | tr -d '\n')"
+if [[ ${#PNG_HEADER_HEX} -eq 16 ]]; then
+  ACTUAL_WIDTH=$((16#${PNG_HEADER_HEX:0:8}))
+  ACTUAL_HEIGHT=$((16#${PNG_HEADER_HEX:8:8}))
+else
+  ACTUAL_WIDTH=-1
+  ACTUAL_HEIGHT=-1
+fi
+
+if [[ "$ACTUAL_WIDTH" -ne "$EXPECTED_WIDTH" || "$ACTUAL_HEIGHT" -ne "$EXPECTED_HEIGHT" ]]; then
+  echo "[qa_shot] 실패: 캡처 해상도가 기대값과 다릅니다: ${ACTUAL_WIDTH}x${ACTUAL_HEIGHT} (기대 ${EXPECTED_WIDTH}x${EXPECTED_HEIGHT}) — $FINAL_OUT" >&2
+  echo "          이 환경에서 반복된 QA 캡처 폭 잘림 이슈일 수 있음(docs/STATUS.md '알려진 이슈' 참고)." >&2
+  exit 1
+fi
+
+echo "[qa_shot] 성공: $FINAL_OUT (${ACTUAL_WIDTH}x${ACTUAL_HEIGHT})"
+exit 0

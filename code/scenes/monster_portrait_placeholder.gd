@@ -67,7 +67,9 @@ const FACE_ART_SIZE := CharacterPortraitPlaceholder.FACE_ART_SIZE
 ## [미니 기획 ART-1c] MonsterPortrait는 화면 우측(combat_test.tscn position.x=1170,
 ## 거의 화면 끝 1280 근처)에 있어 ART-2가 플레이어 쪽(화면 좌측)에서 고친 "왼쪽으로
 ## 잘림"과 반대로 "오른쪽으로 잘림" 문제가 생긴다 — 같은 보정을 반대 방향(좌측 이동,
-## 음수)으로 적용. PORTRAIT_SCALE_BOSS(1.3)까지 고려해 셀프 피드백 캡처로 확정한 값.
+## 음수)으로 적용. 당시 보스 배율(1.3)까지 고려해 셀프 피드백 캡처로 확정한 값 — 이후
+## [대형 기획 15] Q-1(17,24)로 combat_test.gd의 MONSTER_PORTRAIT_SCALE_BY_TIER가
+## 보스 배율을 1.6으로 올리면서 BOSS_PORTRAIT_POSITION_SHIFT로 앵커도 함께 보정한다.
 const FACE_ART_SHIFT := Vector2(-56.0, 16.0)
 const FACE_ART_FADE_SHADER := CharacterPortraitPlaceholder.FACE_ART_FADE_SHADER
 

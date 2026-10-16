@@ -157,6 +157,24 @@ func _debug_open_customize() -> void:
 	customize_panel.open()
 
 
+## [대형 기획 15] Q-1(23) QA 전용 — 감독이 지목한 "수상한 도박꾼" 시나리오를 랜덤
+## 추첨과 무관하게 강제로 보여준다(_debug_force_low_gold_loss()와 같은 패턴, id로
+## 찾지 않고 title로 찾는 이유도 동일 — SCENARIOS가 순서 보장 배열이 아니라서).
+func _debug_force_scenario_by_title(scenario_title: String) -> void:
+	for s in StoryEventPool.SCENARIOS:
+		if s["title"] == scenario_title:
+			_scenario = s
+			break
+	title_label.text = _scenario["title"]
+	desc_label.text = _scenario["description"]
+	choice_a_button.text = _scenario["choice_a"]["label"]
+	choice_b_button.text = _scenario["choice_b"]["label"]
+
+
+func _debug_force_scenario_gambler() -> void:
+	_debug_force_scenario_by_title("수상한 도박꾼")
+
+
 ## [대형 기획 12] L-2(c): 던전 진행 중에는 "이번 회차 보유"가 반영돼야 하므로
 ## RunState.skill_flags를 그대로 넘긴다(dungeon_map.gd의 _on_skill_codex_pressed()와
 ## 같은 이유).

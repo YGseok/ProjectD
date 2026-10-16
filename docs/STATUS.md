@@ -5,38 +5,37 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-10-16 (220)
-- 작성자: AI 에이전트. 세션 프롬프트로 직접 전달된 **[대형 기획 13] [미니 기획
-  ART-1c-4](어두운 몬스터 외곽 글로우 + 주사위 줄 라벨 대비 확인) 완료**.
-  아트 스레드가 몬스터 전신 34세트를 전량 입고(219)한 뒤 감독이 combat_test
-  캡처로 발견한 두 가지 가시성 문제.
-  **① 어두운 몬스터 외곽 글로우**: `CharacterArt.average_opaque_luminance()`
-  (불투명 픽셀만의 평균 상대 휘도, 신규)가 `DARK_PORTRAIT_LUMINANCE_THRESHOLD`
-  (=0.22)보다 낮으면 "어두운 컷"으로 판정하는 몬스터 id 비의존 공용 로직을
-  추가하고, `MonsterPortraitPlaceholder`가 어두울 때만 확대 복제 TextureRect
-  (`_glow_rect`, GLOW_SCALE=1.18, 본체보다 먼저 그려 가장자리만 노출)를 밝은
-  보라/회백 톤·알파 0.32로 깐다. 입고된 34종(카탈로그 35종 전수 — dark_knight
-  별칭 포함) 중 **shadow(그림자, 휘도 0.119) 1종만** 기준 미달로 글로우 대상.
-  구현 중 `face_art_fade.gdshader`가 fragment()에서 `COLOR`를 텍스처 샘플만
-  으로 덮어써 Godot 기본 modulate 곱셈을 무시하던 버그를 SubViewport 렌더
-  테스트로 발견·수정(`texture(TEXTURE, UV) * COLOR`) — modulate를 안 쓰는
-  기존 `_face_rect` 호출부는 항등원이라 완전히 그대로 동작(회귀 없음, 기존
-  ART-1c/1c-2/1c-3 테스트 전부 그대로 PASS).
-  **② 라벨 대비**: 실제 캡처(`qa_out/art1c4_shadow_attack_before.png`)로
-  "공격"/"방어" 라벨이 몬스터 색(그림자 기준 거의 검정)을 그대로 텍스트 색으로
-  쓰고 있어 어두운 배경에서 거의 안 보이는 걸 확인 — `combat_test.gd`에
-  `ATTACK_LABEL_COLOR`(금색)/`DEFENSE_LABEL_COLOR`(밝은 회백) 고정 상수를
-  추가해 라벨은 몬스터 색과 완전히 무관하게 이 값만 쓰도록 분리했다(다이스
-  3D 색/칩 테두리는 기존 atk_tint/def_tint 그대로 유지). 어두운 배경 기준
-  대비비 13.4:1/13.8:1로 WCAG AA(4.5:1) 기준을 넉넉히 통과.
-  `dice_test.gd` 신규 `_check_art1c4_monster_dark_glow()`(await, SubViewport)/
-  `_check_art1c4_dice_label_contrast()`로 검증, `bash scripts/qa_shot.sh
-  dice_test` 전체 PASS(FAIL 0건, 909개 OK). 셀프 피드백 2라운드 — 라벨 수정
-  전/후, 글로우 ON/OFF(GLOW_ALPHA=0 임시 A/B, 커밋 전 원복) A/B, 밝은 몬스터
-  (슬라임) 회귀 없음까지 전부 캡처로 직접 확인. 전투 규칙/밸런스는 건드리지
+- 일시: 2026-10-16 (221)
+- 작성자: AI 에이전트. 직전 이터레이션(Q-1)이 45분 시간 제한으로 미커밋 상태로
+  중단된 것을 `git diff`로 파악해 이어받아 **[대형 기획 15] Q-1(캡처 신뢰성 +
+  플레이 피드백 원문 17/18/23/24) 전체 완료**. 직전 이터레이션이 구현해둔
+  코드를 그대로 두고(stash/reset 없이) 검증·보완만 했다:
+  **① 캡처 신뢰성**: `qa_shot.sh`에 `--resolution 1280x720` 고정 + 캡처된
+  PNG 헤더를 직접 파싱해 실제 크기가 1280x720이 아니면 스크립트가 실패
+  처리하도록 검사를 추가(이 환경은 기본적으로 1028x720으로 뜨는데,
+  `visual_qa.gd`가 캡처 직전 창 크기를 감지해 강제 교정 후 재대기함 — 이번
+  세션의 모든 캡처가 이 경로를 실제로 거치는 것을 로그로 확인).
+  **② (17)+(24) 몬스터 포트레이트 티어별 배율**: `MONSTER_PORTRAIT_SCALE_BY_TIER`
+  (일반 1.0/정예 1.15/보스 1.6) 데이터 표로 분리하고 보스만 앵커를 왼쪽으로
+  당겨 화면 밖으로 안 나가게 했다. 카탈로그 35종 전수를 production 배치
+  그대로 렌더해 화면 경계 안에 드는지 `dice_test.gd`가 검증.
+  **③ (18) 보상 화면 다이스 칩 겹침**: `_maybe_finish_battle()`이
+  battle_over를 확정하는 시점(승리/패배 공통)에 결과 칩 줄을 지우도록 수정.
+  **④ (23) 이벤트 텍스트 레이아웃**: `event.gd` PromptLabel에 autowrap,
+  `story_event.gd` Description에 vertical_alignment=CENTER 추가해 긴 prompt가
+  화면 밖으로 삐져나가거나 배경 프레임 안에서 위로 쏠리던 문제를 고쳤다.
+  `bash scripts/qa_shot.sh dice_test` 전체 PASS(FAIL 0건, Q-1 신규 검증
+  4종 전부 OK). **이번 이터레이션에 `combat_test.gd`에 QA 전용
+  `_debug_show_reward_after_last_exchange()`를 새로 추가**해 (18) 수정을
+  실제 화면으로 확인했다(`_maybe_finish_battle()`이 타이머를 await하는데
+  `GAME_QA_CALL`은 코루틴을 끝까지 안 기다려 직접 호출로는 타이밍이 안
+  맞았음). 셀프 피드백 — 보스/정예/일반 크기 비교, 보상 화면 칩 안 보임,
+  "수상한 도박꾼"/곡예사 전용 "서커스 단장의 내기"(실측 최대 필요 높이
+  49px) 텍스트가 프레임 안에 자연스럽게 들어옴을 전부 스크린샷으로 직접
+  확인 — 추가 수정 없이 1라운드로 종료. 전투 규칙/밸런스는 건드리지
   않았고 `resources/`·`docs/art/`는 읽기만 했다. 상세는 아래 "완료 기록
-  (220)" 참고. **INBOX.md "남은 이슈"에 새 항목이 없으면 다음은 아래
-  "알려진 이슈/막힌 것"을 참고해 독립적으로 진행 가능한 항목을 고를 것.**
+  (221)" 참고. **다음은 INBOX.md "남은 이슈" [대형 기획 15] Q-2(키보드
+  흐름 재구성: 캐릭터 선택 → 스킬 선택 → 던전 입장).**
 
 ## 지금 위치
 
@@ -642,9 +641,16 @@ ART-3](스킬 아이콘 흰 사각형 버그, 아트 스레드 리포트) 완료
 가장자리 페이드 + 경로 별칭) 완료**(상세는 완료 기록 (219)). **2026-10-16
 (220)로 [미니 기획 ART-1c-4](어두운 몬스터 외곽 글로우 + 주사위 줄 라벨
 대비) 완료** — 입고 34종 중 shadow 1종만 글로우 대상, "공격"/"방어" 라벨을
-몬스터 색과 무관한 고정 팔레트로 분리(상세는 완료 기록 (220)). **다음은
-INBOX.md "남은 이슈"에 새 항목이 없으면 아래 "알려진 이슈/막힌 것"을
-참고해 독립적으로 진행 가능한 항목을 고를 것.**
+몬스터 색과 무관한 고정 팔레트로 분리(상세는 완료 기록 (220)).
+
+**INBOX.md "남은 이슈" 최우선 지시는 이제 [대형 기획 15](플레이 피드백 23건,
+Q-1 → Q-11)다.** 2026-10-16(221)로 **Q-1(버그 3종 + 캡처 고정, 원문
+17/18/23/24) 완료** — qa_shot.sh 캡처 해상도를 1280x720으로 고정·검증,
+몬스터 포트레이트 티어별 배율(일반/정예/보스) 분리, 보상 화면 다이스 칩
+겹침 수정, 이벤트/스토리 이벤트 텍스트 레이아웃 수정(상세는 완료 기록
+(221)). **다음은 Q-2(키보드 흐름 재구성: 캐릭터 선택 → 스킬 선택 → 던전
+입장, 원문 1/10) — 실제 OS 레벨 키 입력 재현이 전제조건이라 품이 클 수
+있음, (a)(b) 등 한 칸씩 쪼개 진행 권장.**
 
 남은 구조적 후보(급하지 않음): 보스 개별 6종 중 타락한 기사단장만 밴드 미달
 (`MonsterSkills.modify_monster_roll()` 파라미터화가 전제조건이라 사람 설계
@@ -1254,6 +1260,61 @@ INBOX.md "남은 이슈"에 새 항목이 없으면 아래 "알려진 이슈/막
     조정은 사람이 이 숫자를 보고 다음 지시로 결정).
 
 ## 완료 기록
+
+- **2026-10-16 (221)**: 직전 이터레이션(Q-1)이 45분 시간 제한에 걸려 미커밋 상태로
+  중단된 것을 이어받아 **[대형 기획 15] Q-1(캡처 신뢰성 + 원문 17/18/23/24) 전체
+  완료**. 직전 이터레이션이 이미 구현해둔 코드(`git diff`로 현황 파악, stash/reset
+  없이 그대로 이어감)를 검증·보완했다:
+  **① 캡처 신뢰성**: `scripts/qa_shot.sh`에 `--resolution 1280x720` CLI 인자 추가 +
+  캡처된 PNG 헤더(IHDR 청크, xxd로 바이트 직접 파싱)를 읽어 실제 크기가
+  1280x720이 아니면 스크립트 자체가 실패 처리하도록 검사 추가. `visual_qa.gd`도
+  캡처 직전 `get_window().size`가 기대값과 다르면 강제 교정 + 재대기(최대
+  대기 프레임도 240→600으로 상향, dice_test.gd의 await 체크가 늘어도 중간에
+  잘리지 않게). 이번 세션에서 찍은 모든 스크린샷이 실제로 "창 크기 보정 경고 →
+  1280x720 성공" 경로를 거치는 것을 로그로 반복 확인(이 환경은 기본적으로
+  1028x720으로 뜨고 매번 코드가 교정함).
+  **② (17)+(24) 몬스터 포트레이트 티어별 배율**: `combat_test.gd`에
+  `MONSTER_PORTRAIT_SCALE_BY_TIER`(일반 1.0/정예 1.15/보스 1.6) 데이터 표 +
+  `_apply_monster_portrait_tier()`(production 경로와 QA 디버그 훅이 공유)로
+  분리, 보스만 `BOSS_PORTRAIT_POSITION_SHIFT`로 왼쪽으로 당겨 커진 크기가
+  화면 밖으로 안 나가게 했다. `dice_test.gd`의 `_check_q1_monster_portrait_tier_bounds()`
+  가 상수 단조성(보스>정예>일반, 비율≥1.4)뿐 아니라 **카탈로그 35종 전수**를
+  실제 production 배치(앵커+배율)로 렌더해 `_face_rect`/`_glow_rect`
+  글로벌 rect가 화면(1280x720) 안에 드는지 확인 — 기존 "ellipse radius=66"
+  체크(도형 플레이스홀더 전용, 거의 안 쓰임)를 상위 호환으로 대체.
+  **③ (18) 보상 화면 다이스 칩 겹침**: `_maybe_finish_battle()`이 battle_over를
+  확정하는 시점(승리/패배 공통)에 `_clear_exchange_dice_chips()`를 호출하도록
+  수정 — 마지막 교환의 결과 칩 줄이 화면에 남아 보상 카드/패배 버튼과 겹치던
+  문제. `dice_test.gd`의 `_check_q1_reward_chip_overlap()`이 "칩이 실제로
+  비는지" + "혹시 남아도 버튼과 rect 교차가 없는지"(이중 안전망) 승리/패배
+  양쪽을 검증.
+  **④ (23) 이벤트 텍스트 레이아웃**: `event.gd` PromptLabel에 autowrap_mode
+  켜고 배경 프레임 폭(900)에 맞춤(기존엔 autowrap이 꺼진 채 폭 920짜리
+  박스에 들어있어 긴 prompt가 화면 밖으로 삐져나갔음), `story_event.gd`
+  Description에 vertical_alignment=CENTER 추가(기존엔 TOP이라 배경 프레임
+  안에서 위로 쏠려 보였음). `dice_test.gd`의 `_check_q1_event_text_layout()`이
+  `EventChallengePool` 전수(10종)+스킬 이벤트 2종, `StoryEventPool` 전수(8종)를
+  실제 Label 노드 autowrap 레이아웃(`get_combined_minimum_size()`)으로 렌더해
+  배경 프레임 폭 안 + 버튼과 비겹침을 확인.
+  **이번 이터레이션 추가 작업**: `combat_test.gd`에 QA 전용
+  `_debug_show_reward_after_last_exchange()`(마지막 교환 칩을 띄운 뒤 같은
+  정리 로직을 거쳐 보상 UI를 보여줌 — `_maybe_finish_battle()`은
+  `EXCHANGE_PAUSE_TIME` 타이머를 await하는데 `GAME_QA_CALL`은 코루틴을
+  끝까지 기다리지 않아 직접 호출로는 타이밍이 안 맞아 새로 작성)을 추가해
+  (18) 수정을 실제 화면으로 확인했다. `bash scripts/qa_shot.sh dice_test`
+  전체 PASS(FAIL 0건, Q-1 신규 검증 4종 전부 OK, 재시도 전/후 2회 확인).
+  **셀프 피드백**: `qa_out/q1_boss_check.png`(보스 goblin_king)/
+  `q1_elite_check.png`(정예 goblin_chief)/`q1_normal_check.png`(일반 slime)
+  3장을 나란히 읽어 티어별 크기 차이가 실제로 뚜렷하고 화면 밖으로 안
+  잘리는 것 확인, `q1_18_reward_overlap.png`로 보상 카드 UI에 다이스 칩
+  줄이 전혀 안 보이는 것 확인, `q1_23_gambler_story.png`("수상한 도박꾼")/
+  `q1_23_event_circus.png`(곡예사 전용 "서커스 단장의 내기", 실측 최대
+  필요 높이 49px로 가장 긴 prompt)로 텍스트가 배경 프레임 안에 자연스럽게
+  들어오고 버튼과 안 겹치는 것 확인 — 추가 수정 없이 1라운드로 종료.
+  전투 규칙/밸런스는 건드리지 않았고 `resources/`·`docs/art/`는 읽기만
+  했다. INBOX.md "남은 이슈" [대형 기획 15] 원문의 Q-1(원문 17/18/23/24 +
+  캡처 전제)을 "부분 처리됨"으로 옮기고 완료로 표시, 다음은 Q-2(키보드
+  흐름 재구성).
 
 - **2026-10-16 (220)**: 세션 프롬프트로 직접 전달된 **[대형 기획 13] [미니 기획
   ART-1c-4] 어두운 몬스터 외곽 글로우 + 주사위 줄 라벨 대비 확인 완료**
@@ -1936,69 +1997,12 @@ INBOX.md "남은 이슈"에 새 항목이 없으면 아래 "알려진 이슈/막
   확충 — 도박/탐색/협상/함정 해체 등 2~3종 + "대성공" 단계 도입, INBOX.md
   "남은 이슈" 참고).**
 
-- **2026-10-15 (211)**: INBOX.md "남은 이슈" [대형 기획 14] **N-4(캐릭터 선택
-  능력치를 "×N" 문자열 대신 실제 다이스 칩으로 나열) 완료**. INBOX 원문: 공격/
-  방어 능력치 칩의 "공격 D4×3" 같은 문자열을 `shape_die_chip.gd`/
-  `event_die_visual.gd`를 재사용한 실제 다이스 칩 나열로 바꾸고, 시작 스킬의
-  "시작 보너스"는 칩 옆 "+n" 배지로 표시할 것.
-  **UI 변경(`character_select.gd`)**: `_build_stats_section()`의 "능력치" 섹션
-  내부를 "공격"/"방어"/"이벤트" 3줄(`_make_dice_row()`가 라벨+빈
-  HBoxContainer+배지 Label 틀을 한 번만 만듦) + HP 한 줄로 재구성했다. 기존
-  `_detail_attack_label`/`_detail_defense_label`(Label) 필드를
-  `_detail_attack_dice_row`/`_detail_defense_dice_row`(Dictionary
-  {"chips":HBoxContainer,"bonus":Label})로 교체. `_refresh_dice_chips(profile)`
-  (캐릭터를 바꿀 때마다 `_refresh_detail_panel()`이 호출)가
-  `_fill_dice_chip_row()`로 attack_count/defense_count개의 `ShapeDieChip`을
-  다시 채운다 — 각 칩은 `ShapeDieChip.shape_sides_for_dice_sides(sides)`로
-  면 모양(지금은 8명 전부 D4라 삼각형)을, `chip.value`에 굴림 결과 대신 면 수
-  자체(4)를 보여준다(이 주머니에 D4가 몇 개 있는지 한눈에 보여주는 정적
-  미리보기 — 전투 중 굴림 결과 칩과는 용도가 다름). 이벤트 다이스 줄은
-  `EventDieVisual`(로마 숫자 I, 기존 그대로) 옆에 "D%d"(event_die_sides) 텍스트를
-  둬 면 수가 바로 읽히게 했다. 프로필에 아직 없는 `attack_sides`/`defense_sides`
-  필드는 `get()` 기본값(4)으로 읽어, 나중에 캐릭터별로 시작 다이스 면 수가
-  달라져도(INBOX 원문이 언급한 미래 경우) 이 코드를 다시 안 고쳐도 되게 했다.
-  **"+n" 배지(제한된 범위)**: 캐릭터 선택 화면은 전투 상태(HP/골드/인벤토리/
-  재질 등)가 없는 "런 시작 전" 화면이라, RunState에 의존하는 시작 스킬 조건
-  (수집가/선제/대비/황금손/과적/오뚝이/잡화점/강철 방비)은 미리 계산할 수
-  없다 — **attack_count/defense_count "개수"만으로 정적으로 결정되는 4종
-  (맹공/철벽/확장/정예)만** 배지로 보여준다(신규 `_static_dice_bonus()`가
-  `combat_test.gd`의 실전 적용 함수 `_aggro_bonus`/`_wall_bonus`/
-  `_expand_bonus`/`_lean_bonus`를 `load()` 패턴으로 그대로 재사용 — 공식을
-  두 곳에 중복 정의하지 않음). 배지는 `RunState.chosen_starting_skill_id`가
-  확정되는 시점(`_rebuild_starting_skill_slots()` 맨 끝, 캐릭터 전환·시작
-  스킬 선택 양쪽에서 호출됨)에만 신규 `_refresh_dice_bonus_badges()`로
-  다시 계산한다 — 그보다 이른 시점(`_refresh_detail_panel()` 중간)에선
-  chosen_starting_skill_id가 아직 새 캐릭터 기준으로 검증되지 않았을 수 있어서
-  분리했다.
-  **검증**: `dice_test.gd`에 신규 `_check_n4_dice_chip_stats()` — (a) 8명 전부
-  공격/방어 칩 컨테이너 자식 개수가 프로필의 attack_count/defense_count와
-  정확히 같은지, 모든 칩의 shape_sides/value가 실제 면 수(4)와 일치하는지
-  (b) 이벤트 다이스 줄 텍스트가 event_die_sides와 일치하고 비주얼이 실제로
-  트리에 붙어 있는지 (c) `_static_dice_bonus()`가 `combat_test.gd`의 실전
-  함수와 9개 조합(경계값 포함)에서 정확히 같은 값을 내는지 (d) 실제 화면
-  end-to-end — 광전사(공격4/방어2, 슬롯0=맹공)를 고르면 공격 줄에 "+1" 배지가
-  뜨고 방어 줄은 숨겨지는지, 견습 모험가(공격3/방어3, 슬롯0=확장, 합계
-  6<8이라 보너스 없음)를 고르면 양쪽 다 숨겨지는지(업적 해금 상태가 다른
-  테스트에서 남아있어도 결과가 달라지지 않도록 `AchievementManager.
-  _debug_reset_for_qa()`로 테스트 시작/종료에 리셋). 기존 K-2 검증
-  (`_check_k2_character_select_sections`)이 참조하던 `_detail_attack_label`/
-  `_detail_defense_label`도 새 Dictionary 구조(`chips.get_child_count() > 0`)로
-  갱신. `bash scripts/qa_shot.sh dice_test` 전체 PASS(FAIL 0건, N-4 신규 검증
-  전부 OK, 2회 재확인). **셀프 피드백 1라운드**: `qa_out/n4_{novice,
-  berserker,guardian,pirate}.png` 4장을 직접 읽어 — 공격/방어 다이스가 실제
-  삼각형(D4) 칩으로 개수만큼 나열됨(견습 모험가 3/3, 광전사 4/2, 수호자 2/4,
-  해적 2/3), 이벤트 줄이 로마 숫자 칩+"D6"로 보임, 광전사는 공격 줄 끝에
-  금색 "+1" 배지(맹공, 공격4>방어2), 수호자는 방어 줄 끝에 금색 "+1" 배지
-  (철벽, 방어4>공격2), 해적은 배지 없음(선제는 정적 4종에 안 속해 의도대로
-  미표시)을 확인 — "상" 수준 문제 없이 1라운드로 종료. 전투 규칙/밸런스는
-  건드리지 않았다. INBOX.md의 이 항목은 "부분 처리됨"에 그대로 두되 진행
-  한 줄을 N-4 완료로 갱신했다([대형 기획 14] 전체는 N-5~N-6이 남아 아직
-  "처리됨"으로 못 옮김). **다음은 N-5(a)(곡예사를 이벤트 특화 클래스로 —
-  event_die_sides 상향 + 시작 스킬 이벤트 테마 재구성).**
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(220)에서 (210)을 그리로 옮겼다.)*
+이번 이터레이션(221)에서 (211)을 그리로 옮겼다 — 단, (211)은 직전(중단된)
+이터레이션이 이미 STATUS_ARCHIVE.md에 옮겨 적어뒀는데 이 파일에서 지우는
+걸 빠뜨린 상태였다(내용 diff로 완전 동일 확인 후 이 파일에서만 제거,
+중복 아님).)*
 
 ## 알려진 이슈 / 막힌 것
 

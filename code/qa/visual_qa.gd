@@ -42,9 +42,12 @@ extends Node
 ##                    "고정 프레임"만으로는 다이스가 한창 구르는 중간 순간을 찍을 수
 ##                    있는 문제(STATUS.md 알려진 이슈)를 줄이기 위함. 씬에 그 메서드가
 ##                    없으면 기존과 동일하게 GAME_QA_FRAME에서 바로 캡처한다(하위 호환).
-##   GAME_QA_SETTLE_MAX_FRAMES (선택, 기본 240) GAME_QA_SETTLE로 기다리는 최대 추가
-##                    프레임 수. 끝내 정지 판정을 못 받아도 이 프레임을 넘기면 안전장치로
-##                    강제 캡처한다(무한 대기 방지).
+##   GAME_QA_SETTLE_MAX_FRAMES (선택, 기본 600 — [대형 기획 15] Q-1 공통 전제로 240->600
+##                    상향. dice_test.gd가 await 체크를 계속 늘려가도 중간에 캡처+quit()
+##                    당해 "결과: PASS/FAIL" 한 줄조차 못 찍고 잘리는 사고를 줄이기 위함
+##                    — dice_test.gd의 _qa_is_settled() 참고) GAME_QA_SETTLE로 기다리는
+##                    최대 추가 프레임 수. 끝내 정지 판정을 못 받아도 이 프레임을 넘기면
+##                    안전장치로 강제 캡처한다(무한 대기 방지).
 
 var _qa_active := false
 var _target_frame := 60
@@ -53,7 +56,7 @@ var _output_path := ""
 var _scene_name := ""
 var _qa_call := ""
 var _qa_settle_enabled := false
-var _qa_settle_max_extra_frames := 240
+var _qa_settle_max_extra_frames := 600
 var _settle_extra_elapsed := 0
 var _qa_click_path := ""
 var _qa_click_wait_frames := 20
@@ -186,6 +189,21 @@ func _capture_and_quit() -> void:
 			await get_tree().process_frame
 		else:
 			push_error("[VisualQA] GAME_QA_CALL='%s' 메서드를 현재 씬에서 찾을 수 없습니다." % _qa_call)
+
+	# [대형 기획 15] Q-1 공통 전제(2026-10-16) — 이 환경은 실제 창 크기가 project 설정
+	# (1280x720)과 다르게(주로 1028x720으로 좁게) 떠서 캡처 폭이 줄어드는 문제가 여러
+	# 세션에 걸쳐 반복 기록됐다(원인 불명으로 추정 — DPI/타이밍). qa_shot.sh에 --resolution
+	# 1280x720 CLI 인자를 추가했지만 그것만으로는 매번 보장되지 않음을 확인했다(같은 실행
+	# 안에서도 일부 캡처는 맞고 일부는 틀림) — 캡처 직전에 창 크기를 직접 다시 확인/강제
+	# 교정하고, 실제로 반영될 시간을 몇 프레임 더 준다. 크기가 이미 맞으면 추가 대기 없이
+	# 기존과 동일하게 바로 캡처한다(정상 경로는 전혀 느려지지 않음).
+	var expected_window_size := Vector2i(1280, 720)
+	if get_window().size != expected_window_size:
+		push_warning("[VisualQA] 창 크기가 예상과 다름(%s, 기대 %s) — 강제 교정 후 재대기" % [
+			get_window().size, expected_window_size])
+		get_window().size = expected_window_size
+		for _i in 10:
+			await get_tree().process_frame
 
 	# 마지막 프레임이 실제로 그려진 뒤에 캡처하기 위해 한 프레임 더 대기한다.
 	await RenderingServer.frame_post_draw

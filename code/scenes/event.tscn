@@ -28,35 +28,37 @@ label_settings = SubResource("LabelSettings_title")
 [node name="PromptLabel" type="Label" parent="."]
 offset_left = 40.0
 offset_top = 68.0
-offset_right = 1240.0
-offset_bottom = 98.0
+offset_right = 920.0
+offset_bottom = 128.0
 text = "이상한 기운이 느껴지는 방이다."
+autowrap_mode = 3
+vertical_alignment = 1
 
 [node name="SafeButton" type="Button" parent="."]
 offset_left = 260.0
-offset_top = 116.0
+offset_top = 140.0
 offset_right = 620.0
-offset_bottom = 176.0
+offset_bottom = 200.0
 text = "안전하게 넘어가기"
 
 [node name="RiskyButton" type="Button" parent="."]
 offset_left = 660.0
-offset_top = 116.0
+offset_top = 140.0
 offset_right = 1020.0
-offset_bottom = 176.0
+offset_bottom = 200.0
 text = "위험을 감수하기"
 
 [node name="RollRoot" type="Node2D" parent="."]
-position = Vector2(400, 200)
+position = Vector2(400, 224)
 
 [node name="ItemsRoot" type="Node2D" parent="."]
-position = Vector2(480, 300)
+position = Vector2(480, 324)
 
 [node name="FailLabel" type="Label" parent="."]
 offset_left = 260.0
-offset_top = 300.0
+offset_top = 324.0
 offset_right = 1020.0
-offset_bottom = 360.0
+offset_bottom = 384.0
 autowrap_mode = 3
 text = "아쉽게도 손에 넣지 못했다..."
 

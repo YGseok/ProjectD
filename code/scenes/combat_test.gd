@@ -240,8 +240,29 @@ const HP_BAR_HEIGHT := 28.0
 ## [대형 기획 13] M-2(2026-10-14) — INBOX M-2 "캐릭터/몬스터 그림... 크기를 키운다".
 ## 기존 기준 배율 1.0(플레이어)/1.25(보스)보다 전반적으로 키우되, tscn의 새 portrait
 ## position(안쪽으로 당김)과 함께 화면 밖으로 잘리지 않는 선으로 맞춘 값.
+## 플레이어 포트레이트 전용(아래 MONSTER_PORTRAIT_SCALE_BY_TIER와 분리 — [대형 기획 15]
+## Q-1(24) 전까지는 몬스터 "일반" 배율도 이 상수를 같이 썼으나, 정예/보스와 위계 차이를
+## 분명히 벌리려고 몬스터 쪽만 분리했다. 이 상수는 플레이어 쪽 동작 보존을 위해 그대로 둠).
 const PORTRAIT_SCALE_NORMAL := 1.1
-const PORTRAIT_SCALE_BOSS := 1.3
+
+## [대형 기획 15] Q-1(17, 24, 2026-10-16) — 몬스터 포트레이트 배율을 일반/정예/보스
+## 티어별로 데이터 표(하드코딩 분기 대신 Dictionary)로 분리한다. 사용자 피드백(24):
+## "보스가 다른 몬스터와 사이즈가 비슷해 위상이 안 높아 보인다" — 기존엔 일반/정예가
+## 둘 다 PORTRAIT_SCALE_NORMAL(1.1)을 그대로 썼고 보스도 1.3배뿐이라 세 티어가 거의
+## 구분되지 않았다. 제안 범위(일반 1.0/정예 1.15/보스 1.6~1.8) 안에서, 보스를
+## BOSS_PORTRAIT_POSITION_SHIFT로 왼쪽(화면 안쪽)으로 당겨 커진 크기가 화면 밖(1280)
+## 으로 안 나가게 했다 — 아래 _check_q1_monster_portrait_bounds() 계산 검증 참고.
+const MONSTER_PORTRAIT_SCALE_BY_TIER := {
+	"normal": 1.0,
+	"elite": 1.15,
+	"boss": 1.6,
+}
+## combat_test.tscn의 MonsterPortrait 기본 position과 반드시 일치해야 한다(그 값을
+## 코드에서 다시 읽지 않고 상수로 복제 — _ready()가 매번 이 상수 기준으로 재설정하므로
+## tscn 쪽 값은 에디터에서 보일 초기값일 뿐 실제로는 항상 이 상수로 덮어써진다).
+const MONSTER_PORTRAIT_BASE_POSITION := Vector2(1170.0, 300.0)
+## 보스만 배율(1.6)이 커진 만큼 오른쪽 화면 경계에 닿지 않도록 왼쪽으로 당기는 보정.
+const BOSS_PORTRAIT_POSITION_SHIFT := Vector2(-60.0, 0.0)
 ## [대형 기획 13] M-3 — 감독 추가 비평(2026-10-14) 전까지 승리 보상 화면
 ## (_show_reward_ui/_add_reward_frame)이 쓰던 y=120 기준값은 M-2 이전(다이스 뷰포트가
 ## offset_top=120이던 시절)의 값이 그대로 남은 것이었다. M-2가 다이스 뷰포트를 184로
@@ -1072,6 +1093,16 @@ static func _monster_tier_color(is_elite: bool, is_boss: bool) -> Color:
 	return Color(0.6, 0.6, 0.63)
 
 
+## [대형 기획 15] Q-1(17, 24) — monster_portrait의 배율/앵커를 티어에 맞게 적용한다.
+## 프로덕션 경로(_apply_monster_config 직후)와 QA 디버그 훅 둘 다 같은 로직을 쓰도록
+## 분리(중복 방지, 테스트도 이 함수 하나만 호출하면 production과 동일한 결과 재현).
+func _apply_monster_portrait_tier(is_elite: bool, is_boss: bool) -> void:
+	var tier := "boss" if is_boss else ("elite" if is_elite else "normal")
+	var s: float = MONSTER_PORTRAIT_SCALE_BY_TIER.get(tier, 1.0)
+	monster_portrait.scale = Vector2(s, s)
+	monster_portrait.position = MONSTER_PORTRAIT_BASE_POSITION + (BOSS_PORTRAIT_POSITION_SHIFT if is_boss else Vector2.ZERO)
+
+
 ## [대형 기획 13] M-5(b) — monster_tier_icon/monster_tier_label을 현재 monster_is_elite/
 ## monster_is_boss에 맞춰 갱신한다. badge/tier_<kind>.png가 있으면 아이콘을 보이고 글자는
 ## 중립색(배지가 이미 색으로 티어를 전달)으로, 없으면 아이콘을 숨기고 기존 색깔 텍스트만
@@ -1318,11 +1349,9 @@ func _ready() -> void:
 	monster_portrait.set_body_color(monster_color if monster_color.a > 0 else Color(0.5, 0.5, 0.5))
 	monster_portrait.set_family(config.get("family", ""))
 	monster_portrait.set_monster(monster_id) # ART-1c: face_* 5장이 전부 있으면 원화, 아니면 플레이스홀더 유지
-	# G-8(2026-10-07): "전용 초상화 크기(일반의 1.25배)" — 보스만 조금 크게 그린다.
-	# [대형 기획 13] M-2: INBOX M-2 "캐릭터/몬스터 그림... 크기를 키운다"에 맞춰 기준
-	# 배율 자체도 1.0 -> PORTRAIT_SCALE_NORMAL(1.1)로 올렸다(화면 밖으로 잘리지 않는
-	# 선에서 — 몬스터 포트레이트 position도 tscn에서 1210 -> 1170으로 안쪽으로 당김).
-	monster_portrait.scale = Vector2(PORTRAIT_SCALE_BOSS, PORTRAIT_SCALE_BOSS) if monster_is_boss else Vector2(PORTRAIT_SCALE_NORMAL, PORTRAIT_SCALE_NORMAL)
+	# G-8(2026-10-07)/M-2/[대형 기획 15] Q-1(17,24) — 일반/정예/보스 티어별 배율+앵커를
+	# 한 곳(_apply_monster_portrait_tier)에서 적용(화면 밖으로 안 잘리게 보스만 앵커도 보정).
+	_apply_monster_portrait_tier(monster_is_elite, monster_is_boss)
 	monster_debug_info_label.text = _monster_debug_info_text(config)
 
 	_reset_player_battle_state()
@@ -1400,7 +1429,9 @@ func _debug_show_monster_face_art(boss: bool) -> void:
 	_debug_write_fake_monster_faces()
 	monster_portrait.art_base_dir = DEBUG_FAKE_MONSTER_FACE_DIR
 	monster_is_boss = boss
-	monster_portrait.scale = Vector2(PORTRAIT_SCALE_BOSS, PORTRAIT_SCALE_BOSS) if boss else Vector2(PORTRAIT_SCALE_NORMAL, PORTRAIT_SCALE_NORMAL)
+	var tier := "boss" if boss else "normal"
+	var s: float = MONSTER_PORTRAIT_SCALE_BY_TIER.get(tier, 1.0)
+	monster_portrait.scale = Vector2(s, s)
 	monster_portrait.set_monster(DEBUG_FAKE_MONSTER_ID)
 	monster_portrait.set_expression("happy")
 	# QA 전용: 이 환경의 스크린샷 캡처 폭이 이따금 1028px로 잘려(docs/STATUS.md "알려진
@@ -2110,6 +2141,12 @@ func _maybe_finish_battle(_dmg: int) -> void:
 			turn_label.text = "패배... (플레이어 사망)"
 			player_portrait.set_expression("angry" if randi() % 2 == 0 else "sad")
 			monster_portrait.set_expression("happy")
+		# [대형 기획 15] Q-1(18) — "전투 후 보상 선택을 하고 나면 주사위 값(결과 칩 줄)이
+		# 버튼과 겹친다": 마지막 교환의 결과 칩 줄(EXCHANGE_CHIP_Y=526)이 보상 프레임
+		# (REWARD_FRAME_TOP~BOTTOM=184~560)/패배 화면 버튼과 같은 y대에 있는데, 전투가
+		# 끝나면 더 이상 새 교환이 없어 그 칩들이 화면에 그대로 남아 있었다 — 승패/
+		# 테스트 전투 전부 공통으로 battle_over가 true가 되는 이 시점에 지운다.
+		_clear_exchange_dice_chips()
 
 	# INBOX.md 피드백(2026-09-03) "커스터마이징은 전투 중에는 불가능해야 한다" — 전투가
 	# 끝난 뒤에만 상단 토글 버튼을 보여준다 (battle_over가 막 true가 된 시점에 맞춰 동기화).
@@ -2879,6 +2916,24 @@ func _debug_show_reward_with_deck_open() -> void:
 	deck_panel.visible = true
 	deck_toggle_button.text = "덱 닫기"
 	_rebuild_shortcuts()
+
+
+## QA 전용 — [대형 기획 15] Q-1(18) 시각 확인. _check_q1_reward_chip_overlap()
+## (dice_test.gd)이 쓰는 것과 같은 "마지막 교환의 결과 칩 줄을 띄운 뒤 battle_over
+## 처리"를 거쳐, 수정 전이었다면 겹쳐 보였을 보상 UI를 스크린샷 한 장으로 확인한다.
+## _maybe_finish_battle() 자체를 호출하지 않는 이유: 그 함수는 EXCHANGE_PAUSE_TIME(0.8초)
+## 타이머를 await하고 나서야 보상 UI를 띄우는데, GAME_QA_CALL은 `scene.call()`로 코루틴을
+## 그냥 시작만 시킬 뿐 끝까지 기다리지 않아(visual_qa.gd) 캡처 시점에 보상 UI가 아직
+## 안 뜬 상태가 찍힌다 — 같은 처리(칩 정리 + 보상 UI 표시)를 타이머 없이 직접 재현.
+func _debug_show_reward_after_last_exchange() -> void:
+	var atk_bag := DiceBag.new(4, 3)
+	var def_bag := DiceBag.new(4, 2)
+	_show_exchange_dice_chips(atk_bag, [4, 4, 3], def_bag, [2, 1], Color(0.9, 0.3, 0.3, 1), Color(0.3, 0.5, 0.9, 1))
+	battle_over = true
+	player_won = true
+	_clear_exchange_dice_chips()
+	next_button.text = "다음"
+	_show_reward_ui()
 
 
 ## QA 전용 — 이 세션 환경에서 스크린샷 캡처 폭이 1280px 대신 1028px로 잘리는 현상

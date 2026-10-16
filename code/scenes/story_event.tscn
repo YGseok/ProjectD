@@ -32,10 +32,11 @@ label_settings = SubResource("LabelSettings_title")
 [node name="Description" type="Label" parent="."]
 offset_left = 40.0
 offset_top = 80.0
-offset_right = 1240.0
+offset_right = 920.0
 offset_bottom = 140.0
 text = "설명"
 autowrap_mode = 3
+vertical_alignment = 1
 
 [node name="ChoiceAButton" type="Button" parent="."]
 offset_left = 300.0
