@@ -8,6 +8,122 @@
 
 ---
 
+- **2026-10-16 (214)**: INBOX.md "남은 이슈" [대형 기획 14] **N-5(c)(곡예사를 이벤트
+  특화 클래스로 — 밸런스 확인 + 마무리) 완료, [대형 기획 14] N-1~N-5 전체 완료
+  (N-6만 남음)**.
+  **(1) 밸런스 확인**: `bash scripts/qa_shot.sh balance_sim`을 foreground + timeout
+  600000으로 1회 실행(`qa_out/balance_sim_raw.tsv`/`balance_sim_growth_raw.tsv`
+  재생성)해 두 가지 방식으로 juggler를 측정했다. **측정 1(기존 F-4b/F-4c 기준선,
+  캐릭터당 81개 조합 평균)**: juggler 13.98% vs novice 21.67% = **-7.69%p**(목표
+  -15%p 이내 통과) — N-5a/b 변경 전(구 맹공/수집가/잡화점 3종, `docs/
+  BALANCE_REPORT.md`(165) 시점 원자료 재집계) -6.27%p 대비 +1.4%p만 악화돼 "전투
+  보조 스킬이 줄었어도 극단적으로 낮아지지 않았다"는 INBOX 질문에 통과로 답할 수
+  있었다. **측정 2(균형 성장 정책의 슬롯0 전용 지표, `balance_target_check.gd`가
+  J-1~J4에서 쓰던 것과 같은 축)**는 juggler -44.37%p로 목표를 크게 벗어났지만, 이
+  지표는 "캐릭터마다 슬롯0 스킬 하나만" 고정해서 재는 구조라(F-5b가 정책 효과만
+  격리하려고 의도적으로 그렇게 설계) juggler의 슬롯0(눈속임)이 N-5(a) 설계대로
+  이벤트 전용이라 전투 보너스가 0인 탓일 뿐 — explosive도 같은 지표에서 이미
+  -16.92%p로 -15%p 밴드를 벗어나 있어 이 축 자체가 "캐릭터 대비 -15%p" 판정
+  근거로 쓰기엔 노이즈가 크다는 것도 교차 확인했다. **판정: 측정 1을 1차 기준으로
+  삼아 PASS, 측정 2는 "슬롯0이 이벤트 스킬인 캐릭터는 이 지표로 전투력을 판단할 수
+  없다"는 한계로 문서화(INBOX의 "이벤트 보상은 시뮬 반영이 어려우면 한계를 문서에
+  명시" 조항 적용) — 곡예사 전투 보조 스킬(잡화점) 추가 강화는 불필요하다고
+  판단해 손대지 않았다.** 상세 수치표/판단 근거는 `docs/BALANCE_TUNING_LOG.md`
+  "N-5(c) 곡예사(juggler) 전투력 확인" 절 참고.
+  **(2) UI 반영 확인**: ① 캐릭터 선택 "고유 능력" 설명(`ABILITY_DESC_MAX_CHARS`=32
+  예산)이 곡예사의 긴 concept 문구 앞부분에 가려 D12가 전혀 안 보이던 것을 발견 —
+  `character_profiles.gd`의 juggler `concept` 필드를 "이벤트 주사위 D12(이벤트
+  판정 특화)"가 32자 예산 안에 들어오도록 재배치(스웹 mechanic 설명은 그대로 뒤로,
+  tooltip에서 전체 문장 확인 가능은 유지). ② DeckPanel(던전 맵/상점/이벤트/스토리
+  이벤트 상시)은 이미 `RunState.event_die_sides`를 동적으로 읽어 "이벤트 주사위
+  D12"를 정상 표시하고 있었음을 확인(코드 변경 불필요). ③ event.gd의 "위험을
+  감수하기" 버튼도 이미 `%d` 포맷으로 D12를 정상 표시(`qa_out/
+  n5c_event_juggler_d12.png`로 "위험을 감수하기 (D12, 3+ 성공/6+ 대성공)" 겹침
+  없이 렌더됨을 직접 확인). ④ 스킬 도감(`SkillCodex`)도 juggle_fortune/
+  juggle_fortune_plus가 곡예사 도감 11항목에 실제로 포함됨을 확인(`qa_out/
+  n5c_skill_codex_juggler.png`로 "곡예사 스킬 도감 — 발견 1/전체 11" 렌더 확인).
+  QA용 0-arity 래퍼 3개 신규(`dungeon_map.gd`의 `_debug_qa_character_juggler()`,
+  `event.gd`의 `_debug_qa_juggler_risky_button()`, `character_select.gd`의
+  `_debug_show_skill_codex_juggler()`).
+  **(3) 자동 검증**: `dice_test.gd` 신규 `_check_n5c_juggler_wrapup()`(고유 능력
+  설명에 D12 포함/DeckPanel에 "이벤트 주사위 D12" 라벨 존재(신규 재귀 헬퍼
+  `_n5c_find_label_containing()`)/도감에 juggle_fortune·juggle_fortune_plus id
+  포함 3가지를 플래그가 아니라 실제 렌더된 문자열/배열로 검증), `bash scripts/
+  qa_shot.sh dice_test` 전체 실행 — N-5(c) 신규 체크 3건 전부 OK. 전체 결과는
+  "FAIL"이었으나 원인 4건 전부 이번 변경과 무관함을 확인: (a) `CharacterArt.
+  has_all_faces('berserker')` 등 ART-1b 관련 4건은 이 세션 시작 전부터 `resources/
+  characters/berserker/face_*.png` 5장이 이미 새로 입고돼 있어서 생긴 회귀(아트
+  스레드가 이미 전달한 자산, 이번 작업과 무관 — 다음에 ART-1b/1c를 다루는
+  이터레이션이 테스트의 "berserker는 아직 아트 없음" 가정을 갱신해야 함, 아래
+  "알려진 이슈" 참고) (b) "스킬 도감 버튼 뷰포트 폭 1028" 1건은 기존부터 반복
+  기록된 QA 캡처 환경 이슈. **DESIGN.md 갱신**: "시작 스킬 선택" 절 — 원형
+  수(13→15), 곡예사 슬롯 테이블(눈속임→한탕→잡화점), 눈속임/한탕 설명 추가,
+  "캐릭터 스킬 부여 이벤트" 절 — 매혹사/곡예사 고유 스킬 4종(매혹 심화/곡예
+  앙코르/곡예 흥행/곡예 흥행+, 이전까지 DESIGN.md에 전혀 기술돼 있지 않던
+  문서 공백도 함께 메움). 전투 규칙/밸런스 수치는 건드리지 않았고
+  `resources/`·`docs/art/`는 읽기만 했다. **새 스킬 아이콘 발주 목록(art
+  스레드 전달용)**은 아래 표 참고 — 전부 기존 `event_check` 모티프/색(#A680D9,
+  완료 기록(192) 표에 이미 디자인 방향 명시)을 그대로 재사용하므로 새 모티프
+  디자인은 불필요하고 4개 스킬 id만 그 모티프로 추가 발주하면 된다.
+
+  | 모티프 | 색(hex) | 스킬 id | 이름 | 설명 한 줄 |
+  |---|---|---|---|---|
+  | event_check | #A680D9 | start_sleight | 눈속임 | 곡예사 전용 — "위험을 감수하기"의 판정 DC를 1 낮춤(최저 2, 승부사와 동일 효과) |
+  | event_check | #A680D9 | start_fortune | 한탕 | 곡예사 전용 — "위험을 감수하기" 성공(대성공 포함) 시 골드 +10 |
+  | event_check | #A680D9 | juggle_fortune | 곡예 흥행 | 곡예사 전용 — "위험을 감수하기"의 이벤트 주사위 굴림에 +1 보정 |
+  | event_check | #A680D9 | juggle_fortune_plus | 곡예 흥행+ | 이벤트 주사위 굴림 보정이 +1→+2로 강화 |
+
+  **INBOX.md의 [대형 기획 14] 항목은 N-1~N-5가 전부 끝나 "부분 처리됨"에 진행
+  한 줄을 갱신했다 — N-6(캐릭터 전용 이벤트/특별 선택지)만 남아 "처리됨"으로는
+  아직 못 옮김. 다음은 N-6.**
+
+- **2026-10-15/16 (213)**: 직전 이터레이션(N-5(b) 1차 작업)이 사용 한도로 중단된 뒤
+  재시도 지시로 이어받아 **N-5(b)(이벤트 판정 콘텐츠 확충 + "대성공" 단계 도입, [대형
+  기획 14]) 마무리**. 작업 트리에는 이미 구현이 거의 끝난 상태로 남아있었다 — 이번
+  이터레이션은 `git diff`로 그 상태를 전부 감사하고(코드 완결성 확인, 반쯤 끝난 조각
+  없음), 전체 검증·셀프 피드백·버그 1개 수정·커밋까지 끝냈다.
+  **확인한 기존 구현**(새로 작성하지 않음, 감사만 함): 신규 `code/systems/
+  event_challenge_pool.gd`(`EventChallengePool`)의 데이터 표 `CHALLENGES`(보물/도박/
+  탐색/함정 해체 4종, 각 항목이 safe_reward/success_reward/crit_reward/fail_penalty를
+  "type"(item_grade/gold/pips/gold_loss/none)으로만 명세), 공용 함수
+  `tier_for_roll()`(fail/success/crit 3단, `CRIT_MARGIN`=3 전종류 공통)/`roll_reward()`
+  (type별 공용 추첨)/`success_probability()`·`crit_probability()`(이론 계산).
+  `event.gd`는 `_ready()`가 매번 `CHALLENGES`에서 무작위 1개를 골라 `_challenge`에
+  저장하고, `_setup_item_event()`/`_resolve_risky()`/신규 `_grant_reward()`/
+  `_show_fail(penalty_spec)`이 전부 `_challenge`의 spec만 보고 동작해(challenge id로
+  분기하지 않음) 보물 외 종류도 코드 변경 없이 그대로 지원됨을 확인. `dice_test.gd`에
+  신규 `_check_n5b_event_challenge_variety()`(데이터 표 구조/tier_for_roll 경계/
+  roll_reward type별 범위·등급/D6 vs D12 확률 비교/화면 인스턴스화로 챌린지별 초기
+  화면·대성공 결과·패널티 실패가 실제로 렌더되는지)도 이미 작성돼 있었다.
+  **검증**: `bash scripts/qa_shot.sh dice_test` 전체 실행(600s 타임아웃 안에서
+  foreground로 4회 반복) — N-5(b) 신규 체크 전부 매번 OK. 전체 결과는 "FAIL"로
+  떴지만, 원인은 두 가지 모두 이번 변경과 무관한 **기존에 알려진 pre-existing
+  노이즈**임을 교차 확인했다: ① "스킬 도감 버튼 뷰포트 폭=1028" 체크는 STATUS.md
+  "알려진 이슈"에 이미 기록된 QA 캡처 환경 자체의 폭 잘림(실제 프로젝트 뷰포트는
+  1280)이고 내 diff 범위 밖(line 6289, N-2b 때 작성된 기존 코드)이다. ② "[일반 모드
+  보존] test_battle=false" 체크는 6번 중 1번꼴 일회성 FAIL로 (195)/(212) 완료 기록에도
+  이미 같은 패턴으로 기록된 노이즈 — 3회 단독 재실행 전부 OK로 재확인, 내 diff와도
+  거리가 멀다(line 5639, RunState.pip_inventory는 내 테스트가 건드리지 않음).
+  **셀프 피드백 2라운드, 버그 1개 발견·수정**: `qa_out/n5b_{gambling,exploration,
+  trap}_initial.png`(챌린지별 초기 화면)를 직접 읽어 — "위험을 감수하기" 버튼
+  텍스트가 N-5(b)에서 ", %d 이상 대성공" 문구가 추가돼 길어지면서 `RiskyButton`의
+  고정 폭(660~1020px, `event.tscn`)을 넘어 글자가 버튼 테두리 밖으로, `DeckPanel`
+  (x=980~) 쪽까지 흘러넘치는 실제 레이아웃 버그를 발견(캡처 폭 잘림과는 별개 —
+  Button이 clip_text/autowrap을 지원하지 않아 긴 텍스트가 그대로 밖으로 그려짐).
+  `event.gd`의 risky_button.text 포맷을 "위험을 감수하기 (이벤트 주사위 D%d, %d 이상
+  성공, %d 이상 대성공)" → "위험을 감수하기 (D%d, %d+ 성공/%d+ 대성공)"로 축약해
+  버튼 폭 안에 들어오도록 고쳤다(DC/대성공 문턱은 DC≤5라 항상 한 자리 숫자라서 D12
+  곡예사도 같은 길이 — 별도 캡처 불필요). `qa_out/n5b_gambling_initial.png`
+  재캡처로 버튼 테두리 안에 들어옴 확인 + `qa_out/n5b_gambling_crit.png`(대성공 결과,
+  "골드 31를 더 얻었다!")/`n5b_trap_fail.png`(실패 패널티, "허둥대다 금화 5를
+  떨어뜨렸다") 재캡처로 결과 화면도 겹침/잘림 없음 확인, `dice_test.gd`의
+  "대성공" 포함 여부 체크도 축약된 텍스트에서 그대로 OK — 2라운드로 종료.
+  `docs/DESIGN.md`/`code/systems/event_item_pool.gd`(`weighted_pick()` 공개 래퍼)는
+  이미 갱신돼 있던 그대로 유지. 전투 규칙/밸런스 수치는 건드리지 않았고
+  `resources/`·`docs/art/`는 읽기만 했다. INBOX.md의 이 항목은 "부분 처리됨"에 그대로
+  두되 진행 한 줄을 갱신했다(N-5(c), N-6이 남아 "처리됨"으로는 못 옮김).
+  **다음은 N-5(c)(밸런스 + 마무리, INBOX.md "남은 이슈" 참고).**
+
 - **2026-10-15 (212)**: INBOX.md "남은 이슈" [대형 기획 14] **N-5(a)(곡예사를
   이벤트 특화 클래스로) 완료**. INBOX 원문(사용자 결정 2026-10-15): "이벤트 특화
   클래스는 기존 클래스 중에서 지정 — 곡예사가 어울릴 듯"에 따라 곡예사(juggler)의

@@ -224,7 +224,7 @@ K-3(포커스 강조색·캐릭터 선택 상세 패널·`DeckPanel`)에 이어 
 | `make_bar(parent, character_id, ...)` | 가로 HUD 띠(제목 없음, 얕은 패딩) | `dungeon_map`(라운드/진행도/골드 HUD, 범례), `shop`(M-4, 보유 골드 HUD 칩) |
 | `make_backdrop(parent, character_id, rect, ...)` | 제목/바디 스캐폴딩 없는 순수 배경 프레임(M-4 신규, `make_section`에서 공용 로직만 분리) | `event`/`story_event`(M-4, 서사 텍스트 PromptLabel/Description 뒤 배경 — 기존 Label은 `move_child()`로 그 앞에 끼워 넣을 뿐 reparent하지 않음) |
 | `make_stat_chip` / `make_progress_dots` | HUD 안 "아이콘+큰 숫자+캡션" 칩 / 런 진행도 점 | `dungeon_map` |
-| `style_primary_button` / `style_secondary_button` | 주/보조 버튼 위계(이미지 스킨 상태별 폴백 지원, M-5a) | `dungeon_map`(전투 입장=주, 상점/이벤트/스토리/정예/커스터마이징=보조), `combat_test`(다음=주, 나머지 5개=보조), `event`(M-4, 계속=주, 안전·위험=보조+tint로 의미 구분, 카드 안 구매·적용·획득 버튼=보조), `shop`(M-4, 던전으로 돌아가기=주, 구매/커스터마이징/스킬 도감=보조), `story_event`(M-4, 계속=주, A·B 선택지=보조) |
+| `style_primary_button` / `style_secondary_button` | 주/보조 버튼 위계(이미지 스킨 상태별 폴백 지원, M-5a) | `dungeon_map`([대형 기획 15] Q-4a로 방 선택지 6개(전투/상점/이벤트/스토리/정예/커스터마이징) 전부 보조 스타일로 통일 — M-1 때는 전투만 주 행동이었으나 "방 선택지만 크고 메인처럼 보인다"는 피드백으로 되돌림), `combat_test`(다음=주, 나머지 5개=보조), `event`(M-4, 계속=주, 안전·위험=보조+tint로 의미 구분, 카드 안 구매·적용·획득 버튼=보조), `shop`(M-4, 던전으로 돌아가기=주, 구매/커스터마이징/스킬 도감=보조), `story_event`(M-4, 계속=주, A·B 선택지=보조) |
 | `make_hp_bar` | 프레임+채움 HP 바(비율별 녹→주황→빨강, M-5a 이미지 스킨) | `combat_test`(플레이어/몬스터) |
 | `make_badge` / `tier_badge_texture` / `make_codex_badge` | 턴·라운드 배지 / 몬스터 티어 배지(풀컬러, 안 틴트) / 도감 상태 배지(상태색 modulate) | `combat_test`, `skill_codex_panel` |
 | `apply_chip_skin` / `_make_divider_control` / `_make_title_ornament_rect` | 칩 배경 / 구분선 / 제목 좌우 장식 | `make_section`/`make_stat_chip` 내부(모든 화면 공통) |

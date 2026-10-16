@@ -437,6 +437,10 @@ func _ready() -> void:
 	all_pass = _check_q3_ability_summary_fits(lines) and all_pass
 
 	lines.append("")
+	lines.append("[Q-4a(12,13,14): 던전 맵 선택지 정리 — 방 선택지 5종 버튼 rect 크기가 모두 같은지, 보상 칩(RewardIcon)이 각 버튼의 자식 노드 안에 있는지(더 이상 떠 있는 별도 노드가 아닌지), 방 카드(MapStrip)에는 보상 칩이 전혀 없고 정예/보스 노출 방에만 배지가 붙는지]")
+	all_pass = _check_q4a_dungeon_room_choices(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -3907,9 +3911,10 @@ func _check_m7_map_card_skin(lines: PackedStringArray) -> bool:
 	DirAccess.remove_absolute(tmp_dir + "panel")
 	DirAccess.remove_absolute(tmp_dir)
 
-	# --- (4) production 자산(이미 입고됨) end-to-end: 기본 base_dir로 부르면 StyleBoxTexture,
-	#     정예/보스 배지(FamilyIcon)·선택지 칩(_make_type_chip)은 이 변경과 무관한 별도
-	#     PanelContainer라 자식 개수가 그대로인지도 함께 확인(가독성 유지 요건).
+	# --- (4) production 자산(이미 입고됨) end-to-end: 기본 base_dir로 부르면 StyleBoxTexture.
+	#     [대형 기획 15] Q-4a(13, 2026-10-17)로 방 카드는 더 이상 선택지 칩을 나열하지
+	#     않으므로(_make_type_chip 자체가 삭제됨), 여기서는 "제목 Label 하나만 있고(idx=0은
+	#     보스/정예 배지 대상이 아님) 보상 칩(RewardIcon)이 전혀 없는지"로 구조를 확인한다.
 	RunState.rooms_cleared = 0
 	var prod_node: Control = map_instance._make_map_node(0)
 	add_child(prod_node)
@@ -3918,14 +3923,15 @@ func _check_m7_map_card_skin(lines: PackedStringArray) -> bool:
 	ok = prod_is_tex and ok
 	var prod_margin_ok: bool = prod_is_tex and (prod_style as StyleBoxTexture).texture_margin_left == 24
 	ok = prod_margin_ok and ok
-	# 자식 구조: vbox(title + 전투 칩 + 노출된 선택지 칩들) — 적어도 title+전투 칩 2개는 항상 있음.
+	# idx=0은 보스 방도 아니고(TOTAL_ROOMS-1이 아님) ELITE_CHANCE 조건(idx>=1)도 만족하지
+	# 않아 배지가 없는 자리 — vbox에는 제목 Label 하나만 있어야 한다.
 	var vbox := prod_node.get_child(0) as VBoxContainer
-	var chips_preserved_ok: bool = vbox != null and vbox.get_child_count() >= 2
-	ok = chips_preserved_ok and ok
-	lines.append("  (4) production: 스타일=%s(기대 StyleBoxTexture) texture_margin_left=%s(기대 24), 제목+선택지 칩 구조 보존(%d개, 기대 >=2) -> %s" % [
+	var only_title_ok: bool = vbox != null and vbox.get_child_count() == 1 and vbox.get_child(0) is Label
+	ok = only_title_ok and ok
+	lines.append("  (4) production: 스타일=%s(기대 StyleBoxTexture) texture_margin_left=%s(기대 24), 카드 구조=제목만(%d개, 기대 1) -> %s" % [
 		prod_style.get_class(), (prod_style as StyleBoxTexture).texture_margin_left if prod_is_tex else "(없음)",
 		vbox.get_child_count() if vbox != null else 0,
-		"OK" if (prod_is_tex and prod_margin_ok and chips_preserved_ok) else "FAIL"
+		"OK" if (prod_is_tex and prod_margin_ok and only_title_ok) else "FAIL"
 	])
 	prod_node.queue_free()
 
@@ -7646,19 +7652,21 @@ func _check_m1_dungeon_map_hud_and_buttons(lines: PackedStringArray) -> bool:
 		title.text, "OK" if title_ok else "FAIL"
 	])
 
-	# 주 행동(전투) 버튼과 보조 행동(상점) 버튼의 normal이 달라야 한다(위계).
+	# [대형 기획 15] Q-4a(12, 2026-10-17)로 수정: 전투 버튼이 더 이상 "주 행동"이 아니라
+	# 다른 방 선택지(상점)와 같은 보조 스타일을 받는다 — M-1 당시엔 둘이 달라야 했지만
+	# INBOX 피드백("전투 방 선택지만 크고 메인 선택지처럼 보인다")으로 방향이 반대가 됐다.
 	# [대형 기획 13] M-5a(2026-10-15): resources/ui/button/*가 입고되면 normal이
 	# StyleBoxTexture일 수 있어 _m5_style_fingerprint()로 StyleBoxFlat/Texture 양쪽을
 	# 다 받는다(실제 "원화 자체가 다른가"가 아니라 "두 버튼이 같은 렌더 결과를
-	# 공유하지 않는가"를 확인하는 게 이 테스트의 의도).
-	var primary_style: StyleBox = map.enter_combat_button.get_theme_stylebox("normal")
+	# 공유하는가"를 확인하는 게 이 테스트의 의도).
+	var combat_style: StyleBox = map.enter_combat_button.get_theme_stylebox("normal")
 	var secondary_style: StyleBox = map.enter_shop_button.get_theme_stylebox("normal")
-	var primary_fp: Variant = _m5_style_fingerprint(primary_style)
+	var combat_fp: Variant = _m5_style_fingerprint(combat_style)
 	var secondary_fp: Variant = _m5_style_fingerprint(secondary_style)
-	var button_hierarchy_ok: bool = primary_style != null and secondary_style != null and primary_fp != secondary_fp
+	var button_hierarchy_ok: bool = combat_style != null and secondary_style != null and combat_fp == secondary_fp
 	ok = button_hierarchy_ok and ok
-	lines.append("  버튼 위계: 전투 normal=%s 상점 normal=%s (달라야 함) -> %s" % [
-		primary_fp, secondary_fp, "OK" if button_hierarchy_ok else "FAIL"
+	lines.append("  (Q-4a 12) 버튼 위계: 전투 normal=%s 상점 normal=%s (같아야 함, 위계 제거) -> %s" % [
+		combat_fp, secondary_fp, "OK" if button_hierarchy_ok else "FAIL"
 	])
 	# 정예 전투 버튼은 tint(빨강)를 받아 상점과도, 전투와도 달라야 한다(G-7 "빨간 테두리"
 	# 의도가 UIKit 통합 후에도 유지되는지).
@@ -11008,3 +11016,148 @@ func _check_q3_ability_summary_fits(lines: PackedStringArray) -> bool:
 	node.free()
 	RunState.character_id = character_backup
 	return ok
+
+
+## [대형 기획 15] Q-4a(12,13,14, 2026-10-17) 검증 — INBOX 원문 테스트 요구사항을 그대로
+## 코드화: (12) 방 선택지 5종(전투/상점/이벤트/스토리/정예) 버튼 rect 크기가 전부 같은지,
+## (14) 보상 칩(+전투/정예 계열 아이콘)이 버튼의 자손 노드인지(더 이상 옆에 떠 있는 형제
+## 노드가 아닌지), (13) 방 카드(MapStrip)에는 보상 칩이 전혀 없고 정예/보스가 노출되는
+## 방에만 그 배지가 붙는지.
+func _check_q4a_dungeon_room_choices(lines: PackedStringArray) -> bool:
+	var ok := true
+	var character_backup := RunState.character_id
+	var rooms_backup := RunState.rooms_cleared
+	var round_backup := RunState.round_index
+	RunState.reset_run("novice")
+	RunState.round_index = 1
+	RunState.rooms_cleared = 0
+
+	var map_scene := load("res://code/scenes/dungeon_map.tscn")
+	var map = map_scene.instantiate()
+	add_child(map)
+
+	# (12) 방 선택지 5종을 전부 강제로 노출시켜 버튼 rect 크기를 비교한다(실제 플레이에서는
+	# 노출 여부가 방마다 갈리지만, "노출되면 전부 같은 크기"라는 요구는 전부 동시에 보여도
+	# 성립해야 한다).
+	map._shop_available = true
+	map._event_available = true
+	map._story_available = true
+	map._elite_available = true
+	var forced_room_order: Array[String] = ["shop", "event", "story", "elite"]
+	map._room_order = forced_room_order
+	map._update_labels()
+
+	var buttons: Array = [
+		map.enter_combat_button, map.enter_shop_button, map.enter_event_button,
+		map.enter_story_button, map.enter_elite_button,
+	]
+	var sizes: Array = []
+	for b in buttons:
+		sizes.append(b.size)
+	var sizes_equal_ok := true
+	for s in sizes:
+		if not (s as Vector2).is_equal_approx(sizes[0]):
+			sizes_equal_ok = false
+	ok = sizes_equal_ok and ok
+	lines.append("  (12) 방 선택지 5종(전투/상점/이벤트/스토리/정예) 버튼 rect 크기: %s (전부 같아야 함) -> %s" % [
+		sizes, "OK" if sizes_equal_ok else "FAIL"
+	])
+
+	# (14) 보상 칩이 각 버튼의 자손 노드인지 확인 — 더 이상 버튼 옆에 떠 있는 형제 노드가
+	# 아니다.
+	var reward_in_button_ok := true
+	for t in map.REWARD_CATEGORIES.keys():
+		var btn: Button = map._button_for_type(t)
+		var row: HBoxContainer = map._reward_icon_rows[t]
+		if btn == null or row == null or not btn.is_ancestor_of(row):
+			reward_in_button_ok = false
+	ok = reward_in_button_ok and ok
+	lines.append("  (14) 보상 칩 행이 각 방 선택지 버튼의 자손 노드인지(전투/상점/이벤트/스토리/정예) -> %s" % (
+		"OK" if reward_in_button_ok else "FAIL"
+	))
+	var family_in_button_ok := true
+	for t in ["combat", "elite"]:
+		var btn2: Button = map._button_for_type(t)
+		var icon: Control = map._family_icon_by_type[t]
+		if btn2 == null or icon == null or not btn2.is_ancestor_of(icon):
+			family_in_button_ok = false
+	ok = family_in_button_ok and ok
+	lines.append("  (14) 계열 아이콘(전투/정예)도 버튼의 자손 노드인지 -> %s" % (
+		"OK" if family_in_button_ok else "FAIL"
+	))
+
+	# (13) 방 카드(MapStrip)에는 보상 칩이 전혀 없어야 한다 — idx=0(일반 방)/마지막 idx
+	# (보스 방) 두 가지로 확인한다.
+	var boss_idx: int = RunState.TOTAL_ROOMS - 1
+	for idx in [0, boss_idx]:
+		var card: Control = map._make_map_node(idx)
+		add_child(card)
+		var reward_icon_count := _q4a_count_reward_icons(card)
+		var card_ok: bool = reward_icon_count == 0
+		ok = card_ok and ok
+		lines.append("  (13) 방 카드(idx=%d)에 보상 칩 없음: %d개 -> %s" % [
+			idx, reward_icon_count, "OK" if card_ok else "FAIL"
+		])
+		card.queue_free()
+
+	# 보스 방 카드에는 "보스" 배지가 있어야 한다.
+	var boss_card: Control = map._make_map_node(boss_idx)
+	add_child(boss_card)
+	var has_boss_badge: bool = _q4a_contains_label_text(boss_card, "보스")
+	ok = has_boss_badge and ok
+	lines.append("  (13) 보스 방(idx=%d)에 '보스' 배지 존재 -> %s" % [
+		boss_idx, "OK" if has_boss_badge else "FAIL"
+	])
+	boss_card.queue_free()
+
+	# 정예가 노출되는 방에는 "정예" 배지가 있어야 한다 — ELITE_CHANCE 대상 구간
+	# (idx 1..TOTAL_ROOMS-2) 중 실제로 정예가 뜨는 자리를 찾아 확인한다(결정적 시드라
+	# 매번 같은 자리가 나옴, dungeon_map.gd _debug_press_shortcut_elite() 주석 참고).
+	var elite_idx := -1
+	for idx in range(1, RunState.TOTAL_ROOMS - 1):
+		if map._room_options_for_index(idx).elite:
+			elite_idx = idx
+			break
+	var elite_found_ok: bool = elite_idx != -1
+	ok = elite_found_ok and ok
+	lines.append("  (13) 정예 노출 방 탐색(idx 1~%d 중): idx=%d -> %s" % [
+		RunState.TOTAL_ROOMS - 2, elite_idx, "OK" if elite_found_ok else "FAIL"
+	])
+	if elite_found_ok:
+		var elite_card: Control = map._make_map_node(elite_idx)
+		add_child(elite_card)
+		var has_elite_badge: bool = _q4a_contains_label_text(elite_card, "정예")
+		var elite_no_reward: bool = _q4a_count_reward_icons(elite_card) == 0
+		ok = has_elite_badge and elite_no_reward and ok
+		lines.append("  (13) idx=%d 정예 노출 방 카드: '정예' 배지=%s, 보상 칩 없음=%s -> %s" % [
+			elite_idx, has_elite_badge, elite_no_reward, "OK" if (has_elite_badge and elite_no_reward) else "FAIL"
+		])
+		elite_card.queue_free()
+
+	remove_child(map)
+	map.free()
+	RunState.character_id = character_backup
+	RunState.rooms_cleared = rooms_backup
+	RunState.round_index = round_backup
+	return ok
+
+
+## _check_q4a_dungeon_room_choices() 전용 재귀 헬퍼 — 트리 안의 RewardIcon 인스턴스 개수.
+func _q4a_count_reward_icons(node: Node) -> int:
+	var count := 0
+	if node is RewardIcon:
+		count += 1
+	for c in node.get_children():
+		count += _q4a_count_reward_icons(c)
+	return count
+
+
+## _check_q4a_dungeon_room_choices() 전용 재귀 헬퍼 — 트리 안에 해당 텍스트 그대로인
+## Label이 있는지.
+func _q4a_contains_label_text(node: Node, text: String) -> bool:
+	if node is Label and (node as Label).text == text:
+		return true
+	for c in node.get_children():
+		if _q4a_contains_label_text(c, text):
+			return true
+	return false

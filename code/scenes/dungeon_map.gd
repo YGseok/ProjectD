@@ -72,9 +72,11 @@ const SHOP_FIXED_ROOM_INDICES: Array[int] = [1, 3]
 ## 높이(동적 계산, _build_map_strip 참고)에 따라 _layout_visible_buttons()가 매번
 ## 계산한다 — 이 상수는 MapStrip과 버튼 구역 사이의 여백(gap)만 의미한다.
 const BUTTON_TOP_GAP := 20.0
-## 주 행동(전투 입장)과 보조 행동(상점/이벤트/정예/커스터마이징)의 버튼 높이를 다르게 둬
-## "주 행동은 크고 강조, 보조 행동은 작게"(INBOX M-1 원문)를 구조적으로 보장한다.
-const PRIMARY_BUTTON_SPACING := UIKit.PRIMARY_BUTTON_HEIGHT + 14.0
+## [대형 기획 15] Q-4a(12, 2026-10-17): 방 선택지(전투/상점/이벤트/스토리/정예)는 전부
+## 같은 크기·같은 위계로 쌓는다 — M-1이 "전투만 크게"로 구분했던 것을 INBOX 피드백
+## ("전투 방 선택지만 크고 그게 메인 선택지처럼 보인다")에 따라 되돌림. 커스터마이징은
+## Q-5에서 별도 위치로 분리될 예정이라 이번엔 건드리지 않는다(원래도 보조 버튼 높이였으니
+## 레이아웃상 차이 없음).
 const SECONDARY_BUTTON_SPACING := UIKit.SECONDARY_BUTTON_HEIGHT + 10.0
 const SHOP_GOLD_LABEL_GAP := 22.0
 ## MapStrip 방 카드 높이를 내용(행 개수)에 맞춰 계산하는 데 쓰는 치수 — 고정 130px
@@ -158,11 +160,15 @@ var _elite_available := false
 var _room_order: Array[String] = ["shop", "event", "story", "elite"]
 var _map_line: ColorRect
 var _map_hbox: HBoxContainer
-var _reward_icon_rows: Dictionary = {} # room type -> HBoxContainer, 방 선택 버튼 옆에 붙는 보상 카테고리 아이콘
+var _reward_icon_rows: Dictionary = {} # room type -> HBoxContainer, 방 선택 버튼 "안"에 들어가는 보상 카테고리 아이콘 줄(Q-4a(14))
+## [대형 기획 15] Q-4a(14, 2026-10-17): 버튼 텍스트("전투"/"상점" 등)를 보여주는 라벨 —
+## 기존엔 Button.text를 직접 썼지만, 버튼 안에 아이콘+보상 칩까지 함께 넣으면서 전용
+## Label 자식으로 바꿨다(room type -> Label).
+var _button_name_labels: Dictionary = {}
 var _shop_gold_label: Label # "상점 입장" 버튼 바로 아래에 보유 골드를 보여주는 라벨
-## G-9(2026-10-07, INBOX.md [대형 기획 6]): "combat"/"elite" -> FamilyIcon, 두 보상
-## 아이콘 행(_reward_icon_rows) 맨 앞에 끼워 넣어 "다음 방에서 어떤 계열의 몬스터를
-## 만날지"를 보여준다. 상점/이벤트와 달리 전투는 스포일링 문제가 없어 노출(INBOX.md 원문).
+## G-9(2026-10-07, INBOX.md [대형 기획 6]): "combat"/"elite" -> FamilyIcon, 버튼 내부 콘텐츠
+## (_setup_button_content()) 맨 앞에 끼워 넣어 "다음 방에서 어떤 계열의 몬스터를 만날지"를
+## 보여준다. 상점/이벤트와 달리 전투는 스포일링 문제가 없어 노출(INBOX.md 원문).
 var _family_icon_by_type: Dictionary = {}
 
 ## 지금 화면에 보이는 방 선택 버튼들(+커스터마이징) — _layout_visible_buttons()가 매번
@@ -212,7 +218,7 @@ func _ready() -> void:
 	_setup_reward_legend()
 	_setup_status_caption()
 	_setup_map_strip()
-	_setup_reward_icons()
+	_setup_button_content()
 	_setup_shop_gold_label()
 	_roll_room_choices()
 	_update_labels()
@@ -300,14 +306,16 @@ func _setup_reward_legend() -> void:
 		legend.add_child(pair)
 
 
-## [대형 기획 13] M-1: 행동 버튼 6개(전투/상점/특수 이벤트/스토리/정예/커스터마이징)를
-## "주 행동은 크고 강조, 보조 행동은 작게"(INBOX M-1 원문) 위계로 한 번에 스타일링한다.
+## [대형 기획 13] M-1 → [대형 기획 15] Q-4a(12, 2026-10-17)로 수정: 행동 버튼 6개
+## (전투/상점/특수 이벤트/스토리/정예/커스터마이징)를 전부 "보조 행동" 스타일 하나로
+## 통일한다 — M-1 때는 전투만 꽉 채운 "주 행동" 스타일이었으나, INBOX 피드백("전투 방
+## 선택지만 크고 메인 선택지처럼 보인다")에 따라 방 선택지끼리는 위계를 두지 않는다.
 ## 버튼 텍스트/가시성은 매 _update_labels()마다 바뀌지만 스타일 자체는 캐릭터가 바뀌지
 ## 않는 한 고정이라 _ready()에서 한 번만 호출하면 된다(UIKit.style_*가 "focus" 슬롯은
 ## 건드리지 않아 FocusNav.chain_linear()가 나중에 덮어쓰는 포커스 테두리와 충돌 없음).
 func _style_action_buttons() -> void:
 	var cid := RunState.character_id
-	UIKit.style_primary_button(enter_combat_button, cid)
+	UIKit.style_secondary_button(enter_combat_button, cid)
 	UIKit.style_secondary_button(enter_shop_button, cid)
 	UIKit.style_secondary_button(enter_event_button, cid)
 	UIKit.style_secondary_button(enter_story_button, cid)
@@ -374,25 +382,66 @@ func _setup_shop_gold_label() -> void:
 	add_child(_shop_gold_label)
 
 
-## 방 선택 버튼(전투/상점/특수 이벤트/스토리 이벤트) 옆에 붙일 보상 카테고리 아이콘
-## 줄을 종류별로 미리 하나씩 만들어둔다 (버튼 자체는 노출 여부가 매 방마다 바뀌지만,
-## "이 종류의 방이 뭘 줄 수 있는지"는 고정이라 재사용 가능).
-func _setup_reward_icons() -> void:
+## room type 문자열 -> 그 종류의 행동 버튼 노드. _setup_button_content()/dice_test.gd
+## 양쪽이 같은 매핑을 쓴다(이 함수가 유일한 소스).
+func _button_for_type(t: String) -> Button:
+	match t:
+		"combat":
+			return enter_combat_button
+		"shop":
+			return enter_shop_button
+		"event":
+			return enter_event_button
+		"story":
+			return enter_story_button
+		"elite":
+			return enter_elite_button
+	return null
+
+
+## [대형 기획 15] Q-4a(14, 2026-10-17): 보상 카테고리 아이콘(+전투/정예의 계열 아이콘)을
+## 버튼 옆에 따로 띄우는 대신 버튼 자식으로 넣어 "[종류 아이콘 + 이름 + 보상 칩들]" 한
+## 덩어리 버튼으로 만든다(INBOX 원문) — 방향키 포커스도 자연히 버튼 단위로 유지된다
+## (오버레이 노드가 아니라 버튼의 자손이라 FocusNav 체인과 무관). 이름 텍스트는
+## Button.text 대신 전용 Label(_button_name_labels)에 넣는다 — 네이티브 텍스트와 커스텀
+## 아이콘 레이아웃이 겹치지 않게 하기 위함.
+func _setup_button_content() -> void:
 	for t in REWARD_CATEGORIES.keys():
-		var row := HBoxContainer.new()
-		row.add_theme_constant_override("separation", 4)
-		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		# G-9: "전투"/"정예 전투" 행만 보상 아이콘 앞에 계열 아이콘을 둔다(어떤 몬스터를
-		# 상대하는지는 전투 쪽에만 해당, 상점/이벤트는 몬스터가 없어 대상 없음).
+		var btn := _button_for_type(t)
+		if btn == null:
+			continue
+		# .tscn에 박혀 있던 기본 텍스트("전투 방 입장 (1번째 방)" 등)를 지운다 — 이제
+		# 이름은 name_label이 보여주고, 네이티브 Button.text와 겹치면 두 겹으로 보인다.
+		btn.text = ""
+		var content := HBoxContainer.new()
+		content.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		content.add_theme_constant_override("separation", 8)
+		content.set_anchors_preset(Control.PRESET_FULL_RECT)
+		content.offset_left = 16.0
+		content.offset_right = -16.0
+		content.alignment = BoxContainer.ALIGNMENT_BEGIN
+		# G-9: "전투"/"정예 전투"만 계열 아이콘을 보여준다(어떤 몬스터를 상대하는지는
+		# 전투 쪽에만 해당, 상점/이벤트는 몬스터가 없어 대상 없음).
 		if t == "combat" or t == "elite":
 			var family_icon := FamilyIcon.new()
-			family_icon.custom_minimum_size = Vector2(18, 18)
-			row.add_child(family_icon)
+			family_icon.custom_minimum_size = Vector2(20, 20)
+			content.add_child(family_icon)
 			_family_icon_by_type[t] = family_icon
+		var name_label := Label.new()
+		name_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		name_label.clip_text = true
+		name_label.add_theme_font_size_override("font_size", 14)
+		name_label.add_theme_color_override("font_color", Color(0.92, 0.92, 0.92))
+		content.add_child(name_label)
+		_button_name_labels[t] = name_label
+		var reward_row := HBoxContainer.new()
+		reward_row.add_theme_constant_override("separation", 4)
 		for cat in REWARD_CATEGORIES[t]:
-			row.add_child(_make_reward_icon(cat))
-		add_child(row)
-		_reward_icon_rows[t] = row
+			reward_row.add_child(_make_reward_icon(cat))
+		content.add_child(reward_row)
+		btn.add_child(content)
+		_reward_icon_rows[t] = reward_row
 
 
 func _make_reward_icon(category: String) -> RewardIcon:
@@ -588,7 +637,13 @@ func _update_labels() -> void:
 			rooms_cleared_label.text = "라운드 %d/%d · 던전 클리어! (%d / %d 방 격파)" % [
 				RunState.round_index, RunState.TOTAL_ROUNDS, RunState.rooms_cleared, RunState.TOTAL_ROOMS
 			]
-		enter_combat_button.text = "새 런 시작"
+		# [대형 기획 15] Q-4a(14, 2026-10-17): 버튼 텍스트는 이제 전용 Label(_button_name_labels)
+		# 몫 — "새 런 시작" 상태에서는 그 방 종류의 계열/보상 아이콘이 의미가 없으므로
+		# 숨긴다(combat 버튼 자체는 재사용되지만 "방 선택"이 아니라 "런 재시작" 의미로 바뀜).
+		_button_name_labels["combat"].text = "새 런 시작"
+		_reward_icon_rows["combat"].visible = false
+		if _family_icon_by_type.has("combat"):
+			(_family_icon_by_type["combat"] as Control).visible = false
 		enter_shop_button.hide()
 		enter_event_button.hide()
 		enter_story_button.hide()
@@ -599,11 +654,16 @@ func _update_labels() -> void:
 		rooms_cleared_label.text = "라운드 %d/%d · 클리어한 방: %d / %d" % [
 			RunState.round_index, RunState.TOTAL_ROUNDS, RunState.rooms_cleared, RunState.TOTAL_ROOMS
 		]
-		enter_combat_button.text = "전투 방 입장 (%d번째 방)" % (RunState.rooms_cleared + 1)
-		enter_shop_button.text = "상점 입장 (%d번째 방)" % (RunState.rooms_cleared + 1)
-		enter_event_button.text = "특수 이벤트 입장 (%d번째 방)" % (RunState.rooms_cleared + 1)
-		enter_story_button.text = "스토리 이벤트 입장 (%d번째 방)" % (RunState.rooms_cleared + 1)
-		enter_elite_button.text = "정예 전투 입장 (%d번째 방)" % (RunState.rooms_cleared + 1)
+		# [대형 기획 15] Q-4a(14): 방 번호는 모든 선택지가 공통으로 가리키는 "다음 방"
+		# 하나뿐이라(상태 캡션에 이미 표시됨) 버튼마다 반복하지 않고 이름만 짧게 보여준다.
+		_button_name_labels["combat"].text = "전투"
+		_reward_icon_rows["combat"].visible = true
+		if _family_icon_by_type.has("combat"):
+			(_family_icon_by_type["combat"] as Control).visible = true
+		_button_name_labels["shop"].text = "상점"
+		_button_name_labels["event"].text = "특수 이벤트"
+		_button_name_labels["story"].text = "스토리 이벤트"
+		_button_name_labels["elite"].text = "정예 전투"
 		enter_shop_button.visible = _shop_available
 		enter_event_button.visible = _event_available
 		enter_story_button.visible = _story_available
@@ -647,33 +707,25 @@ func _setup_map_strip() -> void:
 func _build_map_strip() -> void:
 	for c in _map_hbox.get_children():
 		c.queue_free()
-	# [대형 기획 13] M-1: 카드 높이를 고정 130 대신 "이 런에서 실제로 가장 많은 선택지를
-	# 보여주는 방" 기준으로 계산한다 — 노출되는 선택지가 적은 방이 많은 런일수록 카드
-	# 아래쪽 빈 공간이 줄어든다(INBOX M-1 비평 "방 카드는 아래쪽 절반이 비어 있다").
-	# 한 줄(MapStrip)에 나열되므로 전부 같은 높이를 써야 정렬이 흐트러지지 않는다.
-	var max_rows := 0
-	for idx in range(RunState.TOTAL_ROOMS):
-		var opts := _room_options_for_index(idx)
-		var rows := 2  # 제목 1줄 + "전투"는 항상 노출
-		for t in opts.order:
-			if opts[t]:
-				rows += 1
-		max_rows = max(max_rows, rows)
-	_map_card_height = MAP_CARD_TITLE_H + MAP_CARD_ROW_H * max_rows + MAP_CARD_PAD
+	# [대형 기획 15] Q-4a(13, 2026-10-17): 방 카드는 이제 "제목" + (해당하면) "정예/보스
+	# 배지" 한 줄만 보여준다(아래 선택지 버튼과 중복이던 보상 칩·종류 목록은 전부 제거) —
+	# 그래서 카드 높이가 더 이상 그 방에 노출된 선택지 개수에 좌우되지 않고 항상 고정
+	# 2행(제목+배지 자리)이면 충분하다. 한 줄(MapStrip)에 나열되므로 전부 같은 높이를
+	# 써야 정렬이 흐트러지지 않는다.
+	_map_card_height = MAP_CARD_TITLE_H + MAP_CARD_ROW_H * 2 + MAP_CARD_PAD
 	map_strip.offset_bottom = map_strip.offset_top + _map_card_height
 	for idx in range(RunState.TOTAL_ROOMS):
 		_map_hbox.add_child(_make_map_node(idx))
 
 
-## [미니 기획 M-7](2026-10-16) — M-6이 범위 밖으로 남긴 던전 맵 방 카드(MapStrip)
-## 스킨. 보상/상점/이벤트 카드(`item_card_style.build_card()`)와 달리 방 카드는
-## 등급이 없고 한 방이 여러 선택지(전투+상점+이벤트 등)를 동시에 가질 수 있어 "선택지
-## 종류색" 하나를 카드 전체 accent로 쓸 수 없다 — 대신 기존에 이미 카드 프레임
-## 테두리색으로 쓰던 "방 상태" 3색(현재=금색/완료=초록/미래=중립 회색)을 그대로
-## `UIKit.apply_card_skin()`의 tint로 넘긴다(M-6과 같은 "accent만 상황색으로
-## modulate" 패턴). 개별 선택지 색(전투/상점/이벤트/정예/스토리)은 그 아래
-## `_make_type_chip()`이 독립된 PanelContainer로 그리므로 이 변경과 무관하게 그대로
-## 유지된다. 파일이 없으면 기존 StyleBoxFlat 3색 테두리로 폴백(호출부/기존 로직 불변).
+## [미니 기획 M-7](2026-10-16) → [대형 기획 15] Q-4a(13, 2026-10-17)로 단순화 — 던전 맵
+## 방 카드(MapStrip) 스킨. 보상/상점/이벤트 카드(`item_card_style.build_card()`)와 달리
+## 방 카드는 등급이 없어 기존에 이미 카드 프레임 테두리색으로 쓰던 "방 상태" 3색
+## (현재=금색/완료=초록/미래=중립 회색)을 그대로 `UIKit.apply_card_skin()`의 tint로
+## 넘긴다. Q-4a(13) 전에는 이 카드가 선택지 종류별 칩(전투/상점/이벤트/스토리/정예)을
+## 전부 나열했지만, 그 정보는 아래 선택지 버튼에 이미 있어 중복이라는 피드백에 따라
+## "방 번호/상태/정예·보스 배지"만 남기고 제거했다. 파일이 없으면 기존 StyleBoxFlat
+## 3색 테두리로 폴백(호출부/기존 로직 불변).
 func _make_map_node(idx: int, base_dir: String = UIKit.SKIN_BASE_DIR) -> Control:
 	var is_cleared := idx < RunState.rooms_cleared
 	var is_current := idx == RunState.rooms_cleared and not RunState.is_run_complete()
@@ -722,72 +774,44 @@ func _make_map_node(idx: int, base_dir: String = UIKit.SKIN_BASE_DIR) -> Control
 	title.autowrap_mode = TextServer.AUTOWRAP_WORD
 	vbox.add_child(title)
 
-	var opts := _room_options_for_index(idx)
-	var combat_profile := _monster_profile_for_room(idx)
-	vbox.add_child(_make_type_chip(
-		"전투", Color(0.5, 0.2, 0.2), "combat",
-		combat_profile.get("family", ""), combat_profile.get("tier", "normal") == "boss"
-	))
-	var chip_specs := {
-		"shop": ["상점", Color(0.5, 0.42, 0.15)],
-		"event": ["특수 이벤트", Color(0.35, 0.22, 0.5)],
-		"story": ["스토리 이벤트", Color(0.18, 0.4, 0.4)],
-		"elite": ["정예 전투", Color(0.55, 0.12, 0.12)],
-	}
-	for t in opts.order:
-		if opts[t]:
-			var spec: Array = chip_specs[t]
-			if t == "elite":
-				var elite_profile := _elite_profile_for_room(idx)
-				vbox.add_child(_make_type_chip(spec[0], spec[1], t, elite_profile.get("family", ""), false, true))
-			else:
-				vbox.add_child(_make_type_chip(spec[0], spec[1], t))
+	# [대형 기획 15] Q-4a(13, 2026-10-17): 방 번호/상태(위 title/테두리색)에 더해 "정예/보스"
+	# 배지만 남긴다 — 보스 방(라운드 마지막 방)이 최우선, 아니면 그 방에 정예 전투가
+	# 노출될 때만 배지를 붙인다(둘 다 아니면 배지 없이 제목만, 카드 높이는 고정이라 빈
+	# 줄로 남아도 정렬은 안 흐트러짐).
+	var is_boss_room := idx == RunState.TOTAL_ROOMS - 1
+	if is_boss_room:
+		vbox.add_child(_make_room_tier_badge(true, base_dir))
+	else:
+		var opts := _room_options_for_index(idx)
+		if opts.elite:
+			vbox.add_child(_make_room_tier_badge(false, base_dir))
 
 	return panel
 
 
-## room_type을 넘기면 REWARD_CATEGORIES에 따른 보상 카테고리 아이콘을 텍스트 앞에
-## 붙여, MapStrip 미리보기에서도 "이 방이 뭘 줄 수 있는지"를 도형으로 알 수 있게 한다
-## (INBOX.md 피드백 — 선택지 버튼과 같은 시각 언어를 미리보기에도 반영).
-## family가 비어있지 않으면(G-9, 2026-10-07) 보상 아이콘보다 앞에 FamilyIcon을 하나 더
-## 붙여 "이 방에서 만날 몬스터의 계열"도 함께 보여준다(전투/정예 전투 칩만 해당).
-func _make_type_chip(text: String, color: Color, room_type: String = "", family: String = "", is_boss: bool = false, is_elite: bool = false) -> Control:
-	var chip := PanelContainer.new()
-	var style := StyleBoxFlat.new()
-	style.bg_color = color
-	style.set_corner_radius_all(4)
-	style.content_margin_left = 6
-	style.content_margin_right = 6
-	style.content_margin_top = 2
-	style.content_margin_bottom = 2
-	chip.add_theme_stylebox_override("panel", style)
-
+## [대형 기획 15] Q-4a(13, 2026-10-17) — 방 카드의 "정예/보스" 배지. 몬스터 티어 배지
+## 이미지(`UIKit.tier_badge_texture`, combat_test.gd가 쓰는 것과 같은 badge/tier_*.png)가
+## 있으면 아이콘+텍스트, 없으면 색 텍스트만(기존 폴백 패턴과 동일).
+func _make_room_tier_badge(is_boss: bool, base_dir: String = UIKit.SKIN_BASE_DIR) -> Control:
+	var kind := "boss" if is_boss else "elite"
 	var hbox := HBoxContainer.new()
-	hbox.add_theme_constant_override("separation", 3)
-	chip.add_child(hbox)
-
-	if family != "":
-		var family_icon := FamilyIcon.new()
-		family_icon.custom_minimum_size = Vector2(12, 12)
-		family_icon.category = family
-		family_icon.is_boss = is_boss
-		family_icon.is_elite = is_elite
-		hbox.add_child(family_icon)
-
-	if REWARD_CATEGORIES.has(room_type):
-		for cat in REWARD_CATEGORIES[room_type]:
-			var icon := _make_reward_icon(cat)
-			icon.custom_minimum_size = Vector2(12, 12)
-			hbox.add_child(icon)
-
+	hbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	hbox.add_theme_constant_override("separation", 4)
+	hbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var tex := UIKit.tier_badge_texture(kind, base_dir)
+	if tex != null:
+		var icon := TextureRect.new()
+		icon.texture = tex
+		icon.custom_minimum_size = Vector2(16, 16)
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		hbox.add_child(icon)
 	var label := Label.new()
-	label.text = text
+	label.text = "보스" if is_boss else "정예"
 	label.add_theme_font_size_override("font_size", 11)
-	label.add_theme_color_override("font_color", Color(0.95, 0.95, 0.95))
+	label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3) if is_boss else Color(0.95, 0.4, 0.4))
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	hbox.add_child(label)
-	return chip
+	return hbox
 
 
 ## 상점/이벤트가 숨겨져도 버튼 사이에 빈 틈이 남지 않도록, 보이는 버튼만 순서대로
@@ -811,26 +835,18 @@ func _layout_visible_buttons() -> void:
 	visible_buttons.append(customize_button)
 	visible_types.append("")
 
-	for row in _reward_icon_rows.values():
-		row.visible = false
 	_shop_gold_label.visible = false
 
-	# [대형 기획 13] M-1: MapStrip이 더 이상 고정 높이가 아니라 그 바로 아래(+gap)에서
-	# 버튼 구역이 시작한다. 주 행동(전투)은 PRIMARY_BUTTON_HEIGHT, 나머지는
-	# SECONDARY_BUTTON_HEIGHT로 "크고 강조 / 작고 보조"(INBOX M-1 원문) 위계를 둔다.
+	# [대형 기획 15] Q-4a(12, 2026-10-17): 방 선택지(전투 포함)는 전부 같은 높이·간격으로
+	# 쌓는다(기존 M-1의 "전투만 PRIMARY_BUTTON_HEIGHT로 크게" 위계 제거) — 보상 칩은 더
+	# 이상 버튼 옆 별도 노드가 아니라 버튼 자식(_setup_button_content())이라 여기서
+	# 위치를 따로 계산할 필요가 없다(버튼이 보이면 자동으로 함께 보임).
 	var y := map_strip.offset_bottom + BUTTON_TOP_GAP
 	for i in visible_buttons.size():
 		var btn: Button = visible_buttons[i]
 		var t: String = visible_types[i]
-		var is_primary := t == "combat"
-		var height := UIKit.PRIMARY_BUTTON_HEIGHT if is_primary else UIKit.SECONDARY_BUTTON_HEIGHT
-		var spacing := PRIMARY_BUTTON_SPACING if is_primary else SECONDARY_BUTTON_SPACING
 		btn.offset_top = y
-		btn.offset_bottom = y + height
-		if _reward_icon_rows.has(t):
-			var row: HBoxContainer = _reward_icon_rows[t]
-			row.visible = true
-			row.position = Vector2(btn.offset_right + 16.0, y + (height - 18.0) * 0.5)
+		btn.offset_bottom = y + UIKit.SECONDARY_BUTTON_HEIGHT
 		# "상점" 버튼 아래에 골드 라벨이 들어갈 여유(SHOP_GOLD_LABEL_GAP)만큼 다음 버튼과의
 		# 간격을 늘린다 — 다른 버튼들은 기존 spacing 그대로 유지.
 		var extra_gap := 0.0
@@ -839,7 +855,7 @@ func _layout_visible_buttons() -> void:
 			_shop_gold_label.position = Vector2(btn.offset_left, btn.offset_bottom + 2.0)
 			_shop_gold_label.size = Vector2(btn.offset_right - btn.offset_left, 18.0)
 			extra_gap = SHOP_GOLD_LABEL_GAP
-		y += spacing + extra_gap
+		y += SECONDARY_BUTTON_SPACING + extra_gap
 	# [대형 기획 12] L-2(c): "스킬 도감" 버튼은 커스터마이징처럼 방 선택지가 아니라
 	# 언제든 열 수 있는 고정 위치 버튼(화면 우상단, .tscn에 명시)이라 위 y-스택 루프에
 	# 넣지 않고 체인에만 맨 끝으로 추가한다 — 루프가 이미 끝난 뒤라 position은 그대로
