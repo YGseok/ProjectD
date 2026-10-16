@@ -233,22 +233,22 @@ ART-<분류><대상 번호 3자리>-<종류>
 | MO003 | `skeleton` | 해골 전사 | 언데드형 | 일반 | `#D9D9CC` | 📦 / 📝 |
 | MO004 | `orc` | 오크 | 야수형 | 일반 | `#4D8C4D` | 📦 / 📝 |
 | MO005 | `dark_knight` | 다크 나이트 (호환용) | 인간형 | 일반 | `#8C40BF` | ➖ MO600 공유 |
-| MO006 | `armored_goblin` | 아머 고블린 | 인간형 | 일반 | `#997333` | 📝 / 📝 |
-| MO007 | `shield_goblin` | 방패 고블린 | 인간형 | 일반 | `#AD8047` | 📝 / 📝 |
-| MO008 | `bandit` | 산적 | 인간형 | 일반 | `#805933` | 📝 / 📝 |
-| MO009 | `guard_soldier` | 경비병 | 인간형 | 일반 | `#73738C` | 📝 / 📝 |
-| MO010 | `poison_slime` | 독 슬라임 | 부정형 | 일반 | `#73BF33` | 📝 / 📝 |
-| MO011 | `ghost` | 유령 | 부정형 | 일반 | `#BFCCD9` | 📝 / 📝 |
-| MO012 | `shadow` | 그림자 | 부정형 | 일반 | `#333340` | 📝 / 📝 |
-| MO013 | `mist` | 안개 | 부정형 | 일반 | `#CCD9D9` | 📝 / 📝 |
-| MO014 | `wolf` | 늑대 | 야수형 | 일반 | `#737380` | 📝 / 📝 |
-| MO015 | `mad_dog` | 광견 | 야수형 | 일반 | `#8C664D` | 📝 / 📝 |
-| MO016 | `boar` | 멧돼지 | 야수형 | 일반 | `#66472E` | 📝 / 📝 |
-| MO017 | `dire_spider` | 독거미 | 야수형 | 일반 | `#4D2659` | 📝 / 📝 |
-| MO018 | `ghoul` | 구울 | 언데드형 | 일반 | `#808C59` | 📝 / 📝 |
-| MO019 | `zombie` | 좀비 | 언데드형 | 일반 | `#738066` | 📝 / 📝 |
-| MO020 | `skeleton_archer` | 해골 궁수 | 언데드형 | 일반 | `#CCBF99` | 📝 / 📝 |
-| MO021 | `wraith_soldier` | 망령 병사 | 언데드형 | 일반 | `#667380` | 📝 / 📝 |
+| MO006 | `armored_goblin` | 아머 고블린 | 인간형 | 일반 | `#997333` | 📦 / 📝 |
+| MO007 | `shield_goblin` | 방패 고블린 | 인간형 | 일반 | `#AD8047` | 📦 / 📝 |
+| MO008 | `bandit` | 산적 | 인간형 | 일반 | `#805933` | 📦 / 📝 |
+| MO009 | `guard_soldier` | 경비병 | 인간형 | 일반 | `#73738C` | 📦 / 📝 |
+| MO010 | `poison_slime` | 독 슬라임 | 부정형 | 일반 | `#73BF33` | 📦 / 📝 |
+| MO011 | `ghost` | 유령 | 부정형 | 일반 | `#BFCCD9` | 📦 / 📝 |
+| MO012 | `shadow` | 그림자 | 부정형 | 일반 | `#333340` | 📦 / 📝 |
+| MO013 | `mist` | 안개 | 부정형 | 일반 | `#CCD9D9` | 📦 / 📝 |
+| MO014 | `wolf` | 늑대 | 야수형 | 일반 | `#737380` | 📦 / 📝 |
+| MO015 | `mad_dog` | 광견 | 야수형 | 일반 | `#8C664D` | 📦 / 📝 |
+| MO016 | `boar` | 멧돼지 | 야수형 | 일반 | `#66472E` | 📦 / 📝 |
+| MO017 | `dire_spider` | 독거미 | 야수형 | 일반 | `#4D2659` | 📦 / 📝 |
+| MO018 | `ghoul` | 구울 | 언데드형 | 일반 | `#808C59` | 📦 / 📝 |
+| MO019 | `zombie` | 좀비 | 언데드형 | 일반 | `#738066` | 📦 / 📝 |
+| MO020 | `skeleton_archer` | 해골 궁수 | 언데드형 | 일반 | `#CCBF99` | 📦 / 📝 |
+| MO021 | `wraith_soldier` | 망령 병사 | 언데드형 | 일반 | `#667380` | 📦 / 📝 |
 
 - MO005(`dark_knight`)는 옛 5종 호환용이라 랜덤 풀에 뽑히지 않는다. 원화는 MO600 파일을
   `resources/monsters/dark_knight/`에 복사해 공유한다(입고 시 아트 스레드가 처리).
@@ -687,6 +687,7 @@ Work는 `resources/ui/` 이미지가 있으면 StyleBoxTexture로 쓰고, 없으
 | 2026-10-16 | ART-MO001~004-FULL 계열 대표 일반 몬스터 슬라임·고블린·해골 전사·오크 (GPT 생성, 전부 1차 채택. 보스보다 단순한 실루엣으로 요청 — 기믹 주사위: 삼킨 주사위 / 6면이 달아오른 주사위 / 모든 면이 같은 눈 / 1·6면만 있는 흑백 주사위) | `resources/monsters/{slime,goblin,skeleton,orc}/full.png` 입고. **M2 완료**. 화면 표시는 Work 몬스터 full.png 폴백 대기 | `qa_out/art_normal_reps.png` |
 | 2026-10-16 | ART-MO600~603-FULL 정예 다크 나이트·고블린 족장·젤라틴 큐브·망령 (GPT 생성. 젤라틴 큐브는 1차 요청이 ChatGPT 콘텐츠 정책에 걸려 "옷을 갖춰 입고 젤리 큐브 위에 앉은" 구도로 재요청. 다크 나이트 원화는 MO005 `dark_knight`와 공유) | `resources/monsters/{dark_knight_elite,goblin_chief,gelatin_cube,specter}/full.png` 입고. Work 0d5ee36 폴백으로 전투 화면 상반신 크롭 자동 적용 | — |
 | 2026-10-16 | ART-MO604~607-FULL 정예 오크 투사·암흑 늑대·해골 기사·리치 견습생 (GPT 생성, 전부 1차 채택). **M3 정예 8종 완료** | `resources/monsters/{orc_warrior,dark_wolf,skeleton_knight,lich_apprentice}/full.png` 입고. 전투 화면 자동 적용 | `qa_out/art_elite_lineup.png` |
+| 2026-10-16 | ART-MO006~021-FULL 나머지 일반 몬스터 16종 (GPT 생성, 페이지 안에서 16건 연속 큐로 요청. 독 슬라임은 콘텐츠 정책에 걸려 "비옷 차림, 머리·손만 점액"으로 재요청. 안개는 흰 배경 위 흰 안개라 배경 제거가 몸까지 지워 **검은 배경**으로 재요청 — 밝은 몬스터는 검은 배경으로 받을 것). **몬스터 전신 34세트 전량 완료** | `resources/monsters/<id>/full.png` 입고. Work 폴백(0d5ee36·8ab8ebe)으로 전투 화면 자동 적용 | `qa_out/art_normal_a.png`, `art_normal_b.png` |
 
 ---
 
