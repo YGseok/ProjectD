@@ -5,40 +5,50 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-10-17 (226)
-- 작성자: AI 에이전트. 직전 이터레이션(Q-5)이 사용 한도로 미커밋 상태로 끊겨
-  이어받았다. **[대형 기획 15] Q-5(커스터마이징을 던전 선택지에서 분리 + UX
-  재설계, 원문 15/16) 전체 완료 — [대형 기획 15](Q-1~Q-5) 전체 완료.**
-  (15) "정비"(옛 커스터마이징) 버튼이 방 선택지 목록에서 빠져 `dungeon_map.tscn`
-  헤더의 고정 버튼이 됐고, 보유 눈금이 있을 때만 주 행동(primary) 스타일로
-  강조된다(없어도 비활성화는 아님). (16) 기존 "눈금 선택 → 다이스 선택 → 면
-  선택(즉시 적용)" 3단계 순차 화면을 `_show_pip_picker()` 한 화면으로 합쳤다 —
-  보유 눈금을 `ShapeDieChip`(실제 다이스 면 모양) 칩으로, 공격/방어 주머니도
-  같은 칩으로(눈금 선택 전엔 비활성화), 면까지 고르면 적용 전/후 비교(바뀐 면
-  강조)+적용/취소 버튼. "적용"을 눌러야 `_exchange_pip()`이 실제로 실행되고,
-  진행 안내는 한 줄(`_step_caption()`)뿐. 이어서 셀프 피드백 캡처
-  (`qa_out/q5_preview.png`)를 읽다가 **실제 버그를 발견**했다 — 공격/방어
-  주머니가 `DiceBag.MAX_DICE`(6)까지 차면 미리보기 단계의 전체 높이가 720px를
-  넘어 "닫기" 버튼과 프레임 하단이 화면 밖으로 잘렸다. ScrollContainer(M-1과
-  같은 해법)를 시도했으나, 이 패널이 매달리는 씬들의 루트가 전부 Node2D라
-  ScrollContainer가 자기 크기를 뷰포트 기준 **정확히 2배**(2560x1440)로
-  계산해버려 스크롤 수학을 믿을 수 없음을 디버그 훅으로 직접 확인하고,
-  Container 레이아웃에 기대지 않는 **수동 clip+position 스크롤**(`_clip`
-  Control, `_content_root.position.y` 이동, `_ensure_step_button_visible()`가
-  각 버튼 `focus_entered`에 연결)로 교체했다. 검증 과정에서 "닫기 버튼을
-  텍스트로 찾는 dice_test 검증이 `queue_free()`(지연 해제)로 아직 안 끝난
-  이전 redraw의 낡은 버튼을 집어 거짓 PASS"하던 2차 버그도 찾아 "마지막 매치"
-  검색으로 고쳤다. `dice_test.gd` 신규 체크 3종(`_check_q5_maintenance_entry_
-  point`/`_check_q5_customize_preview_matches_apply`/`_check_q5_customize_
-  scroll_follow_focus`) 추가, `bash scripts/qa_shot.sh dice_test 60
-  qa_out/dice_test.png "" 1` 전체 **PASS**(FAIL 0건). 셀프 피드백 3라운드 —
-  정상 상태 확인 → 6다이스+미리보기 상태에서 "닫기" 잘림 버그 발견 →
-  수정 후 영구 QA 훅(`dungeon_map.gd`의
-  `_debug_open_customize_overflow_close_focus()`)으로 재캡처해 "닫기"가 화면
-  안으로 스크롤되는 것을 `qa_out/q5_overflow_close_focus.png`로 직접 확인.
-  전투 규칙/밸런스는 건드리지 않았고 `resources/`·`docs/art/`는 읽기만 했다.
-  상세는 아래 "완료 기록 (226)" 참고. **[대형 기획 15]의 다음은 Q-6(스킬 도감
-  정리, 원문 2/4/8).**
+- 일시: 2026-10-17 (227)
+- 작성자: AI 에이전트. **[대형 기획 15] Q-6(스킬 도감 정리, 원문 2/4/8) 전체
+  완료.** `code/scenes/skill_codex_panel.gd`(`SkillCodexPanel`) 카드 레이아웃을
+  전면 개편했다. (2) 상태 배지("보유"/"발견"/"미발견")가 카드 안쪽 한 줄을
+  차지하던 넓은 `PanelContainer`(`make_codex_badge()`)에서, 카드 우상단
+  모서리에 겹쳐 뜨는 48px 폭 작은 칩(`_make_corner_tag()`, 폰트 9)으로
+  축소됐다 — Container(자식을 전부 같은 rect로 강제)가 아니라 plain
+  `Control`(`wrap`) 위에 anchor+offset으로 직접 겹쳐, 상태는 배지
+  텍스트+아이콘 밝기(기존 규칙 유지, 색만으로 구분 안 함) 그대로. (4)
+  `SkillPool.codex_entries()`가 항상 맨 앞에 두는 시작 스킬 3개를 분리해
+  "시작 스킬" 구역(가로 한 줄, 좌상단에 "슬롯 N" 태그를 추가로 겹침)을 패널
+  맨 위에 그리고, "일반 스킬" 구역(기존 3열 격자)이 그 아래 이어지게 했다 —
+  두 구역 다 포커스 체인(`_chain_grid`)은 그대로 하나의 평평한 배열로 묶여
+  있어 방향키 이동이 끊기지 않는다(시작 스킬 수가 COLUMNS와 같은 3이라 행
+  경계가 정확히 일치). (8) 아이콘을 좌측 60px 정사각(프레임 포함)으로 키우고
+  이름/설명을 우측에 배치했다 — 미발견 카드는 모티프 아이콘 대신
+  `LockIcon`(스킬 정보 비공개 규칙 유지)을 같은 크기로 보여준다. 덤으로
+  INBOX 원문이 요구한 "카드 클릭/Space -> 상세 팝업" 연결도 함께 했다 —
+  보유/발견 카드만 `CharacterCardPanel.activated`를 `SkillDetailPopup`(Q-4b가
+  만든 공용 컴포넌트) 열기에 연결하고, 미발견 카드는 연결 자체를 안 해(정보
+  비공개) 클릭해도 아무 일도 없다. 기존 L-2(b) 테스트(`_check_l2b_skill_codex_
+  panel`)의 "미발견 아이콘은 SkillIcon, 알파 0.35" 기대값은 의도적 변경이라
+  갱신했다(이제 `_icon_by_id`에 안 들어가고 `_lock_icon_by_id`로 분리) — 그
+  외 배지 텍스트/보유·발견 아이콘 알파/잠금 힌트 텍스트 등 기존 계약은 전부
+  그대로 보존. 신규 검증 6종(아이콘 rect ≥56 정사각, 배지 anchor/폭이 우상단
+  모서리 안+예전보다 작음, 시작 스킬 구역 자식 노드 정확히 3개, 슬롯 태그
+  텍스트, 일반 스킬 카드 수, 카드 activated -> 팝업 열림/안 열림)를 추가하며
+  **포커스 부수효과 버그를 테스트 작성 중 직접 발견**했다 — 팝업을 여는
+  `activated.emit()` 테스트를 "open() 직후 첫 카드 포커스" 체크보다 앞에 두면
+  팝업이 포커스를 가져간 뒤 `close()`해도 포커스가 복귀되지 않아(Godot은
+  숨겨진 컨트롤의 이전 포커스를 자동 복원하지 않음) 기존 테스트가 거짓
+  FAIL — 포커스/wrap 검증이 전부 끝난 뒤, Esc로 패널을 닫기 전에 팝업
+  테스트를 하도록 순서를 옮겨 해결했다. `bash scripts/qa_shot.sh dice_test 60
+  qa_out/dice_test_q6.png "" 1` 전체 **PASS**(FAIL 0건). 셀프 피드백 2라운드 —
+  `_debug_show_skill_codex_panel_mixed()`로 보유/발견/미발견이 섞인 상태를
+  `qa_out/q6_codex_mixed.png`로 캡처해 레이아웃을 확인했고(1차 시도는
+  `GAME_QA_SETTLE` 없이 찍어 dice_test의 거대한 동기 테스트 스위트가 아직
+  진행 중인 중간 프레임을 잘못 캡처하는 실수를 했다가 원인을 파악해 재시도),
+  실제 게임 진입점(`dungeon_map`의 "스킬 도감" 버튼, 해적 캐릭터)으로도
+  `qa_out/q6_codex_pirate_dungeon.png`를 찍어 캐릭터 퍼스널 컬러 테마/배경과
+  함께 겹침·잘림 없이 렌더됨을 확인. 전투 규칙/밸런스는 건드리지 않았고
+  `resources/`·`docs/art/`는 읽기만 했다. **[대형 기획 15]는 이제 Q-1~Q-6
+  전부 완료 — 다음은 Q-7(스킬 효과 도식화, 상당히 큰 작업이라 (a)/(b)/(c)로
+  쪼개 진행).**
 
 ## 지금 위치
 
@@ -365,12 +375,19 @@ COLOR`). 전투 결과 줄 "공격"/"방어" 라벨은 몬스터 색 대신
   있는가"를 기록한다. 기록 훅은 `event.gd`의 `_show_skill_offer()`와
   `character_select.gd`의 슬롯 렌더링/잠금 미리보기 세 지점(화면에 직접
   배선 — 이유는 `skill_codex.gd` 상단 주석).
-- **스킬 도감 패널 UI(2026-10-14 [대형 기획 12] L-2(b) 완료)**: 신규
-  `code/scenes/skill_codex_panel.gd`(`SkillCodexPanel`)가 `open(character_id,
-  owned_skill_ids)`로 여는 재사용 가능한 오버레이 패널 — `codex_entries()`를
-  3열 격자로 그리고, 보유/발견-미보유/미발견 3상태를 아이콘 알파/이름/배지
-  텍스트/테두리 네 겹으로 구분한다. 격자 포커스는 패널 전용 `_chain_grid()`
-  (모든 칸이 wrap으로 서로 연결)가 담당.
+- **스킬 도감 패널 UI(2026-10-14 [대형 기획 12] L-2(b) 완료, 2026-10-17
+  [대형 기획 15] Q-6로 카드 레이아웃 전면 개편)**: `code/scenes/
+  skill_codex_panel.gd`(`SkillCodexPanel`)가 `open(character_id,
+  owned_skill_ids)`로 여는 재사용 가능한 오버레이 패널 — `codex_entries()`의
+  시작 스킬 3개를 맨 위 "시작 스킬" 전용 구역(좌상단 "슬롯 N" 태그)으로 분리해
+  먼저 그리고, 나머지가 "일반 스킬" 3열 격자로 그 아래 이어진다. 각 카드는
+  좌측 60px 정사각 아이콘(프레임 포함, 미발견은 `LockIcon`)+우측 이름/설명
+  가로 배치이고, 보유/발견-미보유/미발견 상태는 아이콘 밝기·이름·카드 우상단의
+  작은 배지 칩(48px, `_make_corner_tag()`)·테두리 네 겹으로 구분한다(색만으로
+  구분 안 함). 보유/발견 카드는 클릭/Space(`CharacterCardPanel.activated`)로
+  `SkillDetailPopup`을 연다(미발견은 정보 비공개라 연결 안 함). 격자+시작 스킬
+  줄을 합친 포커스는 패널 전용 `_chain_grid()`(모든 칸이 wrap으로 서로 연결)가
+  담당.
 - **스킬 도감 진입점 연결(2026-10-14 [대형 기획 12] L-2(c) 완료)**: 6개
   화면(character_select + dungeon_map/shop/event/story_event/combat_test)에
   "스킬 도감" 버튼이 실제로 배선됐다. character_select는 우측 상세 패널
@@ -677,11 +694,17 @@ Q-1 → Q-11)다.** 2026-10-16(221)로 **Q-1(버그 3종 + 캡처 고정, 원문
 `RunState.reset_run()`으로 런을 폐기하고 캐릭터 선택으로 복귀한다(업적/도감은
 write-through 저장이라 영향 없음, 승패 집계 경로를 안 타 통계도 안 건드림)
 (상세는 완료 기록 (225)). 2026-10-17(226)로 **Q-5(커스터마이징 분리 + UX
-재설계, 원문 15/16) 완료 — [대형 기획 15](Q-1~Q-5) 전체 완료** — "정비" 버튼이
+재설계, 원문 15/16) 완료** — "정비" 버튼이
 던전 맵 헤더 고정 버튼으로 분리됐고, 커스터마이징 패널이 `ShapeDieChip` 기반
 한 화면(눈금 선택→면 선택→미리보기+적용/취소)으로 재설계됐다(수동 clip+position
-스크롤 버그 수정 포함, 상세는 완료 기록 (226)). **다음은 Q-6(스킬 도감 정리,
-원문 2/4/8).**
+스크롤 버그 수정 포함, 상세는 완료 기록 (226)). 2026-10-17(227)로 **Q-6(스킬
+도감 정리, 원문 2/4/8) 완료 — [대형 기획 15](Q-1~Q-6) 전체 완료** —
+`SkillCodexPanel` 카드가 좌측 60px 아이콘(미발견은 LockIcon)+우측 이름/설명
+가로 배치로 바뀌고, 상태 배지가 카드 우상단의 작은 칩으로 축소됐으며, 시작
+스킬 3개가 "시작 스킬" 전용 구역(슬롯 번호 태그)으로 일반 스킬과 분리됐다.
+카드를 클릭/Space하면(보유/발견만) `SkillDetailPopup`이 열리도록도 배선했다
+(상세는 완료 기록 (227)). **다음은 Q-7(스킬 효과 도식화 — (a) 도식 문법/
+데이터 → (b) 렌더러 → (c) 적용, 규모가 커서 조각 단위로 진행).**
 
 남은 구조적 후보(급하지 않음): 보스 개별 6종 중 타락한 기사단장만 밴드 미달
 (`MonsterSkills.modify_monster_roll()` 파라미터화가 전제조건이라 사람 설계
@@ -1291,6 +1314,56 @@ write-through 저장이라 영향 없음, 승패 집계 경로를 안 타 통계
     조정은 사람이 이 숫자를 보고 다음 지시로 결정).
 
 ## 완료 기록
+
+- **2026-10-17 (227)**: **[대형 기획 15] Q-6(스킬 도감 정리, 원문 2/4/8) 전체
+  완료 — [대형 기획 15](Q-1~Q-6) 전체 완료.** `code/scenes/skill_codex_panel.gd`
+  (`SkillCodexPanel`)의 카드 레이아웃을 전면 개편했다.
+  **(2) 상태 배지 축소**: "보유"/"발견"/"미발견" 배지가 카드 안쪽 한 줄을 차지하던
+  넓은 `PanelContainer`(`UIKit.make_codex_badge()`)에서, 카드 우상단 모서리에
+  겹쳐 뜨는 48px 폭 작은 칩(`_make_corner_tag()`, 폰트 9)으로 바뀌었다 — 이
+  칩은 Container(자식 전부를 같은 rect로 강제)가 아닌 plain `Control`(`wrap`)
+  위에서 anchor_left/right=1·offset_*으로 직접 모서리에 겹치는 방식이라,
+  card/hbox가 정상 레이아웃 흐름으로 쓰는 Container 트리와 간섭하지 않는다.
+  상태 구분은 여전히 배지 텍스트+아이콘 밝기(색만으로 구분 안 함) 네 겹.
+  **(4) 시작 스킬 전용 구역**: `SkillPool.codex_entries()`가 항상 맨 앞에 두는
+  시작 스킬 3개를 분리해 패널 맨 위에 "시작 스킬" 구역(가로 한 줄, 카드 좌상단에
+  "슬롯 N" 태그를 추가로 겹침 — 이름 라벨 텍스트 자체는 그대로 둬 "확장"처럼
+  보유 스킬 이름이 그대로 보여야 하는 기존 계약을 안 깸)으로 그리고, "일반 스킬"
+  구역(기존 3열 격자)이 그 아래 이어지게 했다. 포커스는 여전히 `_chain_grid()`
+  하나로 평평한 배열(시작 스킬이 맨 앞 3칸, COLUMNS=3과 정확히 일치)을 묶어
+  방향키 이동이 두 구역 경계에서도 끊기지 않는다. **(8) 아이콘 확대 + 자물쇠**:
+  아이콘을 좌측 60px 정사각(프레임 있는 `PanelContainer`)으로 키우고 이름/설명을
+  우측에 배치했다 — 미발견 카드는 모티프 아이콘 대신 `LockIcon`(스킬 정보 비공개
+  규칙 유지)을 같은 크기로 보여준다. **덤으로 카드 클릭/Space 연결**: INBOX
+  원문이 요구한 대로 보유/발견 카드만 `CharacterCardPanel.activated`를
+  `SkillDetailPopup`(Q-4b가 만든 공용 컴포넌트) 열기에 연결했고, 미발견 카드는
+  연결 자체가 없어 클릭해도 아무 일도 일어나지 않는다(정보 비공개 유지).
+  **테스트**: 기존 `_check_l2b_skill_codex_panel()`의 "미발견 아이콘은 SkillIcon,
+  알파 0.35" 기대값을 의도적 변경으로 갱신(이제 `_icon_by_id`엔 안 들어가고
+  `_lock_icon_by_id`로 분리 — 주석과 함께 명시) — 배지 텍스트/보유·발견 아이콘
+  알파/잠금 힌트 텍스트 등 기존 계약은 그대로 보존. 신규 검증 6종(아이콘 rect
+  양쪽 상태 전부 ≥56px 정사각, 배지 anchor_left/right=1·폭<카드폭 40%로 "우상단+
+  작음" 확인, 시작 스킬 구역이 별도 노드로 자식 정확히 3개, 슬롯 태그 텍스트
+  "슬롯 1"/"슬롯 2", 일반 스킬 구역 카드 수, 카드 activated 시 보유=팝업 열림/
+  미발견=안 열림)를 추가했다. **포커스 부수효과 버그를 테스트 작성 중 직접
+  발견** — `activated.emit()`으로 팝업을 여는 테스트를 "open() 직후 첫 카드
+  포커스" 체크보다 먼저 두면, 팝업이 포커스를 가져간 뒤 `close()`해도 Godot이
+  숨겨진 컨트롤의 이전 포커스를 자동 복원하지 않아 그 뒤의 포커스 검증이 거짓
+  FAIL — 포커스/wrap 검증이 전부 끝난 뒤, Esc로 패널을 닫기 전으로 팝업 테스트
+  순서를 옮겨 해결했다(`code/scenes/dice_test.gd`). `bash scripts/qa_shot.sh
+  dice_test 60 qa_out/dice_test_q6.png "" 1` 전체 **PASS**(FAIL 0건). **셀프
+  피드백 2라운드**: `_debug_show_skill_codex_panel_mixed()`(기존 QA 훅)로
+  보유/발견/미발견이 섞인 상태를 `qa_out/q6_codex_mixed.png`로 캡처해 읽었다 —
+  1차 시도는 `GAME_QA_SETTLE` 없이(즉 settle 인자 생략) 찍어서, dice_test.gd의
+  거대한 동기 테스트 스위트(물리 전투 시뮬레이션 포함)가 frame 60 시점에 아직
+  끝나지 않아 "event.tscn 스킬 강화 카드가 떠 있는 중간 상태"를 잘못 캡처하는
+  실수를 했다 — 원인(테스트 스위트가 끝나기 전에 GAME_QA_CALL이 끼어들어 그
+  순간의 임시 자식 씬을 찍음)을 파악하고 `GAME_QA_SETTLE=1`로 재시도해 실제
+  도감 패널을 확인했다. 실제 게임 진입점(`dungeon_map`의 "스킬 도감" 버튼,
+  해적 캐릭터)으로도 `qa_out/q6_codex_pirate_dungeon.png`를 찍어 캐릭터
+  퍼스널 컬러 테마/배경과 함께 겹침·잘림 없이 렌더됨을 확인(사소한 리소스
+  로드 경고는 기존에도 있던 무관한 이슈). 전투 규칙/밸런스는 건드리지 않았고
+  `resources/`·`docs/art/`는 읽기만 했다.
 
 - **2026-10-17 (226)**: 직전 이터레이션(Q-5)이 사용 한도로 미커밋 상태로 끊겨
   이어받았다. **[대형 기획 15] Q-5(커스터마이징을 던전 선택지에서 분리 + UX
@@ -1954,92 +2027,9 @@ write-through 저장이라 영향 없음, 승패 집계 경로를 안 타 통계
   `docs/art/`는 읽기만 했다(아트 스레드가 이 세션 도중 병행 커밋한 자산을 그대로
   읽어 검증만 함, 두 커밋은 서로 영향 없이 독립적으로 완료됨).
 
-- **2026-10-16 (217)**: 세 가지 독립 작업 — (A) **[미니 기획 M-7](던전 맵 방 카드
-  프레임 스킨) 완료**: [미니 기획 M-6](206)이 등급 신호가 없다는 이유로 범위
-  밖에 남겨뒀던 `dungeon_map.gd`의 `MapStrip` 방 카드에 M-6과 같은
-  `UIKit.apply_card_skin()` 패턴을 연결했다. 등급 대신 **방 상태 3색**(현재=금색
-  `MAP_CARD_TINT_CURRENT`/완료=초록 `MAP_CARD_TINT_CLEARED`/미래=중립 회색
-  `MAP_CARD_TINT_FUTURE`, 기존 StyleBoxFlat 폴백이 쓰던 border_color와 동일한
-  값 재사용)를 accent 틴트로 넘긴다 — 한 방이 전투+상점+이벤트처럼 선택지를
-  여러 개 동시에 가질 수 있어 "선택지 종류색" 하나를 카드 전체에 못 쓰는 제약
-  때문에 상태색을 택했다(INBOX 원문이 "구현 판단"으로 남긴 두 선택지 중 하나).
-  `_make_type_chip()`이 그리는 개별 선택지 칩(전투/상점/이벤트/정예/스토리,
-  FamilyIcon 보스/정예 배지 포함)은 별도 PanelContainer라 이 변경과 완전히
-  무관 — 가독성 그대로 유지. 완료 방의 기존 `panel.modulate` 알파 0.55 어둡게
-  효과도 그대로 둠(건드릴 필요 없음). 파일 없으면 기존 3색 StyleBoxFlat 폴백.
-  `dice_test.gd` 신규 `_check_m7_map_card_skin()`(M-6과 같은 "없음→있음→없음"
-  user:// 주입 패턴 — 방 상태 3종의 합성 픽셀이 실제로 서로 다른지, 완료 방
-  modulate.a<1 유지, production 자산 end-to-end, 선택지 칩 자식 구조 보존)로
-  검증, `bash scripts/qa_shot.sh dice_test` 전체 PASS. **셀프 피드백 2라운드**:
-  `qa_out/m7_room_cards.png`(기본 상태, 현재 방만 금색)와
-  `m7_room_cards_advanced.png`(`_debug_advance_rooms`로 완료 2개+현재 1개+
-  미래 2개가 한 화면에 공존)를 직접 읽어 현재 방의 금색 코너 보석 장식이
-  뚜렷이 구분되고, 완료 방은 어둡게 가라앉으면서도 "(완료)" 표시와 함께
-  남고, 미래 방은 중립 회색 프레임으로 차분함을 확인 — 추가로
-  `m7_boss_room.png`(`_debug_show_boss_room`)로 마지막 방(보스) 현재 강조와
-  계열 아이콘이 함께 잘 보이는 것도 확인, 2라운드 만에 "하" 수준 문제도 없어
-  종료.
-  (B) **H-1 "일반 모드 보존" 불안정 테스트(2026-09-15부터 알려진 "6번 중
-  1번꼴 일회성 FAIL", `docs/STATUS_ARCHIVE.md`에 여러 차례 pre-existing
-  노이즈로만 기록돼 있던 것) 원인 특정 + 결정화.** `_check_h1_test_battle_mode()`의
-  "일반 모드 보존" 구간이 `_monster_config_for_plan(1, 0)`(= round1/room0,
-  `RunState.monster_plan` 기반, `reset_run()`이 매번 `randi()`로 새 run_seed를
-  뽑으므로 매 실행마다 다른 몬스터가 걸림)으로 실제 몬스터를 구성한 뒤 1개짜리
-  공격 다이스를 50으로 강제 고정해 "무조건 승리"를 가정했는데, 일반 20종 중
-  "유령"(`ghost`, 부정형, 스킬 `seal` — 그 턴 공격 다이스 중 **최솟값 1개를
-  0으로**)이 뽑히면 다이스가 1개뿐이라 그 유일한 다이스가 통째로 0이 돼 데미지가
-  0이 되고 몬스터가 죽지 않아 가정이 깨지던 것이 원인이었다(`MonsterSkills.
-  modify_player_roll()`→`DiceBag.apply_zero_lowest()`). 수정은 공격 다이스를
-  1개에서 **2개**로 늘린 것 — seal이 하나를 0으로 만들어도 나머지 하나(50)가
-  그대로 남아 몬스터 HP 1을 항상 넘어서므로, 20종 중 무엇이 뽑혀도(sticky
-  -1/dull -1 같은 다른 감쇠 포함) 결과가 결정적이다(검증 의미인 "일반 모드에서
-  승리 시 골드/눈금/rooms_cleared가 정상적으로 바뀌는가"는 그대로 보존 — 몬스터
-  종류를 고정하지 않고 "무엇이 나와도 이긴다"는 전제를 고치는 쪽을 택함, 테스트
-  의도 변경 없음). `bash scripts/qa_shot.sh dice_test`를 5회 연속 실행해 전부
-  PASS로 재발 없음 확인(기존엔 수 회 반복 시 1회 정도 FAIL이 섞였음).
-  (C) **[미니 기획 ART-3](INBOX.md "남은 이슈", 아트 스레드 "ProjectD Art"가
-  우선순위 높음으로 전달한 버그 리포트) 완료 — 스킬 아이콘 원화가 흰 사각형으로
-  보이는 버그.** 원인은 아트 스레드가 정확히 진단한 그대로: `skill_icon.gd`의
-  `_draw()`가 매 프레임 `load_external_art()`로 `ImageTexture`를 새로 만들어
-  지역 변수로만 쥔 채 `draw_texture_rect()`에 넘기고, 함수가 끝나는 순간 아무도
-  참조하지 않는 그 텍스처(RefCounted)가 즉시 해제되면서 이미 그리기 명령에
-  기록된 RID가 무효화돼 흰 사각형으로 그려졌다. 수정: ① `_external_texture()`가
-  텍스처를 멤버 변수(`_cached_external_texture`/`_cached_external_path`)로
-  캐시해 노드 생명주기 동안 살려둔다 — 단, exists 확인은 매 호출마다 가볍게
-  (파일 존재 여부만) 다시 하므로 dice_test.gd의 user:// 임시 경로 시나리오
-  ("같은 skill_id/base_dir인 채로 파일이 생기거나 사라짐")는 그대로 즉시
-  반영되고, 비싼 디코드만 경로가 실제로 바뀌었을 때(또는 캐시가 비어있을 때)로
-  제한된다. ② `load_external_art()`가 production 경로(`base_dir ==
-  EXTERNAL_ART_DIR`)에서는 `character_art.gd`의 `load_face()`와 같은 패턴으로
-  `ResourceLoader.exists()`+`load()`를 쓰도록 바꿨다(.import된 리소스를 정식
-  경로로 읽어 export 빌드에서도 안전 — 기존 `Image.load()` 직접 호출은 "will
-  not work on export" 경고가 남는 raw 파일 접근이었음). user:// 테스트 경로는
-  기존 FileAccess+Image.load() 그대로 유지(.import가 없는 raw PNG라 여전히
-  유일한 방법). INBOX 원문이 함께 지적한 `dice_test.gd`의 "운영 경로 deep_breath
-  없음 → null" 가정(resources/skills/ 37종이 당시 막 입고되며 깨졌던 것, 이번
-  세션 초반에 이미 한 번 발견해 고쳤던 부분)도 존재하지 않는 id로 바꿔 "파일
-  없음→null" 계약만 검증하도록 정리하고, 실제 입고된 deep_breath로는 "있으면
-  로드됨" end-to-end를 새로 검증하는 쪽으로 나눴다. `bash scripts/qa_shot.sh
-  dice_test` 전체 PASS(기존 `_check_k4c_skill_icon_external_art()`의 "없음→
-  있음→없음" 전환 시나리오가 캐시와 함께도 깨지지 않음을 확인). **셀프
-  피드백**: `qa_out/art3_skill_codex_check.png`(스킬 도감, 원래 버그가
-  보고됐던 화면)를 직접 읽어 "확장/정예/임기응변/심호흡/여분" 전부 흰 사각형이
-  아니라 실제 아이콘 아트(나무/다이아몬드/나침반/숨결/다이스 그림)로 보임을
-  확인. **덤으로 — 알려진 이슈 "(2)는 여전히 미확인"(215, resources/backgrounds/
-  와 resources/ui/icon/ 반영 확인) 해소**: `qa_out/m7_room_cards*.png`
-  (dungeon_map 배경+범례 아이콘)/`art_bg_check_combat.png`(전투 배경)/
-  `art_bg_check_shop.png`(상점 배경)/`art_bg_check_event.png`(이벤트 배경) 4개
-  화면 전부 플레이스홀더 색이 아니라 실제 배경 사진/아이콘 그림으로 정상
-  렌더됨을 육안 확인 — 아래 "알려진 이슈"에서 해당 항목 제거.
-  세 작업 모두 전투 규칙/밸런스는 건드리지 않았고, `resources/`·`docs/art/`는
-  읽기만 했다(ART-3는 아트 스레드가 이미 커밋한 `resources/skills/` 자산을
-  그대로 읽어서 검증만 함). INBOX.md의 [미니 기획 ART-3]를 "처리됨"으로 옮겼다
-  (M-7은 INBOX 항목이 아니라 STATUS.md 큐/M-6 인수인계 메모에서 파생된 작업이라
-  INBOX 변경 없음).
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(226)에서 (216)을 그리로 옮겼다.)*
+이번 이터레이션(227)에서 (217)을 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 

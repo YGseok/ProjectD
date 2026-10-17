@@ -8,6 +8,89 @@
 
 ---
 
+- **2026-10-16 (217)**: 세 가지 독립 작업 — (A) **[미니 기획 M-7](던전 맵 방 카드
+  프레임 스킨) 완료**: [미니 기획 M-6](206)이 등급 신호가 없다는 이유로 범위
+  밖에 남겨뒀던 `dungeon_map.gd`의 `MapStrip` 방 카드에 M-6과 같은
+  `UIKit.apply_card_skin()` 패턴을 연결했다. 등급 대신 **방 상태 3색**(현재=금색
+  `MAP_CARD_TINT_CURRENT`/완료=초록 `MAP_CARD_TINT_CLEARED`/미래=중립 회색
+  `MAP_CARD_TINT_FUTURE`, 기존 StyleBoxFlat 폴백이 쓰던 border_color와 동일한
+  값 재사용)를 accent 틴트로 넘긴다 — 한 방이 전투+상점+이벤트처럼 선택지를
+  여러 개 동시에 가질 수 있어 "선택지 종류색" 하나를 카드 전체에 못 쓰는 제약
+  때문에 상태색을 택했다(INBOX 원문이 "구현 판단"으로 남긴 두 선택지 중 하나).
+  `_make_type_chip()`이 그리는 개별 선택지 칩(전투/상점/이벤트/정예/스토리,
+  FamilyIcon 보스/정예 배지 포함)은 별도 PanelContainer라 이 변경과 완전히
+  무관 — 가독성 그대로 유지. 완료 방의 기존 `panel.modulate` 알파 0.55 어둡게
+  효과도 그대로 둠(건드릴 필요 없음). 파일 없으면 기존 3색 StyleBoxFlat 폴백.
+  `dice_test.gd` 신규 `_check_m7_map_card_skin()`(M-6과 같은 "없음→있음→없음"
+  user:// 주입 패턴 — 방 상태 3종의 합성 픽셀이 실제로 서로 다른지, 완료 방
+  modulate.a<1 유지, production 자산 end-to-end, 선택지 칩 자식 구조 보존)로
+  검증, `bash scripts/qa_shot.sh dice_test` 전체 PASS. **셀프 피드백 2라운드**:
+  `qa_out/m7_room_cards.png`(기본 상태, 현재 방만 금색)와
+  `m7_room_cards_advanced.png`(`_debug_advance_rooms`로 완료 2개+현재 1개+
+  미래 2개가 한 화면에 공존)를 직접 읽어 현재 방의 금색 코너 보석 장식이
+  뚜렷이 구분되고, 완료 방은 어둡게 가라앉으면서도 "(완료)" 표시와 함께
+  남고, 미래 방은 중립 회색 프레임으로 차분함을 확인 — 추가로
+  `m7_boss_room.png`(`_debug_show_boss_room`)로 마지막 방(보스) 현재 강조와
+  계열 아이콘이 함께 잘 보이는 것도 확인, 2라운드 만에 "하" 수준 문제도 없어
+  종료.
+  (B) **H-1 "일반 모드 보존" 불안정 테스트(2026-09-15부터 알려진 "6번 중
+  1번꼴 일회성 FAIL", `docs/STATUS_ARCHIVE.md`에 여러 차례 pre-existing
+  노이즈로만 기록돼 있던 것) 원인 특정 + 결정화.** `_check_h1_test_battle_mode()`의
+  "일반 모드 보존" 구간이 `_monster_config_for_plan(1, 0)`(= round1/room0,
+  `RunState.monster_plan` 기반, `reset_run()`이 매번 `randi()`로 새 run_seed를
+  뽑으므로 매 실행마다 다른 몬스터가 걸림)으로 실제 몬스터를 구성한 뒤 1개짜리
+  공격 다이스를 50으로 강제 고정해 "무조건 승리"를 가정했는데, 일반 20종 중
+  "유령"(`ghost`, 부정형, 스킬 `seal` — 그 턴 공격 다이스 중 **최솟값 1개를
+  0으로**)이 뽑히면 다이스가 1개뿐이라 그 유일한 다이스가 통째로 0이 돼 데미지가
+  0이 되고 몬스터가 죽지 않아 가정이 깨지던 것이 원인이었다(`MonsterSkills.
+  modify_player_roll()`→`DiceBag.apply_zero_lowest()`). 수정은 공격 다이스를
+  1개에서 **2개**로 늘린 것 — seal이 하나를 0으로 만들어도 나머지 하나(50)가
+  그대로 남아 몬스터 HP 1을 항상 넘어서므로, 20종 중 무엇이 뽑혀도(sticky
+  -1/dull -1 같은 다른 감쇠 포함) 결과가 결정적이다(검증 의미인 "일반 모드에서
+  승리 시 골드/눈금/rooms_cleared가 정상적으로 바뀌는가"는 그대로 보존 — 몬스터
+  종류를 고정하지 않고 "무엇이 나와도 이긴다"는 전제를 고치는 쪽을 택함, 테스트
+  의도 변경 없음). `bash scripts/qa_shot.sh dice_test`를 5회 연속 실행해 전부
+  PASS로 재발 없음 확인(기존엔 수 회 반복 시 1회 정도 FAIL이 섞였음).
+  (C) **[미니 기획 ART-3](INBOX.md "남은 이슈", 아트 스레드 "ProjectD Art"가
+  우선순위 높음으로 전달한 버그 리포트) 완료 — 스킬 아이콘 원화가 흰 사각형으로
+  보이는 버그.** 원인은 아트 스레드가 정확히 진단한 그대로: `skill_icon.gd`의
+  `_draw()`가 매 프레임 `load_external_art()`로 `ImageTexture`를 새로 만들어
+  지역 변수로만 쥔 채 `draw_texture_rect()`에 넘기고, 함수가 끝나는 순간 아무도
+  참조하지 않는 그 텍스처(RefCounted)가 즉시 해제되면서 이미 그리기 명령에
+  기록된 RID가 무효화돼 흰 사각형으로 그려졌다. 수정: ① `_external_texture()`가
+  텍스처를 멤버 변수(`_cached_external_texture`/`_cached_external_path`)로
+  캐시해 노드 생명주기 동안 살려둔다 — 단, exists 확인은 매 호출마다 가볍게
+  (파일 존재 여부만) 다시 하므로 dice_test.gd의 user:// 임시 경로 시나리오
+  ("같은 skill_id/base_dir인 채로 파일이 생기거나 사라짐")는 그대로 즉시
+  반영되고, 비싼 디코드만 경로가 실제로 바뀌었을 때(또는 캐시가 비어있을 때)로
+  제한된다. ② `load_external_art()`가 production 경로(`base_dir ==
+  EXTERNAL_ART_DIR`)에서는 `character_art.gd`의 `load_face()`와 같은 패턴으로
+  `ResourceLoader.exists()`+`load()`를 쓰도록 바꿨다(.import된 리소스를 정식
+  경로로 읽어 export 빌드에서도 안전 — 기존 `Image.load()` 직접 호출은 "will
+  not work on export" 경고가 남는 raw 파일 접근이었음). user:// 테스트 경로는
+  기존 FileAccess+Image.load() 그대로 유지(.import가 없는 raw PNG라 여전히
+  유일한 방법). INBOX 원문이 함께 지적한 `dice_test.gd`의 "운영 경로 deep_breath
+  없음 → null" 가정(resources/skills/ 37종이 당시 막 입고되며 깨졌던 것, 이번
+  세션 초반에 이미 한 번 발견해 고쳤던 부분)도 존재하지 않는 id로 바꿔 "파일
+  없음→null" 계약만 검증하도록 정리하고, 실제 입고된 deep_breath로는 "있으면
+  로드됨" end-to-end를 새로 검증하는 쪽으로 나눴다. `bash scripts/qa_shot.sh
+  dice_test` 전체 PASS(기존 `_check_k4c_skill_icon_external_art()`의 "없음→
+  있음→없음" 전환 시나리오가 캐시와 함께도 깨지지 않음을 확인). **셀프
+  피드백**: `qa_out/art3_skill_codex_check.png`(스킬 도감, 원래 버그가
+  보고됐던 화면)를 직접 읽어 "확장/정예/임기응변/심호흡/여분" 전부 흰 사각형이
+  아니라 실제 아이콘 아트(나무/다이아몬드/나침반/숨결/다이스 그림)로 보임을
+  확인. **덤으로 — 알려진 이슈 "(2)는 여전히 미확인"(215, resources/backgrounds/
+  와 resources/ui/icon/ 반영 확인) 해소**: `qa_out/m7_room_cards*.png`
+  (dungeon_map 배경+범례 아이콘)/`art_bg_check_combat.png`(전투 배경)/
+  `art_bg_check_shop.png`(상점 배경)/`art_bg_check_event.png`(이벤트 배경) 4개
+  화면 전부 플레이스홀더 색이 아니라 실제 배경 사진/아이콘 그림으로 정상
+  렌더됨을 육안 확인 — 아래 "알려진 이슈"에서 해당 항목 제거.
+  세 작업 모두 전투 규칙/밸런스는 건드리지 않았고, `resources/`·`docs/art/`는
+  읽기만 했다(ART-3는 아트 스레드가 이미 커밋한 `resources/skills/` 자산을
+  그대로 읽어서 검증만 함). INBOX.md의 [미니 기획 ART-3]를 "처리됨"으로 옮겼다
+  (M-7은 INBOX 항목이 아니라 STATUS.md 큐/M-6 인수인계 메모에서 파생된 작업이라
+  INBOX 변경 없음).
+
 - **2026-10-16 (216)**: INBOX.md "부분 처리됨" [미니 기획 ART-1] **ART-1c(몬스터
   원화 경로) 완료 — [미니 기획 ART-1](ART-1a/1b/1c) 전체 완료.** 몬스터 원화는
   아직 입고 전(`resources/monsters/`가 비어 있음)이라 **코드 경로만** 준비했다
@@ -1327,8 +1410,6 @@
   않고 스크롤바만 뜸(카드 9개가 3행이라 스크롤 필요, 의도대로). L-2(c)
   (진입점 연결 — 캐릭터 선택 화면/던전 진행 화면에 실제 버튼 배선)는 아직
   — 이번 조각은 재사용 가능한 패널 자체만 만들었다. 다음은 **L-2(c)**.
-
-
 
 - **2026-10-14 (194)**: INBOX.md 최우선 지시 [대형 기획 12] 캐릭터 선택/스킬 도감/
   전역 퍼스널 컬러(L-1→L-3) 중 **L-2(a)(스킬 도감 데이터/저장) 완료**. 신규
@@ -8983,11 +9064,9 @@
   - 다루지 않은 것: 몬스터별로 다른 다이스 "모양"(현재는 전부 D4 정사면체), 상점/선택지
     방 종류, 난이도 곡선이 실제로 적당한지 사람 판단 (다음 할 일 큐 참고).
 
-
 ---
 
 ## 예전 "지금 위치" 이력 (2026-09-07 정리 시점까지 누적됐던 것)
-
 
 - **아이템 카드에 결과 다이스 면 미리보기(ShapeDieChip) 추가 완료 (이번
   이터레이션).** 직전 이터레이션(22)이 카드형 비주얼로 개선하면서 "주사위 눈이 있는
@@ -9662,7 +9741,6 @@
   만들게 하는지는 사람이 플레이해보고 판단해야 함(감으로 잡은 잠정값). "① 눈금 선택
   → ② 다이스 선택 → ③ 면 선택"이라는 3단계 순서가 실제로 "인지하기 쉬움"을
   개선했는지도 사람 피드백 필요.
-
 
 ---
 

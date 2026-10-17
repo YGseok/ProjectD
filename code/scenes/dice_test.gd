@@ -7475,15 +7475,81 @@ func _check_l2b_skill_codex_panel(lines: PackedStringArray) -> bool:
 		disc_badge.text, disc_name.text, disc_icon.modulate.a, "OK" if disc_ok else "FAIL"
 	])
 
-	# 미발견(힌트 없음) 상태 — spare_die(여분).
+	# 미발견(힌트 없음) 상태 — spare_die(여분). Q-6(8)부터 미발견 카드는 SkillIcon이
+	# 아니라 LockIcon을 쓴다(스킬 정보 비공개 규칙 유지) — _icon_by_id에는 아예 안
+	# 들어가고 _lock_icon_by_id에 들어간다.
 	var undisc_badge: Label = panel._badge_label_by_id["spare_die"]
 	var undisc_name: Label = panel._name_label_by_id["spare_die"]
-	var undisc_icon: SkillIcon = panel._icon_by_id["spare_die"]
+	var undisc_lock: LockIcon = panel._lock_icon_by_id["spare_die"]
 	var undisc_desc: Label = panel._desc_label_by_id["spare_die"]
-	var undisc_ok: bool = undisc_badge.text == SkillCodexPanel.BADGE_TEXT_UNDISCOVERED and undisc_name.text == "???" and is_equal_approx(undisc_icon.modulate.a, 0.35) and undisc_desc.text == ""
+	var undisc_no_skill_icon: bool = not panel._icon_by_id.has("spare_die")
+	var undisc_ok: bool = (
+		undisc_badge.text == SkillCodexPanel.BADGE_TEXT_UNDISCOVERED and undisc_name.text == "???"
+		and undisc_lock != null and undisc_desc.text == "" and undisc_no_skill_icon
+	)
 	ok = undisc_ok and ok
-	lines.append("  미발견(여분, 힌트 없음): 배지='%s'(기대 미발견) 이름='%s'(기대 ???) 아이콘알파=%.2f(기대 0.35) 설명='%s'(기대 빈 문자열) -> %s" % [
-		undisc_badge.text, undisc_name.text, undisc_icon.modulate.a, undisc_desc.text, "OK" if undisc_ok else "FAIL"
+	lines.append("  미발견(여분, 힌트 없음): 배지='%s'(기대 미발견) 이름='%s'(기대 ???) LockIcon=%s(기대 있음) SkillIcon 없음=%s(기대 true) 설명='%s'(기대 빈 문자열) -> %s" % [
+		undisc_badge.text, undisc_name.text, undisc_lock != null, undisc_no_skill_icon, undisc_desc.text, "OK" if undisc_ok else "FAIL"
+	])
+
+	# Q-6(8): 아이콘(또는 LockIcon) rect가 56px 이상 정사각인지 — 보유/발견/미발견 3상태
+	# 전부 같은 ICON_BOX_SIZE를 쓰므로 하나씩 대표로 확인.
+	var owned_icon_box: SkillIcon = panel._icon_by_id["start_expand"]
+	var icon_square_ok: bool = (
+		owned_icon_box.custom_minimum_size.x >= 56.0 and owned_icon_box.custom_minimum_size.y >= 56.0
+		and is_equal_approx(owned_icon_box.custom_minimum_size.x, owned_icon_box.custom_minimum_size.y)
+		and undisc_lock.custom_minimum_size.x >= 56.0 and undisc_lock.custom_minimum_size.y >= 56.0
+		and is_equal_approx(undisc_lock.custom_minimum_size.x, undisc_lock.custom_minimum_size.y)
+	)
+	ok = icon_square_ok and ok
+	lines.append("  아이콘 rect: 보유=%s LockIcon=%s(둘 다 >=56 정사각 기대) -> %s" % [
+		owned_icon_box.custom_minimum_size, undisc_lock.custom_minimum_size, "OK" if icon_square_ok else "FAIL"
+	])
+
+	# Q-6(2): 상태 배지가 카드 우상단 모서리 안(작은 칩)인지 — badge_panel은 Container가
+	# 아닌 plain Control(wrap)의 자식이라 anchor/offset이 그대로 최종 위치를 결정하고,
+	# Container의 지연(deferred) 정렬 타이밍에 영향받지 않는다(이 값들은 _make_corner_tag가
+	# 직접 설정한 값이라 add_child() 직후에도 즉시 읽을 수 있음) — 그래서 get_rect()/size
+	# 같은 "실제 정렬 후" 값 대신 anchor_left/right·offset_* 설정값 자체로 검증한다.
+	var badge_panel: PanelContainer = panel._badge_panel_by_id["start_expand"]
+	var owned_card: CharacterCardPanel = panel._card_by_id["start_expand"]
+	var badge_anchored_top_right: bool = (
+		is_equal_approx(badge_panel.anchor_left, 1.0) and is_equal_approx(badge_panel.anchor_right, 1.0)
+		and is_equal_approx(badge_panel.anchor_top, 0.0) and is_equal_approx(badge_panel.anchor_bottom, 0.0)
+		and badge_panel.offset_right <= 0.0 and badge_panel.offset_top >= 0.0
+	)
+	var badge_width: float = badge_panel.offset_right - badge_panel.offset_left
+	# 이전 구현(make_codex_badge, L-2b)은 header 아래 한 줄 전체를 차지하는 PanelContainer
+	# (가로로 카드 폭에 맞춰 늘어남)였다 — 지금은 고정 48px 칩이라 카드 폭(320)의 40%도
+	# 안 된다.
+	var badge_small_ok: bool = badge_width < SkillCodexPanel.CARD_SIZE.x * 0.4
+	var badge_corner_ok: bool = badge_anchored_top_right and badge_small_ok
+	ok = badge_corner_ok and ok
+	lines.append("  상태 배지: 우상단 anchor=%s 폭=%.0f(카드폭 %.0f의 40%% 미만 기대) -> %s" % [
+		badge_anchored_top_right, badge_width, SkillCodexPanel.CARD_SIZE.x, "OK" if badge_corner_ok else "FAIL"
+	])
+
+	# Q-6(4): 시작 스킬 구역이 별도 노드로 3개(슬롯 1/2/3 순서) + 일반 스킬은 그 아래.
+	var starting_count_ok: bool = is_instance_valid(panel._starting_row) and panel._starting_row.get_child_count() == 3
+	ok = starting_count_ok and ok
+	lines.append("  시작 스킬 구역 노드 자식 수=%s(기대 3) -> %s" % [
+		panel._starting_row.get_child_count() if is_instance_valid(panel._starting_row) else "(없음)", "OK" if starting_count_ok else "FAIL"
+	])
+	var start_expand_slot_text: String = (panel._slot_tag_by_id["start_expand"] as Label).text if panel._slot_tag_by_id.has("start_expand") else "(없음)"
+	var start_lean_slot_text: String = (panel._slot_tag_by_id["start_lean"] as Label).text if panel._slot_tag_by_id.has("start_lean") else "(없음)"
+	var slot_tags_ok: bool = start_expand_slot_text == "슬롯 1" and start_lean_slot_text == "슬롯 2"
+	ok = slot_tags_ok and ok
+	lines.append("  슬롯 태그: start_expand='%s'(기대 슬롯 1) start_lean='%s'(기대 슬롯 2) -> %s" % [
+		start_expand_slot_text, start_lean_slot_text, "OK" if slot_tags_ok else "FAIL"
+	])
+	var general_child_count: int = (panel._general_grid as GridContainer).get_child_count() if is_instance_valid(panel._general_grid) else -1
+	var starting_before_general_ok: bool = (
+		is_instance_valid(panel._general_grid) and panel._slot_tag_by_id.size() == 3
+		and general_child_count == expected_entries.size() - 3
+	)
+	ok = starting_before_general_ok and ok
+	lines.append("  일반 스킬 구역 카드 수=%s(기대 %d) + 슬롯 태그 총 %d개(기대 3, 시작 스킬만) -> %s" % [
+		general_child_count, expected_entries.size() - 3, panel._slot_tag_by_id.size(), "OK" if starting_before_general_ok else "FAIL"
 	])
 
 	# 미발견(F-1 잠금 힌트 있음) 상태 — start_lean(정예, 슬롯1).
@@ -7512,6 +7578,22 @@ func _check_l2b_skill_codex_panel(lines: PackedStringArray) -> bool:
 	var wrap_left_ok: bool = first_card.focus_neighbor_left == first_card.get_path_to(panel._card_controls[row_end_idx])
 	ok = wrap_left_ok and ok
 	lines.append("  첫 행 wrap: 첫 카드의 왼쪽 포커스 이웃 == 그 행 마지막 카드 -> %s" % ("OK" if wrap_left_ok else "FAIL"))
+
+	# Q-6: 보유/발견 카드를 activated시키면 SkillDetailPopup이 열리는지(미발견은 연결
+	# 자체가 없어 열리지 않음). 포커스를 옮기는(그리고 팝업을 닫아도 되돌려주지 않는)
+	# 부수효과가 있어 위의 포커스 검증들이 끝난 뒤, 패널을 닫기 전에 한다.
+	owned_card.activated.emit()
+	var popup_opened_ok: bool = is_instance_valid(panel._skill_popup) and panel._skill_popup.visible and panel._skill_popup._name_label.text == "확장"
+	ok = popup_opened_ok and ok
+	lines.append("  보유 카드(확장) activated -> SkillDetailPopup 열림, 이름='%s'(기대 확장) -> %s" % [
+		panel._skill_popup._name_label.text if is_instance_valid(panel._skill_popup) else "(없음)", "OK" if popup_opened_ok else "FAIL"
+	])
+	panel._skill_popup.close()
+	var undisc_card: CharacterCardPanel = panel._card_by_id["spare_die"]
+	undisc_card.activated.emit()
+	var popup_stays_closed_ok: bool = not panel._skill_popup.visible
+	ok = popup_stays_closed_ok and ok
+	lines.append("  미발견 카드(여분) activated -> 팝업 안 열림(기대 유지 닫힘) -> %s" % ("OK" if popup_stays_closed_ok else "FAIL"))
 
 	# Esc로 닫힘(customize_panel.gd 검증과 동일 패턴).
 	var closed_signal_log: Array = []
