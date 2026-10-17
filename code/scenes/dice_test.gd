@@ -689,7 +689,10 @@ func _check_q7b_skill_diagram_renderer(lines: PackedStringArray) -> bool:
 	#     그래서 diagram 데이터를 직렬화한 서명이 같은 스킬끼리는 같은 렌더를
 	#     기대하고(렌더러 결정성 확인), 서명이 다른데 픽셀까지 같으면 그게 진짜
 	#     렌더러 버그(FAIL)다.
-	var vp_size := Vector2i(260, 72)
+	# Q-7(c)(2026-10-17): LARGE 칩 높이가 34->44로 커지면서(카드/팝업 가시성 개선) 2줄
+	# 예산(44*2+gap)이 기존 72px 캔버스를 넘을 수 있어 높이를 100으로 올렸다 — 비교 로직
+	# 자체(바이트 단위 동일성)는 안 바뀜, 그냥 더 큰 칩이 잘리지 않고 온전히 캡처되게 함.
+	var vp_size := Vector2i(260, 100)
 	var viewports: Array[SubViewport] = []
 	var signatures: Dictionary = {}
 	for skill_id in ids:

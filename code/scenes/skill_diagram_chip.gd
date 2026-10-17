@@ -23,11 +23,16 @@ extends Control
 
 const SIZE_LARGE := 0
 const SIZE_SMALL := 1
+## Q-7(c)(2026-10-17) 신규 — SkillDetailPopup처럼 화면 전체를 덮는 큰 오버레이에서 쓰는
+## 세 번째 크기. 감독 피드백("LARGE 칩이 30px 안팎이라 카드/팝업에서 눈에 안 띈다")에
+## 따라 이번 조각에서 LARGE 자체도 44px 이상으로 키우고, 팝업만 그보다 한 단계 더 큰
+## 56px 이상을 쓴다.
+const SIZE_POPUP := 2
 
-const CHIP_HEIGHT := {SIZE_LARGE: 34.0, SIZE_SMALL: 20.0}
-const ICON_PX := {SIZE_LARGE: 20.0, SIZE_SMALL: 13.0}
-const FONT_PX := {SIZE_LARGE: 13, SIZE_SMALL: 9}
-const PAD := {SIZE_LARGE: 4.0, SIZE_SMALL: 2.0}
+const CHIP_HEIGHT := {SIZE_LARGE: 44.0, SIZE_SMALL: 20.0, SIZE_POPUP: 56.0}
+const ICON_PX := {SIZE_LARGE: 26.0, SIZE_SMALL: 13.0, SIZE_POPUP: 34.0}
+const FONT_PX := {SIZE_LARGE: 15, SIZE_SMALL: 9, SIZE_POPUP: 18}
+const PAD := {SIZE_LARGE: 5.0, SIZE_SMALL: 2.0, SIZE_POPUP: 6.0}
 
 const COLOR_ATTACK := Color(0.92, 0.4, 0.18)
 const COLOR_DEFENSE := Color(0.32, 0.58, 0.88)
