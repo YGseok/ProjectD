@@ -37,6 +37,10 @@ const CHIP_GAP := 4.0
 ## 맞춰 조금 더 작게 잡았다.
 const FACE_THUMB_SIZE := 40.0
 const PORTRAIT_SCALE_COMPACT := 0.17
+## [대형 기획 15] Q-7(c) 5/5 — 보유 스킬 카드 하나가 쓸 수 있는 실사용 폭. DeckPanel
+## 자체 폭(260, dungeon_map.tscn DeckPanel 기준) - PanelContainer content_margin
+## (10*2, _ready()) - 섹션 패널 content_margin(UIKit.make_section 내부 여백) 근사치.
+const DECK_SKILL_DIAGRAM_WIDTH := 224.0
 
 var _vbox: VBoxContainer
 var _last_signature := ""
@@ -267,6 +271,16 @@ func _add_skills_section(cid: String) -> void:
 		card_style.content_margin_bottom = 2
 		card.add_theme_stylebox_override("panel", card_style)
 
+		# [대형 기획 15] Q-7(c) 5/5: 이름 줄 아래에 SIZE_SMALL(20px) 도식을 한 줄 더
+		# 둬서 "이 패널에서 이미 효과를 빠르게 안다"는 요구를 만족한다(이전엔 이름뿐이라
+		# 클릭해서 팝업을 열어야만 효과를 알 수 있었음). 패널 폭이 좁아(DeckPanel
+		# content_margin 10px씩 뺀 실사용 폭 기준) HFlowContainer가 필요하면 자동으로
+		# 2줄까지 줄바꿈한다.
+		var card_vbox := VBoxContainer.new()
+		card_vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		card_vbox.add_theme_constant_override("separation", 2)
+		card.add_child(card_vbox)
+
 		var row := HBoxContainer.new()
 		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		row.add_theme_constant_override("separation", 4)
@@ -287,7 +301,14 @@ func _add_skills_section(cid: String) -> void:
 		skill_label.add_theme_color_override("font_color", Color(0.75, 0.75, 0.75))
 		skill_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		row.add_child(skill_label)
-		card.add_child(row)
+		card_vbox.add_child(row)
+
+		var diagram := SkillDiagram.new()
+		diagram.size_variant = SkillDiagramChip.SIZE_SMALL
+		diagram.custom_minimum_size = Vector2(DECK_SKILL_DIAGRAM_WIDTH, 0)
+		diagram.diagram_data = SkillPool.diagram_for(skill_id)
+		card_vbox.add_child(diagram)
+
 		card.activated.connect(_on_skill_row_activated.bind(skill_id))
 		body.add_child(card)
 		cards.append(card)
