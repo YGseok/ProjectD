@@ -8,6 +8,83 @@
 
 ---
 
+- **2026-10-16 (219)**: INBOX.md 지시(이번 이터레이션 최우선 — "[대형 기획 13]
+  [미니 기획 ART-1c-3] 몬스터 컷 가장자리 페이드 + 경로 별칭") **완료.** 아트
+  스레드 요청 2건 — ① 몬스터 원화 컷(face_* 표정 컷/full.png 크롭 둘 다)이
+  위·아래·좌우가 직선으로 딱 잘려 사각형 상자처럼 보이는 문제, ② `dark_knight`
+  (MO005, 옛 5종 호환용)가 `dark_knight_elite`(MO600) 원화를 경로 별칭으로
+  공유하게 하는 것.
+
+  **진짜 원인 진단(① 선행 조사)**: `scripts/qa_shot.sh combat_test 90
+  qa_out/art1c3_fallen_commander_before.png _debug_shift_monster_portrait_center
+  1 "" "" fallen_commander`로 실제 보스 전투 화면을 캡처해 직접 읽어보니, 좌/우/
+  상단은 완전히 하드 컷(페이드 자체가 아예 없음)인 것은 예상대로였지만, **하단
+  페이드(`face_art_fade.gdshader`의 `fade_start=0.76`, 플레이어와 공유하는
+  기존 값)도 사실상 발동하지 않고 있었다** — 다만 플레이어 쪽(face_* 직접 로드)은
+  이미 ART-1c/ART-2에서 SubViewport 알파 샘플링으로 "정상 작동" 검증이 끝나 있어
+  의심에서 비켜나 있었다. 원인을 추적해보니 `CharacterArt.load_full_crop()`
+  (ART-1c-2, 2026-10-16(218))이 크롭을 **AtlasTexture**(원본 이미지 전체를
+  그대로 참조하고 `region`만 지정)로 만들고 있었는데, Godot의 canvas_item 셰이더는
+  AtlasTexture가 적용된 노드에서 `UV` 빌트인을 0..1 전체가 아니라 **원본 이미지
+  기준 region 비율 구간**으로 넘긴다(DEFAULT_FACE_CROP_RATIO면 세로 UV가
+  0.015~0.495 구간뿐) — `fade_start=0.76`은 이 범위 밖이라 크롭 모드에서는
+  하단 페이드가 원천적으로 발동 불가능했다(새 셰이더 알파 테스트로 바닥 알파
+  1.000=완전 불투명 확인, 재현). 즉 "크롭이라 페이드 영역이 이미지 밖에 있다"는
+  INBOX의 가설이 정확히 맞았다.
+
+  **수정**: ① `CharacterArt.load_full_crop()`을 AtlasTexture 참조 대신
+  `Image.get_region()`으로 실제 픽셀을 오려낸 독립 `ImageTexture`를 돌려주도록
+  바꿨다 — 크롭된 텍스처 자신의 UV가 이제 0..1로 크롭 영역 전체를 가리켜(face_*
+  표정 컷과 동일한 상황), 기존 하단 페이드가 크롭 모드에서도 플레이어와 동일하게
+  작동하게 됐다(코드 경로 하나뿐, 새 크롭 알고리즘 추가 없음 — INBOX "새 크롭
+  로직 없이" 원칙 유지). ② `face_art_fade.gdshader`에 `side_fade`/`top_fade`
+  유니폼 2개를 추가(기본값 0.0 — 미설정 호출부는 완전히 기존과 동일하게 동작,
+  플레이어 쪽 `CharacterPortraitPlaceholder`는 전혀 안 바꿈)하고,
+  `MonsterPortraitPlaceholder._ensure_face_rect()`에서만 `ShaderMaterial.
+  set_shader_parameter()`로 10%씩 켠다(`FACE_ART_SIDE_FADE`/`FACE_ART_TOP_FADE`
+  상수) — face_* 모드/크롭 모드 둘 다 같은 `_face_rect`/머티리얼을 공유하므로
+  한 곳에서 양쪽에 다 적용된다. ③ `MonsterCatalog.ART_ID_ALIASES`(데이터 표,
+  지금은 `dark_knight -> dark_knight_elite` 1건) + `art_resource_id()`
+  조회 함수를 추가하고, `MonsterPortraitPlaceholder`가 `_monster_id`(원래 id,
+  다른 용도)와 `_art_monster_id`(별칭 해석된 원화 조회 전용 id)를 분리해
+  `has_all_faces()`/`load_face()`/`has_full()`/`load_full_crop()` 네 호출
+  전부 별칭 id로 조회하게 했다 — 파일을 실제로 복제하지 않고 조회 경로만
+  바꿔치기(`resources/monsters/dark_knight/` 폴더는 여전히 없음, 여전히
+  `dark_knight_elite/full.png` 하나만 존재).
+
+  **테스트**(`dice_test.gd` 신규 `_check_art1c3_monster_edge_fade_and_alias()`,
+  await 필요 — SubViewport 렌더): ① 별칭 표(`art_resource_id('dark_knight')`
+  =='dark_knight_elite', 별칭 없는 id는 그대로) ② production 경로에서
+  `set_monster('dark_knight')`가 실제로 `_use_full_crop=true`가 되는지(별칭
+  경로가 실제로 로드됨) ③ 가짜 **정사각 비율**(200×200) 전용 원화로 정사각
+  크롭(96×96)을 만들어 240×240 박스에 레터박스 없이 꽉 채운 뒤(기존
+  `_art1c2_write_fake_full()`의 1181×1332 비율은 좌우 레터박스가 생겨 가장자리
+  샘플이 "셰이더 페이드"와 "레터박스의 원래 투명 영역"을 구분 못 해 이 용도엔
+  부적합 — 전용 헬퍼 `_art1c3_write_fake_square_full()` 신설) SubViewport에
+  렌더해 중앙(120,120) 알파>0.9(불투명)·하단(y=238)/상단(y=1)/좌측(x=1)/
+  우측(x=238) 네 가장자리 전부 중앙의 30% 미만(실측: 중앙 1.000, 하단 0.000,
+  상단/좌/우 0.012)인지 ④ 입고된 실제 몬스터 전체(카탈로그 35종 전수, 하드코딩
+  없이 `has_all_faces()`/`has_full()`로 "원화 있음" 판정)가 일반(1.1배)/보스
+  (1.3배) 배율 둘 다에서 화면 우측 끝(1280px) 안에 들어오는지(19종 전부 통과)
+  — `bash scripts/qa_shot.sh dice_test` 전체 **PASS**(FAIL 0건, 2회 재확인).
+  **회귀 수정**: `load_full_crop()`이 AtlasTexture에서 ImageTexture로 바뀌며
+  `_check_art1c2_monster_full_crop_fallback()`의 카탈로그 전수 비교가
+  `dark_knight`만 불일치로 FAIL했다 — 그 테스트의 기대값 계산도
+  `MonsterCatalog.art_resource_id()`를 거치도록 고쳐 PASS로 복구(동작 자체는
+  의도한 변경이므로 기대값만 별칭 인지하게 맞춤).
+  **셀프 피드백 2라운드**: 1라운드 — 위 `art1c3_fallen_commander_before.png`를
+  직접 읽어 사각 박스 문제를 확정하고 원인 진단에 사용. 2라운드(수정 후) —
+  같은 구도로 `art1c3_fallen_commander_after.png`를 재캡처해 좌/우/상단이
+  부드럽게 사라지고 하단도 바닥에 자연스럽게 녹아드는 것을 확인했고, 머리카락/
+  망토처럼 넓게 퍼진 몬스터(요청이 명시한 "공허의 눈"/"망령")와 별칭 대상
+  (legacy `dark_knight`)도 추가로 캡처(`art1c3_void_eye_after.png`/
+  `art1c3_specter_after.png`/`art1c3_dark_knight_after.png`)해 전부 하드
+  엣지 없이 자연스럽고, `dark_knight`가 실제로 다크 나이트 정예 원화(갑주
+  입은 여기사)로 정상 렌더됨을 확인 — 추가 조정 없이 2라운드로 종료.
+  전투 규칙/밸런스 수치는 건드리지 않았고 `resources/`·`docs/art/`는 읽기만
+  했다. INBOX.md에는 이 지시가 세션 프롬프트로만 전달돼 파일에 기록이 없었던
+  항목이라, "처리됨" 섹션에 신규 항목으로 추가했다(아래 INBOX.md 갱신 참고).
+
 - **2026-10-16 (218)**: INBOX.md 지시(이번 이터레이션 최우선 — "실행 순서는
   [대형 기획 13] [미니 기획 ART-1c-2]") **몬스터 face_* 없이 full.png만 있을 때
   상반신 크롭 폴백 완료.** 배경: ART-1c(216)가 몬스터 원화 경로(face_* 5장 →

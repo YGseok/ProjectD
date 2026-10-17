@@ -465,6 +465,10 @@ func _ready() -> void:
 	all_pass = _check_q7a_skill_diagrams(lines) and all_pass
 
 	lines.append("")
+	lines.append("[Q-7(b): SkillDiagram/SkillDiagramChip 렌더러 — 스킬 37종(고유 id) x 크기 2종(LARGE/SMALL) 전부 렌더된 칩 노드 수가 diagram 기호 수와 일치하고 지정 폭 컨테이너 가로 안/2줄 높이 예산 안에 들어오는지, 서로 다른 스킬이 실제로 다른 픽셀로 렌더되고 빈 도식(완전 투명)이 0개인지(SubViewport 픽셀 비교), 텍스트 대비가 WCAG AA(4.5:1) 이상인지]")
+	all_pass = (await _check_q7b_skill_diagram_renderer(lines)) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -591,6 +595,171 @@ func _check_q7a_skill_diagrams(lines: PackedStringArray) -> bool:
 	lines.append("  기호 종류가 DIAGRAM_SYMBOL_TYPES(%d종) 안인지 -> %s" % [SkillPool.DIAGRAM_SYMBOL_TYPES.size(), "OK" if symbol_type_ok else "FAIL"])
 	if not bad_symbol_type.is_empty():
 		lines.append("    범위 밖: %s" % ", ".join(bad_symbol_type))
+
+	return ok
+
+
+## [대형 기획 15] Q-7(b)(2026-10-17) — SkillDiagram/SkillDiagramChip 렌더러 검증.
+## Q-7(a)가 만든 diagram 데이터를 실제로 Control 트리에 그려서 "플래그가 들어갔는가"가
+## 아니라 "렌더된 노드 수/폭/픽셀이 실제로 기대대로인가"를 확인한다 — 세 갈래:
+## (1) 스킬 37종(중복 id 제거) × 크기 2종(LARGE 폭260/SMALL 폭150) 전부, 렌더된
+##     칩 노드 수가 diagram 배열 길이와 정확히 같고(=> SkillPool.MAX_DIAGRAM_SYMBOLS
+##     이내), 각 칩 rect가 지정 폭 컨테이너 가로 안에 들어오며, 전체 사용 높이가
+##     2줄 예산(CHIP_HEIGHT*2+여유) 이내인지.
+## (2) 서로 다른 스킬의 도식이 실제로 다른 픽셀로 렌더되는지 — LARGE 크기로 37종을
+##     각각 독립 SubViewport(K-4a와 같은 패턴)에 그려 바이트 단위 비교, 완전히
+##     투명(빈 도식처럼 보임)한 렌더가 0개인지.
+## (3) 모든 텍스트 라벨이 공유하는 TEXT_COLOR가 칩 배경 CHIP_BG 위에서 WCAG AA
+##     (4.5:1) 이상인지(CharacterTheme.contrast_ratio 재사용).
+## await를 쓰므로 호출부는 `await _check_q7b_skill_diagram_renderer(lines)`로 받는다.
+func _check_q7b_skill_diagram_renderer(lines: PackedStringArray) -> bool:
+	var ok := true
+
+	var ids: Array = []
+	var seen_id: Dictionary = {}
+	for group in [SkillPool.SKILLS, SkillPool.UNIQUE_SKILLS, SkillPool.UPGRADE_SKILLS, SkillPool.STARTING_SKILLS]:
+		for skill in group:
+			var skill_id: String = skill["id"]
+			if not seen_id.has(skill_id):
+				seen_id[skill_id] = true
+				ids.append(skill_id)
+
+	# (1) 노드 수 / 폭 컨테이너 안 / 2줄 높이 예산 — 두 크기 모두.
+	var size_presets := [
+		{"variant": SkillDiagramChip.SIZE_LARGE, "width": 260.0, "label": "LARGE(카드/팝업, 폭260)"},
+		{"variant": SkillDiagramChip.SIZE_SMALL, "width": 150.0, "label": "SMALL(툴팁/목록, 폭150)"},
+	]
+	var node_count_bad: PackedStringArray = []
+	var too_many_bad: PackedStringArray = []
+	var h_overflow_bad: PackedStringArray = []
+	var v_overflow_bad: PackedStringArray = []
+
+	for preset in size_presets:
+		var variant: int = preset["variant"]
+		var width: float = preset["width"]
+		var line_budget: float = SkillDiagramChip.CHIP_HEIGHT[variant] * 2.0 + 10.0
+		for skill_id in ids:
+			var data: Array = SkillPool.diagram_for(skill_id)
+			var diagram := SkillDiagram.new()
+			add_child(diagram)
+			diagram.size_variant = variant
+			diagram.diagram_data = data
+			diagram.size = Vector2(width, 400.0)
+			await get_tree().process_frame
+			await get_tree().process_frame
+			var children := diagram.get_children()
+			if children.size() != data.size():
+				node_count_bad.append("%s/%s(%d칩 != %d기호)" % [preset["label"], skill_id, children.size(), data.size()])
+			if data.size() > SkillPool.MAX_DIAGRAM_SYMBOLS:
+				too_many_bad.append("%s/%s" % [preset["label"], skill_id])
+			for child in children:
+				var c: Control = child
+				if c.position.x < -0.5 or c.position.x + c.size.x > width + 0.5:
+					h_overflow_bad.append("%s/%s" % [preset["label"], skill_id])
+					break
+			var used_height: float = diagram.get_combined_minimum_size().y
+			if used_height > line_budget:
+				v_overflow_bad.append("%s/%s(%.1fpx > %.1fpx)" % [preset["label"], skill_id, used_height, line_budget])
+			remove_child(diagram)
+			diagram.free()
+
+	var node_count_ok: bool = node_count_bad.is_empty()
+	var too_many_ok: bool = too_many_bad.is_empty()
+	var h_overflow_ok: bool = h_overflow_bad.is_empty()
+	var v_overflow_ok: bool = v_overflow_bad.is_empty()
+	ok = node_count_ok and too_many_ok and h_overflow_ok and v_overflow_ok and ok
+
+	lines.append("  스킬 %d종(고유 id) x 크기 2종: 렌더된 칩 노드 수 == diagram 기호 수 -> %s" % [ids.size(), "OK" if node_count_ok else "FAIL"])
+	if not node_count_bad.is_empty():
+		lines.append("    불일치: %s" % ", ".join(node_count_bad))
+	lines.append("  기호 수 <= MAX_DIAGRAM_SYMBOLS(%d) -> %s" % [SkillPool.MAX_DIAGRAM_SYMBOLS, "OK" if too_many_ok else "FAIL"])
+	lines.append("  칩 rect가 지정 폭 컨테이너 가로 안(넘침 없음) -> %s" % ("OK" if h_overflow_ok else "FAIL"))
+	if not h_overflow_bad.is_empty():
+		lines.append("    가로 넘침: %s" % ", ".join(h_overflow_bad))
+	lines.append("  전체 사용 높이가 2줄 예산 이내 -> %s" % ("OK" if v_overflow_ok else "FAIL"))
+	if not v_overflow_bad.is_empty():
+		lines.append("    세로 초과: %s" % ", ".join(v_overflow_bad))
+
+	# (2) 서로 다른 스킬의 도식이 실제로 다른 픽셀로 렌더되는지 — LARGE 크기, 37종
+	#     각각 독립 SubViewport(K-4a _check_k4a_skill_icon_motifs()와 같은 패턴).
+	#     "다른 스킬 id"가 아니라 "다른 diagram 데이터"가 진짜 비교 단위다 — 예를
+	#     들어 start_sleight(눈속임)/start_gambler(승부사)는 SkillPool.gd 주석대로
+	#     "효과는 같지만 매혹사와 공유하지 말라"는 기획자 지시로 id만 분리한 완전히
+	#     동일한 diagram(이벤트 주사위 -> DC-1)이라 같은 그림이 나오는 게 정답이다.
+	#     그래서 diagram 데이터를 직렬화한 서명이 같은 스킬끼리는 같은 렌더를
+	#     기대하고(렌더러 결정성 확인), 서명이 다른데 픽셀까지 같으면 그게 진짜
+	#     렌더러 버그(FAIL)다.
+	var vp_size := Vector2i(260, 72)
+	var viewports: Array[SubViewport] = []
+	var signatures: Dictionary = {}
+	for skill_id in ids:
+		var data_for_sig: Array = SkillPool.diagram_for(skill_id)
+		signatures[skill_id] = JSON.stringify(data_for_sig)
+		var diagram2 := SkillDiagram.new()
+		diagram2.size_variant = SkillDiagramChip.SIZE_LARGE
+		diagram2.diagram_data = data_for_sig
+		diagram2.position = Vector2.ZERO
+		diagram2.size = Vector2(vp_size)
+		var vp := SubViewport.new()
+		vp.size = vp_size
+		vp.transparent_bg = true
+		vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+		vp.add_child(diagram2)
+		add_child(vp)
+		viewports.append(vp)
+
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await RenderingServer.frame_post_draw
+
+	var blank_ids: PackedStringArray = []
+	var dup_pairs: PackedStringArray = []
+	var expected_dup_pairs: PackedStringArray = []
+	var seen_images: Dictionary = {}
+	for i in range(ids.size()):
+		var img: Image = viewports[i].get_texture().get_image()
+		if img == null:
+			blank_ids.append(ids[i])
+			continue
+		var data: PackedByteArray = img.get_data()
+		var has_pixel := false
+		for b in data:
+			if b != 0:
+				has_pixel = true
+				break
+		if not has_pixel:
+			blank_ids.append(ids[i])
+			continue
+		for other_id in seen_images.keys():
+			if seen_images[other_id] == data:
+				if signatures[ids[i]] == signatures[other_id]:
+					expected_dup_pairs.append("%s==%s(diagram 데이터 자체가 동일)" % [ids[i], other_id])
+				else:
+					dup_pairs.append("%s==%s" % [ids[i], other_id])
+		seen_images[ids[i]] = data
+
+	for vp in viewports:
+		remove_child(vp)
+		vp.free()
+
+	var blank_ok: bool = blank_ids.is_empty()
+	var distinct_ok: bool = dup_pairs.is_empty()
+	ok = blank_ok and distinct_ok and ok
+
+	lines.append("  빈 도식(완전 투명 렌더)인 스킬 수 -> %d개 %s" % [blank_ids.size(), "OK" if blank_ok else "FAIL"])
+	if not blank_ids.is_empty():
+		lines.append("    빈 도식: %s" % ", ".join(blank_ids))
+	lines.append("  diagram 데이터가 다른 스킬끼리는 서로 다른 픽셀로 렌더(진짜 렌더러 충돌 쌍 0개) -> %s" % ("OK" if distinct_ok else "FAIL"))
+	if not dup_pairs.is_empty():
+		lines.append("    동일 렌더 쌍(버그): %s" % ", ".join(dup_pairs))
+	if not expected_dup_pairs.is_empty():
+		lines.append("    (참고, FAIL 아님) diagram 데이터 자체가 같아 같은 그림인 쌍: %s" % ", ".join(expected_dup_pairs))
+
+	# (3) 텍스트 대비(WCAG AA 4.5:1 이상) — 모든 텍스트 라벨이 공유하는 TEXT_COLOR.
+	var contrast := CharacterTheme.contrast_ratio(SkillDiagramChip.TEXT_COLOR, SkillDiagramChip.CHIP_BG)
+	var contrast_ok := contrast >= 4.5
+	ok = contrast_ok and ok
+	lines.append("  텍스트 대비(TEXT_COLOR vs CHIP_BG) = %.2f:1 (기준 4.5:1 이상) -> %s" % [contrast, "OK" if contrast_ok else "FAIL"])
 
 	return ok
 

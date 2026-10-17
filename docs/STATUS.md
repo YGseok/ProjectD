@@ -5,30 +5,32 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-10-17 (228)
-- 작성자: AI 에이전트. **[대형 기획 15] Q-7(a)(스킬 효과 도식 문법 + 데이터,
-  원문 3) 완료.** Q-7은 (a) 문법/데이터 → (b) 렌더러 → (c) 화면 적용 세
-  조각으로 나뉘는데, 이번 이터레이션은 그중 (a)만 — 렌더러와 화면 적용은
-  손대지 않았다. `code/systems/skill_pool.gd`에 도식 문법(`DIAGRAM_SYMBOL_
-  TYPES` 11종 — die/compare/condition/arrow/value/duration/reroll/stack/
-  swap/cycle/gold, `MAX_DIAGRAM_SYMBOLS`=5)을 정의하고, SKILLS(2)/UNIQUE_
-  SKILLS(9)/UPGRADE_SKILLS(11)/STARTING_SKILLS(15종, 해적 전용 중복 3행 포함
-  40행) 전수에 `diagram`(Array[Dictionary], "조건 칩 -> 효과 칩" 순서) 필드를
-  채웠다 — 모든 스킬이 3~4개 기호(상한 5개 이내)로 표현 가능해 **효과를
-  단순화해야 하는 리디자인 후보는 없었다**(전투 규칙/밸런스 불변).
-  `dice_test.gd`에 순수 데이터 검증 `_check_q7a_skill_diagrams()`를 추가해
-  (1) 모든 행에 diagram이 있는지(새 스킬 추가 시 누락이 FAIL로 걸림), (2)
-  기호 수 <= 상한, (3) 각 칩 type이 허용 집합 안인지 확인했다. 과정에서
-  직전 아트 커밋(`ad19295`, 몬스터 14종 v3 재디자인)으로 그림자(shadow)
-  몬스터가 더는 "어두운 몬스터"가 아니게 되면서(휘도 0.253, 카탈로그 35종
-  중 글로우 대상 0종) 깨져있던 **무관한 기존 테스트 1건**(`_check_art1c4_
-  monster_dark_glow`)도 함께 고쳤다(production 자산 대신 합성 가짜 원화로
-  "어두운 경로"를 검증하도록 바꿔 향후 아트 변경에도 안 깨지게 함).
-  `bash scripts/qa_shot.sh dice_test 60 qa_out/q7a_dice_test.png "" 1` 전체
-  **PASS**(FAIL 0건). 이번 조각은 순수 데이터/로직이라 화면 변화가 없음 —
-  `resources/`·`docs/art/`는 읽지 않았다. 상세는 완료 기록(228) 참고.
-  **다음은 Q-7(b)(SkillDiagram 렌더러 — 카드/팝업용 2종 크기, 색맹 고려해
-  모양도 함께 구분).**
+- 일시: 2026-10-17 (229)
+- 작성자: AI 에이전트. **[대형 기획 15] Q-7(b)(SkillDiagram 렌더러) 완료.**
+  Q-7은 (a) 문법/데이터(228, 완료) → (b) 렌더러(이번 조각) → (c) 화면 적용
+  세 조각으로 나뉘는데, 이번 이터레이션은 그중 (b)만 — 화면 적용은 손대지
+  않았다(아직 어느 게임 화면에도 배선 안 됨). 신규 위젯 2개(`code/scenes/
+  skill_diagram_chip.gd`의 `SkillDiagramChip`, `code/scenes/skill_diagram.gd`
+  의 `SkillDiagram extends HFlowContainer`)가 Q-7(a)의 diagram 데이터를
+  실제로 그린다 — 기호 종류별 함수 테이블로만 분기(스킬 id 하드코딩 없음),
+  `resources/ui/icon/*.png`가 있으면 칠해 쓰고 없으면 절차적 도형(공격=칼끝
+  삼각형/방어=방패 오각형/이벤트=육각형 등 모양으로 구분, 텍스트는 전부
+  한 색이라 대비 12.12:1 보장), 크기 2종(LARGE 카드·팝업용/SMALL 툴팁·목록용).
+  QA 전용 `code/scenes/skill_diagram_preview.gd/.tscn`(37종을 5x8 격자로
+  1280x720 한 화면에, `scripts/qa_shot.sh skill_diagram_preview`)로 셀프
+  피드백 2라운드(격자 열/행 조정 → SMALL 변형 확인). `dice_test.gd` 신규
+  `_check_q7b_skill_diagram_renderer()`가 노드 수/폭 컨테이너 안/2줄 높이
+  예산/서로 다른 스킬 간 실제 픽셀 차이(SubViewport 비교)/빈 도식 0개/텍스트
+  대비를 검증 — 검증 중 `start_sleight`(눈속임)==`start_gambler`(승부사)가
+  픽셀까지 완전히 동일한 것을 발견했는데, 확인해보니 `skill_pool.gd` 주석에
+  이미 "효과가 같지만 매혹사와 공유하지 말라는 지시로 id만 분리했다"고
+  적혀 있던 의도된 중복이라(diagram 데이터 자체가 동일) — 비교 기준을
+  "스킬 id"에서 "diagram 데이터 서명"으로 바꿔 올바르게 처리했다(데이터가
+  같으면 같은 그림=정상/데이터가 다른데 그림이 같으면 진짜 버그).
+  `bash scripts/qa_shot.sh dice_test 60 qa_out/q7b_dice_test.png "" 1` 전체
+  **PASS**(FAIL 0건). `resources/`·`docs/art/`는 읽기만 했다. 상세는 완료
+  기록(229) 참고. **다음은 Q-7(c)(스킬 도감 카드/상세 팝업/보상·상점·이벤트
+  카드/시작 스킬 슬롯에 실제 배선).**
 
 ## 지금 위치
 
@@ -686,10 +688,13 @@ write-through 저장이라 영향 없음, 승패 집계 경로를 안 타 통계
 (상세는 완료 기록 (227)). 2026-10-17(228)로 **Q-7(a)(스킬 효과 도식 문법 +
 데이터, 원문 3) 완료** — `SkillPool`에 도식 문법(기호 11종, 한 스킬당 최대
 5개)과 37종 전수 `diagram` 데이터를 채우고 순수 데이터 검증 테스트를
-추가했다(리디자인이 필요한 스킬 없음, 상세는 완료 기록 (228)). **다음은
-Q-7(b)(`SkillDiagram` 렌더러 — 도식 데이터를 받아 UIKit 아이콘+도형으로
-그리는 위젯, 카드용/팝업용 2종 크기) → Q-7(c)(도감/팝업/보상·상점·이벤트
-카드/시작 스킬 슬롯에 실제 적용).**
+추가했다(리디자인이 필요한 스킬 없음, 상세는 완료 기록 (228)). 2026-10-17
+(229)로 **Q-7(b)(SkillDiagram 렌더러) 완료** — `SkillDiagram`/
+`SkillDiagramChip`(기호 종류별 함수 테이블로만 분기, 색맹 고려해 모양으로도
+구분, 크기 2종)이 diagram 데이터를 실제로 그린다. QA 전용 격자 미리보기
+(`skill_diagram_preview`)로 셀프 피드백 확인(상세는 완료 기록 (229)).
+**다음은 Q-7(c)(도감/팝업/보상·상점·이벤트 카드/시작 스킬 슬롯에 실제
+적용).**
 
 남은 구조적 후보(급하지 않음): 보스 개별 6종 중 타락한 기사단장만 밴드 미달
 (`MonsterSkills.modify_monster_roll()` 파라미터화가 전제조건이라 사람 설계
@@ -1299,6 +1304,62 @@ Q-7(b)(`SkillDiagram` 렌더러 — 도식 데이터를 받아 UIKit 아이콘+�
     조정은 사람이 이 숫자를 보고 다음 지시로 결정).
 
 ## 완료 기록
+
+- **2026-10-17 (229)**: **[대형 기획 15] Q-7(b)(SkillDiagram 렌더러) 완료.**
+  Q-7(a)(228)가 `SkillPool`에 만든 diagram 데이터(11종 기호, 스킬당 ≤5개)를
+  받아 실제로 그리는 재사용 위젯 2개를 신규 추가 — `code/scenes/
+  skill_diagram_chip.gd`(`SkillDiagramChip extends Control`, 기호 1개 전담)와
+  `code/scenes/skill_diagram.gd`(`SkillDiagram extends HFlowContainer`, 기호들을
+  가로로 배치하고 폭이 모자라면 엔진이 자동으로 다음 줄로 넘김 — 직접 줄바꿈
+  로직 없이 "최대 2줄" 요구 충족). **화면 적용(Q-7c)은 하지 않음** — 아직
+  어느 화면에도 배선되지 않았다.
+  **렌더 분기**: `SkillDiagramChip._RENDERERS`(type -> 메서드 이름 11개 테이블)
+  로만 하고 스킬 id로는 절대 분기하지 않는다(INBOX "하드코딩 금지" 요구).
+  표에 없는 type은 `_draw_unknown_symbol()`(물음표 배지)로 눈에 띄게 떨어져
+  누락을 숨기지 않는다(K-4a 모티프 누락 처리와 같은 원칙).
+  **크기 2종**: `SIZE_LARGE`(카드/팝업, 칩 높이 34px/아이콘 20px)·`SIZE_SMALL`
+  (툴팁/목록, 20px/13px) — `size_variant`를 바꾸면 다시 그린다.
+  **아이콘**: `UIKit.icon_texture()`로 `resources/ui/icon/{attack,defense,hp,
+  gold,pip,dice}.png`(흰 실루엣)를 기호별 고정색으로 칠해 쓰고, 파일이 없는
+  기호(이벤트/재질/스택/맞바꾸기/주기/재굴림 등 UIKit 아이콘 세트에 아예 없는
+  모양)는 절차적 도형으로 그린다(SkillIcon과 같은 "파일 우선, 없으면 draw_*"
+  원칙) — `resources/`는 읽기만 했다.
+  **색맹 고려**: 텍스트 라벨은 전부 `TEXT_COLOR`(밝은 중성색) 하나로 통일해
+  대비 책임을 분산시키지 않고(CHIP_BG 대비 12.12:1, WCAG AA 4.5:1 여유 통과),
+  구분은 "모양"으로 한다 — 공격=칼끝 삼각형, 방어=방패 오각형, 이벤트=육각형,
+  폭발 스택=별모양, 수호 스택=겹겹의 방패, 맞바꾸기=교차 화살표, 주기=시계판
+  (SkillIcon이 이미 쓰는 같은 어휘 재사용, "방패=방어" 학습이 게임 전체에서
+  일관됨).
+  **QA 디버그 훅**: `code/scenes/skill_diagram_preview.gd/.tscn`(화면 적용이
+  아니라 렌더러 자체 검증 전용, 실제 게임 화면에는 연결 안 함) — 37종 스킬
+  전부를 5열×8행 격자로 1280x720 한 화면에 그린다. 기본은 LARGE, `scripts/
+  qa_shot.sh skill_diagram_preview ... _debug_show_small`로 SMALL도 캡처
+  가능(combat_test.gd의 `_debug_*` qa_call 패턴 재사용).
+  **셀프 피드백 2라운드**: 1라운드(`qa_out/q7b_debug.png`, 4열×10행) —
+  마지막 행("잡화점")이 720px 아래로 살짝 잘리는 것을 직접 보고 5열×8행
+  (CELL_W 300->252, CELL_H 72->85)으로 재배치해 해결(`qa_out/q7b_large.png`
+  로 재확인, 겹침/잘림 없음). 2라운드 — SMALL 변형(`qa_out/q7b_small.png`)도
+  같은 격자로 캡처해 작은 아이콘에서도 모양 구분이 유지되는지 확인, 추가
+  수정 없이 종료.
+  **테스트**(`dice_test.gd` 신규 `_check_q7b_skill_diagram_renderer()`, await
+  필요): (1) 스킬 37종(고유 id) × 크기 2종 전부 렌더된 칩 노드 수가 diagram
+  기호 수와 정확히 일치(<=MAX_DIAGRAM_SYMBOLS)하고, 각 칩 rect가 지정 폭
+  컨테이너(LARGE 260px/SMALL 150px) 가로 안에 들어오며 전체 사용 높이가
+  2줄 예산 이내인지 — 매 조합마다 실제로 `SkillDiagram`을 트리에 올려
+  `get_combined_minimum_size()`/자식 rect를 직접 측정(플래그가 아니라 계산
+  결과 검증). (2) 서로 다른 스킬이 실제로 다른 픽셀로 렌더되는지 — LARGE
+  크기로 37종 각각 독립 SubViewport(K-4a와 같은 패턴)에 그려 바이트 단위
+  비교, 빈 도식(완전 투명) 0개. **실제로 픽셀이 완전히 같은 쌍 1건 발견**
+  (`start_sleight`(눈속임)==`start_gambler`(승부사)) — `skill_pool.gd` 주석대로
+  "효과는 같지만 매혹사와 공유하지 말라"는 기획자 지시로 diagram 데이터
+  자체가 완전히 동일한 의도된 중복이라, 비교를 "스킬 id"가 아니라 "diagram
+  데이터 서명(JSON.stringify)" 기준으로 바꿔 "데이터가 같으면 같은 그림(결정성
+  확인, FAIL 아님) / 데이터가 다른데 그림이 같으면 진짜 렌더러 버그(FAIL)"로
+  재정의해 해결 — 검증 중 실제로 설계 의도와 일치하는 결과를 발견한 사례.
+  (3) 텍스트 대비 12.12:1(기준 4.5:1 이상). `bash scripts/qa_shot.sh
+  dice_test 60 qa_out/q7b_dice_test.png "" 1` 전체 **PASS**(FAIL 0건).
+  **다음은 Q-7(c)(스킬 도감 카드/상세 팝업/보상·상점·이벤트 카드/시작 스킬
+  슬롯에 실제 배선).**
 
 - **2026-10-17 (228)**: **[대형 기획 15] Q-7(a)(스킬 효과 도식 문법 + 데이터,
   원문 3) 완료.** 목표는 "모든 스킬의 설명 위에 효과를 이미지/도형으로 도식화"
@@ -1919,86 +1980,9 @@ Q-7(b)(`SkillDiagram` 렌더러 — 도식 데이터를 받아 UIKit 아이콘+�
   전투 규칙/밸런스 수치는 전혀 건드리지 않았고 `resources/`·`docs/art/`는
   읽기만 했다.
 
-- **2026-10-16 (219)**: INBOX.md 지시(이번 이터레이션 최우선 — "[대형 기획 13]
-  [미니 기획 ART-1c-3] 몬스터 컷 가장자리 페이드 + 경로 별칭") **완료.** 아트
-  스레드 요청 2건 — ① 몬스터 원화 컷(face_* 표정 컷/full.png 크롭 둘 다)이
-  위·아래·좌우가 직선으로 딱 잘려 사각형 상자처럼 보이는 문제, ② `dark_knight`
-  (MO005, 옛 5종 호환용)가 `dark_knight_elite`(MO600) 원화를 경로 별칭으로
-  공유하게 하는 것.
-
-  **진짜 원인 진단(① 선행 조사)**: `scripts/qa_shot.sh combat_test 90
-  qa_out/art1c3_fallen_commander_before.png _debug_shift_monster_portrait_center
-  1 "" "" fallen_commander`로 실제 보스 전투 화면을 캡처해 직접 읽어보니, 좌/우/
-  상단은 완전히 하드 컷(페이드 자체가 아예 없음)인 것은 예상대로였지만, **하단
-  페이드(`face_art_fade.gdshader`의 `fade_start=0.76`, 플레이어와 공유하는
-  기존 값)도 사실상 발동하지 않고 있었다** — 다만 플레이어 쪽(face_* 직접 로드)은
-  이미 ART-1c/ART-2에서 SubViewport 알파 샘플링으로 "정상 작동" 검증이 끝나 있어
-  의심에서 비켜나 있었다. 원인을 추적해보니 `CharacterArt.load_full_crop()`
-  (ART-1c-2, 2026-10-16(218))이 크롭을 **AtlasTexture**(원본 이미지 전체를
-  그대로 참조하고 `region`만 지정)로 만들고 있었는데, Godot의 canvas_item 셰이더는
-  AtlasTexture가 적용된 노드에서 `UV` 빌트인을 0..1 전체가 아니라 **원본 이미지
-  기준 region 비율 구간**으로 넘긴다(DEFAULT_FACE_CROP_RATIO면 세로 UV가
-  0.015~0.495 구간뿐) — `fade_start=0.76`은 이 범위 밖이라 크롭 모드에서는
-  하단 페이드가 원천적으로 발동 불가능했다(새 셰이더 알파 테스트로 바닥 알파
-  1.000=완전 불투명 확인, 재현). 즉 "크롭이라 페이드 영역이 이미지 밖에 있다"는
-  INBOX의 가설이 정확히 맞았다.
-
-  **수정**: ① `CharacterArt.load_full_crop()`을 AtlasTexture 참조 대신
-  `Image.get_region()`으로 실제 픽셀을 오려낸 독립 `ImageTexture`를 돌려주도록
-  바꿨다 — 크롭된 텍스처 자신의 UV가 이제 0..1로 크롭 영역 전체를 가리켜(face_*
-  표정 컷과 동일한 상황), 기존 하단 페이드가 크롭 모드에서도 플레이어와 동일하게
-  작동하게 됐다(코드 경로 하나뿐, 새 크롭 알고리즘 추가 없음 — INBOX "새 크롭
-  로직 없이" 원칙 유지). ② `face_art_fade.gdshader`에 `side_fade`/`top_fade`
-  유니폼 2개를 추가(기본값 0.0 — 미설정 호출부는 완전히 기존과 동일하게 동작,
-  플레이어 쪽 `CharacterPortraitPlaceholder`는 전혀 안 바꿈)하고,
-  `MonsterPortraitPlaceholder._ensure_face_rect()`에서만 `ShaderMaterial.
-  set_shader_parameter()`로 10%씩 켠다(`FACE_ART_SIDE_FADE`/`FACE_ART_TOP_FADE`
-  상수) — face_* 모드/크롭 모드 둘 다 같은 `_face_rect`/머티리얼을 공유하므로
-  한 곳에서 양쪽에 다 적용된다. ③ `MonsterCatalog.ART_ID_ALIASES`(데이터 표,
-  지금은 `dark_knight -> dark_knight_elite` 1건) + `art_resource_id()`
-  조회 함수를 추가하고, `MonsterPortraitPlaceholder`가 `_monster_id`(원래 id,
-  다른 용도)와 `_art_monster_id`(별칭 해석된 원화 조회 전용 id)를 분리해
-  `has_all_faces()`/`load_face()`/`has_full()`/`load_full_crop()` 네 호출
-  전부 별칭 id로 조회하게 했다 — 파일을 실제로 복제하지 않고 조회 경로만
-  바꿔치기(`resources/monsters/dark_knight/` 폴더는 여전히 없음, 여전히
-  `dark_knight_elite/full.png` 하나만 존재).
-
-  **테스트**(`dice_test.gd` 신규 `_check_art1c3_monster_edge_fade_and_alias()`,
-  await 필요 — SubViewport 렌더): ① 별칭 표(`art_resource_id('dark_knight')`
-  =='dark_knight_elite', 별칭 없는 id는 그대로) ② production 경로에서
-  `set_monster('dark_knight')`가 실제로 `_use_full_crop=true`가 되는지(별칭
-  경로가 실제로 로드됨) ③ 가짜 **정사각 비율**(200×200) 전용 원화로 정사각
-  크롭(96×96)을 만들어 240×240 박스에 레터박스 없이 꽉 채운 뒤(기존
-  `_art1c2_write_fake_full()`의 1181×1332 비율은 좌우 레터박스가 생겨 가장자리
-  샘플이 "셰이더 페이드"와 "레터박스의 원래 투명 영역"을 구분 못 해 이 용도엔
-  부적합 — 전용 헬퍼 `_art1c3_write_fake_square_full()` 신설) SubViewport에
-  렌더해 중앙(120,120) 알파>0.9(불투명)·하단(y=238)/상단(y=1)/좌측(x=1)/
-  우측(x=238) 네 가장자리 전부 중앙의 30% 미만(실측: 중앙 1.000, 하단 0.000,
-  상단/좌/우 0.012)인지 ④ 입고된 실제 몬스터 전체(카탈로그 35종 전수, 하드코딩
-  없이 `has_all_faces()`/`has_full()`로 "원화 있음" 판정)가 일반(1.1배)/보스
-  (1.3배) 배율 둘 다에서 화면 우측 끝(1280px) 안에 들어오는지(19종 전부 통과)
-  — `bash scripts/qa_shot.sh dice_test` 전체 **PASS**(FAIL 0건, 2회 재확인).
-  **회귀 수정**: `load_full_crop()`이 AtlasTexture에서 ImageTexture로 바뀌며
-  `_check_art1c2_monster_full_crop_fallback()`의 카탈로그 전수 비교가
-  `dark_knight`만 불일치로 FAIL했다 — 그 테스트의 기대값 계산도
-  `MonsterCatalog.art_resource_id()`를 거치도록 고쳐 PASS로 복구(동작 자체는
-  의도한 변경이므로 기대값만 별칭 인지하게 맞춤).
-  **셀프 피드백 2라운드**: 1라운드 — 위 `art1c3_fallen_commander_before.png`를
-  직접 읽어 사각 박스 문제를 확정하고 원인 진단에 사용. 2라운드(수정 후) —
-  같은 구도로 `art1c3_fallen_commander_after.png`를 재캡처해 좌/우/상단이
-  부드럽게 사라지고 하단도 바닥에 자연스럽게 녹아드는 것을 확인했고, 머리카락/
-  망토처럼 넓게 퍼진 몬스터(요청이 명시한 "공허의 눈"/"망령")와 별칭 대상
-  (legacy `dark_knight`)도 추가로 캡처(`art1c3_void_eye_after.png`/
-  `art1c3_specter_after.png`/`art1c3_dark_knight_after.png`)해 전부 하드
-  엣지 없이 자연스럽고, `dark_knight`가 실제로 다크 나이트 정예 원화(갑주
-  입은 여기사)로 정상 렌더됨을 확인 — 추가 조정 없이 2라운드로 종료.
-  전투 규칙/밸런스 수치는 건드리지 않았고 `resources/`·`docs/art/`는 읽기만
-  했다. INBOX.md에는 이 지시가 세션 프롬프트로만 전달돼 파일에 기록이 없었던
-  항목이라, "처리됨" 섹션에 신규 항목으로 추가했다(아래 INBOX.md 갱신 참고).
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(228)에서 (218)을 그리로 옮겼다.)*
+이번 이터레이션(229)에서 (219)를 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 
