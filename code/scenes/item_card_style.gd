@@ -145,6 +145,15 @@ static func build_card(item: Dictionary, extra_label_text: String = "", unafford
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title_row.add_child(title)
 
+	# [대형 기획 15] Q-7(c)(2026-10-17): 스킬 카드(id 필드가 있는 카드, 보상/상점/이벤트가
+	# 공유)만 제목 바로 아래에 LARGE SkillDiagram을 넣는다 — 다이스 아이템 카드(add_die/
+	# upgrade_die 등)는 id가 없어 그대로 영향 없다(기존 결과 다이스 미리보기만 그대로 유지).
+	if skill_id != "":
+		var diagram := SkillDiagram.new()
+		diagram.size_variant = SkillDiagramChip.SIZE_LARGE
+		diagram.diagram_data = SkillPool.diagram_for(skill_id)
+		vbox.add_child(diagram)
+
 	# "골드 부족" 배지는 가격 라벨과 같은 줄(HBoxContainer)에 붙인다 — 별도 줄로 추가하면
 	# 카드 자연 높이가 늘어나 2행 그리드에서 아래 행 카드와 겹치는 회귀가 생겼었다(이번
 	# 이터레이션 중 실제로 발견해 이 방식으로 고침). 가격 표시가 없는 카드(extra_label_text
