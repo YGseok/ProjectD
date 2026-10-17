@@ -429,7 +429,6 @@ func _make_card(entry: Dictionary, slot_index: int, palette: Dictionary, is_star
 		var diagram := SkillDiagram.new()
 		diagram.size_variant = SkillDiagramChip.SIZE_LARGE
 		diagram.diagram_data = SkillPool.diagram_for(skill_id)
-		diagram.custom_minimum_size = Vector2(0, SkillDiagramChip.CHIP_HEIGHT[SkillDiagramChip.SIZE_LARGE] * 2.0 + 4.0)
 		content_vbox.add_child(diagram)
 
 	var hbox := HBoxContainer.new()

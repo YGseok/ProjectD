@@ -23,7 +23,10 @@ extends Control
 
 signal closed
 
-const POPUP_SIZE := Vector2(420, 260)
+## [대형 기획 15] Q-7(c)(2026-10-17): 420x260 -> 460x340 — 헤더/설명 사이에 SkillDiagram
+## (SIZE_POPUP, 56px 칩)을 넣을 공간을 확보하려고 세로를 키움(감독 피드백: 팝업은 카드
+## 보다도 한 단계 더 큰 56px 이상 칩을 쓰라는 지시).
+const POPUP_SIZE := Vector2(460, 340)
 const ICON_SIZE := Vector2(40, 40)
 const CLOSE_BUTTON_SIZE := 36.0
 
@@ -34,6 +37,9 @@ var _close_button: Button
 ## 전용으로 공개해둔다(skill_codex_panel.gd의 _name_label_by_id 등과 같은 이유).
 var _name_label: Label
 var _desc_label: Label
+## Q-7(c) 신규 — 도식 자체도 테스트가 직접 들여다볼 수 있게 공개(diagram_data가
+## skill_id와 일치하는지 등).
+var _diagram: SkillDiagram
 
 
 func _ready() -> void:
@@ -65,6 +71,7 @@ func _clear_ui() -> void:
 	_close_button = null
 	_name_label = null
 	_desc_label = null
+	_diagram = null
 
 
 ## Esc로 닫기(K-1 — 오버레이 패널 공통 규칙, achievement_panel.gd와 동일 패턴).
@@ -170,6 +177,13 @@ func _rebuild(skill_id: String, character_id: String) -> void:
 	_close_button.add_theme_color_override("font_hover_color", Color(1, 1, 1))
 	_close_button.add_theme_font_size_override("font_size", 18)
 	header.add_child(_close_button)
+
+	# Q-7(c): 도식(SIZE_POPUP, 56px 칩 — 세 위젯 중 가장 큼)을 이름 아래/설명 위에 둬서
+	# "글을 읽지 않아도 효과를 빠르게 안다"는 요구를 팝업에서도 충족한다.
+	_diagram = SkillDiagram.new()
+	_diagram.size_variant = SkillDiagramChip.SIZE_POPUP
+	_diagram.diagram_data = SkillPool.diagram_for(skill_id)
+	content.add_child(_diagram)
 
 	_desc_label = Label.new()
 	_desc_label.text = skill_desc
