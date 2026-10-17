@@ -461,6 +461,10 @@ func _ready() -> void:
 	all_pass = _check_q5_customize_scroll_follow_focus(lines) and all_pass
 
 	lines.append("")
+	lines.append("[Q-7(a): 스킬 효과 도식 문법 + 데이터 — SKILLS/UNIQUE_SKILLS/UPGRADE_SKILLS/STARTING_SKILLS 전체 행에 diagram이 있는지(새 스킬 추가 시 누락이면 FAIL), 기호 수(배열 길이)가 SkillPool.MAX_DIAGRAM_SYMBOLS 이하인지, 각 칩의 type이 SkillPool.DIAGRAM_SYMBOL_TYPES 집합 안인지]")
+	all_pass = _check_q7a_skill_diagrams(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -524,6 +528,70 @@ func _check_damage(attack: int, defense: int, expected: int, lines: PackedString
 	lines.append("  공격=%d 방어=%d -> 데미지=%d (기대=%d) -> %s" % [
 		attack, defense, actual, expected, "OK" if ok else "FAIL"
 	])
+	return ok
+
+
+## [대형 기획 15] Q-7(a)(2026-10-17) 순수 데이터 검증 — 렌더러(Q-7b)는 아직 없으므로
+## 여기서는 화면/SubViewport 없이 SkillPool.SKILLS/UNIQUE_SKILLS/UPGRADE_SKILLS/
+## STARTING_SKILLS 네 배열의 모든 행을 직접 순회해 "diagram" 데이터만 검증한다 —
+## (1) 모든 행에 diagram이 있는지(새 스킬을 diagram 없이 추가하면 바로 이 체크가
+## 잡는다 — INBOX.md "새 스킬 추가 시 누락이 FAIL로 걸리게" 요구), (2) 기호 수(배열
+## 길이, 화살표 포함)가 SkillPool.MAX_DIAGRAM_SYMBOLS를 넘지 않는지, (3) 각 칩이
+## "type" 필드를 갖고 그 값이 SkillPool.DIAGRAM_SYMBOL_TYPES 집합 안인지. STARTING_SKILLS는
+## 해적 전용 중복 행(id는 같지만 character_ids만 다른 별도 row) 3개도 각자 diagram을
+## 가져야 하므로 id 기준이 아니라 "행" 기준으로 전수 검사한다.
+func _check_q7a_skill_diagrams(lines: PackedStringArray) -> bool:
+	var ok := true
+	var groups := {
+		"SKILLS": SkillPool.SKILLS,
+		"UNIQUE_SKILLS": SkillPool.UNIQUE_SKILLS,
+		"UPGRADE_SKILLS": SkillPool.UPGRADE_SKILLS,
+		"STARTING_SKILLS": SkillPool.STARTING_SKILLS,
+	}
+
+	var total_rows := 0
+	var seen_ids: Dictionary = {}
+	var missing: PackedStringArray = []
+	var too_many_symbols: PackedStringArray = []
+	var bad_symbol_type: PackedStringArray = []
+
+	for group_name in groups.keys():
+		for skill in groups[group_name]:
+			total_rows += 1
+			var skill_id: String = skill.get("id", "?")
+			seen_ids[skill_id] = true
+			var diagram: Variant = skill.get("diagram", null)
+			if not (diagram is Array) or (diagram as Array).is_empty():
+				missing.append("%s/%s" % [group_name, skill_id])
+				continue
+			var diagram_array: Array = diagram
+			if diagram_array.size() > SkillPool.MAX_DIAGRAM_SYMBOLS:
+				too_many_symbols.append("%s/%s(%d개)" % [group_name, skill_id, diagram_array.size()])
+			for chip in diagram_array:
+				if not (chip is Dictionary) or not (chip as Dictionary).has("type"):
+					bad_symbol_type.append("%s/%s(type 없음)" % [group_name, skill_id])
+					continue
+				var chip_type: String = (chip as Dictionary)["type"]
+				if not SkillPool.DIAGRAM_SYMBOL_TYPES.has(chip_type):
+					bad_symbol_type.append("%s/%s(%s)" % [group_name, skill_id, chip_type])
+
+	var missing_ok: bool = missing.is_empty()
+	var symbol_count_ok: bool = too_many_symbols.is_empty()
+	var symbol_type_ok: bool = bad_symbol_type.is_empty()
+	ok = missing_ok and symbol_count_ok and symbol_type_ok and ok
+
+	lines.append("  전체 스킬 행 %d개(고유 id %d개) 중 diagram 누락 %d개 -> %s" % [
+		total_rows, seen_ids.size(), missing.size(), "OK" if missing_ok else "FAIL"
+	])
+	if not missing.is_empty():
+		lines.append("    누락: %s" % ", ".join(missing))
+	lines.append("  기호 수 <= %d(상한) -> %s" % [SkillPool.MAX_DIAGRAM_SYMBOLS, "OK" if symbol_count_ok else "FAIL"])
+	if not too_many_symbols.is_empty():
+		lines.append("    초과: %s" % ", ".join(too_many_symbols))
+	lines.append("  기호 종류가 DIAGRAM_SYMBOL_TYPES(%d종) 안인지 -> %s" % [SkillPool.DIAGRAM_SYMBOL_TYPES.size(), "OK" if symbol_type_ok else "FAIL"])
+	if not bad_symbol_type.is_empty():
+		lines.append("    범위 밖: %s" % ", ".join(bad_symbol_type))
+
 	return ok
 
 
@@ -10527,14 +10595,27 @@ func _check_art1c4_monster_dark_glow(lines: PackedStringArray) -> bool:
 	ok = catalog_nonempty_ok and ok
 	lines.append("  (카탈로그에 원화가 1종 이상 입고돼 표가 비지 않음) -> %s" % ("OK" if catalog_nonempty_ok else "FAIL"))
 
-	# 3) 실제 production 자산 — "그림자"(설계 문서가 예시로 든 어두운 몬스터)는 글로우가
-	#    켜지고, "슬라임"(밝은 초록)은 안 켜지는지.
+	# 3) "어두운 원화" 경로 — 작성 당시(2026-10-16)에는 "그림자"(shadow) 몬스터가
+	#    카탈로그에서 유일하게 어두워 실제 production 자산으로 검증했지만, 그 뒤
+	#    아트 스레드의 v3 재디자인(커밋 ad19295, 2026-10-17)으로 일반 몬스터 14종이
+	#    전부 밝아져 지금은 카탈로그 35종 전수 중 글로우 대상이 0종이다(위 "카탈로그
+	#    전수 휘도표" 참고 — 앞으로 아트가 다시 바뀌어도 이 경로가 "마침 그 시점에
+	#    카탈로그에 어두운 몬스터가 있는지"에 좌우되지 않도록, 합성 가짜 원화(아래
+	#    _art1c4_write_fake_square_full_dark(), 섹션 4와 공유)로 어두운 경로 자체를
+	#    검증한다. "슬라임"(밝은 초록, 실제 production 자산)은 여전히 안 켜지는지로
+	#    밝은 경로를 검증.
+	var fake_base_dir := "user://art1c4_fake_monster_dark/%s/"
+	var fake_id := "qa_fake_monster_dark_glow"
+	_art1c4_write_fake_square_full_dark(fake_base_dir, fake_id)
+
 	var dark_portrait := MonsterPortraitPlaceholder.new()
 	add_child(dark_portrait)
-	dark_portrait.set_monster("shadow")
+	dark_portrait.art_base_dir = fake_base_dir
+	dark_portrait.set_monster(fake_id)
 	var shadow_dark_ok: bool = dark_portrait._is_dark_portrait and dark_portrait._glow_rect != null and dark_portrait._glow_rect.visible
 	ok = shadow_dark_ok and ok
-	lines.append("  set_monster('shadow') 후 _is_dark_portrait=%s, 글로우 노드 visible=%s -> %s" % [
+	lines.append("  합성 어두운 원화(fake_id=%s)로 set_monster() 후 _is_dark_portrait=%s, 글로우 노드 visible=%s -> %s" % [
+		fake_id,
 		dark_portrait._is_dark_portrait,
 		(dark_portrait._glow_rect.visible if dark_portrait._glow_rect != null else "(없음)"),
 		"OK" if shadow_dark_ok else "FAIL"
@@ -10566,15 +10647,12 @@ func _check_art1c4_monster_dark_glow(lines: PackedStringArray) -> bool:
 	remove_child(bright_portrait)
 	bright_portrait.free()
 
-	# 4) 합성 정사각 가짜 원화(레터박스 없음)로 글로우 레이어 자체를 SubViewport에 렌더해
-	#    실제 알파를 확인한다 — 중심(글로우 전체가 불투명 소스를 그대로 보여주는 지점)은
+	# 4) 합성 정사각 가짜 원화(레터박스 없음, 섹션 3이 이미 써둔 fake_base_dir/fake_id를
+	#    그대로 재사용)로 글로우 레이어 자체를 SubViewport에 렌더해 실제 알파를
+	#    확인한다 — 중심(글로우 전체가 불투명 소스를 그대로 보여주는 지점)은
 	#    GLOW_ALPHA에 근접, 본체(_face_rect)에 안 덮이는 가장자리 margin도 완전 투명(0)은
 	#    아니어야 한다(= 실제로 뭔가 보인다, 과업 지시의 "글로우 영역 픽셀이 투명이 아닌지"
 	#    요구사항).
-	var fake_base_dir := "user://art1c4_fake_monster_dark/%s/"
-	var fake_id := "qa_fake_monster_dark_glow"
-	_art1c4_write_fake_square_full_dark(fake_base_dir, fake_id)
-
 	var glow_portrait := MonsterPortraitPlaceholder.new()
 	add_child(glow_portrait)
 	glow_portrait.art_base_dir = fake_base_dir

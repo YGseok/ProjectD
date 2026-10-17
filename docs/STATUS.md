@@ -5,50 +5,30 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-10-17 (227)
-- 작성자: AI 에이전트. **[대형 기획 15] Q-6(스킬 도감 정리, 원문 2/4/8) 전체
-  완료.** `code/scenes/skill_codex_panel.gd`(`SkillCodexPanel`) 카드 레이아웃을
-  전면 개편했다. (2) 상태 배지("보유"/"발견"/"미발견")가 카드 안쪽 한 줄을
-  차지하던 넓은 `PanelContainer`(`make_codex_badge()`)에서, 카드 우상단
-  모서리에 겹쳐 뜨는 48px 폭 작은 칩(`_make_corner_tag()`, 폰트 9)으로
-  축소됐다 — Container(자식을 전부 같은 rect로 강제)가 아니라 plain
-  `Control`(`wrap`) 위에 anchor+offset으로 직접 겹쳐, 상태는 배지
-  텍스트+아이콘 밝기(기존 규칙 유지, 색만으로 구분 안 함) 그대로. (4)
-  `SkillPool.codex_entries()`가 항상 맨 앞에 두는 시작 스킬 3개를 분리해
-  "시작 스킬" 구역(가로 한 줄, 좌상단에 "슬롯 N" 태그를 추가로 겹침)을 패널
-  맨 위에 그리고, "일반 스킬" 구역(기존 3열 격자)이 그 아래 이어지게 했다 —
-  두 구역 다 포커스 체인(`_chain_grid`)은 그대로 하나의 평평한 배열로 묶여
-  있어 방향키 이동이 끊기지 않는다(시작 스킬 수가 COLUMNS와 같은 3이라 행
-  경계가 정확히 일치). (8) 아이콘을 좌측 60px 정사각(프레임 포함)으로 키우고
-  이름/설명을 우측에 배치했다 — 미발견 카드는 모티프 아이콘 대신
-  `LockIcon`(스킬 정보 비공개 규칙 유지)을 같은 크기로 보여준다. 덤으로
-  INBOX 원문이 요구한 "카드 클릭/Space -> 상세 팝업" 연결도 함께 했다 —
-  보유/발견 카드만 `CharacterCardPanel.activated`를 `SkillDetailPopup`(Q-4b가
-  만든 공용 컴포넌트) 열기에 연결하고, 미발견 카드는 연결 자체를 안 해(정보
-  비공개) 클릭해도 아무 일도 없다. 기존 L-2(b) 테스트(`_check_l2b_skill_codex_
-  panel`)의 "미발견 아이콘은 SkillIcon, 알파 0.35" 기대값은 의도적 변경이라
-  갱신했다(이제 `_icon_by_id`에 안 들어가고 `_lock_icon_by_id`로 분리) — 그
-  외 배지 텍스트/보유·발견 아이콘 알파/잠금 힌트 텍스트 등 기존 계약은 전부
-  그대로 보존. 신규 검증 6종(아이콘 rect ≥56 정사각, 배지 anchor/폭이 우상단
-  모서리 안+예전보다 작음, 시작 스킬 구역 자식 노드 정확히 3개, 슬롯 태그
-  텍스트, 일반 스킬 카드 수, 카드 activated -> 팝업 열림/안 열림)를 추가하며
-  **포커스 부수효과 버그를 테스트 작성 중 직접 발견**했다 — 팝업을 여는
-  `activated.emit()` 테스트를 "open() 직후 첫 카드 포커스" 체크보다 앞에 두면
-  팝업이 포커스를 가져간 뒤 `close()`해도 포커스가 복귀되지 않아(Godot은
-  숨겨진 컨트롤의 이전 포커스를 자동 복원하지 않음) 기존 테스트가 거짓
-  FAIL — 포커스/wrap 검증이 전부 끝난 뒤, Esc로 패널을 닫기 전에 팝업
-  테스트를 하도록 순서를 옮겨 해결했다. `bash scripts/qa_shot.sh dice_test 60
-  qa_out/dice_test_q6.png "" 1` 전체 **PASS**(FAIL 0건). 셀프 피드백 2라운드 —
-  `_debug_show_skill_codex_panel_mixed()`로 보유/발견/미발견이 섞인 상태를
-  `qa_out/q6_codex_mixed.png`로 캡처해 레이아웃을 확인했고(1차 시도는
-  `GAME_QA_SETTLE` 없이 찍어 dice_test의 거대한 동기 테스트 스위트가 아직
-  진행 중인 중간 프레임을 잘못 캡처하는 실수를 했다가 원인을 파악해 재시도),
-  실제 게임 진입점(`dungeon_map`의 "스킬 도감" 버튼, 해적 캐릭터)으로도
-  `qa_out/q6_codex_pirate_dungeon.png`를 찍어 캐릭터 퍼스널 컬러 테마/배경과
-  함께 겹침·잘림 없이 렌더됨을 확인. 전투 규칙/밸런스는 건드리지 않았고
-  `resources/`·`docs/art/`는 읽기만 했다. **[대형 기획 15]는 이제 Q-1~Q-6
-  전부 완료 — 다음은 Q-7(스킬 효과 도식화, 상당히 큰 작업이라 (a)/(b)/(c)로
-  쪼개 진행).**
+- 일시: 2026-10-17 (228)
+- 작성자: AI 에이전트. **[대형 기획 15] Q-7(a)(스킬 효과 도식 문법 + 데이터,
+  원문 3) 완료.** Q-7은 (a) 문법/데이터 → (b) 렌더러 → (c) 화면 적용 세
+  조각으로 나뉘는데, 이번 이터레이션은 그중 (a)만 — 렌더러와 화면 적용은
+  손대지 않았다. `code/systems/skill_pool.gd`에 도식 문법(`DIAGRAM_SYMBOL_
+  TYPES` 11종 — die/compare/condition/arrow/value/duration/reroll/stack/
+  swap/cycle/gold, `MAX_DIAGRAM_SYMBOLS`=5)을 정의하고, SKILLS(2)/UNIQUE_
+  SKILLS(9)/UPGRADE_SKILLS(11)/STARTING_SKILLS(15종, 해적 전용 중복 3행 포함
+  40행) 전수에 `diagram`(Array[Dictionary], "조건 칩 -> 효과 칩" 순서) 필드를
+  채웠다 — 모든 스킬이 3~4개 기호(상한 5개 이내)로 표현 가능해 **효과를
+  단순화해야 하는 리디자인 후보는 없었다**(전투 규칙/밸런스 불변).
+  `dice_test.gd`에 순수 데이터 검증 `_check_q7a_skill_diagrams()`를 추가해
+  (1) 모든 행에 diagram이 있는지(새 스킬 추가 시 누락이 FAIL로 걸림), (2)
+  기호 수 <= 상한, (3) 각 칩 type이 허용 집합 안인지 확인했다. 과정에서
+  직전 아트 커밋(`ad19295`, 몬스터 14종 v3 재디자인)으로 그림자(shadow)
+  몬스터가 더는 "어두운 몬스터"가 아니게 되면서(휘도 0.253, 카탈로그 35종
+  중 글로우 대상 0종) 깨져있던 **무관한 기존 테스트 1건**(`_check_art1c4_
+  monster_dark_glow`)도 함께 고쳤다(production 자산 대신 합성 가짜 원화로
+  "어두운 경로"를 검증하도록 바꿔 향후 아트 변경에도 안 깨지게 함).
+  `bash scripts/qa_shot.sh dice_test 60 qa_out/q7a_dice_test.png "" 1` 전체
+  **PASS**(FAIL 0건). 이번 조각은 순수 데이터/로직이라 화면 변화가 없음 —
+  `resources/`·`docs/art/`는 읽지 않았다. 상세는 완료 기록(228) 참고.
+  **다음은 Q-7(b)(SkillDiagram 렌더러 — 카드/팝업용 2종 크기, 색맹 고려해
+  모양도 함께 구분).**
 
 ## 지금 위치
 
@@ -703,8 +683,13 @@ write-through 저장이라 영향 없음, 승패 집계 경로를 안 타 통계
 가로 배치로 바뀌고, 상태 배지가 카드 우상단의 작은 칩으로 축소됐으며, 시작
 스킬 3개가 "시작 스킬" 전용 구역(슬롯 번호 태그)으로 일반 스킬과 분리됐다.
 카드를 클릭/Space하면(보유/발견만) `SkillDetailPopup`이 열리도록도 배선했다
-(상세는 완료 기록 (227)). **다음은 Q-7(스킬 효과 도식화 — (a) 도식 문법/
-데이터 → (b) 렌더러 → (c) 적용, 규모가 커서 조각 단위로 진행).**
+(상세는 완료 기록 (227)). 2026-10-17(228)로 **Q-7(a)(스킬 효과 도식 문법 +
+데이터, 원문 3) 완료** — `SkillPool`에 도식 문법(기호 11종, 한 스킬당 최대
+5개)과 37종 전수 `diagram` 데이터를 채우고 순수 데이터 검증 테스트를
+추가했다(리디자인이 필요한 스킬 없음, 상세는 완료 기록 (228)). **다음은
+Q-7(b)(`SkillDiagram` 렌더러 — 도식 데이터를 받아 UIKit 아이콘+도형으로
+그리는 위젯, 카드용/팝업용 2종 크기) → Q-7(c)(도감/팝업/보상·상점·이벤트
+카드/시작 스킬 슬롯에 실제 적용).**
 
 남은 구조적 후보(급하지 않음): 보스 개별 6종 중 타락한 기사단장만 밴드 미달
 (`MonsterSkills.modify_monster_roll()` 파라미터화가 전제조건이라 사람 설계
@@ -1314,6 +1299,55 @@ write-through 저장이라 영향 없음, 승패 집계 경로를 안 타 통계
     조정은 사람이 이 숫자를 보고 다음 지시로 결정).
 
 ## 완료 기록
+
+- **2026-10-17 (228)**: **[대형 기획 15] Q-7(a)(스킬 효과 도식 문법 + 데이터,
+  원문 3) 완료.** 목표는 "모든 스킬의 설명 위에 효과를 이미지/도형으로 도식화"
+  (Q-7(b) 렌더러/Q-7(c) 적용은 이번 조각 범위 밖, 다음 이터레이션들) — 이번
+  조각은 **문법 정의 + 37종(실제로는 해적 전용 중복 3행 포함 40행) 전수 데이터
+  작성 + 순수 데이터 검증 테스트**만 한다(렌더 분기 하드코딩 금지 — INBOX 명시).
+  **문법**: `code/systems/skill_pool.gd` 맨 위에 `DIAGRAM_SYMBOL_TYPES`(11종 —
+  die/compare/condition/arrow/value/duration/reroll/stack/swap/cycle/gold)와
+  `MAX_DIAGRAM_SYMBOLS`(=5)를 상수로 정의했다. 각 스킬 dict에 `diagram`
+  필드(Array[Dictionary], "조건 칩... -> 효과 칩..." 순서, 원소 1개=기호 1개,
+  화살표 포함)를 추가 — 예: 심호흡(`deep_breath`)은
+  `[condition(first_turn), arrow, die(defense), value(+1)]`(4기호). INBOX가
+  예시로 든 기본 8개(다이스/개수비교/조건/화살표/수치배지/대상/지속/재굴림)로는
+  스택형(광기 심화 등), 다이스 맞바꾸기(곡예 앙코르), 주기형 고정피해(일제
+  사격) 세 스킬 계열을 표현할 수 없어 `stack`/`swap`/`cycle` 세 기호를
+  새로 추가해 해결했다(die/value 두 칩에도 count/op="max"|"half"|"full" 등
+  하위 옵션을 둬 "최댓값으로 전환"(매혹 심화)·"공격 합계 절반/전부, 방어
+  무시"(일제 사격) 같은 효과까지 기존 11종 기호 틀 안에서 표현). **도식으로
+  표현이 어려워 리디자인이 필요한 스킬은 없었다** — 37종 전부 3~4개 기호로
+  표현 가능했고(상한 5개 대비 여유), 효과 자체를 바꾼 곳도 없다(전투 규칙/
+  밸런스 불변). `SkillPool.diagram_for(skill_id)` 조회 헬퍼도 `find_skill()`
+  재사용으로 추가(Q-7(b) 렌더러가 쓸 자리).
+  **테스트**: `dice_test.gd`에 순수 데이터 검증 `_check_q7a_skill_diagrams()`
+  신규 — SKILLS/UNIQUE_SKILLS/UPGRADE_SKILLS/STARTING_SKILLS **네 배열의 모든
+  행**(해적 전용 중복 3행 포함, 고유 id 기준이 아니라 행 기준이라 중복 행도
+  각자 diagram이 있어야 FAIL을 피함)을 순회해 (1) diagram 비어있지 않음(새
+  스킬을 diagram 없이 추가하면 즉시 FAIL — INBOX "새 스킬 추가 시 누락이
+  FAIL로 걸리게" 요구 충족), (2) 기호 수(배열 길이) <= MAX_DIAGRAM_SYMBOLS,
+  (3) 각 칩의 "type"이 DIAGRAM_SYMBOL_TYPES 집합 안인지 검증. 결과: 전체
+  40행(고유 id 37개) 중 누락 0개, 기호 수 전부 상한 이내, 기호 종류 전부
+  유효. `bash scripts/qa_shot.sh dice_test 60 qa_out/q7a_dice_test.png "" 1`
+  전체 **PASS**(FAIL 0건) — 과정에서 **무관한 기존 테스트 1건(FAIL)을 함께
+  발견·수정**했다: `_check_art1c4_monster_dark_glow()`가 "그림자(shadow)
+  몬스터는 어두워서 글로우가 켜진다"를 production 자산으로 검증했는데,
+  직전 커밋(`ad19295`, 일반 몬스터 14종 v3 재디자인)으로 그림자를 포함한
+  모든 일반 몬스터가 밝아져 카탈로그 35종 전수 중 글로우 대상이 0종이 됐다
+  (`shadow` 휘도 0.253 >= 임계값 0.22) — 이 세션이 만든 변경이 아니라 직전
+  아트 커밋이 원인이지만, "dice_test 전체 PASS 확인 후 커밋" 규칙을 지키기
+  위해 수정했다. 수정 방향은 "미래에 아트가 또 바뀌어도 깨지지 않게" —
+  production "shadow" 대신 이미 섹션 4가 쓰던 합성 가짜 어두운 원화(0.05
+  휘도, `_art1c4_write_fake_square_full_dark()`)를 섹션 3의 "어두운 경로"
+  검증에도 재사용하도록 바꾸고(같은 fake_base_dir/fake_id를 섹션 3/4가
+  공유), "밝은 경로" 검증(슬라임)은 실제 production 자산 그대로 유지(밝은
+  몬스터가 다시 어두워질 가능성은 낮음). 이 파일 외 다른 테스트/코드는
+  건드리지 않았다. 셀프 피드백: 이번 조각은 순수 데이터/텍스트 테스트라
+  UI 변화가 없어(Q-7(b)/(c)가 렌더링 담당) `qa_out/q7a_dice_test.png`로
+  dice_test 텍스트 출력이 실제로 "결과: PASS"로 끝나는 것만 육안 확인했다.
+  전투 규칙/밸런스는 건드리지 않았고 `resources/`·`docs/art/`는 읽지
+  않았다(이번 조각은 코드/데이터 전용).
 
 - **2026-10-17 (227)**: **[대형 기획 15] Q-6(스킬 도감 정리, 원문 2/4/8) 전체
   완료 — [대형 기획 15](Q-1~Q-6) 전체 완료.** `code/scenes/skill_codex_panel.gd`
@@ -1962,74 +1996,9 @@ write-through 저장이라 영향 없음, 승패 집계 경로를 안 타 통계
   했다. INBOX.md에는 이 지시가 세션 프롬프트로만 전달돼 파일에 기록이 없었던
   항목이라, "처리됨" 섹션에 신규 항목으로 추가했다(아래 INBOX.md 갱신 참고).
 
-- **2026-10-16 (218)**: INBOX.md 지시(이번 이터레이션 최우선 — "실행 순서는
-  [대형 기획 13] [미니 기획 ART-1c-2]") **몬스터 face_* 없이 full.png만 있을 때
-  상반신 크롭 폴백 완료.** 배경: ART-1c(216)가 몬스터 원화 경로(face_* 5장 →
-  원화 표정 컷)를 준비해뒀는데, 아트 스레드가 보스 6종을 face_* 없이
-  `full.png`(전신 원화) 하나로만 입고해(`resources/monsters/{goblin_king,
-  ooze_lord,skeleton_general,frenzied_beast,fallen_commander,void_eye}/full.png`)
-  지금까지는 보스가 여전히 도형 플레이스홀더로만 보이고 있었다.
-  **구현**: `CharacterArt`에 3개 함수를 신규/확장했다 — ① `load_full()`/
-  `full_path()`에 `base_dir` 매개변수 추가(기존엔 캐릭터 전용 `BASE_DIR`
-  하드코딩, `load_face()`와 동일한 패턴으로 맞춤) ② `has_full(character_id,
-  base_dir)` 신규(`has_all_faces()`와 같은 FileAccess 존재 확인) ③
-  `load_face_crop()`의 "비율(ratio) → AtlasTexture region" 크롭 로직을
-  `load_full_crop(character_id, ratio, base_dir)`로 분리해 몬스터도 같은
-  크롭 방식을 재사용(새 크롭 알고리즘을 만들지 않음 — INBOX 지시 그대로)할 수
-  있게 했다. `MonsterPortraitPlaceholder`에 `_use_full_crop` 상태를 신규
-  추가 — `set_monster()`가 `has_all_faces()`(원화 표정 컷) → `has_full()`
-  (상반신 크롭, `DEFAULT_FACE_CROP_RATIO`로 캐릭터와 동일 비율 크롭) → 플레이스홀더
-  순으로 우선순위를 매긴다. 크롭 모드는 `_face_rect`(ART-1c와 같은 노드, 하단
-  페이드 셰이더 `face_art_fade` 유지)에 정적 텍스처 하나만 넣고, `set_expression()`
-  호출은 `_use_face_art`일 때만 텍스처를 바꾸는 기존 분기 덕에 크롭 모드에서는
-  자동으로 무시된다(표정 컷이 없으므로 안전). `_draw()`도 `_use_face_art or
-  _use_full_crop`일 때 도형을 안 그리도록 함께 막았다. 보스 1.3배/일반 1.1배
-  확대·화면 안 배치(`FACE_ART_SHIFT`)·좌우 대칭은 ART-1c가 이미 만든 배치
-  로직을 그대로 공유해 추가 작업 없이 적용됨.
-  **덤으로 고친 버그**: `load_face()`/`load_full()`의 "production 경로인가"
-  판정이 `base_dir == BASE_DIR`(캐릭터 전용 상수와의 등호 비교)였는데, 몬스터
-  전용 `MONSTER_ART_BASE_DIR`은 이 등호를 절대 만족 못 해 몬스터 원화가 매번
-  "Loaded resource as image file, this will not work on export" 경고와 함께
-  FileAccess+Image.load() 경로(테스트용 경로)로 로드되고 있었다(실기능은 동작,
-  export 비효율/경고만) — `base_dir.begins_with("res://")`로 판정 기준을
-  일반화해 몬스터 production 로드도 캐릭터와 동일하게 `ResourceLoader`를 쓰도록
-  고쳤다(두 함수 다 수정, 테스트용 `user://` 경로는 기존 그대로 FileAccess 경로).
-  **테스트**(`dice_test.gd` 신규 `_check_art1c2_monster_full_crop_fallback()`):
-  가짜 user:// 디렉터리로 "없음"/"full.png만"/"face_*+full.png 둘 다"(우선순위)
-  3가지를 검증하고, set_expression() 호출 후 텍스처 불변을 확인. production은
-  **카탈로그 35종 전체를 순회**해 `has_all_faces()`/`has_full()`의 실시간 결과와
-  `_use_face_art`/`_use_full_crop`이 항상 일치하는지 검사(특정 id를 "원화 없음"
-  으로 하드코딩하지 않음 — N-6(215)이 겪은 "berserker는 face_*가 없다" 가정이
-  깨진 사고의 재발 방지 원칙을 그대로 적용). 이 원칙이 실제로 유효함이 검증
-  도중 증명됐다 — 테스트를 작성하는 사이에 아트 스레드가 보스 6종 외에
-  slime/goblin/orc/skeleton(일반 4종, MO001~004)과 dark_knight_elite(정예
-  1종)까지 동시에 `full.png`를 입고해, 카탈로그 35종 중 크롭 모드로 전환된
-  수가 작성 시점 6종에서 실행 시점 11종으로 바뀌었는데도 "하드코딩 없는" 검증
-  방식 덕에 수정 없이 그대로 PASS했다(최초 버전은 `slime`이 "원화 없음"이라고
-  하드코딩했다가 바로 이 변화로 FAIL이 나 즉시 지금 방식으로 고쳤다 — 교훈이
-  헛되지 않았음을 바로 확인). `bash scripts/qa_shot.sh dice_test` 전체 **PASS**
-  (FAIL 0건). **셀프 피드백 루프**: `_debug_shift_monster_portrait_center()`
-  신규 QA 훅(ART-1c의 `_debug_show_monster_face_art()`와 같은 목적 — 이 환경의
-  QA 캡처 폭 잘림(1028px) 때문에 production 배치 좌표(x=1170, 거의 화면 끝)가
-  캡처 밖으로 나가 눈으로 확인이 안 되는 문제를 QA 전용으로 화면 중앙으로
-  옮겨 우회)를 추가해 `GAME_QA_MONSTER_ID`로 실제 입고된 보스 6종 전부
-  (`qa_out/art1c2_{goblin_king,void_eye,ooze_lord,fallen_commander,
-  frenzied_beast,skeleton_general}_center.png`)와 새로 입고된 일반/정예
-  2종(`art1c2_goblin_normal_center.png`/`art1c2_dark_knight_elite_center.png`)을
-  직접 캡처해 읽었다 — 전부 크롭이 얼굴·크라운/투구·상반신을 중심에 두고
-  화면 안에 잘 들어오며(위쪽 잘림 없음, 하단 페이드로 자연스럽게 사라짐)
-  캐릭터 쪽 face_* 표정 컷과 같은 톤으로 보여 추가 조정 없이 1라운드로 종료
-  (`DEFAULT_FACE_CROP_RATIO`를 그대로 재사용한 것이 실제로도 잘 맞았음 — 보스
-  원화가 캐릭터 원화와 같은 1181×1332 캔버스/머리 위치 관례를 따른 덕).
-  production(비-shift) 배치에서 화면 우측 끝이 실제로 안 잘리는지는
-  `dice_test.gd`의 수치 검증(일반 1.1배 x=1240.4/보스 1.3배 x=1253.2, 둘 다
-  1272.0 이하)으로 확인. 전투 규칙/밸런스는 건드리지 않았고 `resources/`·
-  `docs/art/`는 읽기만 했다(아트 스레드가 이 세션 도중 병행 커밋한 자산을 그대로
-  읽어 검증만 함, 두 커밋은 서로 영향 없이 독립적으로 완료됨).
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(227)에서 (217)을 그리로 옮겼다.)*
+이번 이터레이션(228)에서 (218)을 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 

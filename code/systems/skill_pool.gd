@@ -14,16 +14,76 @@ extends RefCounted
 ## 했다(INBOX.md [미니 기획 C]-5 "기존 카드 UI를 재사용할 수 있으면 재사용" 반영) —
 ## "kind"/"grade" 필드가 없어도 build_card()는 다이스 미리보기 없이/기본 등급 배지로
 ## 정상 동작한다.
+##
+## 스킬 효과 도식 문법([대형 기획 15] Q-7(a), 2026-10-17, INBOX.md) — "글을 읽지
+## 않아도 효과를 빠르게 안다"는 목표로, 모든 스킬 dict에 "diagram" 필드(Array[Dictionary])를
+## 둔다. 렌더러(Q-7b, 아직 미구현)는 이 데이터만 읽어 그림을 그리고, 스킬 id별로 분기하는
+## 하드코딩은 두지 않는다(INBOX.md "렌더 분기 하드코딩 금지" 명시).
+##
+## diagram은 "조건 칩... -> 효과 칩..." 순서의 배열이고, 배열의 원소 하나가 "기호" 1개로
+## 취급된다(화살표도 포함) — 한 스킬당 MAX_DIAGRAM_SYMBOLS(=5)개까지만 허용한다(INBOX.md
+## "한 도식당 기호 최대 4~5개"). 각 칩의 "type"은 DIAGRAM_SYMBOL_TYPES 11종 중 하나여야
+## 한다:
+##
+## - "die"       {target: "attack"|"defense"|"event"|"dual", count?: int}
+##               주사위 1개 — 대상 주머니(공격/방어/이벤트/양쪽)를 표시. count는 "몇 개에
+##               적용되는가"(기본 1, 예: 매혹 심화는 2) — 기호 개수에는 포함 안 함.
+## - "compare"   {left: "attack"|"defense", op: ">"|"="|">="|"<=", right: "attack"|"defense"}
+##               두 주머니의 다이스 "개수" 비교 조건(예: 공격 개수 > 방어 개수).
+## - "condition" {kind: String, op?: String, value?: Variant}
+##               개수 비교 외의 발동 조건. kind 예: "first_turn"(첫 턴 한정),
+##               "hp_half"(HP 절반 이하), "dice_total"(공+방 다이스 합계, op+value로
+##               임계), "pip_inventory"(눈금 인벤토리 개수), "material"(특정 재질 보유),
+##               "gold"(골드 임계치, N마다), "dice_cap"(주머니가 MAX_DICE로 꽉 찼을 때),
+##               "dice_type_count"(면 개수 종류 수), "round_change"(라운드 전환 시점).
+## - "arrow"     {} — "그러면" / "조건 -> 효과" 구분자.
+## - "value"     {amount?: int, op: "+"|"×"|"max"|"half"|"full", max?: int, ignore_defense?: bool}
+##               수치 배지. op="max"는 "그 다이스를 면 최댓값으로 전환"(눈금을 올리는 게
+##               아니라 결과만 고정), op="half"/"full"은 "공격 합계의 절반/전부"(해적
+##               고정 피해 전용). max/ignore_defense는 상한·방어 무시 여부를 가리키는
+##               부가 정보일 뿐 기호 개수에는 포함 안 함(렌더러가 보조 표시로만 씀).
+## - "duration"  {kind: "first_turn"|"every_turn"|"once"}
+##               비교·조건이 아니라 "언제 적용되는가"만 말할 때 쓴다(예: 매 턴, 1회).
+## - "reroll"    {count: int} — 순환 화살표. count번 더 굴려 더 높은 값을 채택(advantage).
+## - "stack"     {target: "attack"|"defense", threshold: int} — 스택이 threshold에
+##               도달하면 보너스 턴이 열리는 캐릭터 기믹형 효과.
+## - "swap"      {count: int} — 공격/방어 다이스를 count쌍 맞바꾼다.
+## - "cycle"     {turns: int, target: "attack"|"defense"} — 주기형(쿨타임) 효과(N턴마다).
+## - "gold"      {amount?: int} — 골드 변화.
+##
+## 도식으로 표현하기 어려운(설명이 복잡한) 스킬은 효과를 단순화하는 리디자인 후보로
+## docs/STATUS.md에 적어야 하지만(diagram을 비워두지 않는다 — 검증 테스트가 빈 diagram을
+## FAIL로 잡음), 이번 37종은 위 11개 기호로 전부 4~5개 이내로 표현 가능해 리디자인
+## 후보가 없었다(docs/STATUS.md Q-7(a) 완료 기록 참고 — stack/swap/cycle 세 기호를
+## 새로 추가해서 해결).
+const DIAGRAM_SYMBOL_TYPES: Array[String] = [
+	"die", "compare", "condition", "arrow", "value", "duration", "reroll",
+	"stack", "swap", "cycle", "gold",
+]
+const MAX_DIAGRAM_SYMBOLS: int = 5
+
 const SKILLS: Array[Dictionary] = [
 	{
 		"id": "deep_breath",
 		"name": "심호흡",
 		"description": "매 전투 첫 방어턴에 방어 다이스 결과값이 +1 된다 (상한: 각 다이스 면 개수).",
+		"diagram": [
+			{"type": "condition", "kind": "first_turn"},
+			{"type": "arrow"},
+			{"type": "die", "target": "defense"},
+			{"type": "value", "amount": 1, "op": "+"},
+		],
 	},
 	{
 		"id": "spare_die",
 		"name": "여분",
 		"description": "매 공격턴 여분 다이스를 하나 더 굴려, 가장 낮은 공격 다이스 값을 그보다 높으면 대체한다 (이번 런 내내 유지).",
+		"diagram": [
+			{"type": "duration", "kind": "every_turn"},
+			{"type": "arrow"},
+			{"type": "die", "target": "attack"},
+			{"type": "reroll", "count": 1},
+		],
 	},
 ]
 
@@ -114,54 +174,103 @@ const UNIQUE_SKILLS: Array[Dictionary] = [
 		"name": "광기 심화",
 		"description": "폭발 스택이 3에 도달하면 보너스 공격턴이 1D20을 두 번 굴려 더 높은 값을 채택하는 것으로 강화된다 (광전사 전용).",
 		"character_id": "berserker",
+		"diagram": [
+			{"type": "stack", "target": "attack", "threshold": 3},
+			{"type": "arrow"},
+			{"type": "die", "target": "attack"},
+			{"type": "reroll", "count": 2},
+		],
 	},
 	{
 		"id": "guard_deepen",
 		"name": "수호 심화",
 		"description": "수호 스택이 3에 도달하면 보너스 방어턴이 1D20을 두 번 굴려 더 높은 값을 채택하는 것으로 강화된다 (수호자 전용).",
 		"character_id": "guardian",
+		"diagram": [
+			{"type": "stack", "target": "defense", "threshold": 3},
+			{"type": "arrow"},
+			{"type": "die", "target": "defense"},
+			{"type": "reroll", "count": 2},
+		],
 	},
 	{
 		"id": "chain_explosion",
 		"name": "연쇄 폭발",
 		"description": "폭발 스택 임계치가 3에서 2로 낮아져 보너스 공격턴을 더 자주 받는다 (폭발병 전용).",
 		"character_id": "explosive",
+		"diagram": [
+			{"type": "stack", "target": "attack", "threshold": 2},
+			{"type": "arrow"},
+			{"type": "die", "target": "attack"},
+		],
 	},
 	{
 		"id": "chain_guard",
 		"name": "연쇄 방어",
 		"description": "수호 스택 임계치가 3에서 2로 낮아져 보너스 방어턴을 더 자주 받는다 (방패병 전용).",
 		"character_id": "shieldbearer",
+		"diagram": [
+			{"type": "stack", "target": "defense", "threshold": 2},
+			{"type": "arrow"},
+			{"type": "die", "target": "defense"},
+		],
 	},
 	{
 		"id": "versatile_surge",
 		"name": "임기응변",
 		"description": "공격/방어 다이스가 각각 최댓값을 보일 때마다 해당 스택이 함께 쌓인다. 공격은 3스택에서 보너스 공격턴을, 방어는 3스택에서 보너스 방어턴을 각각 1D20으로 얻는다 (견습 모험가 전용).",
 		"character_id": "novice",
+		"diagram": [
+			{"type": "stack", "target": "attack", "threshold": 3},
+			{"type": "stack", "target": "defense", "threshold": 3},
+			{"type": "arrow"},
+			{"type": "die", "target": "dual"},
+		],
 	},
 	{
 		"id": "charm_amplify",
 		"name": "매혹 심화",
 		"description": "charm_flip 효과가 그 턴 가장 낮은 다이스 1개가 아니라 2개에 적용된다 (매혹사 전용).",
 		"character_id": "enchantress",
+		"diagram": [
+			{"type": "duration", "kind": "every_turn"},
+			{"type": "arrow"},
+			{"type": "die", "target": "dual", "count": 2},
+			{"type": "value", "op": "max"},
+		],
 	},
 	{
 		"id": "juggle_encore",
 		"name": "곡예 앙코르",
 		"description": "라운드가 바뀔 때마다 공격 다이스 무작위 1개와 방어 다이스 무작위 1개를 다시 맞바꾼다 (곡예사 전용).",
 		"character_id": "juggler",
+		"diagram": [
+			{"type": "condition", "kind": "round_change"},
+			{"type": "arrow"},
+			{"type": "swap", "count": 1},
+		],
 	},
 	{
 		"id": "broadside",
 		"name": "일제 사격",
 		"description": "함포 일제사격 주기가 3턴에서 2턴으로 단축된다 (해적 전용).",
 		"character_id": "pirate",
+		"diagram": [
+			{"type": "cycle", "turns": 2, "target": "attack"},
+			{"type": "arrow"},
+			{"type": "value", "op": "half", "ignore_defense": true},
+		],
 	},
 	{
 		"id": "juggle_fortune",
 		"name": "곡예 흥행",
 		"description": "'위험을 감수하기'에서 이벤트 주사위 굴림 결과에 +1 보정이 더해진다 (상한: 이벤트 주사위 면 개수, 곡예사 전용).",
 		"character_id": "juggler",
+		"diagram": [
+			{"type": "die", "target": "event"},
+			{"type": "arrow"},
+			{"type": "value", "amount": 1, "op": "+"},
+		],
 	},
 ]
 
@@ -179,12 +288,24 @@ const UPGRADE_SKILLS: Array[Dictionary] = [
 		"name": "심호흡+",
 		"description": "방어 다이스 +1 보정이 첫 방어턴뿐 아니라 매 방어턴마다 적용된다 (상한: 각 다이스 면 개수).",
 		"upgrades": "deep_breath",
+		"diagram": [
+			{"type": "duration", "kind": "every_turn"},
+			{"type": "arrow"},
+			{"type": "die", "target": "defense"},
+			{"type": "value", "amount": 1, "op": "+"},
+		],
 	},
 	{
 		"id": "spare_die_plus",
 		"name": "여분+",
 		"description": "여분 다이스를 1개가 아니라 2개 굴려, 그 중 더 높은 값으로 가장 낮은 공격 다이스를 대체한다.",
 		"upgrades": "spare_die",
+		"diagram": [
+			{"type": "duration", "kind": "every_turn"},
+			{"type": "arrow"},
+			{"type": "die", "target": "attack"},
+			{"type": "reroll", "count": 2},
+		],
 	},
 	{
 		"id": "frenzy_deepen_plus",
@@ -192,6 +313,12 @@ const UPGRADE_SKILLS: Array[Dictionary] = [
 		"description": "폭발 스택이 3에 도달하면 보너스 공격턴이 1D20을 세 번 굴려 더 높은 값을 채택하는 것으로 강화된다 (광전사 전용).",
 		"upgrades": "frenzy_deepen",
 		"character_id": "berserker",
+		"diagram": [
+			{"type": "stack", "target": "attack", "threshold": 3},
+			{"type": "arrow"},
+			{"type": "die", "target": "attack"},
+			{"type": "reroll", "count": 3},
+		],
 	},
 	{
 		"id": "guard_deepen_plus",
@@ -199,6 +326,12 @@ const UPGRADE_SKILLS: Array[Dictionary] = [
 		"description": "수호 스택이 3에 도달하면 보너스 방어턴이 1D20을 세 번 굴려 더 높은 값을 채택하는 것으로 강화된다 (수호자 전용).",
 		"upgrades": "guard_deepen",
 		"character_id": "guardian",
+		"diagram": [
+			{"type": "stack", "target": "defense", "threshold": 3},
+			{"type": "arrow"},
+			{"type": "die", "target": "defense"},
+			{"type": "reroll", "count": 3},
+		],
 	},
 	{
 		"id": "chain_explosion_plus",
@@ -206,6 +339,12 @@ const UPGRADE_SKILLS: Array[Dictionary] = [
 		"description": "폭발 스택 임계치는 2 그대로, 보너스 공격턴이 1D20을 두 번 굴려 더 높은 값을 채택하는 것으로 강화된다 (폭발병 전용).",
 		"upgrades": "chain_explosion",
 		"character_id": "explosive",
+		"diagram": [
+			{"type": "stack", "target": "attack", "threshold": 2},
+			{"type": "arrow"},
+			{"type": "die", "target": "attack"},
+			{"type": "reroll", "count": 2},
+		],
 	},
 	{
 		"id": "chain_guard_plus",
@@ -213,6 +352,12 @@ const UPGRADE_SKILLS: Array[Dictionary] = [
 		"description": "수호 스택 임계치는 2 그대로, 보너스 방어턴이 1D20을 두 번 굴려 더 높은 값을 채택하는 것으로 강화된다 (방패병 전용).",
 		"upgrades": "chain_guard",
 		"character_id": "shieldbearer",
+		"diagram": [
+			{"type": "stack", "target": "defense", "threshold": 2},
+			{"type": "arrow"},
+			{"type": "die", "target": "defense"},
+			{"type": "reroll", "count": 2},
+		],
 	},
 	{
 		"id": "versatile_surge_plus",
@@ -220,6 +365,12 @@ const UPGRADE_SKILLS: Array[Dictionary] = [
 		"description": "공격/방어 스택 임계치가 3에서 2로 낮아져 보너스 턴을 더 자주 받는다 (견습 모험가 전용).",
 		"upgrades": "versatile_surge",
 		"character_id": "novice",
+		"diagram": [
+			{"type": "stack", "target": "attack", "threshold": 2},
+			{"type": "stack", "target": "defense", "threshold": 2},
+			{"type": "arrow"},
+			{"type": "die", "target": "dual"},
+		],
 	},
 	{
 		"id": "charm_amplify_plus",
@@ -227,6 +378,12 @@ const UPGRADE_SKILLS: Array[Dictionary] = [
 		"description": "charm_flip 효과가 그 턴 가장 낮은 다이스 2개가 아니라 3개에 적용된다 (매혹사 전용).",
 		"upgrades": "charm_amplify",
 		"character_id": "enchantress",
+		"diagram": [
+			{"type": "duration", "kind": "every_turn"},
+			{"type": "arrow"},
+			{"type": "die", "target": "dual", "count": 3},
+			{"type": "value", "op": "max"},
+		],
 	},
 	{
 		"id": "juggle_encore_plus",
@@ -234,6 +391,11 @@ const UPGRADE_SKILLS: Array[Dictionary] = [
 		"description": "라운드 전환 시 다이스 교환이 1번이 아니라 2번(서로 다른 무작위 다이스 쌍) 일어난다 (곡예사 전용).",
 		"upgrades": "juggle_encore",
 		"character_id": "juggler",
+		"diagram": [
+			{"type": "condition", "kind": "round_change"},
+			{"type": "arrow"},
+			{"type": "swap", "count": 2},
+		],
 	},
 	{
 		"id": "broadside_plus",
@@ -241,6 +403,11 @@ const UPGRADE_SKILLS: Array[Dictionary] = [
 		"description": "함포 일제사격 주기는 2턴 그대로, 고정 피해가 공격 합계의 절반이 아니라 전부로 강화된다 (해적 전용).",
 		"upgrades": "broadside",
 		"character_id": "pirate",
+		"diagram": [
+			{"type": "cycle", "turns": 2, "target": "attack"},
+			{"type": "arrow"},
+			{"type": "value", "op": "full", "ignore_defense": true},
+		],
 	},
 	{
 		"id": "juggle_fortune_plus",
@@ -248,6 +415,11 @@ const UPGRADE_SKILLS: Array[Dictionary] = [
 		"description": "이벤트 주사위 굴림 보정이 +1에서 +2로 강화된다 (상한은 그대로 이벤트 주사위 면 개수, 곡예사 전용).",
 		"upgrades": "juggle_fortune",
 		"character_id": "juggler",
+		"diagram": [
+			{"type": "die", "target": "event"},
+			{"type": "arrow"},
+			{"type": "value", "amount": 2, "op": "+"},
+		],
 	},
 ]
 
@@ -278,24 +450,48 @@ const STARTING_SKILLS: Array[Dictionary] = [
 		# 전투 스킬은 더는 곡예사 후보가 아니다(아래 start_hoard도 동일). 곡예사가
 		# 유지하는 전투 보조 1종은 "잡화점"(start_diverse, 곡예사 전용 id)이다.
 		"character_ids": ["berserker", "explosive"],
+		"diagram": [
+			{"type": "compare", "left": "attack", "op": ">", "right": "defense"},
+			{"type": "arrow"},
+			{"type": "die", "target": "attack"},
+			{"type": "value", "amount": 1, "op": "+"},
+		],
 	},
 	{
 		"id": "start_wall",
 		"name": "철벽",
 		"description": "방어 다이스 개수가 공격 다이스 개수보다 많으면, 방어 다이스 결과값 전체가 +1 된다 (상한: 각 다이스 면 개수).",
 		"character_ids": ["guardian", "shieldbearer"],
+		"diagram": [
+			{"type": "compare", "left": "defense", "op": ">", "right": "attack"},
+			{"type": "arrow"},
+			{"type": "die", "target": "defense"},
+			{"type": "value", "amount": 1, "op": "+"},
+		],
 	},
 	{
 		"id": "start_expand",
 		"name": "확장",
 		"description": "공격+방어 다이스 합계가 8개 이상이면, 공격/방어 다이스 결과값 전체가 +1 된다 (상한: 각 다이스 면 개수).",
 		"character_ids": ["novice", "explosive", "enchantress"],
+		"diagram": [
+			{"type": "condition", "kind": "dice_total", "op": ">=", "value": 8},
+			{"type": "arrow"},
+			{"type": "die", "target": "dual"},
+			{"type": "value", "amount": 1, "op": "+"},
+		],
 	},
 	{
 		"id": "start_lean",
 		"name": "정예",
 		"description": "공격+방어 다이스 합계가 7개 이하로 유지되면, 공격/방어 다이스 결과값 전체가 +1 된다 (상한: 각 다이스 면 개수).",
 		"character_ids": ["novice", "shieldbearer", "enchantress"],
+		"diagram": [
+			{"type": "condition", "kind": "dice_total", "op": "<=", "value": 7},
+			{"type": "arrow"},
+			{"type": "die", "target": "dual"},
+			{"type": "value", "amount": 1, "op": "+"},
+		],
 	},
 	{
 		"id": "start_hoard",
@@ -303,48 +499,95 @@ const STARTING_SKILLS: Array[Dictionary] = [
 		"description": "보유한 눈금 인벤토리가 5개 이상이면, 공격 다이스 결과값 전체가 +1 된다 (상한: 각 다이스 면 개수).",
 		# N-5(a): 곡예사 제외(위 start_aggro 주석 참고).
 		"character_ids": ["berserker"],
+		"diagram": [
+			{"type": "condition", "kind": "pip_inventory", "op": ">=", "value": 5},
+			{"type": "arrow"},
+			{"type": "die", "target": "attack"},
+			{"type": "value", "amount": 1, "op": "+"},
+		],
 	},
 	{
 		"id": "start_ironclad",
 		"name": "강철 방비",
 		"description": "철제 재질(D12/D20) 다이스를 1개 이상 보유하면, 방어 다이스 결과값 전체가 +1 된다 (상한: 각 다이스 면 개수).",
 		"character_ids": ["guardian"],
+		"diagram": [
+			{"type": "condition", "kind": "material", "value": "steel"},
+			{"type": "arrow"},
+			{"type": "die", "target": "defense"},
+			{"type": "value", "amount": 1, "op": "+"},
+		],
 	},
 	{
 		"id": "start_vanguard",
 		"name": "선제",
 		"description": "전투의 첫 공격턴 한 번만, 공격 다이스 결과값 전체가 +2 된다 (상한: 각 다이스 면 개수).",
 		"character_ids": ["berserker"],
+		"diagram": [
+			{"type": "condition", "kind": "first_turn"},
+			{"type": "arrow"},
+			{"type": "die", "target": "attack"},
+			{"type": "value", "amount": 2, "op": "+"},
+		],
 	},
 	{
 		"id": "start_bulwark",
 		"name": "대비",
 		"description": "전투의 첫 방어턴 한 번만, 방어 다이스 결과값 전체가 +2 된다 (상한: 각 다이스 면 개수).",
 		"character_ids": ["guardian"],
+		"diagram": [
+			{"type": "condition", "kind": "first_turn"},
+			{"type": "arrow"},
+			{"type": "die", "target": "defense"},
+			{"type": "value", "amount": 2, "op": "+"},
+		],
 	},
 	{
 		"id": "start_wealth",
 		"name": "황금손",
 		"description": "보유한 골드 30마다 공격 다이스 결과값 전체가 +1 된다 (최대 +2, 상한: 각 다이스 면 개수).",
 		"character_ids": ["novice"],
+		"diagram": [
+			{"type": "condition", "kind": "gold", "value": 30},
+			{"type": "arrow"},
+			{"type": "die", "target": "attack"},
+			{"type": "value", "amount": 1, "op": "+", "max": 2},
+		],
 	},
 	{
 		"id": "start_overflow",
 		"name": "과적",
 		"description": "공격/방어 주머니 중 다이스 개수가 최대(6개)로 꽉 찬 쪽은 결과값 전체가 +1 된다 (두 쪽 다 꽉 차면 둘 다, 상한: 각 다이스 면 개수).",
 		"character_ids": ["explosive"],
+		"diagram": [
+			{"type": "condition", "kind": "dice_cap", "value": 6},
+			{"type": "arrow"},
+			{"type": "die", "target": "dual"},
+			{"type": "value", "amount": 1, "op": "+"},
+		],
 	},
 	{
 		"id": "start_second_wind",
 		"name": "오뚝이",
 		"description": "전투 중 플레이어 HP가 최대 HP의 절반 이하이면, 방어 다이스 결과값 전체가 +1 된다 (상한: 각 다이스 면 개수).",
 		"character_ids": ["shieldbearer"],
+		"diagram": [
+			{"type": "condition", "kind": "hp_half"},
+			{"type": "arrow"},
+			{"type": "die", "target": "defense"},
+			{"type": "value", "amount": 1, "op": "+"},
+		],
 	},
 	{
 		"id": "start_gambler",
 		"name": "승부사",
 		"description": "특수 이벤트 '위험을 감수하기'의 판정 DC가 1 낮아진다 (최저 DC 2).",
 		"character_ids": ["enchantress"],
+		"diagram": [
+			{"type": "die", "target": "event"},
+			{"type": "arrow"},
+			{"type": "value", "amount": -1, "op": "+"},
+		],
 	},
 	# 곡예사 이벤트 스킬 2종(N-5(a), 슬롯0/슬롯1) — "최소 2종을 이벤트 스킬로 교체,
 	# 전투 보조 1종은 유지" 지시 반영. 아래 "잡화점"(기존 슬롯2, 전투 보조)은 그대로
@@ -359,12 +602,22 @@ const STARTING_SKILLS: Array[Dictionary] = [
 		# "매혹사와 공유하지 말고 구분"하기 위해 별도 id로 분리했다 — event.gd의
 		# DC 계산이 두 id 중 하나만 있어도(or 조건) 동일하게 -1을 적용한다.
 		"character_ids": ["juggler"],
+		"diagram": [
+			{"type": "die", "target": "event"},
+			{"type": "arrow"},
+			{"type": "value", "amount": -1, "op": "+"},
+		],
 	},
 	{
 		"id": "start_fortune",
 		"name": "한탕",
 		"description": "특수 이벤트 '위험을 감수하기'에서 성공하면 골드를 추가로 얻는다.",
 		"character_ids": ["juggler"],
+		"diagram": [
+			{"type": "die", "target": "event"},
+			{"type": "arrow"},
+			{"type": "gold", "amount": 10},
+		],
 	},
 	{
 		"id": "start_diverse",
@@ -373,6 +626,12 @@ const STARTING_SKILLS: Array[Dictionary] = [
 		# N-5(a): 곡예사가 유지하는 유일한 "전투 보조" 시작 스킬(슬롯2) — 눈속임/한탕과
 		# 달리 전투 보너스형이라 그대로 남겨둔다.
 		"character_ids": ["juggler"],
+		"diagram": [
+			{"type": "condition", "kind": "dice_type_count", "op": ">=", "value": 3},
+			{"type": "arrow"},
+			{"type": "die", "target": "dual"},
+			{"type": "value", "amount": 1, "op": "+"},
+		],
 	},
 	# 해적([대형 기획 9] I-2, INBOX.md 2026-10-08 기획자 결정)은 슬롯 순서가
 	# 선제->황금손->수집가인데, 이 세 id는 이미 berserker(수집가->선제 순)/novice(황금손이
@@ -390,18 +649,36 @@ const STARTING_SKILLS: Array[Dictionary] = [
 		"name": "선제",
 		"description": "전투의 첫 공격턴 한 번만, 공격 다이스 결과값 전체가 +2 된다 (상한: 각 다이스 면 개수).",
 		"character_ids": ["pirate"],
+		"diagram": [
+			{"type": "condition", "kind": "first_turn"},
+			{"type": "arrow"},
+			{"type": "die", "target": "attack"},
+			{"type": "value", "amount": 2, "op": "+"},
+		],
 	},
 	{
 		"id": "start_wealth",
 		"name": "황금손",
 		"description": "보유한 골드 30마다 공격 다이스 결과값 전체가 +1 된다 (최대 +2, 상한: 각 다이스 면 개수).",
 		"character_ids": ["pirate"],
+		"diagram": [
+			{"type": "condition", "kind": "gold", "value": 30},
+			{"type": "arrow"},
+			{"type": "die", "target": "attack"},
+			{"type": "value", "amount": 1, "op": "+", "max": 2},
+		],
 	},
 	{
 		"id": "start_hoard",
 		"name": "수집가",
 		"description": "보유한 눈금 인벤토리가 5개 이상이면, 공격 다이스 결과값 전체가 +1 된다 (상한: 각 다이스 면 개수).",
 		"character_ids": ["pirate"],
+		"diagram": [
+			{"type": "condition", "kind": "pip_inventory", "op": ">=", "value": 5},
+			{"type": "arrow"},
+			{"type": "die", "target": "attack"},
+			{"type": "value", "amount": 1, "op": "+"},
+		],
 	},
 ]
 
@@ -663,3 +940,10 @@ static func find_skill(skill_id: String) -> Dictionary:
 		if skill["id"] == skill_id:
 			return skill
 	return {}
+
+
+## skill_id -> 효과 도식(diagram) 조회([대형 기획 15] Q-7(a)). find_skill()을 그대로
+## 재사용하고, 해당 스킬에 "diagram" 필드가 없으면(이론상 없어야 함 — 전수 검증 테스트가
+## 보장) 빈 배열을 돌려준다.
+static func diagram_for(skill_id: String) -> Array:
+	return find_skill(skill_id).get("diagram", [])

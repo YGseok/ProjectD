@@ -8,6 +8,71 @@
 
 ---
 
+- **2026-10-16 (218)**: INBOX.md 지시(이번 이터레이션 최우선 — "실행 순서는
+  [대형 기획 13] [미니 기획 ART-1c-2]") **몬스터 face_* 없이 full.png만 있을 때
+  상반신 크롭 폴백 완료.** 배경: ART-1c(216)가 몬스터 원화 경로(face_* 5장 →
+  원화 표정 컷)를 준비해뒀는데, 아트 스레드가 보스 6종을 face_* 없이
+  `full.png`(전신 원화) 하나로만 입고해(`resources/monsters/{goblin_king,
+  ooze_lord,skeleton_general,frenzied_beast,fallen_commander,void_eye}/full.png`)
+  지금까지는 보스가 여전히 도형 플레이스홀더로만 보이고 있었다.
+  **구현**: `CharacterArt`에 3개 함수를 신규/확장했다 — ① `load_full()`/
+  `full_path()`에 `base_dir` 매개변수 추가(기존엔 캐릭터 전용 `BASE_DIR`
+  하드코딩, `load_face()`와 동일한 패턴으로 맞춤) ② `has_full(character_id,
+  base_dir)` 신규(`has_all_faces()`와 같은 FileAccess 존재 확인) ③
+  `load_face_crop()`의 "비율(ratio) → AtlasTexture region" 크롭 로직을
+  `load_full_crop(character_id, ratio, base_dir)`로 분리해 몬스터도 같은
+  크롭 방식을 재사용(새 크롭 알고리즘을 만들지 않음 — INBOX 지시 그대로)할 수
+  있게 했다. `MonsterPortraitPlaceholder`에 `_use_full_crop` 상태를 신규
+  추가 — `set_monster()`가 `has_all_faces()`(원화 표정 컷) → `has_full()`
+  (상반신 크롭, `DEFAULT_FACE_CROP_RATIO`로 캐릭터와 동일 비율 크롭) → 플레이스홀더
+  순으로 우선순위를 매긴다. 크롭 모드는 `_face_rect`(ART-1c와 같은 노드, 하단
+  페이드 셰이더 `face_art_fade` 유지)에 정적 텍스처 하나만 넣고, `set_expression()`
+  호출은 `_use_face_art`일 때만 텍스처를 바꾸는 기존 분기 덕에 크롭 모드에서는
+  자동으로 무시된다(표정 컷이 없으므로 안전). `_draw()`도 `_use_face_art or
+  _use_full_crop`일 때 도형을 안 그리도록 함께 막았다. 보스 1.3배/일반 1.1배
+  확대·화면 안 배치(`FACE_ART_SHIFT`)·좌우 대칭은 ART-1c가 이미 만든 배치
+  로직을 그대로 공유해 추가 작업 없이 적용됨.
+  **덤으로 고친 버그**: `load_face()`/`load_full()`의 "production 경로인가"
+  판정이 `base_dir == BASE_DIR`(캐릭터 전용 상수와의 등호 비교)였는데, 몬스터
+  전용 `MONSTER_ART_BASE_DIR`은 이 등호를 절대 만족 못 해 몬스터 원화가 매번
+  "Loaded resource as image file, this will not work on export" 경고와 함께
+  FileAccess+Image.load() 경로(테스트용 경로)로 로드되고 있었다(실기능은 동작,
+  export 비효율/경고만) — `base_dir.begins_with("res://")`로 판정 기준을
+  일반화해 몬스터 production 로드도 캐릭터와 동일하게 `ResourceLoader`를 쓰도록
+  고쳤다(두 함수 다 수정, 테스트용 `user://` 경로는 기존 그대로 FileAccess 경로).
+  **테스트**(`dice_test.gd` 신규 `_check_art1c2_monster_full_crop_fallback()`):
+  가짜 user:// 디렉터리로 "없음"/"full.png만"/"face_*+full.png 둘 다"(우선순위)
+  3가지를 검증하고, set_expression() 호출 후 텍스처 불변을 확인. production은
+  **카탈로그 35종 전체를 순회**해 `has_all_faces()`/`has_full()`의 실시간 결과와
+  `_use_face_art`/`_use_full_crop`이 항상 일치하는지 검사(특정 id를 "원화 없음"
+  으로 하드코딩하지 않음 — N-6(215)이 겪은 "berserker는 face_*가 없다" 가정이
+  깨진 사고의 재발 방지 원칙을 그대로 적용). 이 원칙이 실제로 유효함이 검증
+  도중 증명됐다 — 테스트를 작성하는 사이에 아트 스레드가 보스 6종 외에
+  slime/goblin/orc/skeleton(일반 4종, MO001~004)과 dark_knight_elite(정예
+  1종)까지 동시에 `full.png`를 입고해, 카탈로그 35종 중 크롭 모드로 전환된
+  수가 작성 시점 6종에서 실행 시점 11종으로 바뀌었는데도 "하드코딩 없는" 검증
+  방식 덕에 수정 없이 그대로 PASS했다(최초 버전은 `slime`이 "원화 없음"이라고
+  하드코딩했다가 바로 이 변화로 FAIL이 나 즉시 지금 방식으로 고쳤다 — 교훈이
+  헛되지 않았음을 바로 확인). `bash scripts/qa_shot.sh dice_test` 전체 **PASS**
+  (FAIL 0건). **셀프 피드백 루프**: `_debug_shift_monster_portrait_center()`
+  신규 QA 훅(ART-1c의 `_debug_show_monster_face_art()`와 같은 목적 — 이 환경의
+  QA 캡처 폭 잘림(1028px) 때문에 production 배치 좌표(x=1170, 거의 화면 끝)가
+  캡처 밖으로 나가 눈으로 확인이 안 되는 문제를 QA 전용으로 화면 중앙으로
+  옮겨 우회)를 추가해 `GAME_QA_MONSTER_ID`로 실제 입고된 보스 6종 전부
+  (`qa_out/art1c2_{goblin_king,void_eye,ooze_lord,fallen_commander,
+  frenzied_beast,skeleton_general}_center.png`)와 새로 입고된 일반/정예
+  2종(`art1c2_goblin_normal_center.png`/`art1c2_dark_knight_elite_center.png`)을
+  직접 캡처해 읽었다 — 전부 크롭이 얼굴·크라운/투구·상반신을 중심에 두고
+  화면 안에 잘 들어오며(위쪽 잘림 없음, 하단 페이드로 자연스럽게 사라짐)
+  캐릭터 쪽 face_* 표정 컷과 같은 톤으로 보여 추가 조정 없이 1라운드로 종료
+  (`DEFAULT_FACE_CROP_RATIO`를 그대로 재사용한 것이 실제로도 잘 맞았음 — 보스
+  원화가 캐릭터 원화와 같은 1181×1332 캔버스/머리 위치 관례를 따른 덕).
+  production(비-shift) 배치에서 화면 우측 끝이 실제로 안 잘리는지는
+  `dice_test.gd`의 수치 검증(일반 1.1배 x=1240.4/보스 1.3배 x=1253.2, 둘 다
+  1272.0 이하)으로 확인. 전투 규칙/밸런스는 건드리지 않았고 `resources/`·
+  `docs/art/`는 읽기만 했다(아트 스레드가 이 세션 도중 병행 커밋한 자산을 그대로
+  읽어 검증만 함, 두 커밋은 서로 영향 없이 독립적으로 완료됨).
+
 - **2026-10-16 (217)**: 세 가지 독립 작업 — (A) **[미니 기획 M-7](던전 맵 방 카드
   프레임 스킨) 완료**: [미니 기획 M-6](206)이 등급 신호가 없다는 이유로 범위
   밖에 남겨뒀던 `dungeon_map.gd`의 `MapStrip` 방 카드에 M-6과 같은
