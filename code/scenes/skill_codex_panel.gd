@@ -47,7 +47,12 @@ extends Control
 signal closed
 
 const COLUMNS := 3
-const CARD_SIZE := Vector2(320, 160)
+## [대형 기획 15] Q-7(c)(2026-10-17): 세로 160->210으로 키움 — 기존 발견/미발견 배지가
+## 있던 자리(카드 상단, 지금은 우상단 모서리 태그로 축소된 자리) 근처에 SkillDiagram
+## (LARGE, 44px 칩) 한 줄을 추가로 올리기 위함. 미발견 카드는 도식이 없는 대신 그만큼
+## 빈 공간이 남지만(정보 비공개가 우선), 레이아웃이 발견/미발견 사이에서 흔들리지
+## 않도록 카드 높이는 두 상태 모두 동일하게 고정한다.
+const CARD_SIZE := Vector2(320, 210)
 const GRID_GAP := 14
 
 const ICON_BOX_SIZE := 60.0
@@ -404,19 +409,34 @@ func _make_card(entry: Dictionary, slot_index: int, palette: Dictionary, is_star
 		style.set_border_width_all(1)
 	card.add_theme_stylebox_override("panel", style)
 
-	# wrap은 plain Control(Container 아님) — 안쪽 hbox(정상 레이아웃 흐름)와 모서리
-	# 태그(겹쳐지는 절대 위치) 두 가지를 함께 자식으로 둬야 해서, Container가 모든
-	# 자식을 같은 rect로 강제하는 동작을 피한다(_make_corner_tag 주석과 같은 이유).
+	# wrap은 plain Control(Container 아님) — 안쪽 content_vbox(정상 레이아웃 흐름)와
+	# 모서리 태그(겹쳐지는 절대 위치) 두 가지를 함께 자식으로 둬야 해서, Container가
+	# 모든 자식을 같은 rect로 강제하는 동작을 피한다(_make_corner_tag 주석과 같은 이유).
 	var wrap := Control.new()
 	wrap.set_anchors_preset(Control.PRESET_FULL_RECT)
 	wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(wrap)
 
+	# Q-7(c): 세로로 [도식(발견 시에만) -> 아이콘+이름/설명 가로줄] 순서로 쌓는다 — 기존
+	# 발견/미발견 배지가 있던 "카드 상단" 자리에 도식을 놓으라는 지시 반영.
+	var content_vbox := VBoxContainer.new()
+	content_vbox.set_anchors_preset(Control.PRESET_FULL_RECT)
+	content_vbox.add_theme_constant_override("separation", 6)
+	content_vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	wrap.add_child(content_vbox)
+
+	if revealed:
+		var diagram := SkillDiagram.new()
+		diagram.size_variant = SkillDiagramChip.SIZE_LARGE
+		diagram.diagram_data = SkillPool.diagram_for(skill_id)
+		diagram.custom_minimum_size = Vector2(0, SkillDiagramChip.CHIP_HEIGHT[SkillDiagramChip.SIZE_LARGE] * 2.0 + 4.0)
+		content_vbox.add_child(diagram)
+
 	var hbox := HBoxContainer.new()
-	hbox.set_anchors_preset(Control.PRESET_FULL_RECT)
 	hbox.add_theme_constant_override("separation", 10)
 	hbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	wrap.add_child(hbox)
+	hbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	content_vbox.add_child(hbox)
 
 	# Q-6(8): 아이콘을 좌측에 크게(60px 정사각) + 프레임. 미발견은 모티프 대신
 	# LockIcon(스킬 정보 비공개 규칙 유지).
