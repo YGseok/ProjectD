@@ -5,32 +5,25 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-10-17 (229)
-- 작성자: AI 에이전트. **[대형 기획 15] Q-7(b)(SkillDiagram 렌더러) 완료.**
-  Q-7은 (a) 문법/데이터(228, 완료) → (b) 렌더러(이번 조각) → (c) 화면 적용
-  세 조각으로 나뉘는데, 이번 이터레이션은 그중 (b)만 — 화면 적용은 손대지
-  않았다(아직 어느 게임 화면에도 배선 안 됨). 신규 위젯 2개(`code/scenes/
-  skill_diagram_chip.gd`의 `SkillDiagramChip`, `code/scenes/skill_diagram.gd`
-  의 `SkillDiagram extends HFlowContainer`)가 Q-7(a)의 diagram 데이터를
-  실제로 그린다 — 기호 종류별 함수 테이블로만 분기(스킬 id 하드코딩 없음),
-  `resources/ui/icon/*.png`가 있으면 칠해 쓰고 없으면 절차적 도형(공격=칼끝
-  삼각형/방어=방패 오각형/이벤트=육각형 등 모양으로 구분, 텍스트는 전부
-  한 색이라 대비 12.12:1 보장), 크기 2종(LARGE 카드·팝업용/SMALL 툴팁·목록용).
-  QA 전용 `code/scenes/skill_diagram_preview.gd/.tscn`(37종을 5x8 격자로
-  1280x720 한 화면에, `scripts/qa_shot.sh skill_diagram_preview`)로 셀프
-  피드백 2라운드(격자 열/행 조정 → SMALL 변형 확인). `dice_test.gd` 신규
-  `_check_q7b_skill_diagram_renderer()`가 노드 수/폭 컨테이너 안/2줄 높이
-  예산/서로 다른 스킬 간 실제 픽셀 차이(SubViewport 비교)/빈 도식 0개/텍스트
-  대비를 검증 — 검증 중 `start_sleight`(눈속임)==`start_gambler`(승부사)가
-  픽셀까지 완전히 동일한 것을 발견했는데, 확인해보니 `skill_pool.gd` 주석에
-  이미 "효과가 같지만 매혹사와 공유하지 말라는 지시로 id만 분리했다"고
-  적혀 있던 의도된 중복이라(diagram 데이터 자체가 동일) — 비교 기준을
-  "스킬 id"에서 "diagram 데이터 서명"으로 바꿔 올바르게 처리했다(데이터가
-  같으면 같은 그림=정상/데이터가 다른데 그림이 같으면 진짜 버그).
-  `bash scripts/qa_shot.sh dice_test 60 qa_out/q7b_dice_test.png "" 1` 전체
-  **PASS**(FAIL 0건). `resources/`·`docs/art/`는 읽기만 했다. 상세는 완료
-  기록(229) 참고. **다음은 Q-7(c)(스킬 도감 카드/상세 팝업/보상·상점·이벤트
-  카드/시작 스킬 슬롯에 실제 배선).**
+- 일시: 2026-10-18 (230)
+- 작성자: AI 에이전트. **[대형 기획 15] Q-7(c)(SkillDiagram 화면 적용, 5/5) 완료 —
+  Q-7(스킬 효과 도식화, a/b/c) 전체 완료.** 이전 이터레이션이 사용 한도로
+  1/5~3/5만 커밋된 채 끊겨 이어받았다. 남은 두 자리를 마저 배선:
+  **4/5(캐릭터 선택 시작 스킬 슬롯)**는 선택/잠금 미리보기 중인 스킬의 LARGE
+  도식을 잠금 배지 아래/설명 문장 위에 띄운다 — 도식이 늘어난 세로 폭(44px)
+  때문에 전신 컬럼이 던전 입장 버튼과 1px 겹치는 회귀(N-2b)가 생겨, 이
+  섹션만 body separation을 4→2로 좁혀 해소했다. **5/5(던전 보유 스킬
+  행)**는 `DeckPanel`의 "보유 스킬" 카드(dungeon_map/shop/event/
+  story_event 상시 + combat_test 토글 공유)에 이름 줄 아래 SIZE_SMALL(20px)
+  도식을 한 줄 추가 — 좁은 패널 폭(약 224px)에서도 HFlowContainer가 필요시
+  자동 2줄 줄바꿈해 겹침/잘림 없이 들어온다. 두 조각 모두 기존 Q-7(a)/(b)
+  테스트(데이터/렌더러 검증)로 이미 커버돼 새 dice_test 체크는 추가하지
+  않았다(3/5까지와 같은 패턴) — 대신 1280x720 실제 화면 캡처(선택/잠금
+  미리보기/던전 맵 보유 스킬 4종)로 육안 확인. `bash scripts/qa_shot.sh
+  dice_test 60 ... 1` 전체 **PASS**(FAIL 0건, 두 조각 각각 커밋 전 재검증).
+  `resources/`·`docs/art/`는 읽기만 했다. 상세는 완료 기록(230) 참고.
+  **Q-7 전체 완료로 [대형 기획 15]의 다음은 Q-8(스킬 레어리티 + 전설 스킬,
+  규모가 커서 a→b→c→d 조각 단위)** — INBOX.md Q-8 설계 참고.
 
 ## 지금 위치
 
@@ -693,8 +686,14 @@ write-through 저장이라 영향 없음, 승패 집계 경로를 안 타 통계
 `SkillDiagramChip`(기호 종류별 함수 테이블로만 분기, 색맹 고려해 모양으로도
 구분, 크기 2종)이 diagram 데이터를 실제로 그린다. QA 전용 격자 미리보기
 (`skill_diagram_preview`)로 셀프 피드백 확인(상세는 완료 기록 (229)).
-**다음은 Q-7(c)(도감/팝업/보상·상점·이벤트 카드/시작 스킬 슬롯에 실제
-적용).**
+2026-10-18(230)로 **Q-7(c)(화면 적용, 5곳) 완료 — Q-7(a/b/c) 전체 완료,
+[대형 기획 15]의 Q-1~Q-7 전부 완료**: 스킬 도감 카드(1/5)·`SkillDetailPopup`
+(2/5)·보상/상점/이벤트 스킬 카드(3/5, `ItemCardStyle.build_card()`)에
+LARGE 도식, 캐릭터 선택 시작 스킬 슬롯(4/5)에 LARGE 도식(전신 컬럼 겹침
+1px 회귀를 섹션 separation 조정으로 해소), `DeckPanel` 보유 스킬 카드(5/5,
+dungeon_map/shop/event/story_event/combat_test 공유)에 SMALL 도식을
+배선했다(상세는 완료 기록 (230)). **다음은 Q-8(스킬 레어리티 + 전설 스킬,
+a→b→c→d 조각 단위).**
 
 남은 구조적 후보(급하지 않음): 보스 개별 6종 중 타락한 기사단장만 밴드 미달
 (`MonsterSkills.modify_monster_roll()` 파라미터화가 전제조건이라 사람 설계
@@ -1305,6 +1304,46 @@ write-through 저장이라 영향 없음, 승패 집계 경로를 안 타 통계
 
 ## 완료 기록
 
+- **2026-10-18 (230)**: 직전 이터레이션(Q-7(c))이 사용 한도로 1/5~3/5만 커밋된
+  채 끊겨 이어받았다. **[대형 기획 15] Q-7(c)(SkillDiagram 화면 적용) 4/5,
+  5/5 완료 — Q-7(스킬 효과 도식화, a/b/c) 전체 완료.**
+  **4/5(캐릭터 선택 시작 스킬 슬롯)**: `character_select.gd`의
+  `_build_starting_skill_section()`에 LARGE(44px) `SkillDiagram`을 잠금
+  배지 아래/효과 설명 문장 위에 추가 — 선택 중인 스킬이든 잠긴 슬롯
+  미리보기([대형 기획 5] F-1)든 같은 조건으로 `SkillPool.diagram_for()`를
+  건다(이 화면은 이미 미리보기 시 효과 설명을 보여주는 기존 설계라, 스킬
+  도감의 "미발견은 정보 비공개"와 다른 맥락임 — 그대로 유지).
+  **발견한 회귀**: 도식이 차지하는 세로 폭(44px)만큼 우측 정보 컬럼의 전체
+  높이가 늘어, `dice_test.gd`의 N-2b(전신 컬럼이 던전 입장 버튼과 안
+  겹쳐야 함)가 1px 차이로 FAIL — 좌측 전신 컬럼(`_detail_portrait_panel`,
+  `SIZE_EXPAND_FILL` 세로)이 우측 `_detail_sections_vbox`의 요구 높이를
+  그대로 따라가는 `HBoxContainer` 레이아웃이라, 우측이 580px 예산을 넘으면
+  좌측도 함께 넘친다. 시작 스킬 섹션 하나만 `body`의
+  `theme_constant/separation`을 4→2로 좁혀 6px를 회수해 해소(다른 4개
+  섹션은 그대로 — 영향 범위를 최소화).
+  **5/5(던전 보유 스킬 행)**: `deck_panel.gd`의 `_add_skills_section()`
+  카드 안을 `HBoxContainer`(아이콘+이름) 하나에서 `VBoxContainer`(그
+  행 + 그 아래 SMALL(20px) `SkillDiagram`)로 바꿨다 — dungeon_map/shop/
+  event/story_event가 상시, combat_test가 토글로 공유하는 패널이라 5개
+  화면 전부에 한 번에 적용됨. 패널 실사용 폭이 좁아(약 224px,
+  `DECK_SKILL_DIAGRAM_WIDTH` 신규 상수) `HFlowContainer`가 필요하면 자동
+  2줄 줄바꿈한다.
+  **테스트**: 두 조각 모두 Q-7(a)/(b)가 이미 만든 데이터/렌더러 검증으로
+  커버돼(스킬 id 하드코딩 없는 함수 테이블, 기호 수 상한, 빈 도식 0개 등)
+  새 `dice_test.gd` 체크는 추가하지 않았다(3/5까지와 같은 판단) — 대신
+  매 조각 커밋 전 `bash scripts/qa_shot.sh dice_test 60 ... 1` 전체
+  **PASS**(FAIL 0건, 4/5는 N-2b FAIL→수정→재검증 PASS 1회 포함) 재확인.
+  **셀프 피드백**: `qa_out/q7c_4of5_character_select.png`(선택 중 — 확장
+  스킬 도식 또렷, 던전 입장 버튼과 간격 있음)/`q7c_4of5_locked_preview.png`
+  (잠긴 "정예" 슬롯 미리보기 — 자물쇠 배지+도식+해금 조건 문장까지 안
+  겹치고 들어옴)/`q7c_5of5_dungeon_map_skills.png`(`_debug_move_deck_panel_
+  left_with_skills` QA 훅으로 보유 스킬 4종 강제 설정 — 좁은 패널에서도
+  카드마다 이름 줄 아래 도식이 겹침 없이 들어옴, 심호흡/여분+/광기 심화+/
+  확장 4종 모두 서로 다른 모양으로 구분됨) 확인. 전투 규칙/밸런스는 전혀
+  건드리지 않았고 `resources/`·`docs/art/`는 읽기만 했다. INBOX.md
+  "부분 처리됨" [대형 기획 15] 항목의 Q-7 한 줄을 "전체 완료"로 갱신,
+  다음은 Q-8(스킬 레어리티 + 전설 스킬).
+
 - **2026-10-17 (229)**: **[대형 기획 15] Q-7(b)(SkillDiagram 렌더러) 완료.**
   Q-7(a)(228)가 `SkillPool`에 만든 diagram 데이터(11종 기호, 스킬당 ≤5개)를
   받아 실제로 그리는 재사용 위젯 2개를 신규 추가 — `code/scenes/
@@ -1850,139 +1889,9 @@ write-through 저장이라 영향 없음, 승패 집계 경로를 안 타 통계
   캡처 전제)을 "부분 처리됨"으로 옮기고 완료로 표시, 다음은 Q-2(키보드
   흐름 재구성).
 
-- **2026-10-16 (220)**: 세션 프롬프트로 직접 전달된 **[대형 기획 13] [미니 기획
-  ART-1c-4] 어두운 몬스터 외곽 글로우 + 주사위 줄 라벨 대비 확인 완료**
-  (INBOX.md 파일에는 사전 기록 없이 이번 이터레이션 지시로 받음 — ART-1c-3와
-  같은 패턴). 아트 스레드가 몬스터 전신 34세트를 전량 입고(219)한 뒤 감독이
-  combat_test 캡처로 발견한 두 가지 가시성 문제.
-
-  **① 어두운 몬스터 외곽 글로우**: shadow(그림자, MO012)처럼 컷 자체가 거의
-  검은 실루엣인 몬스터는 어두운 전투 배경(돌바닥/비네트)과 구분이 잘 안
-  된다(감독 확인). 해법은 "몬스터별 하드코딩 금지 — 컷 이미지의 평균 휘도
-  (불투명 픽셀 기준)가 임계값보다 낮을 때만 자동으로 켜지는 데이터/공용
-  로직"이라는 지시대로 구현했다.
-  - `CharacterArt.load_full_crop()`의 크롭 로직을 `_crop_image()`(Image 반환,
-    텍스처로 감싸기 전)로 분리하고, 신규 `CharacterArt.average_opaque_
-    luminance(image, alpha_threshold=0.5, stride=1)`(불투명 픽셀만의 평균
-    상대 휘도, ITU-R BT.709 계수 0.2126/0.7152/0.0722 — 알파가 낮은 레터박스/
-    투명 배경 픽셀은 평균에서 제외)와 `CharacterArt.full_crop_luminance()`
-    (크롭+휘도 계산을 한 번에)를 추가했다. 기준값은 `CharacterArt.
-    DARK_PORTRAIT_LUMINANCE_THRESHOLD = 0.22`(상수 1곳).
-  - `MonsterPortraitPlaceholder.set_monster()`가 대표 텍스처(크롭 모드면
-    크롭 결과, face_art 모드면 neutral 표정)로 1회만 판정해 `_is_dark_portrait`
-    에 저장하고, 어두울 때만 `_glow_rect`(확대 복제 TextureRect, `GLOW_SCALE
-    =1.18`)를 만들어 본체 `_face_rect`보다 먼저(= 뒤에) 그린다 — 중심부는
-    본체에 그대로 덮이고 가장자리 margin(약 9%)만 노출돼 옅은 림 라이트처럼
-    보인다. 셰이더 블러 근사 대신 "뒤에 확대한 복제 TextureRect" 쪽을
-    택함(지시가 둘 중 더 간단한 쪽을 허용). 글로우 색은 밝은 보라/회백
-    (`GLOW_COLOR = Color(0.78, 0.7, 0.95)`, 배경 마법진/비네트 톤과 어울림),
-    알파 0.32(지시 범위 0.25~0.4 안)로 `modulate`에 설정. `_glow_rect`도
-    `_face_rect`와 같은 `face_art_fade` 셰이더(side/top fade)를 별도
-    ShaderMaterial 인스턴스로 적용해 본체와 같은 모양으로 가장자리에서
-    옅어진다. 밝은 몬스터는 `_glow_rect`가 아예 안 만들어지거나(한 번도
-    어두웠던 적 없으면) `visible=false`로만 남아 화면이 기존과 완전히 동일.
-  - **셰이더 버그 발견·수정**: 구현 중 SubViewport 렌더 테스트로 글로우
-    중앙 알파가 기대(GLOW_ALPHA=0.32)와 달리 1.000(완전 불투명)으로 나오는
-    걸 발견 — `face_art_fade.gdshader`의 fragment()가 `COLOR`를
-    `texture(TEXTURE, UV)` 결과만으로 덮어써서, Godot 기본 파이프라인이
-    fragment() 진입 시 `COLOR`에 미리 넣어주는 "정점색 × 노드 modulate/
-    self_modulate" 값이 통째로 무시되고 있었다(모듈레이트를 아예 안 쓰던
-    `_face_rect`에서는 지금까지 안 드러났던 잠복 버그). `vec4 tex_color =
-    texture(TEXTURE, UV) * COLOR;`로 고쳐 Godot 기본 modulate 곱셈을
-    되살렸다 — modulate를 안 쓰는 기존 호출부(`_face_rect`, 기본값 흰색
-    불투명)는 곱해도 항등원이라 결과가 완전히 그대로(회귀 없음 — 기존
-    ART-1c/ART-1c-2/ART-1c-3 테스트 전부 그대로 PASS로 확인).
-  - **카탈로그 전수 휘도표**(입고된 34종 + dark_knight 별칭 = 35개 id,
-    `full_crop_luminance()` 결과 그대로, 기준 < 0.22 = 글로우 대상):
-
-    | id | 이름 | 휘도 | 글로우 |
-    |---|---|---|---|
-    | slime | 슬라임 | 0.731 | - |
-    | goblin | 고블린 | 0.600 | - |
-    | skeleton | 해골 전사 | 0.571 | - |
-    | orc | 오크 | 0.439 | - |
-    | dark_knight | 다크 나이트 | 0.390 | - |
-    | armored_goblin | 아머 고블린 | 0.416 | - |
-    | shield_goblin | 방패 고블린 | 0.422 | - |
-    | bandit | 산적 | 0.320 | - |
-    | guard_soldier | 경비병 | 0.432 | - |
-    | poison_slime | 독 슬라임 | 0.580 | - |
-    | ghost | 유령 | 0.760 | - |
-    | **shadow** | **그림자** | **0.119** | **글로우** |
-    | mist | 안개 | 0.518 | - |
-    | wolf | 늑대 | 0.515 | - |
-    | mad_dog | 광견 | 0.418 | - |
-    | boar | 멧돼지 | 0.346 | - |
-    | dire_spider | 독거미 | 0.329 | - |
-    | ghoul | 구울 | 0.415 | - |
-    | zombie | 좀비 | 0.453 | - |
-    | skeleton_archer | 해골 궁수 | 0.532 | - |
-    | wraith_soldier | 망령 병사 | 0.519 | - |
-    | dark_knight_elite | 다크 나이트 | 0.390 | - |
-    | goblin_chief | 고블린 족장 | 0.517 | - |
-    | gelatin_cube | 젤라틴 큐브 | 0.684 | - |
-    | specter | 망령 | 0.579 | - |
-    | orc_warrior | 오크 투사 | 0.326 | - |
-    | dark_wolf | 암흑 늑대 | 0.298 | - |
-    | skeleton_knight | 해골 기사 | 0.559 | - |
-    | lich_apprentice | 리치 견습생 | 0.435 | - |
-    | goblin_king | 고블린 왕 | 0.584 | - |
-    | ooze_lord | 점액 군주 | 0.593 | - |
-    | skeleton_general | 해골 장군 | 0.415 | - |
-    | frenzied_beast | 광란의 마수 | 0.417 | - |
-    | fallen_commander | 타락한 기사단장 | 0.393 | - |
-    | void_eye | 공허의 눈 | 0.346 | - |
-
-    shadow(0.119)만 뚜렷이 낮고, 다음으로 낮은 dark_wolf(0.298)·bandit
-    (0.320)·orc_warrior(0.326)·dire_spider(0.329)·void_eye/boar(0.346)와도
-    임계값(0.22) 기준으로 명확히 분리된다 — "공허의 눈"/"망령"(INBOX 원문이
-    예시로 든 넓게 퍼진 실루엣 몬스터)은 실측 휘도가 0.346/0.579로 글로우
-    대상이 아니었다(퍼진 실루엣≠어두운 색, 둘은 별개 속성임을 수치로 확인).
-
-  **② 주사위 결과 줄 라벨 대비**: `scripts/qa_shot.sh combat_test 90
-  qa_out/art1c4_shadow_attack_before.png "" 1 "" "" shadow`로 실제 캡처해
-  확인한 결과, "공격"/"방어" 라벨이 그 교환에서 몬스터 쪽 다이스를 가리키는
-  라벨은 `monster_color`(그림자 기준 `Color(0.2,0.2,0.25)`, 거의 검정)를
-  텍스트 색으로 그대로 썼던 게 원인 — `combat_test.gd`의 기존
-  `_add_exchange_group_label()`이 `atk_color`/`def_color`(다이스 3D 색/칩
-  테두리에도 같이 쓰이는 값)를 텍스트 색으로도 재사용하고 있었다. 신규
-  `ATTACK_LABEL_COLOR`(금색 `Color(1.0, 0.82, 0.3)`, "공격"=능동적으로
-  때리는 쪽이라 눈에 띄게)/`DEFENSE_LABEL_COLOR`(밝은 회백 `Color(0.85,
-  0.85, 0.85)`, 기존 폴백값 그대로)를 추가해 "공격"/"방어" 라벨은 몬스터
-  색과 완전히 무관하게 이 고정값만 쓰도록 분리했다(다이스 3D 색/칩 테두리는
-  기존 `atk_tint`/`def_tint` 그대로 유지 — 그쪽은 이미 밝은 칩 배경 위의
-  테두리라 가독성 문제가 없었음, `_layout_dice_chip_row()` 불변). 어두운
-  배경 기준(`Color(0.05,0.05,0.05)`) 대비비는 공격 13.4:1/방어 13.8:1로
-  WCAG AA(4.5:1) 기준을 넉넉히 통과(`CharacterTheme.contrast_ratio()` 재사용,
-  새 계산 로직 추가 없음).
-
-  **테스트**(`dice_test.gd` 신규 `_check_art1c4_monster_dark_glow()`(await,
-  SubViewport 사용)/`_check_art1c4_dice_label_contrast()`): ① 휘도 함수
-  단위 검증(합성 어두운 이미지(0.05,0.05,0.05)/밝은 이미지(0.9,0.9,0.9)/
-  투명 픽셀 50%+불투명 밝은 픽셀 50% 혼합(평균이 투명 픽셀에 안 끌려
-  내려가는지)) ② 카탈로그 전수 휘도표 출력(위 표 그대로) ③ 실제 production
-  자산(그림자=글로우 켜짐·visible=true, 슬라임=글로우 노드 자체가 없음,
-  밝은 몬스터는 `_face_rect` 셰이더 파라미터(side_fade)까지 불변 재확인)
-  ④ 합성 정사각 가짜 원화(레터박스 없음, `_art1c3_write_fake_square_full()`
-  과 같은 패턴)로 글로우 레이어 자체를 SubViewport에 렌더해 중앙 알파
-  0.322≈GLOW_ALPHA(0.32)·가장자리 margin(본체 밖) 알파 0.098>0.02(완전
-  투명 아님) 확인 ⑤ 라벨 색 상수 두 개의 대비비 계산(13.4:1/13.8:1) + 실제
-  `_show_exchange_dice_chips()`를 어두운 monster_color로 직접 호출해 '공격'/
-  '방어' 라벨 font_color가 상수와 정확히 일치(==)하는지 확인. `bash
-  scripts/qa_shot.sh dice_test` 전체 PASS(FAIL 0건, 909개 OK, 전체 재확인).
-  **셀프 피드백 2라운드** — 라벨 수정 전(`art1c4_shadow_attack_before.png`,
-  "방어" 라벨이 안 보임 재현)/후(`art1c4_shadow_attack_after.png`, 금색
-  "공격"·흰색 "방어" 둘 다 또렷)로 라벨 문제 확인·해결, 글로우
-  ON(`art1c4_shadow_centered.png`) vs GLOW_ALPHA=0 임시 A/B
-  (`art1c4_shadow_centered_noglow.png`, 캡처 후 즉시 0.32로 원복·커밋에 안
-  들어감)로 그림자 실루엣 가장자리에 옅은 보라빛 림 라이트가 실제로 보이는지
-  직접 비교 확인, `art1c4_slime_check.png`(밝은 몬스터)로 회귀 없음 확인.
-  전투 규칙/밸런스 수치는 전혀 건드리지 않았고 `resources/`·`docs/art/`는
-  읽기만 했다.
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(229)에서 (219)를 그리로 옮겼다.)*
+이번 이터레이션(230)에서 (220)을 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 

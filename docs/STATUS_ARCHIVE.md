@@ -8,6 +8,137 @@
 
 ---
 
+- **2026-10-16 (220)**: 세션 프롬프트로 직접 전달된 **[대형 기획 13] [미니 기획
+  ART-1c-4] 어두운 몬스터 외곽 글로우 + 주사위 줄 라벨 대비 확인 완료**
+  (INBOX.md 파일에는 사전 기록 없이 이번 이터레이션 지시로 받음 — ART-1c-3와
+  같은 패턴). 아트 스레드가 몬스터 전신 34세트를 전량 입고(219)한 뒤 감독이
+  combat_test 캡처로 발견한 두 가지 가시성 문제.
+
+  **① 어두운 몬스터 외곽 글로우**: shadow(그림자, MO012)처럼 컷 자체가 거의
+  검은 실루엣인 몬스터는 어두운 전투 배경(돌바닥/비네트)과 구분이 잘 안
+  된다(감독 확인). 해법은 "몬스터별 하드코딩 금지 — 컷 이미지의 평균 휘도
+  (불투명 픽셀 기준)가 임계값보다 낮을 때만 자동으로 켜지는 데이터/공용
+  로직"이라는 지시대로 구현했다.
+  - `CharacterArt.load_full_crop()`의 크롭 로직을 `_crop_image()`(Image 반환,
+    텍스처로 감싸기 전)로 분리하고, 신규 `CharacterArt.average_opaque_
+    luminance(image, alpha_threshold=0.5, stride=1)`(불투명 픽셀만의 평균
+    상대 휘도, ITU-R BT.709 계수 0.2126/0.7152/0.0722 — 알파가 낮은 레터박스/
+    투명 배경 픽셀은 평균에서 제외)와 `CharacterArt.full_crop_luminance()`
+    (크롭+휘도 계산을 한 번에)를 추가했다. 기준값은 `CharacterArt.
+    DARK_PORTRAIT_LUMINANCE_THRESHOLD = 0.22`(상수 1곳).
+  - `MonsterPortraitPlaceholder.set_monster()`가 대표 텍스처(크롭 모드면
+    크롭 결과, face_art 모드면 neutral 표정)로 1회만 판정해 `_is_dark_portrait`
+    에 저장하고, 어두울 때만 `_glow_rect`(확대 복제 TextureRect, `GLOW_SCALE
+    =1.18`)를 만들어 본체 `_face_rect`보다 먼저(= 뒤에) 그린다 — 중심부는
+    본체에 그대로 덮이고 가장자리 margin(약 9%)만 노출돼 옅은 림 라이트처럼
+    보인다. 셰이더 블러 근사 대신 "뒤에 확대한 복제 TextureRect" 쪽을
+    택함(지시가 둘 중 더 간단한 쪽을 허용). 글로우 색은 밝은 보라/회백
+    (`GLOW_COLOR = Color(0.78, 0.7, 0.95)`, 배경 마법진/비네트 톤과 어울림),
+    알파 0.32(지시 범위 0.25~0.4 안)로 `modulate`에 설정. `_glow_rect`도
+    `_face_rect`와 같은 `face_art_fade` 셰이더(side/top fade)를 별도
+    ShaderMaterial 인스턴스로 적용해 본체와 같은 모양으로 가장자리에서
+    옅어진다. 밝은 몬스터는 `_glow_rect`가 아예 안 만들어지거나(한 번도
+    어두웠던 적 없으면) `visible=false`로만 남아 화면이 기존과 완전히 동일.
+  - **셰이더 버그 발견·수정**: 구현 중 SubViewport 렌더 테스트로 글로우
+    중앙 알파가 기대(GLOW_ALPHA=0.32)와 달리 1.000(완전 불투명)으로 나오는
+    걸 발견 — `face_art_fade.gdshader`의 fragment()가 `COLOR`를
+    `texture(TEXTURE, UV)` 결과만으로 덮어써서, Godot 기본 파이프라인이
+    fragment() 진입 시 `COLOR`에 미리 넣어주는 "정점색 × 노드 modulate/
+    self_modulate" 값이 통째로 무시되고 있었다(모듈레이트를 아예 안 쓰던
+    `_face_rect`에서는 지금까지 안 드러났던 잠복 버그). `vec4 tex_color =
+    texture(TEXTURE, UV) * COLOR;`로 고쳐 Godot 기본 modulate 곱셈을
+    되살렸다 — modulate를 안 쓰는 기존 호출부(`_face_rect`, 기본값 흰색
+    불투명)는 곱해도 항등원이라 결과가 완전히 그대로(회귀 없음 — 기존
+    ART-1c/ART-1c-2/ART-1c-3 테스트 전부 그대로 PASS로 확인).
+  - **카탈로그 전수 휘도표**(입고된 34종 + dark_knight 별칭 = 35개 id,
+    `full_crop_luminance()` 결과 그대로, 기준 < 0.22 = 글로우 대상):
+
+    | id | 이름 | 휘도 | 글로우 |
+    |---|---|---|---|
+    | slime | 슬라임 | 0.731 | - |
+    | goblin | 고블린 | 0.600 | - |
+    | skeleton | 해골 전사 | 0.571 | - |
+    | orc | 오크 | 0.439 | - |
+    | dark_knight | 다크 나이트 | 0.390 | - |
+    | armored_goblin | 아머 고블린 | 0.416 | - |
+    | shield_goblin | 방패 고블린 | 0.422 | - |
+    | bandit | 산적 | 0.320 | - |
+    | guard_soldier | 경비병 | 0.432 | - |
+    | poison_slime | 독 슬라임 | 0.580 | - |
+    | ghost | 유령 | 0.760 | - |
+    | **shadow** | **그림자** | **0.119** | **글로우** |
+    | mist | 안개 | 0.518 | - |
+    | wolf | 늑대 | 0.515 | - |
+    | mad_dog | 광견 | 0.418 | - |
+    | boar | 멧돼지 | 0.346 | - |
+    | dire_spider | 독거미 | 0.329 | - |
+    | ghoul | 구울 | 0.415 | - |
+    | zombie | 좀비 | 0.453 | - |
+    | skeleton_archer | 해골 궁수 | 0.532 | - |
+    | wraith_soldier | 망령 병사 | 0.519 | - |
+    | dark_knight_elite | 다크 나이트 | 0.390 | - |
+    | goblin_chief | 고블린 족장 | 0.517 | - |
+    | gelatin_cube | 젤라틴 큐브 | 0.684 | - |
+    | specter | 망령 | 0.579 | - |
+    | orc_warrior | 오크 투사 | 0.326 | - |
+    | dark_wolf | 암흑 늑대 | 0.298 | - |
+    | skeleton_knight | 해골 기사 | 0.559 | - |
+    | lich_apprentice | 리치 견습생 | 0.435 | - |
+    | goblin_king | 고블린 왕 | 0.584 | - |
+    | ooze_lord | 점액 군주 | 0.593 | - |
+    | skeleton_general | 해골 장군 | 0.415 | - |
+    | frenzied_beast | 광란의 마수 | 0.417 | - |
+    | fallen_commander | 타락한 기사단장 | 0.393 | - |
+    | void_eye | 공허의 눈 | 0.346 | - |
+
+    shadow(0.119)만 뚜렷이 낮고, 다음으로 낮은 dark_wolf(0.298)·bandit
+    (0.320)·orc_warrior(0.326)·dire_spider(0.329)·void_eye/boar(0.346)와도
+    임계값(0.22) 기준으로 명확히 분리된다 — "공허의 눈"/"망령"(INBOX 원문이
+    예시로 든 넓게 퍼진 실루엣 몬스터)은 실측 휘도가 0.346/0.579로 글로우
+    대상이 아니었다(퍼진 실루엣≠어두운 색, 둘은 별개 속성임을 수치로 확인).
+
+  **② 주사위 결과 줄 라벨 대비**: `scripts/qa_shot.sh combat_test 90
+  qa_out/art1c4_shadow_attack_before.png "" 1 "" "" shadow`로 실제 캡처해
+  확인한 결과, "공격"/"방어" 라벨이 그 교환에서 몬스터 쪽 다이스를 가리키는
+  라벨은 `monster_color`(그림자 기준 `Color(0.2,0.2,0.25)`, 거의 검정)를
+  텍스트 색으로 그대로 썼던 게 원인 — `combat_test.gd`의 기존
+  `_add_exchange_group_label()`이 `atk_color`/`def_color`(다이스 3D 색/칩
+  테두리에도 같이 쓰이는 값)를 텍스트 색으로도 재사용하고 있었다. 신규
+  `ATTACK_LABEL_COLOR`(금색 `Color(1.0, 0.82, 0.3)`, "공격"=능동적으로
+  때리는 쪽이라 눈에 띄게)/`DEFENSE_LABEL_COLOR`(밝은 회백 `Color(0.85,
+  0.85, 0.85)`, 기존 폴백값 그대로)를 추가해 "공격"/"방어" 라벨은 몬스터
+  색과 완전히 무관하게 이 고정값만 쓰도록 분리했다(다이스 3D 색/칩 테두리는
+  기존 `atk_tint`/`def_tint` 그대로 유지 — 그쪽은 이미 밝은 칩 배경 위의
+  테두리라 가독성 문제가 없었음, `_layout_dice_chip_row()` 불변). 어두운
+  배경 기준(`Color(0.05,0.05,0.05)`) 대비비는 공격 13.4:1/방어 13.8:1로
+  WCAG AA(4.5:1) 기준을 넉넉히 통과(`CharacterTheme.contrast_ratio()` 재사용,
+  새 계산 로직 추가 없음).
+
+  **테스트**(`dice_test.gd` 신규 `_check_art1c4_monster_dark_glow()`(await,
+  SubViewport 사용)/`_check_art1c4_dice_label_contrast()`): ① 휘도 함수
+  단위 검증(합성 어두운 이미지(0.05,0.05,0.05)/밝은 이미지(0.9,0.9,0.9)/
+  투명 픽셀 50%+불투명 밝은 픽셀 50% 혼합(평균이 투명 픽셀에 안 끌려
+  내려가는지)) ② 카탈로그 전수 휘도표 출력(위 표 그대로) ③ 실제 production
+  자산(그림자=글로우 켜짐·visible=true, 슬라임=글로우 노드 자체가 없음,
+  밝은 몬스터는 `_face_rect` 셰이더 파라미터(side_fade)까지 불변 재확인)
+  ④ 합성 정사각 가짜 원화(레터박스 없음, `_art1c3_write_fake_square_full()`
+  과 같은 패턴)로 글로우 레이어 자체를 SubViewport에 렌더해 중앙 알파
+  0.322≈GLOW_ALPHA(0.32)·가장자리 margin(본체 밖) 알파 0.098>0.02(완전
+  투명 아님) 확인 ⑤ 라벨 색 상수 두 개의 대비비 계산(13.4:1/13.8:1) + 실제
+  `_show_exchange_dice_chips()`를 어두운 monster_color로 직접 호출해 '공격'/
+  '방어' 라벨 font_color가 상수와 정확히 일치(==)하는지 확인. `bash
+  scripts/qa_shot.sh dice_test` 전체 PASS(FAIL 0건, 909개 OK, 전체 재확인).
+  **셀프 피드백 2라운드** — 라벨 수정 전(`art1c4_shadow_attack_before.png`,
+  "방어" 라벨이 안 보임 재현)/후(`art1c4_shadow_attack_after.png`, 금색
+  "공격"·흰색 "방어" 둘 다 또렷)로 라벨 문제 확인·해결, 글로우
+  ON(`art1c4_shadow_centered.png`) vs GLOW_ALPHA=0 임시 A/B
+  (`art1c4_shadow_centered_noglow.png`, 캡처 후 즉시 0.32로 원복·커밋에 안
+  들어감)로 그림자 실루엣 가장자리에 옅은 보라빛 림 라이트가 실제로 보이는지
+  직접 비교 확인, `art1c4_slime_check.png`(밝은 몬스터)로 회귀 없음 확인.
+  전투 규칙/밸런스 수치는 전혀 건드리지 않았고 `resources/`·`docs/art/`는
+  읽기만 했다.
+
+
 - **2026-10-16 (219)**: INBOX.md 지시(이번 이터레이션 최우선 — "[대형 기획 13]
   [미니 기획 ART-1c-3] 몬스터 컷 가장자리 페이드 + 경로 별칭") **완료.** 아트
   스레드 요청 2건 — ① 몬스터 원화 컷(face_* 표정 컷/full.png 크롭 둘 다)이
