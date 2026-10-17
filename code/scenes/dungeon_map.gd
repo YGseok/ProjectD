@@ -75,8 +75,8 @@ const BUTTON_TOP_GAP := 20.0
 ## [대형 기획 15] Q-4a(12, 2026-10-17): 방 선택지(전투/상점/이벤트/스토리/정예)는 전부
 ## 같은 크기·같은 위계로 쌓는다 — M-1이 "전투만 크게"로 구분했던 것을 INBOX 피드백
 ## ("전투 방 선택지만 크고 그게 메인 선택지처럼 보인다")에 따라 되돌림. 커스터마이징은
-## Q-5에서 별도 위치로 분리될 예정이라 이번엔 건드리지 않는다(원래도 보조 버튼 높이였으니
-## 레이아웃상 차이 없음).
+## Q-5(15, 2026-10-17)로 이 스택에서 완전히 빠져 헤더의 고정 버튼("정비")이 됐다(아래
+## _layout_visible_buttons() 참고).
 const SECONDARY_BUTTON_SPACING := UIKit.SECONDARY_BUTTON_HEIGHT + 10.0
 const SHOP_GOLD_LABEL_GAP := 22.0
 ## MapStrip 방 카드 높이를 내용(행 개수)에 맞춰 계산하는 데 쓰는 치수 — 고정 130px
@@ -314,10 +314,12 @@ func _setup_reward_legend() -> void:
 		legend.add_child(pair)
 
 
-## [대형 기획 13] M-1 → [대형 기획 15] Q-4a(12, 2026-10-17)로 수정: 행동 버튼 6개
-## (전투/상점/특수 이벤트/스토리/정예/커스터마이징)를 전부 "보조 행동" 스타일 하나로
-## 통일한다 — M-1 때는 전투만 꽉 채운 "주 행동" 스타일이었으나, INBOX 피드백("전투 방
-## 선택지만 크고 메인 선택지처럼 보인다")에 따라 방 선택지끼리는 위계를 두지 않는다.
+## [대형 기획 13] M-1 → [대형 기획 15] Q-4a(12, 2026-10-17)로 수정: 방 선택지 버튼
+## 5개(전투/상점/특수 이벤트/스토리/정예)를 전부 "보조 행동" 스타일 하나로 통일한다 —
+## M-1 때는 전투만 꽉 채운 "주 행동" 스타일이었으나, INBOX 피드백("전투 방 선택지만
+## 크고 메인 선택지처럼 보인다")에 따라 방 선택지끼리는 위계를 두지 않는다. "정비"
+## (커스터마이징, 옛 CustomizeButton)는 Q-5(15)부터 방 선택지가 아니라 헤더의 고정
+## 버튼이라 _style_maintenance_button()이 따로 담당한다(아래 참고).
 ## 버튼 텍스트/가시성은 매 _update_labels()마다 바뀌지만 스타일 자체는 캐릭터가 바뀌지
 ## 않는 한 고정이라 _ready()에서 한 번만 호출하면 된다(UIKit.style_*가 "focus" 슬롯은
 ## 건드리지 않아 FocusNav.chain_linear()가 나중에 덮어쓰는 포커스 테두리와 충돌 없음).
@@ -327,7 +329,7 @@ func _style_action_buttons() -> void:
 	UIKit.style_secondary_button(enter_shop_button, cid)
 	UIKit.style_secondary_button(enter_event_button, cid)
 	UIKit.style_secondary_button(enter_story_button, cid)
-	UIKit.style_secondary_button(customize_button, cid)
+	_style_maintenance_button()
 	# "정예 전투"만 INBOX.md [대형 기획 6] G-7 원문대로 위험을 알리는 빨간 테두리를
 	# 유지 — UIKit.style_secondary_button의 tint 매개변수로 같은 틀(두께/모서리) 안에서
 	# 색만 바꾼다(이전에는 틀 자체가 다른 버튼들과 달라 "같은 버튼 스타일"이 아니었음).
@@ -339,6 +341,19 @@ func _style_action_buttons() -> void:
 	# [대형 기획 15] Q-4b(21): "던전 포기"도 "정예 전투"와 같은 경고색 tint — 되돌릴 수
 	# 없는(진행도 폐기) 동작임을 방 선택지들과 다른 위치(헤더 줄)뿐 아니라 색으로도 구분.
 	UIKit.style_secondary_button(quit_run_button, cid, Color(0.85, 0.2, 0.2))
+
+
+## [대형 기획 15] Q-5(15, 2026-10-17): "정비" 버튼은 보유 눈금이 있을 때만 강조한다
+## (INBOX 원문 "보유 눈금이 있을 때만 강조/활성") — 항상 클릭 가능(여분 다이스 열람/
+## 교체는 눈금 없이도 쓸 수 있으므로 비활성화는 하지 않음)하되, 강조는 다른 화면들의
+## "주 행동" 스타일(꽉 찬 캐릭터색)을 그대로 빌려 눈에 띄게 하고, 없으면 다른 고정
+## 버튼(스킬 도감/던전 포기)과 같은 보조 스타일로 가라앉힌다.
+func _style_maintenance_button() -> void:
+	var cid := RunState.character_id
+	if RunState.pip_inventory.is_empty():
+		UIKit.style_secondary_button(customize_button, cid)
+	else:
+		UIKit.style_primary_button(customize_button, cid)
 
 
 ## [대형 기획 13] M-1: 라운드/진행도/골드를 "아이콘 + 큰 숫자 + 짧은 캡션" 칩 3개로
@@ -826,9 +841,11 @@ func _make_room_tier_badge(is_boss: bool, base_dir: String = UIKit.SKIN_BASE_DIR
 
 
 ## 상점/이벤트가 숨겨져도 버튼 사이에 빈 틈이 남지 않도록, 보이는 버튼만 순서대로
-## 다시 세로 배치한다 (전투 방은 항상 첫 자리). "커스터마이징" 버튼은 방 선택지가
-## 아니라 언제든 열 수 있는 별도 기능(STATUS.md 큐 0번 "어디서든 덱 열람 +
-## 커스터마이징")이라 항상 보이는 버튼으로 취급하고 맨 마지막 자리에 둔다.
+## 다시 세로 배치한다 (전투 방은 항상 첫 자리). [대형 기획 15] Q-5(15, 2026-10-17):
+## "정비"(커스터마이징, customize_button)는 더 이상 이 방 선택지 스택에 들어가지
+## 않는다 — 헤더의 고정 버튼(.tscn에 위치 명시, _style_maintenance_button() 참고)으로
+## 분리됐다. "스킬 도감"/"던전 포기"와 같은 이유(언제든 열 수 있는 별도 기능)로 포커스
+## 체인 맨 끝에만 추가한다(아래 참고).
 func _layout_visible_buttons() -> void:
 	var type_button_map := {
 		"shop": enter_shop_button,
@@ -843,8 +860,6 @@ func _layout_visible_buttons() -> void:
 		if btn.visible:
 			visible_buttons.append(btn)
 			visible_types.append(t)
-	visible_buttons.append(customize_button)
-	visible_types.append("")
 
 	_shop_gold_label.visible = false
 
@@ -867,10 +882,12 @@ func _layout_visible_buttons() -> void:
 			_shop_gold_label.size = Vector2(btn.offset_right - btn.offset_left, 18.0)
 			extra_gap = SHOP_GOLD_LABEL_GAP
 		y += SECONDARY_BUTTON_SPACING + extra_gap
-	# [대형 기획 12] L-2(c): "스킬 도감" 버튼은 커스터마이징처럼 방 선택지가 아니라
-	# 언제든 열 수 있는 고정 위치 버튼(화면 우상단, .tscn에 명시)이라 위 y-스택 루프에
-	# 넣지 않고 체인에만 맨 끝으로 추가한다 — 루프가 이미 끝난 뒤라 position은 그대로
-	# 유지되고, 방향키로는 여전히 도달 가능하다.
+	# [대형 기획 12] L-2(c): "스킬 도감" 버튼은 방 선택지가 아니라 언제든 열 수 있는
+	# 고정 위치 버튼(헤더 줄, .tscn에 명시)이라 위 y-스택 루프에 넣지 않고 체인에만
+	# 맨 끝으로 추가한다 — 루프가 이미 끝난 뒤라 position은 그대로 유지되고, 방향키로는
+	# 여전히 도달 가능하다. [대형 기획 15] Q-5(15): "정비"도 같은 이유로 같은 자리(헤더)에
+	# 고정됐으므로 같은 방식으로 추가한다.
+	visible_buttons.append(customize_button)
 	visible_buttons.append(skill_codex_button)
 	# [대형 기획 15] Q-4b(21): "던전 포기"도 커스터마이징/스킬 도감처럼 방 선택지가 아니라
 	# 언제든 누를 수 있는 고정 위치 버튼이라 같은 방식으로 체인 맨 끝에만 추가한다.
@@ -1046,8 +1063,9 @@ func _debug_open_customize() -> void:
 	customize_panel.open()
 
 
-## QA 전용 — 1~2단계(눈금 선택, 다이스 선택)를 거치지 않고 바로 3단계(면 선택) 화면을
-## 열어 그 단계의 레이아웃(면 칩 나열)을 확인하기 위함.
+## QA 전용 — [대형 기획 15] Q-5(16) 재설계 후: 통합 화면에서 "눈금 선택 + 면 선택"까지
+## 끝난 "미리보기" 상태(적용/취소 버튼까지 보이는 상태)를 직접 열어 그 레이아웃을
+## 확인하기 위함.
 func _debug_open_customize_face() -> void:
 	customize_panel.debug_open_face_picker()
 
@@ -1059,7 +1077,8 @@ func _debug_open_customize_with_pips() -> void:
 	customize_panel.open()
 
 
-## QA 전용 — 2단계(다이스 선택) 화면의 레이아웃을 확인하기 위함.
+## QA 전용 — 눈금을 선택해 통합 화면이 "면 선택" 단계(공격/방어 주머니 칩 활성화)로
+## 바뀐 레이아웃을 확인하기 위함.
 func _debug_open_customize_die() -> void:
 	if RunState.pip_inventory.is_empty():
 		RunState.pip_inventory = [3, 5, 2]
@@ -1137,10 +1156,10 @@ func _debug_press_shortcut_elite() -> void:
 	btn.pressed.emit()
 
 
-## QA 전용 — 포커스+확정 경로(클릭 시뮬레이션(GAME_QA_CLICK_PATH)의 키보드판)로 항상
-## 마지막 자리인 "커스터마이징" 버튼까지 이어지는지 확인한다(전투/상점/특수 이벤트/
-## 스토리 이벤트가 몇 개 보이든 무관) — 씬 전환이 없어 스크린샷으로 결과를 바로 확인할
-## 수 있다.
+## QA 전용 — 포커스+확정 경로(클릭 시뮬레이션(GAME_QA_CLICK_PATH)의 키보드판)로 헤더의
+## 고정 버튼 "정비"까지 이어지는지 확인한다(전투/상점/특수 이벤트/스토리 이벤트가 몇 개
+## 보이든 무관 — [대형 기획 15] Q-5(15)부터 방 선택지 스택과 완전히 분리된 자리라서)
+## — 씬 전환이 없어 스크린샷으로 결과를 바로 확인할 수 있다.
 func _debug_press_shortcut_customize() -> void:
 	var btn := customize_button
 	btn.grab_focus()
@@ -1174,6 +1193,38 @@ func _debug_move_deck_panel_left_with_skills() -> void:
 	RunState.skill_flags = ["deep_breath", "spare_die_plus", "frenzy_deepen_plus", "start_expand"]
 	deck_panel.offset_left = 20.0
 	deck_panel.offset_right = 280.0
+
+
+## QA 전용 — [대형 기획 15] Q-5(15) "정비" 버튼의 강조(primary) 스타일을 패널을 열지
+## 않은 헤더 상태로 직접 확인하기 위함(패널이 열리면 오버레이가 화면 대부분을 가려
+## 버튼 자체의 전/후 비교가 어려워짐).
+func _debug_show_maintenance_highlighted() -> void:
+	RunState.pip_inventory = [4]
+	_style_action_buttons()
+
+
+## QA 전용 — [셀프 피드백 수정] 공격/방어 주머니가 DiceBag.MAX_DICE(6)까지 찬 후반
+## 런을 흉내내 "정비" 통합 화면의 미리보기 단계가 720px를 넘고, 포커스가 '닫기' 버튼
+## 까지 이동했을 때 수동 스크롤(_ensure_step_button_visible())이 실제로 화면 안으로
+## 보여주는지(qa_out/q5_preview.png 캡처로 처음 발견된 버그) 확인하기 위함.
+func _debug_open_customize_overflow_close_focus() -> void:
+	RunState.player_attack_bag = DiceBag.new(4, DiceBag.MAX_DICE)
+	RunState.player_defense_bag = DiceBag.new(4, DiceBag.MAX_DICE)
+	RunState.pip_inventory = [4]
+	customize_panel.open()
+	customize_panel._selected_pip_index = 0
+	customize_panel._pending_face = {"bag": RunState.player_attack_bag, "die_index": 0, "face_index": 0}
+	customize_panel._show_pip_picker()
+	# open()의 첫 _show_pip_picker() 호출(미리보기 없음)이 만든 "닫기" 버튼은
+	# _clear_ui()의 queue_free()가 지연 해제라 이 프레임 안에서는 아직 트리에 남아있다
+	# — find_children()은 등장 순서대로 찾으므로 뒤에서부터(이번 redraw가 만든 최신
+	# 버튼) 찾아야 한다.
+	var buttons := customize_panel._content_root.find_children("*", "Button", true, false)
+	for i in range(buttons.size() - 1, -1, -1):
+		var b := buttons[i] as Button
+		if b.text == "닫기":
+			b.grab_focus()
+			break
 
 
 ## QA 전용 — 화면으로는 확인할 수 없는 "실제 교환 로직"(다이스 소모, 밀려난 다이스가

@@ -8,6 +8,69 @@
 
 ---
 
+- **2026-10-16 (216)**: INBOX.md "부분 처리됨" [미니 기획 ART-1] **ART-1c(몬스터
+  원화 경로) 완료 — [미니 기획 ART-1](ART-1a/1b/1c) 전체 완료.** 몬스터 원화는
+  아직 입고 전(`resources/monsters/`가 비어 있음)이라 **코드 경로만** 준비했다
+  (INBOX 지시대로). **구현**: `MonsterPortraitPlaceholder`(`code/scenes/
+  monster_portrait_placeholder.gd`)에 ART-1b(`CharacterPortraitPlaceholder.
+  set_character()`)와 완전히 같은 구조로 `set_monster(monster_id)`를 추가했다 —
+  새 경로-존재 확인 클래스를 만드는 대신, `CharacterArt.has_all_faces()`/
+  `load_face()`(둘 다 character_id + base_dir를 받는 범용 순수 함수라 캐릭터
+  전용 로직이 전혀 없음)를 몬스터 전용 상수 `MONSTER_ART_BASE_DIR`("res://
+  resources/monsters/%s/")로 그대로 재사용해 중복 구현을 만들지 않았다. face_
+  {neutral,happy,hurt,sad,angry}.png 5장이 전부 있으면 `_face_rect`
+  TextureRect(캐릭터와 같은 `FACE_ART_SIZE`/`FACE_ART_FADE_SHADER` 상수를
+  `MonsterPortraitPlaceholder.FACE_ART_SIZE := CharacterPortraitPlaceholder.
+  FACE_ART_SIZE`처럼 참조해 재사용)로 원화 표정 컷을 보여주고, 하나라도 없으면
+  기존 `_draw()` 도형 플레이스홀더(뿔/계열 장식)를 그대로 유지한다.
+  `combat_test.gd`의 몬스터 구성 지점(`_apply_monster_config()` 직후, 기존
+  `monster_portrait.set_body_color()`/`set_family()` 바로 다음 줄)에
+  `monster_portrait.set_monster(monster_id)` 한 줄만 추가해 배선 — `set_
+  expression()` 호출 지점 7곳은 전혀 안 바꿨다(원화 모드일 때 그 함수 내부에서만
+  분기하는 ART-1b와 동일한 설계). **화면 위치 보정**: MonsterPortrait는
+  화면 우측 끝 근처(combat_test.tscn position.x=1170, 화면 폭 1280)라 ART-2가
+  플레이어 쪽(화면 좌측)에서 고친 "잘림"과 반대 방향(오른쪽)으로 잘리는 문제가
+  있어, 신규 상수 `FACE_ART_SHIFT := Vector2(-56.0, 16.0)`(왼쪽으로 이동)로
+  보정했다 — 일반 배율(1.1배) 오른쪽 끝 글로벌 x=1240.4, 보스 배율(1.3배)
+  x=1253.2로 둘 다 화면(1280px) 안에 여유 있게 들어온다(자동 검증 수치,
+  아래 참고). **자동 검증**: `dice_test.gd` 신규 `_check_art1c_monster_face_art()`
+  (ART-1b의 `_check_art1b_combat_face_art()`/ART-2의 `_check_art2_face_crop_fix()`와
+  같은 구조·헬퍼 재사용) — ① 가짜 user:// 디렉터리로 "5장 모두/2장만/0장" 세
+  경우의 `set_monster()` 후 `_use_face_art` 전환 + `set_expression()` 텍스처
+  교체(플래그가 아니라 실제 텍스처 리소스가 바뀌는지) ② production
+  `combat_test.tscn` 인스턴스가 지금 몬스터의 실제 `has_all_faces()` 결과와
+  항상 일치하는지(어떤 몬스터가 입고됐는지 가정하지 않음 — 입고 상태가 바뀌어도
+  안 깨짐) ③ 가짜 "5장 모두"를 production 인스턴스에 직접 주입해 일반/보스
+  배율 둘 다 표정 컷 오른쪽 끝이 화면 밖으로 안 나가는지(수치로) ④ 하단 페이드
+  셰이더가 실제로 렌더되는지(SubViewport로 face_rect를 독립 렌더 — 중간
+  높이 알파=1.000, 바닥 근처(y=238) 알파=0.000로 완전히 투명해짐 확인, ART-2와
+  동일한 검증 방식) 전부 OK. `bash scripts/qa_shot.sh dice_test` 2회 실행,
+  둘 다 "결과: PASS"(FAIL 0건). **셀프 피드백**: 몬스터 쪽 원화가 아직
+  없어 production 화면만으로는 원화 모드 자체를 눈으로 볼 수 없으므로,
+  QA 전용 0-arity 훅 `_debug_show_monster_face_art_normal/_boss()`
+  (`combat_test.gd` 신규)를 추가해 `user://`(resources/ 밖) 임시 디렉터리에
+  단색 가짜 face_*.png 5장을 만들어 주입했다 — `resources/`는 전혀 건드리지
+  않음. `qa_out/art1c_fallback_unchanged.png`(몬스터 원화 없음 — 기존
+  플레이스홀더 동작 그대로, 회귀 없음 코드로 보장)/`art1c_fake_normal.png`/
+  `art1c_fake_boss.png`(가짜 원화 적용, production 배치 좌표 x=1170 기준)를
+  캡처했으나 이 환경의 알려진 QA 캡처 폭 잘림(1028px, 아래 "알려진 이슈" 참고)에
+  걸려 화면 우측(x>1028)의 몬스터 포트레이트 자체가 캡처 밖으로 나가 안 보였다
+  — 1라운드 비평에서 발견. 이 QA 전용 훅에서만 한시적으로 몬스터 포트레이트를
+  화면 중앙(x=500)으로 옮겨 재캡처(`art1c_fake_normal_centered.png`)해 원화
+  텍스처/표정이 실제로 그려지는 것 자체는 확인했지만, 화면 중앙의 다이스 스테이지
+  바닥 장식과 겹쳐 하단 페이드가 눈으로는 뚜렷이 안 보여(디버그 재배치 좌표의
+  부작용일 뿐, 실제 배치(x=1170)에서는 다이스 스테이지와 안 겹침) 2라운드로
+  위 "④ 하단 페이드 셰이더" SubViewport 알파 검증을 `_check_art1c_monster_
+  face_art()`에 추가해 수치로 확정했다(중간 1.000 vs 바닥 0.000 — 셰이더가
+  캐릭터 쪽과 동일하게 완벽히 작동, 화면 캡처로 눈에 안 보인 건 디버그 좌표의
+  겹침 아티팩트였을 뿐 실제 버그가 아니었음을 확인). 캐릭터 ART-1b 구현
+  (`CharacterPortraitPlaceholder.set_character` 등)을 재사용해 중복을 만들지
+  않았고, `resources/`·`docs/art/`는 읽기만 했다. 전투 규칙/밸런스는 건드리지
+  않았다. INBOX.md의 [미니 기획 ART-1] 항목을 "처리됨"으로 옮겼다(ART-1a/1b/1c
+  전부 완료). 신규 몬스터 목록(id/이름/계열/등급/성격/색, MO001~999 대역)을
+  아트 스레드로 전달하는 일은 아직 안 함 — 실제 몬스터 원화 발주가 필요한
+  시점(사람이 아트 제작을 시작할 때)에 "ProjectD Art" 세션으로 넘길 것.
+
 - **2026-10-16 (215)**: INBOX.md "남은 이슈" [대형 기획 14] **N-6(캐릭터 전용
   이벤트 + 특별 선택지) 완료 — [대형 기획 14](N-1~N-6) 전체 완료**.
   **(1) 데이터 표/공용 함수**: `code/systems/event_challenge_pool.gd`에

@@ -5,26 +5,40 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-10-17 (225)
-- 작성자: AI 에이전트. **[대형 기획 15] Q-4b(보유 스킬 팝업 + 던전 포기, 원문
-  11/21) 전체 완료.**
-  (11) 던전 화면 5개(맵/전투/상점/이벤트/스토리)가 공유하는 `DeckPanel`의
-  "보유 스킬" 행을 클릭/Space하면 신규 공용 컴포넌트 `SkillDetailPopup`(화면
-  전체를 덮는 어두운 배경 + 이름/효과 설명 + 우상단 X)이 뜬다 — 배경 클릭/X
-  버튼/Esc 세 갈래 전부로 닫히고 닫기 버튼에 포커스 트랩. (21) 던전 맵 헤더에
-  "던전 포기" 버튼을 추가 — 신규 공용 컴포넌트 `ConfirmDialog`(예/아니오 모달,
-  기본 포커스=취소)로 확인한 뒤에만 `RunState.reset_run()`으로 골드/덱/스킬/방
-  진행을 폐기하고 캐릭터 선택 화면으로 돌아간다. 업적/스킬 도감은 해금 즉시
-  write-through 저장이라 포기와 무관하게 유지되고, 승패 집계 경로 자체를
-  타지 않아 통계도 영향받지 않음을 확인. `dice_test.gd` 신규 체크 2종
-  (`_check_q4b_skill_detail_popup`/`_check_q4b_quit_run_confirm`) 추가,
-  `bash scripts/qa_shot.sh dice_test 60 qa_out/dice_test.png "" 1` 전체
-  **PASS**(FAIL 0건). 셀프 피드백 2라운드 — 1라운드 캡처에서 팝업 X 버튼이
-  장식 버튼 스킨에 눌려 거의 안 보이는 문제를 발견해 전용 스타일로 교체,
-  2라운드 재캡처로 또렷해짐·확인 팝업 포커스·배경 어둡게 효과까지 확인.
+- 일시: 2026-10-17 (226)
+- 작성자: AI 에이전트. 직전 이터레이션(Q-5)이 사용 한도로 미커밋 상태로 끊겨
+  이어받았다. **[대형 기획 15] Q-5(커스터마이징을 던전 선택지에서 분리 + UX
+  재설계, 원문 15/16) 전체 완료 — [대형 기획 15](Q-1~Q-5) 전체 완료.**
+  (15) "정비"(옛 커스터마이징) 버튼이 방 선택지 목록에서 빠져 `dungeon_map.tscn`
+  헤더의 고정 버튼이 됐고, 보유 눈금이 있을 때만 주 행동(primary) 스타일로
+  강조된다(없어도 비활성화는 아님). (16) 기존 "눈금 선택 → 다이스 선택 → 면
+  선택(즉시 적용)" 3단계 순차 화면을 `_show_pip_picker()` 한 화면으로 합쳤다 —
+  보유 눈금을 `ShapeDieChip`(실제 다이스 면 모양) 칩으로, 공격/방어 주머니도
+  같은 칩으로(눈금 선택 전엔 비활성화), 면까지 고르면 적용 전/후 비교(바뀐 면
+  강조)+적용/취소 버튼. "적용"을 눌러야 `_exchange_pip()`이 실제로 실행되고,
+  진행 안내는 한 줄(`_step_caption()`)뿐. 이어서 셀프 피드백 캡처
+  (`qa_out/q5_preview.png`)를 읽다가 **실제 버그를 발견**했다 — 공격/방어
+  주머니가 `DiceBag.MAX_DICE`(6)까지 차면 미리보기 단계의 전체 높이가 720px를
+  넘어 "닫기" 버튼과 프레임 하단이 화면 밖으로 잘렸다. ScrollContainer(M-1과
+  같은 해법)를 시도했으나, 이 패널이 매달리는 씬들의 루트가 전부 Node2D라
+  ScrollContainer가 자기 크기를 뷰포트 기준 **정확히 2배**(2560x1440)로
+  계산해버려 스크롤 수학을 믿을 수 없음을 디버그 훅으로 직접 확인하고,
+  Container 레이아웃에 기대지 않는 **수동 clip+position 스크롤**(`_clip`
+  Control, `_content_root.position.y` 이동, `_ensure_step_button_visible()`가
+  각 버튼 `focus_entered`에 연결)로 교체했다. 검증 과정에서 "닫기 버튼을
+  텍스트로 찾는 dice_test 검증이 `queue_free()`(지연 해제)로 아직 안 끝난
+  이전 redraw의 낡은 버튼을 집어 거짓 PASS"하던 2차 버그도 찾아 "마지막 매치"
+  검색으로 고쳤다. `dice_test.gd` 신규 체크 3종(`_check_q5_maintenance_entry_
+  point`/`_check_q5_customize_preview_matches_apply`/`_check_q5_customize_
+  scroll_follow_focus`) 추가, `bash scripts/qa_shot.sh dice_test 60
+  qa_out/dice_test.png "" 1` 전체 **PASS**(FAIL 0건). 셀프 피드백 3라운드 —
+  정상 상태 확인 → 6다이스+미리보기 상태에서 "닫기" 잘림 버그 발견 →
+  수정 후 영구 QA 훅(`dungeon_map.gd`의
+  `_debug_open_customize_overflow_close_focus()`)으로 재캡처해 "닫기"가 화면
+  안으로 스크롤되는 것을 `qa_out/q5_overflow_close_focus.png`로 직접 확인.
   전투 규칙/밸런스는 건드리지 않았고 `resources/`·`docs/art/`는 읽기만 했다.
-  상세는 아래 "완료 기록 (225)" 참고. **[대형 기획 15]의 다음은 Q-5(커스터마이징
-  분리 + UX 재설계).**
+  상세는 아래 "완료 기록 (226)" 참고. **[대형 기획 15]의 다음은 Q-6(스킬 도감
+  정리, 원문 2/4/8).**
 
 ## 지금 위치
 
@@ -231,9 +245,13 @@ COLOR`). 전투 결과 줄 "공격"/"방어" 라벨은 몬스터 색 대신
 - **다이스 시스템**: `DiceBag`+`CombatMath`, D4~D20 지오메트리 구현. 재질별
   (플라스틱/나무/유리/철제) 시각 색 구분. 몬스터 다이스는 방 진행에 따라
   D4→D6→D8. `DiceBag.MAX_DICE`(=6) 캡 도달 시 "다이스 추가" 비활성화.
-- **커스터마이징**: `CustomizePanel` 진입 화면이 허브(공격/방어 주머니 다이스
-  읽기 전용 + 여분 다이스 인벤토리 + 보유 눈금을 한 화면에서 함께 표시).
-  전투 중에는 열 수 없고 비전투 4개 화면에서는 언제든 가능.
+- **커스터마이징(2026-10-17 [대형 기획 15] Q-5 완료)**: 던전 맵 방 선택지 목록이
+  아니라 헤더의 "정비" 고정 버튼(보유 눈금이 있으면 강조)으로 연다.
+  `CustomizePanel`은 눈금 선택(`ShapeDieChip` 칩) → 공격/방어 주머니 면 선택 →
+  적용 전/후 미리보기+적용/취소를 한 화면에서 보여주고, 내용이 길어지면(주머니
+  다이스가 많을 때) 수동 clip+position 스크롤로 넘친 부분(특히 "닫기" 버튼)이
+  항상 화면 안으로 들어온다. 전투 중에는 열 수 없고 비전투 4개 화면에서는
+  언제든 가능.
 - **UI**: `DeckPanel`(캐릭터 정보+보유 스킬 목록(2026-09-28 신규)+공격/방어
   덱)이 비전투 4개 화면 상시 표시,
   전투 화면은 토글. 던전 맵 `MapStrip` 전체 미리보기 + 보상 카테고리 아이콘
@@ -658,8 +676,12 @@ Q-1 → Q-11)다.** 2026-10-16(221)로 **Q-1(버그 3종 + 캡처 고정, 원문
 열고, 던전 맵에 "던전 포기" 버튼 + `ConfirmDialog`(공용 컴포넌트)로 확인 후
 `RunState.reset_run()`으로 런을 폐기하고 캐릭터 선택으로 복귀한다(업적/도감은
 write-through 저장이라 영향 없음, 승패 집계 경로를 안 타 통계도 안 건드림)
-(상세는 완료 기록 (225)). **다음은 Q-5(커스터마이징을 던전 선택지에서 분리 +
-UX 재설계, 원문 15/16).**
+(상세는 완료 기록 (225)). 2026-10-17(226)로 **Q-5(커스터마이징 분리 + UX
+재설계, 원문 15/16) 완료 — [대형 기획 15](Q-1~Q-5) 전체 완료** — "정비" 버튼이
+던전 맵 헤더 고정 버튼으로 분리됐고, 커스터마이징 패널이 `ShapeDieChip` 기반
+한 화면(눈금 선택→면 선택→미리보기+적용/취소)으로 재설계됐다(수동 clip+position
+스크롤 버그 수정 포함, 상세는 완료 기록 (226)). **다음은 Q-6(스킬 도감 정리,
+원문 2/4/8).**
 
 남은 구조적 후보(급하지 않음): 보스 개별 6종 중 타락한 기사단장만 밴드 미달
 (`MonsterSkills.modify_monster_roll()` 파라미터화가 전제조건이라 사람 설계
@@ -1269,6 +1291,66 @@ UX 재설계, 원문 15/16).**
     조정은 사람이 이 숫자를 보고 다음 지시로 결정).
 
 ## 완료 기록
+
+- **2026-10-17 (226)**: 직전 이터레이션(Q-5)이 사용 한도로 미커밋 상태로 끊겨
+  이어받았다. **[대형 기획 15] Q-5(커스터마이징을 던전 선택지에서 분리 + UX
+  재설계, 원문 15/16) 전체 완료 — [대형 기획 15](Q-1~Q-5) 전체 완료.**
+  코드 자체(`customize_panel.gd`/`dungeon_map.gd`/`.tscn`)는 전 이터레이션에서
+  이미 거의 다 짜여 있었다 — **(15)** "정비"(옛 커스터마이징) 버튼이 방 선택지
+  y-스택(`_layout_visible_buttons()`)에서 완전히 빠져 `dungeon_map.tscn` 헤더의
+  고정 버튼이 됐고(`_style_maintenance_button()`), 보유 눈금(`RunState.
+  pip_inventory`)이 있을 때만 주 행동(primary) 스타일로 강조되고 없으면 보조
+  스타일로 가라앉는다(둘 다 비활성화는 아님 — 항상 접근 가능). **(16)** 기존
+  "눈금 선택 화면 → 다이스 선택 화면 → 면 선택 화면(즉시 적용)" 3단계 순차
+  네비게이션을 `_show_pip_picker()` 한 화면으로 합쳤다 — 보유 눈금을
+  `ShapeDieChip`(다이스 실제 면 모양) 칩으로 나열 → 공격/방어 주머니를 같은
+  칩으로(눈금 선택 전엔 비활성화) → 면까지 고르면 적용 전/후 비교(바뀐 면
+  주황/초록 강조) + "적용"/"취소" 버튼이 뜬다. "적용"을 눌러야 실제
+  `_exchange_pip()`이 실행되고, 그 전까지는 아무것도 안 바뀐다. 진행 안내는
+  `_step_caption()` 한 줄뿐. 기존 교환 규칙(`_exchange_pip`, 값 상한 클램프)과
+  하위 호환 shim(`_show_die_picker`/`_show_face_picker`/`_on_face_chosen`,
+  dungeon_map QA 훅·dice_test.gd가 직접 호출)은 전혀 안 바꿨다.
+  **이번 이터레이션에서 실제로 한 일(이어받은 뒤 추가)**: `bash scripts/
+  qa_shot.sh dice_test` 전체 PASS를 먼저 확인한 뒤, 신규 셀프 피드백 캡처
+  (`qa_out/q5_preview.png`, 1280x720)를 직접 읽고 비평하다가 **실제 버그를
+  발견**했다 — 공격/방어 주머니가 꽉 찰수록(`DiceBag.MAX_DICE=6`) 미리보기
+  단계까지 펼친 통합 화면의 전체 높이가 720px를 넘어 "닫기" 버튼과 프레임
+  하단이 화면 밖으로 잘려 보이지도 눌리지도 않는 문제였다. 처음엔
+  DeckPanel(M-1)과 같은 ScrollContainer 해법을 시도했으나, 이 패널(과
+  dungeon_map.tscn 등 이 패널이 매달리는 모든 씬)의 **씬 루트가 전부 Node2D라서
+  ScrollContainer가 자기 크기를 뷰포트 기준으로 엉뚱하게(실측 2560x1440 —
+  1280x720의 정확히 2배, HiDPI 스케일로 추정) 계산해버려 스크롤 수학이 아예
+  신뢰 불가능**하다는 걸 dungeon_map.gd에 임시 디버그 훅을 붙여 직접 확인했다.
+  그래서 Container 레이아웃에 전혀 기대지 않는 **수동 방식**으로 바꿨다 —
+  `_clip`(clip_contents=true인 평범한 Control, size를 1280x720으로 직접
+  고정 — 이 프로젝트는 이미 이 해상도를 전제하므로 앵커 계산에 기대지 않음)이
+  보이는 영역을 자르고, 그 안의 `_content_root`(평범한 Control)를
+  `position.y`만 움직여 "스크롤"을 흉내낸다(`_ensure_step_button_visible()`가
+  각 버튼의 `focus_entered`에 연결돼, 포커스가 어디로 이동하든 그 버튼이 보이는
+  위치로 수동 계산해 스크롤). 미리보기 단계의 기본 포커스도 눈금 칩(화면
+  맨 위, 스크롤 필요 없음)에서 "적용" 버튼으로 바꿔 자연스럽게 아래쪽이
+  보이게 했다. **검증 중 2차 버그 발견**: 새로 만든 dice_test 검증
+  (`_check_q5_customize_scroll_follow_focus()`)이 "닫기" 버튼을 텍스트로 찾을 때
+  `_clear_ui()`의 `queue_free()`(지연 해제)가 아직 안 끝난 **이전 redraw의 낡은
+  "닫기" 버튼**을 집어 거짓으로 PASS하고 있었다(같은 프레임 안에서
+  `open()` → `_show_pip_picker()`를 두 번 연달아 부르는 패턴 — 이 패널의 여러
+  QA 훅이 공유하는 기존 패턴) — 검색을 "첫 매치"에서 "마지막 매치"로 바꿔
+  실제 최신 버튼을 짚게 고쳤다(`dice_test.gd`/`dungeon_map.gd` 디버그 훅
+  둘 다). **최종 검증**: `dice_test.gd` 신규 `_check_q5_maintenance_entry_point()`
+  ((15) 고정 위치/포커스 체인 포함/강조 스타일 전환)/
+  `_check_q5_customize_preview_matches_apply()`((16) 미리보기 값이
+  `_exchange_pip()` 실제 결과(클램프 포함)와 정확히 일치, 적용 전엔 무변화,
+  적용 후 상태 초기화)/`_check_q5_customize_scroll_follow_focus()`(공격/방어
+  6다이스씩 채운 뒤 미리보기 단계로 "닫기"에 포커스 → 실제 화면 rect가
+  0~1280×0~720 안에 들어오는지, 수정 전엔 실측 FAIL 확인 후 고침) 전부 추가,
+  `bash scripts/qa_shot.sh dice_test 60 qa_out/dice_test.png "" 1` 전체
+  **PASS**(FAIL 0건). 셀프 피드백 3라운드 — ①기본 3다이스 상태 캡처(정상)
+  ②6다이스+미리보기 상태 캡처로 "닫기" 잘림 버그 발견 ③수정 후
+  `dungeon_map.gd`에 임시 QA 훅(`_debug_open_customize_overflow_close_focus()`,
+  영구 보존 — 같은 회귀를 다시 잡을 때 재사용 가능)을 추가해 재캡처, 스크롤이
+  실제로 "닫기"를 화면 안으로 끌어올리는 것을 `qa_out/
+  q5_overflow_close_focus.png`로 직접 확인. 전투 규칙/밸런스는 건드리지
+  않았고 `resources/`·`docs/art/`는 읽기만 했다.
 
 - **2026-10-17 (225)**: **[대형 기획 15] Q-4b(보유 스킬 팝업 + 던전 포기, 원문
   11/21) 전체 완료.**
@@ -1955,72 +2037,9 @@ UX 재설계, 원문 15/16).**
   (M-7은 INBOX 항목이 아니라 STATUS.md 큐/M-6 인수인계 메모에서 파생된 작업이라
   INBOX 변경 없음).
 
-- **2026-10-16 (216)**: INBOX.md "부분 처리됨" [미니 기획 ART-1] **ART-1c(몬스터
-  원화 경로) 완료 — [미니 기획 ART-1](ART-1a/1b/1c) 전체 완료.** 몬스터 원화는
-  아직 입고 전(`resources/monsters/`가 비어 있음)이라 **코드 경로만** 준비했다
-  (INBOX 지시대로). **구현**: `MonsterPortraitPlaceholder`(`code/scenes/
-  monster_portrait_placeholder.gd`)에 ART-1b(`CharacterPortraitPlaceholder.
-  set_character()`)와 완전히 같은 구조로 `set_monster(monster_id)`를 추가했다 —
-  새 경로-존재 확인 클래스를 만드는 대신, `CharacterArt.has_all_faces()`/
-  `load_face()`(둘 다 character_id + base_dir를 받는 범용 순수 함수라 캐릭터
-  전용 로직이 전혀 없음)를 몬스터 전용 상수 `MONSTER_ART_BASE_DIR`("res://
-  resources/monsters/%s/")로 그대로 재사용해 중복 구현을 만들지 않았다. face_
-  {neutral,happy,hurt,sad,angry}.png 5장이 전부 있으면 `_face_rect`
-  TextureRect(캐릭터와 같은 `FACE_ART_SIZE`/`FACE_ART_FADE_SHADER` 상수를
-  `MonsterPortraitPlaceholder.FACE_ART_SIZE := CharacterPortraitPlaceholder.
-  FACE_ART_SIZE`처럼 참조해 재사용)로 원화 표정 컷을 보여주고, 하나라도 없으면
-  기존 `_draw()` 도형 플레이스홀더(뿔/계열 장식)를 그대로 유지한다.
-  `combat_test.gd`의 몬스터 구성 지점(`_apply_monster_config()` 직후, 기존
-  `monster_portrait.set_body_color()`/`set_family()` 바로 다음 줄)에
-  `monster_portrait.set_monster(monster_id)` 한 줄만 추가해 배선 — `set_
-  expression()` 호출 지점 7곳은 전혀 안 바꿨다(원화 모드일 때 그 함수 내부에서만
-  분기하는 ART-1b와 동일한 설계). **화면 위치 보정**: MonsterPortrait는
-  화면 우측 끝 근처(combat_test.tscn position.x=1170, 화면 폭 1280)라 ART-2가
-  플레이어 쪽(화면 좌측)에서 고친 "잘림"과 반대 방향(오른쪽)으로 잘리는 문제가
-  있어, 신규 상수 `FACE_ART_SHIFT := Vector2(-56.0, 16.0)`(왼쪽으로 이동)로
-  보정했다 — 일반 배율(1.1배) 오른쪽 끝 글로벌 x=1240.4, 보스 배율(1.3배)
-  x=1253.2로 둘 다 화면(1280px) 안에 여유 있게 들어온다(자동 검증 수치,
-  아래 참고). **자동 검증**: `dice_test.gd` 신규 `_check_art1c_monster_face_art()`
-  (ART-1b의 `_check_art1b_combat_face_art()`/ART-2의 `_check_art2_face_crop_fix()`와
-  같은 구조·헬퍼 재사용) — ① 가짜 user:// 디렉터리로 "5장 모두/2장만/0장" 세
-  경우의 `set_monster()` 후 `_use_face_art` 전환 + `set_expression()` 텍스처
-  교체(플래그가 아니라 실제 텍스처 리소스가 바뀌는지) ② production
-  `combat_test.tscn` 인스턴스가 지금 몬스터의 실제 `has_all_faces()` 결과와
-  항상 일치하는지(어떤 몬스터가 입고됐는지 가정하지 않음 — 입고 상태가 바뀌어도
-  안 깨짐) ③ 가짜 "5장 모두"를 production 인스턴스에 직접 주입해 일반/보스
-  배율 둘 다 표정 컷 오른쪽 끝이 화면 밖으로 안 나가는지(수치로) ④ 하단 페이드
-  셰이더가 실제로 렌더되는지(SubViewport로 face_rect를 독립 렌더 — 중간
-  높이 알파=1.000, 바닥 근처(y=238) 알파=0.000로 완전히 투명해짐 확인, ART-2와
-  동일한 검증 방식) 전부 OK. `bash scripts/qa_shot.sh dice_test` 2회 실행,
-  둘 다 "결과: PASS"(FAIL 0건). **셀프 피드백**: 몬스터 쪽 원화가 아직
-  없어 production 화면만으로는 원화 모드 자체를 눈으로 볼 수 없으므로,
-  QA 전용 0-arity 훅 `_debug_show_monster_face_art_normal/_boss()`
-  (`combat_test.gd` 신규)를 추가해 `user://`(resources/ 밖) 임시 디렉터리에
-  단색 가짜 face_*.png 5장을 만들어 주입했다 — `resources/`는 전혀 건드리지
-  않음. `qa_out/art1c_fallback_unchanged.png`(몬스터 원화 없음 — 기존
-  플레이스홀더 동작 그대로, 회귀 없음 코드로 보장)/`art1c_fake_normal.png`/
-  `art1c_fake_boss.png`(가짜 원화 적용, production 배치 좌표 x=1170 기준)를
-  캡처했으나 이 환경의 알려진 QA 캡처 폭 잘림(1028px, 아래 "알려진 이슈" 참고)에
-  걸려 화면 우측(x>1028)의 몬스터 포트레이트 자체가 캡처 밖으로 나가 안 보였다
-  — 1라운드 비평에서 발견. 이 QA 전용 훅에서만 한시적으로 몬스터 포트레이트를
-  화면 중앙(x=500)으로 옮겨 재캡처(`art1c_fake_normal_centered.png`)해 원화
-  텍스처/표정이 실제로 그려지는 것 자체는 확인했지만, 화면 중앙의 다이스 스테이지
-  바닥 장식과 겹쳐 하단 페이드가 눈으로는 뚜렷이 안 보여(디버그 재배치 좌표의
-  부작용일 뿐, 실제 배치(x=1170)에서는 다이스 스테이지와 안 겹침) 2라운드로
-  위 "④ 하단 페이드 셰이더" SubViewport 알파 검증을 `_check_art1c_monster_
-  face_art()`에 추가해 수치로 확정했다(중간 1.000 vs 바닥 0.000 — 셰이더가
-  캐릭터 쪽과 동일하게 완벽히 작동, 화면 캡처로 눈에 안 보인 건 디버그 좌표의
-  겹침 아티팩트였을 뿐 실제 버그가 아니었음을 확인). 캐릭터 ART-1b 구현
-  (`CharacterPortraitPlaceholder.set_character` 등)을 재사용해 중복을 만들지
-  않았고, `resources/`·`docs/art/`는 읽기만 했다. 전투 규칙/밸런스는 건드리지
-  않았다. INBOX.md의 [미니 기획 ART-1] 항목을 "처리됨"으로 옮겼다(ART-1a/1b/1c
-  전부 완료). 신규 몬스터 목록(id/이름/계열/등급/성격/색, MO001~999 대역)을
-  아트 스레드로 전달하는 일은 아직 안 함 — 실제 몬스터 원화 발주가 필요한
-  시점(사람이 아트 제작을 시작할 때)에 "ProjectD Art" 세션으로 넘길 것.
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(225)에서 (215)를 그리로 옮겼다.)*
+이번 이터레이션(226)에서 (216)을 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 

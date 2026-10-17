@@ -449,6 +449,18 @@ func _ready() -> void:
 	all_pass = _check_q4b_quit_run_confirm(lines) and all_pass
 
 	lines.append("")
+	lines.append("[Q-5(15): 정비 버튼 분리 — '정비'(customize_button)가 방 선택지 y-스택(_layout_visible_buttons)에 들어가지 않고 헤더 고정 위치를 유지하는지(방 선택지 노출 개수가 바뀌어도 position 불변), 그래도 포커스 체인에는 포함돼 항상 접근 가능한지, 보유 눈금이 있을 때만 강조(primary) 스타일로 바뀌고 없을 때는 보조(secondary) 스타일인지(둘 다 비활성화는 아님 — 항상 클릭 가능)]")
+	all_pass = _check_q5_maintenance_entry_point(lines) and all_pass
+
+	lines.append("")
+	lines.append("[Q-5(16): 커스터마이징 UX 재설계 — 통합 화면의 '미리보기'(적용 전/후 칩, 바뀐 면 강조)에 실제로 렌더된 값이 _exchange_pip()이 실제로 적용한 결과(min(눈금, 면개수) 클램프 포함)와 정확히 일치하는지, '적용'을 누르기 전까지는 아무것도 바뀌지 않는지, '적용' 후 선택 상태가 초기화되는지]")
+	all_pass = _check_q5_customize_preview_matches_apply(lines) and all_pass
+
+	lines.append("")
+	lines.append("[Q-5(16) 후속 — 셀프 피드백 버그 수정: 통합 화면 내용이 720px를 넘을 때 ScrollContainer로 실제 스크롤되는지 — 미리보기 단계에서 전체 내용 높이가 뷰포트(720)를 넘는 경우(여유 있는 공격/방어 주머니 수), '닫기' 버튼에 포커스를 주면 ScrollContainer.follow_focus가 실제로 스크롤해 그 버튼이 화면(0~720) 안으로 들어오는지]")
+	all_pass = _check_q5_customize_scroll_follow_focus(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -9594,27 +9606,31 @@ func _check_n3_button_styling(lines: PackedStringArray) -> bool:
 	lines.append("  SkillCodexPanel: 미스타일 버튼=%s -> %s" % [codex_unstyled, "OK" if codex_ok else "FAIL"])
 	codex.queue_free()
 
-	# CustomizePanel은 5단계(허브/다이스 인벤토리/다이스 자리 선택/눈금 다이스 선택/면
-	# 선택)가 전부 다른 _show_*_picker()라, 각 단계를 직접 호출해(기존 debug_open_*
-	# 헬퍼와 같은 패턴) 버튼이 생성된 상태에서 누적으로 검사한다.
+	# [대형 기획 15] Q-5(16) 재설계 후: CustomizePanel의 "눈금<->면" 교환은 더 이상
+	# 별도 화면이 아니라 통합 화면(_show_pip_picker)이 상태(_selected_pip_index/
+	# _pending_face)에 따라 다르게 그려진다 — 아무것도 선택 안 함/눈금만 선택/
+	# 눈금+면까지 선택(미리보기+적용/취소 버튼) 3가지 상태를 _show_die_picker()/
+	# _show_face_picker() shim으로 만들어가며 누적 검사한다. 다이스 인벤토리 흐름
+	# (_show_die_inventory_picker/_show_die_target_picker)은 이번 재설계 대상이 아니라
+	# 그대로 별도 화면이다.
 	RunState.pip_inventory = [4]
 	RunState.die_inventory = [6]
 	var cp := CustomizePanel.new()
 	add_child(cp)
 	var cp_unstyled: Array = []
-	cp.open() # _show_pip_picker()
+	cp.open() # _show_pip_picker() — 선택 없음
 	cp_unstyled += _n3_find_unstyled_buttons(cp)
 	cp._show_die_inventory_picker()
 	cp_unstyled += _n3_find_unstyled_buttons(cp)
 	cp._show_die_target_picker(0)
 	cp_unstyled += _n3_find_unstyled_buttons(cp)
-	cp._show_die_picker(0)
+	cp._show_die_picker(0) # 눈금만 선택
 	cp_unstyled += _n3_find_unstyled_buttons(cp)
-	cp._show_face_picker(RunState.player_attack_bag, 0, 0)
+	cp._show_face_picker(RunState.player_attack_bag, 0, 0) # 눈금+면 선택 -> 미리보기
 	cp_unstyled += _n3_find_unstyled_buttons(cp)
 	var cp_ok: bool = cp_unstyled.is_empty()
 	ok = cp_ok and ok
-	lines.append("  CustomizePanel(5단계 전체): 미스타일 버튼=%s -> %s" % [cp_unstyled, "OK" if cp_ok else "FAIL"])
+	lines.append("  CustomizePanel(통합 화면 상태 전체): 미스타일 버튼=%s -> %s" % [cp_unstyled, "OK" if cp_ok else "FAIL"])
 	cp.queue_free()
 
 	RunState.character_id = character_backup
@@ -11414,3 +11430,268 @@ func _check_q4b_quit_run_confirm(lines: PackedStringArray) -> bool:
 	RunState.skill_flags = skill_backup
 	RunState.chosen_starting_skill_id = chosen_skill_backup
 	return ok
+
+
+## [대형 기획 15] Q-5(15, 2026-10-17) 검증 — INBOX 원문 "선택지 목록에서 제거하고
+## 던전 맵의 별도 영역(HUD/하단 '정비' 작업대 진입 버튼)으로 이동... 보유 눈금이 있을
+## 때만 강조/활성"을 그대로 코드화한다: "정비" 버튼이 방 선택지가 몇 개 보이든(0개/
+## 전부 5개) 헤더의 같은 고정 위치에 머무는지(= _layout_visible_buttons()의 y-스택
+## 루프 대상이 아님), 그래도 FocusNav 체인에는 포함돼 방향키로 도달 가능한지, 보유
+## 눈금 유무에 따라 primary/secondary 스타일이 실제로 바뀌는지(둘 다 비활성화는
+## 아님 — "항상 접근 가능" 요구).
+func _check_q5_maintenance_entry_point(lines: PackedStringArray) -> bool:
+	var ok := true
+	var character_backup := RunState.character_id
+	var rooms_backup := RunState.rooms_cleared
+	var round_backup := RunState.round_index
+	var pip_backup: Array[int] = RunState.pip_inventory.duplicate()
+	RunState.reset_run("novice")
+	RunState.round_index = 1
+	RunState.rooms_cleared = 0
+
+	var map_scene := load("res://code/scenes/dungeon_map.tscn")
+	var map = map_scene.instantiate()
+	add_child(map)
+
+	# 방 선택지 전부 숨긴 상태(전투만 노출)에서 "정비" 버튼의 헤더 위치를 기록한다.
+	map._shop_available = false
+	map._event_available = false
+	map._story_available = false
+	map._elite_available = false
+	var empty_room_order: Array[String] = []
+	map._room_order = empty_room_order
+	map._update_labels()
+	var pos_minimal: Vector2 = map.customize_button.position
+
+	# 방 선택지를 전부(5종) 노출시켜도 같은 자리에 그대로 있어야 한다 — y-스택 루프
+	# 대상이었다면 아래로 밀려났을 것이다.
+	map._shop_available = true
+	map._event_available = true
+	map._story_available = true
+	map._elite_available = true
+	var full_room_order: Array[String] = ["shop", "event", "story", "elite"]
+	map._room_order = full_room_order
+	map._update_labels()
+	var pos_full: Vector2 = map.customize_button.position
+	var fixed_position_ok: bool = pos_minimal.is_equal_approx(pos_full)
+	ok = fixed_position_ok and ok
+	lines.append("  (15) '정비' 버튼 위치: 방 선택지 0개=%s, 5개=%s(같아야 함) -> %s" % [
+		pos_minimal, pos_full, "OK" if fixed_position_ok else "FAIL"
+	])
+
+	# 방 선택지 버튼과 같은 y범위를 쓰지 않아야 한다(= 같은 스택에 안 섞여 있음).
+	var not_overlapping_room_stack_ok: bool = absf(pos_full.y - map.enter_combat_button.position.y) > 1.0
+	ok = not_overlapping_room_stack_ok and ok
+	lines.append("  (15) '정비' y좌표(%.1f)가 방 선택지 스택 첫 자리(%.1f)와 달라야 함 -> %s" % [
+		pos_full.y, map.enter_combat_button.position.y, "OK" if not_overlapping_room_stack_ok else "FAIL"
+	])
+
+	# 그래도 방향키 체인(_shortcut_buttons)에는 포함돼 있어야 한다("항상 접근 가능").
+	var in_chain_ok: bool = map._shortcut_buttons.has(map.customize_button)
+	ok = in_chain_ok and ok
+	lines.append("  (15) '정비' 버튼이 방향키 포커스 체인에 포함됨(항상 접근 가능) -> %s" % (
+		"OK" if in_chain_ok else "FAIL"
+	))
+
+	# 보유 눈금 유무에 따라 강조(primary)/보조(secondary) 스타일이 바뀌어야 한다 —
+	# 두 경우 다 비활성화는 아니다.
+	RunState.pip_inventory = []
+	map._style_action_buttons()
+	var style_empty: StyleBox = map.customize_button.get_theme_stylebox("normal")
+	var disabled_when_empty: bool = map.customize_button.disabled
+
+	RunState.pip_inventory = [4]
+	map._style_action_buttons()
+	var style_with_pips: StyleBox = map.customize_button.get_theme_stylebox("normal")
+	var disabled_when_has_pips: bool = map.customize_button.disabled
+
+	var highlight_changes_ok: bool = not disabled_when_empty and not disabled_when_has_pips \
+		and _q5_stylebox_bg(style_empty) != _q5_stylebox_bg(style_with_pips)
+	ok = highlight_changes_ok and ok
+	lines.append("  (15) 눈금 없음 bg=%s / 눈금 있음 bg=%s(달라야 함), 둘 다 비활성 아님(없음=%s, 있음=%s) -> %s" % [
+		_q5_stylebox_bg(style_empty), _q5_stylebox_bg(style_with_pips), disabled_when_empty, disabled_when_has_pips,
+		"OK" if highlight_changes_ok else "FAIL"
+	])
+
+	remove_child(map)
+	map.free()
+	RunState.character_id = character_backup
+	RunState.rooms_cleared = rooms_backup
+	RunState.round_index = round_backup
+	RunState.pip_inventory = pip_backup
+	return ok
+
+
+## _check_q5_maintenance_entry_point() 전용 헬퍼 — StyleBoxFlat/StyleBoxTexture 양쪽을
+## 다 받아 "구분 가능한 지문" 하나를 돌려준다(M-5a 이미지 스킨이 있으면 StyleBoxTexture,
+## 없으면 StyleBoxFlat로 폴백하는 UIKit 관례 — _m5_style_fingerprint()와 같은 이유).
+func _q5_stylebox_bg(style: StyleBox) -> Variant:
+	if style is StyleBoxFlat:
+		return (style as StyleBoxFlat).bg_color
+	if style is StyleBoxTexture:
+		return (style as StyleBoxTexture).texture
+	return style
+
+
+## [대형 기획 15] Q-5(16, 2026-10-17) 검증 — INBOX 원문 "결과 미리보기(전/후 값 비교,
+## 바뀐 면 강조)... 전/후 미리보기 값이 실제 적용 결과와 일치하는지(계산)"을 그대로
+## 코드화한다. 통합 화면이 실제로 렌더한 미리보기 칩(PENDING_HIGHLIGHT_BORDER=적용 전
+## 바뀔 면, APPLIED_HIGHLIGHT_BORDER=적용 후 값)의 .value를 읽어 _exchange_pip()의
+## 실제 결과(클램프 포함)와 비교한다 — "적용" 전에는 아무것도 안 바뀌고, "적용"을
+## 눌러야만 bag/pip_inventory가 실제로 바뀌는지까지 확인한다.
+func _check_q5_customize_preview_matches_apply(lines: PackedStringArray) -> bool:
+	var ok := true
+	var character_backup := RunState.character_id
+	var pip_backup: Array[int] = RunState.pip_inventory.duplicate()
+	# 통합 화면이 RunState.player_attack_bag/player_defense_bag도 함께 그리므로(공격/방어
+	# 주머니 섹션), 이 테스트 실행 전 다른 테스트가 남긴 상태와 무관하게 결정적으로
+	# 만들어 둔다(이 파일 전체의 확립된 관례).
+	RunState.reset_run("novice")
+
+	var panel := CustomizePanel.new()
+	add_child(panel)
+
+	# D6 다이스 1개, 면 index=2를 바꿀 대상으로 고른다. 눈금 7은 상한(6)으로 클램프돼야
+	# 한다 — 클램프 경로까지 미리보기가 정확히 반영하는지 함께 검증.
+	var bag := DiceBag.new(6, 1)
+	var before_face_value: int = bag.dice[0][2]
+	RunState.pip_inventory = [7]
+	panel.open()
+	panel._selected_pip_index = 0
+	panel._pending_face = {"bag": bag, "die_index": 0, "face_index": 2}
+	panel._show_pip_picker()
+
+	var expected_after: int = min(7, bag.dice[0].size())
+
+	# "적용" 전에는 아무것도 바뀌지 않아야 한다.
+	var nothing_changed_yet_ok: bool = bag.dice[0][2] == before_face_value and RunState.pip_inventory == [7]
+	ok = nothing_changed_yet_ok and ok
+	lines.append("  (16) 미리보기 단계에서는 아직 bag/pip_inventory가 안 바뀜(face=%d, pip=%s) -> %s" % [
+		bag.dice[0][2], RunState.pip_inventory, "OK" if nothing_changed_yet_ok else "FAIL"
+	])
+
+	var after_chip := _q5_find_chip_by_border(panel, CustomizePanel.APPLIED_HIGHLIGHT_BORDER)
+	var after_preview_ok: bool = after_chip != null and after_chip.value == expected_after
+	ok = after_preview_ok and ok
+	lines.append("  (16) 미리보기 '적용 후' 칩 값=%s (기대 min(7,6)=%d, 클램프 반영) -> %s" % [
+		(after_chip.value if after_chip != null else "없음"), expected_after, "OK" if after_preview_ok else "FAIL"
+	])
+
+	var before_chip := _q5_find_chip_by_border(panel, CustomizePanel.PENDING_HIGHLIGHT_BORDER)
+	var before_preview_ok: bool = before_chip != null and before_chip.value == before_face_value
+	ok = before_preview_ok and ok
+	lines.append("  (16) 미리보기 '적용 전'(바뀔 면) 칩 값=%s (기대 %d, 원래 면 값) -> %s" % [
+		(before_chip.value if before_chip != null else "없음"), before_face_value, "OK" if before_preview_ok else "FAIL"
+	])
+
+	panel._confirm_exchange()
+	var applied_ok: bool = bag.dice[0][2] == expected_after and RunState.pip_inventory == [before_face_value]
+	ok = applied_ok and ok
+	lines.append("  (16) '적용' 실제 결과: face=%d inventory=%s (기대 %d, [%d] — 미리보기와 정확히 일치해야) -> %s" % [
+		bag.dice[0][2], RunState.pip_inventory, expected_after, before_face_value, "OK" if applied_ok else "FAIL"
+	])
+
+	var state_reset_ok: bool = panel._selected_pip_index == -1 and panel._pending_face.is_empty()
+	ok = state_reset_ok and ok
+	lines.append("  (16) '적용' 후 선택 상태 초기화(pip_index=-1, pending_face 없음) -> %s" % (
+		"OK" if state_reset_ok else "FAIL"
+	))
+
+	remove_child(panel)
+	panel.queue_free()
+	RunState.character_id = character_backup
+	RunState.pip_inventory = pip_backup
+	return ok
+
+
+## _check_q5_customize_preview_matches_apply() 전용 재귀 헬퍼 — 트리 안에서 지정한
+## border_color를 가진 첫 ShapeDieChip을 찾는다(미리보기 섹션의 "바뀔 면"/"적용 후"
+## 강조 칩은 고유한 상수 border색을 쓰므로 모호함 없이 식별 가능).
+func _q5_find_chip_by_border(node: Node, border: Color) -> ShapeDieChip:
+	if node is ShapeDieChip and (node as ShapeDieChip).border_color == border:
+		return node
+	for c in node.get_children():
+		var found := _q5_find_chip_by_border(c, border)
+		if found != null:
+			return found
+	return null
+
+
+## [대형 기획 15] Q-5(16) 후속 — 셀프 피드백 캡처(qa_out/q5_preview.png)로 발견한 버그
+## 검증: 공격/방어 주머니에 다이스가 많이 쌓인(DiceBag.MAX_DICE=6 근처) 후반 런에서
+## 미리보기 단계까지 펼치면 전체 내용 높이가 720px를 넘어 '닫기' 버튼이 화면 밖으로
+## 잘려 보이지도 눌리지도 않았다. 처음에는 ScrollContainer로 감쌌으나, 이 패널이
+## 매달리는 씬들의 루트가 전부 Node2D라 ScrollContainer가 자기 크기를 뷰포트 기준
+## 으로 엉뚱하게(실측 2560x1440, 1280x720의 정확히 2배) 계산해버려 못 믿었다 —
+## _clip(평범한 Control, size를 1280x720으로 직접 고정)+_content_root.position
+## 수동 이동 방식으로 바꿨다(customize_panel.gd _ensure_step_button_visible() 참고).
+## 포커스가 '닫기'까지 이동하면 그 수동 스크롤이 실제로 화면(0~720) 안으로 넣어
+## 주는지 확인한다.
+func _check_q5_customize_scroll_follow_focus(lines: PackedStringArray) -> bool:
+	var ok := true
+	var character_backup := RunState.character_id
+	var attack_backup := RunState.player_attack_bag
+	var defense_backup := RunState.player_defense_bag
+	var pip_backup: Array[int] = RunState.pip_inventory.duplicate()
+	RunState.reset_run("novice")
+
+	# 후반 런을 흉내내 공격/방어 둘 다 DiceBag.MAX_DICE(6)까지 채운다 — 이 정도는 돼야
+	# 미리보기까지 포함한 전체 내용이 720px를 확실히 넘는다(기본 3개짜리는 넘더라도
+	# 아슬아슬해 재현이 불안정할 수 있음).
+	RunState.player_attack_bag = DiceBag.new(4, DiceBag.MAX_DICE)
+	RunState.player_defense_bag = DiceBag.new(4, DiceBag.MAX_DICE)
+	RunState.pip_inventory = [4]
+
+	var panel := CustomizePanel.new()
+	add_child(panel)
+	panel.open()
+	panel._selected_pip_index = 0
+	panel._pending_face = {"bag": RunState.player_attack_bag, "die_index": 0, "face_index": 0}
+	panel._show_pip_picker()
+
+	var content_height: float = panel._content_height
+	var overflow_ok: bool = content_height > 720.0
+	ok = overflow_ok and ok
+	lines.append("  내용 전체 높이=%.1f (기대 > 720, 스크롤이 실제로 필요한 상태) -> %s" % [
+		content_height, "OK" if overflow_ok else "FAIL"
+	])
+
+	var close_btn := _q5_find_button_by_text(panel, "닫기")
+	var found_ok: bool = close_btn != null
+	ok = found_ok and ok
+	lines.append("  '닫기' 버튼을 트리에서 찾음 -> %s" % ("OK" if found_ok else "FAIL"))
+
+	if close_btn != null:
+		close_btn.grab_focus()
+		var screen := Rect2(0.0, 0.0, 1280.0, 720.0)
+		var btn_rect := close_btn.get_global_rect()
+		var visible_ok: bool = screen.encloses(btn_rect)
+		ok = visible_ok and ok
+		lines.append("  '닫기'에 포커스 이동 후 실제 화면 rect=%s (기대: 화면(0~1280,0~720) 안) -> %s" % [
+			btn_rect, "OK" if visible_ok else "FAIL"
+		])
+
+	remove_child(panel)
+	panel.queue_free()
+	RunState.character_id = character_backup
+	RunState.player_attack_bag = attack_backup
+	RunState.player_defense_bag = defense_backup
+	RunState.pip_inventory = pip_backup
+	return ok
+
+
+## _check_q5_customize_scroll_follow_focus() 전용 헬퍼 — 트리 안에서 지정한 text를
+## 가진 Button을 찾되, "마지막으로 찾은 것"을 반환한다(첫 번째가 아니라). CustomizePanel의
+## _clear_ui()는 queue_free()(지연 해제)를 쓰므로, open() 직후 바로 _show_pip_picker()를
+## 또 호출하는 식으로 같은 프레임 안에서 재호출하면 지난 redraw의 "닫기" 버튼이 아직
+## 트리에 남아있는 채로 새 "닫기" 버튼이 맨 끝에 추가된다 — 첫 번째 매치만 찾으면 이미
+## 못 쓰게 된(값이 낡은) 버튼을 짚게 된다(실제로 이 버그로 처음엔 거짓 PASS가 났었다).
+func _q5_find_button_by_text(node: Node, text: String) -> Button:
+	var last_match: Button = null
+	if node is Button and (node as Button).text == text:
+		last_match = node
+	for c in node.get_children():
+		var found := _q5_find_button_by_text(c, text)
+		if found != null:
+			last_match = found
+	return last_match

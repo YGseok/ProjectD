@@ -88,11 +88,11 @@ offset_bottom = 650.0
 text = "정예 전투 입장"
 
 [node name="CustomizeButton" type="Button" parent="."]
-offset_left = 350.0
-offset_top = 600.0
-offset_right = 690.0
-offset_bottom = 650.0
-text = "커스터마이징: 눈금 교환"
+offset_left = 740.0
+offset_top = 24.0
+offset_right = 890.0
+offset_bottom = 60.0
+text = "정비"
 
 [node name="DeckPanel" type="PanelContainer" parent="."]
 offset_left = 980.0
