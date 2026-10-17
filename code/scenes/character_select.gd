@@ -206,6 +206,8 @@ var _starting_skill_container: HBoxContainer
 var _starting_skill_desc_label: Label
 var _starting_skill_lock_badge_label: Label
 var _starting_skill_unlock_label: Label
+## [대형 기획 15] Q-7(c)(2026-10-17) 신규 — 선택/미리보기 중인 시작 스킬의 효과 도식.
+var _starting_skill_diagram: SkillDiagram
 
 ## 잠긴 슬롯을 "미리보기" 중인 스킬 id([대형 기획 5] F-1) — 빈 문자열이면 미리보기
 ## 없음(설명란은 RunState.chosen_starting_skill_id를 보여줌). 캐릭터를 바꾸거나 실제로
@@ -868,6 +870,10 @@ func _build_ability_section() -> void:
 ## _rebuild_starting_skill_slots()가 캐릭터를 고를 때마다 담당한다.
 func _build_starting_skill_section() -> void:
 	var body := _make_section("시작 스킬 (하나만 선택)")
+	# Q-7(c): 도식(44px)이 늘어난 만큼, 세로 예산(580px, 전신 컬럼과 공유)을 지키려고
+	# 이 섹션만 줄 사이 간격을 기본값(4)보다 좁힌다(dice_test.gd N-2b — 전신 컬럼이
+	# 던전 입장 버튼과 안 겹쳐야 함).
+	body.add_theme_constant_override("separation", 2)
 
 	_starting_skill_container = HBoxContainer.new()
 	_starting_skill_container.add_theme_constant_override("separation", 10)
@@ -881,6 +887,14 @@ func _build_starting_skill_section() -> void:
 	_starting_skill_lock_badge_label.add_theme_color_override("font_color", Color(0.85, 0.68, 0.25))
 	_starting_skill_lock_badge_label.visible = false
 	body.add_child(_starting_skill_lock_badge_label)
+
+	# [대형 기획 15] Q-7(c): 선택/미리보기 중인 스킬의 효과 도식 — 잠금 배지 아래,
+	# 효과 설명 문장 위에 둬서 "글을 읽지 않아도 효과를 빠르게 안다"는 요구를 캐릭터
+	# 선택 화면에서도 충족한다. SECTION_BODY_WRAP_WIDTH(372)가 고정폭이라 자동 줄바꿈.
+	_starting_skill_diagram = SkillDiagram.new()
+	_starting_skill_diagram.size_variant = SkillDiagramChip.SIZE_LARGE
+	_starting_skill_diagram.custom_minimum_size = Vector2(SECTION_BODY_WRAP_WIDTH, 0)
+	body.add_child(_starting_skill_diagram)
 
 	_starting_skill_desc_label = _make_detail_body_label()
 	_starting_skill_desc_label.add_theme_font_size_override("font_size", 13)
@@ -1243,6 +1257,7 @@ func _update_starting_skill_description(candidates: Array[Dictionary]) -> void:
 		if skill["id"] != show_id:
 			continue
 		_starting_skill_desc_label.text = "효과: %s" % skill["description"]
+		_starting_skill_diagram.diagram_data = SkillPool.diagram_for(skill["id"])
 		if _preview_skill_id != "":
 			_starting_skill_lock_badge_label.visible = true
 			_starting_skill_unlock_label.text = "해금 조건: %s" % SkillPool.unlock_requirement(_selected_id, i)["text"]
@@ -1252,6 +1267,7 @@ func _update_starting_skill_description(candidates: Array[Dictionary]) -> void:
 			_starting_skill_unlock_label.visible = false
 		return
 	_starting_skill_desc_label.text = ""
+	_starting_skill_diagram.diagram_data = []
 	_starting_skill_lock_badge_label.visible = false
 	_starting_skill_unlock_label.visible = false
 
