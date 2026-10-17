@@ -25,8 +25,10 @@ extends Control
 ## (2) 상태 배지가 카드 안쪽 줄 하나를 차지하던 것 → 카드 우상단 모서리에 겹쳐 뜨는
 ## 작은 태그(폭 48px, 폰트 9)로 축소. (4) 시작 스킬 3개를 codex_entries() 순서(항상
 ## 맨 앞, SkillPool.starting_skills_for_character()가 보장하는 슬롯 순서 그대로)로 뽑아
-## 별도 "시작 스킬" 구역(가로 한 줄, 슬롯 번호 태그를 좌상단에 추가로 겹쳐 일반 스킬과
-## 레이아웃을 구분)에 먼저 그리고, "일반 스킬" 구역(기존 3열 격자)이 그 아래 이어진다.
+## 별도 "시작 스킬" 구역(가로 한 줄, 슬롯 번호 태그를 이름 줄 옆에 붙여 일반 스킬과
+## 레이아웃을 구분 — 2026-10-18에 카드 좌상단 절대 위치 오버레이에서 이 자리로 옮김,
+## Q-7(c)가 그 자리에 올린 SkillDiagram과 겹쳤기 때문, _make_card() 참고)에 먼저 그리고,
+## "일반 스킬" 구역(기존 3열 격자)이 그 아래 이어진다.
 ## (8) 아이콘을 "좌측 큰 정사각형(60px, 프레임 포함) + 우측 이름/설명" 가로 배치로
 ## 바꿈 — 미발견 카드는 모티프 아이콘 대신 LockIcon(스킬 정보 비공개 규칙 유지)을 보여준다.
 ## 덤으로 카드를 클릭/Space하면(CharacterCardPanel.activated, deck_panel.gd의 "보유 스킬"
@@ -95,8 +97,15 @@ var _desc_label_by_id: Dictionary = {}
 var _icon_by_id: Dictionary = {}
 ## Q-6 신규: 미발견 카드는 SkillIcon이 아니라 LockIcon을 쓴다(스킬 정보 비공개 유지).
 var _lock_icon_by_id: Dictionary = {}
-## Q-6 신규: 시작 스킬 카드에만 붙는 좌상단 "슬롯 N" 태그.
+## Q-6 신규: 시작 스킬 카드에만 붙는 "슬롯 N" 태그(2026-10-18 감독 피드백으로 절대
+## 위치 오버레이에서 이름 줄 옆 인라인 요소로 이동 — 아래 _make_card() 참고).
 var _slot_tag_by_id: Dictionary = {}
+## 2026-10-18 신규 — 발견/보유 카드의 SkillDiagram 노드(skill_id -> Control). 테스트가
+## 슬롯 태그와 도식이 겹치지 않는지 실제 rect로 검증할 수 있게 공개해둔다.
+var _diagram_by_id: Dictionary = {}
+## [대형 기획 15] Q-8(a) 신규 — 발견/보유 카드의 레어리티 등급 태그 Label(skill_id ->
+## Label). 미발견 카드는 없음(정보 비공개).
+var _rarity_tag_by_id: Dictionary = {}
 
 ## Q-6 신규: 보유/발견 카드를 클릭/Space하면 여는 상세 팝업(SkillDetailPopup, 공용
 ## 컴포넌트) — deck_panel.gd의 "보유 스킬" 행과 같은 패턴. _ui/_clear_ui()에 묶지 않고
@@ -139,6 +148,8 @@ func _clear_ui() -> void:
 	_icon_by_id.clear()
 	_lock_icon_by_id.clear()
 	_slot_tag_by_id.clear()
+	_diagram_by_id.clear()
+	_rarity_tag_by_id.clear()
 	_starting_row = null
 	_general_grid = null
 
@@ -376,9 +387,37 @@ func _make_corner_tag(parent: Control, text: String, bg_color: Color, text_color
 	return {"panel": tag, "label": label}
 
 
+## "슬롯 N" 태그(2026-10-18 감독 피드백) — _make_corner_tag()와 같은 시각 스타일(작은
+## 알약 칩)이지만 절대 위치 오버레이가 아니라 일반 흐름(normal flow) 요소로 만들어,
+## 호출부가 넣는 컨테이너(name_row)의 레이아웃에 맞춰 자연스럽게 자리를 차지한다 — 카드
+## 상단의 SkillDiagram과 같은 좌표를 두고 경쟁할 일이 구조적으로 없다(겹침 여부를
+## 좌표 계산으로 맞추는 대신, 겹칠 수 있는 자리 자체를 안 쓰는 접근).
+func _make_inline_tag(text: String, bg_color: Color, text_color: Color) -> Dictionary:
+	var tag := PanelContainer.new()
+	tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tag.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var style := StyleBoxFlat.new()
+	style.bg_color = bg_color
+	style.set_corner_radius_all(4)
+	style.content_margin_left = 5
+	style.content_margin_right = 5
+	style.content_margin_top = 1
+	style.content_margin_bottom = 1
+	tag.add_theme_stylebox_override("panel", style)
+
+	var label := Label.new()
+	label.text = text
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.add_theme_font_size_override("font_size", 9)
+	label.add_theme_color_override("font_color", text_color)
+	tag.add_child(label)
+
+	return {"panel": tag, "label": label}
+
+
 ## 카드 하나(CharacterCardPanel 재사용 — L-1이 만든 "클릭/포커스 가능한 PanelContainer +
 ## hover 피드백"을 그대로 쓴다). Q-6부터 보유/발견 카드는 클릭/Space로 SkillDetailPopup을
-## 연다(미발견은 정보 비공개라 연결하지 않음). is_starting이면 좌상단에 "슬롯 N" 태그가
+## 연다(미발견은 정보 비공개라 연결하지 않음). is_starting이면 이름 줄 옆에 "슬롯 N" 태그가
 ## 추가로 붙는다(슬롯 번호는 slot_index+1 — 일반 스킬은 slot_index=-1이라 태그 없음).
 func _make_card(entry: Dictionary, slot_index: int, palette: Dictionary, is_starting: bool = false) -> Control:
 	var skill_id: String = entry["id"]
@@ -430,6 +469,7 @@ func _make_card(entry: Dictionary, slot_index: int, palette: Dictionary, is_star
 		diagram.size_variant = SkillDiagramChip.SIZE_LARGE
 		diagram.diagram_data = SkillPool.diagram_for(skill_id)
 		content_vbox.add_child(diagram)
+		_diagram_by_id[skill_id] = diagram
 
 	var hbox := HBoxContainer.new()
 	hbox.add_theme_constant_override("separation", 10)
@@ -477,9 +517,33 @@ func _make_card(entry: Dictionary, slot_index: int, palette: Dictionary, is_star
 	text_col.add_theme_constant_override("separation", 4)
 	hbox.add_child(text_col)
 
+	# [감독 피드백, Q-7(c) 직후(2026-10-18)] "슬롯 N" 태그가 카드 좌상단 절대 위치
+	# 겹침(_make_corner_tag, wrap 기준 anchor)으로 그려지던 것이 Q-7(c)가 그 바로 아래
+	# 자리에 올린 SkillDiagram 첫 칩과 겹쳤다. 겹침 계산에 기대지 않고 구조적으로
+	# 피하기 위해, 절대 위치 오버레이를 버리고 이름 줄 옆(name_row)에 일반 흐름 요소로
+	# 넣는다 — 도식은 content_vbox의 별도 줄(hbox 위)에 있고 이 태그는 hbox 안 text_col에
+	# 있어 같은 자리를 차지할 수 없다.
+	var name_row := HBoxContainer.new()
+	name_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	name_row.add_theme_constant_override("separation", 6)
+	text_col.add_child(name_row)
+
+	if is_starting:
+		var slot_info := _make_inline_tag("슬롯 %d" % (slot_index + 1), SLOT_TAG_BG, palette["accent"])
+		name_row.add_child(slot_info["panel"])
+		_slot_tag_by_id[skill_id] = slot_info["label"]
+
+	# [대형 기획 15] Q-8(a)(2026-10-18): 레어리티 등급 태그 — 미발견 카드는 스킬 정보
+	# 비공개 규칙(이름도 "???")을 그대로 따라 등급도 숨긴다(발견/보유만 표시).
+	if revealed:
+		var rarity_info := SkillPool.build_rarity_badge(skill_id, 9)
+		name_row.add_child(rarity_info["panel"])
+		_rarity_tag_by_id[skill_id] = rarity_info["label"]
+
 	var name_label := Label.new()
 	name_label.text = String(entry.get("name", skill_id)) if revealed else "???"
 	name_label.clip_text = true
+	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	name_label.add_theme_font_size_override("font_size", 15)
 	if owned:
 		name_label.add_theme_color_override("font_color", palette["accent"])
@@ -487,7 +551,7 @@ func _make_card(entry: Dictionary, slot_index: int, palette: Dictionary, is_star
 		name_label.add_theme_color_override("font_color", Color(0.85, 0.85, 0.85))
 	else:
 		name_label.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
-	text_col.add_child(name_label)
+	name_row.add_child(name_label)
 	_name_label_by_id[skill_id] = name_label
 
 	var desc := Label.new()
@@ -524,13 +588,6 @@ func _make_card(entry: Dictionary, slot_index: int, palette: Dictionary, is_star
 	var badge_info := _make_corner_tag(wrap, badge_text, badge_color, UIKit.contrasting_text_color(badge_color), true)
 	_badge_label_by_id[skill_id] = badge_info["label"]
 	_badge_panel_by_id[skill_id] = badge_info["panel"]
-
-	# Q-6(4): 시작 스킬만 좌상단에 "슬롯 N" 태그를 추가로 겹쳐 일반 스킬과 레이아웃을
-	# 구분한다(이름 라벨 텍스트는 그대로 둔다 — 보유 스킬 이름이 "확장"처럼 그대로
-	# 보여야 하는 기존 계약을 깨지 않기 위해 슬롯 번호는 별도 태그로만 표시).
-	if is_starting:
-		var slot_info := _make_corner_tag(wrap, "슬롯 %d" % (slot_index + 1), SLOT_TAG_BG, palette["accent"], false)
-		_slot_tag_by_id[skill_id] = slot_info["label"]
 
 	if revealed:
 		card.activated.connect(_on_card_activated.bind(skill_id))

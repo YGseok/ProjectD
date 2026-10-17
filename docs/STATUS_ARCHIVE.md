@@ -8,6 +8,61 @@
 
 ---
 
+- **2026-10-16 (221)**: 직전 이터레이션(Q-1)이 45분 시간 제한에 걸려 미커밋 상태로
+  중단된 것을 이어받아 **[대형 기획 15] Q-1(캡처 신뢰성 + 원문 17/18/23/24) 전체
+  완료**. 직전 이터레이션이 이미 구현해둔 코드(`git diff`로 현황 파악, stash/reset
+  없이 그대로 이어감)를 검증·보완했다:
+  **① 캡처 신뢰성**: `scripts/qa_shot.sh`에 `--resolution 1280x720` CLI 인자 추가 +
+  캡처된 PNG 헤더(IHDR 청크, xxd로 바이트 직접 파싱)를 읽어 실제 크기가
+  1280x720이 아니면 스크립트 자체가 실패 처리하도록 검사 추가. `visual_qa.gd`도
+  캡처 직전 `get_window().size`가 기대값과 다르면 강제 교정 + 재대기(최대
+  대기 프레임도 240→600으로 상향, dice_test.gd의 await 체크가 늘어도 중간에
+  잘리지 않게). 이번 세션에서 찍은 모든 스크린샷이 실제로 "창 크기 보정 경고 →
+  1280x720 성공" 경로를 거치는 것을 로그로 반복 확인(이 환경은 기본적으로
+  1028x720으로 뜨고 매번 코드가 교정함).
+  **② (17)+(24) 몬스터 포트레이트 티어별 배율**: `combat_test.gd`에
+  `MONSTER_PORTRAIT_SCALE_BY_TIER`(일반 1.0/정예 1.15/보스 1.6) 데이터 표 +
+  `_apply_monster_portrait_tier()`(production 경로와 QA 디버그 훅이 공유)로
+  분리, 보스만 `BOSS_PORTRAIT_POSITION_SHIFT`로 왼쪽으로 당겨 커진 크기가
+  화면 밖으로 안 나가게 했다. `dice_test.gd`의 `_check_q1_monster_portrait_tier_bounds()`
+  가 상수 단조성(보스>정예>일반, 비율≥1.4)뿐 아니라 **카탈로그 35종 전수**를
+  실제 production 배치(앵커+배율)로 렌더해 `_face_rect`/`_glow_rect`
+  글로벌 rect가 화면(1280x720) 안에 드는지 확인 — 기존 "ellipse radius=66"
+  체크(도형 플레이스홀더 전용, 거의 안 쓰임)를 상위 호환으로 대체.
+  **③ (18) 보상 화면 다이스 칩 겹침**: `_maybe_finish_battle()`이 battle_over를
+  확정하는 시점(승리/패배 공통)에 `_clear_exchange_dice_chips()`를 호출하도록
+  수정 — 마지막 교환의 결과 칩 줄이 화면에 남아 보상 카드/패배 버튼과 겹치던
+  문제. `dice_test.gd`의 `_check_q1_reward_chip_overlap()`이 "칩이 실제로
+  비는지" + "혹시 남아도 버튼과 rect 교차가 없는지"(이중 안전망) 승리/패배
+  양쪽을 검증.
+  **④ (23) 이벤트 텍스트 레이아웃**: `event.gd` PromptLabel에 autowrap_mode
+  켜고 배경 프레임 폭(900)에 맞춤(기존엔 autowrap이 꺼진 채 폭 920짜리
+  박스에 들어있어 긴 prompt가 화면 밖으로 삐져나갔음), `story_event.gd`
+  Description에 vertical_alignment=CENTER 추가(기존엔 TOP이라 배경 프레임
+  안에서 위로 쏠려 보였음). `dice_test.gd`의 `_check_q1_event_text_layout()`이
+  `EventChallengePool` 전수(10종)+스킬 이벤트 2종, `StoryEventPool` 전수(8종)를
+  실제 Label 노드 autowrap 레이아웃(`get_combined_minimum_size()`)으로 렌더해
+  배경 프레임 폭 안 + 버튼과 비겹침을 확인.
+  **이번 이터레이션 추가 작업**: `combat_test.gd`에 QA 전용
+  `_debug_show_reward_after_last_exchange()`(마지막 교환 칩을 띄운 뒤 같은
+  정리 로직을 거쳐 보상 UI를 보여줌 — `_maybe_finish_battle()`은
+  `EXCHANGE_PAUSE_TIME` 타이머를 await하는데 `GAME_QA_CALL`은 코루틴을
+  끝까지 기다리지 않아 직접 호출로는 타이밍이 안 맞아 새로 작성)을 추가해
+  (18) 수정을 실제 화면으로 확인했다. `bash scripts/qa_shot.sh dice_test`
+  전체 PASS(FAIL 0건, Q-1 신규 검증 4종 전부 OK, 재시도 전/후 2회 확인).
+  **셀프 피드백**: `qa_out/q1_boss_check.png`(보스 goblin_king)/
+  `q1_elite_check.png`(정예 goblin_chief)/`q1_normal_check.png`(일반 slime)
+  3장을 나란히 읽어 티어별 크기 차이가 실제로 뚜렷하고 화면 밖으로 안
+  잘리는 것 확인, `q1_18_reward_overlap.png`로 보상 카드 UI에 다이스 칩
+  줄이 전혀 안 보이는 것 확인, `q1_23_gambler_story.png`("수상한 도박꾼")/
+  `q1_23_event_circus.png`(곡예사 전용 "서커스 단장의 내기", 실측 최대
+  필요 높이 49px로 가장 긴 prompt)로 텍스트가 배경 프레임 안에 자연스럽게
+  들어오고 버튼과 안 겹치는 것 확인 — 추가 수정 없이 1라운드로 종료.
+  전투 규칙/밸런스는 건드리지 않았고 `resources/`·`docs/art/`는 읽기만
+  했다. INBOX.md "남은 이슈" [대형 기획 15] 원문의 Q-1(원문 17/18/23/24 +
+  캡처 전제)을 "부분 처리됨"으로 옮기고 완료로 표시, 다음은 Q-2(키보드
+  흐름 재구성).
+
 - **2026-10-16 (220)**: 세션 프롬프트로 직접 전달된 **[대형 기획 13] [미니 기획
   ART-1c-4] 어두운 몬스터 외곽 글로우 + 주사위 줄 라벨 대비 확인 완료**
   (INBOX.md 파일에는 사전 기록 없이 이번 이터레이션 지시로 받음 — ART-1c-3와

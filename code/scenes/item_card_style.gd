@@ -87,8 +87,16 @@ static func grade_color(grade: String) -> Color:
 ## 폴백 — 호출부는 거의 안 바꿔도 된다. 테스트가 "없음" 상태를 재현할 수 있도록 주입
 ## 가능한 매개변수로 뒀다(UIKit의 다른 스킨 팩토리와 같은 패턴).
 static func build_card(item: Dictionary, extra_label_text: String = "", unaffordable: bool = false, highlight: bool = false, base_dir: String = UIKit.SKIN_BASE_DIR) -> Dictionary:
+	# [대형 기획 15] Q-8(a)(2026-10-18): 스킬 카드(id 필드가 있는 카드 — K-4b가 모티프
+	# 아이콘을 붙일 때 쓰던 것과 같은 판정)는 아이템 등급(S/A/B/C) 대신 스킬 레어리티
+	# (일반/희귀/영웅/전설, SkillPool.rarity_for())로 테두리/배지 색을 정한다. 이전엔
+	# SkillPool 스킬 dict에 "grade" 필드가 없어 항상 DEFAULT_GRADE("C", 녹색)로 조용히
+	# 폴백되던 부정확한 상태였다 — 아이템 카드(DiceItemPool/EventItemPool, id 필드 없음)는
+	# 영향 없이 그대로 등급 배지를 쓴다.
+	var skill_id: String = item.get("id", "")
+	var is_skill_card: bool = skill_id != ""
 	var grade: String = item.get("grade", DEFAULT_GRADE)
-	var gcolor := grade_color(grade)
+	var gcolor := SkillPool.rarity_color(SkillPool.rarity_for(skill_id)) if is_skill_card else grade_color(grade)
 	var tint_color: Color = HIGHLIGHT_BORDER if highlight else (CARD_BORDER_UNAFFORDABLE if unaffordable else gcolor)
 
 	var card := PanelContainer.new()
@@ -122,12 +130,14 @@ static func build_card(item: Dictionary, extra_label_text: String = "", unafford
 
 	var title_row := HBoxContainer.new()
 	title_row.add_theme_constant_override("separation", 8)
-	title_row.add_child(_build_grade_badge(grade, gcolor))
+	if is_skill_card:
+		title_row.add_child(SkillPool.build_rarity_badge(skill_id)["panel"])
+	else:
+		title_row.add_child(_build_grade_badge(grade, gcolor))
 	# K-4b: SkillPool 스킬 카드(DiceItemPool/EventItemPool 아이템에는 없는 "id" 필드로
 	# 구분)만 모티프 아이콘을 등급 배지 옆에 붙인다 — 보상 선택/이벤트 보상 화면이 전부
 	# 이 build_card()를 공유해서 쓰므로, 여기 한 곳만 고치면 두 화면 모두 반영된다.
-	var skill_id: String = item.get("id", "")
-	if skill_id != "":
+	if is_skill_card:
 		var motif := SkillPool.icon_motif_for(skill_id)
 		if motif != "":
 			var skill_icon := SkillIcon.new()
@@ -148,7 +158,7 @@ static func build_card(item: Dictionary, extra_label_text: String = "", unafford
 	# [대형 기획 15] Q-7(c)(2026-10-17): 스킬 카드(id 필드가 있는 카드, 보상/상점/이벤트가
 	# 공유)만 제목 바로 아래에 LARGE SkillDiagram을 넣는다 — 다이스 아이템 카드(add_die/
 	# upgrade_die 등)는 id가 없어 그대로 영향 없다(기존 결과 다이스 미리보기만 그대로 유지).
-	if skill_id != "":
+	if is_skill_card:
 		var diagram := SkillDiagram.new()
 		diagram.size_variant = SkillDiagramChip.SIZE_LARGE
 		diagram.diagram_data = SkillPool.diagram_for(skill_id)
@@ -213,7 +223,7 @@ static func build_card(item: Dictionary, extra_label_text: String = "", unafford
 	button_row.add_theme_constant_override("separation", 6)
 	vbox.add_child(button_row)
 
-	return {"card": card, "vbox": vbox, "button_row": button_row}
+	return {"card": card, "vbox": vbox, "button_row": button_row, "title_row": title_row}
 
 
 ## 등급 배지(작은 색칠된 사각형 + 글자) — 카드 왼쪽 위, 타이틀 옆에 붙는다. 등급 색은

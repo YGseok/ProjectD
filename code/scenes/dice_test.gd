@@ -469,6 +469,18 @@ func _ready() -> void:
 	all_pass = (await _check_q7b_skill_diagram_renderer(lines)) and all_pass
 
 	lines.append("")
+	lines.append("[Q-7(c) 후속(감독 피드백, 2026-10-18): 스킬 도감 시작 스킬 카드의 '슬롯 N' 태그가 SkillDiagram과 겹치지 않는지 — 절대 위치 오버레이에서 이름 줄 옆 인라인 요소로 옮긴 뒤, 실제 렌더된 두 노드의 global rect가 교차하지 않는지 직접 계산]")
+	all_pass = (await _check_q7c_followup_slot_tag_diagram_overlap(lines)) and all_pass
+
+	lines.append("")
+	lines.append("[Q-8(a): 스킬 레어리티 체계 — SKILLS/UNIQUE_SKILLS/UPGRADE_SKILLS/STARTING_SKILLS 전체 행에 유효한 rarity가 있는지(SkillPool.RARITY_ORDER 안), 기준표대로(공용=일반/고유=희귀/강화=베이스보다 한 등급 위) 배정됐는지, 등급 색/텍스트가 4종 서로 다른지, RARITY_DROP_WEIGHTS 가중치 선택 함수가 결정적 시드로 재현되는지]")
+	all_pass = _check_q8a_skill_rarity_data(lines) and all_pass
+
+	lines.append("")
+	lines.append("[Q-8(a) 화면 적용: 카드 프레임(보상/상점/이벤트 공유)/스킬 도감/스킬 상세 팝업/캐릭터 선택 시작 스킬 슬롯에 등급 배지(색+텍스트, 등급별로 서로 다름)가 실제로 렌더되는지]")
+	all_pass = _check_q8a_rarity_display(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -763,6 +775,274 @@ func _check_q7b_skill_diagram_renderer(lines: PackedStringArray) -> bool:
 	var contrast_ok := contrast >= 4.5
 	ok = contrast_ok and ok
 	lines.append("  텍스트 대비(TEXT_COLOR vs CHIP_BG) = %.2f:1 (기준 4.5:1 이상) -> %s" % [contrast, "OK" if contrast_ok else "FAIL"])
+
+	return ok
+
+
+## [감독 피드백, Q-7(c) 직후(2026-10-18)] 스킬 도감 시작 스킬 카드에서 "슬롯 N" 태그가
+## SkillDiagram 첫 칩과 겹치던 버그 — skill_codex_panel.gd가 절대 위치 오버레이
+## (_make_corner_tag, wrap 기준 anchor)에서 이름 줄 옆 인라인 요소(_make_inline_tag,
+## name_row 안)로 옮겼다. "안 겹치게 보인다"가 아니라 실제 렌더된 두 노드의 global
+## rect를 직접 교차 계산해 검증한다(await로 레이아웃이 실제로 정렬된 뒤 측정 — Q-6
+## 검증(_check_l2b_skill_codex_panel)이 anchor 값만 본 것과 달리, 이번엔 둘 다
+## Container가 배치하는 일반 흐름 요소라 get_global_rect()가 레이아웃 정렬 이후에만
+## 믹힌다).
+func _check_q7c_followup_slot_tag_diagram_overlap(lines: PackedStringArray) -> bool:
+	var ok := true
+	var character_backup := RunState.character_id
+	var skill_flags_backup := RunState.skill_flags.duplicate()
+
+	SkillCodex._debug_reset_for_qa()
+	RunState.character_id = "novice"
+	var owned: Array[String] = ["start_expand"]
+	RunState.skill_flags = owned.duplicate()
+	SkillCodex.mark_discovered("novice", "start_expand")
+
+	var panel := SkillCodexPanel.new()
+	add_child(panel)
+	panel.open("novice", owned)
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	var nodes_found: bool = panel._diagram_by_id.has("start_expand") and panel._slot_tag_by_id.has("start_expand")
+	ok = nodes_found and ok
+	if nodes_found:
+		var diagram_rect: Rect2 = (panel._diagram_by_id["start_expand"] as Control).get_global_rect()
+		var slot_label: Label = panel._slot_tag_by_id["start_expand"]
+		var slot_tag_rect: Rect2 = (slot_label.get_parent() as Control).get_global_rect()
+		var no_overlap: bool = not diagram_rect.intersects(slot_tag_rect)
+		ok = no_overlap and ok
+		lines.append("  시작 스킬 카드(확장, 슬롯 1) 도식 rect=%s 슬롯 태그 rect=%s 교차 없음 -> %s" % [
+			diagram_rect, slot_tag_rect, "OK" if no_overlap else "FAIL"
+		])
+	else:
+		lines.append("  도식/슬롯 태그 노드를 찾지 못함(_diagram_by_id/_slot_tag_by_id) -> FAIL")
+
+	remove_child(panel)
+	panel.queue_free()
+	SkillCodex._debug_reset_for_qa()
+	RunState.character_id = character_backup
+	RunState.skill_flags = skill_flags_backup
+	return ok
+
+
+## [대형 기획 15] Q-8(a)(2026-10-18, INBOX.md 원문 5): 스킬 레어리티 체계 — 데이터
+## 전수 검증(37종 전부 유효한 등급, 배정 기준표대로) + 등급 표시 4종이 서로 다른지 +
+## 가중치 추첨 함수(weighted_pick)가 결정적 시드로 재현되는지(플래그가 아니라 실제
+## 계산 결과인 "뽑힌 id 목록"으로 비교).
+func _check_q8a_skill_rarity_data(lines: PackedStringArray) -> bool:
+	var ok := true
+
+	# (1) 전수 검증 — SKILLS/UNIQUE_SKILLS/UPGRADE_SKILLS/STARTING_SKILLS(고유 id) 전체가
+	# SkillPool.SKILL_RARITY에 명시적으로 등록돼 있고 값이 RARITY_ORDER 안에 있는지.
+	var all_ids: Array[String] = []
+	for group in [SkillPool.SKILLS, SkillPool.UNIQUE_SKILLS, SkillPool.UPGRADE_SKILLS, SkillPool.STARTING_SKILLS]:
+		for skill in group:
+			var skill_id: String = skill["id"]
+			if not all_ids.has(skill_id):
+				all_ids.append(skill_id)
+
+	var missing: Array[String] = []
+	var invalid: Array[String] = []
+	for id in all_ids:
+		if not SkillPool.SKILL_RARITY.has(id):
+			missing.append(id)
+		elif not SkillPool.RARITY_ORDER.has(SkillPool.SKILL_RARITY[id]):
+			invalid.append(id)
+	var coverage_ok: bool = missing.is_empty() and invalid.is_empty()
+	ok = coverage_ok and ok
+	lines.append("  스킬 %d종(고유 id) 전수 rarity 등록: 누락=%s 잘못된 값=%s -> %s" % [
+		all_ids.size(), missing, invalid, "OK" if coverage_ok else "FAIL"
+	])
+
+	# (2) 배정 기준표 — 공용(SKILLS)=일반, 고유(UNIQUE_SKILLS)=희귀, 시작(STARTING_SKILLS)=
+	# 일반, 강화(UPGRADE_SKILLS)는 베이스 등급보다 정확히 한 단계 위(공용 베이스 2종->희귀,
+	# 고유 베이스 9종->영웅).
+	var base_tiers_ok := true
+	for skill in SkillPool.SKILLS:
+		base_tiers_ok = (SkillPool.rarity_for(skill["id"]) == SkillPool.RARITY_COMMON) and base_tiers_ok
+	for skill in SkillPool.UNIQUE_SKILLS:
+		base_tiers_ok = (SkillPool.rarity_for(skill["id"]) == SkillPool.RARITY_RARE) and base_tiers_ok
+	for skill in SkillPool.STARTING_SKILLS:
+		base_tiers_ok = (SkillPool.rarity_for(skill["id"]) == SkillPool.RARITY_COMMON) and base_tiers_ok
+	ok = base_tiers_ok and ok
+	lines.append("  기준표: 공용/시작 스킬=일반, 고유 스킬=희귀 -> %s" % ("OK" if base_tiers_ok else "FAIL"))
+
+	var upgrade_tier_ok := true
+	var upgrade_mismatches: Array[String] = []
+	for skill in SkillPool.UPGRADE_SKILLS:
+		var base_rarity: String = SkillPool.rarity_for(skill["upgrades"])
+		var upgrade_rarity: String = SkillPool.rarity_for(skill["id"])
+		var expected_index: int = SkillPool.RARITY_ORDER.find(base_rarity) + 1
+		var actual_index: int = SkillPool.RARITY_ORDER.find(upgrade_rarity)
+		if actual_index != expected_index:
+			upgrade_tier_ok = false
+			upgrade_mismatches.append(skill["id"])
+	ok = upgrade_tier_ok and ok
+	lines.append("  기준표: 강화판(UPGRADE_SKILLS)=베이스보다 한 등급 위, 불일치=%s -> %s" % [
+		upgrade_mismatches, "OK" if upgrade_tier_ok else "FAIL"
+	])
+
+	# (3) 전설 0종(이번 조각) — 혹시 실수로 넣었는지 확인하는 안전망(Q-8(c) 몫).
+	var legendary_count := 0
+	for id in SkillPool.SKILL_RARITY.keys():
+		if SkillPool.SKILL_RARITY[id] == SkillPool.RARITY_LEGENDARY:
+			legendary_count += 1
+	var legendary_zero_ok: bool = legendary_count == 0
+	ok = legendary_zero_ok and ok
+	lines.append("  전설 등급 스킬 수=%d(이번 조각 기대 0, Q-8(c) 몫) -> %s" % [
+		legendary_count, "OK" if legendary_zero_ok else "FAIL"
+	])
+
+	# (4) 등급 표시 4종(라벨/색)이 서로 다른지.
+	var label_set: Dictionary = {}
+	var color_set: Dictionary = {}
+	for r in SkillPool.RARITY_ORDER:
+		label_set[SkillPool.rarity_label(r)] = true
+		color_set[SkillPool.rarity_color(r)] = true
+	var labels_distinct_ok: bool = label_set.size() == SkillPool.RARITY_ORDER.size()
+	var colors_distinct_ok: bool = color_set.size() == SkillPool.RARITY_ORDER.size()
+	ok = labels_distinct_ok and colors_distinct_ok and ok
+	lines.append("  등급 표시 4종: 라벨 전부 다름=%s 색 전부 다름=%s -> %s" % [
+		labels_distinct_ok, colors_distinct_ok, "OK" if (labels_distinct_ok and colors_distinct_ok) else "FAIL"
+	])
+
+	# (5) weighted_pick() 결정적 시드 재현 — 같은 시드면 "뽑힌 id 순서"까지 항상 같아야
+	# 한다(플래그가 아니라 계산 결과 자체를 비교).
+	var sample_pool: Array[Dictionary] = []
+	for group in [SkillPool.SKILLS, SkillPool.UNIQUE_SKILLS, SkillPool.UPGRADE_SKILLS]:
+		for skill in group:
+			sample_pool.append(skill)
+
+	var rng_a := RandomNumberGenerator.new()
+	rng_a.seed = 12345
+	var picked_a := SkillPool.weighted_pick(sample_pool, 6, rng_a)
+	var rng_b := RandomNumberGenerator.new()
+	rng_b.seed = 12345
+	var picked_b := SkillPool.weighted_pick(sample_pool, 6, rng_b)
+	var ids_a: Array = []
+	for s in picked_a:
+		ids_a.append(s["id"])
+	var ids_b: Array = []
+	for s in picked_b:
+		ids_b.append(s["id"])
+	var deterministic_ok: bool = ids_a == ids_b and ids_a.size() == 6
+	ok = deterministic_ok and ok
+	lines.append("  weighted_pick() 결정적 시드(12345) 재현: 1차=%s 2차=%s -> %s" % [
+		ids_a, ids_b, "OK" if deterministic_ok else "FAIL"
+	])
+
+	# 중복 없이, 원래 pool 소속만 뽑혔는지.
+	var pool_ids: Dictionary = {}
+	for s in sample_pool:
+		pool_ids[s["id"]] = true
+	var seen: Dictionary = {}
+	var no_dup_ok := true
+	for id in ids_a:
+		if seen.has(id) or not pool_ids.has(id):
+			no_dup_ok = false
+		seen[id] = true
+	ok = no_dup_ok and ok
+	lines.append("  뽑힌 6개가 중복 없이 원래 pool 소속만 -> %s" % ("OK" if no_dup_ok else "FAIL"))
+
+	# n >= pool 크기면(비복원 추출이므로) 전체를 그대로 돌려주는지.
+	var full_pick := SkillPool.weighted_pick(sample_pool, sample_pool.size() + 10, rng_a)
+	var full_pick_ids: Dictionary = {}
+	for s in full_pick:
+		full_pick_ids[s["id"]] = true
+	var full_pick_ok: bool = full_pick.size() == sample_pool.size() and full_pick_ids.size() == pool_ids.size()
+	ok = full_pick_ok and ok
+	lines.append("  n>=pool 크기(%d)면 전체를 그대로 반환 -> %s" % [sample_pool.size(), "OK" if full_pick_ok else "FAIL"])
+
+	return ok
+
+
+## [대형 기획 15] Q-8(a) 화면 적용 검증: 카드 프레임(보상/상점/이벤트 공유)/스킬 도감/
+## 스킬 상세 팝업/캐릭터 선택 시작 스킬 슬롯 네 곳에 등급 배지(텍스트, SkillPool.
+## rarity_label()과 일치)가 실제로 렌더되는지 — "플래그가 들어갔는가"가 아니라 "그
+## 텍스트가 화면에 실제로 보이는가"로 검증한다.
+func _check_q8a_rarity_display(lines: PackedStringArray) -> bool:
+	var ok := true
+
+	# (1) 카드 프레임(ItemCardStyle.build_card, 보상/상점/이벤트 공유) — 공용 스킬
+	# (deep_breath, 일반)과 고유 스킬(frenzy_deepen, 희귀) 두 카드의 배지 텍스트가
+	# SkillPool.rarity_label()과 일치하고 서로 다른지.
+	var common_skill := SkillPool.find_skill("deep_breath")
+	var rare_skill := SkillPool.find_skill("frenzy_deepen")
+	var common_card: Dictionary = ItemCardStyle.build_card(common_skill)
+	var rare_card: Dictionary = ItemCardStyle.build_card(rare_skill)
+	var common_badge_label: Label = (common_card["title_row"] as HBoxContainer).get_child(0).get_child(0)
+	var rare_badge_label: Label = (rare_card["title_row"] as HBoxContainer).get_child(0).get_child(0)
+	var card_badge_ok: bool = (
+		common_badge_label.text == SkillPool.rarity_label(SkillPool.RARITY_COMMON)
+		and rare_badge_label.text == SkillPool.rarity_label(SkillPool.RARITY_RARE)
+		and common_badge_label.text != rare_badge_label.text
+	)
+	ok = card_badge_ok and ok
+	lines.append("  카드 프레임 배지: 심호흡(공용)='%s'(기대 일반) 광기 심화(고유)='%s'(기대 희귀) -> %s" % [
+		common_badge_label.text, rare_badge_label.text, "OK" if card_badge_ok else "FAIL"
+	])
+	(common_card["card"] as Control).free()
+	(rare_card["card"] as Control).free()
+
+	# (2) 스킬 도감(SkillCodexPanel) — 발견/보유 카드에만 등급 태그가 붙는지(위 Q-6
+	# "색만으로 구분 금지" 원칙과 같은 정보 공개 범위).
+	var character_backup := RunState.character_id
+	var skill_flags_backup := RunState.skill_flags.duplicate()
+	SkillCodex._debug_reset_for_qa()
+	RunState.character_id = "novice"
+	var owned: Array[String] = ["start_expand"]
+	RunState.skill_flags = owned.duplicate()
+	SkillCodex.mark_discovered("novice", "start_expand")
+	SkillCodex.mark_discovered("novice", "versatile_surge")
+
+	var codex := SkillCodexPanel.new()
+	add_child(codex)
+	codex.open("novice", owned)
+	var codex_owned_tag: Label = codex._rarity_tag_by_id.get("start_expand", null)
+	var codex_discovered_tag: Label = codex._rarity_tag_by_id.get("versatile_surge", null)
+	var codex_tags_ok: bool = (
+		codex_owned_tag != null and codex_owned_tag.text == SkillPool.rarity_label(SkillPool.RARITY_COMMON)
+		and codex_discovered_tag != null and codex_discovered_tag.text == SkillPool.rarity_label(SkillPool.RARITY_RARE)
+	)
+	ok = codex_tags_ok and ok
+	lines.append("  스킬 도감: 보유(확장)='%s'(기대 일반) 발견(임기응변)='%s'(기대 희귀) -> %s" % [
+		codex_owned_tag.text if codex_owned_tag != null else "(없음)",
+		codex_discovered_tag.text if codex_discovered_tag != null else "(없음)",
+		"OK" if codex_tags_ok else "FAIL"
+	])
+	remove_child(codex)
+	codex.queue_free()
+
+	# (3) 스킬 상세 팝업(SkillDetailPopup) — 등급 배지 텍스트.
+	var popup := SkillDetailPopup.new()
+	add_child(popup)
+	popup.open("start_expand", "novice")
+	var popup_ok: bool = popup._rarity_badge_label != null and popup._rarity_badge_label.text == SkillPool.rarity_label(SkillPool.RARITY_COMMON)
+	ok = popup_ok and ok
+	lines.append("  스킬 상세 팝업(확장): 배지='%s'(기대 일반) -> %s" % [
+		popup._rarity_badge_label.text if popup._rarity_badge_label != null else "(없음)", "OK" if popup_ok else "FAIL"
+	])
+	remove_child(popup)
+	popup.queue_free()
+
+	SkillCodex._debug_reset_for_qa()
+	RunState.character_id = character_backup
+	RunState.skill_flags = skill_flags_backup
+
+	# (4) 캐릭터 선택 시작 스킬 슬롯 — novice의 슬롯 0(확장)에 등급 태그가 실제로 붙는지.
+	var cs_scene := load("res://code/scenes/character_select.tscn")
+	var cs_node = cs_scene.instantiate()
+	add_child(cs_node)
+	cs_node._on_card_selected("novice")
+	var slot_tag: Label = cs_node._rarity_tag_by_skill_id.get("start_expand", null)
+	var slot_tag_ok: bool = slot_tag != null and slot_tag.text == SkillPool.rarity_label(SkillPool.RARITY_COMMON)
+	ok = slot_tag_ok and ok
+	lines.append("  캐릭터 선택 시작 스킬 슬롯(novice/확장): 태그='%s'(기대 일반) -> %s" % [
+		slot_tag.text if slot_tag != null else "(없음)", "OK" if slot_tag_ok else "FAIL"
+	])
+	remove_child(cs_node)
+	cs_node.free()
 
 	return ok
 
@@ -3904,21 +4184,28 @@ func _check_skill_upgrade_event_structure(lines: PackedStringArray) -> bool:
 ## 스킨이 적용된다 — 이 테스트는 원래부터 "폴백 StyleBoxFlat의 border_color/width 계약"을
 ## 검증하려는 의도이므로, 존재하지 않는 base_dir를 명시적으로 넘겨 그 폴백 경로를 그대로
 ## 계속 검증한다(이미지 스킨 경로 자체의 검증은 `_check_m6_card_frame_skin()`이 담당).
+## [대형 기획 15] Q-8(a)(2026-10-18) 기대값 의도적 변경: sample_skill은 SkillPool 스킬
+## dict(id 필드 있음)라, 이제 등급색이 아니라 SkillPool.rarity_color(rarity_for(id))가
+## "gcolor"다 — build_card()가 스킬 카드는 아이템 등급(S/A/B/C) 대신 스킬 레어리티로
+## 테두리/배지 색을 정하도록 바뀌었기 때문(item_card_style.gd 주석 참고). 이전엔
+## 스킬 dict에 "grade" 필드가 없어 매번 DEFAULT_GRADE("C")로 조용히 폴백되던 부정확한
+## 비교였다.
 func _check_skill_upgrade_card_highlight(lines: PackedStringArray) -> bool:
 	var ok := true
 	var sample_skill: Dictionary = SkillPool.SKILLS[0]
 	var no_skin_dir := "user://m6_highlight_fallback_nonexistent/"
+	var expected_gcolor := SkillPool.rarity_color(SkillPool.rarity_for(sample_skill["id"]))
 
 	var normal_built := ItemCardStyle.build_card(sample_skill, "", false, false, no_skin_dir)
 	add_child(normal_built["card"])
 	var normal_style: StyleBoxFlat = normal_built["card"].get_theme_stylebox("panel")
 	var normal_ok: bool = (
-		normal_style.border_color == ItemCardStyle.grade_color(sample_skill.get("grade", ItemCardStyle.DEFAULT_GRADE))
+		normal_style.border_color == expected_gcolor
 		and normal_style.border_width_left == 2
 	)
 	ok = normal_ok and ok
-	lines.append("  highlight=false(스킨 없음): border_color=등급색=%s border_width=%d(기대 2) -> %s" % [
-		normal_style.border_color == ItemCardStyle.grade_color(sample_skill.get("grade", ItemCardStyle.DEFAULT_GRADE)),
+	lines.append("  highlight=false(스킨 없음): border_color=레어리티색=%s border_width=%d(기대 2) -> %s" % [
+		normal_style.border_color == expected_gcolor,
 		normal_style.border_width_left, "OK" if normal_ok else "FAIL"
 	])
 	normal_built["card"].queue_free()

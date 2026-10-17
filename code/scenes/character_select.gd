@@ -227,6 +227,10 @@ var _shortcut_buttons: Array[Control] = []
 ## 시작 스킬 슬롯(가로 배열) 전용 포커스 체인 — 캐릭터를 바꿀 때마다 후보가 달라지므로
 ## _rebuild_starting_skill_slots()가 매번 다시 모아 FocusNav.chain_linear()를 다시 부른다.
 var _starting_skill_slot_buttons: Array[Button] = []
+## [대형 기획 15] Q-8(a) 신규 — 시작 스킬 슬롯의 레어리티 등급 태그 Label(skill_id ->
+## Label). _rebuild_starting_skill_slots()가 매번 비우고 다시 채운다(테스트가 "플래그가
+## 아니라 실제로 렌더된 텍스트"를 검증할 수 있게 공개).
+var _rarity_tag_by_skill_id: Dictionary = {}
 
 
 func _ready() -> void:
@@ -1022,6 +1026,7 @@ func _rebuild_starting_skill_slots() -> void:
 	for c in _starting_skill_container.get_children():
 		_starting_skill_container.remove_child(c)
 		c.queue_free()
+	_rarity_tag_by_skill_id.clear()
 
 	var candidates := SkillPool.starting_skills_for_character(_selected_id)
 	RunState.chosen_starting_skill_id = _valid_or_default_starting_skill_id(_selected_id, RunState.chosen_starting_skill_id, candidates)
@@ -1162,6 +1167,39 @@ func _make_starting_skill_slot(skill: Dictionary, unlocked: bool, slot_index: in
 		skill_icon.skill_id = skill["id"]
 		skill_icon.modulate = Color(1, 1, 1, 1.0 if unlocked else 0.4)
 		icon_area.add_child(skill_icon)
+
+	# [대형 기획 15] Q-8(a)(2026-10-18): 레어리티 등급 테두리 — icon_area 전체를 덮는
+	# 투명 배경 + 등급색 테두리 프레임. 모티프 아이콘(특히 resources/skills/ 외부 아트,
+	# 불투명 PNG) *다음에* 추가해야 테두리가 그 위에 그려져 실제로 보인다 — 먼저
+	# 추가하면 불투명 아트에 완전히 가려져 안 보이는 회귀를 셀프 피드백 캡처
+	# (qa_out/q8a_character_select_slots_zoom.png)에서 직접 발견했다. 배경이 완전
+	# 투명(alpha=0)이라 테두리만 "링"처럼 아이콘 위에 겹쳐 보이고 중앙 아트는 안 가린다.
+	# 슬롯 높이(STARTING_SKILL_SLOT_HEIGHT) 예산을 전혀 늘리지 않으려고 새 줄을 추가하는
+	# 대신 기존 icon_area 안에 겹쳐 그린다(아래 lock_badge와 같은 "작은 Control이 큰
+	# Control 안에 앵커로 겹치는" 패턴).
+	var rarity := SkillPool.rarity_for(skill["id"])
+	var rarity_color := SkillPool.rarity_color(rarity)
+	var rarity_frame := Panel.new()
+	rarity_frame.set_anchors_preset(Control.PRESET_FULL_RECT)
+	rarity_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var rarity_frame_style := StyleBoxFlat.new()
+	rarity_frame_style.bg_color = Color(0, 0, 0, 0)
+	rarity_frame_style.border_color = rarity_color
+	rarity_frame_style.set_border_width_all(2)
+	rarity_frame_style.set_corner_radius_all(4)
+	rarity_frame.add_theme_stylebox_override("panel", rarity_frame_style)
+	icon_area.add_child(rarity_frame)
+
+	# 등급 텍스트 태그(작은 글씨, 색만으로 구분 금지 원칙) — lock_badge와 반대쪽 모서리
+	# (좌상단)에 겹쳐 테두리/아이콘 위에 그려지도록 그 다음에 추가한다.
+	var rarity_tag := Label.new()
+	rarity_tag.text = SkillPool.rarity_label(rarity)
+	rarity_tag.add_theme_font_size_override("font_size", 8)
+	rarity_tag.add_theme_color_override("font_color", rarity_color if unlocked else Color(0.55, 0.55, 0.55))
+	rarity_tag.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	rarity_tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	icon_area.add_child(rarity_tag)
+	_rarity_tag_by_skill_id[skill["id"]] = rarity_tag
 
 	if not unlocked:
 		var lock_badge := LockIcon.new()

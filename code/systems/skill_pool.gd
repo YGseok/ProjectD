@@ -62,6 +62,198 @@ const DIAGRAM_SYMBOL_TYPES: Array[String] = [
 ]
 const MAX_DIAGRAM_SYMBOLS: int = 5
 
+## 스킬 레어리티([대형 기획 15] Q-8(a), 2026-10-18, INBOX.md 원문 5). 아이템 보상
+## 등급(ItemCardStyle.GRADE_COLORS의 S/A/B/C)과는 완전히 별개 축이다 — 아이템은
+## "무엇을 얻는가"의 가치 등급이고, 스킬 레어리티는 "이 스킬이 얼마나 특별한가"를
+## 나타낸다(INBOX.md "아이템 S/A/B/C 등급과 구분되는 스킬 전용 표시" 명시).
+## 4단계: 일반 < 희귀 < 영웅 < 전설. 전설은 Q-8(c)가 캐릭터별 3종씩(8명×3=24종, 한
+## 런에 하나만 보유 가능) 추가할 예정이라 이번 조각엔 0종 — 상수/배정 체계만 자리를
+## 비워둔다(SKILL_RARITY에 legendary 값을 쓰는 항목이 아직 없음).
+const RARITY_COMMON := "common"
+const RARITY_RARE := "rare"
+const RARITY_EPIC := "epic"
+const RARITY_LEGENDARY := "legendary"
+
+## 등급 순서(낮음 -> 높음). 전수 검증 테스트가 "모든 스킬의 rarity가 이 배열 안에
+## 있는지"로 유효성을 판정한다.
+const RARITY_ORDER: Array[String] = [RARITY_COMMON, RARITY_RARE, RARITY_EPIC, RARITY_LEGENDARY]
+
+## 등급 표시 텍스트("색만으로 구분 금지" — INBOX.md 명시, 아이콘 테두리색은 보조
+## 신호일 뿐 이 텍스트가 항상 함께 그려진다).
+const RARITY_LABELS: Dictionary = {
+	RARITY_COMMON: "일반",
+	RARITY_RARE: "희귀",
+	RARITY_EPIC: "영웅",
+	RARITY_LEGENDARY: "전설",
+}
+
+## 등급 색 — 아이템 등급 팔레트(초록<파란색<보라색<노란색, ItemCardStyle.GRADE_COLORS)와
+## 겹치지 않는 별도 색상환(은회색 일반 -> 하늘색 희귀 -> 보라색 영웅 -> 주황색 전설)을
+## 써서 두 등급 체계를 한눈에 구분할 수 있게 한다.
+const RARITY_COLORS: Dictionary = {
+	RARITY_COMMON: Color(0.72, 0.75, 0.78),
+	RARITY_RARE: Color(0.3, 0.72, 0.95),
+	RARITY_EPIC: Color(0.75, 0.38, 0.95),
+	RARITY_LEGENDARY: Color(0.95, 0.55, 0.12),
+}
+const DEFAULT_RARITY := RARITY_COMMON
+
+## 보상 풀 드롭 가중치(상대값 — weighted_pick()이 합으로 정규화하므로 100으로 맞출
+## 필요 없음). INBOX.md "전설은 정예/보스 보상 또는 드문 확률" 중 "드문 확률" 쪽을
+## 채택 — 등급이 높을수록 숫자가 작아져 뽑힐 확률이 낮다. 전설은 이번 조각에 후보가
+## 0종이라 실제로 선택될 일이 없지만(available_choices()/available_upgrade_choices()가
+## 여전히 SKILLS/UNIQUE_SKILLS/UPGRADE_SKILLS만 후보로 삼음), Q-8(c)가 전설 스킬을
+## 추가했을 때 이 상수 하나만 쓰면 되도록 지금부터 자리를 비워둔다.
+const RARITY_DROP_WEIGHTS: Dictionary = {
+	RARITY_COMMON: 100.0,
+	RARITY_RARE: 40.0,
+	RARITY_EPIC: 12.0,
+	RARITY_LEGENDARY: 3.0,
+}
+
+## skill_id -> rarity 전수표(ICON_MOTIFS와 같은 패턴 — 명시적 전수 표, 새 스킬을
+## 추가하면서 깜빡 안 넣으면 dice_test.gd의 검증이 DEFAULT_RARITY로 조용히 묻히지
+## 않고 FAIL로 잡아낸다). 배정 기준(기획자 결정, docs/STATUS.md Q-8(a) 완료 기록에
+## 표로도 정리):
+## - **일반**: SKILLS(공용 스킬 2종) + STARTING_SKILLS(캐릭터 시작 로드아웃, 고유 id
+##   15종) 전부. 둘 다 "기본으로 주어지는" 스킬이라 레어리티 사다리의 바닥.
+## - **희귀**: UNIQUE_SKILLS(캐릭터 전용 고유 스킬 9종) 전부. 공용/시작 스킬보다
+##   희소하고(그 캐릭터를 플레이해야만 후보로 나옴) 캐릭터 기믹과 시너지가 있어
+##   한 단계 위.
+## - **영웅**: UPGRADE_SKILLS("+" 강화판 11종) 중 UNIQUE_SKILLS를 강화하는 9종 —
+##   "강화판 = 베이스보다 한 등급 위" 원칙을 희귀 베이스에 적용한 결과.
+## - UPGRADE_SKILLS 중 SKILLS(공용, 일반)를 강화하는 나머지 2종
+##   (deep_breath_plus/spare_die_plus)은 같은 "한 등급 위" 원칙을 일반 베이스에
+##   적용해 **희귀**가 된다(영웅이 아님 — 베이스 등급에 따라 강화 결과 등급도
+##   달라진다).
+## - **전설**: 이번 조각 0종(위 참고).
+const SKILL_RARITY: Dictionary = {
+	# SKILLS(공용 2종) — 일반.
+	"deep_breath": RARITY_COMMON,
+	"spare_die": RARITY_COMMON,
+	# UNIQUE_SKILLS(캐릭터 전용 9종) — 희귀.
+	"frenzy_deepen": RARITY_RARE,
+	"guard_deepen": RARITY_RARE,
+	"chain_explosion": RARITY_RARE,
+	"chain_guard": RARITY_RARE,
+	"versatile_surge": RARITY_RARE,
+	"charm_amplify": RARITY_RARE,
+	"juggle_encore": RARITY_RARE,
+	"broadside": RARITY_RARE,
+	"juggle_fortune": RARITY_RARE,
+	# UPGRADE_SKILLS — 공용(일반) 베이스 강화 2종은 희귀(한 등급 위).
+	"deep_breath_plus": RARITY_RARE,
+	"spare_die_plus": RARITY_RARE,
+	# UPGRADE_SKILLS — 고유(희귀) 베이스 강화 9종은 영웅(한 등급 위).
+	"frenzy_deepen_plus": RARITY_EPIC,
+	"guard_deepen_plus": RARITY_EPIC,
+	"chain_explosion_plus": RARITY_EPIC,
+	"chain_guard_plus": RARITY_EPIC,
+	"versatile_surge_plus": RARITY_EPIC,
+	"charm_amplify_plus": RARITY_EPIC,
+	"juggle_encore_plus": RARITY_EPIC,
+	"broadside_plus": RARITY_EPIC,
+	"juggle_fortune_plus": RARITY_EPIC,
+	# STARTING_SKILLS(시작 로드아웃, 고유 id 15종 — 해적 전용 중복 3행은 id가 같아
+	# 자동으로 같은 값을 공유) — 전부 일반.
+	"start_aggro": RARITY_COMMON,
+	"start_wall": RARITY_COMMON,
+	"start_expand": RARITY_COMMON,
+	"start_lean": RARITY_COMMON,
+	"start_hoard": RARITY_COMMON,
+	"start_ironclad": RARITY_COMMON,
+	"start_vanguard": RARITY_COMMON,
+	"start_bulwark": RARITY_COMMON,
+	"start_wealth": RARITY_COMMON,
+	"start_overflow": RARITY_COMMON,
+	"start_second_wind": RARITY_COMMON,
+	"start_gambler": RARITY_COMMON,
+	"start_sleight": RARITY_COMMON,
+	"start_fortune": RARITY_COMMON,
+	"start_diverse": RARITY_COMMON,
+}
+
+
+## skill_id -> rarity 조회. 등록되지 않은 id는 DEFAULT_RARITY(일반)로 폴백한다(단,
+## SKILL_RARITY는 전수표라 정상적으로는 37종 전부 등록돼 있어야 함 — 폴백은 방어적
+## 코드일 뿐 침묵 실패를 의도하지 않는다. dice_test.gd가 SKILLS/UNIQUE_SKILLS/
+## UPGRADE_SKILLS/STARTING_SKILLS 전체 id가 SKILL_RARITY에 "명시적으로" 있는지
+## 별도로 검증한다).
+static func rarity_for(skill_id: String) -> String:
+	return SKILL_RARITY.get(skill_id, DEFAULT_RARITY)
+
+
+## rarity -> 표시 텍스트("일반"/"희귀"/"영웅"/"전설"). 알 수 없는 값은 DEFAULT_RARITY
+## 텍스트로 폴백한다.
+static func rarity_label(rarity: String) -> String:
+	return RARITY_LABELS.get(rarity, RARITY_LABELS[DEFAULT_RARITY])
+
+
+## rarity -> 표시 색. 알 수 없는 값은 DEFAULT_RARITY 색으로 폴백한다.
+static func rarity_color(rarity: String) -> Color:
+	return RARITY_COLORS.get(rarity, RARITY_COLORS[DEFAULT_RARITY])
+
+
+## 레어리티 등급 표시 Control 하나(아이콘 테두리색 + 작은 텍스트 태그, INBOX.md
+## "색만으로 구분 금지" 명시) — 카드 프레임/도감/상세 팝업/시작 스킬 슬롯 네 곳이
+## 전부 이 하나를 공유해 색/모양/텍스트가 어긋나지 않게 한다. font_size만 호출부가
+## 조정(카드/팝업은 크게, 좁은 슬롯은 작게).
+static func build_rarity_badge(skill_id: String, font_size: int = 12) -> Dictionary:
+	var rarity := rarity_for(skill_id)
+	var color := rarity_color(rarity)
+
+	var badge := PanelContainer.new()
+	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var style := StyleBoxFlat.new()
+	style.bg_color = color
+	style.set_corner_radius_all(4)
+	style.content_margin_left = 6
+	style.content_margin_right = 6
+	style.content_margin_top = 1
+	style.content_margin_bottom = 1
+	badge.add_theme_stylebox_override("panel", style)
+
+	var label := Label.new()
+	label.text = rarity_label(rarity)
+	label.add_theme_font_size_override("font_size", font_size)
+	label.add_theme_color_override("font_color", UIKit.contrasting_text_color(color))
+	badge.add_child(label)
+
+	return {"panel": badge, "label": label, "rarity": rarity, "color": color}
+
+
+## 레어리티 가중치 기반 비복원 추출([대형 기획 15] Q-8(a) "보상 풀 가중치"). pool의
+## 각 스킬을 rarity_for()로 조회한 RARITY_DROP_WEIGHTS 가중치에 비례해, 중복 없이
+## 최대 n개를 뽑는다. rng를 호출부가 주입하는 순수 함수라(available_choices()처럼
+## 전역 RNG에 기대지 않음) 같은 시드+같은 pool 순서면 항상 같은 결과를 재현한다 —
+## 테스트가 결정적 시드로 재현 가능한지 요구하므로(INBOX.md) 이 분리가 핵심이다.
+## 알고리즘: 매번 "남은 후보의 가중치 합"에서 난수를 하나 뽑아 누적 가중치 구간으로
+## 후보를 고르고 제거하는 전형적인 가중치 비복원 추출(weighted sampling without
+## replacement) — 한 번 뽑힌 스킬은 다음 추첨에서 제외되므로 같은 카드가 두 번
+## 나오지 않는다.
+static func weighted_pick(pool: Array[Dictionary], n: int, rng: RandomNumberGenerator) -> Array[Dictionary]:
+	var remaining: Array[Dictionary] = pool.duplicate()
+	var result: Array[Dictionary] = []
+	while remaining.size() > 0 and result.size() < n:
+		var weights: Array[float] = []
+		var total_weight := 0.0
+		for skill in remaining:
+			var w: float = RARITY_DROP_WEIGHTS.get(rarity_for(skill["id"]), RARITY_DROP_WEIGHTS[DEFAULT_RARITY])
+			weights.append(w)
+			total_weight += w
+		var roll: float = rng.randf() * total_weight
+		var cumulative := 0.0
+		var picked_index := remaining.size() - 1
+		for i in weights.size():
+			cumulative += weights[i]
+			if roll < cumulative:
+				picked_index = i
+				break
+		result.append(remaining[picked_index])
+		remaining.remove_at(picked_index)
+	return result
+
+
 const SKILLS: Array[Dictionary] = [
 	{
 		"id": "deep_breath",
@@ -735,8 +927,11 @@ static func starting_skills_for_character(character_id: String) -> Array[Diction
 ## 수 없으므로 — 두 번째 카드도 항상 새로운 선택지여야 함). 공용 스킬(SKILLS)에 더해
 ## character_id가 주어지고 UNIQUE_SKILLS 중 해당 캐릭터 전용 스킬이 있으면 후보 풀에
 ## 함께 섞는다(character_id를 생략하면 기존처럼 공용 스킬만 나온다 — 호출부 호환 유지).
-## 남은 후보 중 최대 n개를 무작위로(중복 없이) 반환한다. 후보가 하나도 없으면 빈 배열을
-## 돌려주고, event.gd는 이 경우 스킬 이벤트 대신 기존 아이템 이벤트로 대체한다.
+## 남은 후보 중 최대 n개를 레어리티 가중치(RARITY_DROP_WEIGHTS)에 비례해 무작위로
+## (중복 없이) 반환한다([대형 기획 15] Q-8(a) "보상 풀 가중치" — 이전엔 pool.shuffle()
+## 로 균등 추첨이었다. 효과/밸런스는 건드리지 않고 "어느 카드가 더 자주 보이는가"만
+## 바뀐다). 후보가 하나도 없으면 빈 배열을 돌려주고, event.gd는 이 경우 스킬 이벤트
+## 대신 기존 아이템 이벤트로 대체한다.
 static func available_choices(n: int, character_id: String = "") -> Array[Dictionary]:
 	var pool: Array[Dictionary] = []
 	for skill in SKILLS:
@@ -746,8 +941,9 @@ static func available_choices(n: int, character_id: String = "") -> Array[Dictio
 		for skill in UNIQUE_SKILLS:
 			if skill.get("character_id", "") == character_id and not RunState.skill_flags.has(skill["id"]):
 				pool.append(skill)
-	pool.shuffle()
-	return pool.slice(0, min(n, pool.size()))
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	return weighted_pick(pool, n, rng)
 
 
 ## skill_id를 RunState.skill_flags에 추가한다. 이미 보유 중이면 아무 일도 하지
@@ -763,8 +959,9 @@ static func grant(skill_id: String) -> void:
 ## (base가 없으면 애초에 강화할 대상이 없고, +를 이미 가졌으면 중복 강화가 되므로 둘 다
 ## 제외). character_id가 있는 항목(UNIQUE_SKILLS 계열 강화)은 인자로 받은 character_id와
 ## 일치할 때만 후보에 포함 — 공용 스킬 강화(character_id 없음)는 캐릭터 무관하게 항상 후보.
-## available_choices()와 같은 패턴으로 남은 후보 중 최대 n개를 무작위 반환, 후보가 없으면
-## 빈 배열(event.gd는 이 경우 기존 아이템/스킬 이벤트로 대체해야 함).
+## available_choices()와 같은 패턴(Q-8(a)부터 레어리티 가중치 추첨)으로 남은 후보 중
+## 최대 n개를 반환, 후보가 없으면 빈 배열(event.gd는 이 경우 기존 아이템/스킬 이벤트로
+## 대체해야 함).
 static func available_upgrade_choices(n: int, character_id: String = "") -> Array[Dictionary]:
 	var pool: Array[Dictionary] = []
 	for skill in UPGRADE_SKILLS:
@@ -776,8 +973,9 @@ static func available_upgrade_choices(n: int, character_id: String = "") -> Arra
 		if required_character != "" and required_character != character_id:
 			continue
 		pool.append(skill)
-	pool.shuffle()
-	return pool.slice(0, min(n, pool.size()))
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	return weighted_pick(pool, n, rng)
 
 
 ## base_id(강화 전 스킬 id)를 받아 UPGRADE_SKILLS에서 대응하는 "+"id를 찾아 grant()로

@@ -3,8 +3,9 @@ extends Control
 ## 보유 스킬 아이콘을 클릭/Space하면 뜨는 상세 팝업 (INBOX.md [대형 기획 15] Q-4b, 원문 11).
 ##
 ## achievement_panel.gd/skill_codex_panel.gd와 같은 "스크립트 하나로 완결된 Control,
-## 별도 .tscn 불필요" 패턴. open(skill_id, character_id)로 연다. 레어리티는 아직 게임에
-## 없는 개념이라(INBOX 원문 "레어리티는 아직 없으니 생략") 이름 + 효과 설명만 보여준다.
+## 별도 .tscn 불필요" 패턴. open(skill_id, character_id)로 연다. 당시(Q-4b)엔 "레어리티는
+## 아직 없으니 생략"이었지만, [대형 기획 15] Q-8(a)(2026-10-18)로 레어리티 체계가
+## 생기면서 이름 옆에 등급 배지(SkillPool.build_rarity_badge())가 추가됐다.
 ##
 ## 공용 컴포넌트로 설계해 스킬 도감/보상/상점에서도 재사용할 수 있게 한다(INBOX 원문,
 ## Q-6/Q-7이 이어서 쓸 예정) — 이번 조각은 호출부를 deck_panel.gd(던전 진행 5개 화면이
@@ -37,6 +38,9 @@ var _close_button: Button
 ## 전용으로 공개해둔다(skill_codex_panel.gd의 _name_label_by_id 등과 같은 이유).
 var _name_label: Label
 var _desc_label: Label
+## [대형 기획 15] Q-8(a) 신규 — 레어리티 등급 배지 텍스트(dice_test.gd가 실제로 렌더된
+## 텍스트를 검증할 수 있게 공개).
+var _rarity_badge_label: Label
 ## Q-7(c) 신규 — 도식 자체도 테스트가 직접 들여다볼 수 있게 공개(diagram_data가
 ## skill_id와 일치하는지 등).
 var _diagram: SkillDiagram
@@ -72,6 +76,7 @@ func _clear_ui() -> void:
 	_name_label = null
 	_desc_label = null
 	_diagram = null
+	_rarity_badge_label = null
 
 
 ## Esc로 닫기(K-1 — 오버레이 패널 공통 규칙, achievement_panel.gd와 동일 패턴).
@@ -146,6 +151,12 @@ func _rebuild(skill_id: String, character_id: String) -> void:
 	_name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_name_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	header.add_child(_name_label)
+
+	# [대형 기획 15] Q-8(a)(2026-10-18): 레어리티 배지 — 위 클래스 주석의 "레어리티는
+	# 아직 없으니 생략"은 Q-8(a)로 더 이상 사실이 아니다(아래로 옮겨 적음).
+	var rarity_info := SkillPool.build_rarity_badge(skill_id, 13)
+	_rarity_badge_label = rarity_info["label"]
+	header.add_child(rarity_info["panel"])
 
 	# 닫기 버튼: UIKit.style_secondary_button()은 가로로 긴 장식(양끝 보석 모양) 버튼을
 	# 가정한 스킨이라 36x36 정사각 아이콘 버튼에 억지로 씌우면 장식이 짓눌려 거의 안
