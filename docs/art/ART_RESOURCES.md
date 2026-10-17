@@ -700,6 +700,7 @@ Work는 `resources/ui/` 이미지가 있으면 StyleBoxTexture로 쓰고, 없으
 | 2026-10-16 | ART-MO604~607-FULL 정예 오크 투사·암흑 늑대·해골 기사·리치 견습생 (GPT 생성, 전부 1차 채택). **M3 정예 8종 완료** | `resources/monsters/{orc_warrior,dark_wolf,skeleton_knight,lich_apprentice}/full.png` 입고. 전투 화면 자동 적용 | `qa_out/art_elite_lineup.png` |
 | 2026-10-16 | ART-MO006~021-FULL 나머지 일반 몬스터 16종 (GPT 생성, 페이지 안에서 16건 연속 큐로 요청. 독 슬라임은 콘텐츠 정책에 걸려 "비옷 차림, 머리·손만 점액"으로 재요청. 안개는 흰 배경 위 흰 안개라 배경 제거가 몸까지 지워 **검은 배경**으로 재요청 — 밝은 몬스터는 검은 배경으로 받을 것). **몬스터 전신 34세트 전량 완료** | `resources/monsters/<id>/full.png` 입고. Work 폴백(0d5ee36·8ab8ebe)으로 전투 화면 자동 적용 | `qa_out/art_normal_a.png`, `art_normal_b.png` |
 | 2026-10-17 | **보스 6종 v3 재디자인** (사용자 피드백 "더 섹시하게" — 성인 체형·글래머러스·노출 확대·왕관 강조. v2는 화풍이 캐릭터와 동떨어져 폐기, 8인 라인업+매혹사·주술사 원화를 첨부해 디테일 밀도를 맞춘 v3 채택. 광란의 마수는 1차가 정책에 걸려 노출을 낮춘 재요청) | `resources/monsters/<boss>/full.png` 교체(v1·v3 원본 `_reference/monsters/`) | `qa_out/art_boss_v3_lineup.png` |
+| 2026-10-17 | **정예 7종 v3 재디자인** (보스 v3와 같은 기준. 젤라틴 큐브는 1차가 정책에 걸려 재요청. **암흑 늑대는 2회 모두 정책에 걸려 v1 유지**) | `resources/monsters/<elite>/full.png` 교체 | `qa_out/art_elite_v3_lineup.png` |
 
 ---
 
