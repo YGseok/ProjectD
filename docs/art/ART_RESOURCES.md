@@ -702,6 +702,7 @@ Work는 `resources/ui/` 이미지가 있으면 StyleBoxTexture로 쓰고, 없으
 | 2026-10-17 | **보스 6종 v3 재디자인** (사용자 피드백 "더 섹시하게" — 성인 체형·글래머러스·노출 확대·왕관 강조. v2는 화풍이 캐릭터와 동떨어져 폐기, 8인 라인업+매혹사·주술사 원화를 첨부해 디테일 밀도를 맞춘 v3 채택. 광란의 마수는 1차가 정책에 걸려 노출을 낮춘 재요청) | `resources/monsters/<boss>/full.png` 교체(v1·v3 원본 `_reference/monsters/`) | `qa_out/art_boss_v3_lineup.png` |
 | 2026-10-17 | **정예 7종 v3 재디자인** (보스 v3와 같은 기준. 젤라틴 큐브는 1차가 정책에 걸려 재요청. **암흑 늑대는 2회 모두 정책에 걸려 v1 유지**) | `resources/monsters/<elite>/full.png` 교체 | `qa_out/art_elite_v3_lineup.png` |
 | 2026-10-17 | **일반 14종 v3 재디자인** (고블린·해골 전사·오크·유령·그림자·안개·늑대·광견·멧돼지·독거미·구울·좀비·해골 궁수·망령 병사). **슬라임·독 슬라임은 2회 모두 정책에 걸려 v1 유지**. 아머/방패 고블린·산적·경비병은 같은 금발 고블린처럼 나와(산적·경비병은 인간이어야 함) 머리색·외형을 구분해 재요청 → 2026-10-19 적용(`qa_out/art_normal_v3_a.png`) | `resources/monsters/<id>/full.png` 교체 | `qa_out/art_normal_v3_b.png` |
+| 2026-10-19 | **캐릭터 표정 개성 강화 v2** (사용자 성격 가이드 대조 — 견습 모험가·광전사·매혹사·해적은 이미 부합해 유지. 곡예사=깐죽대는 smug, 수호자=차가운 쿨데레, 폭발병=소악마 빌런, 주술사=음침·음흉 오타쿠로 5장씩 재생성, 구도는 기존 neutral 템플릿 유지) | `resources/characters/{juggler,guardian,explosive,shieldbearer}/face_*.png` 교체(v1은 `_reference/characters/<id>/v1/`) | `qa_out/art_<id>_face_v2.png` |
 
 ---
 
