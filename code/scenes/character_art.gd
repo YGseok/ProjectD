@@ -26,6 +26,30 @@ const THUMB_REGION := Rect2(250, 30, 620, 792)
 ## "face_crop": Rect2(...) 필드를 추가해 이 기본값을 덮어쓸 수 있다(아직 쓰는 캐릭터 없음).
 const DEFAULT_FACE_CROP_RATIO := Rect2(0.26, 0.015, 0.48, 0.48)
 
+## [미니 기획 ART-1c-5](2026-10-19) 몬스터 보스 티어 전용 크롭. v3 보스 원화는 큰
+## 왕관/머리장식이 있는데, DEFAULT_FACE_CROP_RATIO(플레이어 기준 "머리~눈썹" 구도,
+## y 시작 0.015)를 그대로 쓰면 face_art_fade 셰이더의 top_fade(10%)가 왕관 꼭대기의
+## 가는 첨탑~관 테두리 바로 그 자리와 겹쳐 왕관이 거의 안 보인다(보스 6종 전수 측정 —
+## 불투명 픽셀이 시작하는 행이 전부 y 비율 0.010~0.017로 이미지 맨 위부터 왕관이
+## 시작하는데, 크롭 시작(0.015)+그 위 10% 페이드가 정확히 그 구간을 가림). 보스만
+## y를 0(이미지 최상단)으로 당기고 height를 0.48->0.52로 늘려 왕관 꼭대기~허리
+## 정도까지 담는다(MonsterPortraitPlaceholder가 top_fade도 보스만 5%로 함께 줄임).
+## 일반/정예는 DEFAULT_FACE_CROP_RATIO 그대로(요구사항 — 변경 없음). 몬스터 쪽 표시
+## 박스(FACE_ART_SIZE*보스 배율 1.6=384px 정사각)는 가로=0.48 폭 기준 크롭 비율이
+## 0.4256보다 크면(0.48/0.52 둘 다 해당) 항상 세로가 박스 전체를 채우는
+## height-bound 로 렌더되므로, height 값을 더 늘려도 화면 차지 면적(384px)은 늘지
+## 않고 "같은 박스 안에 더 많이 보이느냐"만 바뀐다 — combat_test.gd의
+## BOSS_PORTRAIT_POSITION_SHIFT.y(HUD 패널 회피)가 실제 화면 여백을 결정한다.
+const BOSS_FACE_CROP_RATIO := Rect2(0.26, 0.0, 0.48, 0.52)
+
+## 몬스터 티어별 크롭 비율 데이터 표 — MonsterPortraitPlaceholder가 MonsterCatalog에서
+## 읽은 tier 문자열로만 조회한다(몬스터 id 하드코딩 금지).
+const MONSTER_FACE_CROP_RATIO_BY_TIER := {
+	"normal": DEFAULT_FACE_CROP_RATIO,
+	"elite": DEFAULT_FACE_CROP_RATIO,
+	"boss": BOSS_FACE_CROP_RATIO,
+}
+
 
 static func full_path(character_id: String, base_dir: String = BASE_DIR) -> String:
 	return (base_dir % character_id) + "full.png"

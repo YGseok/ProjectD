@@ -78,6 +78,17 @@ const FACE_ART_FADE_SHADER := CharacterPortraitPlaceholder.FACE_ART_FADE_SHADER
 const FACE_ART_SIDE_FADE := 0.1
 const FACE_ART_TOP_FADE := 0.1
 
+## [미니 기획 ART-1c-5](2026-10-19) 보스 티어는 CharacterArt.BOSS_FACE_CROP_RATIO로
+## 크롭을 왕관 꼭대기(y=0)까지 올리는데, 위 FACE_ART_TOP_FADE(10%)를 그대로 쓰면
+## 왕관이 다시 페이드 영역에 걸린다 — 보스만 top_fade를 약 5%로 줄인다(side_fade는
+## 전부 동일하게 10% 유지, 좌우 잘림 방지 목적은 티어와 무관). 일반/정예는 기존과
+## 동일(FACE_ART_TOP_FADE).
+const FACE_ART_TOP_FADE_BY_TIER := {
+	"normal": FACE_ART_TOP_FADE,
+	"elite": FACE_ART_TOP_FADE,
+	"boss": 0.05,
+}
+
 ## [미니 기획 ART-1c-4] 외곽 글로우(림 라이트) 상수. GLOW_SCALE은 _face_rect보다 몇 %
 ## 더 키워 뒤에 깔지(가장자리에 보이는 "두께") — 중심부는 어차피 _face_rect에 덮여 안
 ## 보이므로 전체 텍스처가 아니라 가장자리 margin만 실질적으로 노출된다. GLOW_COLOR는
@@ -111,6 +122,10 @@ var _monster_id := ""
 ## 별칭(dark_knight -> dark_knight_elite)이 해석된 값. _monster_id(원래 id, 다른 용도로
 ## 남겨둠)와 분리해 둔다.
 var _art_monster_id := ""
+## [미니 기획 ART-1c-5] MonsterCatalog에서 읽은 "normal"/"elite"/"boss" — 크롭 비율/
+## top_fade를 티어별로 고르는 데만 쓴다(카탈로그에 없는 id, 예: dice_test.gd의 가짜
+## 테스트 id는 get("tier", "normal")로 "normal"에 안전하게 폴백).
+var _tier := "normal"
 var _face_rect: TextureRect = null
 ## [미니 기획 ART-1c-4] 어두운 컷일 때만 만들어지는 외곽 글로우(림 라이트) 노드. 밝은
 ## 몬스터는 끝까지 null로 남아 기존 화면과 완전히 동일하다.
@@ -133,6 +148,7 @@ var art_base_dir: String = MONSTER_ART_BASE_DIR
 func set_monster(monster_id: String) -> void:
 	_monster_id = monster_id
 	_art_monster_id = MonsterCatalog.art_resource_id(monster_id)
+	_tier = MonsterCatalog.get_by_id(monster_id).get("tier", "normal")
 	_use_face_art = CharacterArt.has_all_faces(_art_monster_id, art_base_dir)
 	_use_full_crop = false
 	var representative_tex: Texture2D = null
@@ -142,13 +158,27 @@ func set_monster(monster_id: String) -> void:
 	elif CharacterArt.has_full(_art_monster_id, art_base_dir):
 		_use_full_crop = true
 		_ensure_face_rect()
-		representative_tex = CharacterArt.load_full_crop(_art_monster_id, CharacterArt.DEFAULT_FACE_CROP_RATIO, art_base_dir)
+		var crop_ratio: Rect2 = CharacterArt.MONSTER_FACE_CROP_RATIO_BY_TIER.get(_tier, CharacterArt.DEFAULT_FACE_CROP_RATIO)
+		representative_tex = CharacterArt.load_full_crop(_art_monster_id, crop_ratio, art_base_dir)
 		_face_rect.texture = representative_tex
 	if _face_rect != null:
 		_face_rect.visible = _use_face_art or _use_full_crop
 	_is_dark_portrait = _texture_is_dark(representative_tex)
 	_update_glow()
+	_apply_tier_fade()
 	set_expression(expression)
+
+
+## [미니 기획 ART-1c-5] _face_rect/_glow_rect(있으면)의 top_fade 셰이더 파라미터를
+## 현재 _tier에 맞춰 갱신한다. _ensure_face_rect()/_ensure_glow_rect()는 노드를 1회만
+## 만들고 기본값(FACE_ART_TOP_FADE)으로 초기화하므로, 몬스터가 바뀔 때마다(티어가
+## 달라질 수 있음) 이 함수가 실제로 쓸 값을 다시 써넣는다.
+func _apply_tier_fade() -> void:
+	var top_fade: float = FACE_ART_TOP_FADE_BY_TIER.get(_tier, FACE_ART_TOP_FADE)
+	if _face_rect != null and _face_rect.material != null:
+		_face_rect.material.set_shader_parameter("top_fade", top_fade)
+	if _glow_rect != null and _glow_rect.material != null:
+		_glow_rect.material.set_shader_parameter("top_fade", top_fade)
 
 
 func _ensure_face_rect() -> void:

@@ -262,7 +262,17 @@ const MONSTER_PORTRAIT_SCALE_BY_TIER := {
 ## tscn 쪽 값은 에디터에서 보일 초기값일 뿐 실제로는 항상 이 상수로 덮어써진다).
 const MONSTER_PORTRAIT_BASE_POSITION := Vector2(1170.0, 300.0)
 ## 보스만 배율(1.6)이 커진 만큼 오른쪽 화면 경계에 닿지 않도록 왼쪽으로 당기는 보정.
-const BOSS_PORTRAIT_POSITION_SHIFT := Vector2(-60.0, 0.0)
+## [미니 기획 ART-1c-5](2026-10-19) y=130 추가 — BOSS_FACE_CROP_RATIO가 크롭을 왕관
+## 꼭대기까지 올리면서, 보스 포트레이트 박스 상단(y=133.6, 기존 x 보정만 있었을 때
+## 실측값)이 몬스터 HUD 패널(우측 상단, 실측 바닥 y≈243)보다 한참 위라 왕관이 패널에
+## 가려 안 보였다(겹침이 아니라 "패널이 왕관 위에 그려짐" — _hud_panels가 런타임에
+## 나중에 추가돼 z-order가 더 위). y=130을 더해 박스 상단을 패널 바닥+여백(약 20px)
+## 아래로 내린다 — 박스 하단은 "전투 기록" 로그 패널 상단(y=572)과 약간 겹치지만
+## face_art_fade 셰이더의 기존 하단 페이드(fade_start=0.76, 모든 티어 공통)가 박스
+## 하단 24%를 이미 점점 투명하게 만들어 그 구간이라 시각적으로 거의 안 걸린다(셀프
+## 피드백 캡처로 확인). 셀프 피드백으로 확정한 값, dice_test.gd의
+## _check_art1c5_boss_crop()가 패널 하단 y + 여백 이상인지 실제 계산으로 검증.
+const BOSS_PORTRAIT_POSITION_SHIFT := Vector2(-60.0, 130.0)
 ## [대형 기획 13] M-3 — 감독 추가 비평(2026-10-14) 전까지 승리 보상 화면
 ## (_show_reward_ui/_add_reward_frame)이 쓰던 y=120 기준값은 M-2 이전(다이스 뷰포트가
 ## offset_top=120이던 시절)의 값이 그대로 남은 것이었다. M-2가 다이스 뷰포트를 184로
@@ -1460,6 +1470,22 @@ func _debug_show_monster_face_art_boss() -> void:
 ## dice_test.gd가 수치로 담당.
 func _debug_shift_monster_portrait_center() -> void:
 	monster_portrait.position = Vector2(500, 300)
+
+
+## [미니 기획 ART-1c-5] QA 전용(GAME_QA_CALL) — 보스 포트레이트/몬스터 HUD 패널/전투
+## 기록 로그 패널의 실제 global rect를 stdout에 출력한다. BOSS_PORTRAIT_POSITION_SHIFT.y
+## 값을 셀프 피드백 중 숫자로 확인하며 조정하기 위해 만든 훅 — dice_test.gd의
+## _check_art1c5_boss_crop()가 같은 값을 코드로 검증하므로 평소엔 이 훅을 직접 쓸 일이
+## 없지만, 이후 비슷한 포트레이트 겹침 문제가 생기면 재사용 가능해 남겨둔다.
+func _debug_print_boss_rects() -> void:
+	var fr: TextureRect = monster_portrait._face_rect
+	if fr != null:
+		print("[ART1C5] face_rect global rect: ", fr.get_global_rect())
+	if _hud_panels.size() >= 3:
+		print("[ART1C5] monster hud panel global rect: ", _hud_panels[2].get_global_rect())
+	print("[ART1C5] monster_portrait position: ", monster_portrait.position, " scale: ", monster_portrait.scale)
+	if _log_panel != null:
+		print("[ART1C5] log panel global rect: ", _log_panel.get_global_rect())
 
 
 ## dungeon_map.gd/shop.gd 등과 같은 패턴 — 지금 화면에 실제로 눌러야 할 버튼들을

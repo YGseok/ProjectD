@@ -5,29 +5,24 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-10-19 (232)
-- 작성자: AI 에이전트. **[대형 기획 15] Q-8(b)(등급별 효과 차등, 원문 5) 완료.**
-  직전 이터레이션이 주간 한도로 미커밋 상태로 끊긴 것을 `git diff`로 파악해
-  이어받았다. UPGRADE_SKILLS 11쌍을 전수 감사한 결과 **11쌍 전부 이미
-  "상위 등급이 베이스 이상 효과/완화된 조건"을 지키고 있어 효과 수치를 바꾸는
-  코드 변경은 하지 않았다**(쌍별 수치 표는 완료 기록(232) 참고). 기존 인라인
-  삼항연산자/if-elif로만 존재하던 4곳(`_frenzy_extra_rolls()`/
-  `_guard_extra_rolls()`/`_spare_die_count()`/`RunState._juggle_encore_swap_count()`)을
-  동작 불변 그대로 순수 함수로 뽑아내 `dice_test.gd`가 "플래그 존재"가 아니라
-  "계산 결과 수치"로 base<plus를 직접 비교하게 했다(신규
-  `_check_q8b_upgrade_effect_values()`, 12개 체크). 설명 문구 2건("광기 심화+"/
-  "수호 심화+")이 베이스 대비 변화를 드러내지 않아 문구만 보강(효과 불변).
-  **STARTING_SKILLS 13종(전부 일반 등급, "+"판 없음)을 "등급 사다리 후보"로
-  STATUS.md에 표만 정리**(새 효과 만들지 않음, 완료 기록(232) 참고, 감독 판단
-  대기). `dice_test.gd` 전체 **PASS**(FAIL 0건). balance_sim을 재실행해
-  주요 4개 판정 항목(일반 방0~2/방3/정예/보스) 전부 "통과" 유지, 견습 모험가
-  이상치 편차 변화 <1%p(±5%p 목표 안) 확인 — **단 "캐릭터별 평균 이상치" 표에
-  곡예사가 새 이상치(-26%p대)로 등장**, 조사 결과 이 지표(성장 정책 슬롯0
-  전용 축)가 곡예사의 이벤트 전용 슬롯0 스킬을 전투력으로 오인하는 기존
-  측정 한계(`BALANCE_TUNING_LOG.md` "N-5(c)"에 이미 문서화)이며 Q-8(b)
-  변경과 무관함을 확인(조정 안 함, 범위 밖). `resources/`·`docs/art/`는
-  읽기만 했다. **[대형 기획 15]의 다음은 Q-8(c)(전설 스킬 구현)** — INBOX.md
-  Q-8 설계 참고.
+- 일시: 2026-10-19 (233)
+- 작성자: AI 에이전트. **[대형 기획 13] [미니 기획 ART-1c-5](보스 크롭·여백
+  조정, 아트 스레드 요청) 완료.** 직전 이터레이션이 `dice_test`를
+  `run_in_background`로 돌려놓고 결과를 기다리지도 않은 채 미커밋 상태로
+  끊긴 것을 `git diff`로 파악해 이어받았다(헤드리스 세션은 백그라운드
+  작업을 기다릴 수 없다). 코드 변경(보스 티어 전용 크롭 `CharacterArt.
+  BOSS_FACE_CROP_RATIO`, top_fade 축소 `FACE_ART_TOP_FADE_BY_TIER`, 포트레이트
+  y+130 하향 `BOSS_PORTRAIT_POSITION_SHIFT`, 검증 테스트
+  `_check_art1c5_boss_crop()`)은 직전 이터레이션이 이미 전부 구현해둔 상태라
+  stash/reset 없이 그대로 이어받아 완성도만 확인했다. foreground +
+  `settle=1`로 `dice_test` 전체 재실행해 stdout에서 **"결과: PASS"**
+  직접 확인(FAIL 0건). 보스 6종(`goblin_king`/`ooze_lord`/`skeleton_general`/
+  `frenzied_beast`/`fallen_commander`/`void_eye`) 전부
+  `combat_test`로 개별 캡처해 직접 읽고 확인 — 왕관/머리장식이 더 이상
+  페이드에 묻히지 않고 완전히 보이며, 몬스터 HUD 패널과 포트레이트 사이에
+  명확한 여백이 생겼고, 6종 전부 화면 안에 들어온다. 상세는 완료 기록(233)
+  참고. `resources/`·`docs/art/`는 읽기만 했다. **[대형 기획 13]에 남은
+  조각 없음 — 다음은 [대형 기획 15] Q-8(c)(전설 스킬 구현)로 복귀.**
 
 ## 지금 위치
 
@@ -171,6 +166,13 @@ COLOR`). 전투 결과 줄 "공격"/"방어" 라벨은 몬스터 색 대신
 `ATTACK_LABEL_COLOR`(금색)/`DEFENSE_LABEL_COLOR`(밝은 회백) 고정값을 쓰도록
 `combat_test.gd`를 고쳐 어두운 몬스터와 짝지어도 안 보이지 않게 했다(대비비
 13.4:1/13.8:1).
+**ART-1c-5(보스 크롭·여백 조정, 2026-10-19, 233) 완료** — v3 보스 원화의 큰
+왕관/머리장식이 위쪽 페이드에 묻히던 문제를 보스 티어 전용 크롭
+(`CharacterArt.BOSS_FACE_CROP_RATIO`, y 시작을 왕관 꼭대기까지 올림) +
+top_fade 축소(보스만 5%)로 해결하고, 크롭 상향으로 왕관이 몬스터 HUD
+패널에 눌려 보이던 문제는 `combat_test.gd`의 `BOSS_PORTRAIT_POSITION_
+SHIFT`에 y=130을 더해 해결했다(일반/정예 크롭은 변경 없음). 상세는 완료
+기록(233) 참고.
 **ART-2(전투 화면 표정 컷 하단 잘림 처리) 완료(2026-10-15, 204)** — 표정 컷
 아래 20~25% 알파 그라데이션 셰이더(`code/shaders/face_art_fade.gdshader`)로
 가슴께 잘림이 일직선으로 떠 보이던 문제를 해결하고, `FACE_ART_LEFT_SHIFT` 보정
@@ -1319,6 +1321,49 @@ dungeon_map/shop/event/story_event/combat_test 공유)에 SMALL 도식을
 
 ## 완료 기록
 
+- **2026-10-19 (233)**: **[대형 기획 13] [미니 기획 ART-1c-5](보스 크롭·여백
+  조정, 아트 스레드 요청) 완료.** 직전 이터레이션이 `dice_test`를
+  `run_in_background`로 돌려놓고 "기다리겠다"고만 하고 미커밋 상태로 끊긴 것을
+  `git diff`로 파악해 이어받았다(헤드리스 세션은 백그라운드 작업을 기다릴 수
+  없다는 교훈이 이번에도 재확인됨). `git diff`로 확인한 결과 직전 이터레이션이
+  이미 코드 변경을 전부 끝내둔 상태였다(stash/reset 없이 그대로 이어감) —
+  ① `CharacterArt.BOSS_FACE_CROP_RATIO`(Rect2(0.26, 0.0, 0.48, 0.52))가 보스
+  티어만 크롭 시작 y를 0(이미지 최상단, 왕관 꼭대기)으로 올리고 height를
+  0.48→0.52로 늘려 허리 정도까지 담는다 — `MONSTER_FACE_CROP_RATIO_BY_TIER`
+  데이터 표로 일반/정예는 `DEFAULT_FACE_CROP_RATIO` 그대로(요구사항 — 변경
+  없음), 몬스터 id 하드코딩 없이 `MonsterCatalog`의 `tier` 문자열로만 조회.
+  ② `MonsterPortraitPlaceholder.FACE_ART_TOP_FADE_BY_TIER`가 보스만 top_fade를
+  10%→5%로 줄여 왕관이 다시 페이드 영역에 걸리지 않게 했다(_face_rect/
+  _glow_rect 양쪽 다 `_apply_tier_fade()`로 갱신). ③ 크롭을 올리면서 보스
+  포트레이트 박스 상단이 몬스터 HUD 패널(우측 상단)보다 한참 위로 올라가
+  왕관이 패널에 가려 보였던 문제는 `combat_test.gd`의
+  `BOSS_PORTRAIT_POSITION_SHIFT`에 y=130을 추가해 패널 하단+여백 아래로
+  내려 해결(기존 x=-60 보정은 유지) — 박스 하단이 "전투 기록" 로그 패널
+  상단과 살짝 겹치지만 기존 하단 페이드 셰이더가 그 구간을 이미 투명하게
+  만들어 시각적으로 거의 안 걸림(셀프 피드백으로 확인).
+  **검증**: `dice_test.gd`의 신규 `_check_art1c5_boss_crop()`이 "플래그
+  존재"가 아니라 계산 결과로 ① 보스 크롭 시작 y가 일반/정예보다 위쪽인지
+  ② 일반/정예 크롭 비율이 변경 없이 그대로인지 ③ top_fade가 보스만 더
+  작은지 ④ 보스 6종 전부를 production 배치(`combat_test.tscn`,
+  `_apply_monster_portrait_tier`)로 실제 렌더해 포트레이트 상단 y가 몬스터
+  HUD 패널 하단 y + 10px 여백 이상인지 ⑤ 화면(1280x720) 안에 드는지를
+  rect 계산으로 직접 비교한다(이번엔 실제 trait 텍스트까지 채워 패널 높이가
+  빈 텍스트일 때보다 커지는 실제 조건으로 측정). **`dice_test.gd` 전체 PASS**
+  — foreground + `settle=1`로 `bash scripts/qa_shot.sh dice_test "" qa_out/
+  dice_test_art1c5_final.png "" 1` 실행해 stdout에 "결과: PASS" 직접 확인
+  (FAIL 0건, "FAIL"이라는 단어가 포함된 다른 체크 2건은 체크 설명 문구/
+  주석일 뿐 실제 실패 아님을 확인).
+  **셀프 피드백(시각 확인)**: 보스 6종 전부(`goblin_king`/`ooze_lord`/
+  `skeleton_general`/`frenzied_beast`/`fallen_commander`/`void_eye`)를
+  `scripts/qa_shot.sh combat_test 140 qa_out/art1c5_boss_<id>.png "" 1 "" 4
+  <id>`로 개별 캡처해 직접 읽고 확인 — 전부 왕관/머리장식이 위쪽 페이드에
+  묻히지 않고 완전히 보이며(고블린 왕 왕관, 해골 장군 두개골 왕관, 타락한
+  기사단장 뿔 장식, 공허의 눈 티아라 전부 또렷), 몬스터 HUD 패널과 포트레이트
+  사이에 명확한 여백이 생겨 더 이상 머리가 패널에 눌려 보이지 않고, 6종 전부
+  화면(1280x720) 경계 안에 들어온다. 전투 규칙/밸런스 수치는 건드리지 않았고
+  `resources/`·`docs/art/`는 읽기만 했다. **[대형 기획 13]에 남은 조각
+  없음 — 다음은 [대형 기획 15] Q-8(c)(전설 스킬 구현)로 복귀.**
+
 - **2026-10-19 (232)**: 직전 이터레이션(Q-8(b))이 주간 한도로 중단된 것을
   `git diff`로 파악해 이어받아 **[대형 기획 15] Q-8(b)(등급별 효과 차등, 원문 5)
   완료**. 직전 이터레이션이 이미 구현해둔 코드(stash/reset 없이 그대로 이어감)를
@@ -1819,72 +1864,9 @@ dungeon_map/shop/event/story_event/combat_test 공유)에 SMALL 도식을
   규칙/밸런스는 건드리지 않았고 `resources/`·`docs/art/`는 읽기만 했다. **다음은
   INBOX.md "부분 처리됨" [대형 기획 15] Q-4b(보유 스킬 팝업 + 던전 포기).**
 
-- **2026-10-17 (223)**: **[대형 기획 15] Q-3(캐릭터 선택 화면 폴리시, 원문 7/9)
-  전체 완료.**
-  **(7) 시작 스킬 슬롯 아이콘 비율** — 기존 `_make_starting_skill_slot()`은
-  16px 아이콘을 이름과 한 줄(HBoxContainer)에 나란히 넣어 작고 비율이 안
-  맞았다. 세로 배치(아이콘 위/이름 아래)로 바꾸고, 아이콘 전용 `Control`
-  (`icon_area`)에 `custom_minimum_size`를 신규 상수 `STARTING_SKILL_ICON_
-  SIZE`(44, 40~48px 예산 안)로 정사각 고정, `SkillIcon`은 그 안에 `PRESET_
-  FULL_RECT`로 채워 넣는다. 슬롯 버튼 높이도 신규 `STARTING_SKILL_SLOT_
-  HEIGHT`(84, 기존 56)로 키웠다. 잠긴 슬롯은 모티프 아이콘을 alpha 0.4로
-  흐리게 그대로 보여주고(기존과 동일하게 완전히 숨기지 않음), 그 위 우하단에
-  `LockIcon`을 신규 상수 `STARTING_SKILL_LOCK_BADGE_SIZE`(20)로 작게 겹쳐
-  그려 "잠김"을 표시한다(`PRESET_BOTTOM_RIGHT` 앵커) — 해금/잠금 두 상태가
-  같은 아이콘 영역(icon_area) 구조를 공유해 슬롯끼리 비율이 흔들리지 않는다.
-  **(9) 고유 능력 텍스트 폴리싱** — 기존 "고유 능력" 섹션(③)은
-  `profile["concept"]`(캐릭터 플레이버+기믹 설명이 한 문장으로 섞인 긴
-  서술형 문구)를 `_truncate(concept, ABILITY_DESC_MAX_CHARS=32)`로 글자 수
-  기준으로 그냥 잘라서 보여줬다 — 문장 어디서 잘릴지 예측할 수 없어 핵심
-  수치가 통째로 잘려 나갈 수 있는 구조였다(곡예사의 "D12"는 32자 경계
-  바로 근처라 N-5(c) 때 운 좋게 살아남은 것뿐, 근본 해결은 아니었음).
-  `CharacterProfiles.PROFILES`에 8명 전부 신규 필드 `ability_summary`
-  (처음부터 2줄 예산에 맞춰 손으로 쓴 짧은 문장, 핵심 효과+숫자 한 가지)를
-  추가하고, `_refresh_detail_panel()`이 더 이상 `_truncate()`를 쓰지 않고
-  이 필드를 그대로 `_detail_skill_label.text`에 넣는다(`concept`은
-  `tooltip_text`로 남아 전체 문장을 여전히 볼 수 있음). 8명 문구: 견습
-  모험가 "기믹 없음 — 모든 능력 표준형." / 광전사 "다이스가 항상 최소/
-  최댓값만(중간값 없음)." / 수호자 "방어 다이스 1개가 항상 고정값(안
-  굴림)." / 폭발병 "공격 최댓값 3회 누적 → 다음 공격 1D20." / 주술사
-  "방어 최댓값 3회 누적 → 다음 방어 1D20." / 매혹사 "매 턴 최저값 다이스
-  1개를 최댓값으로 전환." / 곡예사 "이벤트 주사위 D12(기본 D6), 다이스
-  1개씩 교환."(D12 차별점이 처음부터 확실히 노출) / 해적 "3번째 공격턴마다
-  방어 무시 고정 피해.". `ABILITY_DESC_MAX_CHARS` 상수와 그 사용처는
-  삭제(더 이상 글자 수로 자르지 않으므로).
-  **검증**: `dice_test.gd`에 신규 체크 2종 추가 — ① `_check_q3_starting_
-  skill_icon_ratio()`: `character_select.tscn`을 인스턴스화해 8명 전부(각
-  캐릭터 선택 시마다 `_rebuild_starting_skill_slots()`가 다시 그림) 시작
-  스킬 슬롯 버튼 트리를 순회, `icon_area.custom_minimum_size`가 정사각이고
-  40~48px 범위인지 24개(8명×3슬롯) 전수 확인 + 그중 잠긴 슬롯(자물쇠 배지
-  포함, `icon_area.get_child_count() > 1`로 판별) 16개가 실제로 검사
-  대상에 섞여 있는지도 함께 확인 → 전수 OK, 잠긴 슬롯 16개 확인됨. ②
-  `_check_q3_ability_summary_fits()`: 8명 전부 `_detail_skill_label.text`가
-  "…"로 끝나지 않고(말줄임 없음), `get_combined_minimum_size().y`(실제
-  autowrap 레이아웃 결과 — `label.get_theme_font("font").get_height(...)`로
-  구한 실제 줄 높이 × 2 + 여유를 예산으로 삼아 글자 수 어림이 아닌 진짜
-  폰트 측정으로 비교)가 2줄 예산을 넘지 않는지 확인, 곡예사 텍스트에
-  "D12"가 실제로 들어있는지도 별도 확인 → 8명 전부 실측 높이 19.0(1줄
-  분량, 2줄 예산 38.0 안에 여유 있게 들어옴), D12 포함 확인. `bash
-  scripts/qa_shot.sh dice_test 600 qa_out/dice_test.png "" 1` 전체
-  **PASS**(FAIL 0건, 새 체크 2종 포함).
-  **셀프 피드백**: `qa_out/q3_character_select_novice.png`(기본 캐릭터 —
-  "고유 능력" 섹션에 "기믹 없음 — 모든 능력 표준형."이 한 줄로 완전히
-  보임, 시작 스킬 3슬롯 중 잠긴 "황금손"에서 자물쇠 배지+흐린 아이콘
-  확인)/`q3_character_select_juggler.png`(고유 능력 "이벤트 주사위
-  D12(기본 D6), 다이스 1개씩 교환."이 완전히 노출됨, D12 안 잘림)/
-  `q3_character_select_guardian.png`(2~4음절 혼합 슬롯 이름 "철벽"/"강철
-  방비"/"대비"에서도 레이아웃 안 깨짐, "고유 능력" "방어 다이스 1개가
-  항상 고정값(안 굴림)."도 한 줄로 완전히 보임)을 직접 읽어 확인 — 전부
-  1280×720, 레이아웃 겹침/잘림 없음. 왼쪽 카드 목록의 한 줄 기믹 라벨
-  (`GIMMICK_LABELS`, 예: "주술사: 수호 스택 (방어 최댓값 3회 누적 →
-  ...")은 고정 폭 한 줄 클립을 쓰는 별개 시스템이라 이번 Q-3(9) 범위
-  밖으로 뒀다 — INBOX 원문이 지목한 "잘린다"는 "고유 능력" 섹션(오른쪽
-  상세 패널)이었고 그 쪽은 이번에 해결됨. 전투 규칙/밸런스 수치는 건드리지
-  않았고 `resources/`·`docs/art/`는 읽기만 했다.
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(232)에서 (222)를 그리로 옮겼다.)*
+이번 이터레이션(233)에서 (223)을 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 

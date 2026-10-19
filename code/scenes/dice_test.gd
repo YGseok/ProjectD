@@ -421,6 +421,10 @@ func _ready() -> void:
 	all_pass = _check_q1_monster_portrait_tier_bounds(lines) and all_pass
 
 	lines.append("")
+	lines.append("[ART-1c-5: 보스 크롭·여백 — 보스 티어 크롭 시작 y가 일반/정예보다 위쪽인지, top_fade가 보스만 더 작은지, 보스 포트레이트 상단 y가 몬스터 HUD 패널 하단 y + 여백 이상인지(rect 계산), 보스 6종 전부 production 배치로 화면(1280x720) 안에 드는지]")
+	all_pass = (await _check_art1c5_boss_crop(lines)) and all_pass
+
+	lines.append("")
 	lines.append("[Q-1(18): 전투 종료 후 다이스 결과 칩 줄이 보상/패배 버튼과 안 겹치는지 — battle_over가 true가 되는 시점(_maybe_finish_battle, 승리/패배 공통)에 _exchange_chip_nodes가 실제로 비워지는지, 비워진 뒤 남은 노드가 없어 보상 액션 버튼과 rect 교차가 0인지(승리/패배 둘 다)]")
 	all_pass = (await _check_q1_reward_chip_overlap(lines)) and all_pass
 
@@ -11552,6 +11556,100 @@ func _check_q1_monster_portrait_tier_bounds(lines: PackedStringArray) -> bool:
 	lines.append("  카탈로그 전수(%d종) production 배치 화면 밖 잘림 검사 -> %s%s" % [
 		checked_count, "OK" if bounds_ok else "FAIL",
 		("" if bounds_ok else (" (잘림: " + ", ".join(out_of_bounds) + ")"))
+	])
+
+	remove_child(combat)
+	combat.free()
+
+	return ok
+
+
+## [미니 기획 ART-1c-5](2026-10-19) — 보스 크롭이 가슴 중심이라 v3 보스의 큰 왕관/
+## 머리장식이 위쪽 페이드에 묻히고(고블린 왕 왕관이 거의 안 보임, 공허의 눈 이마 세
+## 번째 눈이 잘림), 보스 컷이 몬스터 HUD 패널 바로 아래 붙어 머리가 패널에 눌려 보이던
+## 문제의 수치 검증. "플래그 존재"가 아니라 실제 계산 결과(크롭 Rect 값/텍스처 상단 y)로
+## 확인한다 — "계산 결과가 실제로 바뀌는가"를 봐야 한다는 세션 원칙(플래그만 보는
+## 테스트가 과거 효과 안 붙는 버그를 놓친 적 있음) 그대로.
+func _check_art1c5_boss_crop(lines: PackedStringArray) -> bool:
+	await get_tree().process_frame
+	var ok := true
+
+	# ① 크롭 비율 데이터 표 — 보스 크롭 시작 y가 일반/정예(DEFAULT_FACE_CROP_RATIO)보다
+	#    위쪽(작은 값)인지, 일반/정예는 요구사항대로 손대지 않았는지.
+	var crop_by_tier: Dictionary = CharacterArt.MONSTER_FACE_CROP_RATIO_BY_TIER
+	var normal_crop: Rect2 = crop_by_tier.get("normal", Rect2())
+	var elite_crop: Rect2 = crop_by_tier.get("elite", Rect2())
+	var boss_crop: Rect2 = crop_by_tier.get("boss", Rect2())
+	var unchanged_ok: bool = normal_crop == CharacterArt.DEFAULT_FACE_CROP_RATIO and elite_crop == CharacterArt.DEFAULT_FACE_CROP_RATIO
+	ok = unchanged_ok and ok
+	lines.append("  일반/정예 크롭 비율이 DEFAULT_FACE_CROP_RATIO 그대로인지(요구사항 — 변경 금지) -> %s" % ["OK" if unchanged_ok else "FAIL"])
+	var crop_start_ok: bool = boss_crop.position.y < normal_crop.position.y
+	ok = crop_start_ok and ok
+	lines.append("  크롭 시작 y: 일반=%.4f 보스=%.4f (보스가 더 위쪽/작아야 함) -> %s" % [
+		normal_crop.position.y, boss_crop.position.y, "OK" if crop_start_ok else "FAIL"
+	])
+
+	# ② top_fade — 보스만 더 작은지(FACE_ART_TOP_FADE_BY_TIER).
+	var fade_by_tier: Dictionary = MonsterPortraitPlaceholder.FACE_ART_TOP_FADE_BY_TIER
+	var normal_fade: float = fade_by_tier.get("normal", 1.0)
+	var boss_fade: float = fade_by_tier.get("boss", 1.0)
+	var fade_ok: bool = boss_fade < normal_fade
+	ok = fade_ok and ok
+	lines.append("  top_fade: 일반=%.3f 보스=%.3f (보스가 더 작아야 함) -> %s" % [normal_fade, boss_fade, "OK" if fade_ok else "FAIL"])
+
+	# ③+④ 보스 6종 전수 — production 배치(combat_test.tscn, _apply_monster_portrait_tier)로
+	#    실제 렌더해 _face_rect 상단 y가 몬스터 HUD 패널 하단 y + 여백 이상인지, 화면
+	#    (1280x720) 안에 드는지. 몬스터 HUD 패널 높이는 실제 "특성" 줄 텍스트 길이에
+	#    따라 달라지므로(_setup_combat_hud()가 만드는 PanelContainer 자동 높이), 각
+	#    보스의 실제 trait 텍스트(_monster_trait_summary_text, production과 동일 함수)를
+	#    채우고 레이아웃이 안정될 때까지 기다린 뒤 측정한다 — 빈 텍스트로 측정하면 패널이
+	#    실제보다 작게 나와 여백 미달을 놓칠 수 있다.
+	var combat_scene := load("res://code/scenes/combat_test.tscn")
+	var combat = combat_scene.instantiate()
+	add_child(combat)
+	var combat_script := load("res://code/scenes/combat_test.gd")
+	var screen := Rect2(0.0, 0.0, 1280.0, 720.0)
+	const MARGIN := 10.0
+
+	var boss_ids: Array = MonsterCatalog.boss_roster_ids()
+	var missing_margin: Array[String] = []
+	var out_of_bounds: Array[String] = []
+	for mid in boss_ids:
+		var profile: Dictionary = MonsterCatalog.get_by_id(mid)
+		var skill_ids: Array = []
+		for skill in profile.get("skills", []):
+			var skill_id: String = skill.get("id", "")
+			if skill_id != "":
+				skill_ids.append(skill_id)
+		var trait_config := {"personality": profile.get("personality", ""), "skill_ids": skill_ids}
+		combat.monster_trait_label.text = combat_script._monster_trait_summary_text(trait_config)
+		combat.monster_portrait.set_monster(mid)
+		combat._apply_monster_portrait_tier(false, true)
+		await get_tree().process_frame
+		await get_tree().process_frame
+		var fr: TextureRect = combat.monster_portrait._face_rect
+		if fr == null or not fr.visible:
+			missing_margin.append("%s(no face_rect)" % mid)
+			continue
+		var fr_rect := fr.get_global_rect()
+		var panel_rect: Rect2 = combat._hud_panels[2].get_global_rect() if combat._hud_panels.size() >= 3 else Rect2()
+		var panel_bottom: float = panel_rect.position.y + panel_rect.size.y
+		if fr_rect.position.y < panel_bottom + MARGIN:
+			missing_margin.append("%s(top=%.1f, panel_bottom+margin=%.1f)" % [mid, fr_rect.position.y, panel_bottom + MARGIN])
+		if not screen.encloses(fr_rect):
+			out_of_bounds.append("%s(rect=%s)" % [mid, fr_rect])
+
+	var margin_ok: bool = missing_margin.is_empty()
+	ok = margin_ok and ok
+	lines.append("  보스 %d종 — 포트레이트 상단 y >= 몬스터 HUD 패널 하단 y + 여백(%.0fpx) -> %s%s" % [
+		boss_ids.size(), MARGIN, "OK" if margin_ok else "FAIL",
+		("" if margin_ok else (" (미달: " + ", ".join(missing_margin) + ")"))
+	])
+	var boss_bounds_ok: bool = out_of_bounds.is_empty()
+	ok = boss_bounds_ok and ok
+	lines.append("  보스 %d종 — production 배치 화면(1280x720) 안 배치 -> %s%s" % [
+		boss_ids.size(), "OK" if boss_bounds_ok else "FAIL",
+		("" if boss_bounds_ok else (" (잘림: " + ", ".join(out_of_bounds) + ")"))
 	])
 
 	remove_child(combat)
