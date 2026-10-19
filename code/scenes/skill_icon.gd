@@ -85,6 +85,12 @@ const COLOR_FLIP := Color(0.85, 0.3, 0.55)
 const COLOR_CYCLE := Color(0.15, 0.65, 0.6)
 const COLOR_EVENT := Color(0.65, 0.5, 0.85)
 
+## 전설 스킬 전용([대형 기획 15] Q-8(c) 1/4, 2026-10-19) — SkillPool.RARITY_COLORS[
+## RARITY_LEGENDARY]와 같은 색조(전설 등급 배지 색과 아이콘이 시각적으로 일치해야
+## 한다는 의도). legend_nuke/true_strike/counter_strike 3종 모두 이 색을 공유하되
+## 모양으로 구분한다.
+const COLOR_LEGENDARY := Color(0.95, 0.55, 0.12)
+
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -225,6 +231,12 @@ func _draw_motif() -> void:
 			_draw_motif_cycle_strike()
 		"event_check":
 			_draw_motif_event_check()
+		"legend_nuke":
+			_draw_motif_legend_nuke()
+		"true_strike":
+			_draw_motif_true_strike()
+		"counter_strike":
+			_draw_motif_counter_strike()
 		_:
 			_draw_none()
 
@@ -330,6 +342,52 @@ func _draw_motif_event_check() -> void:
 	draw_colored_polygon(pts, COLOR_EVENT)
 	draw_circle(Vector2(size.x * 0.4, size.y * 0.52), size.x * 0.07, COLOR_EVENT.lightened(0.35))
 	draw_rect(Rect2(size.x * 0.52, size.y * 0.4, size.x * 0.14, size.x * 0.14), COLOR_EVENT.lightened(0.35))
+
+
+## 보너스턴 결과값 확정 최댓값(광전 돌격) — burst_stack(폭발 스택)보다 스파이크를
+## 촘촘하게(8->12) 키우고 중앙에 밝은 코어를 더해 "확률 없이 항상 터지는" 전설다운
+## 강도를 burst_stack과 구분되는 모양으로 표현한다.
+func _draw_motif_legend_nuke() -> void:
+	var center := size * 0.5
+	var outer := size.x * 0.46
+	var inner := size.x * 0.14
+	var points := PackedVector2Array()
+	var spikes := 12
+	for i in range(spikes * 2):
+		var r: float = outer if i % 2 == 0 else inner
+		var a: float = TAU * i / (spikes * 2.0) - PI / 2
+		points.append(center + Vector2(cos(a), sin(a)) * r)
+	draw_colored_polygon(points, COLOR_LEGENDARY)
+	draw_circle(center, size.x * 0.12, COLOR_LEGENDARY.lightened(0.5))
+
+
+## 방어 무시 고정 피해(유혈광란/불굴의 보복 공용) — 동심원 과녁을 똑바로 뚫고 지나가는
+## 화살로 "방어와 무관하게 명중"을 표현한다(attack_boost의 위쪽 화살표와는 각도·모양
+## 둘 다 달라 구분됨).
+func _draw_motif_true_strike() -> void:
+	draw_arc(size * 0.5, size.x * 0.4, 0, TAU, 24, COLOR_LEGENDARY.darkened(0.3), 2.0)
+	draw_arc(size * 0.5, size.x * 0.24, 0, TAU, 20, COLOR_LEGENDARY.darkened(0.1), 2.0)
+	draw_line(Vector2(size.x * 0.12, size.y * 0.82), Vector2(size.x * 0.82, size.y * 0.12), COLOR_LEGENDARY, 3.0)
+	var head := PackedVector2Array([
+		Vector2(size.x * 0.82, size.y * 0.12),
+		Vector2(size.x * 0.64, size.y * 0.2),
+		Vector2(size.x * 0.74, size.y * 0.3),
+	])
+	draw_colored_polygon(head, COLOR_LEGENDARY)
+
+
+## 완전 방어 반격(결의의 반격) — 방패 윤곽(_draw_shield_outline 재사용) 안에서 밖으로
+## 휘어나가는 곡선 화살표(부메랑 느낌)로 "막은 만큼 돌려준다"를 표현한다(defense_boost
+## 의 직선 쉐브론과는 곡선/화살 유무로 구분됨).
+func _draw_motif_counter_strike() -> void:
+	_draw_shield_outline(COLOR_LEGENDARY.darkened(0.15))
+	draw_arc(Vector2(size.x * 0.5, size.y * 0.5), size.x * 0.22, PI * 1.1, PI * 2.05, 16, COLOR_LEGENDARY.lightened(0.3), 2.5)
+	var head := PackedVector2Array([
+		Vector2(size.x * 0.72, size.y * 0.3),
+		Vector2(size.x * 0.82, size.y * 0.36),
+		Vector2(size.x * 0.7, size.y * 0.44),
+	])
+	draw_colored_polygon(head, COLOR_LEGENDARY.lightened(0.3))
 
 
 func _draw_none() -> void:

@@ -165,6 +165,57 @@ static func _cannon_volley_damage(attack_sum: int, turn_count: int, cycle: int, 
 		return attack_sum
 	return ceili(attack_sum / 2.0)
 
+
+## 전설 스킬([대형 기획 15] Q-8(c) 1/4, 2026-10-19) 순수 계산 헬퍼 — 위 _wealth_bonus()
+## 등과 같은 이유(dice_test.gd가 물리/RNG 없이 "계산 결과"를 직접 검증할 수 있게)로
+## 분리했다.
+
+## "만물의 조화"(견습 모험가 전용 전설) — 그 턴에 굴린 values 중 가장 낮은 값을 보인
+## 다이스 1개를 그 턴 가장 높았던 값으로 교체한다. DiceBag.apply_charm_flip()과 달리
+## "교체 대상 다이스 자신의 면 최댓값"이 아니라 "그 턴 실제로 나온 최고값"을 그대로
+## 쓰므로(상한 없음) — 공격/방어 주머니에 서로 다른 면 개수의 다이스가 섞여 있으면
+## 작은 다이스가 더 큰 다이스의 최댓값까지 올라갈 수 있다(DESIGN.md가 전설 스킬 예시로
+## 든 "주사위 결과 합산 방식 변경" — 전설다운 강도를 위해 의도적으로 상한을 두지 않음).
+## values가 1개 이하면(비교 대상이 없음) 그대로 돌려준다. 동률(여러 다이스가 함께
+## 최솟값)이면 먼저 나온(인덱스가 작은) 다이스를 바꾼다(apply_charm_flip과 같은 관례).
+static func _apply_harmonize_lowest(values: Array) -> Array:
+	if values.size() < 2:
+		return values.duplicate()
+	var adjusted: Array = values.duplicate()
+	var highest: int = adjusted[0]
+	for v in adjusted:
+		highest = max(highest, v)
+	var min_index := 0
+	var min_value: int = adjusted[0]
+	for i in adjusted.size():
+		if adjusted[i] < min_value:
+			min_index = i
+			min_value = adjusted[i]
+	adjusted[min_index] = highest
+	return adjusted
+
+
+## "결의의 반격"(견습 모험가 전용 전설) — 방어 데미지가 0(완전 방어)일 때만 이번 방어
+## 합계(def_total)만큼 반격 피해를 돌려주고, 그 외에는 0(아무 일도 없음). 방어 무시
+## 고정 피해라 몬스터 방어력과 무관 — cannon_volley/broadside가 이미 쓰는 패턴.
+static func _perfect_block_counter_damage(dmg: int, def_total: int) -> int:
+	return def_total if dmg == 0 else 0
+
+
+## "광전 돌격"(광전사 전용 전설) — 폭발 스택 보너스 공격턴(1D20)일 때만 그 결과값을
+## max_value(=20)로 강제하고, 평소 공격턴에는 입력값을 그대로 돌려준다(적용 범위를
+## 호출부가 is_bonus_turn으로 넘겨 제한).
+static func _ragenuke_bonus_value(rolled_value: int, max_value: int, is_bonus_turn: bool) -> int:
+	return max_value if is_bonus_turn else rolled_value
+
+
+## "유혈광란"/"불굴의 보복"(광전사 전용 전설 2종) 공용 계산식 — 최댓값(유혈광란)/
+## 최솟값(불굴의 보복)을 보인 다이스 개수(hits)에 비례한 방어 무시 고정 피해. 둘 다
+## 같은 "다이스 개수 x 고정값" 공식이라 하나의 순수 함수로 공유한다(per_die 기본값 2 —
+## 전투 수치가 아니라 밸런스 감으로 잡은 잠정값, 사람 플레이 피드백 필요).
+static func _legend_hits_bonus_damage(hits: int, per_die: int = 2) -> int:
+	return hits * per_die
+
 const SETTLE_LIN_THRESHOLD := 0.08
 const SETTLE_ANG_THRESHOLD := 0.5
 const SETTLE_MIN_FRAMES := 10
@@ -449,6 +500,28 @@ var player_versatile_active := false
 ## 동시에 3에서 2로 낮춘다(_player_explosive_threshold()/_player_guard_threshold()
 ## 참고, INBOX.md 2026-09-17 [미니 기획 D] 원문 설계 그대로).
 var player_versatile_plus_active := false
+
+## 전설 스킬([대형 기획 15] Q-8(c) 1/4, 2026-10-19) 보유 여부 — 다른 고유 스킬 플래그와
+## 같은 패턴(_reset_player_battle_state()에서 RunState.skill_flags를 읽어 채움). "한 런에
+## 전설은 하나만"(SkillPool.has_legendary()) 규칙 덕분에 이 6개 중 최대 1개만 true일 수
+## 있지만, 분기 코드 자체는 서로 독립적으로 둬서(한 번에 여러 캐릭터 전설이 추가돼도)
+## 서로 간섭하지 않게 한다.
+##
+## player_legend_novice_harmony_active: "만물의 조화"(견습 모험가 전용) — 매 턴(공격/
+## 방어 모두) 그 턴 가장 낮았던 다이스 값을 그 턴 가장 높았던 값으로 맞춘다(상한 없음).
+var player_legend_novice_harmony_active := false
+## player_legend_novice_rally_active: "결의의 반격"(견습 모험가 전용) — 방어로 피해를
+## 완전히 막으면(데미지 0) 그 방어 합계만큼 몬스터에게 방어 무시 반격 피해를 준다.
+var player_legend_novice_rally_active := false
+## player_legend_berserker_ragenuke_active: "광전 돌격"(광전사 전용) — 폭발 스택
+## 보너스 공격턴(1D20)이 확률 없이 항상 최댓값(20)으로 확정된다.
+var player_legend_berserker_ragenuke_active := false
+## player_legend_berserker_bloodlust_active: "유혈광란"(광전사 전용) — 공격턴마다
+## 최댓값을 보인 공격 다이스 1개당 방어 무시 고정 피해 +2를 추가로 준다.
+var player_legend_berserker_bloodlust_active := false
+## player_legend_berserker_vengeance_active: "불굴의 보복"(광전사 전용) — 방어턴마다
+## 최솟값을 보인 방어 다이스 1개당 방어 무시 반격 피해 +2를 몬스터에게 준다.
+var player_legend_berserker_vengeance_active := false
 
 var battle_over := false
 var player_won := false
@@ -1046,6 +1119,11 @@ func _reset_player_battle_state() -> void:
 	player_versatile_plus_active = RunState.skill_flags.has("versatile_surge_plus")
 	player_broadside_active = RunState.skill_flags.has("broadside")
 	player_broadside_plus_active = RunState.skill_flags.has("broadside_plus")
+	player_legend_novice_harmony_active = RunState.skill_flags.has("legend_novice_harmony")
+	player_legend_novice_rally_active = RunState.skill_flags.has("legend_novice_rally")
+	player_legend_berserker_ragenuke_active = RunState.skill_flags.has("legend_berserker_ragenuke")
+	player_legend_berserker_bloodlust_active = RunState.skill_flags.has("legend_berserker_bloodlust")
+	player_legend_berserker_vengeance_active = RunState.skill_flags.has("legend_berserker_vengeance")
 	player_hp = PLAYER_MAX_HP
 	battle_over = false
 	player_won = false
@@ -1858,6 +1936,19 @@ func _resolve_exchange(is_player_attacking: bool, atk_bag: DiceBag, def_bag: Dic
 			logs.append("연쇄 방어+: %d 대신 %d 채택 (1D20 2번 중 최댓값)" % [chain_guard_before, def_values[0]])
 		else:
 			logs.append("연쇄 방어+: %d 유지 (1D20 2번 중 최댓값)" % chain_guard_before)
+	# "광전 돌격"(legend_berserker_ragenuke, [대형 기획 15] Q-8(c) 1/4, 광전사 전용
+	# 전설 스킬): 이번 공격턴이 폭발 스택 보너스 턴(1D20)이면, 다른 보너스 턴 강화
+	# 스킬(광기 심화/연쇄 폭발+)의 재굴림 결과와 무관하게 결과값을 확정적으로 최댓값
+	# (EXPLOSIVE_DICE_SIDES=20)으로 고정한다 — _ragenuke_bonus_value()가 그 어떤 재굴림
+	# 결과보다도 크거나 같으므로(20이 1D20의 상한) 위 두 블록 "다음"에 적용해도 항상
+	# 최종값을 덮어쓸 수 있다.
+	if used_explosive_dice and player_legend_berserker_ragenuke_active:
+		var ragenuke_before: int = atk_values[0]
+		atk_values[0] = _ragenuke_bonus_value(atk_values[0], EXPLOSIVE_DICE_SIDES, true)
+		if atk_values[0] != ragenuke_before:
+			logs.append("광전 돌격: %d 대신 %d 확정 (보너스 공격턴 항상 최댓값)" % [ragenuke_before, atk_values[0]])
+		else:
+			logs.append("광전 돌격: %d 확정 (보너스 공격턴 항상 최댓값)" % atk_values[0])
 	# "여분"(INBOX.md [미니 기획 C]-3): 폭발 보너스 턴이 아닌 평소 공격턴마다 여분
 	# 다이스를 하나 더 굴려, 이번 공격에서 가장 낮았던 다이스 값보다 높으면 그 자리를
 	# 대체한다(advantage를 가장 약한 다이스 한 곳에만 적용) — "이번 런 내내 유지"이므로
@@ -2023,6 +2114,22 @@ func _resolve_exchange(is_player_attacking: bool, atk_bag: DiceBag, def_bag: Dic
 		if diverse_bonus_def > 0:
 			def_values = def_bag.apply_flat_bonus(def_values, diverse_bonus_def)
 			logs.append("잡화점 효과: 방어 다이스 결과값 +%d (다이스 종류 %d종)" % [diverse_bonus_def, diverse_count_def])
+	# "만물의 조화"(legend_novice_harmony, [대형 기획 15] Q-8(c) 1/4, 견습 모험가 전용
+	# 전설 스킬): 공격/방어 양쪽 모두 매 턴 적용 — 위의 다른 모든 보정이 끝난 "이번
+	# 턴 최종 결과값" 중 가장 낮은 값을 가장 높은 값으로 맞춘다(그 다이스 자신의 면
+	# 상한 없음). 합계 계산 바로 전에 적용해야 다른 스킬 보정까지 반영된 값을 기준으로
+	# "이번 턴 최고값"이 결정된다.
+	if player_legend_novice_harmony_active:
+		if is_player_attacking:
+			var harmony_atk_before := atk_values.duplicate()
+			atk_values = _apply_harmonize_lowest(atk_values)
+			if atk_values != harmony_atk_before:
+				logs.append("만물의 조화: 공격 다이스 %s -> %s (최저값을 최고값으로)" % [harmony_atk_before, atk_values])
+		else:
+			var harmony_def_before := def_values.duplicate()
+			def_values = _apply_harmonize_lowest(def_values)
+			if def_values != harmony_def_before:
+				logs.append("만물의 조화: 방어 다이스 %s -> %s (최저값을 최고값으로)" % [harmony_def_before, def_values])
 	var atk_total := 0
 	for v in atk_values:
 		atk_total += v
@@ -2048,9 +2155,37 @@ func _resolve_exchange(is_player_attacking: bool, atk_bag: DiceBag, def_bag: Dic
 			else:
 				var cannon_remaining := cannon_cycle - (player_attack_turn_count % cannon_cycle)
 				logs.append("함포 장전 (남은 %d턴)" % cannon_remaining)
+		# "유혈광란"(legend_berserker_bloodlust, [대형 기획 15] Q-8(c) 1/4, 광전사 전용
+		# 전설 스킬): cannon_volley와 무관하게(캐릭터 기믹이 아니라 스킬 플래그) 공격턴
+		# 마다 최댓값을 보인 공격 다이스 1개당 방어 무시 고정 피해를 추가로 준다 —
+		# used_explosive_dice(보너스 턴, 다이스가 1개뿐)에도 적용되어 "광전 돌격"으로
+		# 항상 최댓값(20)이 된 그 1개 다이스가 여기서도 적중으로 집계된다.
+		if player_legend_berserker_bloodlust_active:
+			var bloodlust_hits := atk_bag.count_max_rolls(atk_values)
+			var bloodlust_dmg := _legend_hits_bonus_damage(bloodlust_hits)
+			if bloodlust_dmg > 0:
+				monster_hp = max(0, monster_hp - bloodlust_dmg)
+				logs.append("유혈광란! (최댓값 %d개 x 고정 %d 피해, 몬스터 HP %d)" % [bloodlust_hits, bloodlust_dmg, monster_hp])
 	else:
 		player_hp = max(0, player_hp - dmg)
 		logs.append("몬스터 공격 %d vs 플레이어 방어 %d -> 데미지 %d (플레이어 HP %d)" % [atk_total, def_total, dmg, player_hp])
+		# "결의의 반격"(legend_novice_rally, 견습 모험가 전용 전설)/"불굴의 보복"
+		# (legend_berserker_vengeance, 광전사 전용 전설) — 둘 다 "플레이어 방어턴"에서
+		# 반격 피해를 몬스터에게 주는 새 메커니즘이라 나란히 둔다. 결의의 반격은 완전
+		# 방어(dmg==0)에서 방어 합계 전부를, 불굴의 보복은 매 방어턴 최솟값을 보인
+		# 다이스 개수에 비례해 고정 피해를 준다 — 둘 다 전설이라 같은 런에 동시에
+		# 보유할 수 없지만(SkillPool.has_legendary()), 분기는 서로 독립적으로 둔다.
+		if player_legend_novice_rally_active:
+			var rally_dmg := _perfect_block_counter_damage(dmg, def_total)
+			if rally_dmg > 0:
+				monster_hp = max(0, monster_hp - rally_dmg)
+				logs.append("결의의 반격! (완전 방어, 고정 %d 피해, 몬스터 HP %d)" % [rally_dmg, monster_hp])
+		if player_legend_berserker_vengeance_active:
+			var vengeance_hits := def_bag.count_min_rolls(def_values)
+			var vengeance_dmg := _legend_hits_bonus_damage(vengeance_hits)
+			if vengeance_dmg > 0:
+				monster_hp = max(0, monster_hp - vengeance_dmg)
+				logs.append("불굴의 보복! (최솟값 %d개 x 고정 %d 피해, 몬스터 HP %d)" % [vengeance_hits, vengeance_dmg, monster_hp])
 
 	# "counter(n)" 기믹(인간형, G-3): 플레이어 공격이 몬스터 방어에 완전히 막혀(dmg==0)
 	# 데미지가 0이면 플레이어가 n 반사 피해를 입는다. "revive" 기믹(언데드형, G-4):

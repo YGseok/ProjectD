@@ -1176,6 +1176,29 @@ func _debug_press_shortcut_skill_codex() -> void:
 	btn.pressed.emit()
 
 
+## QA 전용 — [대형 기획 15] Q-8(c) 1/4(전설 스킬, 2026-10-19): "보유" 상태의 전설
+## 스킬 카드가 도감에서 어떻게 보이는지 확인한다(_debug_press_shortcut_skill_codex와
+## 같은 패턴, RunState.skill_flags에 전설 id를 넣어 실제 "보유" 상태로 연다).
+func _debug_press_shortcut_skill_codex_legendary() -> void:
+	RunState.character_id = "novice"
+	RunState.skill_flags = ["legend_novice_harmony"]
+	var btn := skill_codex_button
+	btn.grab_focus()
+	btn.pressed.emit()
+
+
+## QA 전용 — 위와 같은 이유, 광전사 전설 3종(광전 돌격/유혈광란/불굴의 보복, 신규
+## legend_nuke/true_strike 모티프)을 한 화면에서 확인하기 위해 3종 전부를 동시에
+## "보유" 상태로 넣는다(실제 플레이에서는 한 런에 전설 하나만 가능하지만, 이건 아이콘
+## 렌더만 보는 QA 전용 우회).
+func _debug_press_shortcut_skill_codex_legendary_berserker() -> void:
+	RunState.character_id = "berserker"
+	RunState.skill_flags = ["legend_berserker_ragenuke", "legend_berserker_bloodlust", "legend_berserker_vengeance"]
+	var btn := skill_codex_button
+	btn.grab_focus()
+	btn.pressed.emit()
+
+
 ## QA 전용 — 인벤토리의 다이스가 두 주머니의 모든 다이스보다 작거나 같아 승급 자리가
 ## 하나도 없는 상태에서 2단계 화면에 "승급할 곳이 없다" 안내 문구가 정상 표시되는지
 ## 확인하기 위함(이터레이션 74, 모든 버튼이 비활성화된 채 설명 없이 남던 것을 고침).

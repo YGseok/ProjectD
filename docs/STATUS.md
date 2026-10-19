@@ -5,24 +5,35 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-10-19 (233)
-- 작성자: AI 에이전트. **[대형 기획 13] [미니 기획 ART-1c-5](보스 크롭·여백
-  조정, 아트 스레드 요청) 완료.** 직전 이터레이션이 `dice_test`를
-  `run_in_background`로 돌려놓고 결과를 기다리지도 않은 채 미커밋 상태로
-  끊긴 것을 `git diff`로 파악해 이어받았다(헤드리스 세션은 백그라운드
-  작업을 기다릴 수 없다). 코드 변경(보스 티어 전용 크롭 `CharacterArt.
-  BOSS_FACE_CROP_RATIO`, top_fade 축소 `FACE_ART_TOP_FADE_BY_TIER`, 포트레이트
-  y+130 하향 `BOSS_PORTRAIT_POSITION_SHIFT`, 검증 테스트
-  `_check_art1c5_boss_crop()`)은 직전 이터레이션이 이미 전부 구현해둔 상태라
-  stash/reset 없이 그대로 이어받아 완성도만 확인했다. foreground +
-  `settle=1`로 `dice_test` 전체 재실행해 stdout에서 **"결과: PASS"**
-  직접 확인(FAIL 0건). 보스 6종(`goblin_king`/`ooze_lord`/`skeleton_general`/
-  `frenzied_beast`/`fallen_commander`/`void_eye`) 전부
-  `combat_test`로 개별 캡처해 직접 읽고 확인 — 왕관/머리장식이 더 이상
-  페이드에 묻히지 않고 완전히 보이며, 몬스터 HUD 패널과 포트레이트 사이에
-  명확한 여백이 생겼고, 6종 전부 화면 안에 들어온다. 상세는 완료 기록(233)
-  참고. `resources/`·`docs/art/`는 읽기만 했다. **[대형 기획 13]에 남은
-  조각 없음 — 다음은 [대형 기획 15] Q-8(c)(전설 스킬 구현)로 복귀.**
+- 일시: 2026-10-19 (234)
+- 작성자: AI 에이전트. **[대형 기획 15] Q-8(c) 1/4(전설 스킬 인프라 + 견습
+  모험가/광전사 6종) 완료.** 직전 이터레이션(iter_153)이 사용 한도로
+  미커밋 상태(skill_pool.gd 전설 인프라+6종 데이터, dice_bag.gd
+  count_min_rolls(), combat_test.gd 효과 계산 함수 5종, skill_diagram_chip.gd
+  perfect_block 조건 칩)로 끊긴 것을 `git diff`로 파악해 이어받았다 —
+  stash/reset 없이 그대로 두고 빠진 조각만 채웠다. `git diff`로 확인한 결과
+  두 가지가 빠져 있었다: (1) "운명의 뒤섞임"(라운드마다 주머니 교체) 효과가
+  run_state.gd 어디에도 배선돼 있지 않았음(데이터/주석만 존재) — 신규
+  `RunState._fateshuffle_swap_count()` + `advance_round()` 배선으로 채움.
+  (2) 신규 아이콘 모티프 3종(legend_nuke/true_strike/counter_strike)이
+  `SkillPool`에는 등록됐지만 `skill_icon.gd._draw_motif()`에 실제 그리기
+  분기가 없어 빈 원으로 렌더되고 있었음(기존 Q-7(b) 전수 픽셀 비교 테스트가
+  실행 시 바로 FAIL로 잡아냄) — `SkillIcon.COLOR_LEGENDARY` 공유 색 + 모양
+  3종을 새로 그려 해소. 이어서 **신규 전용 테스트 `_check_q8c_legendary_skills()`
+  8항목**(has_legendary/filter_legendary_if_owned 풀 필터링, 만물의 조화
+  [1,3,6]→[6,3,6] 실제 값 변화, 결의의 반격 완전방어 조건부 반격, 운명의
+  뒤섞임 교환 횟수, 광전 돌격 보너스턴 확정 최댓값, 유혈광란/불굴의 보복
+  고정 피해 계산, 설명 문구 "한 런에 하나만" 전수, SKILL_RARITY/ICON_MOTIFS
+  전수 등록 — 플래그가 아니라 계산 결과로 검증)를 추가하고, `bash
+  scripts/qa_shot.sh dice_test 60 qa_out/dice_test_q8c.png "" 1`를
+  **foreground로 전체 재실행해 "결과: PASS"(FAIL 0건) 직접 확인**
+  (run_in_background 금지 — 직전 세션 중단 원인). 셀프 피드백 스크린샷 3장 —
+  QA 전용 디버그 훅 2종 신규로 실제 "보유" 상태 스킬 도감을 직접 읽어 확인:
+  견습 모험가 "만물의 조화"(전설 배지+안내 문구+모티프 정상 렌더), 광전사
+  "광전 돌격"/"유혈광란"/"불굴의 보복" 3장 동시 노출(신규 모티프 2종이
+  서로 뚜렷이 다른 모양으로 구분됨). 상세는 완료 기록(234) 참고.
+  `resources/`·`docs/art/`는 읽기만 했다. **나머지 6명(수호자/폭발병/주술사/
+  매혹사/곡예사/해적) 18종은 2/4~4/4 몫 — 다음은 Q-8(c) 2/4(수호자/폭발병).**
 
 ## 지금 위치
 
@@ -710,7 +721,17 @@ dungeon_map/shop/event/story_event/combat_test 공유)에 SMALL 도식을
 **Q-8(b)(등급별 효과 차등) 완료**: UPGRADE_SKILLS 11쌍 전수 감사 — 11쌍 모두
 이미 규칙을 지키고 있어 효과 수치 변경 없음, 효과 수치를 계산 결과로 직접
 비교하는 테스트만 추가(상세·쌍별 수치표·STARTING_SKILLS "등급 사다리 후보"
-표는 완료 기록 (232)). **다음은 Q-8(c)(전설 스킬 구현, 캐릭터별 3종).**
+표는 완료 기록 (232)). 2026-10-19(234)로 **Q-8(c) 1/4(전설 스킬 인프라 +
+견습 모험가/광전사 6종) 완료**: `SkillPool.LEGENDARY_SKILLS`(8명×3=24종 중
+6종) + `has_legendary()`/`filter_legendary_if_owned()`("한 런에 전설 하나만"
+규칙을 추첨 전에 풀에서 제거)가 `available_choices()`에 배선됐고, 견습
+모험가(만물의 조화/결의의 반격/운명의 뒤섞임)·광전사(광전 돌격/유혈광란/
+불굴의 보복) 6종 전부 실제 전투 계산(`combat_test.gd` 효과 함수 5종 +
+`RunState._fateshuffle_swap_count()`)까지 배선됐다. 아이콘 모티프 신규
+3종(legend_nuke/true_strike/counter_strike)도 `skill_icon.gd`에 실제 그리기
+분기를 추가해 빈 원으로 떨어지던 버그를 해소했다(상세는 완료 기록 (234)).
+**나머지 6명(수호자/폭발병/주술사/매혹사/곡예사/해적) 18종은 2/4~4/4 몫 —
+다음은 Q-8(c) 2/4(수호자/폭발병).**
 
 남은 구조적 후보(급하지 않음): 보스 개별 6종 중 타락한 기사단장만 밴드 미달
 (`MonsterSkills.modify_monster_roll()` 파라미터화가 전제조건이라 사람 설계
@@ -1321,6 +1342,71 @@ dungeon_map/shop/event/story_event/combat_test 공유)에 SMALL 도식을
 
 ## 완료 기록
 
+- **2026-10-19 (234)**: **[대형 기획 15] Q-8(c) 1/4(전설 스킬 인프라 + 견습
+  모험가/광전사 6종, 원문 5) 완료.** 직전 이터레이션(iter_153)이 사용 한도로
+  미커밋 상태(skill_pool.gd 인프라+6종 데이터, dice_bag.gd count_min_rolls(),
+  combat_test.gd 효과 5종, skill_diagram_chip.gd perfect_block 조건 칩)로 끊긴
+  것을 `git diff`로 파악해 이어받았다 — stash/reset 없이 그대로 두고 빠진 조각만
+  채웠다. **인프라**: `SkillPool.has_legendary(skill_flags)`(전설 보유 여부 판정)
+  / `filter_legendary_if_owned(pool, skill_flags)`(이미 전설을 가졌으면 풀에서
+  전설 후보를 추첨 "전"에 전부 제거 — 추첨 이후 걸러내면 "후보가 화면에 잠깐
+  보였다 사라지는" 버그가 생길 수 있어 반드시 풀 구성 단계에서 제거)가
+  `available_choices()`에 배선됐다. `LEGENDARY_SKILLS` 배열(UNIQUE_SKILLS와 같은
+  item dict 형식, character_id 필터)을 신설해 "희귀 등급 고유 스킬은 전설 규칙과
+  무관"이라는 전제가 깨지지 않게 분리했다. **견습 모험가 3종**(기믹 없는 "만능형"
+  정체성): 만물의 조화(매 턴 공격/방어 모두 그 턴 최저값을 최고값으로, 자기 면
+  상한 없음)/결의의 반격(방어로 완전 방어 시 방어 합계만큼 방어 무시 반격)/운명의
+  뒤섞임(라운드 전환마다 공격·방어 다이스를 적은 쪽 개수만큼 전부 맞바꿈).
+  **광전사 3종**(min_max_only 극단형 정체성): 광전 돌격(폭발 스택 보너스
+  공격턴을 확률 없이 항상 최댓값 20으로 확정)/유혈광란(공격턴마다 최댓값을 보인
+  다이스 1개당 방어 무시 고정 피해 +2)/불굴의 보복(방어턴마다 최솟값을 보인
+  다이스 1개당 방어 무시 반격 +2, 신규 `DiceBag.count_min_rolls()`가
+  `count_max_rolls()`와 대칭). 6종 전부 description 끝에 "전설 스킬은 한 런에
+  하나만 가질 수 있다" 안내 문장을 포함해(INBOX 명시) 카드/도감/팝업/시작 스킬
+  슬롯 네 렌더 지점에 자동 전파되게 했다. **이번 조각이 직접 채운 빠진 부분
+  2개**: (1) "운명의 뒤섞임" 효과가 어디에도 구현돼 있지 않았다(skill_pool.gd
+  데이터/주석만 있고 run_state.gd에 배선 없음) — `RunState.advance_round()`에
+  `_fateshuffle_swap_count(skill_flags, attack_count, defense_count)`(순수 함수,
+  min(공격 개수, 방어 개수) 반환)를 추가해 기존 `juggle_encore`와 같은
+  `DiceBag.swap_random_dice()` 반복 호출 패턴으로 배선했다. (2) 신규 모티프 3종
+  (legend_nuke/true_strike/counter_strike)이 `SkillPool.ICON_MOTIFS`/
+  `ICON_MOTIF_VALUES`에는 등록돼 있었지만 `skill_icon.gd`의 `_draw_motif()`에
+  실제 그리기 분기가 없어 빈 원(기본 분기)으로 떨어지고 있었다 — `dice_test.gd`의
+  기존 Q-7(b) 패턴(서로 다른 모티프가 실제로 다른 픽셀로 렌더되는지 SubViewport
+  비교) 전수 테스트가 "3종이 서로 같은 픽셀로 렌더됨"으로 실제로 잡아냈다.
+  `SkillIcon.COLOR_LEGENDARY`(SkillPool.RARITY_COLORS[RARITY_LEGENDARY]와 같은
+  색조)를 공유하되 모양으로 구분되는 3종을 새로 그렸다 — legend_nuke(burst_stack
+  보다 촘촘한 12스파이크+중앙 코어), true_strike(동심원 과녁을 관통하는 화살,
+  "방어 무시 고정 피해" 공용 의미), counter_strike(방패 윤곽+안에서 밖으로
+  휘어나가는 곡선 화살표, "반격" 공용 의미). **신규 전용 테스트
+  `_check_q8c_legendary_skills()` 8항목** — 기존 Q-7/Q-8a/Q-8b와 같은 "플래그가
+  아니라 계산 결과" 원칙: (1) has_legendary()/filter_legendary_if_owned()가 풀
+  크기·전설 포함 여부를 실제로 바꾸는지, (2) 만물의 조화가 [1,3,6]→[6,3,6]으로
+  실제 값이 바뀌는지(합계 10→15), (3) 결의의 반격이 완전 방어(dmg=0)에서만
+  반격 피해를 주는지(부분 방어는 0), (4) 운명의 뒤섞임 교환 횟수가
+  min(공3,방2)=2인지, (5) 광전 돌격이 보너스턴에만 굴림값을 20으로 확정하고
+  평소턴은 그대로인지, (6) 유혈광란/불굴의 보복 — D4x4 [1,4,1,4]에서
+  count_min_rolls/count_max_rolls가 각각 2를 세고 고정 피해 4가 나오는지,
+  (7) 설명 문구 "한 런에 하나만" 포함이 6종 전수인지, (8) LEGENDARY_SKILLS
+  6종(novice 3/berserker 3) 전수가 SKILL_RARITY/ICON_MOTIFS에 전부 등록됐는지.
+  기존 Q-7(a)/Q-7(b)/Q-8a/K-4a/L-2a 테스트들의 전수 순회 목록에도
+  LEGENDARY_SKILLS를 추가(하드코딩된 기대 개수 대신 LEGENDARY_SKILLS.size()로
+  계산해 다음 조각(2/4~4/4)이 캐릭터를 늘려도 테스트를 다시 고칠 필요가 없게
+  했다). `bash scripts/qa_shot.sh dice_test 60 qa_out/dice_test_q8c.png "" 1`
+  **foreground 전체 재실행 PASS(FAIL 0건)** 직접 확인(dice_test는 run_in_background
+  금지 — 직전 세션의 중단 원인이 이것이었음). 셀프 피드백 스크린샷 3장 — QA 전용
+  디버그 훅 2종(`dungeon_map._debug_press_shortcut_skill_codex_legendary`(novice)/
+  `_debug_press_shortcut_skill_codex_legendary_berserker`) 신규로 실제 "보유"
+  상태를 만들어 스킬 도감에서 직접 읽어 확인: 견습 모험가 "만물의 조화" 카드
+  (`qa_out/q8c_codex_owned.png`, 전설 배지 주황색 + "전설 스킬은 한 런에 하나만
+  가질 수 있다" 설명 하단 노출 + dual_boost 모티프 정상 렌더), 광전사 "광전 돌격"/
+  "유혈광란"/"불굴의 보복" 3장 동시 노출(`qa_out/q8c_codex_berserker.png`,
+  legend_nuke=금빛 촘촘한 버스트, true_strike=과녁+관통 화살 — 서로 뚜렷이
+  다른 모양으로 구분됨 확인). 전투 규칙/밸런스 수치는 건드리지 않았고
+  `resources/`·`docs/art/`는 읽기만 했다. **나머지 6명(수호자/폭발병/주술사/
+  매혹사/곡예사/해적) 18종은 2/4~4/4 몫으로 남음 — 다음 이터레이션은 Q-8(c)
+  2/4(수호자/폭발병 6종)부터.**
+
 - **2026-10-19 (233)**: **[대형 기획 13] [미니 기획 ART-1c-5](보스 크롭·여백
   조정, 아트 스레드 요청) 완료.** 직전 이터레이션이 `dice_test`를
   `run_in_background`로 돌려놓고 "기다리겠다"고만 하고 미커밋 상태로 끊긴 것을
@@ -1811,62 +1897,9 @@ dungeon_map/shop/event/story_event/combat_test 공유)에 SMALL 도식을
   밸런스는 건드리지 않았고 `resources/`·`docs/art/`는 읽기만 했다.
   **[대형 기획 15]의 다음은 Q-5(커스터마이징 분리) 이후 항목.**
 
-- **2026-10-17 (224)**: **[대형 기획 15] Q-4a(던전 맵 선택지 정리, 원문 12/13/14)
-  전체 완료.**
-  **(12) 선택지 버튼 위계 통일**: 기존엔 `dungeon_map.gd`의 `_style_action_buttons()`가
-  전투 버튼만 `UIKit.style_primary_button()`(꽉 채운 accent 칠)로, 나머지(상점/이벤트/
-  스토리/정예)는 `style_secondary_button()`(테두리만)으로 스타일링해 전투가 "메인
-  선택지"처럼 커 보였다(M-1이 의도한 위계, INBOX 피드백이 정확히 이 모양을 문제
-  삼음) — 전투도 `style_secondary_button()`으로 바꾸고, `_layout_visible_buttons()`의
-  `is_primary` 분기(PRIMARY_BUTTON_HEIGHT=64 vs SECONDARY_BUTTON_HEIGHT=46)를
-  제거해 방 선택지 5종(전투/상점/이벤트/스토리/정예) 전부 같은 높이(46px)·같은
-  spacing으로 쌓는다. 커스터마이징 버튼은 지시대로 손대지 않음(원래도 보조 버튼
-  높이였으므로 결과적으로 같은 높이가 됐지만 "맞추려고 바꾼" 것은 아님).
-  **(13) 방 카드(MapStrip) 보상 칩 제거**: 기존 `_make_map_node()`는 제목 아래 전투
-  칩(항상)+노출된 선택지 칩(상점/이벤트/스토리/정예, 각각 보상 카테고리 아이콘+계열
-  아이콘 포함)을 전부 나열해 아래 선택지 버튼과 같은 정보가 중복 표시됐다 —
-  `_make_type_chip()`과 그 호출부를 전부 삭제하고, 방 번호/상태(테두리·제목색)에
-  더해 "정예/보스" 배지 하나만 남긴다(보스 방이 최우선, 아니면 그 방에 정예 전투가
-  노출될 때만 — 신규 `_make_room_tier_badge()`, `UIKit.tier_badge_texture()` 재사용).
-  `_build_map_strip()`의 카드 높이 계산도 "노출된 선택지 수만큼 늘어나는" 가변 로직
-  대신 "제목+배지 한 줄" 고정 2행으로 단순화.
-  **(14) 보상 칩을 버튼 안으로**: 기존 `_setup_reward_icons()`는 보상 카테고리
-  아이콘 행(+전투/정예의 계열 아이콘)을 던전 맵 씬의 형제 노드로 만들어 버튼 우측에
-  `position`으로 따로 띄워뒀다(INBOX 원문 "버튼 옆에 따로 떠 있는 보상 이미지가
-  어색") — `_setup_button_content()`(신규)로 바꿔, 각 버튼 안에 `[계열 아이콘(전투/
-  정예만) + 이름 Label + 보상 칩 행]`을 담은 `HBoxContainer`를 자식으로 추가한다.
-  버튼 이름은 더 이상 `Button.text`가 아니라 전용 `_button_name_labels[type]` Label이
-  보여주고(.tscn 기본 텍스트는 `_setup_button_content()`에서 `btn.text = ""`로
-  지움), 방향키 포커스는 여전히 버튼 단위 그대로 유지된다(오버레이 노드가 아니라
-  버튼의 자손이라 FocusNav 체인과 무관). 버튼마다 반복되던 "(%d번째 방)" 텍스트는
-  모든 선택지가 같은 방을 가리키는 중복 정보라 제거(상태 캡션에 이미 있음) — 이름을
-  "전투"/"상점"/"특수 이벤트"/"스토리 이벤트"/"정예 전투"로 짧게 줄여 보상 칩이
-  들어갈 폭을 확보. "새 런 시작" 상태(런 클리어 후)에서는 전투 버튼의 계열 아이콘/
-  보상 칩을 숨겨("방 선택"이 아니라 "런 재시작" 의미이므로) 의미 없는 아이콘이
-  남지 않게 했다.
-  **검증**: `dice_test.gd`에 신규 체크 `_check_q4a_dungeon_room_choices()` 추가 —
-  5종 버튼을 전부 강제 노출시켜 rect 크기가 동일한지, 보상 칩/계열 아이콘이
-  `Node.is_ancestor_of()`로 실제 버튼의 자손인지, idx=0/보스 방 카드에 `RewardIcon`
-  인스턴스가 0개인지(재귀 탐색), ELITE_CHANCE 대상 구간에서 실제로 정예가 뜨는
-  방을 찾아 그 카드에 "정예" 배지 Label이 있는지, 보스 방 카드에 "보스" 배지가
-  있는지를 계산 결과로 검증. 기존 M-1 테스트의 "전투 normal≠상점 normal" 기대값은
-  위계가 사라졌으므로 "전투 normal==상점 normal"로 뒤집어 갱신했고, M-7 테스트의
-  "방 카드 자식 ≥2개(제목+전투 칩)" 기대값도 "제목 Label 1개뿐"으로 갱신했다
-  (둘 다 "플래그가 아니라 실제 렌더 결과"를 보는 기존 방식 유지). `bash
-  scripts/qa_shot.sh dice_test 600 qa_out/dice_test_q4a.png "" 1` 전체 **PASS**
-  (FAIL 0건). 셀프 피드백 — `qa_out/q4a_room1_default.png`(전투+특수 이벤트+
-  커스터마이징)/`q4a_room2_shop.png`(전투+상점+정예 전투, 골드 부족 안내 포함)/
-  `q4a_room3.png`(전투+스토리 이벤트+특수 이벤트)/`q4a_room_boss.png`(보스 방,
-  전투만+보스 배지)/`q4a_room_elite.png`(정예 전투 버튼 확정 클릭 → combat_test
-  씬 전환까지 실제로 동작)을 직접 읽어 확인 — 선택지 버튼 전부 같은 크기·테두리
-  스타일이고, 각 버튼 안에 아이콘+이름+보상 칩이 한 덩어리로 들어있으며, 방 카드는
-  방 번호/상태/정예·보스 배지만 보이고 보상 칩이 전혀 없음을 눈으로 확인. 전투
-  규칙/밸런스는 건드리지 않았고 `resources/`·`docs/art/`는 읽기만 했다. **다음은
-  INBOX.md "부분 처리됨" [대형 기획 15] Q-4b(보유 스킬 팝업 + 던전 포기).**
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(233)에서 (223)을 그리로 옮겼다.)*
+이번 이터레이션(234)에서 (224)를 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 

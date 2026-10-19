@@ -489,6 +489,10 @@ func _ready() -> void:
 	all_pass = _check_q8b_upgrade_effect_values(lines) and all_pass
 
 	lines.append("")
+	lines.append("[Q-8(c) 1/4: 전설 스킬 — 견습 모험가/광전사 6종 + '한 런에 전설 하나만' 인프라. has_legendary()/filter_legendary_if_owned()가 풀에서 전설 후보를 실제로 제거하는지, 효과 6종(만물의 조화/결의의 반격/운명의 뒤섞임/광전 돌격/유혈광란/불굴의 보복) 각각이 계산 결과(다이스 값/데미지)를 실제로 바꾸는지, 설명 문구에 안내가 포함되는지, SKILL_RARITY/ICON_MOTIFS 전수 등록]")
+	all_pass = _check_q8c_legendary_skills(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -569,6 +573,7 @@ func _check_q7a_skill_diagrams(lines: PackedStringArray) -> bool:
 	var groups := {
 		"SKILLS": SkillPool.SKILLS,
 		"UNIQUE_SKILLS": SkillPool.UNIQUE_SKILLS,
+		"LEGENDARY_SKILLS": SkillPool.LEGENDARY_SKILLS,
 		"UPGRADE_SKILLS": SkillPool.UPGRADE_SKILLS,
 		"STARTING_SKILLS": SkillPool.STARTING_SKILLS,
 	}
@@ -637,7 +642,7 @@ func _check_q7b_skill_diagram_renderer(lines: PackedStringArray) -> bool:
 
 	var ids: Array = []
 	var seen_id: Dictionary = {}
-	for group in [SkillPool.SKILLS, SkillPool.UNIQUE_SKILLS, SkillPool.UPGRADE_SKILLS, SkillPool.STARTING_SKILLS]:
+	for group in [SkillPool.SKILLS, SkillPool.UNIQUE_SKILLS, SkillPool.LEGENDARY_SKILLS, SkillPool.UPGRADE_SKILLS, SkillPool.STARTING_SKILLS]:
 		for skill in group:
 			var skill_id: String = skill["id"]
 			if not seen_id.has(skill_id):
@@ -844,7 +849,7 @@ func _check_q8a_skill_rarity_data(lines: PackedStringArray) -> bool:
 	# (1) 전수 검증 — SKILLS/UNIQUE_SKILLS/UPGRADE_SKILLS/STARTING_SKILLS(고유 id) 전체가
 	# SkillPool.SKILL_RARITY에 명시적으로 등록돼 있고 값이 RARITY_ORDER 안에 있는지.
 	var all_ids: Array[String] = []
-	for group in [SkillPool.SKILLS, SkillPool.UNIQUE_SKILLS, SkillPool.UPGRADE_SKILLS, SkillPool.STARTING_SKILLS]:
+	for group in [SkillPool.SKILLS, SkillPool.UNIQUE_SKILLS, SkillPool.LEGENDARY_SKILLS, SkillPool.UPGRADE_SKILLS, SkillPool.STARTING_SKILLS]:
 		for skill in group:
 			var skill_id: String = skill["id"]
 			if not all_ids.has(skill_id):
@@ -891,15 +896,18 @@ func _check_q8a_skill_rarity_data(lines: PackedStringArray) -> bool:
 		upgrade_mismatches, "OK" if upgrade_tier_ok else "FAIL"
 	])
 
-	# (3) 전설 0종(이번 조각) — 혹시 실수로 넣었는지 확인하는 안전망(Q-8(c) 몫).
+	# (3) 전설 등급 스킬 수가 LEGENDARY_SKILLS.size()와 정확히 일치하는지(SKILL_RARITY에
+	# legendary로 등록된 id가 LEGENDARY_SKILLS 밖에 실수로 더 있거나, LEGENDARY_SKILLS에
+	# 있는데 SKILL_RARITY 등록을 빠뜨린 경우를 모두 잡는다) — Q-8(c)가 캐릭터를 늘려갈
+	# 때마다 숫자를 고쳐야 했던 "이번 조각 기대 0" 하드코딩을 자기 참조 검증으로 바꿨다.
 	var legendary_count := 0
 	for id in SkillPool.SKILL_RARITY.keys():
 		if SkillPool.SKILL_RARITY[id] == SkillPool.RARITY_LEGENDARY:
 			legendary_count += 1
-	var legendary_zero_ok: bool = legendary_count == 0
-	ok = legendary_zero_ok and ok
-	lines.append("  전설 등급 스킬 수=%d(이번 조각 기대 0, Q-8(c) 몫) -> %s" % [
-		legendary_count, "OK" if legendary_zero_ok else "FAIL"
+	var legendary_count_matches_ok: bool = legendary_count == SkillPool.LEGENDARY_SKILLS.size()
+	ok = legendary_count_matches_ok and ok
+	lines.append("  전설 등급 스킬 수=%d == LEGENDARY_SKILLS.size()=%d -> %s" % [
+		legendary_count, SkillPool.LEGENDARY_SKILLS.size(), "OK" if legendary_count_matches_ok else "FAIL"
 	])
 
 	# (4) 등급 표시 4종(라벨/색)이 서로 다른지.
@@ -1255,6 +1263,155 @@ func _check_q8b_upgrade_effect_values(lines: PackedStringArray) -> bool:
 	ok = pair_count_ok and ok
 	lines.append("  (12) UPGRADE_SKILLS 쌍 개수=%d(기대 11, 위 11개 항목과 1:1 대응 — 늘어나면 이 함수도 갱신 필요) -> %s" % [
 		SkillPool.UPGRADE_SKILLS.size(), "OK" if pair_count_ok else "FAIL"
+	])
+
+	return ok
+
+
+## [대형 기획 15] Q-8(c) 1/4(전설 스킬, 2026-10-19, INBOX.md 원문 5): 견습 모험가/
+## 광전사 전설 6종 + "한 런에 전설은 하나만" 인프라 — 플래그 존재가 아니라 실제
+## "계산 결과"(다이스 값/데미지)가 바뀌는지 검증한다(프로젝트 공통 테스트 원칙).
+func _check_q8c_legendary_skills(lines: PackedStringArray) -> bool:
+	var ok := true
+	var combat_script := load("res://code/scenes/combat_test.gd")
+
+	# (1) has_legendary()/filter_legendary_if_owned(): 전설 미보유면 풀 그대로, 보유하면
+	# 전설 후보가 전부 사라지고 그 외 등급은 그대로 남는지.
+	var no_legend_flags: Array = ["deep_breath"]
+	var has_legend_flags: Array = ["legend_novice_harmony"]
+	var legend_check_pool: Array[Dictionary] = []
+	for skill in SkillPool.LEGENDARY_SKILLS:
+		legend_check_pool.append(skill)
+	for skill in SkillPool.SKILLS:
+		legend_check_pool.append(skill)
+	var has_legend_false: bool = SkillPool.has_legendary(no_legend_flags) == false
+	var has_legend_true: bool = SkillPool.has_legendary(has_legend_flags) == true
+	var filtered_without: Array[Dictionary] = SkillPool.filter_legendary_if_owned(legend_check_pool, no_legend_flags)
+	var filtered_with: Array[Dictionary] = SkillPool.filter_legendary_if_owned(legend_check_pool, has_legend_flags)
+	var filtered_without_has_legendary := false
+	for skill in filtered_without:
+		if SkillPool.rarity_for(skill["id"]) == SkillPool.RARITY_LEGENDARY:
+			filtered_without_has_legendary = true
+	var filtered_with_has_legendary := false
+	for skill in filtered_with:
+		if SkillPool.rarity_for(skill["id"]) == SkillPool.RARITY_LEGENDARY:
+			filtered_with_has_legendary = true
+	var pool_filter_ok: bool = (
+		has_legend_false and has_legend_true
+		and filtered_without.size() == legend_check_pool.size() and filtered_without_has_legendary
+		and filtered_with.size() == SkillPool.SKILLS.size() and not filtered_with_has_legendary
+	)
+	ok = pool_filter_ok and ok
+	lines.append("  (1) has_legendary()/filter_legendary_if_owned(): 미보유 시 풀 크기 %d->%d(변화 없음)/전설 포함=%s, 보유 시 %d->%d(전설 전부 제거)/전설 포함=%s -> %s" % [
+		legend_check_pool.size(), filtered_without.size(), filtered_without_has_legendary,
+		legend_check_pool.size(), filtered_with.size(), filtered_with_has_legendary,
+		"OK" if pool_filter_ok else "FAIL",
+	])
+
+	# (2) "만물의 조화"(_apply_harmonize_lowest): 최저값이 그 턴 최고값으로 바뀌는지
+	# (자기 면 상한 없음 — D4 셋 중 1을 더 큰 다이스의 결과인 6으로 교체).
+	var harmony_before: Array = [1, 3, 6]
+	var harmony_after: Array = combat_script._apply_harmonize_lowest(harmony_before)
+	var harmony_sum_before := 0
+	for hv in harmony_before:
+		harmony_sum_before += int(hv)
+	var harmony_sum_after := 0
+	for hv2 in harmony_after:
+		harmony_sum_after += int(hv2)
+	var harmony_ok: bool = harmony_after == [6, 3, 6] and harmony_sum_after > harmony_sum_before
+	ok = harmony_ok and ok
+	lines.append("  (2) 만물의 조화: [1,3,6] -> %s(기대 [6,3,6], 합계 %d->%d) -> %s" % [
+		harmony_after, harmony_sum_before, harmony_sum_after, "OK" if harmony_ok else "FAIL",
+	])
+
+	# (3) "결의의 반격"(_perfect_block_counter_damage): 완전 방어(dmg=0)일 때만 방어
+	# 합계가 반격 피해로, 피해가 조금이라도 있으면 0.
+	var rally_full_block: int = combat_script._perfect_block_counter_damage(0, 7)
+	var rally_partial_block: int = combat_script._perfect_block_counter_damage(2, 7)
+	var rally_ok: bool = rally_full_block == 7 and rally_partial_block == 0
+	ok = rally_ok and ok
+	lines.append("  (3) 결의의 반격: 완전방어(dmg=0,def=7) 반격=%d(기대 7) / 부분방어(dmg=2,def=7) 반격=%d(기대 0) -> %s" % [
+		rally_full_block, rally_partial_block, "OK" if rally_ok else "FAIL",
+	])
+
+	# (4) "운명의 뒤섞임"(RunState._fateshuffle_swap_count): 미보유 0회, 보유 시
+	# min(공격 개수, 방어 개수)회(적은 쪽 기준 "전부").
+	var fateshuffle_none: int = RunState._fateshuffle_swap_count(["deep_breath"], 3, 2)
+	var fateshuffle_active: int = RunState._fateshuffle_swap_count(["legend_novice_fateshuffle"], 3, 2)
+	var fateshuffle_ok: bool = fateshuffle_none == 0 and fateshuffle_active == 2
+	ok = fateshuffle_ok and ok
+	lines.append("  (4) 운명의 뒤섞임: 미보유=%d(기대 0) 보유(공3/방2)=%d(기대 2, 적은 쪽) -> %s" % [
+		fateshuffle_none, fateshuffle_active, "OK" if fateshuffle_ok else "FAIL",
+	])
+
+	# (5) "광전 돌격"(_ragenuke_bonus_value): 보너스턴에만 항상 max_value로 확정,
+	# 평소 공격턴은 입력값 그대로.
+	var ragenuke_bonus: int = combat_script._ragenuke_bonus_value(5, 20, true)
+	var ragenuke_normal: int = combat_script._ragenuke_bonus_value(5, 20, false)
+	var ragenuke_ok: bool = ragenuke_bonus == 20 and ragenuke_normal == 5
+	ok = ragenuke_ok and ok
+	lines.append("  (5) 광전 돌격: 보너스턴(굴림 5)=%d(기대 20, 확정) 평소턴(굴림 5)=%d(기대 5, 그대로) -> %s" % [
+		ragenuke_bonus, ragenuke_normal, "OK" if ragenuke_ok else "FAIL",
+	])
+
+	# (6) "유혈광란"/"불굴의 보복" 공용 식(_legend_hits_bonus_damage) + DiceBag.
+	# count_min_rolls()(신규, count_max_rolls()와 대칭): min_max_only 다이스(D4x4)에서
+	# 최솟값/최댓값 개수를 정확히 세고, 개수에 비례해 고정 피해가 나오는지.
+	var legend_bag := DiceBag.new(4, 4)
+	var legend_values: Array = [1, 4, 1, 4]
+	var legend_min_hits: int = legend_bag.count_min_rolls(legend_values)
+	var legend_max_hits: int = legend_bag.count_max_rolls(legend_values)
+	var bloodlust_dmg: int = combat_script._legend_hits_bonus_damage(legend_max_hits)
+	var vengeance_dmg: int = combat_script._legend_hits_bonus_damage(legend_min_hits)
+	var zero_hits_dmg: int = combat_script._legend_hits_bonus_damage(0)
+	var legend_hits_ok: bool = (
+		legend_min_hits == 2 and legend_max_hits == 2
+		and bloodlust_dmg == 4 and vengeance_dmg == 4 and zero_hits_dmg == 0
+	)
+	ok = legend_hits_ok and ok
+	lines.append("  (6) 유혈광란/불굴의 보복: D4x4 [1,4,1,4] 최솟값 개수=%d 최댓값 개수=%d(둘 다 기대 2) -> 유혈광란 피해=%d 불굴의 보복 피해=%d(둘 다 기대 4, 0개면 %d) -> %s" % [
+		legend_min_hits, legend_max_hits, bloodlust_dmg, vengeance_dmg, zero_hits_dmg, "OK" if legend_hits_ok else "FAIL",
+	])
+
+	# (7) 설명 문구 — 6종 전부 "한 런에 하나만" 안내가 description에 포함돼야 한다
+	# (INBOX.md 명시: 등급 태그 옆 또는 설명 맨 아래. description에 두면 카드/도감/
+	# 팝업/시작 스킬 슬롯 네 렌더 지점에 자동 전파).
+	var notice_text := "한 런에 하나만"
+	var notice_missing: Array[String] = []
+	for skill in SkillPool.LEGENDARY_SKILLS:
+		var desc: String = skill.get("description", "")
+		if not desc.contains(notice_text):
+			notice_missing.append(skill["id"])
+	var notice_ok: bool = notice_missing.is_empty()
+	ok = notice_ok and ok
+	lines.append("  (7) 설명 문구 \"%s\" 포함: LEGENDARY_SKILLS %d종 전부 -> %s(누락: %s)" % [
+		notice_text, SkillPool.LEGENDARY_SKILLS.size(), "OK" if notice_ok else "FAIL", notice_missing,
+	])
+
+	# (8) 전수 커버 — LEGENDARY_SKILLS 6종(novice 3 + berserker 3), 전부 character_id
+	# 지정, SKILL_RARITY에 legendary로 등록, ICON_MOTIFS에 등록(누락 시 FAIL).
+	var novice_count := 0
+	var berserker_count := 0
+	var missing_rarity: Array[String] = []
+	var missing_motif: Array[String] = []
+	for skill in SkillPool.LEGENDARY_SKILLS:
+		var cid: String = skill.get("character_id", "")
+		if cid == "novice":
+			novice_count += 1
+		elif cid == "berserker":
+			berserker_count += 1
+		if SkillPool.SKILL_RARITY.get(skill["id"], "") != SkillPool.RARITY_LEGENDARY:
+			missing_rarity.append(skill["id"])
+		if not SkillPool.ICON_MOTIFS.has(skill["id"]):
+			missing_motif.append(skill["id"])
+	var coverage_ok: bool = (
+		SkillPool.LEGENDARY_SKILLS.size() == 6 and novice_count == 3 and berserker_count == 3
+		and missing_rarity.is_empty() and missing_motif.is_empty()
+	)
+	ok = coverage_ok and ok
+	lines.append("  (8) 전수 커버: 총 %d종(novice=%d, berserker=%d, 기대 6/3/3), rarity 누락=%s, motif 누락=%s -> %s" % [
+		SkillPool.LEGENDARY_SKILLS.size(), novice_count, berserker_count, missing_rarity, missing_motif,
+		"OK" if coverage_ok else "FAIL",
 	])
 
 	return ok
@@ -7555,6 +7712,8 @@ func _check_k4a_skill_icon_motifs(lines: PackedStringArray) -> bool:
 		skill_ids[skill["id"]] = true
 	for skill in SkillPool.UNIQUE_SKILLS:
 		skill_ids[skill["id"]] = true
+	for skill in SkillPool.LEGENDARY_SKILLS:
+		skill_ids[skill["id"]] = true
 	for skill in SkillPool.UPGRADE_SKILLS:
 		skill_ids[skill["id"]] = true
 	for skill in SkillPool.STARTING_SKILLS:
@@ -8042,31 +8201,39 @@ func _check_l2a_skill_codex(lines: PackedStringArray) -> bool:
 
 	# (1) codex_entries() 완전성/순서 — 기본 7명은 총 9개(시작 3 + 전용 1 + 공용 2 +
 	# 강화 3(공용 2 + 전용 1)), 등장 순서가 시작->전용->공용->강화이고, id 중복이 없어야
-	# 한다. **곡예사는 2026-10-15 [대형 기획 14] N-5(a)로 고유 스킬이 2종(juggle_encore
+	# 한다. 곡예사는 2026-10-15 [대형 기획 14] N-5(a)로 고유 스킬이 2종(juggle_encore
 	# + juggle_fortune)이 돼 총 11개(시작 3 + 전용 2 + 공용 2 + 강화 4(공용 2 + 전용
-	# 2))로 늘었다** — 별도 기대값으로 검증.
+	# 2))로 늘었다. [대형 기획 15] Q-8(c)(2026-10-19)로 전설 스킬(LEGENDARY_SKILLS)이
+	# 생기면서 그 캐릭터가 가진 전설 개수만큼 "전용" 바로 다음에 "legendary" 항목이
+	# 더 끼어든다(codex_entries() 순서: 시작->전용->전설->공용->강화) — 기대값을
+	# 하드코딩하지 않고 LEGENDARY_SKILLS를 character_id로 직접 세어 계산하므로, 다음
+	# 이터레이션(2/4~4/4)이 나머지 6명에게 전설을 추가해도 이 테스트를 고칠 필요가 없다.
 	var count_ok := true
 	var order_ok := true
 	var no_dup_ok := true
-	var expected_sources: Array[String] = [
-		"starting", "starting", "starting",
-		"unique",
-		"common", "common",
-		"upgrade", "upgrade", "upgrade",
-	]
-	var expected_sources_juggler: Array[String] = [
-		"starting", "starting", "starting",
-		"unique", "unique",
-		"common", "common",
-		"upgrade", "upgrade", "upgrade", "upgrade",
-	]
 	for profile in CharacterProfiles.PROFILES:
 		var character_id: String = profile["id"]
 		var entries: Array[Dictionary] = SkillPool.codex_entries(character_id)
-		var expected_size: int = 11 if character_id == "juggler" else 9
-		var expected_for_character: Array[String] = expected_sources_juggler if character_id == "juggler" else expected_sources
+		var unique_count: int = 2 if character_id == "juggler" else 1
+		var legendary_count := 0
+		for skill in SkillPool.LEGENDARY_SKILLS:
+			if skill.get("character_id", "") == character_id:
+				legendary_count += 1
+		var expected_for_character: Array[String] = []
+		for _i in 3:
+			expected_for_character.append("starting")
+		for _i in unique_count:
+			expected_for_character.append("unique")
+		for _i in legendary_count:
+			expected_for_character.append("legendary")
+		expected_for_character.append("common")
+		expected_for_character.append("common")
+		for _i in (unique_count + 2):
+			expected_for_character.append("upgrade")
+		var expected_size: int = expected_for_character.size()
 		if entries.size() != expected_size:
 			count_ok = false
+			lines.append("    %s: 크기 %d(기대 %d)" % [character_id, entries.size(), expected_size])
 		var seen: Dictionary = {}
 		for entry in entries:
 			if seen.has(entry["id"]):
@@ -8076,8 +8243,8 @@ func _check_l2a_skill_codex(lines: PackedStringArray) -> bool:
 			if entries[i]["codex_source"] != expected_for_character[i]:
 				order_ok = false
 	ok = count_ok and order_ok and no_dup_ok and ok
-	lines.append("  codex_entries() 크기(7명=9, 곡예사=11) 8명 전부 일치 -> %s" % ("OK" if count_ok else "FAIL"))
-	lines.append("  codex_entries() 순서(시작->전용->공용->강화) 8명 전부 일치 -> %s" % ("OK" if order_ok else "FAIL"))
+	lines.append("  codex_entries() 크기(전설 개수 반영, 계산값) 8명 전부 일치 -> %s" % ("OK" if count_ok else "FAIL"))
+	lines.append("  codex_entries() 순서(시작->전용->전설->공용->강화) 8명 전부 일치 -> %s" % ("OK" if order_ok else "FAIL"))
 	lines.append("  codex_entries() id 중복 없음(8명 전부) -> %s" % ("OK" if no_dup_ok else "FAIL"))
 
 	# (2) 저장/로드 왕복 — mark_discovered() 직후 _load()로 디스크에서 다시 읽어도

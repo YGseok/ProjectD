@@ -35,7 +35,8 @@ extends RefCounted
 ##               "hp_half"(HP 절반 이하), "dice_total"(공+방 다이스 합계, op+value로
 ##               임계), "pip_inventory"(눈금 인벤토리 개수), "material"(특정 재질 보유),
 ##               "gold"(골드 임계치, N마다), "dice_cap"(주머니가 MAX_DICE로 꽉 찼을 때),
-##               "dice_type_count"(면 개수 종류 수), "round_change"(라운드 전환 시점).
+##               "dice_type_count"(면 개수 종류 수), "round_change"(라운드 전환 시점),
+##               "perfect_block"(방어로 피해를 완전히 막음, 데미지 0 — Q-8(c) 신규).
 ## - "arrow"     {} — "그러면" / "조건 -> 효과" 구분자.
 ## - "value"     {amount?: int, op: "+"|"×"|"max"|"half"|"full", max?: int, ignore_defense?: bool}
 ##               수치 배지. op="max"는 "그 다이스를 면 최댓값으로 전환"(눈금을 올리는 게
@@ -66,9 +67,12 @@ const MAX_DIAGRAM_SYMBOLS: int = 5
 ## 등급(ItemCardStyle.GRADE_COLORS의 S/A/B/C)과는 완전히 별개 축이다 — 아이템은
 ## "무엇을 얻는가"의 가치 등급이고, 스킬 레어리티는 "이 스킬이 얼마나 특별한가"를
 ## 나타낸다(INBOX.md "아이템 S/A/B/C 등급과 구분되는 스킬 전용 표시" 명시).
-## 4단계: 일반 < 희귀 < 영웅 < 전설. 전설은 Q-8(c)가 캐릭터별 3종씩(8명×3=24종, 한
-## 런에 하나만 보유 가능) 추가할 예정이라 이번 조각엔 0종 — 상수/배정 체계만 자리를
-## 비워둔다(SKILL_RARITY에 legendary 값을 쓰는 항목이 아직 없음).
+## 4단계: 일반 < 희귀 < 영웅 < 전설. 전설은 캐릭터별 3종씩(8명×3=24종, 한 런에 하나만
+## 보유 가능)인데 규모상 한 이터레이션에 다 못 해 캐릭터 2명씩 쪼개 진행한다(INBOX.md
+## 명시) — Q-8(c) 1/4(2026-10-19)로 견습 모험가(novice)/광전사(berserker) 6종이 먼저
+## 들어왔다. 나머지 6명(수호자/폭발병/주술사/매혹사/곡예사/해적) 18종은 다음 이터레이션들
+## (2/4~4/4) 몫 — LEGENDARY_SKILLS 배열이 비어있지 않은 뒤부터는 이 주석이 "진행 중"
+## 표시다(완전히 끝나면 STATUS.md에 전체 24종 기록 후 이 주석도 정리).
 const RARITY_COMMON := "common"
 const RARITY_RARE := "rare"
 const RARITY_EPIC := "epic"
@@ -171,6 +175,13 @@ const SKILL_RARITY: Dictionary = {
 	"start_sleight": RARITY_COMMON,
 	"start_fortune": RARITY_COMMON,
 	"start_diverse": RARITY_COMMON,
+	# LEGENDARY_SKILLS(캐릭터별 3종, Q-8(c) 1/4 — novice/berserker 6종) — 전설.
+	"legend_novice_harmony": RARITY_LEGENDARY,
+	"legend_novice_rally": RARITY_LEGENDARY,
+	"legend_novice_fateshuffle": RARITY_LEGENDARY,
+	"legend_berserker_ragenuke": RARITY_LEGENDARY,
+	"legend_berserker_bloodlust": RARITY_LEGENDARY,
+	"legend_berserker_vengeance": RARITY_LEGENDARY,
 }
 
 
@@ -220,6 +231,34 @@ static func build_rarity_badge(skill_id: String, font_size: int = 12) -> Diction
 	badge.add_child(label)
 
 	return {"panel": badge, "label": label, "rarity": rarity, "color": color}
+
+
+## "한 런에 전설 스킬은 하나만 보유 가능" 규칙([대형 기획 15] Q-8(c), INBOX.md 원문 5
+## 명시) — skill_flags(RunState.skill_flags와 같은 형태의 문자열 배열)를 인자로 받는
+## 순수 함수라 RunState를 직접 읽지 않으므로 dice_test.gd가 RNG/RunState 생성 없이 바로
+## 호출해 "주어진 보유 목록이면 전설을 이미 가진 것으로 판정하는가"를 검증할 수 있다.
+static func has_legendary(skill_flags: Array) -> bool:
+	for id in skill_flags:
+		if SKILL_RARITY.get(id, DEFAULT_RARITY) == RARITY_LEGENDARY:
+			return true
+	return false
+
+
+## pool(스킬 dict 배열)에서 skill_flags가 이미 전설을 보유했다면 전설 등급 후보를 전부
+## 제거한다(그 외 등급은 그대로 통과) — has_legendary()와 짝을 이루는 순수 함수.
+## available_choices()가 weighted_pick() 추첨 "전"에 이 함수를 거쳐, "이미 전설을
+## 가졌으면 다른 전설 후보가 보상/스킬 이벤트 선택지 풀에 전혀 나오지 않는다"는 규칙이
+## 추첨 결과와 무관하게 항상 보장되게 한다(추첨 이후에 걸러내면 "후보 2장 중 1장이
+## 전설이라 화면에 잠깐 보였다가 사라지는" 식의 버그가 생길 수 있어, 반드시 풀 구성
+## 단계에서 제거해야 함).
+static func filter_legendary_if_owned(pool: Array[Dictionary], skill_flags: Array) -> Array[Dictionary]:
+	if not has_legendary(skill_flags):
+		return pool
+	var filtered: Array[Dictionary] = []
+	for skill in pool:
+		if rarity_for(skill["id"]) != RARITY_LEGENDARY:
+			filtered.append(skill)
+	return filtered
 
 
 ## 레어리티 가중치 기반 비복원 추출([대형 기획 15] Q-8(a) "보상 풀 가중치"). pool의
@@ -462,6 +501,137 @@ const UNIQUE_SKILLS: Array[Dictionary] = [
 			{"type": "die", "target": "event"},
 			{"type": "arrow"},
 			{"type": "value", "amount": 1, "op": "+"},
+		],
+	},
+]
+
+
+## 전설 스킬([대형 기획 15] Q-8(c), INBOX.md 원문 5) — 캐릭터별 3종씩, "게임의 양상이
+## 크게 바뀌는" 강력한 효과. UNIQUE_SKILLS와 같은 item dict 형식(character_id로 필터)이지만
+## 완전히 별도 상수로 분리한 이유는 "한 런에 전설은 하나만"이라는 추가 규칙(위
+## has_legendary()/filter_legendary_if_owned() 참고) 때문 — UNIQUE_SKILLS를 그대로
+## 재사용하면서 이 규칙을 끼워 넣으면 "희귀 등급 고유 스킬은 전설 규칙과 무관"이라는
+## 전제가 깨지기 쉬워, 전설만 별도 배열로 두고 available_choices()에서 두 배열을 합친
+## 뒤 필터를 한 번만 태운다. 전부 UNIQUE_SKILLS처럼 "+" 강화판은 만들지 않는다(이미
+## 최고 등급이라 "더 위"가 없음 — UPGRADE_SKILLS에 대응 행 없음).
+##
+## 1/4(이번 조각): 견습 모험가(novice)/광전사(berserker) 6종. 둘 다 "넓지만 얕게"(견습
+## 모험가, 기믹 없음) / "극단형·공격 몰빵"(광전사, min_max_only) 정체성과 시너지를 갖도록
+## 설계했다 — 나머지 6명(2/4~4/4)은 다음 이터레이션들이 이어간다.
+##
+## "legend_novice_harmony"(만물의 조화): 견습 모험가는 기믹이 없는 "만능형"이라 공격/
+## 방어 어느 한쪽에 몰빵하지 않는 효과가 정체성에 맞는다 — 매 턴(공격/방어 모두) 그
+## 턴에 굴린 다이스 중 가장 낮았던 값을 "그 턴 가장 높았던 값"으로 맞춘다. 기존
+## "매혹 심화"(charm_amplify, DiceBag.apply_charm_flip)는 낮은 다이스를 "자기 자신의
+## 면 최댓값"으로만 바꾸는데, 이 전설은 상한 없이 그 턴 실제로 나온 최고값을 그대로
+## 쓴다(예: D4 세 개 중 하나가 1, 나머지가 3·4일 때 1이 4가 되는 건 charm_flip과 같지만,
+## 공격 주머니에 더 큰 다이스가 섞여 있어 그 턴 최고값이 6이었다면 1도 6이 된다 —
+## DESIGN.md가 예시로 든 "주사위 결과 합산 방식 변경"). combat_test.gd의
+## _apply_harmonize_lowest()(순수 함수) 참고.
+##
+## "legend_novice_rally"(결의의 반격): 새 메커니즘(반격) — 방어로 몬스터 공격을 완전히
+## 막으면(데미지 0) 그 방어 합계만큼 방어 무시 반격 피해를 몬스터에게 준다. "만능형"답게
+## 공격이 아니라 방어 쪽 행동을 공격 기회로 바꿔주는 효과. combat_test.gd의
+## _perfect_block_counter_damage() 참고.
+##
+## "legend_novice_fateshuffle"(운명의 뒤섞임): DESIGN.md가 예시로 든 "라운드마다 주머니
+## 교체"를 문자 그대로 채택 — 라운드가 바뀔 때마다 공격/방어 다이스를(둘 중 적은 쪽
+## 개수만큼) 전부 서로 맞바꾼다. 곡예사의 "곡예 앙코르"(juggle_encore, 매 라운드 1쌍만
+## 교환)와 같은 DiceBag.swap_random_dice() 프리미티브를 재사용하지만, 전설답게 한
+## 쌍이 아니라 보유한 전부를 섞는다 — run_state.gd의 _fateshuffle_swap_count() 참고.
+##
+## "legend_berserker_ragenuke"(광전 돌격): 광전사는 이미 explosive_stack(공격 최댓값
+## 3회 누적 -> 보너스 공격턴 1D20)이 있다 — "광기 심화"(frenzy_deepen)가 그 보너스 턴을
+## "1D20 두 번 굴려 최댓값"으로 강화했듯, 이 전설은 더 나아가 보너스 턴을 확률 없이
+## 항상 최댓값(20)으로 고정한다(DESIGN.md "모든 공격 다이스가 한 면 값으로 고정" 예시를
+## 폭발 스택 보너스 턴에 적용). combat_test.gd의 player_legend_ragenuke_active 분기 참고.
+##
+## "legend_berserker_bloodlust"(유혈광란): 광전사 자기 기믹(min_max_only)은 다이스가
+## 중간값 없이 최솟값 아니면 최댓값만 나와 "최댓값이 뜨는 빈도"가 표준 다이스보다 높다 —
+## 이 전설은 매 공격턴(보너스 턴 제외 불문) 최댓값을 보인 공격 다이스 1개당 방어 무시
+## 고정 피해를 추가로 준다(DiceBag.count_max_rolls() 재사용, cannon_volley/broadside가
+## 이미 쓰는 "방어 무시 고정 피해" 패턴 재사용). combat_test.gd의
+## _bloodlust_bonus_damage() 참고.
+##
+## "legend_berserker_vengeance"(불굴의 보복): bloodlust와 완전히 대칭(공격 대신 방어) —
+## 새 메커니즘(반격). 방어턴마다 최솟값을 보인 방어 다이스 1개당 방어 무시 반격 피해를
+## 몬스터에게 준다(DiceBag.count_min_rolls(), 이번 조각에서 신규 추가). 하이리스크
+## 하이리턴 정체성대로 "최악의 방어 굴림"도 보복의 재료로 쓴다. combat_test.gd의
+## _vengeance_bonus_damage() 참고.
+##
+## 세 캐릭터(novice/berserker) 전부 "전설 스킬은 한 런에 하나만 가질 수 있다"는 안내
+## 문장을 description 끝에 그대로 포함한다(INBOX.md "설명에도 적혀 있어야 함" 명시 —
+## 등급 태그/도감/팝업/카드가 공통으로 description을 그려주는 자리이므로 문구를
+## description에 두면 렌더 지점을 새로 만들지 않고 네 곳(카드/도감/팝업/시작 스킬
+## 슬롯) 모두에 자동으로 나타난다).
+const LEGENDARY_SKILLS: Array[Dictionary] = [
+	{
+		"id": "legend_novice_harmony",
+		"name": "만물의 조화",
+		"description": "매 턴(공격/방어 모두), 그 턴 가장 낮았던 다이스 결과값이 그 턴 가장 높았던 값으로 바뀐다 (자기 면 개수 상한 없음). 전설 스킬은 한 런에 하나만 가질 수 있다.",
+		"character_id": "novice",
+		"diagram": [
+			{"type": "duration", "kind": "every_turn"},
+			{"type": "arrow"},
+			{"type": "die", "target": "dual"},
+			{"type": "value", "op": "max"},
+		],
+	},
+	{
+		"id": "legend_novice_rally",
+		"name": "결의의 반격",
+		"description": "방어로 피해를 완전히 막으면(데미지 0), 그 방어 합계만큼 몬스터에게 방어 무시 반격 피해를 준다. 전설 스킬은 한 런에 하나만 가질 수 있다.",
+		"character_id": "novice",
+		"diagram": [
+			{"type": "condition", "kind": "perfect_block"},
+			{"type": "arrow"},
+			{"type": "die", "target": "defense"},
+			{"type": "value", "op": "full", "ignore_defense": true},
+		],
+	},
+	{
+		"id": "legend_novice_fateshuffle",
+		"name": "운명의 뒤섞임",
+		"description": "라운드가 바뀔 때마다, 공격/방어 다이스를 보유한 개수만큼(적은 쪽 기준) 전부 서로 맞바꾼다. 전설 스킬은 한 런에 하나만 가질 수 있다.",
+		"character_id": "novice",
+		"diagram": [
+			{"type": "condition", "kind": "round_change"},
+			{"type": "arrow"},
+			{"type": "swap", "count": 3},
+		],
+	},
+	{
+		"id": "legend_berserker_ragenuke",
+		"name": "광전 돌격",
+		"description": "폭발 스택이 3에 도달하면 보너스 공격턴이 확률 없이 항상 최댓값(20)으로 확정된다. 전설 스킬은 한 런에 하나만 가질 수 있다.",
+		"character_id": "berserker",
+		"diagram": [
+			{"type": "stack", "target": "attack", "threshold": 3},
+			{"type": "arrow"},
+			{"type": "die", "target": "attack"},
+			{"type": "value", "op": "max"},
+		],
+	},
+	{
+		"id": "legend_berserker_bloodlust",
+		"name": "유혈광란",
+		"description": "공격턴마다, 최댓값을 보인 공격 다이스 1개당 방어 무시 고정 피해 +2를 추가로 준다. 전설 스킬은 한 런에 하나만 가질 수 있다.",
+		"character_id": "berserker",
+		"diagram": [
+			{"type": "die", "target": "attack"},
+			{"type": "arrow"},
+			{"type": "value", "amount": 2, "op": "+", "ignore_defense": true},
+		],
+	},
+	{
+		"id": "legend_berserker_vengeance",
+		"name": "불굴의 보복",
+		"description": "방어턴마다, 최솟값을 보인 방어 다이스 1개당 방어 무시 반격 피해 +2를 몬스터에게 준다. 전설 스킬은 한 런에 하나만 가질 수 있다.",
+		"character_id": "berserker",
+		"diagram": [
+			{"type": "die", "target": "defense"},
+			{"type": "arrow"},
+			{"type": "value", "amount": 2, "op": "+", "ignore_defense": true},
 		],
 	},
 ]
@@ -941,6 +1111,12 @@ static func available_choices(n: int, character_id: String = "") -> Array[Dictio
 		for skill in UNIQUE_SKILLS:
 			if skill.get("character_id", "") == character_id and not RunState.skill_flags.has(skill["id"]):
 				pool.append(skill)
+		for skill in LEGENDARY_SKILLS:
+			if skill.get("character_id", "") == character_id and not RunState.skill_flags.has(skill["id"]):
+				pool.append(skill)
+	# Q-8(c) "한 런에 전설은 하나만" — weighted_pick() 추첨 전에 걸러낸다(위
+	# filter_legendary_if_owned() 주석 참고).
+	pool = filter_legendary_if_owned(pool, RunState.skill_flags)
 	var rng := RandomNumberGenerator.new()
 	rng.randomize()
 	return weighted_pick(pool, n, rng)
@@ -1052,13 +1228,30 @@ const ICON_MOTIFS: Dictionary = {
 	"start_fortune": "event_check",
 	"juggle_fortune": "event_check",
 	"juggle_fortune_plus": "event_check",
+	# LEGENDARY_SKILLS(Q-8(c) 1/4, 2026-10-19) — "만물의 조화"는 매 턴 공격+방어 둘 다
+	# 보정하는 효과라 기존 dual_boost를 그대로 공유(값 범위만 다르고 "효과 범주"는
+	# 같음 — ICON_MOTIFS 주석의 "효과가 같으면 같은 모티프" 원칙). "운명의 뒤섞임"도
+	# 다이스를 맞바꾸는 효과라 기존 dice_swap을 공유. 전설 전용 신규 모티프 3종
+	# (legend_nuke/true_strike/counter_strike)은 아래에서 새로 추가 — 보너스 턴 확정
+	# 최댓값/방어 무시 고정 피해/완전 방어 반격은 기존 11종 중 맞아떨어지는 범주가
+	# 없어서 전설다운 시각 신호(SkillIcon.COLOR_LEGENDARY, 레어리티 색과 일치)를
+	# 새로 만들었다.
+	"legend_novice_harmony": "dual_boost",
+	"legend_novice_rally": "counter_strike",
+	"legend_novice_fateshuffle": "dice_swap",
+	"legend_berserker_ragenuke": "legend_nuke",
+	"legend_berserker_bloodlust": "true_strike",
+	"legend_berserker_vengeance": "true_strike",
 }
 
 ## ICON_MOTIFS가 쓰는 값 전체(테스트/미리보기에서 전수 순회용). 여기 없는 문자열이
 ## skill_icon.gd에 들어오면 빈 원으로 떨어진다(_draw_motif()의 match 기본 분기).
+## legend_nuke/true_strike/counter_strike 3종은 Q-8(c) 1/4(2026-10-19) 신규 — 전설
+## 스킬 전용(SkillIcon.COLOR_LEGENDARY, RARITY_COLORS[RARITY_LEGENDARY]와 같은 색조).
 const ICON_MOTIF_VALUES: Array[String] = [
 	"attack_boost", "defense_boost", "dual_boost", "reroll", "burst_stack",
 	"guard_stack", "dual_stack", "dice_flip", "dice_swap", "cycle_strike", "event_check",
+	"legend_nuke", "true_strike", "counter_strike",
 ]
 
 
@@ -1099,6 +1292,18 @@ static func codex_entries(character_id: String) -> Array[Dictionary]:
 		entry["codex_source"] = "unique"
 		result.append(entry)
 
+	# LEGENDARY_SKILLS(Q-8(c)) — UNIQUE_SKILLS 바로 다음(캐릭터 전용이라는 공통점이
+	# UNIQUE_SKILLS와 더 가깝다) + SKILLS(공용)보다 앞에 둔다.
+	for skill in LEGENDARY_SKILLS:
+		if skill.get("character_id", "") != character_id:
+			continue
+		if seen.has(skill["id"]):
+			continue
+		seen[skill["id"]] = true
+		var entry: Dictionary = skill.duplicate()
+		entry["codex_source"] = "legendary"
+		result.append(entry)
+
 	for skill in SKILLS:
 		if seen.has(skill["id"]):
 			continue
@@ -1129,6 +1334,9 @@ static func find_skill(skill_id: String) -> Dictionary:
 		if skill["id"] == skill_id:
 			return skill
 	for skill in UNIQUE_SKILLS:
+		if skill["id"] == skill_id:
+			return skill
+	for skill in LEGENDARY_SKILLS:
 		if skill["id"] == skill_id:
 			return skill
 	for skill in UPGRADE_SKILLS:

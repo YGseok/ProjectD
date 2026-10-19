@@ -1618,6 +1618,23 @@ func _debug_show_skill_codex_juggler() -> void:
 	_on_skill_codex_pressed()
 
 
+## QA 전용 — [대형 기획 15] Q-8(c) 1/4(전설 스킬, 2026-10-19): 견습 모험가 도감에
+## 전설 스킬 3종(만물의 조화/결의의 반격/운명의 뒤섞임)이 "전용" 다음 자리에 실제로
+## 그려지는지(_debug_show_skill_codex_pirate와 같은 패턴).
+func _debug_show_skill_codex_novice() -> void:
+	SkillCodex._debug_reset_for_qa()
+	_on_card_selected("novice")
+	_on_skill_codex_pressed()
+
+
+## QA 전용 — [대형 기획 15] Q-8(c) 1/4: 광전사 도감에 전설 스킬 3종(광전 돌격/유혈광란/
+## 불굴의 보복)이 그려지는지 확인한다.
+func _debug_show_skill_codex_berserker() -> void:
+	SkillCodex._debug_reset_for_qa()
+	_on_card_selected("berserker")
+	_on_skill_codex_pressed()
+
+
 ## QA 전용 — 스킬 도감 패널을 연 뒤, 패널 자신의 Esc 핸들러로 실제로 닫히는지 확인한다
 ## (_debug_press_shortcut_close_achievements와 같은 패턴).
 func _debug_press_shortcut_close_skill_codex() -> void:

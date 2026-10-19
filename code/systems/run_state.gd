@@ -270,6 +270,14 @@ func advance_round() -> void:
 	# "+"는 같은 전환에서 서로 다른 무작위 쌍으로 한 번 더 맞바꿔 총 2회가 되게 한다.
 	for _i in _juggle_encore_swap_count(skill_flags):
 		DiceBag.swap_random_dice(player_attack_bag, player_defense_bag)
+	# "운명의 뒤섞임"(legend_novice_fateshuffle, [대형 기획 15] Q-8(c) 1/4, 견습 모험가
+	# 전용 전설 스킬): juggle_encore와 같은 swap_random_dice() 프리미티브를 라운드
+	# 전환마다 min(공격 개수, 방어 개수)번 호출한다 — "보유한 전부를 섞는다"는 전설다운
+	# 강도를 juggle_encore_plus(고정 2회)와 같은 "반복 호출" 관례로 구현(완전한 순열
+	# 보장은 아니지만, swap_random_dice 자체가 이미 "무작위 한 쌍" 전제라 기존 관례와
+	# 일치시킴).
+	for _i in _fateshuffle_swap_count(skill_flags, player_attack_bag.dice.size(), player_defense_bag.dice.size()):
+		DiceBag.swap_random_dice(player_attack_bag, player_defense_bag)
 
 
 ## [대형 기획 15] Q-8(b)(등급별 효과 차등, 2026-10-18): "곡예 앙코르"/"곡예 앙코르+"가
@@ -282,3 +290,13 @@ static func _juggle_encore_swap_count(skill_flags: Array) -> int:
 	if skill_flags.has("juggle_encore"):
 		return 1
 	return 0
+
+
+## "운명의 뒤섞임"(legend_novice_fateshuffle, [대형 기획 15] Q-8(c) 1/4, 2026-10-19) —
+## 라운드 전환마다 swap_random_dice()를 호출할 횟수. 스킬이 없으면 0, 있으면
+## min(attack_count, defense_count)(적은 쪽 기준 "전부"). attack_count/defense_count를
+## 인자로 받는 순수 함수라 dice_test.gd가 RunState/물리 없이 직접 검증할 수 있다.
+static func _fateshuffle_swap_count(skill_flags: Array, attack_count: int, defense_count: int) -> int:
+	if not skill_flags.has("legend_novice_fateshuffle"):
+		return 0
+	return min(attack_count, defense_count)

@@ -135,6 +135,26 @@ func count_max_rolls(values: Array) -> int:
 	return hits
 
 
+## count_max_rolls()와 완전히 대칭(최댓값 대신 최솟값 면) — [대형 기획 15] Q-8(c)
+## (2026-10-19) 전설 스킬 "불굴의 보복"(광전사 전용, 방어 다이스가 최솟값을 보일
+## 때마다 반격 피해) 전용으로 추가했다. min_max_only(광전사 자기 기믹) 다이스는
+## 중간값이 없어 매번 최솟값 아니면 최댓값만 나오므로, 이 헬퍼로 "이번 턴 몇 개가
+## 최솟값이었는가"를 세면 count_max_rolls()와 짝을 지어 하이리스크 하이리턴
+## 정체성을 그대로 반사 피해로 옮길 수 있다.
+func count_min_rolls(values: Array) -> int:
+	var hits := 0
+	for i in dice.size():
+		if i >= values.size():
+			continue
+		var faces := dice[i]
+		var m: int = faces[0]
+		for v in faces:
+			m = min(m, v)
+		if values[i] == m:
+			hits += 1
+	return hits
+
+
 ## 몬스터 특이 다이스 특징(INBOX.md 2026-09-15 [미니 기획 A]-2, "다크 나이트": 차갑고
 ## 노련하며 방어에서 흔들리지 않는 기사). force_min_max_faces()/force_fixed_value()와
 ## 달리 다이스의 "면 값" 자체는 그대로 두고, 굴림 "결과값"만 사후 보정한다 — 매번 다른

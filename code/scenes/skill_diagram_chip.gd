@@ -207,6 +207,8 @@ func _condition_label() -> String:
 			return "½HP"
 		"round_change":
 			return "라운드"
+		"perfect_block":
+			return "완전방어"
 		"dice_cap":
 			return "가득"
 		"material":
@@ -298,6 +300,8 @@ func _draw_condition_symbol() -> void:
 				_draw_numeral_badge(rect, "1", COLOR_CONDITION)
 			"round_change":
 				_draw_clock_shape(rect, COLOR_CYCLE)
+			"perfect_block":
+				_draw_die_icon(rect, "defense", COLOR_CONDITION)
 			_:
 				_draw_numeral_badge(rect, "?", COLOR_CONDITION)
 	var text := _condition_label()
