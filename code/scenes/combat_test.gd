@@ -1567,6 +1567,31 @@ func _cannon_volley_cycle() -> int:
 	return 2 if (player_broadside_active or player_broadside_plus_active) else CANNON_VOLLEY_CYCLE
 
 
+## [대형 기획 15] Q-8(b)(등급별 효과 차등, 2026-10-18): "광기 심화+"/"수호 심화+"가
+## 보너스 턴 굴림 횟수를 2번->3번으로 늘리는 숫자를 _apply_bonus_reroll() 호출부
+## 인라인 삼항연산자에서 뽑아낸 순수 함수 — _player_explosive_threshold()와 같은 이유
+## (물리 없이 "effect 수치"를 dice_test.gd가 직접 호출/비교할 수 있게, 등급별 효과
+## 차등 전수 검증 목적). 동작은 바뀌지 않음(기존 삼항연산자와 완전히 동일한 값).
+func _frenzy_extra_rolls() -> int:
+	return 2 if player_frenzy_deepen_plus_active else 1
+
+
+## _frenzy_extra_rolls()와 완전히 대칭(공격 대신 방어) — "수호 심화+".
+func _guard_extra_rolls() -> int:
+	return 2 if player_guard_deepen_plus_active else 1
+
+
+## [대형 기획 15] Q-8(b): "여분"/"여분+"가 굴리는 여분 다이스 개수(1 vs 2)를
+## _apply_spare_die() 호출부의 if/elif 우선순위에서 뽑아낸 순수 함수. "+" > base > 없음
+## 우선순위는 그대로 유지(0을 반환하면 호출부가 아예 호출하지 않음 — 미보유 상태 표현).
+func _spare_die_count() -> int:
+	if RunState.skill_flags.has("spare_die_plus"):
+		return 2
+	if RunState.skill_flags.has("spare_die"):
+		return 1
+	return 0
+
+
 func _run_battle() -> void:
 	while not battle_over:
 		await _do_exchange(true)
@@ -1767,7 +1792,7 @@ func _resolve_exchange(is_player_attacking: bool, atk_bag: DiceBag, def_bag: Dic
 	# _apply_bonus_reroll()로 분리해 _apply_spare_die()와 같은 이유(물리 없이 단위
 	# 테스트 가능)로 순수 함수화했다.
 	if used_explosive_dice and player_frenzy_active:
-		var frenzy_extra_rolls := 2 if player_frenzy_deepen_plus_active else 1
+		var frenzy_extra_rolls := _frenzy_extra_rolls()
 		var frenzy_total_rolls := frenzy_extra_rolls + 1
 		var frenzy_before: int = atk_values[0]
 		atk_values = _apply_bonus_reroll(atk_bag, atk_values, frenzy_extra_rolls)
@@ -1779,7 +1804,7 @@ func _resolve_exchange(is_player_attacking: bool, atk_bag: DiceBag, def_bag: Dic
 	# 수호 스택 보너스 턴(1D20)이고 수호 심화를 보유했다면, 한 번 더 굴려 더 높은 값을
 	# 채택한다. "수호 심화+"는 frenzy_deepen_plus와 동일하게 총 굴림 횟수를 3번으로 늘림.
 	if used_guard_dice and player_guard_deepen_active:
-		var guard_extra_rolls := 2 if player_guard_deepen_plus_active else 1
+		var guard_extra_rolls := _guard_extra_rolls()
 		var guard_total_rolls := guard_extra_rolls + 1
 		var guard_before: int = def_values[0]
 		def_values = _apply_bonus_reroll(def_bag, def_values, guard_extra_rolls)
@@ -1815,10 +1840,9 @@ func _resolve_exchange(is_player_attacking: bool, atk_bag: DiceBag, def_bag: Dic
 	# 더 높은 값으로 대체한다. "+" > base > 없음 우선순위 — spare_die_plus가 있으면
 	# spare_die 자체는 확인하지 않는다(둘 다 skill_flags에 있어도 상위 효과만 적용).
 	if is_player_attacking and not used_explosive_dice:
-		if RunState.skill_flags.has("spare_die_plus"):
-			atk_values = _apply_spare_die(atk_bag, atk_values, 2, logs)
-		elif RunState.skill_flags.has("spare_die"):
-			atk_values = _apply_spare_die(atk_bag, atk_values, 1, logs)
+		var spare_die_count := _spare_die_count()
+		if spare_die_count > 0:
+			atk_values = _apply_spare_die(atk_bag, atk_values, spare_die_count, logs)
 	# "맹공"([미니 기획 E]-4, 시작 스킬): 공격 다이스 개수가 방어 다이스 개수보다 많으면
 	# 공격 다이스 결과값 전체 +1. 주머니 구성(개수)만 보는 정적 조건이라 전투 중 바뀌지
 	# 않음 — 매 공격턴(폭발 보너스 턴 포함)마다 다시 확인해 적용한다.

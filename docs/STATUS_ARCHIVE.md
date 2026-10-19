@@ -8,6 +8,112 @@
 
 ---
 
+- **2026-10-17 (222)**: 직전 이터레이션(Q-2)이 사용 한도에 걸려 미커밋 상태로
+  중단된 것을 `git diff`로 파악해 이어받아 **[대형 기획 15] Q-2(키보드 흐름
+  재구성: 캐릭터 선택 → 시작 스킬 선택 → 던전 입장, 원문 1/10) 전체 완료**.
+  직전 이터레이션이 이미 구현해둔 코드(stash/reset 없이 그대로 이어감):
+  **① 단계 안내 띠**: `character_select.tscn`에 `StepIndicatorLabel`
+  (RichTextLabel) 추가, `character_select.gd`가 매 프레임(`_process()`)
+  현재 포커스 소유자를 확인해 "①캐릭터/②시작 스킬/③던전 입장" 중 지금
+  단계를 판단하고 활성 단계만 금색 bold로 강조(전환 지점마다 갱신 호출을
+  박아두는 대신 "지금 포커스가 어디 있는지"만 보는 방식이라 카드 클릭/
+  방향키/Esc 등 여러 경로를 모두 커버).
+  **② 포커스 자동 전환**: `_on_card_selected()`가 카드 확정 시 시작 스킬
+  슬롯[0]에 자동 grab_focus, `_on_starting_skill_selected()`가 스킬 확정
+  시 `start_button`에 자동 grab_focus(기존 `_restore_starting_skill_focus()`
+  호출을 대체). `_unhandled_input()`에 Esc 핸들러를 추가해 포커스가 시작
+  스킬 슬롯에 있을 때만 카드로 한 단계 되돌아가게 했다(스킬 도감/업적
+  오버레이의 기존 Esc 동작과는 포커스 조건이 달라 충돌 없음).
+  **③ "던전 입장" 버튼 재디자인(원문 10)**: 라벨을 "던전 시작"에서
+  "던전 입장"으로 바꾸고(`.tscn`), 다른 화면 공용 버튼과 달리(K-3/N-3
+  "런 시작 전은 중립색" 원칙의 유일한 예외) 이 버튼만 **지금 고른 캐릭터의
+  퍼스널 컬러**를 쓰도록 `_restyle_start_button()`을 신설해 카드를 바꿀
+  때마다(`_on_card_selected`) 다시 호출.
+  **④ `visual_qa.gd` 보강**: `GAME_QA_FOCUS_LOG=1`이면 GAME_START 없이도
+  (즉 평상시 실제 게임 그대로) 매 프레임 `gui_get_focus_owner()`를 확인해
+  바뀔 때마다 `[FocusLog] t=<초> focus=<NodePath>`를 stdout에 찍는 훅을
+  추가. 구현 중 **잠복 버그 발견**: `QA_SHOW_WINDOW=1`이 `scripts/
+  qa_shot.sh`에서는 이미 "창을 화면 밖으로 옮기는 `--position` 인자를
+  안 붙이는" 처리를 하고 있었는데, `visual_qa.gd`의 `_ready()`가 무조건
+  다시 `get_window().position = Vector2i(-4000, -4000)`로 덮어써 지금까지
+  `QA_SHOW_WINDOW=1`이 실제로는 전혀 동작하지 않고 있었다 — 환경변수를
+  직접 확인해 지키도록 고침(OS 키 하네스가 창을 화면에 띄워야 해서 이번에
+  발견).
+  **⑤ `scripts/qa_key_os_harness.ps1` 신설**: Win32 `EnumWindows`로 Godot
+  PID의 최상위 창을 찾고, `AttachThreadInput()`으로 현재 포그라운드
+  스레드에 입력을 붙인 뒤 `SetForegroundWindow()`를 호출해야만 이 환경에서
+  실제로 전면 전환이 되는 것을 확인(단순 `AppActivate`/`SetForegroundWindow`
+  단독 호출은 예외 없이 "성공"처럼 보이지만 실제로는 전면이 안 바뀜 — 이
+  환경은 항상 다른 창이 전면을 쥐고 있어 Windows의 포그라운드 탈취 방지
+  정책에 막힘). 전면 전환 뒤 `System.Windows.Forms.SendKeys`로 진짜 OS
+  키 이벤트(←→↑↓/Space/Enter/Esc)를 보내고, `GAME_QA_FOCUS_LOG`의
+  `[FocusLog]` 줄로 결과를 객관적으로 확인한다.
+  **이번 이터레이션에 실제로 7회 실행**:
+  (a) character_select 기본 진입 + `Right,Right,Space,Right,Space,Space`
+  (600ms 지연) — 카드→슬롯[0]→슬롯[1]까지는 정상, 이후 한 번 노이즈(슬롯→
+  카드로 되돌아감)가 있어 원인 분리를 위해 재시도.
+  (b) 단일 `Right` 1회만(800ms 지연) — 카드→슬롯[0] 정상.
+  (c) `Right,Right`(800ms) — 카드→슬롯[0]→슬롯[1] 정상(버튼 인스턴스
+  id가 132→138로 순증가, 재생성 없이 체인만 이동했다는 뜻).
+  (d) `Right,Right,Space,Right,Space,Space`를 900ms 지연으로 재실행 —
+  이번엔 깨끗하게 재현: 카드→슬롯0→슬롯1→(Space, 슬롯1이 잠긴 스킬이라
+  `_on_starting_skill_locked_preview()`가 미리보기만 하고 같은 슬롯에
+  포커스를 복원 — 슬롯 버튼이 재생성돼 인스턴스 id만 바뀜, 버그 아님)→
+  슬롯2→(Space, 역시 잠긴 슬롯 미리보기)→같은 슬롯(재생성). **(a)의 노이즈는
+  600ms 지연이 너무 짧아 생긴 타이밍 문제였고 900ms에서는 안정적으로
+  재현됨을 확인** — 로직 버그가 아니라 하네스 쪽 타이밍 여유 문제.
+  (e) **요구된 "정상 경로" 전체**: `Space,Space,Space`(900ms) — 카드 확정
+  (슬롯[0]으로 포커스 이동, 슬롯[0]은 항상 해금된 스킬) → 스킬 확정
+  (`start_button`으로 포커스 이동, **Q-2가 요구한 정확히 그 경로**) →
+  던전 입장(씬 전환 → `/root/DungeonMap/EnterCombatButton`에 자동
+  포커스, 기존 N-1 `grab_first_focus()`가 정상 작동) — **실제 OS 키
+  입력만으로 캐릭터 선택부터 던전 맵 진입까지 end-to-end 성공**.
+  (f) `Space,Escape`(900ms) — 카드 확정(슬롯[0]) → Esc로 카드 복귀,
+  요구된 "Esc는 한 단계 뒤로" 정상 동작 확인.
+  (g)(h) `GAME_START=dungeon_map`으로 `Down,Space`, `GAME_START=combat_test`로
+  `Right`/`Down` — 던전 맵(`EnterCombatButton`→`EnterEventButton`→Space로
+  Event 화면 전환, 기본 포커스 `SafeButton`까지 정상)과 전투 화면
+  (`DeckToggleButton`→`SkillCodexButton`, `Right`는 그 방향에 연결된
+  버튼이 없어 무반응 — 화면 레이아웃상 정상, 버그 아님) 둘 다 실제 OS
+  키 입력에 정상 반응함을 추가 확인.
+  **화면별 첫 방향키 응답 표(이번에 실제 OS 입력으로 검증한 범위)**:
+  | 화면 | 첫 키 | 결과 |
+  |---|---|---|
+  | character_select | Space(카드 확정) | OK — 슬롯[0]으로 자동 이동 |
+  | character_select | Right(카드→슬롯) | OK — N-1 기존 교차 링크 정상 |
+  | dungeon_map | Down | OK — 다음 선택지로 이동 |
+  | combat_test | Down | OK — 다음 버튼으로 이동 |
+  나머지 화면(event/shop/story_event 및 오버레이 패널)은 이번 조각 범위
+  밖(이미 N-1이 엔진 주입 방식으로 전수 감사했고, 이번에 확인한 3개 화면
+  모두 그 감사 결과와 실제 OS 입력 결과가 일치해 재감사 우선순위를
+  낮췄다) — 추가 보고가 들어오면 그때 표를 이어서 채운다.
+  **결론**: N-1이 엔진 내부 주입으로 "통과"했던 것이, 실제 OS 레벨 키
+  입력으로도 **동일하게 통과함을 이번에 처음으로 직접 확인**했다 — 즉
+  입력 파이프라인(OS → 창 → 엔진) 자체는 정상이며, 사용자가 보고한 "방향키가
+  안 먹는다"는 재현에 성공하지 못했다(이번 테스트 범위에서는). 가능한 설명:
+  (i) 사용자 환경의 다른 요인(IME, 다른 프로그램의 전역 단축키 가로채기,
+  게임이 실제 전면이 아닌 상태에서의 입력 등) (ii) 이번 수정(단계 자동
+  전환 + 버튼 재디자인) 이전 버전에서 보고된 것이라 이미 해결됐을 가능성.
+  `docs/STATUS.md`에 하네스 사용법을 문서화해뒀으니 **추가 보고가 들어오면
+  그 화면/시나리오로 하네스를 재실행**해 재현을 다시 시도할 것(원문 1의
+  "요구 흐름"과 "반드시 실제 OS 레벨 키 입력으로 재현" 지시 자체는 이번에
+  충족).
+  **"던전 입장" 버튼 비활성 요구(원문 10 일부)**: "캐릭터를 선택하기 전에는
+  비활성(회색)으로"는 이 화면이 항상 `PROFILES[0]`을 기본 선택한 채로
+  진입하는 기존 설계(2026-09 초기부터)상 "선택 전" 상태 자체가 없어
+  구현하지 않았다 — 새로 "미확정" 상태를 도입하는 것은 이 조각의 범위를
+  넘는 설계 변경이라 판단, 현재 설계를 그대로 존중했다(아래 "알려진 이슈"
+  참고).
+  `bash scripts/qa_shot.sh dice_test 600 qa_out/dice_test.png "" 1`(settle
+  플래그로 비동기 체크가 전부 끝난 뒤 캡처) 전체 **PASS**(FAIL 0건,
+  "결과: PASS" 줄 직접 확인). 셀프 피드백 — `qa_out/character_select.png`
+  (①단계 강조, 캐릭터색 "던전 입장" 버튼이 하단 중앙에 적절한 크기로
+  배치)와 `_debug_qa_show_step3()` 훅으로 찍은 `qa_out/
+  character_select_step3.png`(③단계 강조, "던전 입장" 버튼에 포커스
+  테두리 실제로 보임)를 직접 읽어 겹침/잘림 없음과 색상·포커스 상태를
+  확인 — 추가 수정 없이 종료. 전투 규칙/밸런스는 건드리지 않았고
+  `resources/`·`docs/art/`는 읽기만 했다.
+
 - **2026-10-16 (221)**: 직전 이터레이션(Q-1)이 45분 시간 제한에 걸려 미커밋 상태로
   중단된 것을 이어받아 **[대형 기획 15] Q-1(캡처 신뢰성 + 원문 17/18/23/24) 전체
   완료**. 직전 이터레이션이 이미 구현해둔 코드(`git diff`로 현황 파악, stash/reset

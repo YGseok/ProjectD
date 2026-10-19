@@ -502,7 +502,7 @@ const UPGRADE_SKILLS: Array[Dictionary] = [
 	{
 		"id": "frenzy_deepen_plus",
 		"name": "광기 심화+",
-		"description": "폭발 스택이 3에 도달하면 보너스 공격턴이 1D20을 세 번 굴려 더 높은 값을 채택하는 것으로 강화된다 (광전사 전용).",
+		"description": "폭발 스택이 3에 도달하면 보너스 공격턴이 1D20을 두 번이 아니라 세 번 굴려 더 높은 값을 채택한다 (광전사 전용).",
 		"upgrades": "frenzy_deepen",
 		"character_id": "berserker",
 		"diagram": [
@@ -515,7 +515,7 @@ const UPGRADE_SKILLS: Array[Dictionary] = [
 	{
 		"id": "guard_deepen_plus",
 		"name": "수호 심화+",
-		"description": "수호 스택이 3에 도달하면 보너스 방어턴이 1D20을 세 번 굴려 더 높은 값을 채택하는 것으로 강화된다 (수호자 전용).",
+		"description": "수호 스택이 3에 도달하면 보너스 방어턴이 1D20을 두 번이 아니라 세 번 굴려 더 높은 값을 채택한다 (수호자 전용).",
 		"upgrades": "guard_deepen",
 		"character_id": "guardian",
 		"diagram": [

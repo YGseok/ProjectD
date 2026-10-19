@@ -268,7 +268,17 @@ func advance_round() -> void:
 	# "곡예 앙코르"/"곡예 앙코르+"(곡예사 전용 고유 스킬, INBOX.md 2026-09-24 [대형
 	# 기획 4]-D4): 자기 기믹 juggle_swap(런 시작 1회뿐)을 라운드 전환마다 재발동한다.
 	# "+"는 같은 전환에서 서로 다른 무작위 쌍으로 한 번 더 맞바꿔 총 2회가 되게 한다.
-	if skill_flags.has("juggle_encore") or skill_flags.has("juggle_encore_plus"):
+	for _i in _juggle_encore_swap_count(skill_flags):
 		DiceBag.swap_random_dice(player_attack_bag, player_defense_bag)
-		if skill_flags.has("juggle_encore_plus"):
-			DiceBag.swap_random_dice(player_attack_bag, player_defense_bag)
+
+
+## [대형 기획 15] Q-8(b)(등급별 효과 차등, 2026-10-18): "곡예 앙코르"/"곡예 앙코르+"가
+## 라운드 전환마다 다이스를 맞바꾸는 횟수(0/1/2)를 advance_round() 인라인 if에서 뽑아낸
+## 순수 함수 — combat_test.gd의 _frenzy_extra_rolls() 등과 같은 이유(등급별 효과 수치를
+## dice_test.gd가 물리/RunState 없이 직접 계산해 비교할 수 있게). 동작은 바뀌지 않음.
+static func _juggle_encore_swap_count(skill_flags: Array) -> int:
+	if skill_flags.has("juggle_encore_plus"):
+		return 2
+	if skill_flags.has("juggle_encore"):
+		return 1
+	return 0

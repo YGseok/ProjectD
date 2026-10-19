@@ -481,6 +481,10 @@ func _ready() -> void:
 	all_pass = _check_q8a_rarity_display(lines) and all_pass
 
 	lines.append("")
+	lines.append("[Q-8(b): 등급별 효과 차등 — UPGRADE_SKILLS 11쌍 전수(하드코딩 없이 개수로 커버리지 확인), 각 쌍이 실제로 쓰는 계산 함수/상수를 그대로 호출해 강화판 효과 수치가 베이스 이상인지(플래그가 아니라 계산 결과로). 등급 정의 순서 단조는 Q-8(a)에서 이미 검증]")
+	all_pass = _check_q8b_upgrade_effect_values(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -1043,6 +1047,211 @@ func _check_q8a_rarity_display(lines: PackedStringArray) -> bool:
 	])
 	remove_child(cs_node)
 	cs_node.free()
+
+	return ok
+
+
+## [대형 기획 15] Q-8(b)(등급별 효과 차등, 2026-10-18, INBOX.md 원문 5): UPGRADE_SKILLS
+## 11쌍 전수 — "강화판 효과 수치가 베이스 이상"을 계산 결과로 검증한다(플래그 존재만
+## 보지 않음). 등급 정의 순서 단조(강화판=베이스보다 한 등급 위)는 이미
+## _check_q8a_skill_rarity_data()의 (2)가 전수 검증하므로 여기서는 반복하지 않고
+## "효과 수치" 쪽만 한 곳에 모아 표로 남긴다.
+##
+## 전수 점검 결과(각 항목 참고) — 11쌍 모두 기존 "+"(UPGRADE_SKILLS) 구현이 이미
+## "등급이 높으면 효과가 크거나 조건이 완화" 규칙을 지키고 있어, 효과 수치를 바꾸는
+## 코드 변경은 하지 않았다(docs/STATUS.md Q-8(b) 완료 기록의 표 참고). 계산 결과로
+## 직접 비교할 수 있게 일부는 기존 인라인 삼항연산자/if-elif를 순수 함수로 뽑아냈을
+## 뿐이다(_frenzy_extra_rolls()/_guard_extra_rolls()/_spare_die_count(),
+## RunState._juggle_encore_swap_count() — 전부 동작 불변). 설명 문구 2건(frenzy_
+## deepen_plus/guard_deepen_plus)은 "두 번이 아니라 세 번"처럼 베이스 대비 변화를
+## 명시하도록 보강했다(효과 자체는 불변).
+func _check_q8b_upgrade_effect_values(lines: PackedStringArray) -> bool:
+	var ok := true
+	var combat_script := load("res://code/scenes/combat_test.gd")
+	var flags_backup: Array = RunState.skill_flags.duplicate()
+	var combat = combat_script.new()
+
+	# (1) 심호흡 -> 심호흡+: 적용 범위(첫 방어턴 1회 -> 매 방어턴)를 _deep_breath_bonus()
+	# 순수 함수로 3턴 방어 시뮬레이션해 총 보너스 합을 비교.
+	var breath_base_total := 0
+	var breath_base_used := false
+	for _t in 3:
+		var br: Dictionary = combat_script._deep_breath_bonus(["deep_breath"], breath_base_used)
+		breath_base_total += int(br["bonus"])
+		if br["consume"]:
+			breath_base_used = true
+	var breath_plus_total := 0
+	for _t in 3:
+		var br2: Dictionary = combat_script._deep_breath_bonus(["deep_breath_plus"], false)
+		breath_plus_total += int(br2["bonus"])
+	var breath_ok: bool = breath_plus_total > breath_base_total and breath_base_total == 1 and breath_plus_total == 3
+	ok = breath_ok and ok
+	lines.append("  (1) 심호흡 -> 심호흡+: 3턴 방어 보너스 합계 base=%d(기대 1, 첫턴만) plus=%d(기대 3, 매턴) -> %s" % [
+		breath_base_total, breath_plus_total, "OK" if breath_ok else "FAIL"
+	])
+
+	# (2) 여분 -> 여분+: 굴리는 여분 다이스 개수(_spare_die_count(), Q-8(b)로 분리).
+	RunState.skill_flags = ["spare_die"]
+	var spare_base_count: int = combat._spare_die_count()
+	RunState.skill_flags = ["spare_die_plus"]
+	var spare_plus_count: int = combat._spare_die_count()
+	var spare_count_ok: bool = spare_plus_count > spare_base_count and spare_base_count == 1 and spare_plus_count == 2
+	ok = spare_count_ok and ok
+	lines.append("  (2) 여분 -> 여분+: 여분 다이스 개수 base=%d(기대 1) plus=%d(기대 2) -> %s" % [
+		spare_base_count, spare_plus_count, "OK" if spare_count_ok else "FAIL"
+	])
+
+	# (3) 광기 심화 -> 광기 심화+: 보너스턴 추가 리롤 횟수(_frenzy_extra_rolls(), Q-8(b)로 분리).
+	combat.player_frenzy_deepen_plus_active = false
+	var frenzy_base_rolls: int = combat._frenzy_extra_rolls()
+	combat.player_frenzy_deepen_plus_active = true
+	var frenzy_plus_rolls: int = combat._frenzy_extra_rolls()
+	var frenzy_ok: bool = frenzy_plus_rolls > frenzy_base_rolls and frenzy_base_rolls == 1 and frenzy_plus_rolls == 2
+	ok = frenzy_ok and ok
+	lines.append("  (3) 광기 심화 -> 광기 심화+: 보너스턴 추가 리롤 base=%d(총 2번) plus=%d(총 3번) -> %s" % [
+		frenzy_base_rolls, frenzy_plus_rolls, "OK" if frenzy_ok else "FAIL"
+	])
+
+	# (4) 수호 심화 -> 수호 심화+: (3)과 완전히 대칭(_guard_extra_rolls()).
+	combat.player_guard_deepen_plus_active = false
+	var guard_base_rolls: int = combat._guard_extra_rolls()
+	combat.player_guard_deepen_plus_active = true
+	var guard_plus_rolls: int = combat._guard_extra_rolls()
+	var guard_ok: bool = guard_plus_rolls > guard_base_rolls and guard_base_rolls == 1 and guard_plus_rolls == 2
+	ok = guard_ok and ok
+	lines.append("  (4) 수호 심화 -> 수호 심화+: 보너스턴 추가 리롤 base=%d(총 2번) plus=%d(총 3번) -> %s" % [
+		guard_base_rolls, guard_plus_rolls, "OK" if guard_ok else "FAIL"
+	])
+
+	# (5) 연쇄 폭발 -> 연쇄 폭발+: 임계치는 둘 다 2로 같지만(_player_explosive_threshold()),
+	# "+"만 보너스턴에 추가 리롤이 1회 더 붙는다 — base는 extra_rolls=0(호출 자체가 없어
+	# _apply_bonus_reroll을 0회로 부른 것과 동일, 반드시 원래 값 그대로)과 동치임을
+	# 실제로 호출해 확인하고, plus(extra_rolls=1)는 여러 번 굴려도 절대 그보다 낮아지지
+	# 않는지(_apply_bonus_reroll의 "최댓값만 채택" 성질, 3686라인 공용 검증과 같은 패턴)
+	# 함께 확인한다.
+	combat.player_chain_explosion_active = true
+	var chain_explosion_threshold: int = combat._player_explosive_threshold()
+	combat.player_chain_explosion_plus_active = true
+	var chain_explosion_plus_threshold: int = combat._player_explosive_threshold()
+	var chain_bag := DiceBag.new(20, 1)
+	var chain_base_values: Array = [5]
+	var chain_base_result: Array = combat._apply_bonus_reroll(chain_bag, chain_base_values, 0)
+	var chain_plus_never_decreased := true
+	for _i in 40:
+		var chain_plus_result: Array = combat._apply_bonus_reroll(chain_bag, chain_base_values, 1)
+		if chain_plus_result[0] < chain_base_values[0]:
+			chain_plus_never_decreased = false
+	var chain_explosion_ok: bool = (
+		chain_explosion_threshold == 2 and chain_explosion_plus_threshold == 2
+		and chain_base_result[0] == 5 and chain_plus_never_decreased
+	)
+	ok = chain_explosion_ok and ok
+	lines.append("  (5) 연쇄 폭발 -> 연쇄 폭발+: 임계치 둘 다 %d(동일 유지), 리롤 0회(base, 항상 %d 그대로)=%s 1회(plus) 절대 감소 없음=%s -> %s" % [
+		chain_explosion_threshold, chain_base_result[0], chain_base_result[0] == 5, chain_plus_never_decreased, "OK" if chain_explosion_ok else "FAIL"
+	])
+
+	# (6) 연쇄 방어 -> 연쇄 방어+: (5)와 완전히 대칭.
+	combat.player_chain_guard_active = true
+	var chain_guard_threshold: int = combat._player_guard_threshold()
+	combat.player_chain_guard_plus_active = true
+	var chain_guard_plus_threshold: int = combat._player_guard_threshold()
+	var guard_bag := DiceBag.new(20, 1)
+	var guard_base_values: Array = [5]
+	var guard_base_result: Array = combat._apply_bonus_reroll(guard_bag, guard_base_values, 0)
+	var guard_plus_never_decreased := true
+	for _i in 40:
+		var guard_plus_result: Array = combat._apply_bonus_reroll(guard_bag, guard_base_values, 1)
+		if guard_plus_result[0] < guard_base_values[0]:
+			guard_plus_never_decreased = false
+	var chain_guard_ok: bool = (
+		chain_guard_threshold == 2 and chain_guard_plus_threshold == 2
+		and guard_base_result[0] == 5 and guard_plus_never_decreased
+	)
+	ok = chain_guard_ok and ok
+	lines.append("  (6) 연쇄 방어 -> 연쇄 방어+: 임계치 둘 다 %d(동일 유지), 리롤 0회(base, 항상 %d 그대로)=%s 1회(plus) 절대 감소 없음=%s -> %s" % [
+		chain_guard_threshold, guard_base_result[0], guard_base_result[0] == 5, guard_plus_never_decreased, "OK" if chain_guard_ok else "FAIL"
+	])
+
+	# (7) 임기응변 -> 임기응변+: 공격/방어 임계치가 함께 완화(3 -> 2).
+	combat.player_chain_explosion_active = false
+	combat.player_chain_explosion_plus_active = false
+	combat.player_chain_guard_active = false
+	combat.player_chain_guard_plus_active = false
+	combat.player_versatile_plus_active = false
+	var versatile_base_atk: int = combat._player_explosive_threshold()
+	var versatile_base_def: int = combat._player_guard_threshold()
+	combat.player_versatile_plus_active = true
+	var versatile_plus_atk: int = combat._player_explosive_threshold()
+	var versatile_plus_def: int = combat._player_guard_threshold()
+	var versatile_ok: bool = (
+		versatile_base_atk == 3 and versatile_base_def == 3
+		and versatile_plus_atk == 2 and versatile_plus_def == 2
+	)
+	ok = versatile_ok and ok
+	lines.append("  (7) 임기응변 -> 임기응변+: 공격/방어 임계치 base=%d/%d(기대 3/3) plus=%d/%d(기대 2/2, 조건 완화) -> %s" % [
+		versatile_base_atk, versatile_base_def, versatile_plus_atk, versatile_plus_def, "OK" if versatile_ok else "FAIL"
+	])
+	combat.free()
+
+	# (8) 매혹 심화 -> 매혹 심화+: DiceBag.apply_charm_flip() 변환 대상 개수(2 -> 3)가
+	# 실제로 더 많은 다이스를 최댓값으로 바꾸는지(합계 비교, D4x4 [1,2,3,4] 기준).
+	var charm_bag := DiceBag.new(4, 4)
+	var charm_values: Array = [1, 2, 3, 4]
+	var charm_base_result: Array = charm_bag.apply_charm_flip(charm_values, 2)
+	var charm_plus_result: Array = charm_bag.apply_charm_flip(charm_values, 3)
+	var charm_base_sum := 0
+	for cv in charm_base_result:
+		charm_base_sum += int(cv)
+	var charm_plus_sum := 0
+	for cv2 in charm_plus_result:
+		charm_plus_sum += int(cv2)
+	var charm_ok: bool = charm_plus_sum > charm_base_sum
+	ok = charm_ok and ok
+	lines.append("  (8) 매혹 심화 -> 매혹 심화+: apply_charm_flip(count=2/3) 결과 합계 base=%d plus=%d(기대 plus>base) -> %s" % [
+		charm_base_sum, charm_plus_sum, "OK" if charm_ok else "FAIL"
+	])
+
+	# (9) 곡예 앙코르 -> 곡예 앙코르+: 라운드 전환 시 다이스 맞바꾸기 횟수
+	# (RunState._juggle_encore_swap_count(), run_state.gd에서 Q-8(b)로 분리).
+	var encore_base_count: int = RunState._juggle_encore_swap_count(["juggle_encore"])
+	var encore_plus_count: int = RunState._juggle_encore_swap_count(["juggle_encore", "juggle_encore_plus"])
+	var encore_ok: bool = encore_plus_count > encore_base_count and encore_base_count == 1 and encore_plus_count == 2
+	ok = encore_ok and ok
+	lines.append("  (9) 곡예 앙코르 -> 곡예 앙코르+: 라운드 전환당 맞바꾸기 횟수 base=%d(기대 1) plus=%d(기대 2) -> %s" % [
+		encore_base_count, encore_plus_count, "OK" if encore_ok else "FAIL"
+	])
+
+	# (10) 일제 사격 -> 일제 사격+: 주기는 동일(2턴)하지만 고정 피해 공식이 "절반" ->
+	# "전부"로 강화된다(_cannon_volley_damage(), attack_sum=11 기준 ceil(11/2)=6 < 11).
+	var volley_base: int = combat_script._cannon_volley_damage(11, 2, 2, false)
+	var volley_plus: int = combat_script._cannon_volley_damage(11, 2, 2, true)
+	var volley_ok: bool = volley_plus > volley_base and volley_base == 6 and volley_plus == 11
+	ok = volley_ok and ok
+	lines.append("  (10) 일제 사격 -> 일제 사격+: 공격 합계 11 기준 고정 피해 base=%d(기대 6, ceil(11/2)) plus=%d(기대 11, 전부) -> %s" % [
+		volley_base, volley_plus, "OK" if volley_ok else "FAIL"
+	])
+
+	# (11) 곡예 흥행 -> 곡예 흥행+: 이벤트 주사위 굴림 보정(event_roll_bonus(), +1 -> +2).
+	var event_script := load("res://code/scenes/event.gd")
+	var fortune_base: int = event_script.event_roll_bonus(["juggle_fortune"])
+	var fortune_plus: int = event_script.event_roll_bonus(["juggle_fortune_plus"])
+	var fortune_ok: bool = fortune_plus > fortune_base and fortune_base == 1 and fortune_plus == 2
+	ok = fortune_ok and ok
+	lines.append("  (11) 곡예 흥행 -> 곡예 흥행+: 이벤트 주사위 보정 base=%d(기대 1) plus=%d(기대 2) -> %s" % [
+		fortune_base, fortune_plus, "OK" if fortune_ok else "FAIL"
+	])
+
+	RunState.skill_flags = flags_backup
+
+	# (12) 11쌍 전수 커버 확인 — UPGRADE_SKILLS 항목 수가 여전히 11인지. 위에서 쌍마다
+	# 손으로 하나씩 짚었으므로, 새 강화판이 추가돼 이 개수가 달라지면 이 함수도 같이
+	# 갱신해야 한다는 신호로 FAIL한다(새 스킬 추가 시 누락 방지, 다른 전수표들과 같은
+	# 관례).
+	var pair_count_ok: bool = SkillPool.UPGRADE_SKILLS.size() == 11
+	ok = pair_count_ok and ok
+	lines.append("  (12) UPGRADE_SKILLS 쌍 개수=%d(기대 11, 위 11개 항목과 1:1 대응 — 늘어나면 이 함수도 갱신 필요) -> %s" % [
+		SkillPool.UPGRADE_SKILLS.size(), "OK" if pair_count_ok else "FAIL"
+	])
 
 	return ok
 
