@@ -281,7 +281,7 @@ const MONSTERS := [
 	},
 	{
 		"id": "frenzied_beast", "name": "광란의 마수", "family": "beast", "tier": "boss",
-		"color": Color(0.478, 0.122, 0.169),
+		"color": Color(0.369, 0.102, 0.165),
 		"skills": [{"id": "anger_stack"}, {"id": "pounce", "amount": 3}, {"id": "bloodlust"}],
 		"hp_mult": 1.0, "phase2_skills": [{"id": "min_max_only"}],
 		"personality": "광전사의 언니, 힘에 취해 짐승이 된 자",
