@@ -120,6 +120,7 @@ const MONSTERS := [
 	},
 	{
 		"id": "shadow", "name": "그림자", "family": "amorphous", "tier": "normal",
+		"face_crop": Rect2(0.16, 0.09, 0.48, 0.48),  # 아트 지정: 얼굴(보라 눈) 중심 x≈0.40,y≈0.25
 		"color": Color(0.2, 0.2, 0.25), "skills": [{"id": "dull"}], "hp_mult": 1.0,
 		"personality": "날카로운 기세를 슬그머니 무디게 만드는 그림자",
 	},
@@ -213,6 +214,7 @@ const MONSTERS := [
 	},
 	{
 		"id": "dark_wolf", "name": "암흑 늑대", "family": "beast", "tier": "elite",
+		"face_crop": Rect2(0.0, 0.17, 0.48, 0.48),  # 아트 지정: 얼굴(붉은 눈) 중심 x≈0.20,y≈0.33
 		"color": Color(0.25, 0.25, 0.3), "skills": [{"id": "pounce", "amount": 3}, {"id": "anger_stack"}],
 		"atk_dice_delta": 1, "hp_mult": 1.5,
 		"personality": "싸움이 시작되는 순간 가장 거칠게 달려들고, 거슬릴수록 더 날뛰는 어둠의 늑대",
