@@ -148,7 +148,7 @@ ART-<분류><대상 번호 3자리>-<종류>
 | **몬스터 — 보스 (MO800~)** | | |
 | MO800 | `goblin_king` | 고블린 왕 |
 | MO801 | `ooze_lord` | 점액 군주 |
-| MO802 | `skeleton_general` | 해골 장군 |
+| MO802 | `skeleton_general` | 영계의 지배자 (구 해골 장군, 2026-10-20 개명) |
 | MO803 | `frenzied_beast` | 광란의 마수 |
 | MO804 | `fallen_commander` | 타락한 기사단장 |
 | MO805 | `void_eye` | 공허의 눈 |
@@ -216,7 +216,7 @@ ART-<분류><대상 번호 3자리>-<종류>
 |---|---|---|---|---|---|---|
 | MO800 | `goblin_king` | 고블린 왕 | 인간형 | 보스 R1 | `#D9A626` | 📦 / 📦 |
 | MO801 | `ooze_lord` | 점액 군주 | 부정형 | 보스 R1 | `#4D8C59` | 📦 / 📝 |
-| MO802 | `skeleton_general` | 해골 장군 | 언데드형 | 보스 R2 | `#A69E80` | 📦 / 📝 |
+| MO802 | `skeleton_general` | 영계의 지배자 (구 해골 장군, 2026-10-20 개명) | 언데드형 | 보스 R2 | `#A69E80` | 📦 / 📝 |
 | MO803 | `frenzied_beast` | 광란의 마수 | 야수형 | 보스 R2 | `#8C3326` | 📦 / 📝 |
 | MO804 | `fallen_commander` | 타락한 기사단장 | 인간형 | 보스 R3 | `#594D73` | 📦 / 📝 |
 | MO805 | `void_eye` | 공허의 눈 | 부정형 | 보스 R3 | `#33264D` | 📦 / 📝 |
@@ -703,6 +703,7 @@ Work는 `resources/ui/` 이미지가 있으면 StyleBoxTexture로 쓰고, 없으
 | 2026-10-17 | **정예 7종 v3 재디자인** (보스 v3와 같은 기준. 젤라틴 큐브는 1차가 정책에 걸려 재요청. **암흑 늑대는 2회 모두 정책에 걸려 v1 유지**) | `resources/monsters/<elite>/full.png` 교체 | `qa_out/art_elite_v3_lineup.png` |
 | 2026-10-17 | **일반 14종 v3 재디자인** (고블린·해골 전사·오크·유령·그림자·안개·늑대·광견·멧돼지·독거미·구울·좀비·해골 궁수·망령 병사). **슬라임·독 슬라임은 2회 모두 정책에 걸려 v1 유지**. 아머/방패 고블린·산적·경비병은 같은 금발 고블린처럼 나와(산적·경비병은 인간이어야 함) 머리색·외형을 구분해 재요청 → 2026-10-19 적용(`qa_out/art_normal_v3_a.png`) | `resources/monsters/<id>/full.png` 교체 | `qa_out/art_normal_v3_b.png` |
 | 2026-10-19 | **캐릭터 표정 개성 강화 v2** (사용자 성격 가이드 대조 — 견습 모험가·광전사·매혹사·해적은 이미 부합해 유지. 곡예사=깐죽대는 smug, 수호자=차가운 쿨데레, 폭발병=소악마 빌런, 주술사=음침·음흉 오타쿠로 5장씩 재생성, 구도는 기존 neutral 템플릿 유지) | `resources/characters/{juggler,guardian,explosive,shieldbearer}/face_*.png` 교체(v1은 `_reference/characters/<id>/v1/`) | `qa_out/art_<id>_face_v2.png` |
+| 2026-10-20 | **보스 5종 v4 수정** (사용자 피드백): 점액 군주=몸까지 전부 점액 / 해골 장군→**영계의 지배자** 개명, 헤진 옷·해골 동공·왼눈 보석, 보라 영혼불 #8E6BD1 / 광란의 마수=체모·맹수 손발·고양이 눈·톱니 이빨, 광전사와 차별(어두운 털+진홍 갈기) / 타락한 기사단장=칼자국·베인 서클렛(배신자 표식), 검은 강철+잿불 주황 #B5652A / 공허의 눈=크툴루 심해 컨셉, 짙은 청록 #0F4C5C+촉수·눈. 퍼스널 컬러 중복 제거(녹/보라/진홍/주황/청록/금) | `resources/monsters/<boss>/full.png` 교체 | `qa_out/art_boss_v4_lineup.png` |
 
 ---
 
