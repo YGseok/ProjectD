@@ -8,6 +8,46 @@
 
 ---
 
+- **2026-10-18 (230)**: 직전 이터레이션(Q-7(c))이 사용 한도로 1/5~3/5만 커밋된
+  채 끊겨 이어받았다. **[대형 기획 15] Q-7(c)(SkillDiagram 화면 적용) 4/5,
+  5/5 완료 — Q-7(스킬 효과 도식화, a/b/c) 전체 완료.**
+  **4/5(캐릭터 선택 시작 스킬 슬롯)**: `character_select.gd`의
+  `_build_starting_skill_section()`에 LARGE(44px) `SkillDiagram`을 잠금
+  배지 아래/효과 설명 문장 위에 추가 — 선택 중인 스킬이든 잠긴 슬롯
+  미리보기([대형 기획 5] F-1)든 같은 조건으로 `SkillPool.diagram_for()`를
+  건다(이 화면은 이미 미리보기 시 효과 설명을 보여주는 기존 설계라, 스킬
+  도감의 "미발견은 정보 비공개"와 다른 맥락임 — 그대로 유지).
+  **발견한 회귀**: 도식이 차지하는 세로 폭(44px)만큼 우측 정보 컬럼의 전체
+  높이가 늘어, `dice_test.gd`의 N-2b(전신 컬럼이 던전 입장 버튼과 안
+  겹쳐야 함)가 1px 차이로 FAIL — 좌측 전신 컬럼(`_detail_portrait_panel`,
+  `SIZE_EXPAND_FILL` 세로)이 우측 `_detail_sections_vbox`의 요구 높이를
+  그대로 따라가는 `HBoxContainer` 레이아웃이라, 우측이 580px 예산을 넘으면
+  좌측도 함께 넘친다. 시작 스킬 섹션 하나만 `body`의
+  `theme_constant/separation`을 4→2로 좁혀 6px를 회수해 해소(다른 4개
+  섹션은 그대로 — 영향 범위를 최소화).
+  **5/5(던전 보유 스킬 행)**: `deck_panel.gd`의 `_add_skills_section()`
+  카드 안을 `HBoxContainer`(아이콘+이름) 하나에서 `VBoxContainer`(그
+  행 + 그 아래 SMALL(20px) `SkillDiagram`)로 바꿨다 — dungeon_map/shop/
+  event/story_event가 상시, combat_test가 토글로 공유하는 패널이라 5개
+  화면 전부에 한 번에 적용됨. 패널 실사용 폭이 좁아(약 224px,
+  `DECK_SKILL_DIAGRAM_WIDTH` 신규 상수) `HFlowContainer`가 필요하면 자동
+  2줄 줄바꿈한다.
+  **테스트**: 두 조각 모두 Q-7(a)/(b)가 이미 만든 데이터/렌더러 검증으로
+  커버돼(스킬 id 하드코딩 없는 함수 테이블, 기호 수 상한, 빈 도식 0개 등)
+  새 `dice_test.gd` 체크는 추가하지 않았다(3/5까지와 같은 판단) — 대신
+  매 조각 커밋 전 `bash scripts/qa_shot.sh dice_test 60 ... 1` 전체
+  **PASS**(FAIL 0건, 4/5는 N-2b FAIL→수정→재검증 PASS 1회 포함) 재확인.
+  **셀프 피드백**: `qa_out/q7c_4of5_character_select.png`(선택 중 — 확장
+  스킬 도식 또렷, 던전 입장 버튼과 간격 있음)/`q7c_4of5_locked_preview.png`
+  (잠긴 "정예" 슬롯 미리보기 — 자물쇠 배지+도식+해금 조건 문장까지 안
+  겹치고 들어옴)/`q7c_5of5_dungeon_map_skills.png`(`_debug_move_deck_panel_
+  left_with_skills` QA 훅으로 보유 스킬 4종 강제 설정 — 좁은 패널에서도
+  카드마다 이름 줄 아래 도식이 겹침 없이 들어옴, 심호흡/여분+/광기 심화+/
+  확장 4종 모두 서로 다른 모양으로 구분됨) 확인. 전투 규칙/밸런스는 전혀
+  건드리지 않았고 `resources/`·`docs/art/`는 읽기만 했다. INBOX.md
+  "부분 처리됨" [대형 기획 15] 항목의 Q-7 한 줄을 "전체 완료"로 갱신,
+  다음은 Q-8(스킬 레어리티 + 전설 스킬).
+
 - **2026-10-17 (229)**: **[대형 기획 15] Q-7(b)(SkillDiagram 렌더러) 완료.**
   Q-7(a)(228)가 `SkillPool`에 만든 diagram 데이터(11종 기호, 스킬당 ≤5개)를
   받아 실제로 그리는 재사용 위젯 2개를 신규 추가 — `code/scenes/

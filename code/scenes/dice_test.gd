@@ -1963,6 +1963,8 @@ func _check_q8c4_legendary_skills(lines: PackedStringArray) -> bool:
 ## 계산 결과/실제 렌더 결과"로 검증한다:
 ## (1) 격자 카드 수 == MonsterCatalog.MONSTERS.size()(하드코딩된 수가 아니라 카탈로그
 ##     전체 수와 항상 일치하는지)
+## (1b)~(1d) [Q-11b, 2026-10-20 감독 캡처 피드백 — 썸네일 추가] 썸네일 슬롯 수==카드 수,
+##     원화 있는 몬스터는 TextureRect+texture!=null, 원화 없는 몬스터는 FamilyIcon 폴백.
 ## (2) 격자 카드의 "원화/표정 n/5" 태그 텍스트가 실제 파일 존재(주입된 user:// 임시
 ##     디렉터리의 합성 에셋)와 일치하는지
 ## (3) 계열/티어 필터 버튼을 실제로 눌렀을 때(.pressed.emit()) 카드 수가 그 필터에
@@ -2016,6 +2018,31 @@ func _check_q11_monster_codex(lines: PackedStringArray) -> bool:
 	lines.append("  (1) 필터 없음: 격자 카드 수=%d (기대 MonsterCatalog.MONSTERS.size()=%d) -> %s" % [
 		panel._card_controls.size(), total_count, "OK" if grid_count_ok else "FAIL"
 	])
+
+	# (1b)~(1d) Q-11b(2026-10-20, 감독 캡처 피드백 — 썸네일 추가) — "플래그가 아니라 실제
+	# 렌더 결과"로: 썸네일 슬롯이 카드 수만큼 있는지, 원화가 있는 몬스터는 실제 텍스처가
+	# 들어갔는지, 원화가 없는 몬스터는 FamilyIcon 폴백으로 떨어지는지.
+	var thumb_slot_count_ok: bool = panel._grid_thumb_slot_by_id.size() == panel._card_controls.size()
+	ok = thumb_slot_count_ok and ok
+	lines.append("  (1b) 썸네일 슬롯 수=%d (기대 카드 수=%d) -> %s" % [
+		panel._grid_thumb_slot_by_id.size(), panel._card_controls.size(), "OK" if thumb_slot_count_ok else "FAIL"
+	])
+
+	var slime_slot: Control = panel._grid_thumb_slot_by_id.get("slime")
+	var slime_thumb_ok: bool = slime_slot != null and slime_slot.get_child_count() == 1 \
+		and slime_slot.get_child(0) is TextureRect and (slime_slot.get_child(0) as TextureRect).texture != null
+	ok = slime_thumb_ok and ok
+	lines.append("  (1c) slime(원화 있음) 썸네일 슬롯 -> TextureRect+texture!=null -> %s" % (
+		"OK" if slime_thumb_ok else "FAIL"
+	))
+
+	var ooze_slot: Control = panel._grid_thumb_slot_by_id.get("ooze_lord")
+	var ooze_fallback_ok: bool = ooze_slot != null and ooze_slot.get_child_count() == 1 \
+		and ooze_slot.get_child(0) is FamilyIcon
+	ok = ooze_fallback_ok and ok
+	lines.append("  (1d) ooze_lord(원화 없음) 썸네일 슬롯 -> FamilyIcon 폴백 -> %s" % (
+		"OK" if ooze_fallback_ok else "FAIL"
+	))
 
 	# (2) 격자 카드 리소스 태그가 실제 파일 존재와 일치.
 	var slime_tag: String = panel._grid_face_tag_by_id["slime"].text if panel._grid_face_tag_by_id.has("slime") else ""

@@ -25,8 +25,20 @@ extends Control
 signal closed
 
 const COLUMNS := 6
-const CARD_SIZE := Vector2(190, 108)
+## Q-11b(2026-10-20, 감독 캡처 피드백): 190x108 -> 182x100으로 줄여 썸네일을 넣고도
+## 6열 × 182px + 5갭(GRID_GAP) 합계가 SCROLL_WIDTH(아래) 안에 들어오게(가로 스크롤 제거).
+const CARD_SIZE := Vector2(182, 100)
 const GRID_GAP := 10
+## 격자 카드 왼쪽에 붙는 작은 리소스 썸네일(정사각) — 썸네일 없는 몬스터는 FamilyIcon
+## 플레이스홀더가 같은 자리를 채운다(아래 _make_grid_card() 참고).
+const THUMB_SIZE := Vector2(56, 56)
+## 썸네일 1장의 최대 변 길이(px) — 전신 원화(보통 1000px대) 그대로 텍스처를 들고 있으면
+## 35장이 한 번에 로드될 때 메모리/디코드 비용이 크다. 크롭 후 이 크기로 축소해 캐시한다.
+const THUMB_MAX_PIXELS := 96
+## 격자 폭(스크롤 컨테이너 안쪽 가용 폭) — COLUMNS*CARD_SIZE.x + (COLUMNS-1)*GRID_GAP이
+## 이 값을 넘지 않아야 가로 스크롤바가 생기지 않는다(Q-11b 핵심 버그: 기존 1100으로는
+## 1190이 필요해 6번째 열이 잘리고 가로 스크롤바가 떴었다).
+const SCROLL_WIDTH := 1160.0
 
 const TIER_ORDER := ["normal", "elite", "boss"]
 const TIER_LABELS := {"normal": "일반", "elite": "정예", "boss": "보스"}
@@ -52,9 +64,18 @@ var _close_button: Button
 var _card_controls: Array[Control] = []
 var _grid_cards_by_id: Dictionary = {}
 var _grid_face_tag_by_id: Dictionary = {}
+## Q-11b 신규 — 카드마다 썸네일을 넣은 자리(Control). 테스트가 "카드 수만큼 썸네일
+## 슬롯이 실제로 있는지"를 검증할 수 있게 공개(아래 _make_grid_card() 참고).
+var _grid_thumb_slot_by_id: Dictionary = {}
 var _family_filter_buttons: Dictionary = {} # family key("" 포함) -> Button
 var _tier_filter_buttons: Dictionary = {} # tier key("" 포함) -> Button
 var _summary_label: Label
+
+## art_id("|"+art_base_dir로 키 구분) -> 썸네일 Texture2D(또는 null=원화 없음).
+## _rebuild()가 필터를 바꿀 때마다 격자 카드를 전부 새로 만드는데, 인스턴스 멤버로
+## 캐시하면 필터 클릭마다 같은 파일을 다시 크롭/축소하게 된다 — static으로 둬서
+## 패널을 여러 번 열고 닫아도, 필터를 오가도 한 번만 로드한다.
+static var _thumb_cache: Dictionary = {}
 
 ## detail 뷰 — 전부 테스트 공개.
 var _detail_full_rect: TextureRect
@@ -93,6 +114,7 @@ func _clear_ui() -> void:
 	_card_controls.clear()
 	_grid_cards_by_id.clear()
 	_grid_face_tag_by_id.clear()
+	_grid_thumb_slot_by_id.clear()
 	_family_filter_buttons.clear()
 	_tier_filter_buttons.clear()
 	_expression_buttons.clear()
@@ -134,6 +156,25 @@ func _rebuild() -> void:
 	_clear_ui()
 
 	var palette := CharacterTheme.ui_palette(RunState.character_id)
+
+	# Q-11b(2026-10-20, 감독 캡처 피드백) — 패널 틀(아래 bg)이 화면 일부(x<40/y<30 등)만
+	# 덮어서 뒤에 깔린 character_select 화면의 제목/버튼이 패널 상단에 비쳐 보이던 버그.
+	# 다른 오버레이와 같은 "화면 전체를 덮는 딤 배경"(skill_detail_popup.gd의 backdrop과
+	# 동일 패턴)을 bg보다 먼저 깔아, 패널 크기/위치와 무관하게 뒷 화면을 항상 가린다.
+	# 반투명(예: 0.6~0.75)은 밝은 색 썸네일/텍스트가 뒤에 있으면 여전히 비쳐 보여서(1차
+	# 캡처로 실제 확인) 완전 불투명으로 — 이 패널은 중앙 모달(skill_detail_popup 등, 뒤
+	# 화면이 흐릿하게 보이는 게 의도)이 아니라 화면을 통째로 대체하는 전체 오버레이다.
+	# 이 씬은 반응형 레이아웃이 아니라 1280x720 고정 좌표로 짜여 있다(이 파일의 다른
+	# 요소들도 전부 position/size 절대값) — anchors_preset(FULL_RECT)은 Control의
+	# 레이아웃 계산 타이밍에 기대게 되므로, 다른 요소들과 같은 방식으로 명시적
+	# position/size를 직접 준다(한 프레임 안에 확실히 전체화면을 덮는다).
+	var backdrop := ColorRect.new()
+	backdrop.color = Color(0.03, 0.03, 0.04, 1.0)
+	backdrop.position = Vector2.ZERO
+	backdrop.size = Vector2(1280, 720)
+	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
+	add_child(backdrop)
+	_ui.append(backdrop)
 
 	var bg := Panel.new()
 	var skin_applied := UIKit.apply_panel_skin(bg, "overlay", RunState.character_id)
@@ -219,7 +260,11 @@ func _build_grid_view(palette: Dictionary) -> void:
 
 	var scroll := ScrollContainer.new()
 	scroll.position = Vector2(70, 126)
-	scroll.size = Vector2(1100, 530)
+	scroll.size = Vector2(SCROLL_WIDTH, 530)
+	# Q-11b: 가로 스크롤바 완전 제거(세로만) — 폭은 SCROLL_WIDTH 상수가 COLUMNS*CARD_SIZE.x
+	# 합계를 항상 담도록 보장하므로, 이건 내용이 넘칠 일이 없는 상태에서의 안전장치다
+	# (deck_panel.gd와 같은 패턴).
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	add_child(scroll)
 	_ui.append(scroll)
 
@@ -305,10 +350,44 @@ func _make_grid_card(monster: Dictionary) -> Control:
 	style.content_margin_bottom = 6
 	card.add_theme_stylebox_override("panel", style)
 
+	var hbox := HBoxContainer.new()
+	hbox.add_theme_constant_override("separation", 8)
+	hbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(hbox)
+
+	# Q-11b(2026-10-20, 감독 캡처 피드백) — "리소스 확인용 도감인데 썸네일이 없다"는
+	# 지적을 반영. full.png가 있으면 상세 뷰와 같은 크롭(전투 크롭과 동일 비율)을 작게
+	# 축소해 보여주고, 없으면 FamilyIcon 플레이스홀더로 계열만이라도 알 수 있게 한다.
+	var thumb_holder := Control.new()
+	thumb_holder.custom_minimum_size = THUMB_SIZE
+	thumb_holder.size = THUMB_SIZE
+	thumb_holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hbox.add_child(thumb_holder)
+	_grid_thumb_slot_by_id[monster_id] = thumb_holder
+
+	var tier_for_thumb: String = monster.get("tier", "normal")
+	var thumb_tex := _grid_thumbnail_texture(art_id, tier_for_thumb)
+	if thumb_tex != null:
+		var thumb_rect := TextureRect.new()
+		thumb_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
+		thumb_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		thumb_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		thumb_rect.texture = thumb_tex
+		thumb_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		thumb_holder.add_child(thumb_rect)
+	else:
+		var fallback_icon := FamilyIcon.new()
+		fallback_icon.set_anchors_preset(Control.PRESET_FULL_RECT)
+		fallback_icon.category = monster.get("family", "")
+		fallback_icon.is_boss = tier_for_thumb == "boss"
+		fallback_icon.is_elite = tier_for_thumb == "elite"
+		thumb_holder.add_child(fallback_icon)
+
 	var vbox := VBoxContainer.new()
 	vbox.add_theme_constant_override("separation", 3)
 	vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	card.add_child(vbox)
+	vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hbox.add_child(vbox)
 
 	var top_row := HBoxContainer.new()
 	top_row.add_theme_constant_override("separation", 6)
@@ -331,20 +410,51 @@ func _make_grid_card(monster: Dictionary) -> Control:
 	var name_label := Label.new()
 	name_label.text = String(monster.get("name", monster_id))
 	name_label.clip_text = true
-	name_label.add_theme_font_size_override("font_size", 15)
+	name_label.add_theme_font_size_override("font_size", 14)
 	name_label.add_theme_color_override("font_color", Color(0.92, 0.92, 0.92))
 	vbox.add_child(name_label)
 
 	var resource_label := Label.new()
 	resource_label.text = "원화 %s · 표정 %d/5" % ["✓" if full_ok else "✗", face_n]
 	resource_label.clip_text = true
-	resource_label.add_theme_font_size_override("font_size", 10)
+	resource_label.add_theme_font_size_override("font_size", 9)
 	resource_label.add_theme_color_override("font_color", Color(0.6, 0.85, 0.6) if full_ok else Color(0.7, 0.6, 0.6))
 	vbox.add_child(resource_label)
 	_grid_face_tag_by_id[monster_id] = resource_label
 
 	card.activated.connect(_on_card_activated.bind(monster_id))
 	return card
+
+
+## Q-11b 신규 — 격자 카드 썸네일(캐시됨). full.png가 없으면 null(호출부가 FamilyIcon
+## 폴백을 그린다). 상세 뷰와 같은 티어별 크롭 비율(CharacterArt.MONSTER_FACE_CROP_RATIO_
+## BY_TIER)을 재사용해 "전투에서 실제로 보이는 구도"와 썸네일이 같게 한다.
+func _grid_thumbnail_texture(art_id: String, tier: String) -> Texture2D:
+	var cache_key := "%s|%s" % [art_id, art_base_dir]
+	if _thumb_cache.has(cache_key):
+		return _thumb_cache[cache_key]
+	var tex: Texture2D = null
+	if CharacterArt.has_full(art_id, art_base_dir):
+		var crop_ratio: Rect2 = CharacterArt.MONSTER_FACE_CROP_RATIO_BY_TIER.get(tier, CharacterArt.DEFAULT_FACE_CROP_RATIO)
+		var cropped := CharacterArt.load_full_crop(art_id, crop_ratio, art_base_dir)
+		if cropped != null:
+			tex = _downscale_for_thumbnail(cropped)
+	_thumb_cache[cache_key] = tex
+	return tex
+
+
+## 긴 변이 THUMB_MAX_PIXELS를 넘으면 축소해 작은 텍스처로 캐시한다(35장을 한 번에 들고
+## 있어도 메모리/디코드 비용이 전신 원화 그대로일 때보다 훨씬 작다).
+func _downscale_for_thumbnail(source: Texture2D) -> Texture2D:
+	var img := source.get_image()
+	if img == null:
+		return source
+	var size := img.get_size()
+	var longest: int = max(size.x, size.y)
+	if longest > THUMB_MAX_PIXELS:
+		var scale: float = float(THUMB_MAX_PIXELS) / float(longest)
+		img.resize(max(1, int(size.x * scale)), max(1, int(size.y * scale)), Image.INTERPOLATE_LANCZOS)
+	return ImageTexture.create_from_image(img)
 
 
 func _on_card_activated(monster_id: String) -> void:
@@ -431,9 +541,10 @@ func _build_detail_view(palette: Dictionary) -> void:
 		_ui.append(_make_missing_label(_detail_full_rect, "원화 미입고"))
 
 	# 성격/스킬 정보.
+	# Q-11b: 150 -> 220(아래쪽 여백을 줄여 패널 하단까지 정보 밀도를 맞춤).
 	var info_label := Label.new()
 	info_label.position = Vector2(70, 420)
-	info_label.size = Vector2(280, 150)
+	info_label.size = Vector2(280, 220)
 	info_label.autowrap_mode = TextServer.AUTOWRAP_WORD
 	info_label.add_theme_font_size_override("font_size", 12)
 	info_label.add_theme_color_override("font_color", Color(0.85, 0.85, 0.85))
@@ -478,9 +589,11 @@ func _build_detail_view(palette: Dictionary) -> void:
 		if exists:
 			enabled_buttons.append(ebtn)
 
+	# Q-11b: 200x200 -> 260x300(표정 컷이 있는 몬스터는 더 크게 보이고, 없는 몬스터는
+	# 어차피 비어 있으니 이 크기 변화 자체는 영향 없음 — 아래 안내 문구 위치가 핵심 수정).
 	_detail_face_rect = TextureRect.new()
 	_detail_face_rect.position = Vector2(380, 156)
-	_detail_face_rect.size = Vector2(200, 200)
+	_detail_face_rect.size = Vector2(260, 300)
 	_detail_face_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_detail_face_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	add_child(_detail_face_rect)
@@ -488,11 +601,14 @@ func _build_detail_view(palette: Dictionary) -> void:
 	_apply_detail_expression_texture()
 	if _detail_face_rect.texture == null:
 		# 표정 컷이 아예 없는 몬스터(2026-10-20 현재 보스 포함 전체 입고 상태 — "표정 없음
-		# -> 전신 크롭 사용"을 정직하게 안내, STATUS.md 기록 참고). 버튼이 전부 disabled라
+		# -> 전투 크롭 참고"를 정직하게 안내, STATUS.md 기록 참고). 버튼이 전부 disabled라
 		# 사용자가 다른 표정을 골라도 이 상태를 벗어날 수 없으므로 한 번만 붙여도 된다.
+		# Q-11b 수정: 예전엔 _detail_face_rect(지금은 300px 큰 빈 상자)의 세로 한가운데에
+		# 안내 문구를 띄워 그 위아래로 거대한 빈 공간이 생겼다 — 버튼 줄(expr_row) 바로
+		# 아래에 붙여 "빈 상자 한복판에 떠 있는" 느낌을 없앤다.
 		var no_face_label := Label.new()
 		no_face_label.text = "표정 미입고\n오른쪽 크롭 참고"
-		no_face_label.position = _detail_face_rect.position + Vector2(0, _detail_face_rect.size.y * 0.5 - 20)
+		no_face_label.position = expr_row.position + Vector2(0, expr_row.size.y + 10)
 		no_face_label.size = Vector2(_detail_face_rect.size.x, 40)
 		no_face_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		no_face_label.add_theme_font_size_override("font_size", 13)
@@ -500,7 +616,9 @@ func _build_detail_view(palette: Dictionary) -> void:
 		add_child(no_face_label)
 		_ui.append(no_face_label)
 
-	# 전투 화면 상반신 크롭 미리보기(나란히).
+	# 전투 화면 상반신 크롭 미리보기(나란히). Q-11b: 표정 컷이 거의 없는 현재 입고
+	# 상태에서는 이 크롭이 상세 뷰의 유일한 "표정 참고용" 시각 정보라 더 크게 키운다
+	# (200x240 -> 230x320).
 	var crop_title := Label.new()
 	crop_title.text = "전투 크롭"
 	crop_title.position = Vector2(700, 90)
@@ -512,7 +630,7 @@ func _build_detail_view(palette: Dictionary) -> void:
 
 	_detail_crop_rect = TextureRect.new()
 	_detail_crop_rect.position = Vector2(700, 116)
-	_detail_crop_rect.size = Vector2(200, 240)
+	_detail_crop_rect.size = Vector2(230, 320)
 	_detail_crop_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_detail_crop_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	add_child(_detail_crop_rect)
