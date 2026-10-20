@@ -209,6 +209,8 @@ func _condition_label() -> String:
 			return "라운드"
 		"perfect_block":
 			return "완전방어"
+		"overguard":
+			return "초과방어"
 		"dice_cap":
 			return "가득"
 		"material":
@@ -301,6 +303,8 @@ func _draw_condition_symbol() -> void:
 			"round_change":
 				_draw_clock_shape(rect, COLOR_CYCLE)
 			"perfect_block":
+				_draw_die_icon(rect, "defense", COLOR_CONDITION)
+			"overguard":
 				_draw_die_icon(rect, "defense", COLOR_CONDITION)
 			_:
 				_draw_numeral_badge(rect, "?", COLOR_CONDITION)

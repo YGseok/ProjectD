@@ -221,6 +221,24 @@ func apply_charm_flip(values: Array, count: int = 1) -> Array:
 	return adjusted
 
 
+## "최후의 보루"(legend_guardian_bulwark, [대형 기획 15] Q-8(c) 2/4, 수호자 전용 전설)
+## 전용 헬퍼 — apply_charm_flip()이 "가장 낮은 값을 보인 다이스 1개만" 최댓값으로 바꾸는
+## 것과 달리, 이번 턴에 굴린 다이스 "전부"를 각자의 면 최댓값으로 바꾼다(count_max_rolls()와
+## 같은 "이 다이스의 면 중 최댓값" 계산을 재사용). 평소에는 조건부로만 호출되고(HP 절반
+## 이하일 때만, combat_test.gd 참고) 이 헬퍼 자체는 조건을 모른다 — 호출 여부만 호출부 책임.
+func apply_force_max(values: Array) -> Array:
+	var adjusted := values.duplicate()
+	for i in dice.size():
+		if i >= adjusted.size():
+			continue
+		var faces := dice[i]
+		var m: int = faces[0]
+		for v in faces:
+			m = max(m, v)
+		adjusted[i] = m
+	return adjusted
+
+
 ## 몬스터 스킬 프리미티브 "armor(n)"(인간형, INBOX.md [대형 기획 6] G-3, 2026-10-07) 전용
 ## 헬퍼 — apply_flat_bonus()는 "다이스별 +n"(다이스 개수만큼 곱해져 총합이 커짐)이지만,
 ## armor는 "주머니 합계 +n"(다이스 개수와 무관하게 딱 한 번만 더해짐)이라 의미가 달라

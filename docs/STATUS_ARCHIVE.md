@@ -8,6 +8,59 @@
 
 ---
 
+- **2026-10-17 (225)**: **[대형 기획 15] Q-4b(보유 스킬 팝업 + 던전 포기, 원문
+  11/21) 전체 완료.**
+  **(11) 보유 스킬 팝업** — 신규 공용 컴포넌트 `code/scenes/skill_detail_popup.gd`
+  (`SkillDetailPopup`, achievement_panel.gd/skill_codex_panel.gd와 같은 "스크립트
+  하나로 완결된 Control" 패턴)가 화면 전체(1280x720)를 덮는 어두운 backdrop(클릭
+  시 닫힘) + 중앙 박스(스킬 모티프 아이콘 + 이름(accent색) + 우상단 빨간 "X" 버튼 +
+  효과 설명)를 그린다. `deck_panel.gd`의 "보유 스킬" 섹션이 각 행을
+  `CharacterCardPanel`(L-1이 만든 "클릭/Space 둘 다 activated로 통일하는
+  PanelContainer", skill_codex_panel.gd 카드도 이미 재사용 중)로 감싸 눌리면 이
+  팝업을 연다 — DeckPanel이 dungeon_map/shop/event/story_event/combat_test 5개
+  화면 전부가 공유하는 컴포넌트라 이 한 곳만 고치면 "던전 화면들"(INBOX 원문)
+  전부에 반영된다. 팝업은 **첫 클릭 때 지연 생성**해 `get_parent()`(씬 루트)의
+  자식으로 붙인다 — `_ready()`에서 바로 만들면 combat_test.gd가 DeckPanel을 자기
+  `_ready()`/`_setup_combat_hud()` 도중 동적으로 `add_child()`하는 경합과 겹쳐
+  "Parent node is busy setting up children" 에러로 실제로 크래시하던 것을
+  1라운드 셀프 피드백(`bash scripts/qa_shot.sh dice_test`에서 발견)에서 찾아
+  지연 생성으로 고쳤다. 레어리티는 INBOX 지시대로 아직 없어 생략.
+  **(21) 던전 포기** — `dungeon_map.tscn` 헤더(상단, "스킬 도감" 버튼 왼쪽)에
+  "던전 포기" 버튼(경고색 tint, 방 선택지 목록과 분리된 위치)을 추가했고, 누르면
+  신규 공용 컴포넌트 `code/scenes/confirm_dialog.gd`(`ConfirmDialog`,
+  SkillDetailPopup과 같은 backdrop+박스 구조를 공유하는 범용 예/아니오 모달)가
+  INBOX 지정 문구("현재 진행도를 버리고 나갑니다. 지금까지 해금한 업적과 스킬
+  도감은 유지됩니다.")로 확인을 구한다. 기본 포커스는 "취소"(섣부른 확정 방지),
+  확인하면 `_abandon_run()`(= `RunState.reset_run()`)이 골드/다이스 주머니/스킬/방
+  진행을 전부 버리고 `character_select.tscn`으로 돌아간다. "패배/클리어 통계를
+  부당하게 올리거나 깎지 않는다"는 요구는 `combat_test.gd`의 승패 처리 경로
+  (`_resolve_exchange()`/`_apply_room_advance()`)를 전혀 거치지 않는 구조로
+  자연히 충족되고, "미저장 업적 저장" 요구는 `AchievementManager.unlock()`/
+  `SkillCodex.mark_discovered()` 둘 다 호출 즉시 JSON으로 write-through 저장하는
+  기존 구조라 애초에 "미저장 상태"가 존재하지 않음을 확인(새 코드 불필요).
+  **검증**: `dice_test.gd` 신규 `_check_q4b_skill_detail_popup()`(카드 activated →
+  팝업이 실제 SkillPool 이름/설명을 렌더하는지, 배경 클릭/X 버튼/Esc 세 갈래 전부
+  실제 `InputEventMouseButton`/`InputEventKey` 객체로 닫히는지, 닫기 버튼 포커스
+  트랩 4방향 자기 자신 + `has_focus()`)/`_check_q4b_quit_run_confirm()`("던전 포기"
+  버튼 포커스+확정 경로, 확인 팝업 메시지/포커스 트랩(취소↔확인 순환)/기본 포커스,
+  취소 3갈래 전부 RunState 불변, `_abandon_run()` 후 gold/rooms_cleared/
+  round_index/skill_flags 전부 초기값, 업적/도감 해금 상태가 그 전후로 유지됨까지)
+  추가 — `change_scene_to_file()`을 포함하는 `_on_quit_run_confirmed()` 전체는
+  event.gd `_apply_pick()`과 같은 이유로 테스트에서 직접 호출하지 않고
+  `_abandon_run()`만 분리해 호출(다른 테스트가 남긴 `RunState.
+  chosen_starting_skill_id` 잔여값 때문에 `reset_run()` 후 `skill_flags`가
+  안 비는 실패를 1라운드에서 발견해 백업/복원 추가). `bash scripts/qa_shot.sh
+  dice_test 60 qa_out/dice_test.png "" 1` 전체 **PASS**(FAIL 0건). 셀프 피드백
+  2라운드 — 1라운드 캡처(`qa_out/q4b_skill_popup.png`)에서 우상단 "X" 닫기
+  버튼이 `UIKit.style_secondary_button()`의 가로로 긴 장식 스킨을 36x36 정사각에
+  억지로 씌워 거의 안 보이는 문제를 발견, 전용 단색 빨간 StyleBoxFlat으로
+  바꿔 2라운드 재캡처(`qa_out/q4b_skill_popup.png`)로 또렷이 보임을 확인.
+  `qa_out/q4b_quit_confirm.png`(확인 팝업, 취소 버튼 포커스 테두리 확인)/
+  `qa_out/q4b_baseline_no_popup.png`(팝업 없는 기준 화면과 밝기 비교로 backdrop
+  어둡게 하는 효과가 실제로 눈에 보임 확인)까지 직접 읽어 확인. 전투 규칙/
+  밸런스는 건드리지 않았고 `resources/`·`docs/art/`는 읽기만 했다.
+  **[대형 기획 15]의 다음은 Q-5(커스터마이징 분리) 이후 항목.**
+
 - **2026-10-17 (224)**: **[대형 기획 15] Q-4a(던전 맵 선택지 정리, 원문 12/13/14)
   전체 완료.**
   **(12) 선택지 버튼 위계 통일**: 기존엔 `dungeon_map.gd`의 `_style_action_buttons()`가

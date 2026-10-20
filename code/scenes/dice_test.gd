@@ -489,8 +489,12 @@ func _ready() -> void:
 	all_pass = _check_q8b_upgrade_effect_values(lines) and all_pass
 
 	lines.append("")
-	lines.append("[Q-8(c) 1/4: 전설 스킬 — 견습 모험가/광전사 6종 + '한 런에 전설 하나만' 인프라. has_legendary()/filter_legendary_if_owned()가 풀에서 전설 후보를 실제로 제거하는지, 효과 6종(만물의 조화/결의의 반격/운명의 뒤섞임/광전 돌격/유혈광란/불굴의 보복) 각각이 계산 결과(다이스 값/데미지)를 실제로 바꾸는지, 설명 문구에 안내가 포함되는지, SKILL_RARITY/ICON_MOTIFS 전수 등록]")
+	lines.append("[Q-8(c) 1/4: 전설 스킬 — 견습 모험가/광전사 6종 + '한 런에 전설 하나만' 인프라. has_legendary()/filter_legendary_if_owned()가 풀에서 전설 후보를 실제로 제거하는지, 효과 6종(만물의 조화/결의의 반격/운명의 뒤섞임/광전 돌격/유혈광란/불굴의 보복) 각각이 계산 결과(다이스 값/데미지)를 실제로 바꾸는지, 설명 문구에 안내가 포함되는지, SKILL_RARITY/ICON_MOTIFS 전수 등록(novice/berserker뿐 아니라 LEGENDARY_SKILLS 전체를 캐릭터별 3종 기준으로 generic 검사)]")
 	all_pass = _check_q8c_legendary_skills(lines) and all_pass
+
+	lines.append("")
+	lines.append("[Q-8(c) 2/4: 전설 스킬 — 수호자/폭발병 6종(최후의 보루/반격의 벽/불굴의 벽/연쇄 폭발의 고리/절대 폭발/최후의 폭발). 각 효과가 계산 결과(다이스 값/스택/데미지/턴 선택)를 실제로 바꾸는지(DiceBag.apply_force_max/RunState._bastion_fixed_value/_update_explosive_chain_progress/_absolute_detonation_bonus_damage/_overguard_counter_damage/_select_exchange_bags 통합 호출), 설명 문구 안내 포함]")
+	all_pass = _check_q8c2_legendary_skills(lines) and all_pass
 
 	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
@@ -1388,30 +1392,164 @@ func _check_q8c_legendary_skills(lines: PackedStringArray) -> bool:
 		notice_text, SkillPool.LEGENDARY_SKILLS.size(), "OK" if notice_ok else "FAIL", notice_missing,
 	])
 
-	# (8) 전수 커버 — LEGENDARY_SKILLS 6종(novice 3 + berserker 3), 전부 character_id
-	# 지정, SKILL_RARITY에 legendary로 등록, ICON_MOTIFS에 등록(누락 시 FAIL).
-	var novice_count := 0
-	var berserker_count := 0
+	# (8) 전수 커버 — LEGENDARY_SKILLS에 등장하는 character_id별로 정확히 3종씩 있는지
+	# (설계 기준: 캐릭터당 3종), 전부 character_id 지정, SKILL_RARITY에 legendary로
+	# 등록, ICON_MOTIFS에 등록(누락 시 FAIL). 특정 캐릭터 이름/개수를 하드코딩하지 않고
+	# LEGENDARY_SKILLS 자체에서 캐릭터 목록을 센다 — 다음 이터레이션(3/4~4/4)이 새
+	# 캐릭터를 추가해도 이 테스트를 고칠 필요가 없다(codex_entries() 커버리지 테스트와
+	# 같은 원칙).
+	var per_character_count: Dictionary = {}
+	var missing_character_id: Array[String] = []
 	var missing_rarity: Array[String] = []
 	var missing_motif: Array[String] = []
 	for skill in SkillPool.LEGENDARY_SKILLS:
 		var cid: String = skill.get("character_id", "")
-		if cid == "novice":
-			novice_count += 1
-		elif cid == "berserker":
-			berserker_count += 1
+		if cid == "":
+			missing_character_id.append(skill["id"])
+		else:
+			per_character_count[cid] = per_character_count.get(cid, 0) + 1
 		if SkillPool.SKILL_RARITY.get(skill["id"], "") != SkillPool.RARITY_LEGENDARY:
 			missing_rarity.append(skill["id"])
 		if not SkillPool.ICON_MOTIFS.has(skill["id"]):
 			missing_motif.append(skill["id"])
+	var uneven_characters: Array[String] = []
+	for cid in per_character_count.keys():
+		if per_character_count[cid] != 3:
+			uneven_characters.append("%s=%d" % [cid, per_character_count[cid]])
 	var coverage_ok: bool = (
-		SkillPool.LEGENDARY_SKILLS.size() == 6 and novice_count == 3 and berserker_count == 3
+		missing_character_id.is_empty() and uneven_characters.is_empty()
 		and missing_rarity.is_empty() and missing_motif.is_empty()
 	)
 	ok = coverage_ok and ok
-	lines.append("  (8) 전수 커버: 총 %d종(novice=%d, berserker=%d, 기대 6/3/3), rarity 누락=%s, motif 누락=%s -> %s" % [
-		SkillPool.LEGENDARY_SKILLS.size(), novice_count, berserker_count, missing_rarity, missing_motif,
+	lines.append("  (8) 전수 커버: 총 %d종, 캐릭터별 개수=%s(전부 3이어야 함, 어긋남=%s), character_id 누락=%s, rarity 누락=%s, motif 누락=%s -> %s" % [
+		SkillPool.LEGENDARY_SKILLS.size(), per_character_count, uneven_characters, missing_character_id, missing_rarity, missing_motif,
 		"OK" if coverage_ok else "FAIL",
+	])
+
+	return ok
+
+
+## [대형 기획 15] Q-8(c) 2/4(전설 스킬, 2026-10-19, INBOX.md 원문 5): 수호자/폭발병
+## 전설 6종 — 1/4의 _check_q8c_legendary_skills()와 같은 원칙(플래그가 아니라 실제
+## "계산 결과"가 바뀌는지 검증). 전수 커버(character_id/rarity/motif)는 1/4의 (8)이
+## LEGENDARY_SKILLS 전체를 이미 generic하게 검사하므로 여기서는 중복하지 않는다.
+func _check_q8c2_legendary_skills(lines: PackedStringArray) -> bool:
+	var ok := true
+	var combat_script := load("res://code/scenes/combat_test.gd")
+
+	# (1) "최후의 보루"(DiceBag.apply_force_max()): 이번 턴에 굴린 다이스 전부가 각자의
+	# 면 최댓값으로 바뀌는지(D4x3, 1/2/3 -> 4/4/4).
+	var bulwark_bag := DiceBag.new(4, 3)
+	var bulwark_before: Array = [1, 2, 3]
+	var bulwark_after: Array = bulwark_bag.apply_force_max(bulwark_before)
+	var bulwark_ok: bool = bulwark_after == [4, 4, 4]
+	ok = bulwark_ok and ok
+	lines.append("  (1) 최후의 보루(DiceBag.apply_force_max, D4x3): %s -> %s(기대 [4,4,4]) -> %s" % [
+		bulwark_before, bulwark_after, "OK" if bulwark_ok else "FAIL",
+	])
+
+	# (2) HP 절반 이하 공용 조건(_is_hp_half_or_below) — 최후의 보루/최후의 폭발이
+	# 공유하는 판정.
+	var hp_half_true: bool = combat_script._is_hp_half_or_below(10, 20)
+	var hp_half_false: bool = combat_script._is_hp_half_or_below(11, 20)
+	var hp_half_ok: bool = hp_half_true == true and hp_half_false == false
+	ok = hp_half_ok and ok
+	lines.append("  (2) HP 절반 이하 판정: hp=10/max=20 -> %s(기대 true) / hp=11/max=20 -> %s(기대 false) -> %s" % [
+		hp_half_true, hp_half_false, "OK" if hp_half_ok else "FAIL",
+	])
+
+	# (3) "반격의 벽"(_overguard_counter_damage): 방어가 공격을 초과한 만큼만 반격
+	# 피해(완전 방어 요구 없음 — 결의의 반격과 다름), 부족하면 0.
+	var overguard_hit: int = combat_script._overguard_counter_damage(5, 9)
+	var overguard_miss: int = combat_script._overguard_counter_damage(9, 5)
+	var overguard_ok: bool = overguard_hit == 4 and overguard_miss == 0
+	ok = overguard_ok and ok
+	lines.append("  (3) 반격의 벽: 공격5/방어9 -> 반격=%d(기대 4) / 공격9/방어5 -> 반격=%d(기대 0) -> %s" % [
+		overguard_hit, overguard_miss, "OK" if overguard_ok else "FAIL",
+	])
+
+	# (4) "불굴의 벽"(RunState._bastion_fixed_value): 상한(면 개수) 안에서는 +2, 상한을
+	# 넘으면 상한에서 멈추고, 다이스 개조로 면 개수가 늘면(D4->D8) 늘어난 상한까지 계속
+	# 자라는지.
+	var bastion_step1: int = RunState._bastion_fixed_value(3, 4)
+	var bastion_step2: int = RunState._bastion_fixed_value(bastion_step1, 4)
+	var bastion_after_upgrade: int = RunState._bastion_fixed_value(4, 8)
+	var bastion_ok: bool = bastion_step1 == 4 and bastion_step2 == 4 and bastion_after_upgrade == 6
+	ok = bastion_ok and ok
+	lines.append("  (4) 불굴의 벽: D4 기준 3 -> %d(기대 4, 상한) -> %d(기대 4, 상한 유지) / 다이스 개조 후(D8) 4 -> %d(기대 6) -> %s" % [
+		bastion_step1, bastion_step2, bastion_after_upgrade, "OK" if bastion_ok else "FAIL",
+	])
+
+	# (5) "연쇄 폭발의 고리"(_update_explosive_chain_progress): 보너스 턴을 소모해도
+	# 0으로 리셋되지 않고 임계치만큼만 차감(초과분 유지)하는지 — 같은 입력에 대해 기존
+	# _update_stack_progress()는 완전 리셋(0)인 것과 대조해 실제로 다른 계산 결과를
+	# 내는지 확인한다.
+	var ct_chain = combat_script.new()
+	var chain_result: Dictionary = ct_chain._update_explosive_chain_progress(4, true, 0, 3)
+	var normal_result: Dictionary = ct_chain._update_stack_progress(4, true, 0, 3)
+	var chain_ok: bool = (
+		chain_result["stacks"] == 1 and chain_result["carried"] == 1
+		and normal_result["stacks"] == 0 and normal_result["reset"] == true
+	)
+	ok = chain_ok and ok
+	lines.append("  (5) 연쇄 폭발의 고리: 4스택에서 보너스턴 소모 -> 연쇄=%d스택(기대 1, carried=%d) / 일반 리셋=%d스택(기대 0) -> %s" % [
+		chain_result["stacks"], chain_result["carried"], normal_result["stacks"], "OK" if chain_ok else "FAIL",
+	])
+
+	# (6) "절대 폭발"(_absolute_detonation_bonus_damage): 보너스 턴에서 막힌 만큼을
+	# 방어 무시 피해로 돌려주고, 보너스 턴이 아니거나 이미 전부 뚫었으면 0.
+	var absolute_blocked: int = combat_script._absolute_detonation_bonus_damage(15, 9, true)
+	var absolute_full_pen: int = combat_script._absolute_detonation_bonus_damage(15, 15, true)
+	var absolute_not_bonus: int = combat_script._absolute_detonation_bonus_damage(15, 9, false)
+	var absolute_ok: bool = absolute_blocked == 6 and absolute_full_pen == 0 and absolute_not_bonus == 0
+	ok = absolute_ok and ok
+	lines.append("  (6) 절대 폭발: 보너스턴(공격15/피해9) -> 추가피해=%d(기대 6) / 완전관통(공격15/피해15) -> %d(기대 0) / 평소턴 -> %d(기대 0) -> %s" % [
+		absolute_blocked, absolute_full_pen, absolute_not_bonus, "OK" if absolute_ok else "FAIL",
+	])
+
+	# (7) "최후의 폭발"(_select_exchange_bags() 통합 — 실제 게임 코드 경로를 .new()
+	# 인스턴스로 호출, balance_sim.gd와 같은 패턴): HP가 절반 이하면 폭발 스택 진행
+	# (player_explosive_pending=false)과 무관하게 이번 공격턴이 보너스 폭발턴으로
+	# 강제되는지, 평소(HP 정상)에는 그대로 평소 주머니를 쓰는지.
+	var char_backup := RunState.character_id
+	var flags_backup2 := RunState.skill_flags.duplicate()
+	RunState.character_id = "explosive"
+	RunState.skill_flags = ["legend_explosive_lastblast"]
+	var ct_lastblast = combat_script.new()
+	ct_lastblast._reset_player_battle_state()
+	ct_lastblast.player_hp = 5
+	var selection_forced: Dictionary = ct_lastblast._select_exchange_bags(true)
+	ct_lastblast.player_hp = 20
+	var selection_normal: Dictionary = ct_lastblast._select_exchange_bags(true)
+	var lastblast_ok: bool = selection_forced["used_explosive_dice"] == true and selection_normal["used_explosive_dice"] == false
+	ok = lastblast_ok and ok
+	lines.append("  (7) 최후의 폭발: HP5/20(절반 이하) -> 보너스턴 강제=%s(기대 true) / HP20/20(정상) -> 보너스턴 강제=%s(기대 false) -> %s" % [
+		selection_forced["used_explosive_dice"], selection_normal["used_explosive_dice"], "OK" if lastblast_ok else "FAIL",
+	])
+	ct_lastblast.free()
+	ct_chain.free()
+	RunState.character_id = char_backup
+	RunState.skill_flags = flags_backup2
+
+	# (8) 설명 문구 — 2/4 6종 전부 "한 런에 하나만" 안내가 description에 포함돼야 한다
+	# (1/4의 (7)과 같은 요구, 이번 6종에만 한정해 다시 확인).
+	var notice_text := "한 런에 하나만"
+	var target_ids := [
+		"legend_guardian_bulwark", "legend_guardian_overguard", "legend_guardian_bastion",
+		"legend_explosive_chainblast", "legend_explosive_absolute", "legend_explosive_lastblast",
+	]
+	var notice_missing: Array[String] = []
+	var matched_count := 0
+	for skill in SkillPool.LEGENDARY_SKILLS:
+		if target_ids.has(skill["id"]):
+			matched_count += 1
+			var desc: String = skill.get("description", "")
+			if not desc.contains(notice_text):
+				notice_missing.append(skill["id"])
+	var notice_ok: bool = notice_missing.is_empty() and matched_count == target_ids.size()
+	ok = notice_ok and ok
+	lines.append("  (8) 설명 문구 \"%s\" 포함: 2/4 6종(매칭 %d/%d) -> %s(누락: %s)" % [
+		notice_text, matched_count, target_ids.size(), "OK" if notice_ok else "FAIL", notice_missing,
 	])
 
 	return ok

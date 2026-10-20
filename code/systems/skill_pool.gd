@@ -69,10 +69,11 @@ const MAX_DIAGRAM_SYMBOLS: int = 5
 ## 나타낸다(INBOX.md "아이템 S/A/B/C 등급과 구분되는 스킬 전용 표시" 명시).
 ## 4단계: 일반 < 희귀 < 영웅 < 전설. 전설은 캐릭터별 3종씩(8명×3=24종, 한 런에 하나만
 ## 보유 가능)인데 규모상 한 이터레이션에 다 못 해 캐릭터 2명씩 쪼개 진행한다(INBOX.md
-## 명시) — Q-8(c) 1/4(2026-10-19)로 견습 모험가(novice)/광전사(berserker) 6종이 먼저
-## 들어왔다. 나머지 6명(수호자/폭발병/주술사/매혹사/곡예사/해적) 18종은 다음 이터레이션들
-## (2/4~4/4) 몫 — LEGENDARY_SKILLS 배열이 비어있지 않은 뒤부터는 이 주석이 "진행 중"
-## 표시다(완전히 끝나면 STATUS.md에 전체 24종 기록 후 이 주석도 정리).
+## 명시) — Q-8(c) 1/4(2026-10-19)로 견습 모험가(novice)/광전사(berserker) 6종, 2/4
+## (2026-10-19)로 수호자(guardian)/폭발병(explosive) 6종이 들어왔다(총 12종). 나머지
+## 4명(주술사/매혹사/곡예사/해적) 12종은 다음 이터레이션들(3/4~4/4) 몫 — LEGENDARY_SKILLS
+## 배열이 비어있지 않은 뒤부터는 이 주석이 "진행 중" 표시다(완전히 끝나면 STATUS.md에
+## 전체 24종 기록 후 이 주석도 정리).
 const RARITY_COMMON := "common"
 const RARITY_RARE := "rare"
 const RARITY_EPIC := "epic"
@@ -182,6 +183,13 @@ const SKILL_RARITY: Dictionary = {
 	"legend_berserker_ragenuke": RARITY_LEGENDARY,
 	"legend_berserker_bloodlust": RARITY_LEGENDARY,
 	"legend_berserker_vengeance": RARITY_LEGENDARY,
+	# LEGENDARY_SKILLS(Q-8(c) 2/4 — guardian/explosive 6종) — 전설.
+	"legend_guardian_bulwark": RARITY_LEGENDARY,
+	"legend_guardian_overguard": RARITY_LEGENDARY,
+	"legend_guardian_bastion": RARITY_LEGENDARY,
+	"legend_explosive_chainblast": RARITY_LEGENDARY,
+	"legend_explosive_absolute": RARITY_LEGENDARY,
+	"legend_explosive_lastblast": RARITY_LEGENDARY,
 }
 
 
@@ -632,6 +640,125 @@ const LEGENDARY_SKILLS: Array[Dictionary] = [
 			{"type": "die", "target": "defense"},
 			{"type": "arrow"},
 			{"type": "value", "amount": 2, "op": "+", "ignore_defense": true},
+		],
+	},
+	# 2/4(이번 조각): 수호자(guardian)/폭발병(explosive) 6종. 수호자는 "방어·반격
+	# 특화"(fixed_defense_die, 방어 다이스 1개 항상 고정값) 정체성, 폭발병은 "폭발
+	# 스택·한 방 특화"(explosive_stack, 공격 최댓값 3회 누적 -> 보너스 공격턴)
+	# 정체성과 시너지를 갖도록 설계했다 — 나머지 2명(주술사/매혹사/곡예사/해적)은
+	# 3/4~4/4가 이어간다.
+	#
+	# "legend_guardian_bulwark"(최후의 보루): 평소에는 기믹대로 방어 다이스 1개만
+	# 고정값이지만, 플레이어 HP가 절반 이하로 떨어지면 그 턴 방어 다이스 "전부"가 각자의
+	# 면 최댓값으로 고정된다(DESIGN.md가 전설 스킬 예시로 든 "다이스 규칙 변경"을 "위기
+	# 상황에서"로 조건화) — 몬스터 "guard_up"(HP 절반 이하 -> 방어 +1) 조건을 재사용하되
+	# 효과 강도를 극한까지 올렸다. DiceBag.apply_force_max()(이번 조각 신규, count_max_
+	# rolls()와 같은 "다이스별 자기 면 최댓값" 계산 재사용) + combat_test.gd의
+	# _is_hp_half_or_below() 참고.
+	#
+	# "legend_guardian_overguard"(반격의 벽): 새 메커니즘(반격) — "결의의 반격"(견습
+	# 모험가 전설)과 달리 완전 방어(dmg==0)를 요구하지 않는다. 방어 합계가 몬스터 공격
+	# 합계를 "초과"하기만 하면 그 초과분이 그대로 방어 무시 반격 피해가 된다(부족하면
+	# 0) — 수호자는 방어 다이스가 많아(D4x4) 과잉 방어가 자주 나오는 체질이라 거의 매
+	# 방어턴 조금씩 반격 피해가 쌓이는 "벽에 부딪히면 아프다" 정체성. combat_test.gd의
+	# _overguard_counter_damage() 참고.
+	#
+	# "legend_guardian_bastion"(불굴의 벽): 자기 기믹(fixed_defense_die)의 고정 방어
+	# 다이스 값 자체를 영구히 키운다 — 라운드가 바뀔 때마다(런 전체에서 최대 2회) 그
+	# 값이 2씩 올라간다(상한: 그 다이스의 면 개수, 다이스 개조로 면 개수가 늘면 상한도
+	# 함께 늘어남). 별도 상태 변수 없이 "고정값은 다이스 자체에 저장돼 있다"는 기존
+	# 구조를 그대로 재활용한 "성장형" 전설 — run_state.gd의 advance_round()/
+	# _bastion_fixed_value() 참고.
+	#
+	# "legend_explosive_chainblast"(연쇄 폭발의 고리): 폭발병은 이미 자기 기믹으로
+	# explosive_stack 파이프라인을 갖고 있어(frenzy_deepen처럼 "없던 파이프라인을
+	# 열어준다" 패턴을 못 씀) — 대신 보너스 공격턴을 소모해도 스택이 0으로 리셋되지
+	# 않고 임계치만큼만 줄어, 초과분이 남아있으면 보너스 공격턴이 짧은 간격으로 연속
+	# 발동할 수 있다("폭발이 폭발을 부른다"). combat_test.gd의
+	# _update_explosive_chain_progress() 참고.
+	#
+	# "legend_explosive_absolute"(절대 폭발): 폭발 스택 보너스 공격턴(1D20)의 피해가
+	# 몬스터 방어를 완전히 무시하게 만든다 — 막혔던 만큼(atk_total - dmg)을 방어 무시
+	# 고정 피해로 그대로 돌려줘, cannon_volley/bloodlust가 쓰는 "방어 무시 고정 피해"
+	# 패턴을 "보너스 턴 전체 피해"로 확장했다. combat_test.gd의
+	# _absolute_detonation_bonus_damage() 참고.
+	#
+	# "legend_explosive_lastblast"(최후의 폭발): legend_guardian_bulwark와 대칭(수비
+	# 대신 공격) — 플레이어 HP가 절반 이하이면 폭발 스택 진행과 무관하게 "모든" 공격턴이
+	# 보너스 폭발턴(1D20)이 된다. 하이리스크 하이리턴 정체성을 벼랑 끝에서 극대화하는
+	# "한 방 특화"의 정점. combat_test.gd의 _select_exchange_bags() 내
+	# force_last_blast 분기 참고.
+	#
+	# 여섯 캐릭터(guardian/explosive) 전부 1/4과 동일하게 "전설 스킬은 한 런에 하나만
+	# 가질 수 있다" 안내 문장을 description 끝에 포함한다.
+	{
+		"id": "legend_guardian_bulwark",
+		"name": "최후의 보루",
+		"description": "HP가 절반 이하일 때, 이번 방어 다이스 전부가 각자의 면 최댓값으로 고정된다 (평소에는 다이스 1개만 고정). 전설 스킬은 한 런에 하나만 가질 수 있다.",
+		"character_id": "guardian",
+		"diagram": [
+			{"type": "condition", "kind": "hp_half"},
+			{"type": "arrow"},
+			{"type": "die", "target": "defense"},
+			{"type": "value", "op": "max"},
+		],
+	},
+	{
+		"id": "legend_guardian_overguard",
+		"name": "반격의 벽",
+		"description": "방어 합계가 몬스터 공격 합계를 초과하면(완전 방어가 아니어도), 그 초과분만큼 몬스터에게 방어 무시 반격 피해를 준다. 전설 스킬은 한 런에 하나만 가질 수 있다.",
+		"character_id": "guardian",
+		"diagram": [
+			{"type": "condition", "kind": "overguard"},
+			{"type": "arrow"},
+			{"type": "die", "target": "defense"},
+			{"type": "value", "op": "full", "ignore_defense": true},
+		],
+	},
+	{
+		"id": "legend_guardian_bastion",
+		"name": "불굴의 벽",
+		"description": "라운드가 바뀔 때마다, 고정 방어 다이스 값이 2씩 영구히 오른다 (상한: 그 다이스의 면 개수). 전설 스킬은 한 런에 하나만 가질 수 있다.",
+		"character_id": "guardian",
+		"diagram": [
+			{"type": "condition", "kind": "round_change"},
+			{"type": "arrow"},
+			{"type": "die", "target": "defense"},
+			{"type": "value", "amount": 2, "op": "+"},
+		],
+	},
+	{
+		"id": "legend_explosive_chainblast",
+		"name": "연쇄 폭발의 고리",
+		"description": "폭발 스택이 임계치에 도달해 보너스 공격턴(1D20)을 써도 스택이 0으로 돌아가지 않고 임계치만큼만 줄어, 초과분이 남아있으면 보너스 공격턴이 연속으로 발동할 수 있다. 전설 스킬은 한 런에 하나만 가질 수 있다.",
+		"character_id": "explosive",
+		"diagram": [
+			{"type": "stack", "target": "attack", "threshold": 3},
+			{"type": "arrow"},
+			{"type": "die", "target": "attack"},
+		],
+	},
+	{
+		"id": "legend_explosive_absolute",
+		"name": "절대 폭발",
+		"description": "폭발 스택 보너스 공격턴(1D20)의 피해가 몬스터 방어를 완전히 무시한다 (막혔던 만큼을 방어 무시 피해로 그대로 돌려줌). 전설 스킬은 한 런에 하나만 가질 수 있다.",
+		"character_id": "explosive",
+		"diagram": [
+			{"type": "stack", "target": "attack", "threshold": 3},
+			{"type": "arrow"},
+			{"type": "die", "target": "attack"},
+			{"type": "value", "op": "full", "ignore_defense": true},
+		],
+	},
+	{
+		"id": "legend_explosive_lastblast",
+		"name": "최후의 폭발",
+		"description": "HP가 절반 이하이면, 폭발 스택 진행과 무관하게 모든 공격턴이 보너스 공격턴(1D20)이 된다. 전설 스킬은 한 런에 하나만 가질 수 있다.",
+		"character_id": "explosive",
+		"diagram": [
+			{"type": "condition", "kind": "hp_half"},
+			{"type": "arrow"},
+			{"type": "die", "target": "attack"},
 		],
 	},
 ]
@@ -1242,6 +1369,22 @@ const ICON_MOTIFS: Dictionary = {
 	"legend_berserker_ragenuke": "legend_nuke",
 	"legend_berserker_bloodlust": "true_strike",
 	"legend_berserker_vengeance": "true_strike",
+	# LEGENDARY_SKILLS(Q-8(c) 2/4, 2026-10-19) — guardian/explosive 6종. 1/4과 같은
+	# "효과 범주가 같으면 기존 모티프를 공유" 원칙을 그대로 따라 신규 모티프를 추가하지
+	# 않았다: "최후의 보루"(방어 다이스 전부를 자기 면 최댓값으로 전환)는 charm_amplify의
+	# "값을 최댓값으로" 범주와 같아 dice_flip 공유. "반격의 벽"(방어턴에 반격 피해)은
+	# "결의의 반격"과 같은 "방어턴 반격" 범주라 counter_strike 공유. "불굴의 벽"(방어
+	# 다이스 결과값 영구 보정)은 "방어 다이스 결과값 보정" 범주라 defense_boost 공유.
+	# "연쇄 폭발의 고리"/"최후의 폭발"(둘 다 최종 결과가 "이번 공격턴이 보너스 폭발턴이
+	# 된다")은 burst_stack 공유(둘 다 발동 "조건"만 다르고 결과는 같음). "절대 폭발"
+	# (보너스 폭발턴 피해가 방어 무시)은 유혈광란/불굴의 보복과 같은 "방어 무시 추가
+	# 피해" 범주라 true_strike 공유.
+	"legend_guardian_bulwark": "dice_flip",
+	"legend_guardian_overguard": "counter_strike",
+	"legend_guardian_bastion": "defense_boost",
+	"legend_explosive_chainblast": "burst_stack",
+	"legend_explosive_absolute": "true_strike",
+	"legend_explosive_lastblast": "burst_stack",
 }
 
 ## ICON_MOTIFS가 쓰는 값 전체(테스트/미리보기에서 전수 순회용). 여기 없는 문자열이

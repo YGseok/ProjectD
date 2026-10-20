@@ -5,35 +5,39 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-10-19 (234)
-- 작성자: AI 에이전트. **[대형 기획 15] Q-8(c) 1/4(전설 스킬 인프라 + 견습
-  모험가/광전사 6종) 완료.** 직전 이터레이션(iter_153)이 사용 한도로
-  미커밋 상태(skill_pool.gd 전설 인프라+6종 데이터, dice_bag.gd
-  count_min_rolls(), combat_test.gd 효과 계산 함수 5종, skill_diagram_chip.gd
-  perfect_block 조건 칩)로 끊긴 것을 `git diff`로 파악해 이어받았다 —
-  stash/reset 없이 그대로 두고 빠진 조각만 채웠다. `git diff`로 확인한 결과
-  두 가지가 빠져 있었다: (1) "운명의 뒤섞임"(라운드마다 주머니 교체) 효과가
-  run_state.gd 어디에도 배선돼 있지 않았음(데이터/주석만 존재) — 신규
-  `RunState._fateshuffle_swap_count()` + `advance_round()` 배선으로 채움.
-  (2) 신규 아이콘 모티프 3종(legend_nuke/true_strike/counter_strike)이
-  `SkillPool`에는 등록됐지만 `skill_icon.gd._draw_motif()`에 실제 그리기
-  분기가 없어 빈 원으로 렌더되고 있었음(기존 Q-7(b) 전수 픽셀 비교 테스트가
-  실행 시 바로 FAIL로 잡아냄) — `SkillIcon.COLOR_LEGENDARY` 공유 색 + 모양
-  3종을 새로 그려 해소. 이어서 **신규 전용 테스트 `_check_q8c_legendary_skills()`
-  8항목**(has_legendary/filter_legendary_if_owned 풀 필터링, 만물의 조화
-  [1,3,6]→[6,3,6] 실제 값 변화, 결의의 반격 완전방어 조건부 반격, 운명의
-  뒤섞임 교환 횟수, 광전 돌격 보너스턴 확정 최댓값, 유혈광란/불굴의 보복
-  고정 피해 계산, 설명 문구 "한 런에 하나만" 전수, SKILL_RARITY/ICON_MOTIFS
-  전수 등록 — 플래그가 아니라 계산 결과로 검증)를 추가하고, `bash
-  scripts/qa_shot.sh dice_test 60 qa_out/dice_test_q8c.png "" 1`를
-  **foreground로 전체 재실행해 "결과: PASS"(FAIL 0건) 직접 확인**
-  (run_in_background 금지 — 직전 세션 중단 원인). 셀프 피드백 스크린샷 3장 —
-  QA 전용 디버그 훅 2종 신규로 실제 "보유" 상태 스킬 도감을 직접 읽어 확인:
-  견습 모험가 "만물의 조화"(전설 배지+안내 문구+모티프 정상 렌더), 광전사
-  "광전 돌격"/"유혈광란"/"불굴의 보복" 3장 동시 노출(신규 모티프 2종이
-  서로 뚜렷이 다른 모양으로 구분됨). 상세는 완료 기록(234) 참고.
-  `resources/`·`docs/art/`는 읽기만 했다. **나머지 6명(수호자/폭발병/주술사/
-  매혹사/곡예사/해적) 18종은 2/4~4/4 몫 — 다음은 Q-8(c) 2/4(수호자/폭발병).**
+- 일시: 2026-10-20 (235)
+- 작성자: AI 에이전트. **[대형 기획 15] Q-8(c) 2/4(전설 스킬 — 수호자/폭발병
+  6종) 완료.** 직전 이터레이션(iter_154)이 사용 한도로 미커밋 상태로 끊긴
+  것을 `git diff`로 파악해 이어받았다 — stash/reset 없이 그대로 두고
+  전수 검증·마무리만 했다. 1/4과 달리 **이번엔 전부 이미 구현돼 있었고
+  빠진 조각이 없었다**: `skill_pool.gd`(수호자 3종 — 최후의 보루/반격의
+  벽/불굴의 벽, 폭발병 3종 — 연쇄 폭발의 고리/절대 폭발/최후의 폭발, 전부
+  SKILL_RARITY=전설 + ICON_MOTIFS 등록(기존 모티프 재사용, 신규 모티프
+  없음) + diagram 데이터), `dice_bag.gd`(`apply_force_max()` — 다이스별
+  자기 면 최댓값으로 전환), `run_state.gd`(`_bastion_fixed_value()` 순수
+  함수 + `advance_round()`에서 고정 방어 다이스 값 영구 증가 배선),
+  `combat_test.gd`(`_is_hp_half_or_below()`/`_overguard_counter_damage()`/
+  `_absolute_detonation_bonus_damage()`/`_update_explosive_chain_progress()`
+  4개 효과 함수 + 플래그 변수 6개 + `_select_exchange_bags()`/
+  `_resolve_exchange()` 배선), `skill_diagram_chip.gd`("초과방어" 조건
+  칩), `dice_test.gd`(`_check_q8c2_legendary_skills()` 8항목 — 전부 플래그가
+  아니라 계산 결과로 검증: apply_force_max 다이스 변환/HP절반 판정/반격의
+  벽 초과분 계산/불굴의 벽 상한+다이스 개조 반영/연쇄 폭발의 고리가 일반
+  리셋과 다른 결과를 내는지/절대 폭발 방어 무시 피해/최후의 폭발이
+  `_select_exchange_bags()` 실제 호출로 보너스턴을 강제하는지/설명 문구
+  전수), `dungeon_map.gd`(QA 전용 디버그 훅 2종, 1/4과 같은 패턴)까지
+  전부. `bash scripts/qa_shot.sh dice_test 60 qa_out/dice_test_q8c2.png
+  "" 1`을 **foreground로 전체 재실행해 "결과: PASS"(FAIL 0건) 직접 확인**
+  (run_in_background 금지 — 2회 연속 이 항목이 사용 한도로 끊긴 세션이라
+  다시 한번 명시적으로 확인). 셀프 피드백 스크린샷 2장 — 던전 맵 "스킬
+  도감"에서 기존 디버그 훅으로 실제 "보유" 상태를 만들어 직접 읽어 확인:
+  수호자 "최후의 보루"/"반격의 벽"(`qa_out/q8c2_guardian_codex.png`, 전설
+  배지 주황색 + "한 런에 하나만" 안내 문구 + dice_flip/counter_strike
+  모티프 정상 렌더), 폭발병 "연쇄 폭발의 고리"/"절대 폭발"
+  (`qa_out/q8c2_explosive_codex.png`, burst_stack/true_strike 모티프,
+  두 카드가 뚜렷이 다른 모양으로 구분됨). 전투 규칙/밸런스는 건드리지
+  않았고 `resources/`·`docs/art/`는 읽기만 했다. **나머지 4명(주술사/
+  매혹사/곡예사/해적) 12종은 3/4~4/4 몫 — 다음은 Q-8(c) 3/4(주술사/매혹사).**
 
 ## 지금 위치
 
@@ -730,8 +734,15 @@ dungeon_map/shop/event/story_event/combat_test 공유)에 SMALL 도식을
 `RunState._fateshuffle_swap_count()`)까지 배선됐다. 아이콘 모티프 신규
 3종(legend_nuke/true_strike/counter_strike)도 `skill_icon.gd`에 실제 그리기
 분기를 추가해 빈 원으로 떨어지던 버그를 해소했다(상세는 완료 기록 (234)).
-**나머지 6명(수호자/폭발병/주술사/매혹사/곡예사/해적) 18종은 2/4~4/4 몫 —
-다음은 Q-8(c) 2/4(수호자/폭발병).**
+2026-10-20(235)로 **Q-8(c) 2/4(수호자/폭발병 6종) 완료**: 수호자(최후의
+보루 — HP 절반 이하 시 방어 다이스 전부 면 최댓값 고정/반격의 벽 — 과잉
+방어분 방어 무시 반격/불굴의 벽 — 라운드마다 고정 방어값 영구 +2)·
+폭발병(연쇄 폭발의 고리 — 보너스턴 소모해도 스택 전부 리셋 안 됨/절대
+폭발 — 보너스턴 피해 방어 완전 무시/최후의 폭발 — HP 절반 이하면 모든
+공격턴이 보너스턴) 6종 전부 실전 배선 완료, 신규 모티프 없이 기존 5종
+(dice_flip/counter_strike/defense_boost/burst_stack/true_strike) 재사용.
+상세는 완료 기록 (235) 참고. **나머지 4명(주술사/매혹사/곡예사/해적)
+12종은 3/4~4/4 몫 — 다음은 Q-8(c) 3/4(주술사/매혹사).**
 
 남은 구조적 후보(급하지 않음): 보스 개별 6종 중 타락한 기사단장만 밴드 미달
 (`MonsterSkills.modify_monster_roll()` 파라미터화가 전제조건이라 사람 설계
@@ -1342,6 +1353,56 @@ dungeon_map/shop/event/story_event/combat_test 공유)에 SMALL 도식을
 
 ## 완료 기록
 
+- **2026-10-20 (235)**: **[대형 기획 15] Q-8(c) 2/4(전설 스킬 — 수호자/폭발병
+  6종, 원문 5) 완료.** 직전 이터레이션(iter_154)이 사용 한도로 미커밋 상태
+  (skill_pool.gd 6종 데이터+레어리티+도식+모티프, dice_bag.gd
+  `apply_force_max()`, run_state.gd `_bastion_fixed_value()`+
+  `advance_round()` 배선, combat_test.gd 효과 함수 4종+상태 변수 6개+
+  `_select_exchange_bags()`/`_resolve_exchange()` 배선, skill_diagram_chip.gd
+  "초과방어" 조건 칩, dungeon_map.gd QA 디버그 훅 2종, dice_test.gd
+  `_check_q8c2_legendary_skills()` 8항목)로 끊긴 것을 `git diff`로 파악해
+  이어받았다 — stash/reset 없이 그대로 두고 전수 검증했다. **1/4과 달리
+  이번엔 git diff 전수 확인 결과 빠진 조각이 하나도 없었다** — 코드/테스트
+  모두 이미 완성돼 있어 이번 이터레이션은 검증·QA·문서화만 수행했다.
+  **수호자 3종**(fixed_defense_die "방어·반격 특화" 정체성): 최후의
+  보루(HP 절반 이하일 때만 방어 다이스 "전부"가 각자의 면 최댓값으로
+  고정 — 평소에는 기믹대로 1개만 고정, `DiceBag.apply_force_max()` 신규)/
+  반격의 벽(새 메커니즘 — 방어 합계가 몬스터 공격 합계를 "초과"하기만
+  하면 완전 방어 요구 없이 그 초과분이 방어 무시 반격 피해가 됨,
+  `_overguard_counter_damage()`)/불굴의 벽(라운드 전환마다 고정 방어
+  다이스 값 자체가 영구히 +2, 상한은 그 다이스의 면 개수 — 다이스 개조로
+  면 개수가 늘면 상한도 함께 늘어남, `RunState._bastion_fixed_value()`).
+  **폭발병 3종**(explosive_stack "폭발 스택·한 방 특화" 정체성): 연쇄
+  폭발의 고리(보너스 공격턴을 써도 스택이 0으로 리셋되지 않고 임계치만큼만
+  줄어 초과분이 남으면 보너스턴이 연속 발동 가능, `_update_explosive_chain_
+  progress()` — 기존 `_update_stack_progress()`의 완전 리셋과 대조되는
+  계산 결과를 테스트로 직접 비교), 절대 폭발(보너스 공격턴 피해가 몬스터
+  방어를 완전히 무시 — 막혔던 만큼을 방어 무시 고정 피해로 돌려줌,
+  `_absolute_detonation_bonus_damage()`), 최후의 폭발(HP 절반 이하면 폭발
+  스택 진행과 무관하게 "모든" 공격턴이 보너스 폭발턴, `_select_exchange_
+  bags()`의 `force_last_blast` 분기). 6종 전부 description 끝에 "한 런에
+  하나만" 안내 문장 포함. **신규 아이콘 모티프 없음** — 1/4과 달리 6종
+  전부 효과 범주가 기존 모티프와 겹쳐(값을 최댓값으로=dice_flip, 방어턴
+  반격=counter_strike, 방어 다이스 결과값 보정=defense_boost, "이번
+  공격턴이 보너스 폭발턴이 된다"=burst_stack, 방어 무시 추가 피해=
+  true_strike) 전부 공유로 해결했다. `dice_test.gd`의 전수 커버 테스트
+  (1/4의 (8))도 "novice=3/berserker=3" 하드코딩 대신 LEGENDARY_SKILLS
+  자체에서 캐릭터별 개수를 세는 generic 검사로 이미 일반화돼 있어 추가
+  수정이 필요 없었다. **검증**: `bash scripts/qa_shot.sh dice_test 60
+  qa_out/dice_test_q8c2.png "" 1`을 **foreground로 전체 재실행해 "결과:
+  PASS"(FAIL 0건) 직접 확인**(run_in_background 금지 — 이 항목이 사용
+  한도로 끊긴 두 번째 세션이라 다시 명시 확인). 셀프 피드백 스크린샷
+  2장 — 던전 맵 "스킬 도감"에서 기존 디버그 훅
+  (`_debug_press_shortcut_skill_codex_legendary_guardian`/`_explosive`)으로
+  실제 "보유" 상태를 만들어 직접 읽어 확인: `qa_out/q8c2_guardian_codex.png`
+  (최후의 보루 — 분홍 다이아몬드 패턴/반격의 벽 — 주황 방패, 둘 다 전설
+  배지+안내 문구 정상), `qa_out/q8c2_explosive_codex.png`(연쇄 폭발의 고리 —
+  주황 별 버스트/절대 폭발 — 과녁+관통 화살, 서로 뚜렷이 다른 모양으로
+  구분됨). 전투 규칙/밸런스 수치는 건드리지 않았고 `resources/`·
+  `docs/art/`는 읽기만 했다. **나머지 4명(주술사/매혹사/곡예사/해적)
+  12종은 3/4~4/4 몫으로 남음 — 다음 이터레이션은 Q-8(c) 3/4(주술사/
+  매혹사 6종)부터.**
+
 - **2026-10-19 (234)**: **[대형 기획 15] Q-8(c) 1/4(전설 스킬 인프라 + 견습
   모험가/광전사 6종, 원문 5) 완료.** 직전 이터레이션(iter_153)이 사용 한도로
   미커밋 상태(skill_pool.gd 인프라+6종 데이터, dice_bag.gd count_min_rolls(),
@@ -1844,62 +1905,9 @@ dungeon_map/shop/event/story_event/combat_test 공유)에 SMALL 도식을
   q5_overflow_close_focus.png`로 직접 확인. 전투 규칙/밸런스는 건드리지
   않았고 `resources/`·`docs/art/`는 읽기만 했다.
 
-- **2026-10-17 (225)**: **[대형 기획 15] Q-4b(보유 스킬 팝업 + 던전 포기, 원문
-  11/21) 전체 완료.**
-  **(11) 보유 스킬 팝업** — 신규 공용 컴포넌트 `code/scenes/skill_detail_popup.gd`
-  (`SkillDetailPopup`, achievement_panel.gd/skill_codex_panel.gd와 같은 "스크립트
-  하나로 완결된 Control" 패턴)가 화면 전체(1280x720)를 덮는 어두운 backdrop(클릭
-  시 닫힘) + 중앙 박스(스킬 모티프 아이콘 + 이름(accent색) + 우상단 빨간 "X" 버튼 +
-  효과 설명)를 그린다. `deck_panel.gd`의 "보유 스킬" 섹션이 각 행을
-  `CharacterCardPanel`(L-1이 만든 "클릭/Space 둘 다 activated로 통일하는
-  PanelContainer", skill_codex_panel.gd 카드도 이미 재사용 중)로 감싸 눌리면 이
-  팝업을 연다 — DeckPanel이 dungeon_map/shop/event/story_event/combat_test 5개
-  화면 전부가 공유하는 컴포넌트라 이 한 곳만 고치면 "던전 화면들"(INBOX 원문)
-  전부에 반영된다. 팝업은 **첫 클릭 때 지연 생성**해 `get_parent()`(씬 루트)의
-  자식으로 붙인다 — `_ready()`에서 바로 만들면 combat_test.gd가 DeckPanel을 자기
-  `_ready()`/`_setup_combat_hud()` 도중 동적으로 `add_child()`하는 경합과 겹쳐
-  "Parent node is busy setting up children" 에러로 실제로 크래시하던 것을
-  1라운드 셀프 피드백(`bash scripts/qa_shot.sh dice_test`에서 발견)에서 찾아
-  지연 생성으로 고쳤다. 레어리티는 INBOX 지시대로 아직 없어 생략.
-  **(21) 던전 포기** — `dungeon_map.tscn` 헤더(상단, "스킬 도감" 버튼 왼쪽)에
-  "던전 포기" 버튼(경고색 tint, 방 선택지 목록과 분리된 위치)을 추가했고, 누르면
-  신규 공용 컴포넌트 `code/scenes/confirm_dialog.gd`(`ConfirmDialog`,
-  SkillDetailPopup과 같은 backdrop+박스 구조를 공유하는 범용 예/아니오 모달)가
-  INBOX 지정 문구("현재 진행도를 버리고 나갑니다. 지금까지 해금한 업적과 스킬
-  도감은 유지됩니다.")로 확인을 구한다. 기본 포커스는 "취소"(섣부른 확정 방지),
-  확인하면 `_abandon_run()`(= `RunState.reset_run()`)이 골드/다이스 주머니/스킬/방
-  진행을 전부 버리고 `character_select.tscn`으로 돌아간다. "패배/클리어 통계를
-  부당하게 올리거나 깎지 않는다"는 요구는 `combat_test.gd`의 승패 처리 경로
-  (`_resolve_exchange()`/`_apply_room_advance()`)를 전혀 거치지 않는 구조로
-  자연히 충족되고, "미저장 업적 저장" 요구는 `AchievementManager.unlock()`/
-  `SkillCodex.mark_discovered()` 둘 다 호출 즉시 JSON으로 write-through 저장하는
-  기존 구조라 애초에 "미저장 상태"가 존재하지 않음을 확인(새 코드 불필요).
-  **검증**: `dice_test.gd` 신규 `_check_q4b_skill_detail_popup()`(카드 activated →
-  팝업이 실제 SkillPool 이름/설명을 렌더하는지, 배경 클릭/X 버튼/Esc 세 갈래 전부
-  실제 `InputEventMouseButton`/`InputEventKey` 객체로 닫히는지, 닫기 버튼 포커스
-  트랩 4방향 자기 자신 + `has_focus()`)/`_check_q4b_quit_run_confirm()`("던전 포기"
-  버튼 포커스+확정 경로, 확인 팝업 메시지/포커스 트랩(취소↔확인 순환)/기본 포커스,
-  취소 3갈래 전부 RunState 불변, `_abandon_run()` 후 gold/rooms_cleared/
-  round_index/skill_flags 전부 초기값, 업적/도감 해금 상태가 그 전후로 유지됨까지)
-  추가 — `change_scene_to_file()`을 포함하는 `_on_quit_run_confirmed()` 전체는
-  event.gd `_apply_pick()`과 같은 이유로 테스트에서 직접 호출하지 않고
-  `_abandon_run()`만 분리해 호출(다른 테스트가 남긴 `RunState.
-  chosen_starting_skill_id` 잔여값 때문에 `reset_run()` 후 `skill_flags`가
-  안 비는 실패를 1라운드에서 발견해 백업/복원 추가). `bash scripts/qa_shot.sh
-  dice_test 60 qa_out/dice_test.png "" 1` 전체 **PASS**(FAIL 0건). 셀프 피드백
-  2라운드 — 1라운드 캡처(`qa_out/q4b_skill_popup.png`)에서 우상단 "X" 닫기
-  버튼이 `UIKit.style_secondary_button()`의 가로로 긴 장식 스킨을 36x36 정사각에
-  억지로 씌워 거의 안 보이는 문제를 발견, 전용 단색 빨간 StyleBoxFlat으로
-  바꿔 2라운드 재캡처(`qa_out/q4b_skill_popup.png`)로 또렷이 보임을 확인.
-  `qa_out/q4b_quit_confirm.png`(확인 팝업, 취소 버튼 포커스 테두리 확인)/
-  `qa_out/q4b_baseline_no_popup.png`(팝업 없는 기준 화면과 밝기 비교로 backdrop
-  어둡게 하는 효과가 실제로 눈에 보임 확인)까지 직접 읽어 확인. 전투 규칙/
-  밸런스는 건드리지 않았고 `resources/`·`docs/art/`는 읽기만 했다.
-  **[대형 기획 15]의 다음은 Q-5(커스터마이징 분리) 이후 항목.**
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(234)에서 (224)를 그리로 옮겼다.)*
+이번 이터레이션(235)에서 (225)를 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 

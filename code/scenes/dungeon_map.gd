@@ -1199,6 +1199,28 @@ func _debug_press_shortcut_skill_codex_legendary_berserker() -> void:
 	btn.pressed.emit()
 
 
+## QA 전용 — [대형 기획 15] Q-8(c) 2/4(2026-10-19): 위 베르세르커 훅과 같은 이유, 수호자
+## 전설 3종(최후의 보루/반격의 벽/불굴의 벽)을 한 화면에서 확인하기 위해 동시에 "보유"
+## 상태로 넣는다(실제 플레이에서는 한 런에 전설 하나만 가능하지만 아이콘 렌더 확인용
+## QA 우회).
+func _debug_press_shortcut_skill_codex_legendary_guardian() -> void:
+	RunState.character_id = "guardian"
+	RunState.skill_flags = ["legend_guardian_bulwark", "legend_guardian_overguard", "legend_guardian_bastion"]
+	var btn := skill_codex_button
+	btn.grab_focus()
+	btn.pressed.emit()
+
+
+## QA 전용 — 위와 같은 이유, 폭발병 전설 3종(연쇄 폭발의 고리/절대 폭발/최후의 폭발)을
+## 한 화면에서 확인.
+func _debug_press_shortcut_skill_codex_legendary_explosive() -> void:
+	RunState.character_id = "explosive"
+	RunState.skill_flags = ["legend_explosive_chainblast", "legend_explosive_absolute", "legend_explosive_lastblast"]
+	var btn := skill_codex_button
+	btn.grab_focus()
+	btn.pressed.emit()
+
+
 ## QA 전용 — 인벤토리의 다이스가 두 주머니의 모든 다이스보다 작거나 같아 승급 자리가
 ## 하나도 없는 상태에서 2단계 화면에 "승급할 곳이 없다" 안내 문구가 정상 표시되는지
 ## 확인하기 위함(이터레이션 74, 모든 버튼이 비활성화된 채 설명 없이 남던 것을 고침).

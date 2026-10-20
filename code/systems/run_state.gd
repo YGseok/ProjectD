@@ -278,6 +278,16 @@ func advance_round() -> void:
 	# 일치시킴).
 	for _i in _fateshuffle_swap_count(skill_flags, player_attack_bag.dice.size(), player_defense_bag.dice.size()):
 		DiceBag.swap_random_dice(player_attack_bag, player_defense_bag)
+	# "불굴의 벽"(legend_guardian_bastion, [대형 기획 15] Q-8(c) 2/4, 수호자 전용 전설) —
+	# 라운드가 바뀔 때마다 수호자 기믹(fixed_defense_die)의 고정 방어 다이스(0번째) 값을
+	# 영구히 올린다(상한: 그 다이스의 면 개수). 고정값 자체가 다이스에 이미 저장돼
+	# 있으므로(_apply_character_gimmick() 참고) 별도 RunState 변수 없이 현재 값을 그대로
+	# 읽어 다음 값을 계산한다 — 다이스 개조(커스터마이징)로 면 개수가 바뀌어도 그 시점의
+	# 실제 상한을 그대로 따라간다.
+	if skill_flags.has("legend_guardian_bastion") and not player_defense_bag.dice.is_empty():
+		var bastion_sides: int = player_defense_bag.dice[0].size()
+		var bastion_current: int = player_defense_bag.dice[0][0]
+		player_defense_bag.force_fixed_value_for_die(0, _bastion_fixed_value(bastion_current, bastion_sides))
 
 
 ## [대형 기획 15] Q-8(b)(등급별 효과 차등, 2026-10-18): "곡예 앙코르"/"곡예 앙코르+"가
@@ -300,3 +310,12 @@ static func _fateshuffle_swap_count(skill_flags: Array, attack_count: int, defen
 	if not skill_flags.has("legend_novice_fateshuffle"):
 		return 0
 	return min(attack_count, defense_count)
+
+
+## "불굴의 벽"(legend_guardian_bastion, [대형 기획 15] Q-8(c) 2/4, 2026-10-19) — 라운드
+## 전환 1회당 고정 방어 다이스 값에 더해지는 영구 증가분. current_value/sides를 인자로
+## 받는 순수 함수라 dice_test.gd가 RunState/물리 없이 직접 검증할 수 있다(위
+## _fateshuffle_swap_count()와 같은 이유).
+const BASTION_INCREMENT := 2
+static func _bastion_fixed_value(current_value: int, sides: int) -> int:
+	return min(current_value + BASTION_INCREMENT, sides)

@@ -216,6 +216,29 @@ static func _ragenuke_bonus_value(rolled_value: int, max_value: int, is_bonus_tu
 static func _legend_hits_bonus_damage(hits: int, per_die: int = 2) -> int:
 	return hits * per_die
 
+
+## HP가 "절반 이하"인지 판단하는 공용 조건 — "최후의 보루"(수호자 전설)/"최후의 폭발"
+## (폭발병 전설, [대형 기획 15] Q-8(c) 2/4)이 공유하는 위기 상황 판정. MonsterSkills.
+## modify_monster_roll()의 guard_up/bloodlust가 쓰는 "hp <= max_hp / 2.0"와 같은 공식.
+static func _is_hp_half_or_below(hp: int, max_hp: int) -> bool:
+	return hp <= max_hp / 2.0
+
+
+## "반격의 벽"(legend_guardian_overguard, 수호자 전용 전설) — 방어 합계가 몬스터 공격
+## 합계를 초과한 만큼(과잉 방어분)을 방어 무시 반격 피해로 돌려준다. "결의의 반격"
+## (_perfect_block_counter_damage)과 달리 완전 방어(dmg==0)를 요구하지 않는다 — 방어가
+## 공격보다 "많이" 셌으면 그 차이가 그대로 반격 피해가 된다(부족하면 0).
+static func _overguard_counter_damage(atk_total: int, def_total: int) -> int:
+	return max(0, def_total - atk_total)
+
+
+## "절대 폭발"(legend_explosive_absolute, 폭발병 전용 전설) — 폭발 스택 보너스 공격턴
+## (1D20)일 때만, 몬스터 방어에 막혀 줄어든 피해량(atk_total - dmg)을 방어 무시 고정
+## 피해로 그대로 돌려줘 보너스 턴 피해가 사실상 방어를 완전히 무시하게 만든다. 보너스
+## 턴이 아니거나 이미 방어를 전부 뚫었으면(atk_total == dmg) 0.
+static func _absolute_detonation_bonus_damage(atk_total: int, dmg: int, is_bonus_turn: bool) -> int:
+	return max(0, atk_total - dmg) if is_bonus_turn else 0
+
 const SETTLE_LIN_THRESHOLD := 0.08
 const SETTLE_ANG_THRESHOLD := 0.5
 const SETTLE_MIN_FRAMES := 10
@@ -522,6 +545,34 @@ var player_legend_berserker_bloodlust_active := false
 ## player_legend_berserker_vengeance_active: "불굴의 보복"(광전사 전용) — 방어턴마다
 ## 최솟값을 보인 방어 다이스 1개당 방어 무시 반격 피해 +2를 몬스터에게 준다.
 var player_legend_berserker_vengeance_active := false
+
+## [대형 기획 15] Q-8(c) 2/4(2026-10-19) — 수호자/폭발병 전설 6종. 위 1/4(novice/
+## berserker) 6종과 같은 패턴(_reset_player_battle_state()에서 skill_flags를 읽어 채움,
+## "한 런에 전설은 하나만" 덕분에 최대 1개만 true일 수 있지만 분기는 독립적).
+##
+## player_legend_guardian_bulwark_active: "최후의 보루"(수호자 전용) — 플레이어 HP가
+## 절반 이하일 때만 그 턴 방어 다이스 전부를 각자의 면 최댓값으로 고정한다.
+var player_legend_guardian_bulwark_active := false
+## player_legend_guardian_overguard_active: "반격의 벽"(수호자 전용) — 방어 합계가
+## 몬스터 공격 합계를 초과하면(완전 방어가 아니어도) 그 초과분만큼 방어 무시 반격
+## 피해를 몬스터에게 준다.
+var player_legend_guardian_overguard_active := false
+## player_legend_guardian_bastion_active: "불굴의 벽"(수호자 전용) — 라운드가 바뀔
+## 때마다 고정 방어 다이스 값이 영구히 오른다(실제 증가는 run_state.gd.advance_round()
+## 담당, 이 플래그는 combat_test 쪽 상태 요약 줄 등 UI 표시용).
+var player_legend_guardian_bastion_active := false
+## player_legend_explosive_chainblast_active: "연쇄 폭발의 고리"(폭발병 전용) — 폭발
+## 스택 보너스 공격턴을 써도 스택이 0으로 리셋되지 않고 임계치만큼만 줄어, 초과분이
+## 쌓여 있으면 보너스 공격턴이 연속으로 발동할 수 있다.
+var player_legend_explosive_chainblast_active := false
+## player_legend_explosive_absolute_active: "절대 폭발"(폭발병 전용) — 폭발 스택
+## 보너스 공격턴의 피해가 몬스터 방어를 완전히 무시한다(막혔던 만큼을 방어 무시
+## 피해로 그대로 돌려줌).
+var player_legend_explosive_absolute_active := false
+## player_legend_explosive_lastblast_active: "최후의 폭발"(폭발병 전용) — 플레이어
+## HP가 절반 이하이면 폭발 스택 진행과 무관하게 모든 공격턴이 보너스 공격턴(1D20)이
+## 된다.
+var player_legend_explosive_lastblast_active := false
 
 var battle_over := false
 var player_won := false
@@ -1124,6 +1175,12 @@ func _reset_player_battle_state() -> void:
 	player_legend_berserker_ragenuke_active = RunState.skill_flags.has("legend_berserker_ragenuke")
 	player_legend_berserker_bloodlust_active = RunState.skill_flags.has("legend_berserker_bloodlust")
 	player_legend_berserker_vengeance_active = RunState.skill_flags.has("legend_berserker_vengeance")
+	player_legend_guardian_bulwark_active = RunState.skill_flags.has("legend_guardian_bulwark")
+	player_legend_guardian_overguard_active = RunState.skill_flags.has("legend_guardian_overguard")
+	player_legend_guardian_bastion_active = RunState.skill_flags.has("legend_guardian_bastion")
+	player_legend_explosive_chainblast_active = RunState.skill_flags.has("legend_explosive_chainblast")
+	player_legend_explosive_absolute_active = RunState.skill_flags.has("legend_explosive_absolute")
+	player_legend_explosive_lastblast_active = RunState.skill_flags.has("legend_explosive_lastblast")
 	player_hp = PLAYER_MAX_HP
 	battle_over = false
 	player_won = false
@@ -1772,7 +1829,12 @@ func _select_exchange_bags(is_player_attacking: bool) -> Dictionary:
 	var used_guard_dice := false
 	var atk_bag: DiceBag
 	if is_player_attacking:
-		if (player_dice_gimmick == "explosive_stack" or player_frenzy_active or player_versatile_active) and player_explosive_pending:
+		# "최후의 폭발"(legend_explosive_lastblast, [대형 기획 15] Q-8(c) 2/4, 폭발병
+		# 전용 전설): HP가 절반 이하면 폭발 스택 진행(player_explosive_pending)과 무관하게
+		# 이번 공격턴을 보너스 폭발턴으로 강제한다 — 하이리스크 하이리턴 정체성을 "벼랑
+		# 끝"에서 극대화.
+		var force_last_blast := player_legend_explosive_lastblast_active and _is_hp_half_or_below(player_hp, PLAYER_MAX_HP)
+		if (player_dice_gimmick == "explosive_stack" or player_frenzy_active or player_versatile_active) and (player_explosive_pending or force_last_blast):
 			atk_bag = DiceBag.new(EXPLOSIVE_DICE_SIDES, 1)
 			used_explosive_dice = true
 		else:
@@ -1889,6 +1951,15 @@ func _resolve_exchange(is_player_attacking: bool, atk_bag: DiceBag, def_bag: Dic
 			atk_values = atk_bag.apply_charm_flip(atk_values, charm_flip_count)
 		elif not is_player_attacking and def_bag == RunState.player_defense_bag:
 			def_values = def_bag.apply_charm_flip(def_values, charm_flip_count)
+	# "최후의 보루"(legend_guardian_bulwark, [대형 기획 15] Q-8(c) 2/4, 수호자 전용
+	# 전설): 플레이어 HP가 절반 이하일 때만 이번 방어 다이스 전부를 각자의 면 최댓값으로
+	# 고정한다(평소에는 기믹대로 다이스 1개만 고정) — DiceBag.apply_force_max()가 다이스별
+	# 최댓값 계산을 전담, 조건 판정만 여기서.
+	if not is_player_attacking and player_legend_guardian_bulwark_active and _is_hp_half_or_below(player_hp, PLAYER_MAX_HP):
+		var bulwark_before := def_values.duplicate()
+		def_values = def_bag.apply_force_max(def_values)
+		if def_values != bulwark_before:
+			logs.append("최후의 보루: 방어 다이스 %s -> %s (HP 절반 이하, 전부 최댓값 고정)" % [bulwark_before, def_values])
 	# "광기 심화"(INBOX.md [미니 기획 C]-4): 이번 공격턴이 폭발 스택 보너스 턴(1D20)이고
 	# 광기 심화를 보유했다면, 한 번 더 굴려 더 높은 값을 채택한다("두 번 굴려 advantage").
 	# "광기 심화+"([미니 기획 D]-4): 추가 리롤을 1번이 아니라 2번 해서 총 굴림 횟수를
@@ -2166,6 +2237,14 @@ func _resolve_exchange(is_player_attacking: bool, atk_bag: DiceBag, def_bag: Dic
 			if bloodlust_dmg > 0:
 				monster_hp = max(0, monster_hp - bloodlust_dmg)
 				logs.append("유혈광란! (최댓값 %d개 x 고정 %d 피해, 몬스터 HP %d)" % [bloodlust_hits, bloodlust_dmg, monster_hp])
+		# "절대 폭발"(legend_explosive_absolute, [대형 기획 15] Q-8(c) 2/4, 폭발병 전용
+		# 전설): 폭발 스택 보너스 공격턴(1D20)에서 방어에 막혀 줄어든 피해량을 방어 무시
+		# 고정 피해로 그대로 돌려줘, 보너스 턴 피해가 사실상 방어를 완전히 무시하게 만든다.
+		if player_legend_explosive_absolute_active:
+			var absolute_dmg := _absolute_detonation_bonus_damage(atk_total, dmg, used_explosive_dice)
+			if absolute_dmg > 0:
+				monster_hp = max(0, monster_hp - absolute_dmg)
+				logs.append("절대 폭발! (방어 무시 추가 %d 피해, 몬스터 HP %d)" % [absolute_dmg, monster_hp])
 	else:
 		player_hp = max(0, player_hp - dmg)
 		logs.append("몬스터 공격 %d vs 플레이어 방어 %d -> 데미지 %d (플레이어 HP %d)" % [atk_total, def_total, dmg, player_hp])
@@ -2186,6 +2265,14 @@ func _resolve_exchange(is_player_attacking: bool, atk_bag: DiceBag, def_bag: Dic
 			if vengeance_dmg > 0:
 				monster_hp = max(0, monster_hp - vengeance_dmg)
 				logs.append("불굴의 보복! (최솟값 %d개 x 고정 %d 피해, 몬스터 HP %d)" % [vengeance_hits, vengeance_dmg, monster_hp])
+		# "반격의 벽"(legend_guardian_overguard, [대형 기획 15] Q-8(c) 2/4, 수호자 전용
+		# 전설): 완전 방어(dmg==0)를 요구하지 않는다 — 방어 합계가 몬스터 공격 합계를
+		# 초과한 만큼(과잉 방어분)을 그대로 방어 무시 반격 피해로 돌려준다.
+		if player_legend_guardian_overguard_active:
+			var overguard_dmg := _overguard_counter_damage(atk_total, def_total)
+			if overguard_dmg > 0:
+				monster_hp = max(0, monster_hp - overguard_dmg)
+				logs.append("반격의 벽! (과잉 방어 %d, 몬스터 HP %d)" % [overguard_dmg, monster_hp])
 
 	# "counter(n)" 기믹(인간형, G-3): 플레이어 공격이 몬스터 방어에 완전히 막혀(dmg==0)
 	# 데미지가 0이면 플레이어가 n 반사 피해를 입는다. "revive" 기믹(언데드형, G-4):
@@ -2228,10 +2315,19 @@ func _resolve_exchange(is_player_attacking: bool, atk_bag: DiceBag, def_bag: Dic
 	if is_player_attacking and (player_dice_gimmick == "explosive_stack" or player_frenzy_active or player_versatile_active):
 		var explosive_threshold := _player_explosive_threshold()
 		var explosive_max_hits: int = 0 if used_explosive_dice else RunState.player_attack_bag.count_max_rolls(atk_values)
-		var explosive_result := _update_stack_progress(player_explosive_stacks, used_explosive_dice, explosive_max_hits, explosive_threshold)
+		# "연쇄 폭발의 고리"(legend_explosive_chainblast, [대형 기획 15] Q-8(c) 2/4, 폭발병
+		# 전용 전설): 보너스 공격턴을 소모해도 스택을 0으로 리셋하지 않고 임계치만큼만
+		# 차감하는 _update_explosive_chain_progress()를 대신 쓴다.
+		var explosive_result: Dictionary = (
+			_update_explosive_chain_progress(player_explosive_stacks, used_explosive_dice, explosive_max_hits, explosive_threshold)
+			if player_legend_explosive_chainblast_active
+			else _update_stack_progress(player_explosive_stacks, used_explosive_dice, explosive_max_hits, explosive_threshold)
+		)
 		player_explosive_stacks = explosive_result["stacks"]
 		player_explosive_pending = explosive_result["pending"]
-		if explosive_result["reset"]:
+		if explosive_result.get("carried", 0) > 0:
+			logs.append("연쇄 폭발의 고리: 폭발 후 %d스택 유지 (%d/%d)" % [explosive_result["carried"], player_explosive_stacks, explosive_threshold])
+		elif explosive_result["reset"]:
 			logs.append("광기가 가라앉았다 (스택 초기화)" if player_frenzy_active else "폭발이 진정됐다 (폭발 스택 초기화)")
 		elif explosive_result["gained"] > 0:
 			var stack_label := "광기" if player_frenzy_active else "폭발"
@@ -2641,6 +2737,23 @@ func _update_stack_progress(current_stacks: int, used_bonus_dice: bool, max_hits
 	var new_stacks: int = current_stacks + max_hits
 	var activated: bool = new_stacks >= threshold
 	return {"stacks": new_stacks, "pending": activated, "reset": false, "gained": max_hits, "activated": activated}
+
+
+## "연쇄 폭발의 고리"(legend_explosive_chainblast, [대형 기획 15] Q-8(c) 2/4, 폭발병 전용
+## 전설) 전용 — _update_stack_progress()와 같은 입출력 형태(Dictionary 키 동일 + "carried"
+## 추가)지만, 보너스 공격턴을 소모해도 스택을 0으로 리셋하지 않고 임계치만큼만 차감해
+## 초과분을 이어간다("폭발이 폭발을 부른다" — 짧은 간격으로 보너스 턴이 연속 발동할 수
+## 있음). "carried"에 이어진 스택 수를 담아 호출부가 전용 로그를 찍게 한다(0이면 일반
+## 적립/정지 분기와 동일하게 처리).
+func _update_explosive_chain_progress(current_stacks: int, used_bonus_dice: bool, max_hits: int, threshold: int) -> Dictionary:
+	if used_bonus_dice:
+		var carried: int = max(0, current_stacks - threshold)
+		return {"stacks": carried, "pending": carried >= threshold, "reset": false, "gained": 0, "activated": carried >= threshold, "carried": carried}
+	if max_hits <= 0:
+		return {"stacks": current_stacks, "pending": false, "reset": false, "gained": 0, "activated": false, "carried": 0}
+	var new_stacks: int = current_stacks + max_hits
+	var activated: bool = new_stacks >= threshold
+	return {"stacks": new_stacks, "pending": activated, "reset": false, "gained": max_hits, "activated": activated, "carried": 0}
 
 
 func _append_log(line: String) -> void:
