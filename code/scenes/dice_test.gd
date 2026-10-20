@@ -1755,13 +1755,36 @@ func _check_q8c4_legendary_skills(lines: PackedStringArray) -> bool:
 
 	# (3) "운명의 보정"(_apply_fate_die): sides=1인 이벤트 주사위는 항상 1이 나오므로
 	# (D1, 면 1개뿐) RNG와 무관하게 결정적 — 최저값보다 낮으면(5) 그대로, 높으면(0)
-	# 대체된다.
-	var fate_no_replace: Array = combat_script._apply_fate_die([5], 1, [])
-	var fate_replace: Array = combat_script._apply_fate_die([0], 1, [])
+	# 대체된다. bag(D4x1)의 면 개수(4)가 fate_value(1)보다 커서 이 케이스에서는
+	# 상한이 발동하지 않는다(상한 자체는 아래 (3b)에서 통계적으로 검증).
+	var fate_dummy_bag := DiceBag.new(4, 1)
+	var fate_no_replace: Array = combat_script._apply_fate_die(fate_dummy_bag, [5], 1, [])
+	var fate_replace: Array = combat_script._apply_fate_die(fate_dummy_bag, [0], 1, [])
 	var fate_ok: bool = fate_no_replace == [5] and fate_replace == [1]
 	ok = fate_ok and ok
 	lines.append("  (3) 운명의 보정(_apply_fate_die, 이벤트 D1=항상 1): 최저값 5 -> %s(기대 [5], 대체 안 됨) / 최저값 0 -> %s(기대 [1], 대체됨) -> %s" % [
 		fate_no_replace, fate_replace, "OK" if fate_ok else "FAIL",
+	])
+
+	# (3b) [대형 기획 15] Q-8(d) 밸런스 조정 회귀 — _apply_fate_die()의 대체값은 이제
+	# "그 다이스 자신의 면 최댓값"으로 상한된다(balance_sim 격리 측정에서 운명의 보정이
+	# 곡예사 자체 전설 3종 중 압도적 1위로 나와 조정, docs/BALANCE_TUNING_LOG.md 참고).
+	# bag=D4x1(상한 4), 이벤트 주사위=1D12(최대 12)로 200회 굴려 결과가 한 번도 4를
+	# 넘지 않는지 확인 — 상한이 없다면 D12가 4 초과를 낼 확률이 매번 2/3이라 200회 중
+	# 전부 4 이하로 나올 확률은 사실상 0에 가까움(상한이 실제로 걸렸다는 결정적 증거).
+	var fate_cap_bag := DiceBag.new(4, 1)
+	var fate_cap_violations := 0
+	var fate_cap_reached_max := false
+	for _i in 200:
+		var capped_result: Array = combat_script._apply_fate_die(fate_cap_bag, [0], 12, [])
+		if capped_result[0] > 4:
+			fate_cap_violations += 1
+		if capped_result[0] == 4:
+			fate_cap_reached_max = true
+	var fate_cap_ok: bool = fate_cap_violations == 0 and fate_cap_reached_max
+	ok = fate_cap_ok and ok
+	lines.append("  (3b) 운명의 보정 상한(_apply_fate_die, bag면=4 vs 이벤트 1D12, 200회): 4 초과 %d회(기대 0) / 4 도달 %s(기대 true) -> %s" % [
+		fate_cap_violations, fate_cap_reached_max, "OK" if fate_cap_ok else "FAIL",
 	])
 
 	# (4) "무한 장전"(_overload_next_cycle): 발동마다 1씩 줄고, 최소 1에서 멈춘다.

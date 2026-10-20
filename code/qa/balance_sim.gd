@@ -220,6 +220,10 @@ func _ready() -> void:
 	lines.append("")
 	lines.append(growth_summary)
 
+	var legendary_summary := _run_legendary_simulation(fixed_monster_plan, fixed_elite_plan)
+	lines.append("")
+	lines.append(legendary_summary)
+
 	result_label.text = "\n".join(lines)
 
 
@@ -591,6 +595,262 @@ func _save_raw_tsv(rows: Array[Dictionary]) -> void:
 	var file := FileAccess.open(abs_path, FileAccess.WRITE)
 	if file == null:
 		push_error("[balance_sim] TSV 저장 실패: %s" % abs_path)
+		return
+	file.store_line("character_id\tskill_id\tround_index\troom_index\tis_elite\tmonster_name\ttrials\twins\ttimeouts\twin_rate\tavg_turns\tavg_hp_on_win")
+	for row in rows:
+		file.store_line("%s\t%s\t%d\t%d\t%s\t%s\t%d\t%d\t%d\t%.4f\t%.2f\t%.2f" % [
+			row["character_id"], row["skill_id"], row["round_index"], row["room_index"],
+			str(row["is_elite"]), row["monster_name"], row["trials"], row["wins"], row["timeouts"],
+			row["win_rate"], row["avg_turns"], row["avg_hp_on_win"],
+		])
+	file.close()
+
+
+## [대형 기획 15] Q-8(d)(2026-10-20) — 전설 스킬 24종이 밸런스를 깨지 않는지 측정한다.
+## F-4b(기준선)는 "시작 스킬 슬롯"을 통해서만 skill_flags를 채우는데, 전설은 시작
+## 스킬 레이어가 아니라 런 중 보상으로 얻는 것이라 그 경로를 안 탄다 — 대신 skill_flags를
+## 직접 주입해(캐릭터별 "전설 없음(기준선)" + 전설 3종 각각) 전설 "하나만"의 순수 효과를
+## 다른 시작 스킬 변수와 분리해서 본다(둘 다 섞으면 승률 차이가 어느 쪽 때문인지 구분이
+## 안 됨). INBOX.md Q-8(d) 지시대로 표본을 줄였다(TRIALS_PER_COMBO=100 ->
+## LEGENDARY_TRIALS_PER_COMBO=30) — round_index는 F-4b와 동일하게 "바꿔가며" 돌리되
+## 실제 advance_round()는 호출하지 않으므로(F-4b와 같은 전제), 라운드 "전환" 트리거형
+## 전설(운명의 뒤섞임/불굴의 벽)은 이 측정에서 그 전환 효과가 발동하지 않는다(알려진
+## 한계, docs/BALANCE_TUNING_LOG.md에 기록). 집계 카테고리(일반 방0~2/방3/정예/보스)는
+## balance_target_check.gd의 _category_for()와 동일한 기준을 쓴다.
+const LEGENDARY_TRIALS_PER_COMBO := 30
+
+
+func _run_legendary_simulation(fixed_monster_plan: Array, fixed_elite_plan: Array) -> String:
+	var achievements_backup: Dictionary = AchievementManager._unlocked.duplicate(true)
+	var character_backup := RunState.character_id
+	var chosen_backup := RunState.chosen_starting_skill_id
+	var skill_flags_backup: Array[String] = RunState.skill_flags.duplicate()
+	var round_backup := RunState.round_index
+	var rooms_backup := RunState.rooms_cleared
+	var gold_backup := RunState.gold
+	var pip_backup: Array[int] = RunState.pip_inventory.duplicate()
+	var plan_backup: Array = RunState.monster_plan
+	var elite_plan_backup: Array = RunState.elite_plan
+
+	var rows: Array[Dictionary] = []
+	var summary_lines: Array[String] = []
+	summary_lines.append("[Q-8d 전설 밸런스 시뮬] 조합당 %d판(표본 축소, 기준선 대비 격리 측정)" % LEGENDARY_TRIALS_PER_COMBO)
+
+	for profile in CharacterProfiles.PROFILES:
+		var character_id: String = profile["id"]
+		var legends: Array[Dictionary] = []
+		for skill in SkillPool.LEGENDARY_SKILLS:
+			if skill["character_id"] == character_id:
+				legends.append(skill)
+		var configs: Array[Dictionary] = [{"id": "", "name": "(전설 없음, 기준선)"}]
+		configs.append_array(legends)
+
+		for config in configs:
+			RunState.chosen_starting_skill_id = ""
+			RunState.reset_run(character_id)
+			RunState.monster_plan = fixed_monster_plan
+			RunState.elite_plan = fixed_elite_plan
+			var flags: Array[String] = []
+			if config["id"] != "":
+				flags.append(config["id"])
+			RunState.skill_flags = flags
+
+			var config_rows: Array[Dictionary] = []
+			for round_index in range(1, RunState.TOTAL_ROUNDS + 1):
+				for room_index in range(RunState.TOTAL_ROOMS - 1):
+					config_rows.append(_simulate_legendary_combo(character_id, config["id"], round_index, room_index, false))
+				var boss_candidates: Array = MonsterCatalog.BOSS_ROSTER_BY_ROUND[(round_index - 1) % MonsterCatalog.BOSS_ROSTER_BY_ROUND.size()]
+				for boss_id in boss_candidates:
+					config_rows.append(_simulate_legendary_combo_boss(character_id, config["id"], round_index, boss_id))
+				for room_index in range(1, RunState.TOTAL_ROOMS - 1):
+					config_rows.append(_simulate_legendary_combo(character_id, config["id"], round_index, room_index, true))
+
+			rows.append_array(config_rows)
+			var bands := _legendary_bands(config_rows)
+			summary_lines.append("%s / %s: 일반0~2 %.1f%% 방3 %.1f%% 정예 %.1f%% 보스 %.1f%% (전체 %.1f%%)" % [
+				character_id, config["name"],
+				bands["normal_0_2"] * 100.0, bands["normal_3"] * 100.0,
+				bands["elite"] * 100.0, bands["boss"] * 100.0, bands["overall"] * 100.0,
+			])
+
+	AchievementManager._unlocked = achievements_backup
+	AchievementManager._save()
+	RunState.character_id = character_backup
+	RunState.chosen_starting_skill_id = chosen_backup
+	RunState.skill_flags = skill_flags_backup
+	RunState.reset_run(character_backup)
+	RunState.round_index = round_backup
+	RunState.rooms_cleared = rooms_backup
+	RunState.gold = gold_backup
+	RunState.pip_inventory = pip_backup
+	RunState.monster_plan = plan_backup
+	RunState.elite_plan = elite_plan_backup
+
+	_save_legendary_raw_tsv(rows)
+	for line in summary_lines:
+		print(line)
+	var summary := "[balance_sim] Q-8d 전설 밸런스 시뮬 완료 — %d행, qa_out/balance_sim_legendary_raw.tsv 저장" % rows.size()
+	print(summary)
+	return summary
+
+
+## _simulate_combo()와 완전히 같은 구조이지만 LEGENDARY_TRIALS_PER_COMBO(표본 축소)를
+## 쓴다 — TRIALS_PER_COMBO가 함수 본문에 상수로 박혀 있어 그대로 재사용할 수 없었다
+## (F-4b/F-5b가 이미 같은 이유로 _simulate_growth_combo()를 따로 둔 것과 동일한 전제).
+func _simulate_legendary_combo(character_id: String, skill_id: String, round_index: int, room_index: int, is_elite: bool) -> Dictionary:
+	var wins := 0
+	var timeouts := 0
+	var total_turns := 0
+	var hp_sum_on_win := 0
+	var monster_name := ""
+
+	for _trial in LEGENDARY_TRIALS_PER_COMBO:
+		RunState.gold = 0
+		RunState.pip_inventory = []
+
+		var instance = _combat_script.new()
+		var config: Dictionary = instance._monster_config_for_elite(round_index, room_index) if is_elite \
+			else instance._monster_config_for_plan(round_index, room_index)
+		if monster_name == "":
+			monster_name = config.get("name", "")
+		instance._apply_monster_config(config)
+		instance._reset_player_battle_state()
+
+		var exchanges := 0
+		var is_player_attacking := true
+		while not instance.battle_over and exchanges < MAX_EXCHANGES:
+			var selection: Dictionary = instance._select_exchange_bags(is_player_attacking)
+			instance._resolve_exchange(
+				is_player_attacking, selection["atk_bag"], selection["def_bag"],
+				selection["used_explosive_dice"], selection["used_guard_dice"], selection["used_anger_dice"]
+			)
+			exchanges += 1
+			is_player_attacking = not is_player_attacking
+
+		if not instance.battle_over:
+			timeouts += 1
+		elif instance.player_won:
+			wins += 1
+			hp_sum_on_win += instance.player_hp
+		total_turns += exchanges
+		instance.free()
+
+	return {
+		"character_id": character_id,
+		"skill_id": skill_id,
+		"round_index": round_index,
+		"room_index": room_index,
+		"is_elite": is_elite,
+		"monster_name": monster_name,
+		"trials": LEGENDARY_TRIALS_PER_COMBO,
+		"wins": wins,
+		"timeouts": timeouts,
+		"win_rate": float(wins) / LEGENDARY_TRIALS_PER_COMBO,
+		"avg_turns": float(total_turns) / LEGENDARY_TRIALS_PER_COMBO,
+		"avg_hp_on_win": (float(hp_sum_on_win) / wins) if wins > 0 else 0.0,
+	}
+
+
+## _simulate_combo_boss()와 완전히 같은 구조이지만 LEGENDARY_TRIALS_PER_COMBO(표본
+## 축소)를 쓴다(위 _simulate_legendary_combo()와 같은 이유).
+func _simulate_legendary_combo_boss(character_id: String, skill_id: String, round_index: int, boss_id: String) -> Dictionary:
+	var room_index := RunState.TOTAL_ROOMS - 1
+	var difficulty := room_index + (round_index - 1) * 3
+	var profile: Dictionary = MonsterCatalog.get_by_id(boss_id)
+	var monster_name: String = profile.get("name", boss_id)
+
+	var wins := 0
+	var timeouts := 0
+	var total_turns := 0
+	var hp_sum_on_win := 0
+
+	for _trial in LEGENDARY_TRIALS_PER_COMBO:
+		RunState.gold = 0
+		RunState.pip_inventory = []
+
+		var instance = _combat_script.new()
+		var config: Dictionary = instance._build_monster_config(profile, monster_name, difficulty, true)
+		instance._apply_monster_config(config)
+		instance._reset_player_battle_state()
+
+		var exchanges := 0
+		var is_player_attacking := true
+		while not instance.battle_over and exchanges < MAX_EXCHANGES:
+			var selection: Dictionary = instance._select_exchange_bags(is_player_attacking)
+			instance._resolve_exchange(
+				is_player_attacking, selection["atk_bag"], selection["def_bag"],
+				selection["used_explosive_dice"], selection["used_guard_dice"], selection["used_anger_dice"]
+			)
+			exchanges += 1
+			is_player_attacking = not is_player_attacking
+
+		if not instance.battle_over:
+			timeouts += 1
+		elif instance.player_won:
+			wins += 1
+			hp_sum_on_win += instance.player_hp
+		total_turns += exchanges
+		instance.free()
+
+	return {
+		"character_id": character_id,
+		"skill_id": skill_id,
+		"round_index": round_index,
+		"room_index": room_index,
+		"is_elite": false,
+		"monster_name": monster_name,
+		"trials": LEGENDARY_TRIALS_PER_COMBO,
+		"wins": wins,
+		"timeouts": timeouts,
+		"win_rate": float(wins) / LEGENDARY_TRIALS_PER_COMBO,
+		"avg_turns": float(total_turns) / LEGENDARY_TRIALS_PER_COMBO,
+		"avg_hp_on_win": (float(hp_sum_on_win) / wins) if wins > 0 else 0.0,
+	}
+
+
+## balance_target_check.gd의 _category_for()와 동일한 카테고리 기준(일반 방0~2/방3/
+## 정예/보스) — 같은 목표 밴드로 바로 비교할 수 있게 일부러 그 로직을 그대로 맞췄다.
+static func _legendary_category_for(row: Dictionary) -> String:
+	if row["is_elite"]:
+		return "elite" if row["room_index"] >= 1 and row["room_index"] <= 3 else ""
+	if row["room_index"] >= 0 and row["room_index"] <= 2:
+		return "normal_0_2"
+	if row["room_index"] == 3:
+		return "normal_3"
+	if row["room_index"] == 4:
+		return "boss"
+	return ""
+
+
+static func _legendary_bands(rows: Array[Dictionary]) -> Dictionary:
+	var sums := {"normal_0_2": 0.0, "normal_3": 0.0, "elite": 0.0, "boss": 0.0}
+	var counts := {"normal_0_2": 0, "normal_3": 0, "elite": 0, "boss": 0}
+	var overall_sum := 0.0
+	for r in rows:
+		overall_sum += r["win_rate"]
+		var cat := _legendary_category_for(r)
+		if cat != "":
+			sums[cat] += r["win_rate"]
+			counts[cat] += 1
+	var result := {}
+	for key in sums.keys():
+		result[key] = (sums[key] / counts[key]) if counts[key] > 0 else 0.0
+	result["overall"] = (overall_sum / rows.size()) if rows.size() > 0 else 0.0
+	return result
+
+
+## F-4b의 _save_raw_tsv()와 같은 형태지만 전설 시뮬 전용 파일(qa_out/
+## balance_sim_legendary_raw.tsv)에 저장한다 — skill_id 열이 "" 이면 기준선(전설
+## 없음), 아니면 그 전설 스킬 id다.
+func _save_legendary_raw_tsv(rows: Array[Dictionary]) -> void:
+	var abs_path := ProjectSettings.globalize_path("res://qa_out/balance_sim_legendary_raw.tsv")
+	var dir_err := DirAccess.make_dir_recursive_absolute(abs_path.get_base_dir())
+	if dir_err != OK and dir_err != ERR_ALREADY_EXISTS:
+		push_error("[balance_sim] 출력 디렉토리 생성 실패: %s" % abs_path.get_base_dir())
+		return
+	var file := FileAccess.open(abs_path, FileAccess.WRITE)
+	if file == null:
+		push_error("[balance_sim] legendary TSV 저장 실패: %s" % abs_path)
 		return
 	file.store_line("character_id\tskill_id\tround_index\troom_index\tis_elite\tmonster_name\ttrials\twins\ttimeouts\twin_rate\tavg_turns\tavg_hp_on_win")
 	for row in rows:

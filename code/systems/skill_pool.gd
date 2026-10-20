@@ -562,11 +562,18 @@ const UNIQUE_SKILLS: Array[Dictionary] = [
 ## 교환)와 같은 DiceBag.swap_random_dice() 프리미티브를 재사용하지만, 전설답게 한
 ## 쌍이 아니라 보유한 전부를 섞는다 — run_state.gd의 _fateshuffle_swap_count() 참고.
 ##
-## "legend_berserker_ragenuke"(광전 돌격): 광전사는 이미 explosive_stack(공격 최댓값
-## 3회 누적 -> 보너스 공격턴 1D20)이 있다 — "광기 심화"(frenzy_deepen)가 그 보너스 턴을
-## "1D20 두 번 굴려 최댓값"으로 강화했듯, 이 전설은 더 나아가 보너스 턴을 확률 없이
-## 항상 최댓값(20)으로 고정한다(DESIGN.md "모든 공격 다이스가 한 면 값으로 고정" 예시를
-## 폭발 스택 보너스 턴에 적용). combat_test.gd의 player_legend_ragenuke_active 분기 참고.
+## "legend_berserker_ragenuke"(광전 돌격): 광전사 본인 기믹(min_max_only)은 "광기
+## 심화"(frenzy_deepen)와 마찬가지로 explosive_stack 파이프라인이 원래 없다 —
+## frenzy_deepen이 그 파이프라인을 새로 열고 보너스 턴을 "1D20 두 번 굴려 최댓값"으로
+## 강화했듯, 이 전설은 frenzy_deepen 보유 여부와 무관하게 스스로 파이프라인을 열고
+## (combat_test.gd의 explosive_stack 게이트 3곳에 player_legend_berserker_ragenuke_active
+## 추가, Q-8(d) 셀프 피드백 중 발견) 더 나아가 보너스 턴을 확률 없이 항상 최댓값(20)으로
+## 고정한다(DESIGN.md "모든 공격 다이스가 한 면 값으로 고정" 예시를 폭발 스택 보너스
+## 턴에 적용). **최초 구현(Q-8(c) 1/4)은 "광전사는 이미 explosive_stack이 있다"는
+## 잘못된 전제로 게이트를 추가하지 않아, frenzy_deepen 없이는 스택이 전혀 쌓이지 않는
+## 사실상 죽은 전설이었다** — Q-8(d) balance_sim 격리 측정(전체 승률 델타 +0.8%p,
+## 표본 노이즈 수준)으로 발견해 고쳤다(docs/BALANCE_TUNING_LOG.md 참고).
+## combat_test.gd의 player_legend_berserker_ragenuke_active 분기 참고.
 ##
 ## "legend_berserker_bloodlust"(유혈광란): 광전사 자기 기믹(min_max_only)은 다이스가
 ## 중간값 없이 최솟값 아니면 최댓값만 나와 "최댓값이 뜨는 빈도"가 표준 다이스보다 높다 —
@@ -915,8 +922,13 @@ const LEGENDARY_SKILLS: Array[Dictionary] = [
 	# 전투에도 매 턴 추가로 굴려, 이번 턴 가장 낮은 다이스 값보다 높으면 그 자리를
 	# 대체한다("여분"(spare_die)과 같은 "여분 다이스로 최저값 대체" 패턴이지만, 대체용
 	# 다이스가 자기 주머니 타입이 아니라 이벤트 주사위로 고정된다는 점이 다름). 곡예사가
-	# D12로 차별화된 유일한 캐릭터라는 점을 전투 안에서도 체감하게 한다. combat_test.gd의
-	# _apply_fate_die() 참고.
+	# D12로 차별화된 유일한 캐릭터라는 점을 전투 안에서도 체감하게 한다. **[대형 기획
+	# 15] Q-8(d)(2026-10-20) 밸런스 조정**: 대체값을 그 다이스 자신의 면 최댓값으로
+	# 상한한다 — 상한이 없던 최초 구현은 D12(평균 6.5)가 곡예사 기본 주머니(D4, 평균
+	# 2.5)의 최저값을 "매 턴 공격/방어 양쪽" 대체해 balance_sim 격리 측정에서 곡예사
+	# 자체 전설 3종 중 압도적 1위(+18.7%p, 다른 2종은 각각 -0.6%p/+5.8%p)로 나와
+	# 조정했다(docs/BALANCE_TUNING_LOG.md 참고). combat_test.gd의 _apply_fate_die()
+	# 참고.
 	#
 	# "legend_pirate_overload"(무한 장전): 새 메커니즘(가속되는 쿨타임) — 함포
 	# 일제사격이 발동할 때마다 다음 발동까지 필요한 주기가 1턴씩 영구히 짧아진다(최소
@@ -966,7 +978,7 @@ const LEGENDARY_SKILLS: Array[Dictionary] = [
 	{
 		"id": "legend_juggler_fatecorrect",
 		"name": "운명의 보정",
-		"description": "매 턴(공격/방어 모두), 이벤트 주사위(캐릭터별 면 개수)를 추가로 굴려 이번 턴 가장 낮은 다이스 값보다 높으면 그 자리를 대체한다. 전설 스킬은 한 런에 하나만 가질 수 있다.",
+		"description": "매 턴(공격/방어 모두), 이벤트 주사위(캐릭터별 면 개수)를 추가로 굴려 이번 턴 가장 낮은 다이스 값보다 높으면 그 자리를 대체한다 (상한: 그 다이스 자신의 면 개수). 전설 스킬은 한 런에 하나만 가질 수 있다.",
 		"character_id": "juggler",
 		"diagram": [
 			{"type": "duration", "kind": "every_turn"},

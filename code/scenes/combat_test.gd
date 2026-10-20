@@ -290,9 +290,20 @@ static func _juggle_balance_total(used_total: int, alt_total: int) -> int:
 ## 주사위(event_die_sides, 곡예사는 1D12)를 전투에도 추가로 굴려, 이번 턴 가장 낮은
 ## 다이스 값보다 높으면 그 자리를 대체한다. _apply_spare_die()와 같은 "여분 다이스로
 ## 최저값 대체" 패턴이지만, 대체용 다이스가 자기 주머니 타입이 아니라 이벤트 주사위로
-## 고정된다는 점이 다르다(이벤트 D12 특화를 전투로 끌어들이는 새 메커니즘). logs는
-## 호출부(_resolve_exchange) 책임 — 이 함수는 값만 계산한다.
-static func _apply_fate_die(values: Array, sides: int, logs: Array = []) -> Array:
+## 고정된다는 점이 다르다(이벤트 D12 특화를 전투로 끌어들이는 새 메커니즘). bag은
+## 대체 대상 다이스가 속한 주머니(호출부가 atk_bag/def_bag 중 그 턴에 맞는 쪽을
+## 넘김) — [대형 기획 15] Q-8(d) 밸런스 조정(2026-10-20): 대체값을 "그 다이스 자신의
+## 면 최댓값"으로 상한한다(_apply_spare_die()가 "여분 다이스 자체를 bag.dice[0]과
+## 같은 면 개수로 만든다"는 같은 원칙을 "다른 방식(대체용 주사위 자체가 아니라 결과값
+## 상한)"으로 적용한 것 — 여기서는 대체용 다이스가 이벤트 주사위(캐릭터 고정, 곡예사는
+## D12)여야 "이벤트 D12 특화"가 전투에서 보이므로, 다이스 종류 자체는 못 바꾸고 결과값만
+## 상한한다). 상한이 없던 최초 구현은 D12(평균 6.5)가 곡예사 기본 주머니(D4, 평균 2.5)의
+## 최저값을 "매 턴 공격/방어 양쪽" 대체해 balance_sim 격리 측정에서 곡예사 자체 전설
+## 3종 중 압도적 1위(+18.7%p, 다른 2종은 각각 -0.6%p/+5.8%p)로 확인됐다 — 상한을
+## 두면 "이벤트 주사위로 최저값을 대체한다"는 정체성은 그대로 유지하면서 대체 가능한
+## 최댓값만 자기 주머니 다이스 수준으로 낮아진다(docs/BALANCE_TUNING_LOG.md 참고).
+## logs는 호출부(_resolve_exchange) 책임 — 이 함수는 값만 계산한다.
+static func _apply_fate_die(bag: DiceBag, values: Array, sides: int, logs: Array = []) -> Array:
 	if values.is_empty():
 		return values
 	var fate_bag := DiceBag.new(sides, 1)
@@ -302,9 +313,13 @@ static func _apply_fate_die(values: Array, sides: int, logs: Array = []) -> Arra
 	for i in adjusted.size():
 		if adjusted[i] < adjusted[min_index]:
 			min_index = i
-	if fate_value > adjusted[min_index]:
-		logs.append("운명의 보정: 이벤트 주사위(1D%d) 결과 %d로 최저 다이스 값 %d 대체" % [sides, fate_value, adjusted[min_index]])
-		adjusted[min_index] = fate_value
+	var cap: int = fate_value
+	if min_index < bag.dice.size():
+		cap = bag.dice[min_index].size()
+	var capped_value: int = min(fate_value, cap)
+	if capped_value > adjusted[min_index]:
+		logs.append("운명의 보정: 이벤트 주사위(1D%d) 결과 %d(자기 주머니 면 상한 %d 적용 -> %d)로 최저 다이스 값 %d 대체" % [sides, fate_value, cap, capped_value, adjusted[min_index]])
+		adjusted[min_index] = capped_value
 	return adjusted
 
 
@@ -622,7 +637,10 @@ var player_legend_novice_harmony_active := false
 ## player_legend_novice_rally_active: "결의의 반격"(견습 모험가 전용) — 방어로 피해를
 ## 완전히 막으면(데미지 0) 그 방어 합계만큼 몬스터에게 방어 무시 반격 피해를 준다.
 var player_legend_novice_rally_active := false
-## player_legend_berserker_ragenuke_active: "광전 돌격"(광전사 전용) — 폭발 스택
+## player_legend_berserker_ragenuke_active: "광전 돌격"(광전사 전용) — frenzy_deepen
+## 보유 여부와 무관하게 스스로 explosive_stack 파이프라인을 열고(아래 세 게이트에
+## player_frenzy_active/player_versatile_active와 나란히 포함, Q-8(d) 수정 — 최초
+## 구현은 이 게이트가 없어 frenzy_deepen 없이는 스택이 전혀 안 쌓이던 죽은 전설이었음),
 ## 보너스 공격턴(1D20)이 확률 없이 항상 최댓값(20)으로 확정된다.
 var player_legend_berserker_ragenuke_active := false
 ## player_legend_berserker_bloodlust_active: "유혈광란"(광전사 전용) — 공격턴마다
@@ -2025,7 +2043,7 @@ func _select_exchange_bags(is_player_attacking: bool) -> Dictionary:
 		# 이번 공격턴을 보너스 폭발턴으로 강제한다 — 하이리스크 하이리턴 정체성을 "벼랑
 		# 끝"에서 극대화.
 		var force_last_blast := player_legend_explosive_lastblast_active and _is_hp_half_or_below(player_hp, PLAYER_MAX_HP)
-		if (player_dice_gimmick == "explosive_stack" or player_frenzy_active or player_versatile_active) and (player_explosive_pending or force_last_blast):
+		if (player_dice_gimmick == "explosive_stack" or player_frenzy_active or player_versatile_active or player_legend_berserker_ragenuke_active) and (player_explosive_pending or force_last_blast):
 			atk_bag = DiceBag.new(EXPLOSIVE_DICE_SIDES, 1)
 			used_explosive_dice = true
 		else:
@@ -2443,9 +2461,9 @@ func _resolve_exchange(is_player_attacking: bool, atk_bag: DiceBag, def_bag: Dic
 	# 굴려 이번 턴 가장 낮은 값보다 높으면 대체한다(_apply_fate_die() 참고).
 	if player_legend_juggler_fatecorrect_active:
 		if is_player_attacking:
-			atk_values = _apply_fate_die(atk_values, RunState.event_die_sides, logs)
+			atk_values = _apply_fate_die(atk_bag, atk_values, RunState.event_die_sides, logs)
 		else:
-			def_values = _apply_fate_die(def_values, RunState.event_die_sides, logs)
+			def_values = _apply_fate_die(def_bag, def_values, RunState.event_die_sides, logs)
 	var atk_total := 0
 	for v in atk_values:
 		atk_total += v
@@ -2663,7 +2681,7 @@ func _resolve_exchange(is_player_attacking: bool, atk_bag: DiceBag, def_bag: Dic
 			monster_hp = min(monster_max_hp, monster_hp + heal_amount)
 			logs.append("흡수! 몬스터가 %d만큼 체력을 회복했다 (몬스터 HP %d)" % [heal_amount, monster_hp])
 
-	if is_player_attacking and (player_dice_gimmick == "explosive_stack" or player_frenzy_active or player_versatile_active):
+	if is_player_attacking and (player_dice_gimmick == "explosive_stack" or player_frenzy_active or player_versatile_active or player_legend_berserker_ragenuke_active):
 		var explosive_threshold := _player_explosive_threshold()
 		var explosive_max_hits: int = 0 if used_explosive_dice else RunState.player_attack_bag.count_max_rolls(atk_values)
 		# "연쇄 폭발의 고리"(legend_explosive_chainblast, [대형 기획 15] Q-8(c) 2/4, 폭발병
@@ -3018,7 +3036,7 @@ func _update_status_panel() -> void:
 	if player_status_label == null:
 		return
 	var parts: Array[String] = []
-	if player_dice_gimmick == "explosive_stack" or player_frenzy_active or player_versatile_active:
+	if player_dice_gimmick == "explosive_stack" or player_frenzy_active or player_versatile_active or player_legend_berserker_ragenuke_active:
 		parts.append("공격 스택 %d/%d" % [player_explosive_stacks, _player_explosive_threshold()])
 	if player_dice_gimmick == "guard_stack" or player_guard_deepen_active or player_versatile_active:
 		parts.append("방어 스택 %d/%d" % [player_guard_stacks, _player_guard_threshold()])

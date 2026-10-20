@@ -8,6 +8,55 @@
 
 ---
 
+- **2026-10-17 (228)**: **[대형 기획 15] Q-7(a)(스킬 효과 도식 문법 + 데이터,
+  원문 3) 완료.** 목표는 "모든 스킬의 설명 위에 효과를 이미지/도형으로 도식화"
+  (Q-7(b) 렌더러/Q-7(c) 적용은 이번 조각 범위 밖, 다음 이터레이션들) — 이번
+  조각은 **문법 정의 + 37종(실제로는 해적 전용 중복 3행 포함 40행) 전수 데이터
+  작성 + 순수 데이터 검증 테스트**만 한다(렌더 분기 하드코딩 금지 — INBOX 명시).
+  **문법**: `code/systems/skill_pool.gd` 맨 위에 `DIAGRAM_SYMBOL_TYPES`(11종 —
+  die/compare/condition/arrow/value/duration/reroll/stack/swap/cycle/gold)와
+  `MAX_DIAGRAM_SYMBOLS`(=5)를 상수로 정의했다. 각 스킬 dict에 `diagram`
+  필드(Array[Dictionary], "조건 칩... -> 효과 칩..." 순서, 원소 1개=기호 1개,
+  화살표 포함)를 추가 — 예: 심호흡(`deep_breath`)은
+  `[condition(first_turn), arrow, die(defense), value(+1)]`(4기호). INBOX가
+  예시로 든 기본 8개(다이스/개수비교/조건/화살표/수치배지/대상/지속/재굴림)로는
+  스택형(광기 심화 등), 다이스 맞바꾸기(곡예 앙코르), 주기형 고정피해(일제
+  사격) 세 스킬 계열을 표현할 수 없어 `stack`/`swap`/`cycle` 세 기호를
+  새로 추가해 해결했다(die/value 두 칩에도 count/op="max"|"half"|"full" 등
+  하위 옵션을 둬 "최댓값으로 전환"(매혹 심화)·"공격 합계 절반/전부, 방어
+  무시"(일제 사격) 같은 효과까지 기존 11종 기호 틀 안에서 표현). **도식으로
+  표현이 어려워 리디자인이 필요한 스킬은 없었다** — 37종 전부 3~4개 기호로
+  표현 가능했고(상한 5개 대비 여유), 효과 자체를 바꾼 곳도 없다(전투 규칙/
+  밸런스 불변). `SkillPool.diagram_for(skill_id)` 조회 헬퍼도 `find_skill()`
+  재사용으로 추가(Q-7(b) 렌더러가 쓸 자리).
+  **테스트**: `dice_test.gd`에 순수 데이터 검증 `_check_q7a_skill_diagrams()`
+  신규 — SKILLS/UNIQUE_SKILLS/UPGRADE_SKILLS/STARTING_SKILLS **네 배열의 모든
+  행**(해적 전용 중복 3행 포함, 고유 id 기준이 아니라 행 기준이라 중복 행도
+  각자 diagram이 있어야 FAIL을 피함)을 순회해 (1) diagram 비어있지 않음(새
+  스킬을 diagram 없이 추가하면 즉시 FAIL — INBOX "새 스킬 추가 시 누락이
+  FAIL로 걸리게" 요구 충족), (2) 기호 수(배열 길이) <= MAX_DIAGRAM_SYMBOLS,
+  (3) 각 칩의 "type"이 DIAGRAM_SYMBOL_TYPES 집합 안인지 검증. 결과: 전체
+  40행(고유 id 37개) 중 누락 0개, 기호 수 전부 상한 이내, 기호 종류 전부
+  유효. `bash scripts/qa_shot.sh dice_test 60 qa_out/q7a_dice_test.png "" 1`
+  전체 **PASS**(FAIL 0건) — 과정에서 **무관한 기존 테스트 1건(FAIL)을 함께
+  발견·수정**했다: `_check_art1c4_monster_dark_glow()`가 "그림자(shadow)
+  몬스터는 어두워서 글로우가 켜진다"를 production 자산으로 검증했는데,
+  직전 커밋(`ad19295`, 일반 몬스터 14종 v3 재디자인)으로 그림자를 포함한
+  모든 일반 몬스터가 밝아져 카탈로그 35종 전수 중 글로우 대상이 0종이 됐다
+  (`shadow` 휘도 0.253 >= 임계값 0.22) — 이 세션이 만든 변경이 아니라 직전
+  아트 커밋이 원인이지만, "dice_test 전체 PASS 확인 후 커밋" 규칙을 지키기
+  위해 수정했다. 수정 방향은 "미래에 아트가 또 바뀌어도 깨지지 않게" —
+  production "shadow" 대신 이미 섹션 4가 쓰던 합성 가짜 어두운 원화(0.05
+  휘도, `_art1c4_write_fake_square_full_dark()`)를 섹션 3의 "어두운 경로"
+  검증에도 재사용하도록 바꾸고(같은 fake_base_dir/fake_id를 섹션 3/4가
+  공유), "밝은 경로" 검증(슬라임)은 실제 production 자산 그대로 유지(밝은
+  몬스터가 다시 어두워질 가능성은 낮음). 이 파일 외 다른 테스트/코드는
+  건드리지 않았다. 셀프 피드백: 이번 조각은 순수 데이터/텍스트 테스트라
+  UI 변화가 없어(Q-7(b)/(c)가 렌더링 담당) `qa_out/q7a_dice_test.png`로
+  dice_test 텍스트 출력이 실제로 "결과: PASS"로 끝나는 것만 육안 확인했다.
+  전투 규칙/밸런스는 건드리지 않았고 `resources/`·`docs/art/`는 읽지
+  않았다(이번 조각은 코드/데이터 전용).
+
 - **2026-10-17 (227)**: **[대형 기획 15] Q-6(스킬 도감 정리, 원문 2/4/8) 전체
   완료 — [대형 기획 15](Q-1~Q-6) 전체 완료.** `code/scenes/skill_codex_panel.gd`
   (`SkillCodexPanel`)의 카드 레이아웃을 전면 개편했다.
