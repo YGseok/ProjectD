@@ -5,38 +5,38 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-10-20 (241)
-- 작성자: AI 에이전트. **[대형 기획 15] Q-12(보스 설정 확정 반영, 사용자 확정
-  지시) 완료.** 보스 6종의 이름/색/personality는 이미 반영돼 있었고(원장
-  `docs/art/ART_RESOURCES.md` 3-8 표는 읽기만), 남은 "스토리 활용" 3가지를
-  구현했다. (a) `MonsterCatalog.MONSTERS`의 보스 6종에 보스전 진입 대사
-  `intro`(기본) + `character_intro`(캐릭터 전용 변형 사전) 데이터를 추가하고,
-  조회 순수 함수 `MonsterCatalog.boss_intro_text(monster, character_id)`를
-  신설했다(character_intro 우선, 없으면 intro, 둘 다 없으면 빈 문자열).
-  광란의 마수(광전사의 언니)×광전사/타락한 기사단장(수호자의 전 기사단장)×
-  수호자 2종은 원문 필수 요구라 캐릭터 전용 변형을 채웠고(동생/옛 부하를
-  알아보는 대사), 고블린 왕×매혹사/영계의 지배자×해적 2종은 "가능하면"
-  권장이라 보너스로 추가했다. `combat_test.gd`의 `_ready()`가 몬스터 구성
-  직후 `monster_is_boss`일 때만 이 함수로 조회해 전투 기록 로그 첫 줄에
-  찍는다(배너 대신 기존 로그 패널 재사용 — 신규 UI 없음). (b)
-  `EventChallengePool.CHALLENGES`의 기존 캐릭터 전용 이벤트(duel_arena=광전사,
-  ancient_oath=수호자) prompt 문구에 "가족"/"옛 기사단" 언급 한 문장씩만
-  추가했다(새 시스템 없음). (c) `MonsterCodexPanel` 상세 뷰 info_label에
-  보스만 "등장: <기본 intro>" 줄을 추가했다(캐릭터 변형은 리소스 확인용
-  도감에서 숨김). `dice_test.gd`에 신규 `_check_q12_boss_intro()`(11항목,
-  production `combat_test.tscn`을 3번 인스턴스화해 전투 기록 로그에 실제로
-  찍히는지까지 확인) 추가해 `bash scripts/qa_shot.sh dice_test 60
-  qa_out/dice_test_q12b.png "" 1` **foreground 전체 PASS(FAIL 0건) 직접
-  확인**(run_in_background 금지). 셀프 피드백 스크린샷 5장(광전사×광란의
-  마수/수호자×타락한 기사단장 전투 화면, 고블린 왕 도감 상세, duel_arena/
-  ancient_oath 이벤트 화면)을 직접 읽어 대사 줄이 HUD/다이스 스테이지와
-  안 겹치는 것을 확인했다 — 그 중 `q12_event_ancient_oath.png`에서 이번에
-  건드리지 않은 `subtitle` 필드가 원인인 기존 제목 겹침 버그(우상단 "스킬
-  도감" 버튼과 겹침)를 발견했으나 범위 밖이라 고치지 않고 "알려진 이슈"에만
-  기록했다. 전투 규칙/밸런스는 전혀 안 건드렸고 `resources/`·`docs/art/`는
-  읽기만 했다(add 안 함). **다음은 여전히 Q-9(고유 능력/업적 아이콘)~Q-10
-  (스토리 이벤트 일러스트 경로) — 둘 다 "경로 배선 + 아트 발주 목록 정리"
-  성격이라 조각 단위로 진행 가능.**
+- 일시: 2026-10-20 (242)
+- 작성자: AI 에이전트. **[대형 기획 15] Q-10(스토리 이벤트 일러스트 경로,
+  원문 22) 완료.** INBOX 설계대로 스토리 이벤트 8종(`StoryEventPool.
+  SCENARIOS`, 신규 `id` 필드 추가)과 특수 이벤트의 판정/캐릭터 전용 이벤트
+  8종(`EventChallengePool.CHALLENGES`, 기존 `id` 재사용) 전부에
+  `resources/events/<event_id>.png` 일러스트 슬롯을 만들었다. `CharacterArt`에
+  skill_icon.gd K-4c와 같은 평면 경로 패턴(`event_art_path()`/
+  `has_event_art()`/`load_event_art()`, production res://와 테스트 주입
+  경로 이중 지원)과 `face_art_fade.gdshader` 재사용 헬퍼(`build_illustration_
+  rect()`/`refresh_illustration_rect()`, 네 방향 페이드)를 추가해 event.gd/
+  story_event.gd가 공유한다. 레이아웃은 두 화면 다 "판정/선택 전" 단계에만
+  실제로 비어있는 구역(event.gd는 `Rect2(40,280,420,360)`, story_event.gd는
+  `Rect2(40,350,290,290)`)에 그리고, event.gd는 결과가 나오면(`_grant_
+  reward()`/`_show_fail()`) 그 자리를 결과 카드가 다시 쓰므로 숨기며(계산상
+  겹침 확인), story_event.gd는 겹치는 요소가 없어 선택 후에도 유지한다.
+  아트가 없으면 두 화면 다 기존 배경 그대로(회귀 없음). **Q-12 인수인계
+  필수 동반 수정**(알려진 이슈 2026-10-20): event.gd/story_event.gd 둘 다
+  title_label에 `clip_text`+`OVERRUN_TRIM_ELLIPSIS`를 추가하고 두 `.tscn`의
+  Title 박스 우측 경계를 1240→1060으로 줄여, 긴 subtitle(ancient_oath 등)에서
+  "스킬 도감" 버튼과 겹치던 버그를 고쳤다. `dice_test.gd`에 신규
+  `_check_q10_event_illustrations()` 추가(user:// 합성 PNG로 파일 있음/
+  없음 계약 검증 + production 씬 실배선 end-to-end + ancient_oath 제목의
+  실측 폰트 폭(1174px)이 박스 폭(1020px)보다 넓다는 것까지 확인해 클리핑이
+  실제로 필요한 조건을 재현), `bash scripts/qa_shot.sh dice_test 60
+  qa_out/dice_test_q10.png "" 1` **foreground 전체 PASS(FAIL 0건) 직접
+  확인**(run_in_background 금지). 셀프 피드백 스크린샷 5장(일러스트 표시
+  2화면, ancient_oath/duel_arena 제목 겹침 해소, 아트 없는 기본 상태 2화면
+  회귀 없음)을 직접 읽어 확인 — QA 전용 0-arity 훅이 user:// 임시 PNG만
+  쓰고 `resources/events/`는 전혀 건드리지 않았다. `docs/STATUS.md`에
+  스토리/특수 이벤트 16종 전수 아트 발주 표(id/제목/장면) 정리. 전투 규칙/
+  밸런스는 건드리지 않았고 `resources/`·`docs/art/`는 읽기만 했다(add 안 함).
+  **[대형 기획 15]는 이제 Q-9(고유 능력/업적 아이콘)만 남음.**
 
 ## 지금 위치
 
@@ -207,7 +207,21 @@ SHIFT`에 y=130을 더해 해결했다(일반/정예 크롭은 변경 없음). �
 시(`combat_test.gd`, 전투 기록 로그 첫 줄)/몬스터 도감 상세 뷰(`등장:` 줄,
 기본 문구만)가 공유한다. 광전사/수호자 전용 스토리 이벤트(`EventChallengePool`
 의 duel_arena/ancient_oath) prompt에도 "가족"/"옛 기사단" 언급 한 문장씩 추가.
-자세한 내용은 아래 "완료 기록 (241)" 참고.
+자세한 내용은 `docs/STATUS.md` 완료 기록(241, `docs/STATUS_ARCHIVE.md`로
+옮겨지기 전까지) 참고.
+**스토리/특수 이벤트 일러스트(2026-10-20 [대형 기획 15] Q-10 완료)** —
+스토리 이벤트 8종(`StoryEventPool.SCENARIOS`)과 특수 이벤트의 판정/캐릭터
+전용 이벤트 8종(`EventChallengePool.CHALLENGES`)마다 `resources/events/
+<event_id>.png` 일러스트 슬롯이 있다. event.gd/story_event.gd가
+`CharacterArt.refresh_illustration_rect()`(스킬 아이콘 K-4c와 같은 평면
+경로 패턴 + `face_art_fade.gdshader` 네 방향 페이드 재사용)를 공유해,
+선택/판정 전 비어있는 구역에만 그리고(event.gd는 판정 결과가 나오면 숨김,
+story_event.gd는 겹치는 요소가 없어 유지) 아트가 없으면 기존 배경 그대로다.
+같은 작업에서 발견한 기존 버그(`event.gd`/`story_event.gd` title_label에
+폭 제약이 없어 긴 subtitle이 우상단 "스킬 도감" 버튼과 겹침)도 함께
+고쳤다(clip_text+말줄임). 자세한 내용은 아래 "완료 기록 (242)"와 "스토리/
+특수 이벤트 일러스트 발주 목록" 표 참고. **[대형 기획 15]는 이제 Q-9
+(고유 능력/업적 아이콘)만 남음.**
 **큐의 나머지 항목은 대부분 사람 플레이테스트/피드백 또는 설계 결정이
 필요한 상태** — 자세한 내용은 "알려진 이슈 / 막힌 것" 섹션 참고.
 
@@ -793,8 +807,11 @@ true_strike) 재사용. 작업 중 2/4·3/4의 "매혹의 응보"/"저주의 흡
 전설 스킬, a→b→c→d) 전체 완료**: 전설 전용 격리 밸런스 시뮬로 24종을 측정해
 이상치 2종(광전 돌격 구조적 버그/운명의 보정 수치 과다)을 수정하고,
 DESIGN.md 레어리티 표 + STATUS.md 아트 발주 표(완료 기록 (238))까지 정리.
-**다음은 Q-9(고유 능력/업적 아이콘)~Q-11(몬스터 도감) — INBOX에 세부 설계가
-있는지 다음 이터레이션이 먼저 확인할 것.**
+이어서 2026-10-20(239)로 **Q-11(몬스터 도감) 완료**, (240)로 **Q-11b(몬스터
+도감 보완) 완료**, (241)로 **Q-12(보스 설정 스토리 반영, 사용자 확정 지시)
+완료**, (242)로 **Q-10(스토리 이벤트 일러스트 경로) 완료**까지 끝났다(각
+상세는 위 "지금 위치"와 아래 완료 기록/`docs/STATUS_ARCHIVE.md` 참고).
+**[대형 기획 15]는 이제 Q-9(고유 능력/업적 아이콘) 하나만 남았다.**
 
 남은 구조적 후보(급하지 않음): 보스 개별 6종 중 타락한 기사단장만 밴드 미달
 (`MonsterSkills.modify_monster_roll()` 파라미터화가 전제조건이라 사람 설계
@@ -1405,6 +1422,103 @@ DESIGN.md 레어리티 표 + STATUS.md 아트 발주 표(완료 기록 (238))까
 
 ## 완료 기록
 
+- **2026-10-20 (242)**: **[대형 기획 15] Q-10(스토리 이벤트 일러스트 경로,
+  원문 22) 완료.** INBOX 설계를 그대로 따라 스토리 이벤트(8종)·특수 이벤트의
+  캐릭터 전용/판정 이벤트(8종, 합쳐서 resources/events/ 폴더를 공유)마다
+  `resources/events/<event_id>.png` 슬롯을 만들었다.
+  **(1) 경로/로더**: `CharacterArt`에 skill_icon.gd K-4c와 같은 "평면
+  `<base_dir><id>.png`" 패턴(캐릭터/몬스터의 `<id>/full.png` 폴더 패턴과
+  다름)으로 `event_art_path()`/`has_event_art()`/`load_event_art()`(production
+  res:// 경로는 ResourceLoader, 테스트 주입 경로는 FileAccess+Image.load — 기존
+  `load_face()`와 동일한 이중 경로)를 추가하고, `face_art_fade.gdshader`(ART-2/
+  ART-1c-3)를 재사용하는 `build_illustration_rect()`(네 방향 모두 옅게 페이드 —
+  캐릭터 표정 컷은 하단만 자르지만 이벤트 일러스트는 상황 전체를 담은 사각
+  그림이라 좌/우/상단도 블렌딩)와 공용 갱신 헬퍼 `refresh_illustration_rect()`
+  (이전 rect를 지우고 아트가 있으면 새로 붙여 반환, 없으면 null — event.gd/
+  story_event.gd가 공유)를 신설했다. 이벤트 id는 하드코딩하지 않고 데이터
+  순회로만 다룬다 — `StoryEventPool.SCENARIOS`(기존엔 title만 있었음)에 안정적
+  slug `id`(예: old_chest/wandering_merchant/...8종)를 신규 추가했고,
+  `EventChallengePool.CHALLENGES`는 이미 `id`가 있어 그대로 재사용(8종:
+  treasure/gambling/exploration/trap_disarm/treasure_map/circus_master/
+  duel_arena/ancient_oath).
+  **(2) 레이아웃(겹치지 않게)**: 두 화면 다 "판정/선택 전" 단계에만 실제로
+  비어있는 구역을 찾아 그 자리에만 그린다 — `event.gd`는 safe/risky/특별
+  선택지 버튼(y≤262)과 승리/실패 결과 구역(y≥324, 카드/주사위 결과/실패 문구)
+  사이의 빈 공간 `Rect2(40,280,420,360)`에 그리고, 판정 결과가 나온 순간
+  (`_grant_reward()`/`_show_fail()` — safe/risky/특별 선택지 세 경로가 전부
+  이 두 함수로 모여 한 지점만 고치면 됐다) 그 자리를 결과 카드가 다시 쓰므로
+  일러스트를 `hide()`한다. `story_event.gd`는 선택지 A/B(y:220-340) 아래의
+  빈 공간 `Rect2(40,350,290,290)`에 그리는데, 결과 라벨(x:40-1240,y:220-280)/
+  계속 버튼(x:470-810,y:400-450) 둘 다 이 구역과 실제로 안 겹쳐서(계산 확인)
+  선택 후에도 숨기지 않고 계속 보여준다(event.gd와의 차이를 코드 주석에
+  명시). 아트가 없으면 두 화면 다 `_illustration_rect`가 계속 null이라 기존
+  배경(CharacterTheme.apply_background) 그대로 — 레이아웃 변화 없음(회귀 없음).
+  **(3) Q-12 인수인계 필수 동반 수정(알려진 이슈 2026-10-20)**: `event.gd`/
+  `story_event.gd` 둘 다 title_label에 `clip_text=true`+
+  `text_overrun_behavior=TextServer.OVERRUN_TRIM_ELLIPSIS`(character_select.gd
+  등 기존 패턴)를 추가하고, 두 `.tscn` 모두 Title 박스 우측 경계를 1240→1060으로
+  줄여 우상단 `SkillCodexButton`(x:1080-1240) 앞에서 멈추게 했다 — ancient_oath
+  (가장 긴 subtitle)로 재현 캡처해 겹침이 사라진 것을 확인(아래 셀프 피드백).
+  **테스트**: `dice_test.gd`에 신규 `_check_q10_event_illustrations()`(계산
+  결과 기준) — (1)(2) `CharacterArt.load_event_art()`/`has_event_art()`가
+  user:// 합성 PNG로 "파일 없음→null/false"(생성 전)·"파일 있음→
+  Texture2D/true"(생성 후)를 실제로 바꾸는지 (3) 판정+스토리 이벤트 전수 id
+  존재 + 두 풀을 합쳐도 전체 유니크(같은 폴더 공유라 충돌하면 안 됨) (4)
+  production `event.tscn`을 실제 인스턴스화해 아트 없음→`_illustration_rect`
+  null(폴백)→아트 있음→실제 노드+텍스처 표시→안전/위험 버튼과 실제
+  `get_global_rect()` 비겹침→선택 후 hide() 순서로 검증, ancient_oath
+  제목은 실제 폰트로 측정한 렌더 폭(1174px)이 박스 폭(1020px)보다 넓다는
+  것까지 확인해(클리핑 없었다면 진짜로 겹쳤을 조건) clip+ellipsis 설정과
+  스킬 도감 버튼 비겹침을 함께 검증 (5) `story_event.tscn`도 동일 계약
+  (아트 없음/있음/버튼 비겹침) + 선택 후에도 유지되는지. `bash scripts/qa_shot.sh
+  dice_test 60 qa_out/dice_test_q10.png "" 1` **foreground 전체 PASS(FAIL
+  0건)** 직접 확인(run_in_background 금지). 셀프 피드백 스크린샷 5장 —
+  QA 전용 0-arity 훅(`_debug_qa_illustration_demo()`, user:// 임시 PNG만
+  쓰고 `resources/events/`는 건드리지 않음)으로 일러스트가 실제로 표시되는
+  두 화면(특수/스토리 이벤트, 합성 그라데이션이 좌하단에 자연스러운 가장자리
+  페이드와 함께 표시되고 어떤 텍스트/버튼과도 안 겹침), ancient_oath/
+  duel_arena 제목(둘 다 더는 "스킬 도감" 버튼과 안 겹치고 말줄임표로
+  정리됨), 아트 없는 기본 상태 2장(기존과 동일한 화면, 회귀 없음)을 직접
+  읽어 확인했다. `resources/events/`에는 테스트 파일을 만들지 않았고(전부
+  user:// 임시 디렉터리만 사용), `resources/`·`docs/art/`는 읽기만 했다.
+  전투 규칙/밸런스는 건드리지 않았다. 아래 "스토리/특수 이벤트 일러스트
+  발주 목록" 표 참고. **[대형 기획 15]는 이제 Q-9(고유 능력/업적 아이콘)만
+  남음.**
+
+  **스토리/특수 이벤트 일러스트 발주 목록(Q-10, 아트 스레드 전달용)** — 경로
+  규칙: `resources/events/<id>.png`(캐릭터 원화와 그림체를 맞춰 상황/배경
+  일러스트, 권장 가로:세로 약 7:6, 더 클 경우 중앙 크롭됨). "전용"은
+  `only_characters`로 그 캐릭터만 볼 수 있는 이벤트.
+
+  *스토리 이벤트 8종(`StoryEventPool.SCENARIOS`, 공용)*
+  | id | 제목 | 장면 |
+  |---|---|---|
+  | old_chest | 낡은 보물상자 | 먼지 쌓인 낡은 보물상자, 함정 느낌의 어두운 방 |
+  | wandering_merchant | 떠돌이 상인 | 지친 행색의 떠돌이 상인이 여비를 구걸 |
+  | resting_spot | 휴식처 | 안전해 보이는 공터에서 짐을 정비하는 모습 |
+  | suspicious_gambler | 수상한 도박꾼 | 뒷골목 분위기의 수상한 도박꾼과 내기 판 |
+  | ruined_altar | 무너진 제단 | 오래되어 무너진 제단, 동전을 바치는 전설 |
+  | hidden_path | 숨겨진 샛길 | 지도에 없는 두 갈래 샛길, 어둡고 의문스러운 분위기 |
+  | injured_traveler | 부상당한 여행자 | 길가에 쓰러져 도움을 청하는 부상당한 여행자 |
+  | abandoned_camp | 버려진 야영지 | 급히 떠난 흔적이 있는 버려진 야영지, 흩어진 짐 |
+
+  *특수 이벤트 — 판정 이벤트 4종(`EventChallengePool.CHALLENGES`, 공용)*
+  | id | 제목 | 장면 |
+  |---|---|---|
+  | treasure | 안전/위험 보물 | 이상한 기운이 느껴지는 보물의 방 |
+  | gambling | 도박 | 뒷골목의 수상한 도박판 |
+  | exploration | 샛길 탐색 | 두 갈래 샛길 중 낯선 쪽을 탐색하는 장면 |
+  | trap_disarm | 함정 해체 | 바닥에 놓인 낡은 함정 장치 |
+
+  *특수 이벤트 — 캐릭터 전용 이벤트 4종(`EventChallengePool.CHALLENGES`,
+  `only_characters`)*
+  | id | 제목 | 전용 캐릭터 | 장면 |
+  |---|---|---|---|
+  | treasure_map | 낡은 보물 지도 | 해적(pirate) | 선장만 알아볼 수 있는 해도 표식이 가리키는 방 |
+  | circus_master | 서커스 단장의 내기 | 곡예사(juggler) | 낯익은 서커스 단장과의 내기, 묘기 무대 분위기 |
+  | duel_arena | 결투장의 부름 | 광전사(berserker) | 싸움을 원하는 거친 외침이 들려오는 결투장 — 언니(광란의 마수)를 떠올리게 하는 여운 |
+  | ancient_oath | 오래된 성소의 수호 서약 | 수호자(guardian) | 수호자의 기운에 반응해 조용히 열리는 낡은 성소, 옛 기사단의 흔적 |
+
 - **2026-10-20 (241)**: **[대형 기획 15] Q-12(보스 설정 확정 반영, 2026-10-20
   사용자 확정 지시) 완료.** 이름/색/personality는 이미 `monster_catalog.gd`에
   반영돼 있어(원장 `docs/art/ART_RESOURCES.md` 3-8 표는 읽기만) 남은 일감인
@@ -1961,96 +2075,24 @@ DESIGN.md 레어리티 표 + STATUS.md 아트 발주 표(완료 기록 (238))까
   `resources/`·`docs/art/`는 읽기만 했다. **[대형 기획 13]에 남은 조각
   없음 — 다음은 [대형 기획 15] Q-8(c)(전설 스킬 구현)로 복귀.**
 
-- **2026-10-19 (232)**: 직전 이터레이션(Q-8(b))이 주간 한도로 중단된 것을
-  `git diff`로 파악해 이어받아 **[대형 기획 15] Q-8(b)(등급별 효과 차등, 원문 5)
-  완료**. 직전 이터레이션이 이미 구현해둔 코드(stash/reset 없이 그대로 이어감)를
-  검증·마무리했다 — **UPGRADE_SKILLS 11쌍 전수 감사 결과, 11쌍 전부 이미
-  "상위 등급이 베이스 이상의 효과/완화된 조건"을 지키고 있어 효과 수치를 바꾸는
-  코드 변경은 하지 않았다**(표는 아래). 기존 인라인 삼항연산자/if-elif로만
-  존재하던 효과 수치 4곳(`combat_test.gd`의 `_frenzy_extra_rolls()`/
-  `_guard_extra_rolls()`/`_spare_die_count()`, `run_state.gd`의
-  `RunState._juggle_encore_swap_count()`)을 동작 불변 그대로 순수 함수로 뽑아내
-  `dice_test.gd`가 "플래그 존재"가 아니라 "계산 결과 수치"로 직접 비교할 수
-  있게 했다(세션 지침 "계산 결과가 실제로 바뀌는가를 검증" 반영). 설명 문구
-  감사 중 "광기 심화+"/"수호 심화+" 2건이 절대값("세 번 굴려")만 적고 베이스
-  대비 변화("두 번이 아니라 세 번")를 드러내지 않아 문구만 보강했다(효과 자체는
-  불변 — 나머지 9쌍은 이미 "1개가 아니라 2개"/"절반이 아니라 전부"/"3에서
-  2로" 같은 대비 phrasing을 쓰고 있어 손대지 않음).
-  **UPGRADE_SKILLS 11쌍 감사 표** (기반 → "+", 효과 수치 차이, 전부 규칙 준수):
-  | 기반 | "+" | 효과 차이 |
-  |---|---|---|
-  | 심호흡(첫 방어턴만 +1) | 심호흡+ | 매 방어턴 +1 (적용 범위 확대) |
-  | 여분(여분 다이스 1개) | 여분+ | 여분 다이스 2개 |
-  | 광기 심화(보너스턴 리롤 1회, 총 2굴림) | 광기 심화+ | 리롤 2회(총 3굴림) |
-  | 수호 심화(보너스턴 리롤 1회, 총 2굴림) | 수호 심화+ | 리롤 2회(총 3굴림) |
-  | 연쇄 폭발(임계치 2, 리롤 0회) | 연쇄 폭발+ | 임계치 2 유지 + 리롤 1회 추가(최댓값 채택이라 절대 감소 없음) |
-  | 연쇄 방어(임계치 2, 리롤 0회) | 연쇄 방어+ | 임계치 2 유지 + 리롤 1회 추가 |
-  | 임기응변(공/방 임계치 3/3) | 임기응변+ | 임계치 2/2로 완화 |
-  | 매혹 심화(최저값 2개 변환) | 매혹 심화+ | 3개 변환(결과 합계 상승) |
-  | 곡예 앙코르(라운드당 맞바꾸기 1회) | 곡예 앙코르+ | 2회 |
-  | 일제 사격(고정 피해 = 공격합의 ceil(÷2)) | 일제 사격+ | 고정 피해 = 공격합 전부 |
-  | 곡예 흥행(이벤트 주사위 +1) | 곡예 흥행+ | +2 |
-  검증은 `dice_test.gd`의 `_check_q8b_upgrade_effect_values()`(신규, 11쌍 +
-  쌍 개수 전수 확인 1건 = 12개 체크)가 전부 "플래그 보유 여부"가 아니라 위
-  순수 함수/계산 호출 결과값으로 base < plus를 직접 비교. 전체 스위트
-  `bash scripts/qa_shot.sh dice_test 60 qa_out/q8b_dice_test.png "" 1` **PASS**
-  (FAIL 0건, Q-8(b) 체크 12/12 OK 포함).
-  **등급 사다리 후보(감독 판단용, 코드 변경 안 함)**: SKILLS(2종, 공용)+
-  UNIQUE_SKILLS(9종, 고유)=11종은 이미 전부 "+"판이 있어 11쌍과 정확히
-  1:1 대응한다. 반면 **STARTING_SKILLS(15행·고유 id 13종, 전부 일반 등급)는
-  "+"판이 하나도 없다** — 맹공/철벽/확장/정예/수집가/강철 방비/선제/대비/
-  황금손/과적/오뚝이/승부사·눈속임(동일 효과, 별도 id)/한탕/잡화점. 전부
-  "조건부 +1(또는 +2) 다이스 보정" 류라 강화판을 만든다면 "조건 완화" 또는
-  "+1→+2" 패턴이 자연스러워 보이나, **이번 조각 범위(Q-8b)는 기존 쌍의 감사만
-  — 새 "+"판을 만들지 않았다.** 필요 여부/우선순위는 Q-8(d) 또는 별도
-  지시로 감독이 판단.
-  **balance_sim 재확인**: 직전 이터레이션이 이미 한 차례 돌려 BALANCE_TUNING_LOG.md에
-  기록해뒀던 결과를, 코드 변경 없음(순수 추출 리팩터만)을 전제로 다시 한 번
-  `bash scripts/qa_shot.sh balance_sim` → `balance_target_check` 풀로 재실행해
-  재현성을 확인했다. **주요 4개 판정 항목(일반 방0~2/방3/정예/보스)은 재실행에서
-  전부 "통과"**(일반 방0~2 98.2%/방3 76.3%/정예 56.6%/보스 38.0%)이고, 견습
-  모험가의 전체 평균 이상치 편차는 직전 커밋 기준 +17.4%p → 이번 +18.3%p로
-  **변화폭 1%p 미만(±5%p 목표 안)** — Q-8(b) 코드 변경(순수 리팩터 + 문구 2건)이
-  밸런스에 실질적 영향을 주지 않았음을 확인. **다만 두 번의 독립 재실행
-  (직전 이터레이션 1회 + 이번 1회) 모두 "캐릭터별 평균 이상치" 표에
-  **곡예사가 새로 -26%p대 이상치로 나타난다** — 이는 Q-8(b) 변경과 무관하다:
-  (a) 곡예사 코드(juggle_swap/juggle_encore)는 이번 세션에서 전혀 건드리지
-  않았고 (b) 이 "이상치" 표가 쓰는 지표는 "성장 정책(balanced) 슬롯0 전용"
-  축인데, 곡예사 슬롯0(눈속임)이 **전투 시뮬에 기여가 0인 이벤트 전용 스킬**이라
-  이 지표로 전투력을 재는 것 자체가 측정 구조의 한계임이 이미
-  `BALANCE_TUNING_LOG.md`의 "N-5(c)(2026-10-16)" 섹션에 문서화돼 있다(그때도
-  같은 지표에서 -44.37%p로 훨씬 크게 벗어났었고, "1차 판정 기준은 다른 지표
-  (기존 balance_sim 81개 조합 평균, 그때 -7.69%p로 통과)로 쓰고 이 축은 한계만
-  기록한다"고 이미 결론남). 즉 이번에 보인 -26%p는 **J-4(2026-10-13) 이후
-  처음으로 이 표를 재생성하면서 그 사이(Q-1~Q-8a) 쌓인 변화가 반영된 것으로
-  보이며, Q-8(b) 작업의 부작용이 아니다** — 새로 조정하지 않았다(범위 밖,
-  Q-8(d) 또는 전담 밸런스 이터레이션 몫으로 남김).
-  `BALANCE_TUNING_LOG.md`의 "최신 측정" 섹션은 이번 재실행 수치로 갱신,
-  기존 "N-5(c)" 등 다른 섹션은 건드리지 않았다. 전투 규칙 자체는 바뀐 것이
-  없으므로(STATUS.md "다음 할 일 큐"의 다음 항목은 Q-8(c)) `docs/DESIGN.md`는
-  건드리지 않았다. `resources/`·`docs/art/`는 읽기만 했다.
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(241)에서 (231)을 그리로 옮겼다.)*
+이번 이터레이션(242)에서 (232)를 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 
-- **(2026-10-20, 241) `event.gd`의 특수 이벤트 제목 라벨(`title_label`)이
-  `subtitle`이 긴 챌린지에서 우상단 "스킬 도감" 버튼과 겹친다 — Q-12와
-  무관한 기존 버그.** `ancient_oath`(수호자 전용, "오래된 성소의 수호
-  서약 — 수호자만이 받을 수 있는 맹세다.")로 QA 캡처
-  (`qa_out/q12_event_ancient_oath.png`)해 직접 발견했다. 이번 이터레이션은
-  이 챌린지의 `prompt` 필드만 수정했고(Q-12(b), "옛 기사단" 언급 한
-  문장 추가) `subtitle`은 전혀 안 건드렸는데도 겹침 — `title_label`이 이
-  특정 챌린지로 실제 캡처된 것 자체가 이번이 처음이라(신규
-  `_debug_force_ancient_oath_event` QA 훅) 전부터 있었지만 아무도 못 본
-  버그로 추정된다. `duel_arena`(광전사 전용)는 subtitle이 더 짧아 안
-  겹침. 원인 후보: `title_label`에 autowrap/폭 제약이 없어 보임(event.gd
-  158번대 `@onready var title_label`) — 고치려면 `prompt_label`처럼
-  autowrap을 걸거나 subtitle 길이에 상한을 두는 방향. Q-12 범위 밖이라
-  손대지 않음 — 다음에 제목 라벨 레이아웃을 다룰 때(또는 전용 이벤트
-  subtitle을 추가/수정할 때) 함께 고칠 것.
+- ~~**(2026-10-20, 241) `event.gd`의 특수 이벤트 제목 라벨(`title_label`)이
+  `subtitle`이 긴 챌린지에서 우상단 "스킬 도감" 버튼과 겹친다.**~~ →
+  **해결됨(2026-10-20, 242, Q-10 "필수 동반 수정").** event.gd/
+  story_event.gd 둘 다 title_label에 `clip_text=true`+
+  `text_overrun_behavior=TextServer.OVERRUN_TRIM_ELLIPSIS`(character_select.gd
+  등 기존 패턴)를 추가하고, 두 `.tscn`의 Title 박스 우측 경계를
+  1240→1060으로 줄여 우상단 `SkillCodexButton`(x:1080-1240) 앞에서
+  멈추게 했다. `dice_test.gd`의 `_check_q10_event_illustrations()`
+  (4e)가 ancient_oath로 실측 폰트 폭(1174px, 박스 폭 1020px보다 넓음 —
+  클리핑 없었다면 실제로 겹쳤을 조건)까지 확인하는 회귀 테스트로 고정됐다.
+  duel_arena도 같은 수정으로 함께 커버됨(원래도 덜 겹쳤지만 동일 메커니즘
+  적용).
 - **(2026-10-20, 237) `dice_test.gd`의 `_apply_spare_die(count=2, '여분+')` 확률
   비교 테스트(60회 표본, "여분+" 대체 횟수가 "여분" 이상인지)가 간헐적으로
   FAIL할 수 있다.** 이번 이터레이션에서 1회 FAIL → 재실행 시 바로 PASS로

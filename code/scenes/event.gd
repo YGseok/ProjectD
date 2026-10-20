@@ -143,6 +143,19 @@ var _challenge: Dictionary = EventChallengePool.CHALLENGES[0]
 ## 새로 만들어지므로, 이전 것을 지우기 위해 참조를 들고 있는다(없으면 null).
 var _special_button: Button = null
 
+## [대형 기획 15] Q-10(2026-10-20): resources/events/<challenge id>.png가 있을 때
+## safe/risky 선택 전(= 상황을 읽는 동안)에만 보여주는 일러스트. 이 방의 "판정
+## 이후" 구역(RollRoot/ItemsRoot/FailLabel)과 자리가 겹치므로, 고르고 나면
+## (_grant_reward()/_show_fail()에서) 숨긴다 — 아트가 없으면 계속 null이라 화면은
+## 기존 배경(CharacterTheme.apply_background) 그대로다.
+const ITEM_EVENT_ILLUSTRATION_RECT := Rect2(40, 280, 420, 360)
+var _illustration_rect: TextureRect = null
+
+## CharacterArt.load_event_art()에 넘기는 base_dir — dice_test.gd가 합성 PNG로
+## "파일 있음/없음" 양쪽을 production 리소스에 의존하지 않고 검증할 수 있도록 여는
+## 테스트 주입 지점(character_portrait_placeholder.gd의 art_base_dir과 같은 패턴).
+var event_art_base_dir: String = CharacterArt.EVENT_ART_DIR
+
 ## N-6: run_seed+방 번호로 챌린지 선택을 결정적으로 만드는 시드 공식 — 몬스터 플랜
 ## (run_state.gd의 ELITE_SEED_OFFSET)이나 던전 맵 방 선택지(dungeon_map.gd의
 ## idx*104729+7, run_seed 미포함)와 오프셋을 분리해 "이 시드가 어디서 왔는지"
@@ -165,6 +178,13 @@ func _ready() -> void:
 	_dc = gambler_adjusted_dc(difficulty_for_room(RunState.rooms_cleared), RunState.skill_flags.has("start_gambler") or RunState.skill_flags.has("start_sleight"))
 	customize_button.pressed.connect(customize_panel.open)
 	skill_codex_button.pressed.connect(_on_skill_codex_pressed)
+	# Q-12 인수인계 버그 수정(알려진 이슈 2026-10-20) — title_label에 폭 제약이 없어
+	# subtitle이 긴 챌린지(ancient_oath 등)에서 우상단 SkillCodexButton과 겹쳤다.
+	# clip_text+말줄임(character_select.gd 등 기존 패턴)으로 한 줄 안에 가두고,
+	# 아래 event.tscn에서 Title 우측 경계도 SkillCodexButton(x=1080) 앞에서 멈추도록
+	# 줄였다.
+	title_label.clip_text = true
+	title_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	fail_label.hide()
 	continue_button.hide()
 	continue_button.pressed.connect(_on_continue_after_fail_pressed)
@@ -215,6 +235,11 @@ func _ready() -> void:
 ## 그대로 동작한다(하드코딩 금지 원칙).
 func _setup_item_event() -> void:
 	title_label.text = "특수 이벤트 — %s" % _challenge["subtitle"]
+	# Q-10: 선택 전 상황을 보여주는 일러스트 — _challenge가 바뀔 때마다(최초 또는
+	# _debug_force_challenge()) 이전 것을 지우고 새로 만든다.
+	_illustration_rect = CharacterArt.refresh_illustration_rect(
+		self, _illustration_rect, _challenge["id"], ITEM_EVENT_ILLUSTRATION_RECT, event_art_base_dir
+	)
 	# N-6: 전용 이벤트(이 캐릭터만 볼 수 있는 챌린지)는 제목 옆에 배지를 붙인다 —
 	# pick_challenge()가 전용 이벤트를 소유 캐릭터에게만 돌려주므로 only_characters
 	# 목록을 따로 확인할 필요 없이 현재 RunState.character_id 이름만 쓰면 된다.
@@ -458,6 +483,11 @@ func _show_roll_result(roll: int, tier: String) -> void:
 ## 한 번 추첨해 실제로 RunState에 반영하고 화면에 보여준다. "type"으로만 분기해 챌린지
 ## 종류와는 무관하다 — 새 챌린지가 생겨도 이 함수는 그대로다.
 func _grant_reward(spec: Dictionary) -> void:
+	# Q-10: 판정 이후 구역(카드/결과 문구)이 일러스트 자리와 겹치므로 여기서 치운다 —
+	# safe/위험 성공/특별 선택지 세 경로가 전부 이 함수로 모이므로 한 지점만 고치면
+	# 됨(_on_safe_pressed/_on_risky_pressed/_on_special_pressed 전부 커버).
+	if _illustration_rect != null:
+		_illustration_rect.hide()
 	var rolled := EventChallengePool.roll_reward(spec)
 	match String(rolled.get("type", "none")):
 		"item":
@@ -489,6 +519,10 @@ func _show_simple_result(text: String, is_success: bool) -> void:
 ## 타입이면 온건한 금액만큼 골드를 깎고(0 밑으로 내려가지 않음) 문구에 덧붙인다. 기존
 ## "보물" 챌린지의 fail_penalty는 "none"이라 이전과 동일하게 패널티 문구가 없다.
 func _show_fail(penalty_spec: Dictionary = {"type": "none"}) -> void:
+	# Q-10: _grant_reward()와 동일한 이유 — 실패 문구도 일러스트 자리(FailLabel
+	# x:260-1020,y:324-384)와 겹친다.
+	if _illustration_rect != null:
+		_illustration_rect.hide()
 	var rolled := EventChallengePool.roll_reward(penalty_spec)
 	var penalty_text := ""
 	if String(rolled.get("type", "none")) == "gold_loss":
@@ -809,6 +843,10 @@ func _debug_force_challenge(id: String) -> void:
 
 ## qa/visual_qa.gd의 GAME_QA_CALL용 인자 없는 래퍼 3개(아래) — N-5(b)로 추가된 각
 ## 챌린지의 초기 화면이 겹침/잘림 없이 보이는지 확인하기 위함.
+func _debug_force_challenge_treasure() -> void:
+	_debug_force_challenge("treasure")
+
+
 func _debug_force_challenge_gambling() -> void:
 	_debug_force_challenge("gambling")
 
@@ -819,6 +857,36 @@ func _debug_force_challenge_exploration() -> void:
 
 func _debug_force_challenge_trap_disarm() -> void:
 	_debug_force_challenge("trap_disarm")
+
+
+## QA 전용(GAME_QA_CALL) — [대형 기획 15] Q-10 인수인계 버그(알려진 이슈
+## 2026-10-20) 재현/수정 확인용. ancient_oath/duel_arena는 캐릭터 전용(only_characters)
+## 이라 실제 플레이에선 그 캐릭터만 보지만, _debug_force_challenge()는 RunState.
+## character_id와 무관하게 강제로 보여준다(원래 버그를 발견한 경로와 동일).
+func _debug_force_challenge_ancient_oath() -> void:
+	_debug_force_challenge("ancient_oath")
+
+
+func _debug_force_challenge_duel_arena() -> void:
+	_debug_force_challenge("duel_arena")
+
+
+## QA 전용(GAME_QA_CALL) — [대형 기획 15] Q-10 셀프 피드백 스크린샷용. resources/
+## events/(실제 리소스 폴더)를 전혀 건드리지 않고 user:// 임시 폴더에 합성 PNG를
+## 하나 써서 event_art_base_dir를 그쪽으로 돌린 뒤 "treasure" 챌린지를 강제한다 —
+## 이벤트 일러스트가 실제 화면에서 어떻게 보이는지 확인하려고 production 리소스를
+## 만들/지울 필요가 없게 한다(dice_test.gd의 (2)~(4) 검증과 같은 패턴).
+func _debug_qa_illustration_demo() -> void:
+	var tmp_dir := "user://qa_q10_demo/"
+	DirAccess.make_dir_recursive_absolute(tmp_dir)
+	var img := Image.create(640, 548, false, Image.FORMAT_RGBA8)
+	for y in img.get_height():
+		for x in img.get_width():
+			var t := float(y) / float(img.get_height())
+			img.set_pixel(x, y, Color(0.35 + 0.3 * t, 0.2 + 0.15 * t, 0.5 - 0.2 * t, 1.0))
+	img.save_png(tmp_dir + "treasure.png")
+	event_art_base_dir = tmp_dir
+	_debug_force_challenge("treasure")
 
 
 ## N-6 QA 전용(GAME_QA_CALL) — 특별 선택지가 "활성"(소유 캐릭터) 상태로 겹침 없이

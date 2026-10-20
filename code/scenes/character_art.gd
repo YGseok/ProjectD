@@ -257,3 +257,80 @@ static func load_face_thumb(character_id: String) -> Texture2D:
 	if face != null:
 		return face
 	return load_face_crop(character_id)
+
+
+## [대형 기획 15] Q-10(2026-10-20): 스토리 이벤트/특수 이벤트 일러스트 경로.
+## 캐릭터(<id>/full.png, <id>/face_*.png, 하위 폴더)와 달리 이벤트는 캐릭터 폴더
+## 구조가 필요 없는 평면 1파일 1이벤트라, BASE_DIR(%s 폴더 포맷)이 아니라
+## skill_icon.gd의 EXTERNAL_ART_DIR 패턴(base_dir + id + ".png")을 그대로 따른다.
+const EVENT_ART_DIR := "res://resources/events/"
+
+static func event_art_path(event_id: String, base_dir: String = EVENT_ART_DIR) -> String:
+	return base_dir + event_id + ".png"
+
+
+static func has_event_art(event_id: String, base_dir: String = EVENT_ART_DIR) -> bool:
+	return FileAccess.file_exists(event_art_path(event_id, base_dir))
+
+
+## load_face()와 동일한 이유로 production(res://, .import 경유 ResourceLoader)과
+## 테스트 주입 경로(user:// 등, FileAccess+Image.load)를 나눈다 — dice_test.gd가
+## 합성 PNG로 "파일 있음/없음" 양쪽을 production 리소스에 의존하지 않고 검증할 수
+## 있게 하기 위함.
+static func load_event_art(event_id: String, base_dir: String = EVENT_ART_DIR) -> Texture2D:
+	var path := event_art_path(event_id, base_dir)
+	if base_dir.begins_with("res://"):
+		if not ResourceLoader.exists(path):
+			return null
+		return load(path) as Texture2D
+	if not FileAccess.file_exists(path):
+		return null
+	var img := Image.new()
+	if img.load(path) != OK:
+		return null
+	img.generate_mipmaps()
+	return ImageTexture.create_from_image(img)
+
+
+## face_art_fade.gdshader(ART-2/ART-1c-3) 재사용 — 캐릭터 표정 컷은 "하단만 잘림"
+## 용도로 fade_start만 쓰지만, 이벤트 일러스트는 상황 전체를 담은 사각 그림이라
+## 네 방향(상/하/좌/우) 모두 옅게 블렌딩해 배경 비네트와 자연스럽게 섞이게 한다.
+const ILLUSTRATION_FADE_SHADER := preload("res://code/shaders/face_art_fade.gdshader")
+
+
+## 이벤트 일러스트용 TextureRect 하나를 만들어 돌려준다(아직 add_child는 안 함 —
+## 호출부가 parent/표시 시점을 결정). rect(위치+크기)만 받고 비율 유지로 중앙
+## 배치한다(CharacterPortraitPlaceholder._ensure_face_rect()와 같은 설정).
+static func build_illustration_rect(texture: Texture2D, rect: Rect2) -> TextureRect:
+	var tex_rect := TextureRect.new()
+	tex_rect.position = rect.position
+	tex_rect.size = rect.size
+	tex_rect.custom_minimum_size = rect.size
+	tex_rect.texture = texture
+	tex_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	tex_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	tex_rect.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	tex_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var fade_material := ShaderMaterial.new()
+	fade_material.shader = ILLUSTRATION_FADE_SHADER
+	fade_material.set_shader_parameter("fade_start", 0.88)
+	fade_material.set_shader_parameter("side_fade", 0.1)
+	fade_material.set_shader_parameter("top_fade", 0.1)
+	tex_rect.material = fade_material
+	return tex_rect
+
+
+## event.gd/story_event.gd 공용 갱신 헬퍼 — 이전에 만들어둔 일러스트(current, 없으면
+## null)를 지우고, event_id의 아트가 있으면 parent에 새로 붙여 반환하고(폴백 없음,
+## 호출부가 보여주는 위치/숨김 시점을 결정), 없으면(= 폴백: 화면은 기존 배경
+## 그대로) null을 반환한다. base_dir는 dice_test.gd가 합성 PNG로 주입하는 테스트
+## 지점(character_portrait_placeholder.gd의 art_base_dir과 같은 패턴).
+static func refresh_illustration_rect(parent: Node, current: TextureRect, event_id: String, rect: Rect2, base_dir: String = EVENT_ART_DIR) -> TextureRect:
+	if current != null:
+		current.queue_free()
+	var art := load_event_art(event_id, base_dir)
+	if art == null:
+		return null
+	var tex_rect := build_illustration_rect(art, rect)
+	parent.add_child(tex_rect)
+	return tex_rect

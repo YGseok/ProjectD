@@ -14,51 +14,65 @@ extends RefCounted
 ## - "delta": amount만큼 골드 증감 (고정값)
 ## - "gamble": chance 확률로 win만큼 획득, 실패하면 lose만큼 손실
 ## 골드/확률 값은 감으로 잡은 잠정값 — 사람 피드백 필요.
+##
+## [대형 기획 15] Q-10(2026-10-20): "id"(아트 발주/리소스 파일명용 안정적인 slug)를
+## 신규 추가 — title은 표시 문구라 사람이 다시 다듬을 수 있지만, id는 한 번 정해지면
+## resources/events/<id>.png 경로와 직결되므로 바뀌지 않아야 한다. event.gd/
+## story_event.gd는 title로 분기하지 않으므로(기존 QA 훅만 title로 찾음, 그대로 둠)
+## id 추가가 기존 동작에 영향을 주지 않는다.
 
 const SCENARIOS: Array[Dictionary] = [
 	{
+		"id": "old_chest",
 		"title": "낡은 보물상자",
 		"description": "먼지 쌓인 상자를 발견했다. 함정일 수도 있다.",
 		"choice_a": {"label": "상자를 연다", "kind": "gamble", "chance": 0.6, "win": 25, "lose": 10},
 		"choice_b": {"label": "그냥 지나간다", "kind": "none"},
 	},
 	{
+		"id": "wandering_merchant",
 		"title": "떠돌이 상인",
 		"description": "지친 상인이 여비를 빌려달라 부탁한다.",
 		"choice_a": {"label": "도와준다 (골드 -10)", "kind": "delta", "amount": -10},
 		"choice_b": {"label": "무시한다", "kind": "none"},
 	},
 	{
+		"id": "resting_spot",
 		"title": "휴식처",
 		"description": "안전해 보이는 공터에서 짐을 정비했다.",
 		"choice_a": {"label": "짐을 정비한다 (골드 +5)", "kind": "delta", "amount": 5},
 		"choice_b": {"label": "서둘러 지나간다", "kind": "none"},
 	},
 	{
+		"id": "suspicious_gambler",
 		"title": "수상한 도박꾼",
 		"description": "골드를 걸고 내기를 하자는 낯선 이를 만났다.",
 		"choice_a": {"label": "내기를 받는다 (10골드 베팅)", "kind": "gamble", "chance": 0.5, "win": 20, "lose": 10},
 		"choice_b": {"label": "거절한다", "kind": "none"},
 	},
 	{
+		"id": "ruined_altar",
 		"title": "무너진 제단",
 		"description": "오래된 제단에 동전을 바치면 소원이 이루어진다는 전설이 있다.",
 		"choice_a": {"label": "동전을 바친다 (골드 -5)", "kind": "delta", "amount": -5},
 		"choice_b": {"label": "미신을 무시한다", "kind": "none"},
 	},
 	{
+		"id": "hidden_path",
 		"title": "숨겨진 샛길",
 		"description": "지도에 없는 샛길을 발견했다. 지름길일 수도, 함정일 수도 있다.",
 		"choice_a": {"label": "샛길로 들어간다", "kind": "gamble", "chance": 0.5, "win": 15, "lose": 15},
 		"choice_b": {"label": "정석대로 간다", "kind": "none"},
 	},
 	{
+		"id": "injured_traveler",
 		"title": "부상당한 여행자",
 		"description": "길가에 쓰러진 여행자가 도움을 요청한다.",
 		"choice_a": {"label": "치료해준다 (골드 -8)", "kind": "delta", "amount": -8},
 		"choice_b": {"label": "모른 척 지나간다", "kind": "none"},
 	},
 	{
+		"id": "abandoned_camp",
 		"title": "버려진 야영지",
 		"description": "누군가 급히 떠난 듯한 야영지에 짐이 흩어져 있다.",
 		"choice_a": {"label": "뒤져본다", "kind": "gamble", "chance": 0.55, "win": 18, "lose": 8},

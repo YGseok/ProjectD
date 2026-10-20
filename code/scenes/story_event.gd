@@ -19,6 +19,16 @@ extends Node2D
 var _scenario: Dictionary
 var _continued := false
 
+## [대형 기획 15] Q-10(2026-10-20): resources/events/<scenario id>.png가 있을 때
+## 선택 전(= 상황을 읽는 동안)에만 보여주는 일러스트. ChoiceA/B 버튼(y:220-340)
+## 아래, ContinueButton(x:470~)보다 왼쪽인 빈 구역 — 선택 후에는 치운다
+## (_on_choice_pressed()).
+const STORY_ILLUSTRATION_RECT := Rect2(40, 350, 420, 290)
+var _illustration_rect: TextureRect = null
+
+## event.gd와 동일한 테스트 주입 지점(dice_test.gd의 합성 PNG용).
+var event_art_base_dir: String = CharacterArt.EVENT_ART_DIR
+
 ## 방향키(위/아래)로 이동 가능한, 지금 화면에 보이는 버튼 목록(FocusNav 참고). 선택
 ## 전에는 [A안, B안, 커스터마이징], 선택 후에는 [계속, 커스터마이징]으로 바뀐다.
 var _shortcut_buttons: Array[Button] = []
@@ -32,6 +42,12 @@ func _ready() -> void:
 	_scenario = StoryEventPool.random_scenario()
 	title_label.text = _scenario["title"]
 	desc_label.text = _scenario["description"]
+	# Q-12 인수인계 버그 수정과 동일한 이유(event.gd 참고) — 이 화면의 title은
+	# 시나리오 이름(짧음)이라 지금은 넘칠 일이 거의 없지만, "모든 이벤트 화면"
+	# 요구대로 동일 가드를 둬 앞으로 긴 제목이 추가돼도 안전하다.
+	title_label.clip_text = true
+	title_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	_refresh_illustration()
 	choice_a_button.text = _scenario["choice_a"]["label"]
 	choice_b_button.text = _scenario["choice_b"]["label"]
 	choice_a_button.pressed.connect(_on_choice_pressed.bind(_scenario["choice_a"]))
@@ -55,6 +71,13 @@ func _ready() -> void:
 	_refresh_shortcuts([choice_a_button, choice_b_button, customize_button, skill_codex_button])
 
 
+## Q-10: 일러스트 갱신(최초 _ready() 또는 _debug_force_scenario_by_title() 호출마다).
+func _refresh_illustration() -> void:
+	_illustration_rect = CharacterArt.refresh_illustration_rect(
+		self, _illustration_rect, _scenario.get("id", ""), STORY_ILLUSTRATION_RECT, event_art_base_dir
+	)
+
+
 ## 화면에 보이는 버튼 구성이 바뀔 때마다(선택 전/후) 다시 불러 숫자 키 배정을 갱신한다.
 func _refresh_shortcuts(buttons: Array[Button]) -> void:
 	_shortcut_buttons = buttons
@@ -64,6 +87,10 @@ func _refresh_shortcuts(buttons: Array[Button]) -> void:
 
 
 func _on_choice_pressed(choice: Dictionary) -> void:
+	# Q-10: event.gd(판정 이후 구역이 일러스트 자리와 겹침)와 달리, 이 화면의
+	# ResultLabel(x:40-1240,y:220-280)/ContinueButton(x:470-810,y:400-450)은
+	# 일러스트 구역(x:40-460,y:350-640)과 겹치지 않아 선택 후에도 그대로 둔다
+	# (화면 전환까지 장면을 계속 보여주는 쪽이 더 낫다고 판단).
 	var delta := _resolve_choice(choice)
 	var actual_delta := _apply_gold_delta(delta)
 	choice_a_button.hide()
@@ -148,6 +175,7 @@ func _debug_force_low_gold_loss() -> void:
 	_scenario = scenario
 	title_label.text = _scenario["title"]
 	desc_label.text = _scenario["description"]
+	_refresh_illustration()
 	_on_choice_pressed(_scenario["choice_a"])
 
 
@@ -167,11 +195,27 @@ func _debug_force_scenario_by_title(scenario_title: String) -> void:
 			break
 	title_label.text = _scenario["title"]
 	desc_label.text = _scenario["description"]
+	_refresh_illustration()
 	choice_a_button.text = _scenario["choice_a"]["label"]
 	choice_b_button.text = _scenario["choice_b"]["label"]
 
 
 func _debug_force_scenario_gambler() -> void:
+	_debug_force_scenario_by_title("수상한 도박꾼")
+
+
+## QA 전용(GAME_QA_CALL) — event.gd의 _debug_qa_illustration_demo()와 동일한 이유/
+## 패턴(user:// 임시 PNG, resources/events/ 미사용).
+func _debug_qa_illustration_demo() -> void:
+	var tmp_dir := "user://qa_q10_demo_story/"
+	DirAccess.make_dir_recursive_absolute(tmp_dir)
+	var img := Image.create(640, 548, false, Image.FORMAT_RGBA8)
+	for y in img.get_height():
+		for x in img.get_width():
+			var t := float(y) / float(img.get_height())
+			img.set_pixel(x, y, Color(0.2 + 0.1 * t, 0.35 + 0.25 * t, 0.3 + 0.15 * t, 1.0))
+	img.save_png(tmp_dir + "suspicious_gambler.png")
+	event_art_base_dir = tmp_dir
 	_debug_force_scenario_by_title("수상한 도박꾼")
 
 

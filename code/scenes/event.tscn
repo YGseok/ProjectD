@@ -20,7 +20,7 @@ color = Color(0.08, 0.06, 0.09, 1)
 [node name="Title" type="Label" parent="."]
 offset_left = 40.0
 offset_top = 24.0
-offset_right = 1240.0
+offset_right = 1060.0
 offset_bottom = 60.0
 text = "특수 이벤트 — 안전하게 넘어갈까, 위험을 감수할까?"
 label_settings = SubResource("LabelSettings_title")

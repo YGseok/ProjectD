@@ -24,7 +24,7 @@ color = Color(0.07, 0.07, 0.1, 1)
 [node name="Title" type="Label" parent="."]
 offset_left = 40.0
 offset_top = 24.0
-offset_right = 1240.0
+offset_right = 1060.0
 offset_bottom = 60.0
 text = "스토리 이벤트"
 label_settings = SubResource("LabelSettings_title")

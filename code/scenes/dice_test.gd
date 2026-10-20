@@ -513,6 +513,10 @@ func _ready() -> void:
 	all_pass = (await _check_q12_boss_intro(lines)) and all_pass
 
 	lines.append("")
+	lines.append("[Q-10: 스토리/특수 이벤트 일러스트 경로 — CharacterArt.load_event_art()/has_event_art()가 user:// 합성 PNG로 '파일 있음->Texture2D/파일 없음->null' 계약을 실제로 지키는지, event.gd/story_event.gd가 production 씬에서 아트 없음(폴백)/있음(표시)/판정 결과 구역과 겹치는 시점에 숨김(event.gd만, story_event.gd는 겹침이 없어 유지)까지 실제 노드로 배선됐는지, 판정+스토리 이벤트 전수 id 유니크, Q-12 인수인계 제목 겹침 버그(ancient_oath)가 실제 폰트 측정 기준으로도 더는 안 겹치는지]")
+	all_pass = _check_q10_event_illustrations(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -2359,6 +2363,180 @@ func _check_q12_boss_intro(lines: PackedStringArray) -> bool:
 
 	remove_child(panel)
 	panel.free()
+
+	return ok
+
+
+## [대형 기획 15] Q-10(2026-10-20): 스토리/특수 이벤트 일러스트 경로. "플래그가
+## 들어갔는가"가 아니라 "일러스트가 실제로 나타나는가/사라지는가/제목이 실제
+## 픽셀 폭 기준으로 겹칠 뻔한 케이스에서도 안 겹치는가"를 계산 결과로 검증한다.
+func _check_q10_event_illustrations(lines: PackedStringArray) -> bool:
+	var ok := true
+	var tmp_dir := "user://q10_test_tmp/"
+	DirAccess.make_dir_recursive_absolute(tmp_dir)
+
+	# (1) CharacterArt.load_event_art()/has_event_art() 계약 — production 경로에
+	# 존재할 수 없는 id는 null/false로 조용히 폴백한다(에러 없이).
+	var missing_ok: bool = (
+		not CharacterArt.has_event_art("q10_nonexistent_event_xyz")
+		and CharacterArt.load_event_art("q10_nonexistent_event_xyz") == null
+	)
+	ok = missing_ok and ok
+	lines.append("  (1) load_event_art(존재하지 않는 id, 운영 경로): 파일 없음 -> null/false -> %s" % ("OK" if missing_ok else "FAIL"))
+
+	# (2) user:// 임시 폴더 — 합성 PNG 생성 전엔 false/null, 생성 후엔 true/Texture2D로
+	# "계산 결과가 실제로 바뀌는지" 직접 확인.
+	var before_ok: bool = (
+		not CharacterArt.has_event_art("treasure", tmp_dir)
+		and CharacterArt.load_event_art("treasure", tmp_dir) == null
+	)
+	ok = before_ok and ok
+	lines.append("  (2a) 합성 PNG 생성 전: has_event_art/load_event_art -> false/null -> %s" % ("OK" if before_ok else "FAIL"))
+
+	var synth_img := Image.create(64, 48, false, Image.FORMAT_RGBA8)
+	synth_img.fill(Color(0.4, 0.2, 0.6, 1.0))
+	var save_err := synth_img.save_png(tmp_dir + "treasure.png")
+	var save_ok: bool = save_err == OK
+	ok = save_ok and ok
+	lines.append("  (2b) user:// 임시 PNG 저장: %s" % ("OK" if save_ok else "FAIL (err=%d)" % save_err))
+
+	var after_ok: bool = CharacterArt.has_event_art("treasure", tmp_dir) and CharacterArt.load_event_art("treasure", tmp_dir) != null
+	ok = after_ok and ok
+	lines.append("  (2c) 합성 PNG 생성 후: has_event_art=true, load_event_art!=null -> %s" % ("OK" if after_ok else "FAIL"))
+
+	# (3) 데이터 무결성 — 판정 이벤트(CHALLENGES) + 스토리 이벤트(SCENARIOS) 전수가
+	# id를 갖고, 같은 resources/events/ 폴더를 공유하므로 둘을 합쳐도 전부 유니크해야
+	# 파일 경로가 충돌하지 않는다.
+	var all_ids: Array = []
+	for c in EventChallengePool.CHALLENGES:
+		all_ids.append(String(c.get("id", "")))
+	var challenge_count := all_ids.size()
+	for s in StoryEventPool.SCENARIOS:
+		all_ids.append(String(s.get("id", "")))
+	var scenario_count := all_ids.size() - challenge_count
+	var ids_nonempty := true
+	for id_str in all_ids:
+		if id_str == "":
+			ids_nonempty = false
+	var seen := {}
+	var ids_unique := true
+	for id_str in all_ids:
+		if seen.has(id_str):
+			ids_unique = false
+		seen[id_str] = true
+	var ids_ok: bool = ids_nonempty and ids_unique
+	ok = ids_ok and ok
+	lines.append("  (3) 판정 이벤트 %d종 + 스토리 이벤트 %d종 전부 id 존재 + 합쳐서 전체 유니크 -> %s" % [
+		challenge_count, scenario_count, "OK" if ids_ok else "FAIL"
+	])
+
+	# (4) event.gd 실배선 — 아트 없음(폴백 null) -> 있음(실제 표시) -> 선택 후(숨김),
+	# 그리고 Q-12 인수인계 버그(제목이 subtitle이 길면 스킬 도감 버튼과 겹침) 회귀 확인.
+	var event_scene := load("res://code/scenes/event.tscn")
+	var event_node = event_scene.instantiate()
+	add_child(event_node)
+	event_node.event_art_base_dir = tmp_dir
+
+	event_node._debug_force_challenge("exploration")  # tmp_dir에 exploration.png 없음
+	var fallback_ok: bool = event_node._illustration_rect == null
+	ok = fallback_ok and ok
+	lines.append("  (4a) 아트 없는 챌린지(exploration) -> 일러스트 null(배경 폴백) -> %s" % ("OK" if fallback_ok else "FAIL"))
+
+	event_node._debug_force_challenge_treasure()  # tmp_dir에 treasure.png 있음(2b)
+	var shown_ok: bool = (
+		event_node._illustration_rect != null
+		and event_node._illustration_rect.visible
+		and event_node._illustration_rect.texture != null
+	)
+	ok = shown_ok and ok
+	lines.append("  (4b) 아트 있는 챌린지(treasure) -> 일러스트 실제 표시(texture!=null) -> %s" % ("OK" if shown_ok else "FAIL"))
+
+	var illu_rect: Rect2 = event_node._illustration_rect.get_global_rect()
+	var no_overlap_ok: bool = (
+		not illu_rect.intersects(event_node.safe_button.get_global_rect())
+		and not illu_rect.intersects(event_node.risky_button.get_global_rect())
+	)
+	ok = no_overlap_ok and ok
+	lines.append("  (4c) 일러스트 rect가 안전/위험 버튼 rect와 겹치지 않음 -> %s" % ("OK" if no_overlap_ok else "FAIL"))
+
+	event_node._on_safe_pressed()
+	var hidden_ok: bool = event_node._illustration_rect != null and not event_node._illustration_rect.visible
+	ok = hidden_ok and ok
+	lines.append("  (4d) '안전하게 넘어가기' 선택 후(판정 결과 구역과 자리가 겹침) -> 일러스트 hide() -> %s" % ("OK" if hidden_ok else "FAIL"))
+
+	event_node._debug_force_challenge("ancient_oath")  # 알려진 이슈(2026-10-20)의 실제 재현 조건
+	var title_text: String = event_node.title_label.text
+	var title_clip_ok: bool = (
+		event_node.title_label.clip_text
+		and event_node.title_label.text_overrun_behavior == TextServer.OVERRUN_TRIM_ELLIPSIS
+	)
+	var title_font: Font = event_node.title_label.get_theme_default_font()
+	var title_font_size: int = event_node.title_label.get_theme_default_font_size()
+	if event_node.title_label.label_settings != null:
+		title_font_size = event_node.title_label.label_settings.font_size
+		if event_node.title_label.label_settings.font != null:
+			title_font = event_node.title_label.label_settings.font
+	var text_width: float = title_font.get_string_size(title_text, HORIZONTAL_ALIGNMENT_LEFT, -1, title_font_size).x
+	var title_rect: Rect2 = event_node.title_label.get_global_rect()
+	# ancient_oath는 실제로 title_rect 폭(1020px)보다 넓게 렌더될 만큼 긴 문장이라야
+	# "클리핑이 없었다면 겹쳤을 것"을 증명한다 — 이 조건 자체가 거짓이면 회귀를 못
+	# 잡는 가짜 통과이므로 함께 검증한다.
+	var reproduces_overflow: bool = text_width > title_rect.size.x
+	var title_no_overlap_ok: bool = not title_rect.intersects(event_node.skill_codex_button.get_global_rect())
+	var title_ok: bool = title_clip_ok and reproduces_overflow and title_no_overlap_ok
+	ok = title_ok and ok
+	lines.append("  (4e) ancient_oath 제목('%s', 실측폭 %.0fpx > 박스폭 %.0fpx) -> clip+ellipsis 설정 + 스킬 도감 버튼과 안 겹침 -> %s" % [
+		title_text, text_width, title_rect.size.x, "OK" if title_ok else "FAIL"
+	])
+
+	remove_child(event_node)
+	event_node.free()
+
+	# (5) story_event.gd 실배선 — 같은 계약(아트 없음/있음), 단 이 화면은 선택 후에도
+	# 겹치는 요소가 없어 설계상 일러스트를 숨기지 않는다(story_event.gd의
+	# _on_choice_pressed() 주석 참고).
+	var story_scene := load("res://code/scenes/story_event.tscn")
+	var story_node = story_scene.instantiate()
+	add_child(story_node)
+	story_node.event_art_base_dir = tmp_dir
+
+	story_node._debug_force_scenario_by_title("낡은 보물상자")  # id=old_chest, tmp_dir에 없음
+	var story_fallback_ok: bool = story_node._illustration_rect == null
+	ok = story_fallback_ok and ok
+	lines.append("  (5a) 아트 없는 시나리오(낡은 보물상자) -> 일러스트 null(배경 폴백) -> %s" % ("OK" if story_fallback_ok else "FAIL"))
+
+	var story_img := Image.create(64, 48, false, Image.FORMAT_RGBA8)
+	story_img.fill(Color(0.2, 0.5, 0.3, 1.0))
+	story_img.save_png(tmp_dir + "suspicious_gambler.png")
+	story_node._debug_force_scenario_by_title("수상한 도박꾼")  # id=suspicious_gambler
+	var story_shown_ok: bool = (
+		story_node._illustration_rect != null
+		and story_node._illustration_rect.visible
+		and story_node._illustration_rect.texture != null
+	)
+	ok = story_shown_ok and ok
+	lines.append("  (5b) 아트 있는 시나리오(수상한 도박꾼) -> 일러스트 실제 표시 -> %s" % ("OK" if story_shown_ok else "FAIL"))
+
+	var story_illu_rect: Rect2 = story_node._illustration_rect.get_global_rect()
+	var story_no_overlap_ok: bool = (
+		not story_illu_rect.intersects(story_node.choice_a_button.get_global_rect())
+		and not story_illu_rect.intersects(story_node.choice_b_button.get_global_rect())
+		and not story_illu_rect.intersects(story_node.continue_button.get_global_rect())
+	)
+	ok = story_no_overlap_ok and ok
+	lines.append("  (5c) 일러스트 rect가 선택지 A/B/계속 버튼 rect와 겹치지 않음 -> %s" % ("OK" if story_no_overlap_ok else "FAIL"))
+
+	story_node._on_choice_pressed(story_node._scenario["choice_a"])
+	var story_kept_ok: bool = story_node._illustration_rect != null and story_node._illustration_rect.visible
+	ok = story_kept_ok and ok
+	lines.append("  (5d) 선택 후에도 일러스트 유지(겹치는 요소 없음, 설계 의도) -> %s" % ("OK" if story_kept_ok else "FAIL"))
+
+	remove_child(story_node)
+	story_node.free()
+
+	DirAccess.remove_absolute(tmp_dir + "treasure.png")
+	DirAccess.remove_absolute(tmp_dir + "suspicious_gambler.png")
+	DirAccess.remove_absolute(tmp_dir)
 
 	return ok
 
