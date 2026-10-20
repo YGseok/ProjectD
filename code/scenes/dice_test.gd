@@ -505,6 +505,10 @@ func _ready() -> void:
 	all_pass = _check_q8c4_legendary_skills(lines) and all_pass
 
 	lines.append("")
+	lines.append("[Q-11: 몬스터 도감 — 격자 카드 수==MonsterCatalog 전체 수, 격자/상세 뷰의 '원화/표정 n/5' 입고 현황이 실제 파일 존재(user:// 합성 에셋)와 일치, 계열/티어 필터가 실제 버튼 클릭으로 카드 수를 정확히 거르는지, 상세 뷰 표정 전환이 실제 렌더 픽셀을 바꾸는지(미입고 표정은 버튼 disabled로 전환 불가), 실제 InputEventKey 주입으로 필터 행->격자->상세 표정 버튼까지 방향키 이동 검증]")
+	all_pass = (await _check_q11_monster_codex(lines)) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -1951,6 +1955,234 @@ func _check_q8c4_legendary_skills(lines: PackedStringArray) -> bool:
 	lines.append("  (9) 설명 문구 \"%s\" 포함: 4/4 6종(매칭 %d/%d) -> %s(누락: %s)" % [
 		notice_text, matched_count, target_ids.size(), "OK" if notice_ok else "FAIL", notice_missing,
 	])
+
+	return ok
+
+
+## [대형 기획 15] Q-11(몬스터 도감, 2026-10-20 사용자 추가 지시) — "플래그가 아니라
+## 계산 결과/실제 렌더 결과"로 검증한다:
+## (1) 격자 카드 수 == MonsterCatalog.MONSTERS.size()(하드코딩된 수가 아니라 카탈로그
+##     전체 수와 항상 일치하는지)
+## (2) 격자 카드의 "원화/표정 n/5" 태그 텍스트가 실제 파일 존재(주입된 user:// 임시
+##     디렉터리의 합성 에셋)와 일치하는지
+## (3) 계열/티어 필터 버튼을 실제로 눌렀을 때(.pressed.emit()) 카드 수가 그 필터에
+##     해당하는 몬스터 수와 정확히 일치하는지
+## (4) 상세 뷰에서 표정 버튼을 누르면(.pressed.emit()) 실제로 렌더되는 텍스처의 픽셀이
+##     바뀌는지(서로 다른 색의 합성 face_*.png), 미입고 표정 버튼은 disabled=true인지
+## (5) 리소스 입고 현황 체크리스트가 실제 파일 존재와 일치하는지
+## (6) 방향키 실제 주입(_n1_send_key, 엔진 입력 파이프라인)으로 필터 행 -> 격자 ->
+##     상세 뷰 표정 버튼까지 포커스가 실제로 이동하는지
+## 전부 실제 resources/monsters/에 의존하지 않고 user:// 임시 디렉터리 + 합성 PNG로
+## 검증한다(과업 지시 "주입된 임시 디렉터리/합성 에셋 사용, 실제 resources 의존 금지").
+## await를 쓰므로 호출부는 `await _check_q11_monster_codex(lines)`로 받아야 한다.
+func _check_q11_monster_codex(lines: PackedStringArray) -> bool:
+	var ok := true
+	var base_dir_pattern := "user://q11_test_tmp/%s/"
+
+	# --- 합성 에셋 준비 ---
+	# slime: full.png + 표정 2장만(neutral/happy) — "일부만 입고" 경우.
+	_art1c2_write_fake_full(base_dir_pattern, "slime")
+	_art1b_write_fake_faces(base_dir_pattern, "slime", ["neutral", "happy"])
+	# goblin_king(보스): full.png + 표정 4장(angry만 빠짐), 표정마다 다른 색 —
+	# "표정 전환이 실제 텍스처를 바꾸는지"를 픽셀로 검증하기 위해 identical 1x1 fixture
+	# (_art1b_write_fake_faces)가 아니라 색이 다른 PNG를 직접 쓴다.
+	var gk_dir := base_dir_pattern % "goblin_king"
+	DirAccess.make_dir_recursive_absolute(gk_dir)
+	var gk_full := Image.create(118, 133, false, Image.FORMAT_RGBA8)
+	gk_full.fill(Color(0.3, 0.5, 0.7, 1.0))
+	gk_full.save_png(gk_dir + "full.png")
+	var gk_colors := {
+		"neutral": Color(1, 0, 0, 1), "happy": Color(0, 1, 0, 1),
+		"hurt": Color(0, 0, 1, 1), "sad": Color(1, 1, 0, 1),
+	}
+	for expr in gk_colors.keys():
+		var face_img := Image.create(4, 4, false, Image.FORMAT_RGBA8)
+		face_img.fill(gk_colors[expr])
+		face_img.save_png(gk_dir + "face_%s.png" % expr)
+	# ooze_lord(보스): 아무 파일도 없음 — "원화 미입고" 폴백 경로 검증용.
+
+	var panel := MonsterCodexPanel.new()
+	panel.art_base_dir = base_dir_pattern
+	add_child(panel)
+	var viewport := get_viewport()
+
+	panel.open()
+	await get_tree().process_frame
+
+	# (1) 격자 카드 수 == 카탈로그 전체 수.
+	var total_count: int = MonsterCatalog.MONSTERS.size()
+	var grid_count_ok: bool = panel._card_controls.size() == total_count
+	ok = grid_count_ok and ok
+	lines.append("  (1) 필터 없음: 격자 카드 수=%d (기대 MonsterCatalog.MONSTERS.size()=%d) -> %s" % [
+		panel._card_controls.size(), total_count, "OK" if grid_count_ok else "FAIL"
+	])
+
+	# (2) 격자 카드 리소스 태그가 실제 파일 존재와 일치.
+	var slime_tag: String = panel._grid_face_tag_by_id["slime"].text if panel._grid_face_tag_by_id.has("slime") else ""
+	var slime_tag_ok: bool = slime_tag == "원화 ✓ · 표정 2/5"
+	ok = slime_tag_ok and ok
+	lines.append("  (2a) slime(full+표정2장) 격자 태그='%s'(기대 '원화 ✓ · 표정 2/5') -> %s" % [
+		slime_tag, "OK" if slime_tag_ok else "FAIL"
+	])
+	var gk_tag: String = panel._grid_face_tag_by_id["goblin_king"].text if panel._grid_face_tag_by_id.has("goblin_king") else ""
+	var gk_tag_ok: bool = gk_tag == "원화 ✓ · 표정 4/5"
+	ok = gk_tag_ok and ok
+	lines.append("  (2b) goblin_king(full+표정4장) 격자 태그='%s'(기대 '원화 ✓ · 표정 4/5') -> %s" % [
+		gk_tag, "OK" if gk_tag_ok else "FAIL"
+	])
+	var ooze_tag: String = panel._grid_face_tag_by_id["ooze_lord"].text if panel._grid_face_tag_by_id.has("ooze_lord") else ""
+	var ooze_tag_ok: bool = ooze_tag == "원화 ✗ · 표정 0/5"
+	ok = ooze_tag_ok and ok
+	lines.append("  (2c) ooze_lord(미입고) 격자 태그='%s'(기대 '원화 ✗ · 표정 0/5') -> %s" % [
+		ooze_tag, "OK" if ooze_tag_ok else "FAIL"
+	])
+
+	# (3) 필터 — 계열(실제 버튼 클릭).
+	var expected_family_count := 0
+	for m in MonsterCatalog.MONSTERS:
+		if m.get("family", "") == "amorphous":
+			expected_family_count += 1
+	panel._family_filter_buttons["amorphous"].pressed.emit()
+	await get_tree().process_frame
+	var family_filter_ok: bool = panel._card_controls.size() == expected_family_count \
+		and panel._grid_cards_by_id.has("slime") and not panel._grid_cards_by_id.has("goblin")
+	ok = family_filter_ok and ok
+	lines.append("  (3a) 계열 필터(부정형) 클릭 후 카드 수=%d(기대 %d), slime 포함/goblin 제외=%s -> %s" % [
+		panel._card_controls.size(), expected_family_count,
+		panel._grid_cards_by_id.has("slime") and not panel._grid_cards_by_id.has("goblin"),
+		"OK" if family_filter_ok else "FAIL"
+	])
+	panel._family_filter_buttons[""].pressed.emit()
+	await get_tree().process_frame
+
+	# (3) 필터 — 티어(실제 버튼 클릭).
+	var expected_boss_count: int = MonsterCatalog.boss_roster_ids().size()
+	panel._tier_filter_buttons["boss"].pressed.emit()
+	await get_tree().process_frame
+	var tier_filter_ok: bool = panel._card_controls.size() == expected_boss_count \
+		and panel._grid_cards_by_id.has("goblin_king") and not panel._grid_cards_by_id.has("slime")
+	ok = tier_filter_ok and ok
+	lines.append("  (3b) 티어 필터(보스) 클릭 후 카드 수=%d(기대 %d), goblin_king 포함/slime 제외=%s -> %s" % [
+		panel._card_controls.size(), expected_boss_count,
+		panel._grid_cards_by_id.has("goblin_king") and not panel._grid_cards_by_id.has("slime"),
+		"OK" if tier_filter_ok else "FAIL"
+	])
+	panel._tier_filter_buttons[""].pressed.emit()
+	await get_tree().process_frame
+
+	# (4)/(5) 상세 뷰 — goblin_king 카드 활성화(실제 activated 시그널).
+	panel._grid_cards_by_id["goblin_king"].activated.emit()
+	await get_tree().process_frame
+	var detail_opened_ok: bool = panel._view_mode == "detail" and panel._detail_monster_id == "goblin_king"
+	ok = detail_opened_ok and ok
+	lines.append("  (4a) goblin_king 카드 활성화 -> 상세 뷰 전환(_view_mode='%s', id='%s') -> %s" % [
+		panel._view_mode, panel._detail_monster_id, "OK" if detail_opened_ok else "FAIL"
+	])
+
+	var full_rect_ok: bool = panel._detail_full_rect != null and panel._detail_full_rect.texture != null
+	ok = full_rect_ok and ok
+	lines.append("  (4b) 전신 full.png 텍스처 로드됨 -> %s" % ("OK" if full_rect_ok else "FAIL"))
+
+	# 기본 표정(neutral)은 빨강이어야 한다.
+	var neutral_img: Image = panel._detail_face_rect.texture.get_image() if panel._detail_face_rect.texture != null else null
+	var neutral_pixel: Color = neutral_img.get_pixel(0, 0) if neutral_img != null else Color(0, 0, 0, 0)
+	var neutral_ok: bool = neutral_pixel.is_equal_approx(Color(1, 0, 0, 1))
+	ok = neutral_ok and ok
+	lines.append("  (4c) 기본 표정(neutral) 렌더 픽셀=%s(기대 빨강) -> %s" % [neutral_pixel, "OK" if neutral_ok else "FAIL"])
+
+	# happy 버튼을 실제로 눌러 텍스처가 초록으로 바뀌는지.
+	panel._expression_buttons["happy"].pressed.emit()
+	await get_tree().process_frame
+	var happy_img: Image = panel._detail_face_rect.texture.get_image() if panel._detail_face_rect.texture != null else null
+	var happy_pixel: Color = happy_img.get_pixel(0, 0) if happy_img != null else Color(0, 0, 0, 0)
+	var happy_ok: bool = happy_pixel.is_equal_approx(Color(0, 1, 0, 1)) and panel._detail_expression == "happy"
+	ok = happy_ok and ok
+	lines.append("  (4d) 'happy' 버튼 클릭 후 렌더 픽셀=%s(기대 초록), _detail_expression='%s' -> %s" % [
+		happy_pixel, panel._detail_expression, "OK" if happy_ok else "FAIL"
+	])
+
+	# angry는 파일이 없으므로 버튼이 비활성화돼야 한다(미입고 표정은 전환 불가).
+	var angry_disabled_ok: bool = panel._expression_buttons["angry"].disabled
+	ok = angry_disabled_ok and ok
+	lines.append("  (4e) 미입고 표정(angry) 버튼 disabled=%s(기대 true, 전환 불가) -> %s" % [
+		angry_disabled_ok, "OK" if angry_disabled_ok else "FAIL"
+	])
+
+	var crop_rect_ok: bool = panel._detail_crop_rect != null and panel._detail_crop_rect.texture != null
+	ok = crop_rect_ok and ok
+	lines.append("  (4f) 전투 화면 크롭 미리보기 텍스처 로드됨(보스 크롭 비율) -> %s" % ("OK" if crop_rect_ok else "FAIL"))
+
+	# (5) 리소스 체크리스트가 실제 파일 존재와 일치.
+	var check_full_ok: bool = panel._resource_check_labels["full"].text.contains("✓")
+	var check_neutral_ok: bool = panel._resource_check_labels["neutral"].text.contains("✓")
+	var check_angry_ok: bool = panel._resource_check_labels["angry"].text.contains("✗")
+	var checklist_ok: bool = check_full_ok and check_neutral_ok and check_angry_ok
+	ok = checklist_ok and ok
+	lines.append("  (5) 리소스 체크리스트: full=%s neutral=%s angry=%s(기대 true/true/true) -> %s" % [
+		check_full_ok, check_neutral_ok, check_angry_ok, "OK" if checklist_ok else "FAIL"
+	])
+
+	# "← 목록"으로 격자로 복귀.
+	panel._back_button.pressed.emit()
+	await get_tree().process_frame
+	var back_ok: bool = panel._view_mode == "grid"
+	ok = back_ok and ok
+	lines.append("  (5-확인) '← 목록' 클릭 후 _view_mode='%s'(기대 grid) -> %s" % [panel._view_mode, "OK" if back_ok else "FAIL"])
+
+	# (6) 실제 InputEventKey 주입으로 포커스 이동(필터 행 -> 격자 -> 격자 내부 이동).
+	panel._family_filter_buttons[""].grab_focus()
+	_n1_send_key(KEY_RIGHT)
+	await get_tree().process_frame
+	var first_family_id: String = MonsterCatalog.family_ids()[0]
+	var filter_right_ok: bool = viewport.gui_get_focus_owner() == panel._family_filter_buttons[first_family_id]
+	ok = filter_right_ok and ok
+	lines.append("  (6a) 필터 행 '전체'에서 -> (오른쪽)으로 첫 계열 필터('%s')에 도달 -> %s" % [
+		first_family_id, "OK" if filter_right_ok else "FAIL"
+	])
+
+	_n1_send_key(KEY_DOWN)
+	await get_tree().process_frame
+	var filter_down_to_grid_ok: bool = panel._card_controls.size() > 0 \
+		and viewport.gui_get_focus_owner() == panel._card_controls[0]
+	ok = filter_down_to_grid_ok and ok
+	lines.append("  (6b) 필터 행에서 아래로 -> 격자 첫 카드에 도달 -> %s" % ("OK" if filter_down_to_grid_ok else "FAIL"))
+
+	_n1_send_key(KEY_RIGHT)
+	await get_tree().process_frame
+	var grid_right_ok: bool = panel._card_controls.size() > 1 \
+		and viewport.gui_get_focus_owner() == panel._card_controls[1]
+	ok = grid_right_ok and ok
+	lines.append("  (6c) 격자 첫 카드에서 오른쪽 -> 두 번째 카드 -> %s" % ("OK" if grid_right_ok else "FAIL"))
+
+	if panel._card_controls.size() > MonsterCodexPanel.COLUMNS:
+		panel._card_controls[0].grab_focus()
+		_n1_send_key(KEY_DOWN)
+		await get_tree().process_frame
+		var grid_down_ok: bool = viewport.gui_get_focus_owner() == panel._card_controls[MonsterCodexPanel.COLUMNS]
+		ok = grid_down_ok and ok
+		lines.append("  (6d) 격자 첫 카드에서 아래 -> 다음 행 같은 열 카드 -> %s" % ("OK" if grid_down_ok else "FAIL"))
+
+	# 상세 뷰 키보드 이동: 뒤로 버튼 -> 오른쪽 -> 첫 입고 표정 버튼.
+	panel._grid_cards_by_id["goblin_king"].activated.emit()
+	await get_tree().process_frame
+	panel._back_button.grab_focus()
+	_n1_send_key(KEY_RIGHT)
+	await get_tree().process_frame
+	var detail_right_ok: bool = viewport.gui_get_focus_owner() == panel._expression_buttons["neutral"]
+	ok = detail_right_ok and ok
+	lines.append("  (6e) 상세 뷰 '← 목록'에서 오른쪽 -> 첫 입고 표정 버튼('neutral') -> %s" % (
+		"OK" if detail_right_ok else "FAIL"
+	))
+
+	remove_child(panel)
+	panel.free()
+	_art1b_remove_fake_faces(base_dir_pattern, "slime", ["neutral", "happy"])
+	_art1c2_remove_fake_full(base_dir_pattern, "slime")
+	for expr2 in gk_colors.keys():
+		DirAccess.remove_absolute(gk_dir + "face_%s.png" % expr2)
+	DirAccess.remove_absolute(gk_dir + "full.png")
+	DirAccess.remove_absolute(gk_dir)
+	DirAccess.remove_absolute("user://q11_test_tmp/")
 
 	return ok
 

@@ -3,6 +3,7 @@
 [ext_resource type="Script" path="res://code/scenes/character_select.gd" id="1_script"]
 [ext_resource type="Script" path="res://code/scenes/achievement_panel.gd" id="3_achievements"]
 [ext_resource type="Script" path="res://code/scenes/skill_codex_panel.gd" id="4_skill_codex"]
+[ext_resource type="Script" path="res://code/scenes/monster_codex_panel.gd" id="5_monster_codex"]
 
 [sub_resource type="LabelSettings" id="LabelSettings_title"]
 font_size = 28
@@ -57,6 +58,13 @@ offset_right = 810.0
 offset_bottom = 716.0
 text = "던전 입장"
 
+[node name="MonsterCodexButton" type="Button" parent="."]
+offset_left = 880.0
+offset_top = 24.0
+offset_right = 1070.0
+offset_bottom = 60.0
+text = "몬스터 도감"
+
 [node name="AchievementButton" type="Button" parent="."]
 offset_left = 1080.0
 offset_top = 24.0
@@ -76,3 +84,6 @@ script = ExtResource("3_achievements")
 
 [node name="SkillCodexPanel" type="Control" parent="."]
 script = ExtResource("4_skill_codex")
+
+[node name="MonsterCodexPanel" type="Control" parent="."]
+script = ExtResource("5_monster_codex")

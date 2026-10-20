@@ -126,6 +126,10 @@ const DICE_ROW_LABEL_WIDTH := 44.0
 @onready var achievement_panel: AchievementPanel = $AchievementPanel
 @onready var test_battle_button: Button = $TestBattleButton
 @onready var skill_codex_panel: SkillCodexPanel = $SkillCodexPanel
+## [대형 기획 15] Q-11(2026-10-20) — 리소스 확인용 몬스터 도감. "업적" 옆(바로 왼쪽)에
+## 진입 버튼이 있다.
+@onready var monster_codex_button: Button = $MonsterCodexButton
+@onready var monster_codex_panel: MonsterCodexPanel = $MonsterCodexPanel
 ## [대형 기획 15] Q-2(2026-10-16) — "①캐릭터 ②시작 스킬 ③던전 입장" 3단계 흐름을
 ## 화면에서도 보이게 하는 작은 안내 띠. 어느 단계가 지금 활성인지는 매 프레임
 ## 포커스 소유자를 확인해서(_process() 참고) 판단한다 — 카드/슬롯/시작 버튼으로
@@ -236,6 +240,7 @@ var _rarity_tag_by_skill_id: Dictionary = {}
 func _ready() -> void:
 	start_button.pressed.connect(_on_start_pressed)
 	achievement_button.pressed.connect(_on_achievement_pressed)
+	monster_codex_button.pressed.connect(_on_monster_codex_pressed)
 	_setup_test_battle_button()
 	_build_detail_panel()
 	_style_header_buttons()
@@ -306,6 +311,7 @@ func _style_header_buttons() -> void:
 	UIKit.style_secondary_button(achievement_button, RunState.character_id, neutral)
 	UIKit.style_secondary_button(test_battle_button, RunState.character_id, neutral)
 	UIKit.style_secondary_button(_skill_codex_button, RunState.character_id, neutral)
+	UIKit.style_secondary_button(monster_codex_button, RunState.character_id, neutral)
 	_restyle_start_button()
 
 
@@ -361,6 +367,7 @@ func _build_cards() -> void:
 	_shortcut_buttons = card_controls
 	_shortcut_buttons.append(_skill_codex_button)
 	_shortcut_buttons.append(start_button)
+	_shortcut_buttons.append(monster_codex_button)
 	_shortcut_buttons.append(achievement_button)
 	if RunState.TEST_BATTLE_ENABLED:
 		_shortcut_buttons.append(test_battle_button)
@@ -1391,6 +1398,15 @@ func _on_achievement_pressed() -> void:
 		achievement_panel.open()
 
 
+## [대형 기획 15] Q-11: 리소스 확인용 몬스터 도감. 캐릭터와 무관하게(진행도/업적 기록
+## 없음) 항상 `MonsterCatalog.MONSTERS` 전체를 보여준다.
+func _on_monster_codex_pressed() -> void:
+	if monster_codex_panel.visible:
+		monster_codex_panel.close()
+	else:
+		monster_codex_panel.open()
+
+
 ## [대형 기획 12] L-2(c): 지금 선택된 캐릭터의 스킬 도감을 연다. 이 화면은 아직 런이
 ## 시작되지 않은 상태라 "보유 스킬"이라는 개념이 없으므로 owned_skill_ids는 항상
 ## 빈 배열 — INBOX.md L-2 원문 "선택 화면에서는 보유 0개(전부 ①②)"를 그대로 따른다.
@@ -1643,3 +1659,23 @@ func _debug_press_shortcut_close_skill_codex() -> void:
 	key.pressed = true
 	key.keycode = KEY_ESCAPE
 	skill_codex_panel._unhandled_input(key)
+
+
+## QA 전용 — [대형 기획 15] Q-11(몬스터 도감): 필터 없는 기본 격자가 보이는지 확인한다.
+func _debug_show_monster_codex_grid() -> void:
+	monster_codex_panel.open()
+
+
+## QA 전용 — Q-11: 티어 필터(보스)를 실제로 눌러 보스 6종만 남는지 확인한다.
+func _debug_show_monster_codex_filtered_boss() -> void:
+	monster_codex_panel.open()
+	monster_codex_panel._tier_filter_buttons["boss"].pressed.emit()
+
+
+## QA 전용 — Q-11: 고블린 왕 카드를 활성화해 상세 뷰(전신 원화 + 표정 전환 + 전투 크롭
+## 미리보기 + 리소스 입고 현황)로 들어가는지 확인한다. 2026-10-20 현재 보스 포함 전체
+## 몬스터가 face_*를 아직 입고 못 해(STATUS.md 기록) "표정 미입고 -> 크롭 참고" 안내가
+## 보여야 정상이다.
+func _debug_show_monster_codex_detail_goblin_king() -> void:
+	monster_codex_panel.open()
+	monster_codex_panel._grid_cards_by_id["goblin_king"].activated.emit()

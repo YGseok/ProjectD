@@ -8,6 +8,62 @@
 
 ---
 
+- **2026-10-17 (229)**: **[대형 기획 15] Q-7(b)(SkillDiagram 렌더러) 완료.**
+  Q-7(a)(228)가 `SkillPool`에 만든 diagram 데이터(11종 기호, 스킬당 ≤5개)를
+  받아 실제로 그리는 재사용 위젯 2개를 신규 추가 — `code/scenes/
+  skill_diagram_chip.gd`(`SkillDiagramChip extends Control`, 기호 1개 전담)와
+  `code/scenes/skill_diagram.gd`(`SkillDiagram extends HFlowContainer`, 기호들을
+  가로로 배치하고 폭이 모자라면 엔진이 자동으로 다음 줄로 넘김 — 직접 줄바꿈
+  로직 없이 "최대 2줄" 요구 충족). **화면 적용(Q-7c)은 하지 않음** — 아직
+  어느 화면에도 배선되지 않았다.
+  **렌더 분기**: `SkillDiagramChip._RENDERERS`(type -> 메서드 이름 11개 테이블)
+  로만 하고 스킬 id로는 절대 분기하지 않는다(INBOX "하드코딩 금지" 요구).
+  표에 없는 type은 `_draw_unknown_symbol()`(물음표 배지)로 눈에 띄게 떨어져
+  누락을 숨기지 않는다(K-4a 모티프 누락 처리와 같은 원칙).
+  **크기 2종**: `SIZE_LARGE`(카드/팝업, 칩 높이 34px/아이콘 20px)·`SIZE_SMALL`
+  (툴팁/목록, 20px/13px) — `size_variant`를 바꾸면 다시 그린다.
+  **아이콘**: `UIKit.icon_texture()`로 `resources/ui/icon/{attack,defense,hp,
+  gold,pip,dice}.png`(흰 실루엣)를 기호별 고정색으로 칠해 쓰고, 파일이 없는
+  기호(이벤트/재질/스택/맞바꾸기/주기/재굴림 등 UIKit 아이콘 세트에 아예 없는
+  모양)는 절차적 도형으로 그린다(SkillIcon과 같은 "파일 우선, 없으면 draw_*"
+  원칙) — `resources/`는 읽기만 했다.
+  **색맹 고려**: 텍스트 라벨은 전부 `TEXT_COLOR`(밝은 중성색) 하나로 통일해
+  대비 책임을 분산시키지 않고(CHIP_BG 대비 12.12:1, WCAG AA 4.5:1 여유 통과),
+  구분은 "모양"으로 한다 — 공격=칼끝 삼각형, 방어=방패 오각형, 이벤트=육각형,
+  폭발 스택=별모양, 수호 스택=겹겹의 방패, 맞바꾸기=교차 화살표, 주기=시계판
+  (SkillIcon이 이미 쓰는 같은 어휘 재사용, "방패=방어" 학습이 게임 전체에서
+  일관됨).
+  **QA 디버그 훅**: `code/scenes/skill_diagram_preview.gd/.tscn`(화면 적용이
+  아니라 렌더러 자체 검증 전용, 실제 게임 화면에는 연결 안 함) — 37종 스킬
+  전부를 5열×8행 격자로 1280x720 한 화면에 그린다. 기본은 LARGE, `scripts/
+  qa_shot.sh skill_diagram_preview ... _debug_show_small`로 SMALL도 캡처
+  가능(combat_test.gd의 `_debug_*` qa_call 패턴 재사용).
+  **셀프 피드백 2라운드**: 1라운드(`qa_out/q7b_debug.png`, 4열×10행) —
+  마지막 행("잡화점")이 720px 아래로 살짝 잘리는 것을 직접 보고 5열×8행
+  (CELL_W 300->252, CELL_H 72->85)으로 재배치해 해결(`qa_out/q7b_large.png`
+  로 재확인, 겹침/잘림 없음). 2라운드 — SMALL 변형(`qa_out/q7b_small.png`)도
+  같은 격자로 캡처해 작은 아이콘에서도 모양 구분이 유지되는지 확인, 추가
+  수정 없이 종료.
+  **테스트**(`dice_test.gd` 신규 `_check_q7b_skill_diagram_renderer()`, await
+  필요): (1) 스킬 37종(고유 id) × 크기 2종 전부 렌더된 칩 노드 수가 diagram
+  기호 수와 정확히 일치(<=MAX_DIAGRAM_SYMBOLS)하고, 각 칩 rect가 지정 폭
+  컨테이너(LARGE 260px/SMALL 150px) 가로 안에 들어오며 전체 사용 높이가
+  2줄 예산 이내인지 — 매 조합마다 실제로 `SkillDiagram`을 트리에 올려
+  `get_combined_minimum_size()`/자식 rect를 직접 측정(플래그가 아니라 계산
+  결과 검증). (2) 서로 다른 스킬이 실제로 다른 픽셀로 렌더되는지 — LARGE
+  크기로 37종 각각 독립 SubViewport(K-4a와 같은 패턴)에 그려 바이트 단위
+  비교, 빈 도식(완전 투명) 0개. **실제로 픽셀이 완전히 같은 쌍 1건 발견**
+  (`start_sleight`(눈속임)==`start_gambler`(승부사)) — `skill_pool.gd` 주석대로
+  "효과는 같지만 매혹사와 공유하지 말라"는 기획자 지시로 diagram 데이터
+  자체가 완전히 동일한 의도된 중복이라, 비교를 "스킬 id"가 아니라 "diagram
+  데이터 서명(JSON.stringify)" 기준으로 바꿔 "데이터가 같으면 같은 그림(결정성
+  확인, FAIL 아님) / 데이터가 다른데 그림이 같으면 진짜 렌더러 버그(FAIL)"로
+  재정의해 해결 — 검증 중 실제로 설계 의도와 일치하는 결과를 발견한 사례.
+  (3) 텍스트 대비 12.12:1(기준 4.5:1 이상). `bash scripts/qa_shot.sh
+  dice_test 60 qa_out/q7b_dice_test.png "" 1` 전체 **PASS**(FAIL 0건).
+  **다음은 Q-7(c)(스킬 도감 카드/상세 팝업/보상·상점·이벤트 카드/시작 스킬
+  슬롯에 실제 배선).**
+
 - **2026-10-17 (228)**: **[대형 기획 15] Q-7(a)(스킬 효과 도식 문법 + 데이터,
   원문 3) 완료.** 목표는 "모든 스킬의 설명 위에 효과를 이미지/도형으로 도식화"
   (Q-7(b) 렌더러/Q-7(c) 적용은 이번 조각 범위 밖, 다음 이터레이션들) — 이번

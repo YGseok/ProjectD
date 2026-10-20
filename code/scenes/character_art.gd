@@ -137,6 +137,17 @@ static func has_all_faces(character_id: String, base_dir: String = BASE_DIR) -> 
 	return true
 
 
+## [대형 기획 15] Q-11(몬스터 도감) — has_all_faces()와 같은 존재 확인을 "전부 있는가"
+## 대신 "몇 장 있는가"로 센다. 도감 격자 카드의 "표정 n/5" 태그와 상세 뷰 리소스 입고
+## 현황(파일별 ✓/✗)이 둘 다 이 숫자 하나로 일관되게 계산된다.
+static func face_count(character_id: String, base_dir: String = BASE_DIR) -> int:
+	var count := 0
+	for expression in FACE_EXPRESSIONS:
+		if FileAccess.file_exists(face_path(character_id, expression, base_dir)):
+			count += 1
+	return count
+
+
 ## 캐릭터 프로필의 "face_crop" 필드(Rect2, 0..1 비율)가 있으면 그것을, 없으면
 ## DEFAULT_FACE_CROP_RATIO를 돌려준다.
 static func face_crop_ratio(character_id: String) -> Rect2:
