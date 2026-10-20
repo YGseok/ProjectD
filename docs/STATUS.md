@@ -5,38 +5,38 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-10-20 (242)
-- 작성자: AI 에이전트. **[대형 기획 15] Q-10(스토리 이벤트 일러스트 경로,
-  원문 22) 완료.** INBOX 설계대로 스토리 이벤트 8종(`StoryEventPool.
-  SCENARIOS`, 신규 `id` 필드 추가)과 특수 이벤트의 판정/캐릭터 전용 이벤트
-  8종(`EventChallengePool.CHALLENGES`, 기존 `id` 재사용) 전부에
-  `resources/events/<event_id>.png` 일러스트 슬롯을 만들었다. `CharacterArt`에
-  skill_icon.gd K-4c와 같은 평면 경로 패턴(`event_art_path()`/
-  `has_event_art()`/`load_event_art()`, production res://와 테스트 주입
-  경로 이중 지원)과 `face_art_fade.gdshader` 재사용 헬퍼(`build_illustration_
-  rect()`/`refresh_illustration_rect()`, 네 방향 페이드)를 추가해 event.gd/
-  story_event.gd가 공유한다. 레이아웃은 두 화면 다 "판정/선택 전" 단계에만
-  실제로 비어있는 구역(event.gd는 `Rect2(40,280,420,360)`, story_event.gd는
-  `Rect2(40,350,290,290)`)에 그리고, event.gd는 결과가 나오면(`_grant_
-  reward()`/`_show_fail()`) 그 자리를 결과 카드가 다시 쓰므로 숨기며(계산상
-  겹침 확인), story_event.gd는 겹치는 요소가 없어 선택 후에도 유지한다.
-  아트가 없으면 두 화면 다 기존 배경 그대로(회귀 없음). **Q-12 인수인계
-  필수 동반 수정**(알려진 이슈 2026-10-20): event.gd/story_event.gd 둘 다
-  title_label에 `clip_text`+`OVERRUN_TRIM_ELLIPSIS`를 추가하고 두 `.tscn`의
-  Title 박스 우측 경계를 1240→1060으로 줄여, 긴 subtitle(ancient_oath 등)에서
-  "스킬 도감" 버튼과 겹치던 버그를 고쳤다. `dice_test.gd`에 신규
-  `_check_q10_event_illustrations()` 추가(user:// 합성 PNG로 파일 있음/
-  없음 계약 검증 + production 씬 실배선 end-to-end + ancient_oath 제목의
-  실측 폰트 폭(1174px)이 박스 폭(1020px)보다 넓다는 것까지 확인해 클리핑이
-  실제로 필요한 조건을 재현), `bash scripts/qa_shot.sh dice_test 60
-  qa_out/dice_test_q10.png "" 1` **foreground 전체 PASS(FAIL 0건) 직접
-  확인**(run_in_background 금지). 셀프 피드백 스크린샷 5장(일러스트 표시
-  2화면, ancient_oath/duel_arena 제목 겹침 해소, 아트 없는 기본 상태 2화면
-  회귀 없음)을 직접 읽어 확인 — QA 전용 0-arity 훅이 user:// 임시 PNG만
-  쓰고 `resources/events/`는 전혀 건드리지 않았다. `docs/STATUS.md`에
-  스토리/특수 이벤트 16종 전수 아트 발주 표(id/제목/장면) 정리. 전투 규칙/
-  밸런스는 건드리지 않았고 `resources/`·`docs/art/`는 읽기만 했다(add 안 함).
-  **[대형 기획 15]는 이제 Q-9(고유 능력/업적 아이콘)만 남음.**
+- 일시: 2026-10-20 (243)
+- 작성자: AI 에이전트. **[대형 기획 15] Q-9(고유 능력 아이콘 + 업적 아이콘,
+  원문 6) 완료 — [대형 기획 15](플레이 피드백 23건, Q-1~Q-12) 전체 완료.**
+  INBOX 설계대로 ① 캐릭터 고유 능력(기믹 8종, `SkillIcon` category)과
+  업적 전체(32종, `AchievementIcon` category)의 현재 절차적 아이콘을
+  전수 목록화해 아래 "완료 기록 (243)"에 아트 발주용 표로 정리. ② 외부 아트
+  경로 — `SkillIcon`은 기존 K-4c `skill_id`/`resources/skills/<id>.png`
+  메커니즘을 그대로 재사용(기믹 id가 스킬 id 네임스페이스와 겹치지 않음을
+  확인)하고, `AchievementIcon`에 같은 패턴(`achievement_id`/
+  `resources/achievements/<업적 id>.png`, 멤버 텍스처 캐시 + 밉맵)을
+  신규 추가. 고유 능력 아이콘은 `SkillIcon`에 신규 `tint` 프로퍼티(기본값
+  흰색=무변화)를 추가해 흰 실루엣+알파 아트를 UIKit.icon_texture(name,
+  tint)와 같은 방식(RGB만 곱하고 알파 유지)으로 캐릭터 퍼스널 컬러 틴트할
+  수 있게 했다(`character_select.gd`가 "고유 능력" 섹션에서 `tint =
+  CharacterTheme.ui_palette(id)["accent"]`로 배선). 업적 아이콘은 특정
+  캐릭터에 묶이지 않아 틴트 없음. ③ 절차적 도안도 점검 — 기믹 8종(없음
+  포함)/업적 9유형 각 draw 함수에 짙은 스트로크 외곽선(`_stroke_polygon`
+  공용 헬퍼)을 추가해 작은 크기에서도 또렷하게 보이도록 폴리시(실루엣
+  자체는 불변이라 기존 K-4a 모티프 distinctness 테스트와 호환). ④ 동반
+  수정 — event.gd 특별 선택지 버튼(잠긴 "매혹사 선택 가능 …" 줄)이 safe/
+  risky 버튼과 14px 겹치던 버그를 `SPECIAL_CHOICE_BUTTON_RECT` 재배치로
+  고쳤다(버튼 줄 하단 200~일러스트 상단 280 구간에 위아래 8px 여백).
+  `dice_test.gd`에 신규 `_check_q9_gimmick_achievement_icons()` 추가
+  (경로 규칙 전수 일관성, user:// 합성 PNG로 파일 있음/없음 계약 + 틴트
+  실제 픽셀 검증 양쪽 아이콘, 절차적 도안 전수 distinctness SubViewport
+  비교, event.gd 특별 선택지 버튼 활성/잠김 두 상태 모두 안 겹침),
+  `bash scripts/qa_shot.sh dice_test 60 qa_out/dice_test_q9.png "" 1`
+  **foreground 전체 PASS(FAIL 0건) 직접 확인**(run_in_background 금지).
+  셀프 피드백 스크린샷 6장(캐릭터 선택 고유 능력 구역 2종(해적/광전사),
+  업적 패널, 이벤트 화면 겹침 해소 전/후 + 일러스트와 함께 있는 상태)을
+  직접 읽어 확인. 전투 규칙/밸런스는 건드리지 않았고 `resources/`·
+  `docs/art/`는 읽기만 했다(add 안 함).
 
 ## 지금 위치
 
@@ -220,8 +220,14 @@ story_event.gd는 겹치는 요소가 없어 유지) 아트가 없으면 기존 
 같은 작업에서 발견한 기존 버그(`event.gd`/`story_event.gd` title_label에
 폭 제약이 없어 긴 subtitle이 우상단 "스킬 도감" 버튼과 겹침)도 함께
 고쳤다(clip_text+말줄임). 자세한 내용은 아래 "완료 기록 (242)"와 "스토리/
-특수 이벤트 일러스트 발주 목록" 표 참고. **[대형 기획 15]는 이제 Q-9
-(고유 능력/업적 아이콘)만 남음.**
+특수 이벤트 일러스트 발주 목록" 표 참고.
+**고유 능력/업적 아이콘(2026-10-20 [대형 기획 15] Q-9 완료 — [대형 기획 15]
+전체 완료)** — `SkillIcon`(기믹 8종)·`AchievementIcon`(업적 32종) 둘 다
+"있으면 외부 아트, 없으면 절차적 폴백" override가 생겼다. 고유 능력 아이콘은
+신규 `tint` 프로퍼티로 캐릭터 퍼스널 컬러 틴트를 받을 수 있고(흰 실루엣+알파
+아트 대비), 절차적 도안도 외곽선을 더해 작게 그려져도 또렷하다. 동반 수정으로
+event.gd 특별 선택지 버튼의 safe/risky 버튼 겹침도 고쳤다. 자세한 내용은
+아래 "완료 기록 (243)"의 기믹/업적 아트 발주 표 참고.
 **큐의 나머지 항목은 대부분 사람 플레이테스트/피드백 또는 설계 결정이
 필요한 상태** — 자세한 내용은 "알려진 이슈 / 막힌 것" 섹션 참고.
 
@@ -809,9 +815,10 @@ true_strike) 재사용. 작업 중 2/4·3/4의 "매혹의 응보"/"저주의 흡
 DESIGN.md 레어리티 표 + STATUS.md 아트 발주 표(완료 기록 (238))까지 정리.
 이어서 2026-10-20(239)로 **Q-11(몬스터 도감) 완료**, (240)로 **Q-11b(몬스터
 도감 보완) 완료**, (241)로 **Q-12(보스 설정 스토리 반영, 사용자 확정 지시)
-완료**, (242)로 **Q-10(스토리 이벤트 일러스트 경로) 완료**까지 끝났다(각
-상세는 위 "지금 위치"와 아래 완료 기록/`docs/STATUS_ARCHIVE.md` 참고).
-**[대형 기획 15]는 이제 Q-9(고유 능력/업적 아이콘) 하나만 남았다.**
+완료**, (242)로 **Q-10(스토리 이벤트 일러스트 경로) 완료**, (243)로
+**Q-9(고유 능력/업적 아이콘) 완료**까지 끝났다(각 상세는 위 "지금 위치"와
+아래 완료 기록/`docs/STATUS_ARCHIVE.md` 참고).
+**[대형 기획 15](플레이 피드백 23건, Q-1~Q-12) 전체 완료.**
 
 남은 구조적 후보(급하지 않음): 보스 개별 6종 중 타락한 기사단장만 밴드 미달
 (`MonsterSkills.modify_monster_roll()` 파라미터화가 전제조건이라 사람 설계
@@ -1421,6 +1428,130 @@ DESIGN.md 레어리티 표 + STATUS.md 아트 발주 표(완료 기록 (238))까
     조정은 사람이 이 숫자를 보고 다음 지시로 결정).
 
 ## 완료 기록
+
+- **2026-10-20 (243)**: **[대형 기획 15] Q-9(고유 능력 아이콘 + 업적 아이콘,
+  원문 6) 완료 — [대형 기획 15](플레이 피드백 23건, Q-1~Q-12) 전체 완료.**
+  INBOX 설계 4가지를 그대로 따랐다.
+  **(1) 전수 목록화**: 아래 "고유 능력/업적 아이콘 발주 목록" 표 참고(기믹
+  8종 + 업적 32종 — STATUS.md가 과거 "21종 등록"이라고 적어뒀던 건
+  `AchievementManager.DEFINITIONS` 실제 개수와 어긋난 오래된 수치였다,
+  이번에 직접 세어 32종으로 바로잡음).
+  **(2) 외부 아트 경로**: `SkillIcon`(고유 능력, K-4c가 이미 갖고 있던
+  `skill_id`/`resources/skills/<id>.png` 메커니즘을 그대로 재사용 —
+  기믹 id(`min_max_only` 등)가 스킬 id 네임스페이스(`deep_breath` 등)와
+  겹치지 않음을 `resources/skills/` 실제 파일 목록 + 신규 테스트로 확인해
+  같은 폴더를 공유해도 충돌 없음)와 `AchievementIcon`(업적, K-4c와 같은
+  패턴을 신규 추가 — `achievement_id`/`resources/achievements/<업적
+  id>.png`, `render_source()`/멤버 텍스처 캐시/밉맵까지 전부 동일 구조)
+  양쪽 다 "파일 있으면 외부 아트, 없으면 절차적 폴백"을 갖췄다. 고유 능력
+  아이콘은 `SkillIcon`에 신규 `tint: Color`(기본값 흰색=무변화) 프로퍼티를
+  추가해 "흰 실루엣+알파" 아트를 UIKit.icon_texture(name, tint)와 같은
+  알고리즘(RGB만 tint로 곱하고 알파는 유지, `load_tinted_external_art()`
+  신규)으로 캐릭터 퍼스널 컬러에 맞춰 물들일 수 있다 — production/테스트
+  양쪽 경로 다 raw Image 디코드를 거쳐야 픽셀을 고칠 수 있어 base_dir
+  분기 없이 하나의 경로로 통일했다. 업적 아이콘은 특정 캐릭터에 묶이지
+  않으므로 틴트를 추가하지 않았다(지시 범위대로).
+  **(3) 절차적 도안 점검**: 기믹 8종(SkillIcon.CATEGORIES, "없음" 포함)과
+  업적 9유형(AchievementIcon.CATEGORIES) 전부의 draw 함수에 짙은 스트로크
+  외곽선을 그리는 공용 헬퍼 `_stroke_polygon()`(두 스크립트에 각각,
+  "채워진 폴리곤 테두리에 닫힌 폴리라인을 덧그린다"는 같은 알고리즘)을
+  추가해 28~36px의 작은 크기·비슷한 채도에서도 또렷하게 보이도록 폴리시했다
+  (_draw_extreme/_draw_shield_outline/_draw_heart/_draw_burst/_draw_cannon,
+  _draw_footprints/_draw_flag/_draw_coin_stack/_draw_sword/_draw_bag/
+  _draw_shop/_draw_material). 실루엣 자체는 바꾸지 않아 K-4a의 모티프
+  distinctness 테스트(이미 통과 중이던 "guard_stack"/"dice_swap" 등 category/
+  motif 공유 함수 포함)에 영향 없음 — 전부 이미 서로 다른 모양이었으므로
+  리디자인이 필요한 후보는 없었다(폭발병/견습 등 "모양이 겹치는 기믹"은
+  없음).
+  **(4) 적용**: `character_select.gd`의 "고유 능력" 섹션(`_refresh_detail_
+  panel()`)이 `_detail_skill_icon.skill_id = gimmick`과
+  `tint = CharacterTheme.ui_palette(id)["accent"]`를 함께 설정하고,
+  `achievement_panel.gd`의 `_make_row()`가 `AchievementIcon.achievement_id
+  = entry.id`를 설정한다(둘 다 override 파일이 없으면 자동으로 기존 절차적
+  그리기로 폴백하므로 화면 쪽 배선은 각각 두 줄 추가로 끝났다).
+  **동반 수정(감독 지적, 이벤트 화면)**: `event.gd`의 특별 선택지 버튼
+  (잠긴 "매혹사 선택 가능 …" 줄 등, N-6)이 기존 y=186/높이=76이면 safe/
+  risky 버튼(y 140~200)과 14px 겹쳤다 — 버튼 줄 하단(200)과
+  `ITEM_EVENT_ILLUSTRATION_RECT` 상단(280) 사이 80px 구간에 위아래 8px씩
+  여백을 두는 신규 상수 `SPECIAL_CHOICE_BUTTON_RECT`(y=208, 높이=64)로
+  재배치해 양쪽 다 안 겹치게 했다.
+  **테스트**: `dice_test.gd`에 신규 `_check_q9_gimmick_achievement_icons()`
+  — (1) 경로 규칙: 기믹 7종(빈 문자열 제외)+업적 32종 전수
+  `external_art_path() == '<base>/<id>.png'` (2) user:// 합성 PNG로
+  양쪽 아이콘 모두 "파일 없음→category 폴백"→"생성→external"이 실제
+  `render_source()` 값으로 바뀌는지, 순백 아트+빨간 틴트가 실제 픽셀을
+  빨강으로 바꾸는지(`Image.get_pixel()` 직접 비교, 틴트 없음은 흰색
+  그대로) (3) 기믹 8종(없음 포함)+업적 9유형 전부 완전 투명이 아니고
+  서로 다른 픽셀로 렌더되는지(K-4a와 같은 SubViewport 비교 패턴) (4)
+  event.gd 특별 선택지 버튼이 활성(enchantress)/잠김(novice) 두 상태
+  모두 `get_global_rect().intersects()`로 safe/risky 버튼과 안 겹치는지.
+  `bash scripts/qa_shot.sh dice_test 60 qa_out/dice_test_q9.png "" 1`
+  **foreground 전체 PASS(FAIL 0건) 직접 확인**(run_in_background 금지).
+  셀프 피드백 스크린샷 6장 — 캐릭터 선택 "고유 능력" 구역(해적 "함포"/
+  광전사 "극단", 둘 다 외곽선이 또렷해진 절차적 아이콘 정상 렌더, 레이아웃
+  겹침 없음), 업적 패널(32종 목록 스크롤, 아이콘 5종 혼합 정상 렌더),
+  이벤트 화면 특별 선택지 활성/잠김 두 상태(safe/risky 버튼과 겹침 해소
+  확인) + 합성 일러스트와 함께 있는 상태(특별 선택지 줄이 safe/risky
+  버튼과 일러스트 양쪽 다 깨끗한 간격)를 직접 읽어 확인했다. 전투 규칙/
+  밸런스는 건드리지 않았고 `resources/`·`docs/art/`는 읽기만 했다(add
+  안 함). **[대형 기획 15](Q-1~Q-12) 전체 완료 — 남은 Q 항목 없음.**
+
+  **고유 능력/업적 아이콘 발주 목록(Q-9, 아트 스레드 전달용)** — 경로 규칙:
+  고유 능력은 `resources/skills/<기믹 id>.png`(K-4c의 스킬 아이콘과 같은
+  폴더를 공유하지만 파일명이 겹치지 않음), 업적은 `resources/achievements/
+  <업적 id>.png`(신규 폴더). 둘 다 "흰 실루엣+알파 또는 무채색" 권장
+  (고유 능력은 틴트가 캐릭터색을 입히므로), 정사각형(28~36px로 축소되어
+  쓰이므로 단순한 모양 권장).
+
+  *고유 능력(기믹) 8종 — `CharacterProfiles.PROFILES`의 `gimmick` 필드,
+  `SkillIcon.CATEGORIES`*
+  | 기믹 id | 캐릭터 | 현재 절차적 모양 |
+  |---|---|---|
+  | (빈 문자열, "없음") | 견습 모험가 | 가는 회색 원(빈 원) |
+  | min_max_only | 광전사 | 위아래로 뾰족한 다이아몬드 2개(최솟값/최댓값만) |
+  | fixed_defense_die | 수호자 | 방패 윤곽 + 안쪽 사각(고정값) |
+  | explosive_stack | 폭발병 | 8방향 별 폭발 |
+  | guard_stack | 주술사 | 방패 윤곽 + 겹겹 아치 2개 |
+  | charm_flip | 매혹사 | 하트 모양 |
+  | juggle_swap | 곡예사 | 반대 방향 화살표 2개(교차) |
+  | cannon_volley | 해적 | 비스듬한 포신 + 포탄 원 + 발사 궤적 점 |
+
+  *업적 32종 — `AchievementManager.DEFINITIONS`, `AchievementIcon.CATEGORIES`
+  9유형(유형 공유 — 개별 업적 전용 그림을 원하면 위 경로로 override 가능)*
+  | 업적 id | 이름 | 조건 | 현재 아이콘 유형 |
+  |---|---|---|---|
+  | first_run_start | 첫 발걸음 | 던전을 처음 시작 | start(발자국) |
+  | round1_clear | 던전 클리어 | 첫 던전(라운드 1) 클리어 | milestone(깃발) |
+  | win_with_d20 | 거인의 주사위 | D20 보유한 채 전투 승리 | dice(다이스 면) |
+  | gold_100 | 부자 | 골드 100 이상 한 번에 보유 | gold(동전 쌓기) |
+  | flawless_win | 무결점 승리 | 전투 중 한 대도 안 맞고 승리 | combat(검) |
+  | comeback_win | 기사회생 | 체력 2 이하에서 위기 넘기고 승리 | combat(검) |
+  | overkill_win | 오버킬 | 최대 체력 이상 데미지로 승리 | combat(검) |
+  | pip_hoarder | 눈금 수집가 | 눈금 인벤토리 10개 이상 동시 보유 | pip(눈금 면) |
+  | die_hoarder | 다이스 수집가 | 다이스 인벤토리 5개 이상 동시 보유 | dice(다이스 면) |
+  | bag_maxed | 가득 찬 주머니 | 주머니 최대(6개)까지 채움 | bag(주머니) |
+  | shop_regular | 단골 손님 | 한 런에 상점 3회 이상 이용 | shop(좌판) |
+  | material_collector | 재질 수집가 | 4재질 다이스 동시 보유 | material(색상환) |
+  | round2_clear | 라운드 2 클리어 | 두 번째 라운드 클리어 | milestone(깃발) |
+  | game_clear | 최종 승리 | 3라운드 전부 클리어 | milestone(깃발) |
+  | clear_novice | 견습 모험가로 첫 클리어 | 그 캐릭터로 최종 클리어 | milestone(깃발) |
+  | clear_berserker | 광전사로 첫 클리어 | 〃 | milestone(깃발) |
+  | clear_guardian | 수호자로 첫 클리어 | 〃 | milestone(깃발) |
+  | clear_explosive | 폭발병으로 첫 클리어 | 〃 | milestone(깃발) |
+  | clear_shieldbearer | 주술사로 첫 클리어 | 〃 | milestone(깃발) |
+  | clear_enchantress | 매혹사로 첫 클리어 | 〃 | milestone(깃발) |
+  | clear_juggler | 곡예사로 첫 클리어 | 〃 | milestone(깃발) |
+  | clear_pirate | 해적으로 첫 클리어 | 〃 | milestone(깃발) |
+  | r1_novice | 견습 모험가로 첫 던전 클리어 | 그 캐릭터로 라운드1 클리어 | milestone(깃발) |
+  | r1_berserker | 광전사로 첫 던전 클리어 | 〃 | milestone(깃발) |
+  | r1_guardian | 수호자로 첫 던전 클리어 | 〃 | milestone(깃발) |
+  | r1_explosive | 폭발병으로 첫 던전 클리어 | 〃 | milestone(깃발) |
+  | r1_shieldbearer | 주술사로 첫 던전 클리어 | 〃 | milestone(깃발) |
+  | r1_enchantress | 매혹사로 첫 던전 클리어 | 〃 | milestone(깃발) |
+  | r1_juggler | 곡예사로 첫 던전 클리어 | 〃 | milestone(깃발) |
+  | r1_pirate | 해적으로 첫 던전 클리어 | 〃 | milestone(깃발) |
+  | risk_taker | 위험을 감수한 자 | "위험을 감수하기" 판정 성공 | dice(다이스 면) |
+  | first_defeat | 패배도 경험이다 | 던전에서 처음 패배(전멸) | combat(검) |
 
 - **2026-10-20 (242)**: **[대형 기획 15] Q-10(스토리 이벤트 일러스트 경로,
   원문 22) 완료.** INBOX 설계를 그대로 따라 스토리 이벤트(8종)·특수 이벤트의
@@ -2032,52 +2163,9 @@ DESIGN.md 레어리티 표 + STATUS.md 아트 발주 표(완료 기록 (238))까
   매혹사/곡예사/해적) 18종은 2/4~4/4 몫으로 남음 — 다음 이터레이션은 Q-8(c)
   2/4(수호자/폭발병 6종)부터.**
 
-- **2026-10-19 (233)**: **[대형 기획 13] [미니 기획 ART-1c-5](보스 크롭·여백
-  조정, 아트 스레드 요청) 완료.** 직전 이터레이션이 `dice_test`를
-  `run_in_background`로 돌려놓고 "기다리겠다"고만 하고 미커밋 상태로 끊긴 것을
-  `git diff`로 파악해 이어받았다(헤드리스 세션은 백그라운드 작업을 기다릴 수
-  없다는 교훈이 이번에도 재확인됨). `git diff`로 확인한 결과 직전 이터레이션이
-  이미 코드 변경을 전부 끝내둔 상태였다(stash/reset 없이 그대로 이어감) —
-  ① `CharacterArt.BOSS_FACE_CROP_RATIO`(Rect2(0.26, 0.0, 0.48, 0.52))가 보스
-  티어만 크롭 시작 y를 0(이미지 최상단, 왕관 꼭대기)으로 올리고 height를
-  0.48→0.52로 늘려 허리 정도까지 담는다 — `MONSTER_FACE_CROP_RATIO_BY_TIER`
-  데이터 표로 일반/정예는 `DEFAULT_FACE_CROP_RATIO` 그대로(요구사항 — 변경
-  없음), 몬스터 id 하드코딩 없이 `MonsterCatalog`의 `tier` 문자열로만 조회.
-  ② `MonsterPortraitPlaceholder.FACE_ART_TOP_FADE_BY_TIER`가 보스만 top_fade를
-  10%→5%로 줄여 왕관이 다시 페이드 영역에 걸리지 않게 했다(_face_rect/
-  _glow_rect 양쪽 다 `_apply_tier_fade()`로 갱신). ③ 크롭을 올리면서 보스
-  포트레이트 박스 상단이 몬스터 HUD 패널(우측 상단)보다 한참 위로 올라가
-  왕관이 패널에 가려 보였던 문제는 `combat_test.gd`의
-  `BOSS_PORTRAIT_POSITION_SHIFT`에 y=130을 추가해 패널 하단+여백 아래로
-  내려 해결(기존 x=-60 보정은 유지) — 박스 하단이 "전투 기록" 로그 패널
-  상단과 살짝 겹치지만 기존 하단 페이드 셰이더가 그 구간을 이미 투명하게
-  만들어 시각적으로 거의 안 걸림(셀프 피드백으로 확인).
-  **검증**: `dice_test.gd`의 신규 `_check_art1c5_boss_crop()`이 "플래그
-  존재"가 아니라 계산 결과로 ① 보스 크롭 시작 y가 일반/정예보다 위쪽인지
-  ② 일반/정예 크롭 비율이 변경 없이 그대로인지 ③ top_fade가 보스만 더
-  작은지 ④ 보스 6종 전부를 production 배치(`combat_test.tscn`,
-  `_apply_monster_portrait_tier`)로 실제 렌더해 포트레이트 상단 y가 몬스터
-  HUD 패널 하단 y + 10px 여백 이상인지 ⑤ 화면(1280x720) 안에 드는지를
-  rect 계산으로 직접 비교한다(이번엔 실제 trait 텍스트까지 채워 패널 높이가
-  빈 텍스트일 때보다 커지는 실제 조건으로 측정). **`dice_test.gd` 전체 PASS**
-  — foreground + `settle=1`로 `bash scripts/qa_shot.sh dice_test "" qa_out/
-  dice_test_art1c5_final.png "" 1` 실행해 stdout에 "결과: PASS" 직접 확인
-  (FAIL 0건, "FAIL"이라는 단어가 포함된 다른 체크 2건은 체크 설명 문구/
-  주석일 뿐 실제 실패 아님을 확인).
-  **셀프 피드백(시각 확인)**: 보스 6종 전부(`goblin_king`/`ooze_lord`/
-  `skeleton_general`/`frenzied_beast`/`fallen_commander`/`void_eye`)를
-  `scripts/qa_shot.sh combat_test 140 qa_out/art1c5_boss_<id>.png "" 1 "" 4
-  <id>`로 개별 캡처해 직접 읽고 확인 — 전부 왕관/머리장식이 위쪽 페이드에
-  묻히지 않고 완전히 보이며(고블린 왕 왕관, 해골 장군 두개골 왕관, 타락한
-  기사단장 뿔 장식, 공허의 눈 티아라 전부 또렷), 몬스터 HUD 패널과 포트레이트
-  사이에 명확한 여백이 생겨 더 이상 머리가 패널에 눌려 보이지 않고, 6종 전부
-  화면(1280x720) 경계 안에 들어온다. 전투 규칙/밸런스 수치는 건드리지 않았고
-  `resources/`·`docs/art/`는 읽기만 했다. **[대형 기획 13]에 남은 조각
-  없음 — 다음은 [대형 기획 15] Q-8(c)(전설 스킬 구현)로 복귀.**
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(242)에서 (232)를 그리로 옮겼다.)*
+이번 이터레이션(243)에서 (233)을 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 

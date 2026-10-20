@@ -1007,6 +1007,14 @@ func _refresh_detail_panel() -> void:
 
 	var gimmick: String = String(profile.get("gimmick", ""))
 	_detail_skill_icon.category = gimmick
+	# [대형 기획 15] Q-9: resources/skills/<gimmick>.png가 있으면 그걸 우선 쓰고(없으면
+	# 기존 절차적 category 그리기로 자동 폴백, SkillIcon._external_texture() 계약),
+	# 캐릭터 퍼스널 컬러로 틴트한다(아트가 흰 실루엣+알파일 수 있다는 전제 — UIKit.
+	# icon_texture(name, tint)와 같은 방식). gimmick ids(min_max_only 등)는 skill_id
+	# 네임스페이스(deep_breath 등)와 겹치지 않아(dice_test.gd 검증) 같은 폴더를
+	# 공유해도 충돌하지 않는다.
+	_detail_skill_icon.skill_id = gimmick
+	_detail_skill_icon.tint = CharacterTheme.ui_palette(_selected_id)["accent"]
 	_detail_ability_name_label.text = _ability_short_name(gimmick)
 	# Q-3(9): 글자 수로 자르던 방식 대신 캐릭터별로 짧게 손으로 쓴 ability_summary를
 	# 그대로 보여준다(말줄임 없음). 전체 문장(concept)은 여전히 tooltip으로 볼 수 있다.

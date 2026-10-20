@@ -151,6 +151,12 @@ var _special_button: Button = null
 const ITEM_EVENT_ILLUSTRATION_RECT := Rect2(40, 280, 420, 360)
 var _illustration_rect: TextureRect = null
 
+## [대형 기획 15] Q-9 동반 수정(2026-10-20, 감독 지적): 세 번째 선택지(특별 선택지)
+## 버튼이 기존 y=186/높이=76이면 safe/risky 버튼(y 140~200)과 14px 위아래로 겹쳤다.
+## 200(버튼 줄 하단)과 280(ITEM_EVENT_ILLUSTRATION_RECT 상단) 사이 80px 구간에 위아래
+## 8px씩 여백을 두고(64px 높이) 양쪽 다 안 겹치게 재배치.
+const SPECIAL_CHOICE_BUTTON_RECT := Rect2(260.0, 208.0, 700.0, 64.0)
+
 ## CharacterArt.load_event_art()에 넘기는 base_dir — dice_test.gd가 합성 PNG로
 ## "파일 있음/없음" 양쪽을 production 리소스에 의존하지 않고 검증할 수 있도록 여는
 ## 테스트 주입 지점(character_portrait_placeholder.gd의 art_base_dir과 같은 패턴).
@@ -287,8 +293,9 @@ func _build_special_choice_button() -> Button:
 	# RiskyButton(x 660~1020)이 DeckPanel(x 980~)과 겹치는 기존의 작은 코너 겹침과
 	# 달리, 이 버튼은 safe+risky 전체 폭(260~1020)만큼 넓어 그 겹침이 두드러진다 —
 	# DeckPanel 좌측(980)보다 20px 여유를 두고 960에서 끝나도록 폭을 줄인다.
-	btn.position = Vector2(260.0, 186.0)
-	btn.size = Vector2(700.0, 76.0)
+	# [대형 기획 15] Q-9 동반 수정: y/높이는 SPECIAL_CHOICE_BUTTON_RECT 참고(위 주석).
+	btn.position = SPECIAL_CHOICE_BUTTON_RECT.position
+	btn.size = SPECIAL_CHOICE_BUTTON_RECT.size
 	btn.mouse_filter = Control.MOUSE_FILTER_STOP
 
 	var content := VBoxContainer.new()

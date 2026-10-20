@@ -517,6 +517,10 @@ func _ready() -> void:
 	all_pass = _check_q10_event_illustrations(lines) and all_pass
 
 	lines.append("")
+	lines.append("[Q-9: 고유 능력(기믹) 아이콘 + 업적 아이콘 — resources/skills/<기믹 id>.png·resources/achievements/<업적 id>.png 경로 규칙이 기믹/업적 id 전수에 대해 일관되는지, user:// 합성 PNG로 '파일 있음->외부 아트/파일 없음->절차적 폴백' 계약(양쪽 아이콘 + 고유 능력의 캐릭터 퍼스널 컬러 틴트), 절차적 도안 전수(기믹 8종+업적 9유형)가 서로 다른 픽셀로 렌더되는지, event.gd 특별 선택지 버튼이 safe/risky 버튼과 더 이상 겹치지 않는지(동반 수정)]")
+	all_pass = (await _check_q9_gimmick_achievement_icons(lines)) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -2537,6 +2541,251 @@ func _check_q10_event_illustrations(lines: PackedStringArray) -> bool:
 	DirAccess.remove_absolute(tmp_dir + "treasure.png")
 	DirAccess.remove_absolute(tmp_dir + "suspicious_gambler.png")
 	DirAccess.remove_absolute(tmp_dir)
+
+	return ok
+
+
+## [대형 기획 15] Q-9 검증. INBOX 설계 3가지를 전부 계산 결과로 확인한다:
+## (1) 경로 규칙 — 기믹/업적 id 전수에 대해 external_art_path()가 "<base>/<id>.png"
+##     형태로 일관되는지(resources/는 안 건드리고 식으로만 확인).
+## (2) 외부 아트 override 계약 — user:// 합성 PNG로 "파일 없음->절차적 폴백,
+##     파일 있음->외부 아트"가 실제로 바뀌는지(SkillIcon.render_source()/
+##     AchievementIcon.render_source()), 그리고 SkillIcon의 틴트가 실제 픽셀 색을
+##     바꾸는지(흰 아트+빨간 틴트 -> 빨간 픽셀).
+## (3) 절차적 도안 전수 distinctness — 기믹 8종(CATEGORIES, "없음" 포함)과 업적
+##     9유형(CATEGORIES)이 서로 다른 픽셀로 렌더되는지(K-4a와 같은 SubViewport 비교
+##     패턴), 그리고 전부 완전 투명(안 그려짐)이 아닌지.
+## (4) 동반 수정 회귀 — event.gd 특별 선택지 버튼(SPECIAL_CHOICE_BUTTON_RECT)이
+##     safe/risky 버튼과 더 이상 겹치지 않는지(활성/잠김 두 상태 모두).
+func _check_q9_gimmick_achievement_icons(lines: PackedStringArray) -> bool:
+	var ok := true
+	var tmp_dir := "user://q9_test_tmp/"
+	DirAccess.make_dir_recursive_absolute(tmp_dir)
+
+	# (1) 경로 규칙 일관성 — 기믹 id 전수(빈 문자열 "없음"은 애초에 외부 아트 대상이
+	# 아니므로 제외) + 업적 id 전수(AchievementManager.DEFINITIONS, 32종).
+	var gimmick_ids: Array = []
+	for cat in SkillIcon.CATEGORIES:
+		if cat != "":
+			gimmick_ids.append(cat)
+	var gimmick_path_bad: PackedStringArray = []
+	for gid in gimmick_ids:
+		var expected := "res://resources/skills/%s.png" % gid
+		if SkillIcon.external_art_path(gid) != expected:
+			gimmick_path_bad.append(gid)
+	var achievement_ids: Array = AchievementManager.DEFINITIONS.keys()
+	var achievement_path_bad: PackedStringArray = []
+	for aid in achievement_ids:
+		var expected_a := "res://resources/achievements/%s.png" % aid
+		if AchievementIcon.external_art_path(aid) != expected_a:
+			achievement_path_bad.append(aid)
+	var path_ok: bool = gimmick_path_bad.is_empty() and achievement_path_bad.is_empty()
+	ok = path_ok and ok
+	lines.append("  (1) 기믹 %d종 + 업적 %d종 전수 external_art_path() == '<base>/<id>.png' -> %s" % [
+		gimmick_ids.size(), achievement_ids.size(), "OK" if path_ok else "FAIL"
+	])
+	if not gimmick_path_bad.is_empty():
+		lines.append("    기믹 경로 불일치: %s" % ", ".join(gimmick_path_bad))
+	if not achievement_path_bad.is_empty():
+		lines.append("    업적 경로 불일치: %s" % ", ".join(achievement_path_bad))
+
+	# (2a) SkillIcon — 파일 없음(폴백 "category") -> 생성 -> "external"로 바뀌는지.
+	var gimmick_test_id := "min_max_only"
+	var skill_icon := SkillIcon.new()
+	skill_icon.category = gimmick_test_id
+	skill_icon.skill_id = gimmick_test_id
+	skill_icon.external_art_base_dir = tmp_dir
+	add_child(skill_icon)
+	var before_src := skill_icon.render_source()
+	var before_ok: bool = before_src == "category"
+	ok = before_ok and ok
+	lines.append("  (2a) SkillIcon override 파일 생성 전: render_source()=='category' -> %s (실제: %s)" % ["OK" if before_ok else "FAIL", before_src])
+
+	# 흰색+알파 합성 PNG — 틴트가 실제로 RGB를 바꾸는지 보려고 일부러 순백으로 만든다.
+	var white_img := Image.create(4, 4, false, Image.FORMAT_RGBA8)
+	white_img.fill(Color(1, 1, 1, 1))
+	white_img.save_png(tmp_dir + gimmick_test_id + ".png")
+
+	var after_src := skill_icon.render_source()
+	var after_ok: bool = after_src == "external"
+	ok = after_ok and ok
+	lines.append("  (2b) SkillIcon override 파일 생성 후: render_source()=='external' -> %s (실제: %s)" % ["OK" if after_ok else "FAIL", after_src])
+
+	# (2c) 캐릭터 퍼스널 컬러 틴트 — 순백 아트 + 빨간 틴트 -> 로드된 텍스처가 실제로
+	# 빨간색이어야 한다(틴트 없음은 흰색 그대로).
+	var untinted_tex := SkillIcon.load_external_art(gimmick_test_id, tmp_dir)
+	var untinted_img: Image = untinted_tex.get_image() if untinted_tex != null else null
+	var untinted_ok: bool = untinted_img != null and untinted_img.get_pixel(0, 0).is_equal_approx(Color(1, 1, 1, 1))
+	var red_tint := Color(1, 0, 0, 1)
+	var tinted_tex := SkillIcon.load_tinted_external_art(gimmick_test_id, tmp_dir, red_tint)
+	var tinted_img: Image = tinted_tex.get_image() if tinted_tex != null else null
+	var tinted_ok: bool = tinted_img != null and tinted_img.get_pixel(0, 0).is_equal_approx(red_tint)
+	var tint_ok: bool = untinted_ok and tinted_ok
+	ok = tint_ok and ok
+	lines.append("  (2c) 틴트 없음 픽셀=흰색, 빨간 틴트 픽셀=빨강(흰 아트 RGB*tint, 알파 유지) -> %s" % ("OK" if tint_ok else "FAIL"))
+
+	# (2d) 인스턴스의 tint 프로퍼티를 통해서도 같은 결과가 나오는지(render_source()는
+	# 여전히 "external" 유지 — tint는 external 우선순위에 영향 없음).
+	skill_icon.tint = red_tint
+	var tinted_via_icon := skill_icon.render_source()
+	var tinted_via_icon_ok: bool = tinted_via_icon == "external"
+	ok = tinted_via_icon_ok and ok
+	lines.append("  (2d) tint 설정 후에도 render_source()=='external' 유지 -> %s (실제: %s)" % ["OK" if tinted_via_icon_ok else "FAIL", tinted_via_icon])
+
+	remove_child(skill_icon)
+	skill_icon.free()
+	DirAccess.remove_absolute(tmp_dir + gimmick_test_id + ".png")
+
+	# (2e) AchievementIcon — 같은 계약(파일 없음->category, 생성 후->external).
+	var achievement_test_id := "gold_100"
+	var ach_icon := AchievementIcon.new()
+	ach_icon.category = "gold"
+	ach_icon.achievement_id = achievement_test_id
+	ach_icon.external_art_base_dir = tmp_dir
+	add_child(ach_icon)
+	var ach_before := ach_icon.render_source()
+	var ach_before_ok: bool = ach_before == "category"
+	ok = ach_before_ok and ok
+	lines.append("  (2e) AchievementIcon override 파일 생성 전: render_source()=='category' -> %s (실제: %s)" % ["OK" if ach_before_ok else "FAIL", ach_before])
+
+	var ach_img := Image.create(4, 4, false, Image.FORMAT_RGBA8)
+	ach_img.fill(Color(0.2, 0.6, 0.3, 1.0))
+	ach_img.save_png(tmp_dir + achievement_test_id + ".png")
+	var ach_after := ach_icon.render_source()
+	var ach_after_ok: bool = ach_after == "external"
+	ok = ach_after_ok and ok
+	lines.append("  (2f) AchievementIcon override 파일 생성 후: render_source()=='external' -> %s (실제: %s)" % ["OK" if ach_after_ok else "FAIL", ach_after])
+
+	DirAccess.remove_absolute(tmp_dir + achievement_test_id + ".png")
+	var ach_removed := ach_icon.render_source()
+	var ach_removed_ok: bool = ach_removed == "category"
+	ok = ach_removed_ok and ok
+	lines.append("  (2g) override 파일 삭제 후: render_source()=='category'로 복귀 -> %s (실제: %s)" % ["OK" if ach_removed_ok else "FAIL", ach_removed])
+
+	remove_child(ach_icon)
+	ach_icon.free()
+	DirAccess.remove_absolute(tmp_dir)
+
+	# (3) 절차적 도안 전수 distinctness — 기믹 8종(SkillIcon.CATEGORIES, "없음" 포함)
+	# + 업적 9유형(AchievementIcon.CATEGORIES), 각각 독립 SubViewport(K-4a와 같은 패턴).
+	var icon_size := Vector2i(30, 30)
+
+	var gimmick_viewports: Array[SubViewport] = []
+	for cat in SkillIcon.CATEGORIES:
+		var icon := SkillIcon.new()
+		icon.size = Vector2(icon_size)
+		icon.category = cat
+		var vp := SubViewport.new()
+		vp.size = icon_size
+		vp.transparent_bg = true
+		vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+		vp.add_child(icon)
+		add_child(vp)
+		gimmick_viewports.append(vp)
+
+	var ach_viewports: Array[SubViewport] = []
+	for cat in AchievementIcon.CATEGORIES:
+		var icon2 := AchievementIcon.new()
+		icon2.size = Vector2(icon_size)
+		icon2.category = cat
+		var vp2 := SubViewport.new()
+		vp2.size = icon_size
+		vp2.transparent_bg = true
+		vp2.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+		vp2.add_child(icon2)
+		add_child(vp2)
+		ach_viewports.append(vp2)
+
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await RenderingServer.frame_post_draw
+
+	var gimmick_blank: PackedStringArray = []
+	var gimmick_dup: PackedStringArray = []
+	var seen_gimmick: Dictionary = {}
+	for i in range(SkillIcon.CATEGORIES.size()):
+		var cat_name: String = SkillIcon.CATEGORIES[i]
+		var label_name: String = cat_name if cat_name != "" else "(없음)"
+		var img: Image = gimmick_viewports[i].get_texture().get_image()
+		var data: PackedByteArray = img.get_data() if img != null else PackedByteArray()
+		var has_pixel := false
+		for b in data:
+			if b != 0:
+				has_pixel = true
+				break
+		# "없음" 카테고리는 가는 회색 원 하나뿐이라도 그려지는 게 맞다(의도된 디자인).
+		if not has_pixel:
+			gimmick_blank.append(label_name)
+		for other in seen_gimmick.keys():
+			if seen_gimmick[other] == data:
+				gimmick_dup.append("%s==%s" % [label_name, other])
+		seen_gimmick[label_name] = data
+	for vp in gimmick_viewports:
+		remove_child(vp)
+		vp.free()
+
+	var ach_blank: PackedStringArray = []
+	var ach_dup: PackedStringArray = []
+	var seen_ach: Dictionary = {}
+	for i in range(AchievementIcon.CATEGORIES.size()):
+		var cat_name2: String = AchievementIcon.CATEGORIES[i]
+		var img2: Image = ach_viewports[i].get_texture().get_image()
+		var data2: PackedByteArray = img2.get_data() if img2 != null else PackedByteArray()
+		var has_pixel2 := false
+		for b in data2:
+			if b != 0:
+				has_pixel2 = true
+				break
+		if not has_pixel2:
+			ach_blank.append(cat_name2)
+		for other2 in seen_ach.keys():
+			if seen_ach[other2] == data2:
+				ach_dup.append("%s==%s" % [cat_name2, other2])
+		seen_ach[cat_name2] = data2
+	for vp in ach_viewports:
+		remove_child(vp)
+		vp.free()
+
+	var distinct_ok: bool = gimmick_blank.is_empty() and gimmick_dup.is_empty() and ach_blank.is_empty() and ach_dup.is_empty()
+	ok = distinct_ok and ok
+	lines.append("  (3) 기믹 %d종(없음 포함) + 업적 %d유형 전부 비어있지 않고 서로 다른 픽셀로 렌더 -> %s" % [
+		SkillIcon.CATEGORIES.size(), AchievementIcon.CATEGORIES.size(), "OK" if distinct_ok else "FAIL"
+	])
+	if not gimmick_blank.is_empty():
+		lines.append("    빈 기믹 아이콘: %s" % ", ".join(gimmick_blank))
+	if not gimmick_dup.is_empty():
+		lines.append("    동일 렌더 기믹 쌍: %s" % ", ".join(gimmick_dup))
+	if not ach_blank.is_empty():
+		lines.append("    빈 업적 아이콘: %s" % ", ".join(ach_blank))
+	if not ach_dup.is_empty():
+		lines.append("    동일 렌더 업적 쌍: %s" % ", ".join(ach_dup))
+
+	# (4) 동반 수정 회귀 — event.gd 특별 선택지 버튼이 safe/risky 버튼과 안 겹치는지,
+	# 활성(enchantress)/잠김(novice) 두 상태 모두.
+	var event_scene := load("res://code/scenes/event.tscn")
+	var event_node = event_scene.instantiate()
+	add_child(event_node)
+
+	event_node._debug_force_special_choice_active()
+	var active_rect: Rect2 = event_node._special_button.get_global_rect()
+	var active_no_overlap_ok: bool = (
+		not active_rect.intersects(event_node.safe_button.get_global_rect())
+		and not active_rect.intersects(event_node.risky_button.get_global_rect())
+	)
+	ok = active_no_overlap_ok and ok
+	lines.append("  (4a) 특별 선택지 '활성' 상태 — safe/risky 버튼과 안 겹침 -> %s" % ("OK" if active_no_overlap_ok else "FAIL"))
+
+	event_node._debug_force_special_choice_locked()
+	var locked_rect: Rect2 = event_node._special_button.get_global_rect()
+	var locked_no_overlap_ok: bool = (
+		not locked_rect.intersects(event_node.safe_button.get_global_rect())
+		and not locked_rect.intersects(event_node.risky_button.get_global_rect())
+	)
+	ok = locked_no_overlap_ok and ok
+	lines.append("  (4b) 특별 선택지 '잠김' 상태(매혹사 전용, novice가 봄) — safe/risky 버튼과 안 겹침 -> %s" % ("OK" if locked_no_overlap_ok else "FAIL"))
+
+	remove_child(event_node)
+	event_node.free()
 
 	return ok
 

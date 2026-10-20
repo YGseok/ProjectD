@@ -8,6 +8,49 @@
 
 ---
 
+- **2026-10-19 (233)**: **[대형 기획 13] [미니 기획 ART-1c-5](보스 크롭·여백
+  조정, 아트 스레드 요청) 완료.** 직전 이터레이션이 `dice_test`를
+  `run_in_background`로 돌려놓고 "기다리겠다"고만 하고 미커밋 상태로 끊긴 것을
+  `git diff`로 파악해 이어받았다(헤드리스 세션은 백그라운드 작업을 기다릴 수
+  없다는 교훈이 이번에도 재확인됨). `git diff`로 확인한 결과 직전 이터레이션이
+  이미 코드 변경을 전부 끝내둔 상태였다(stash/reset 없이 그대로 이어감) —
+  ① `CharacterArt.BOSS_FACE_CROP_RATIO`(Rect2(0.26, 0.0, 0.48, 0.52))가 보스
+  티어만 크롭 시작 y를 0(이미지 최상단, 왕관 꼭대기)으로 올리고 height를
+  0.48→0.52로 늘려 허리 정도까지 담는다 — `MONSTER_FACE_CROP_RATIO_BY_TIER`
+  데이터 표로 일반/정예는 `DEFAULT_FACE_CROP_RATIO` 그대로(요구사항 — 변경
+  없음), 몬스터 id 하드코딩 없이 `MonsterCatalog`의 `tier` 문자열로만 조회.
+  ② `MonsterPortraitPlaceholder.FACE_ART_TOP_FADE_BY_TIER`가 보스만 top_fade를
+  10%→5%로 줄여 왕관이 다시 페이드 영역에 걸리지 않게 했다(_face_rect/
+  _glow_rect 양쪽 다 `_apply_tier_fade()`로 갱신). ③ 크롭을 올리면서 보스
+  포트레이트 박스 상단이 몬스터 HUD 패널(우측 상단)보다 한참 위로 올라가
+  왕관이 패널에 가려 보였던 문제는 `combat_test.gd`의
+  `BOSS_PORTRAIT_POSITION_SHIFT`에 y=130을 추가해 패널 하단+여백 아래로
+  내려 해결(기존 x=-60 보정은 유지) — 박스 하단이 "전투 기록" 로그 패널
+  상단과 살짝 겹치지만 기존 하단 페이드 셰이더가 그 구간을 이미 투명하게
+  만들어 시각적으로 거의 안 걸림(셀프 피드백으로 확인).
+  **검증**: `dice_test.gd`의 신규 `_check_art1c5_boss_crop()`이 "플래그
+  존재"가 아니라 계산 결과로 ① 보스 크롭 시작 y가 일반/정예보다 위쪽인지
+  ② 일반/정예 크롭 비율이 변경 없이 그대로인지 ③ top_fade가 보스만 더
+  작은지 ④ 보스 6종 전부를 production 배치(`combat_test.tscn`,
+  `_apply_monster_portrait_tier`)로 실제 렌더해 포트레이트 상단 y가 몬스터
+  HUD 패널 하단 y + 10px 여백 이상인지 ⑤ 화면(1280x720) 안에 드는지를
+  rect 계산으로 직접 비교한다(이번엔 실제 trait 텍스트까지 채워 패널 높이가
+  빈 텍스트일 때보다 커지는 실제 조건으로 측정). **`dice_test.gd` 전체 PASS**
+  — foreground + `settle=1`로 `bash scripts/qa_shot.sh dice_test "" qa_out/
+  dice_test_art1c5_final.png "" 1` 실행해 stdout에 "결과: PASS" 직접 확인
+  (FAIL 0건, "FAIL"이라는 단어가 포함된 다른 체크 2건은 체크 설명 문구/
+  주석일 뿐 실제 실패 아님을 확인).
+  **셀프 피드백(시각 확인)**: 보스 6종 전부(`goblin_king`/`ooze_lord`/
+  `skeleton_general`/`frenzied_beast`/`fallen_commander`/`void_eye`)를
+  `scripts/qa_shot.sh combat_test 140 qa_out/art1c5_boss_<id>.png "" 1 "" 4
+  <id>`로 개별 캡처해 직접 읽고 확인 — 전부 왕관/머리장식이 위쪽 페이드에
+  묻히지 않고 완전히 보이며(고블린 왕 왕관, 해골 장군 두개골 왕관, 타락한
+  기사단장 뿔 장식, 공허의 눈 티아라 전부 또렷), 몬스터 HUD 패널과 포트레이트
+  사이에 명확한 여백이 생겨 더 이상 머리가 패널에 눌려 보이지 않고, 6종 전부
+  화면(1280x720) 경계 안에 들어온다. 전투 규칙/밸런스 수치는 건드리지 않았고
+  `resources/`·`docs/art/`는 읽기만 했다. **[대형 기획 13]에 남은 조각
+  없음 — 다음은 [대형 기획 15] Q-8(c)(전설 스킬 구현)로 복귀.**
+
 - **2026-10-19 (232)**: 직전 이터레이션(Q-8(b))이 주간 한도로 중단된 것을
   `git diff`로 파악해 이어받아 **[대형 기획 15] Q-8(b)(등급별 효과 차등, 원문 5)
   완료**. 직전 이터레이션이 이미 구현해둔 코드(stash/reset 없이 그대로 이어감)를

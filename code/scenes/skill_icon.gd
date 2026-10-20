@@ -66,6 +66,19 @@ var external_art_base_dir: String = EXTERNAL_ART_DIR:
 		external_art_base_dir = v
 		queue_redraw()
 
+## [대형 기획 15] Q-9 신규. 기본값(흰색, 배수 1.0)은 "변화 없음" — 외부 아트를 원본
+## 색 그대로 그린다(기존 37종 스킬 아이콘 동작 불변). 흰색이 아닌 값을 설정하면
+## 외부 아트 이미지를 UIKit.icon_texture(name, tint)과 같은 방식(RGB만 곱하고 알파는
+## 유지)으로 틴트해서 그린다 — "고유 능력"(캐릭터 기믹 8종) 아이콘이 흰색 실루엣+알파로
+## 올 수 있어, 캐릭터 퍼스널 컬러를 입혀야 한다는 INBOX 요구 반영. 캐시는 경로+틴트
+## 조합이 바뀔 때만 다시 로드한다(_external_texture() 참고).
+const NO_TINT := Color(1, 1, 1, 1)
+
+var tint: Color = NO_TINT:
+	set(v):
+		tint = v
+		queue_redraw()
+
 const COLOR_NONE := Color(0.55, 0.55, 0.55)
 const COLOR_EXTREME := Color(0.85, 0.25, 0.2)
 const COLOR_FIXED := Color(0.4, 0.55, 0.85)
@@ -156,9 +169,13 @@ func _external_texture() -> Texture2D:
 		_cached_external_texture = null
 		_cached_external_path = ""
 		return null
-	if _cached_external_texture == null or _cached_external_path != path:
-		_cached_external_texture = SkillIcon.load_external_art(skill_id, external_art_base_dir)
-		_cached_external_path = path
+	var cache_key := path if tint == NO_TINT else "%s|%s" % [path, tint.to_html(true)]
+	if _cached_external_texture == null or _cached_external_path != cache_key:
+		if tint == NO_TINT:
+			_cached_external_texture = SkillIcon.load_external_art(skill_id, external_art_base_dir)
+		else:
+			_cached_external_texture = SkillIcon.load_tinted_external_art(skill_id, external_art_base_dir, tint)
+		_cached_external_path = cache_key
 	return _cached_external_texture
 
 
@@ -200,6 +217,32 @@ static func load_external_art(skill_id_value: String, base_dir: String = EXTERNA
 	if img.load(path) != OK:
 		return null
 	img.generate_mipmaps()  # 축소 렌더 품질용 (TEXTURE_FILTER_LINEAR_WITH_MIPMAPS와 한 쌍)
+	return ImageTexture.create_from_image(img)
+
+
+## [대형 기획 15] Q-9 신규. load_external_art()와 같은 파일을 읽되, RGB를 tint로
+## 곱해(알파는 유지) 돌려준다 — ui_kit.gd의 _tint_rgb()/icon_texture()와 같은 알고리즘
+## (흰색 실루엣+알파 아트를 캐릭터 퍼스널 컬러로 물들이는 용도). production
+## res://든 테스트 user://든 항상 raw Image 디코드를 거쳐야 픽셀을 고칠 수 있어
+## (ResourceLoader가 주는 CompressedTexture2D는 직접 못 건드림), base_dir 분기 없이
+## 하나의 경로로 통일한다(틴트가 필요 없는 기존 호출부는 이 함수를 아예 안 거치므로
+## 성능 영향 없음).
+static func load_tinted_external_art(skill_id_value: String, base_dir: String, tint_color: Color) -> Texture2D:
+	if skill_id_value == "":
+		return null
+	var path := external_art_path(skill_id_value, base_dir)
+	var exists: bool = ResourceLoader.exists(path) if base_dir == EXTERNAL_ART_DIR else FileAccess.file_exists(path)
+	if not exists:
+		return null
+	var img := Image.new()
+	if img.load(path) != OK:
+		return null
+	img.convert(Image.FORMAT_RGBA8)
+	for y in img.get_height():
+		for x in img.get_width():
+			var c := img.get_pixel(x, y)
+			img.set_pixel(x, y, Color(c.r * tint_color.r, c.g * tint_color.g, c.b * tint_color.b, c.a))
+	img.generate_mipmaps()
 	return ImageTexture.create_from_image(img)
 
 
@@ -429,6 +472,16 @@ func _draw_motif_curse_mark() -> void:
 	draw_circle(Vector2(size.x * 0.5, size.y * 0.3), size.x * 0.05, COLOR_LEGENDARY.lightened(0.4))
 
 
+## [대형 기획 15] Q-9 신규. 작은 크기(28~30px)로 그려지는 "고유 능력" 카테고리
+## 아이콘이 비슷한 채도/배경에서도 또렷하게 보이도록, 채워진 폴리곤 테두리에 짙은
+## 스트로크를 덧그리는 공용 헬퍼(실루엣 자체는 바꾸지 않아 기존 색 비교 테스트와
+## 호환). points는 닫힌 도형의 꼭짓점(마지막->처음 변을 자동으로 잇는다).
+func _stroke_polygon(points: PackedVector2Array, color: Color, width: float = 1.4) -> void:
+	var closed := points.duplicate()
+	closed.append(points[0])
+	draw_polyline(closed, color, width, true)
+
+
 func _draw_none() -> void:
 	draw_arc(size * 0.5, size.x * 0.32, 0, TAU, 20, COLOR_NONE, 2.0)
 
@@ -440,12 +493,14 @@ func _draw_extreme() -> void:
 		Vector2(size.x * 0.22, size.y * 0.46),
 	])
 	draw_colored_polygon(top, COLOR_EXTREME)
+	_stroke_polygon(top, COLOR_EXTREME.darkened(0.5))
 	var bottom := PackedVector2Array([
 		Vector2(size.x * 0.5, size.y * 0.92),
 		Vector2(size.x * 0.78, size.y * 0.54),
 		Vector2(size.x * 0.22, size.y * 0.54),
 	])
 	draw_colored_polygon(bottom, COLOR_EXTREME.darkened(0.25))
+	_stroke_polygon(bottom, COLOR_EXTREME.darkened(0.6))
 
 
 func _draw_shield_outline(color: Color) -> void:
@@ -458,6 +513,7 @@ func _draw_shield_outline(color: Color) -> void:
 		Vector2(size.x * 0.15, size.y * 0.22),
 	])
 	draw_colored_polygon(pts, color)
+	_stroke_polygon(pts, color.darkened(0.5))
 
 
 func _draw_fixed_shield() -> void:
@@ -480,13 +536,16 @@ func _draw_layered_shield(color: Color = COLOR_GUARD) -> void:
 func _draw_heart() -> void:
 	var lobe_r := size.x * 0.24
 	draw_circle(Vector2(size.x * 0.32, size.y * 0.38), lobe_r, COLOR_CHARM)
+	draw_arc(Vector2(size.x * 0.32, size.y * 0.38), lobe_r, 0, TAU, 20, COLOR_CHARM.darkened(0.5), 1.4)
 	draw_circle(Vector2(size.x * 0.68, size.y * 0.38), lobe_r, COLOR_CHARM)
+	draw_arc(Vector2(size.x * 0.68, size.y * 0.38), lobe_r, 0, TAU, 20, COLOR_CHARM.darkened(0.5), 1.4)
 	var tip := PackedVector2Array([
 		Vector2(size.x * 0.12, size.y * 0.42),
 		Vector2(size.x * 0.88, size.y * 0.42),
 		Vector2(size.x * 0.5, size.y * 0.92),
 	])
 	draw_colored_polygon(tip, COLOR_CHARM)
+	_stroke_polygon(tip, COLOR_CHARM.darkened(0.5))
 
 
 ## "juggle_swap"(곡예사) 전용 아이콘 — 서로 반대 방향을 가리키는 화살표 2개(각각 선분 +
@@ -526,6 +585,7 @@ func _draw_burst(color: Color = COLOR_EXPLOSIVE) -> void:
 		var a: float = TAU * i / (spikes * 2.0) - PI / 2
 		points.append(center + Vector2(cos(a), sin(a)) * r)
 	draw_colored_polygon(points, color)
+	_stroke_polygon(points, color.darkened(0.5))
 
 
 ## "cannon_volley"(해적) 전용 아이콘 — 비스듬한 포신(사각형) + 포탄(원) + 발사 궤적
@@ -539,6 +599,8 @@ func _draw_cannon() -> void:
 		Vector2(size.x * 0.08, size.y * 0.66),
 	])
 	draw_colored_polygon(barrel, COLOR_CANNON.darkened(0.25))
+	_stroke_polygon(barrel, COLOR_CANNON.darkened(0.55))
 	draw_circle(Vector2(size.x * 0.28, size.y * 0.72), size.x * 0.2, COLOR_CANNON)
+	draw_arc(Vector2(size.x * 0.28, size.y * 0.72), size.x * 0.2, 0, TAU, 20, COLOR_CANNON.darkened(0.5), 1.4)
 	draw_circle(Vector2(size.x * 0.68, size.y * 0.3), size.x * 0.08, COLOR_CANNON)
 	draw_circle(Vector2(size.x * 0.84, size.y * 0.16), size.x * 0.05, COLOR_CANNON.lightened(0.15))

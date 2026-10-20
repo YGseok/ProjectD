@@ -168,6 +168,9 @@ func _make_row(entry: Dictionary) -> Control:
 
 	var icon := AchievementIcon.new()
 	icon.category = entry.get("icon", "milestone")
+	# [대형 기획 15] Q-9: resources/achievements/<id>.png가 있으면 그걸 우선 쓰고
+	# 없으면 기존 category 그리기로 자동 폴백(AchievementIcon._external_texture()).
+	icon.achievement_id = String(entry.get("id", ""))
 	icon.custom_minimum_size = Vector2(36, 36)
 	if not entry.unlocked:
 		icon.modulate = Color(1, 1, 1, 0.4)
