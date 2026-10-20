@@ -501,6 +501,10 @@ func _ready() -> void:
 	all_pass = _check_q8c3_legendary_skills(lines) and all_pass
 
 	lines.append("")
+	lines.append("[Q-8(c) 4/4: 전설 스킬 — 곡예사/해적 6종(끝없는 저글링/완벽한 묘기/운명의 보정/무한 장전/처형자의 포격/전면 포격), 8명×3=24종 전체 완료. 각 효과가 계산 결과(다이스 맞교환 실제 발생/공방 합계 중 더 높은 쪽 채택/이벤트 주사위로 최저값 대체/함포 주기 단축/몬스터 HP 절반 이하 함포 2배/방어턴 추가 함포 피해)를 실제로 바꾸는지(DiceBag.swap_random_dice 통합 호출/_juggle_balance_total/_apply_fate_die/_overload_next_cycle/_execute_cannon_bonus/_cannon_volley_damage 재사용), 설명 문구 안내 포함 + LEGENDARY_SKILLS 24종 전체 캐릭터별 3종 커버리지(1/4의 (8)이 generic하게 재검증). 겸해 2/4·3/4에서 발견한 기존 버그(매혹의 응보/저주의 흡수 방어턴 분기가 반격의 벽 if 안에 잘못 중첩돼 실전에서 전혀 실행되지 않던 것)도 함께 고쳐 회귀 검증]")
+	all_pass = _check_q8c4_legendary_skills(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -1671,6 +1675,257 @@ func _check_q8c3_legendary_skills(lines: PackedStringArray) -> bool:
 	var notice_ok: bool = notice_missing.is_empty() and matched_count == target_ids.size()
 	ok = notice_ok and ok
 	lines.append("  (8) 설명 문구 \"%s\" 포함: 3/4 6종(매칭 %d/%d) -> %s(누락: %s)" % [
+		notice_text, matched_count, target_ids.size(), "OK" if notice_ok else "FAIL", notice_missing,
+	])
+
+	return ok
+
+
+## [대형 기획 15] Q-8(c) 4/4(전설 스킬, 2026-10-20, INBOX.md 원문 5): 곡예사/해적
+## 전설 6종 — 1/4~3/4와 같은 원칙(플래그가 아니라 실제 "계산 결과"가 바뀌는지 검증),
+## 8명×3=24종 전체 완료. 전수 커버(character_id/rarity/motif/캐릭터당 3종)는 1/4의
+## (8)이 LEGENDARY_SKILLS 전체를 이미 generic하게 검사하므로 여기서는 중복하지
+## 않는다. (8)은 2/4·3/4에서 발견한 기존 버그(매혹의 응보/저주의 흡수가 반격의 벽
+## if 안에 중첩돼 overguard_active 없이는 실행되지 않던 것) 회귀 검증 — 전설은 한
+## 런에 하나만 보유 가능해 둘 다 overguard_active=false인 상태로 호출해도 실제로
+## 발동하는지 직접 확인한다.
+func _check_q8c4_legendary_skills(lines: PackedStringArray) -> bool:
+	var ok := true
+	var combat_script := load("res://code/scenes/combat_test.gd")
+
+	# (1) "완벽한 묘기"(_juggle_balance_total 순수 함수 + _resolve_exchange() 통합):
+	# 둘 중 더 높은 쪽을 채택(대칭)하고, 실제 전투 경로에서도 공격 합계 2(약함) vs
+	# 반대편(방어) 합계 9(강함)일 때 최종 dmg가 9 기준으로 나오는지(몬스터 방어 0).
+	var balance_a: int = combat_script._juggle_balance_total(5, 9)
+	var balance_b: int = combat_script._juggle_balance_total(9, 5)
+	var char_backup_bal := RunState.character_id
+	var flags_backup_bal := RunState.skill_flags.duplicate()
+	var atk_bag_backup_bal := RunState.player_attack_bag
+	var def_bag_backup_bal := RunState.player_defense_bag
+	RunState.character_id = "juggler"
+	RunState.skill_flags = ["legend_juggler_balance"]
+	RunState.player_attack_bag = DiceBag.new(4, 1)
+	RunState.player_attack_bag.force_fixed_value(2)
+	RunState.player_defense_bag = DiceBag.new(4, 1)
+	RunState.player_defense_bag.force_fixed_value(9)
+	var bal_monster_def := DiceBag.new(4, 1)
+	bal_monster_def.force_fixed_value(0)
+	var ct_bal = combat_script.new()
+	ct_bal._reset_player_battle_state()
+	var bal_result: Dictionary = ct_bal._resolve_exchange(true, RunState.player_attack_bag, bal_monster_def, false, false, false)
+	var balance_integration_ok: bool = int(bal_result["dmg"]) == 9
+	ct_bal.free()
+	RunState.character_id = char_backup_bal
+	RunState.skill_flags = flags_backup_bal
+	RunState.player_attack_bag = atk_bag_backup_bal
+	RunState.player_defense_bag = def_bag_backup_bal
+	var balance_ok: bool = balance_a == 9 and balance_b == 9 and balance_integration_ok
+	ok = balance_ok and ok
+	lines.append("  (1) 완벽한 묘기: 순수함수(5,9)=%d(기대 9)/(9,5)=%d(기대 9) + 통합(공격2 vs 방어9, 몬스터 방어0) dmg=%d(기대 9, 더 센 방어쪽 합계 채택) -> %s" % [
+		balance_a, balance_b, int(bal_result["dmg"]), "OK" if balance_ok else "FAIL",
+	])
+
+	# (2) "끝없는 저글링"(_resolve_exchange() 통합 — DiceBag.swap_random_dice()가 굴림
+	# "전"에 실제로 호출되는지). 공격/방어 둘 다 다이스 1개뿐이면(count=1) swap_random_
+	# dice()의 인덱스 선택에 무작위성이 없어(선택지가 1개뿐) 결정적으로 검증 가능 —
+	# D4 공격 주머니와 D6 방어 주머니를 교환하면 면 개수가 서로 바뀐다.
+	var char_backup_ever := RunState.character_id
+	var flags_backup_ever := RunState.skill_flags.duplicate()
+	var atk_bag_backup_ever := RunState.player_attack_bag
+	var def_bag_backup_ever := RunState.player_defense_bag
+	RunState.character_id = "juggler"
+	RunState.skill_flags = ["legend_juggler_evershuffle"]
+	RunState.player_attack_bag = DiceBag.new(4, 1)
+	RunState.player_defense_bag = DiceBag.new(6, 1)
+	var ct_ever = combat_script.new()
+	ct_ever._reset_player_battle_state()
+	var ever_dummy_def := DiceBag.new(4, 1)
+	ever_dummy_def.force_fixed_value(0)
+	ct_ever._resolve_exchange(true, RunState.player_attack_bag, ever_dummy_def, false, false, false)
+	var ever_ok: bool = RunState.player_attack_bag.dice[0].size() == 6 and RunState.player_defense_bag.dice[0].size() == 4
+	ok = ever_ok and ok
+	lines.append("  (2) 끝없는 저글링(swap_random_dice 매 턴 통합): 공격 다이스 면=%d(기대 6, D4->D6 교환) 방어 다이스 면=%d(기대 4) -> %s" % [
+		RunState.player_attack_bag.dice[0].size(), RunState.player_defense_bag.dice[0].size(), "OK" if ever_ok else "FAIL",
+	])
+	ct_ever.free()
+	RunState.character_id = char_backup_ever
+	RunState.skill_flags = flags_backup_ever
+	RunState.player_attack_bag = atk_bag_backup_ever
+	RunState.player_defense_bag = def_bag_backup_ever
+
+	# (3) "운명의 보정"(_apply_fate_die): sides=1인 이벤트 주사위는 항상 1이 나오므로
+	# (D1, 면 1개뿐) RNG와 무관하게 결정적 — 최저값보다 낮으면(5) 그대로, 높으면(0)
+	# 대체된다.
+	var fate_no_replace: Array = combat_script._apply_fate_die([5], 1, [])
+	var fate_replace: Array = combat_script._apply_fate_die([0], 1, [])
+	var fate_ok: bool = fate_no_replace == [5] and fate_replace == [1]
+	ok = fate_ok and ok
+	lines.append("  (3) 운명의 보정(_apply_fate_die, 이벤트 D1=항상 1): 최저값 5 -> %s(기대 [5], 대체 안 됨) / 최저값 0 -> %s(기대 [1], 대체됨) -> %s" % [
+		fate_no_replace, fate_replace, "OK" if fate_ok else "FAIL",
+	])
+
+	# (4) "무한 장전"(_overload_next_cycle): 발동마다 1씩 줄고, 최소 1에서 멈춘다.
+	var overload_3to2: int = combat_script._overload_next_cycle(3)
+	var overload_2to1: int = combat_script._overload_next_cycle(2)
+	var overload_floor: int = combat_script._overload_next_cycle(1)
+	var overload_ok: bool = overload_3to2 == 2 and overload_2to1 == 1 and overload_floor == 1
+	ok = overload_ok and ok
+	lines.append("  (4) 무한 장전(_overload_next_cycle): 3->%d(기대 2) / 2->%d(기대 1) / 1->%d(기대 1, 최소 유지) -> %s" % [
+		overload_3to2, overload_2to1, overload_floor, "OK" if overload_ok else "FAIL",
+	])
+
+	# (5) "처형자의 포격"(_execute_cannon_bonus): 몬스터 HP가 절반 이하일 때만 cannon_
+	# dmg와 같은 크기의 추가 피해(=2배 효과), 그 외엔 0.
+	var execute_hit: int = combat_script._execute_cannon_bonus(4, 5, 10)
+	var execute_miss: int = combat_script._execute_cannon_bonus(4, 6, 10)
+	var execute_ok: bool = execute_hit == 4 and execute_miss == 0
+	ok = execute_ok and ok
+	lines.append("  (5) 처형자의 포격(_execute_cannon_bonus): HP5/10(절반 이하) 추가피해=%d(기대 4, 2배) / HP6/10(절반 초과) 추가피해=%d(기대 0) -> %s" % [
+		execute_hit, execute_miss, "OK" if execute_ok else "FAIL",
+	])
+
+	# (6) "전면 포격"(_resolve_exchange() 통합 — 방어턴 전용 카운터가 공격턴 카운터와
+	# 별개로 3턴 주기를 따르는지). 방어 합계를 6으로 고정하면 발동 시 고정 피해
+	# ceil(6/2)=3 — 1·2번째 방어턴은 조용하고 3번째에만 몬스터 HP가 줄어야 한다.
+	var char_backup_fb := RunState.character_id
+	var flags_backup_fb := RunState.skill_flags.duplicate()
+	var atk_bag_backup_fb := RunState.player_attack_bag
+	var def_bag_backup_fb := RunState.player_defense_bag
+	RunState.character_id = "pirate"
+	RunState.skill_flags = ["legend_pirate_fullbroadside"]
+	RunState.player_defense_bag = DiceBag.new(4, 1)
+	RunState.player_defense_bag.force_fixed_value(6)
+	var fb_monster_atk := DiceBag.new(4, 1)
+	fb_monster_atk.force_fixed_value(0)
+	var ct_fb = combat_script.new()
+	ct_fb._reset_player_battle_state()
+	ct_fb.monster_hp = 100
+	ct_fb.monster_max_hp = 100
+	ct_fb._resolve_exchange(false, fb_monster_atk, RunState.player_defense_bag, false, false, false)
+	var fb_hp_turn1: int = ct_fb.monster_hp
+	ct_fb._resolve_exchange(false, fb_monster_atk, RunState.player_defense_bag, false, false, false)
+	var fb_hp_turn2: int = ct_fb.monster_hp
+	ct_fb._resolve_exchange(false, fb_monster_atk, RunState.player_defense_bag, false, false, false)
+	var fb_hp_turn3: int = ct_fb.monster_hp
+	var fullbroadside_ok: bool = fb_hp_turn1 == 100 and fb_hp_turn2 == 100 and fb_hp_turn3 == 97
+	ok = fullbroadside_ok and ok
+	lines.append("  (6) 전면 포격(방어턴 전용 주기 통합): 1턴 몬스터 HP=%d(기대 100, 조용) / 2턴=%d(기대 100) / 3턴=%d(기대 97, 고정 3 발동) -> %s" % [
+		fb_hp_turn1, fb_hp_turn2, fb_hp_turn3, "OK" if fullbroadside_ok else "FAIL",
+	])
+	ct_fb.free()
+	RunState.character_id = char_backup_fb
+	RunState.skill_flags = flags_backup_fb
+	RunState.player_attack_bag = atk_bag_backup_fb
+	RunState.player_defense_bag = def_bag_backup_fb
+
+	# (7) "무한 장전"(_resolve_exchange() 통합 — 실제 cannon_volley 공격턴 경로에서
+	# 주기가 가속되는지). 공격 합계 4(고정) vs 몬스터 방어 0 — 평소 피해 4 + 함포
+	# 고정 피해 ceil(4/2)=2. 3턴째(기본 주기)에 처음 발동하며 cycle이 3->2로 줄고,
+	# 4턴째(줄어든 주기 2)에 곧바로 다시 발동하며 2->1로, 5턴째(주기 1)부터는 매
+	# 턴 발동한다.
+	var char_backup_ol := RunState.character_id
+	var flags_backup_ol := RunState.skill_flags.duplicate()
+	var atk_bag_backup_ol := RunState.player_attack_bag
+	var def_bag_backup_ol := RunState.player_defense_bag
+	RunState.character_id = "pirate"
+	RunState.skill_flags = ["legend_pirate_overload"]
+	RunState.player_attack_bag = DiceBag.new(4, 1)
+	RunState.player_attack_bag.force_fixed_value(4)
+	var ol_monster_def := DiceBag.new(4, 1)
+	ol_monster_def.force_fixed_value(0)
+	var ct_ol = combat_script.new()
+	ct_ol._reset_player_battle_state()
+	var ol_cycle_initial: int = ct_ol.player_pirate_overload_cycle
+	ct_ol.monster_hp = 100
+	ct_ol.monster_max_hp = 100
+	for _i in 3:
+		ct_ol._resolve_exchange(true, RunState.player_attack_bag, ol_monster_def, false, false, false)
+	var ol_cycle_after_turn3: int = ct_ol.player_pirate_overload_cycle
+	var ol_hp_after_turn3: int = ct_ol.monster_hp
+	ct_ol._resolve_exchange(true, RunState.player_attack_bag, ol_monster_def, false, false, false)
+	var ol_cycle_after_turn4: int = ct_ol.player_pirate_overload_cycle
+	var ol_hp_after_turn4: int = ct_ol.monster_hp
+	# 3턴째까지 합계: 평소 피해 4x3=12, 함포 2(3턴째 1회) = 100-14=86.
+	# 4턴째: 평소 4 + 함포 2(가속 발동) = 86-6=80.
+	var overload_integration_ok: bool = (
+		ol_cycle_initial == 3 and ol_cycle_after_turn3 == 2 and ol_hp_after_turn3 == 86
+		and ol_cycle_after_turn4 == 1 and ol_hp_after_turn4 == 80
+	)
+	ok = overload_integration_ok and ok
+	lines.append("  (7) 무한 장전(cannon_volley 통합, 가속): 초기 주기=%d(기대 3) -> 3턴 후 주기=%d(기대 2)/HP=%d(기대 86) -> 4턴 후 주기=%d(기대 1, 연속 발동)/HP=%d(기대 80) -> %s" % [
+		ol_cycle_initial, ol_cycle_after_turn3, ol_hp_after_turn3, ol_cycle_after_turn4, ol_hp_after_turn4, "OK" if overload_integration_ok else "FAIL",
+	])
+	ct_ol.free()
+	RunState.character_id = char_backup_ol
+	RunState.skill_flags = flags_backup_ol
+	RunState.player_attack_bag = atk_bag_backup_ol
+	RunState.player_defense_bag = def_bag_backup_ol
+
+	# (8) 회귀 — "매혹의 응보"/"저주의 흡수"가 반격의 벽(legend_guardian_overguard)
+	# if 안에 잘못 중첩돼 overguard_active 없이는 영원히 발동 안 하던 기존 버그
+	# (2/4·3/4에서 도입, 이번 4/4 작업 중 발견·수정)를 고쳤는지 — 둘 다 overguard를
+	# 전혀 보유하지 않은 상태로 _resolve_exchange()를 직접 호출해 실제로 발동하는지
+	# 확인한다.
+	var char_backup_bug := RunState.character_id
+	var flags_backup_bug := RunState.skill_flags.duplicate()
+	var atk_bag_backup_bug := RunState.player_attack_bag
+	var def_bag_backup_bug := RunState.player_defense_bag
+	RunState.character_id = "enchantress"
+	RunState.skill_flags = ["legend_enchantress_retribution"]
+	var retro_atk := DiceBag.new(4, 1)
+	retro_atk.force_fixed_value(0)
+	var retro_def := DiceBag.new(4, 1)
+	retro_def.force_fixed_value(0)
+	var ct_retro = combat_script.new()
+	ct_retro._reset_player_battle_state()
+	ct_retro.monster_hp = 100
+	ct_retro._resolve_exchange(false, retro_atk, retro_def, false, false, false)
+	var retro_hp_after: int = ct_retro.monster_hp
+	var retro_fired_without_overguard: bool = retro_hp_after == 98
+	ct_retro.free()
+
+	RunState.character_id = "shieldbearer"
+	RunState.skill_flags = ["legend_shieldbearer_lifecurse"]
+	var curse_atk := DiceBag.new(4, 1)
+	curse_atk.force_fixed_value(2)
+	var curse_def := DiceBag.new(4, 1)
+	curse_def.force_fixed_value(9)
+	var ct_curse = combat_script.new()
+	ct_curse._reset_player_battle_state()
+	ct_curse.player_hp = 10
+	ct_curse._resolve_exchange(false, curse_atk, curse_def, false, true, false)
+	var curse_hp_after: int = ct_curse.player_hp
+	var lifecurse_fired_without_overguard: bool = curse_hp_after == 17
+	ct_curse.free()
+
+	var overguard_nesting_fix_ok: bool = retro_fired_without_overguard and lifecurse_fired_without_overguard
+	ok = overguard_nesting_fix_ok and ok
+	lines.append("  (8) 회귀(반격의 벽 중첩 버그 수정): 매혹의 응보 단독 보유 시 몬스터 HP 100->%d(기대 98, overguard 없이도 발동) / 저주의 흡수 단독 보유 시 플레이어 HP 10->%d(기대 17, 과잉방어 7 회복) -> %s" % [
+		retro_hp_after, curse_hp_after, "OK" if overguard_nesting_fix_ok else "FAIL",
+	])
+	RunState.character_id = char_backup_bug
+	RunState.skill_flags = flags_backup_bug
+	RunState.player_attack_bag = atk_bag_backup_bug
+	RunState.player_defense_bag = def_bag_backup_bug
+
+	# (9) 설명 문구 — 4/4 6종 전부 "한 런에 하나만" 안내가 description에 포함돼야
+	# 한다(1/4의 (7)·2/4의 (8)·3/4의 (8)과 같은 요구, 이번 6종에만 한정해 다시 확인).
+	var notice_text := "한 런에 하나만"
+	var target_ids := [
+		"legend_juggler_evershuffle", "legend_juggler_balance", "legend_juggler_fatecorrect",
+		"legend_pirate_overload", "legend_pirate_execute", "legend_pirate_fullbroadside",
+	]
+	var notice_missing: Array[String] = []
+	var matched_count := 0
+	for skill in SkillPool.LEGENDARY_SKILLS:
+		if target_ids.has(skill["id"]):
+			matched_count += 1
+			var desc: String = skill.get("description", "")
+			if not desc.contains(notice_text):
+				notice_missing.append(skill["id"])
+	var notice_ok: bool = notice_missing.is_empty() and matched_count == target_ids.size()
+	ok = notice_ok and ok
+	lines.append("  (9) 설명 문구 \"%s\" 포함: 4/4 6종(매칭 %d/%d) -> %s(누락: %s)" % [
 		notice_text, matched_count, target_ids.size(), "OK" if notice_ok else "FAIL", notice_missing,
 	])
 

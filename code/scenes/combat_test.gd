@@ -272,6 +272,59 @@ static func _charm_amplify_count(skill_flags: Array) -> int:
 		return 2
 	return 1
 
+
+## [대형 기획 15] Q-8(c) 4/4(2026-10-20) 전설 스킬(곡예사/해적) 순수 계산 헬퍼 — 위
+## 1/4~3/4 헬퍼와 같은 이유로 분리. 곡예사는 "이벤트 판정 D12·라운드 전환 공격/방어
+## 다이스 교환" 정체성, 해적은 "3턴 주기 함포 고정 피해·쿨타임" 정체성과 시너지를 갖도록
+## 설계했다.
+
+## "완벽한 묘기"(legend_juggler_balance, 곡예사 전용 전설) — 이번 턴에 "쓰는" 주머니의
+## 합계(used_total)와 "쓰지 않는 손"(반대 주머니)의 합계(alt_total) 중 더 높은 쪽을
+## 이번 턴 실제 합계로 채택한다(DESIGN.md가 전설 예시로 든 "굴림 결과 합산 방식 변경" —
+## 다이스 값 자체는 그대로 두고 어느 쪽 총합을 쓸지만 바꾼다).
+static func _juggle_balance_total(used_total: int, alt_total: int) -> int:
+	return max(used_total, alt_total)
+
+
+## "운명의 보정"(legend_juggler_fatecorrect, 곡예사 전용 전설) — 캐릭터의 이벤트
+## 주사위(event_die_sides, 곡예사는 1D12)를 전투에도 추가로 굴려, 이번 턴 가장 낮은
+## 다이스 값보다 높으면 그 자리를 대체한다. _apply_spare_die()와 같은 "여분 다이스로
+## 최저값 대체" 패턴이지만, 대체용 다이스가 자기 주머니 타입이 아니라 이벤트 주사위로
+## 고정된다는 점이 다르다(이벤트 D12 특화를 전투로 끌어들이는 새 메커니즘). logs는
+## 호출부(_resolve_exchange) 책임 — 이 함수는 값만 계산한다.
+static func _apply_fate_die(values: Array, sides: int, logs: Array = []) -> Array:
+	if values.is_empty():
+		return values
+	var fate_bag := DiceBag.new(sides, 1)
+	var fate_value: int = fate_bag.roll_detailed()[0]
+	var adjusted: Array = values.duplicate()
+	var min_index := 0
+	for i in adjusted.size():
+		if adjusted[i] < adjusted[min_index]:
+			min_index = i
+	if fate_value > adjusted[min_index]:
+		logs.append("운명의 보정: 이벤트 주사위(1D%d) 결과 %d로 최저 다이스 값 %d 대체" % [sides, fate_value, adjusted[min_index]])
+		adjusted[min_index] = fate_value
+	return adjusted
+
+
+## "무한 장전"(legend_pirate_overload, 해적 전용 전설) — 함포 일제사격이 발동할 때마다
+## 다음 발동까지 필요한 주기를 1턴씩 줄인다(최소 min_cycle=1, 그 아래로는 안 내려감).
+## cycle 자체가 아니라 "다음에 쓸 cycle"을 돌려주는 순수 함수라, _cannon_volley_cycle()
+## 의 "cycle 결정은 호출부 책임" 관례를 그대로 따른다.
+static func _overload_next_cycle(current_cycle: int, min_cycle: int = 1) -> int:
+	return max(min_cycle, current_cycle - 1)
+
+
+## "처형자의 포격"(legend_pirate_execute, 해적 전용 전설) — 몬스터 HP가 절반 이하일
+## 때만 함포 고정 피해(cannon_dmg)와 같은 크기의 추가 피해를 돌려줘 사실상 2배로
+## 만들고, 그 외에는 0(배율 없음). _is_hp_half_or_below()(2/4부터 있던 공용 조건,
+## 원래 플레이어 HP 전용이었지만 hp/max_hp 두 숫자만 받으므로 몬스터 HP에도 그대로
+## 재사용 가능)를 그대로 쓴다.
+static func _execute_cannon_bonus(cannon_dmg: int, monster_hp: int, monster_max_hp: int) -> int:
+	return cannon_dmg if _is_hp_half_or_below(monster_hp, monster_max_hp) else 0
+
+
 const SETTLE_LIN_THRESHOLD := 0.08
 const SETTLE_ANG_THRESHOLD := 0.5
 const SETTLE_MIN_FRAMES := 10
@@ -652,6 +705,43 @@ var player_legend_enchantress_ascend_active := false
 ## 턴 뒤집은 다이스 개수(매혹 심화 보유 시 1->2->3)만큼 방어 무시 고정 피해를
 ## 추가로 준다(공격턴은 고정 피해, 방어턴은 반격 피해 — 둘 다 같은 공식).
 var player_legend_enchantress_retribution_active := false
+
+## [대형 기획 15] Q-8(c) 4/4(2026-10-20) — 곡예사(juggler)/해적(pirate) 전설 6종.
+## 1/4~3/4와 같은 패턴(_reset_player_battle_state()에서 skill_flags를 읽어 채움,
+## "한 런에 전설은 하나만" 덕분에 최대 1개만 true일 수 있지만 분기는 독립적). 곡예사
+## 3종은 "저글링" 테마로 juggle_swap/이벤트 D12 정체성과 시너지: 끝없는 저글링(매 턴
+## 공방 다이스 맞교환, round_change 전용이던 swap을 every_turn으로 확장)/완벽한 묘기
+## (공격/방어 중 더 센 쪽 합계 채택, 새 메커니즘)/운명의 보정(이벤트 주사위를 전투에도
+## 끌어들여 최저값 대체). 해적 3종은 "함포" 테마로 cannon_volley 정체성과 시너지:
+## 무한 장전(함포 주기가 발동마다 영구히 짧아짐, 새 메커니즘)/처형자의 포격(몬스터
+## HP 절반 이하에서 함포 피해 2배)/전면 포격(함포를 방어턴에도 적용, 새 메커니즘).
+
+## player_legend_juggler_evershuffle_active: "끝없는 저글링" — 매 턴(공격/방어 모두)
+## 다이스를 굴리기 전에 공격 다이스 무작위 1개와 방어 다이스 무작위 1개를 통째로
+## 맞바꾼다.
+var player_legend_juggler_evershuffle_active := false
+## player_legend_juggler_balance_active: "완벽한 묘기" — 이번 턴에 쓰는 주머니 합계와
+## 반대쪽 주머니 합계 중 더 높은 쪽을 채택한다.
+var player_legend_juggler_balance_active := false
+## player_legend_juggler_fatecorrect_active: "운명의 보정" — 매 턴(공격/방어 모두)
+## 이벤트 주사위를 추가로 굴려 이번 턴 가장 낮은 다이스 값보다 높으면 대체한다.
+var player_legend_juggler_fatecorrect_active := false
+## player_legend_pirate_overload_active: "무한 장전" — 함포 일제사격이 발동할 때마다
+## 다음 주기가 1턴씩 영구히 짧아진다(최소 1턴).
+var player_legend_pirate_overload_active := false
+## player_pirate_overload_cycle: "무한 장전" 전용 — 다음 함포 발동까지 필요한 가변
+## 주기. _reset_player_battle_state()에서 평소 주기(_cannon_volley_cycle()의 비-전설
+## 분기와 같은 값)로 초기화되고, 함포가 발동할 때마다 _overload_next_cycle()로 줄어든다.
+var player_pirate_overload_cycle := CANNON_VOLLEY_CYCLE
+## player_legend_pirate_execute_active: "처형자의 포격" — 몬스터 HP가 절반 이하일 때
+## 함포 고정 피해가 두 배로 적용된다.
+var player_legend_pirate_execute_active := false
+## player_legend_pirate_fullbroadside_active: "전면 포격" — 함포 일제사격과 같은
+## 주기로 방어턴에도 방어 합계 기준 고정 피해를 몬스터에게 추가로 준다.
+var player_legend_pirate_fullbroadside_active := false
+## player_pirate_defense_turn_count: "전면 포격" 전용 — player_attack_turn_count와
+## 완전히 대칭인 방어턴 전용 카운터(_reset_player_battle_state()에서 0으로 초기화).
+var player_pirate_defense_turn_count := 0
 
 var battle_over := false
 var player_won := false
@@ -1268,6 +1358,14 @@ func _reset_player_battle_state() -> void:
 	player_legend_enchantress_captive_active = RunState.skill_flags.has("legend_enchantress_captive")
 	player_legend_enchantress_ascend_active = RunState.skill_flags.has("legend_enchantress_ascend")
 	player_legend_enchantress_retribution_active = RunState.skill_flags.has("legend_enchantress_retribution")
+	player_legend_juggler_evershuffle_active = RunState.skill_flags.has("legend_juggler_evershuffle")
+	player_legend_juggler_balance_active = RunState.skill_flags.has("legend_juggler_balance")
+	player_legend_juggler_fatecorrect_active = RunState.skill_flags.has("legend_juggler_fatecorrect")
+	player_legend_pirate_overload_active = RunState.skill_flags.has("legend_pirate_overload")
+	player_pirate_overload_cycle = 2 if (player_broadside_active or player_broadside_plus_active) else CANNON_VOLLEY_CYCLE
+	player_legend_pirate_execute_active = RunState.skill_flags.has("legend_pirate_execute")
+	player_legend_pirate_fullbroadside_active = RunState.skill_flags.has("legend_pirate_fullbroadside")
+	player_pirate_defense_turn_count = 0
 	player_hp = PLAYER_MAX_HP
 	battle_over = false
 	player_won = false
@@ -1811,7 +1909,13 @@ func _player_guard_threshold() -> int:
 ## "일제 사격"(broadside) 또는 "일제 사격+"(broadside_plus) 보유 시 함포 일제사격
 ## 발동 주기를 3턴에서 2턴으로 단축한다. _player_explosive_threshold()/_player_guard_
 ## threshold()와 같은 패턴(둘 다 보유해도 중복 적용 없이 그냥 2).
+##
+## "무한 장전"(legend_pirate_overload, [대형 기획 15] Q-8(c) 4/4, 해적 전용 전설)
+## 보유 시에는 이 고정값 대신 player_pirate_overload_cycle(발동마다 1씩 줄어드는
+## 가변 주기, _overload_next_cycle() 참고)을 쓴다 — broadside/+보다 우선한다.
 func _cannon_volley_cycle() -> int:
+	if player_legend_pirate_overload_active:
+		return player_pirate_overload_cycle
 	return 2 if (player_broadside_active or player_broadside_plus_active) else CANNON_VOLLEY_CYCLE
 
 
@@ -1968,6 +2072,17 @@ func _select_exchange_bags(is_player_attacking: bool) -> Dictionary:
 ## 물리와 무관)만 쓰고 나머지는 게임과 같은 코드를 재사용"하는 F-4a 원칙).
 func _resolve_exchange(is_player_attacking: bool, atk_bag: DiceBag, def_bag: DiceBag, used_explosive_dice: bool, used_guard_dice: bool, used_anger_dice: bool) -> Dictionary:
 	var logs: Array[String] = []
+	# "끝없는 저글링"(legend_juggler_evershuffle, [대형 기획 15] Q-8(c) 4/4, 곡예사
+	# 전용 전설) — 매 턴(공격/방어 모두) 다이스를 굴리기 "전"에 플레이어의 공격/방어
+	# 주머니에서 무작위 다이스 1개씩을 통째로 맞바꾼다(juggle_swap/juggle_encore가
+	# "런 시작 1회"/"라운드 전환마다"였던 것을 매 턴으로 확장). 반드시 굴림 "전"에
+	# 적용해야 실제로 쓰이는 다이스 구성과 화면 칩(ShapeDieChip, bag.dice[i].size()
+	# 기준)이 항상 일치한다(사후 적용 시 "방금 교환된 다이스"가 교환 전 모양으로
+	# 그려지는 불일치가 생김). RunState.player_attack_bag/player_defense_bag을 직접
+	# 대상으로 삼는다 — atk_bag/def_bag 매개변수가 스택 보너스 1D20 임시 주머니일 수도
+	# 있어 그 경우 교환 대상이 아니다(임시 주머니는 이번 턴 끝나면 버려짐).
+	if player_legend_juggler_evershuffle_active:
+		DiceBag.swap_random_dice(RunState.player_attack_bag, RunState.player_defense_bag)
 	var atk_values := atk_bag.roll_detailed()
 	var def_values := def_bag.roll_detailed()
 	# "steady_guard" 기믹(다크 나이트, [미니 기획 A]-2): 몬스터가 방어턴일 때만(플레이어
@@ -2322,6 +2437,15 @@ func _resolve_exchange(is_player_attacking: bool, atk_bag: DiceBag, def_bag: Dic
 			def_values = _apply_harmonize_lowest(def_values)
 			if def_values != harmony_def_before:
 				logs.append("만물의 조화: 방어 다이스 %s -> %s (최저값을 최고값으로)" % [harmony_def_before, def_values])
+	# "운명의 보정"(legend_juggler_fatecorrect, [대형 기획 15] Q-8(c) 4/4, 곡예사 전용
+	# 전설): 만물의 조화와 같은 "매 턴(공격/방어 모두) 최종 결과값을 건드리는" 자리에
+	# 둔다 — 캐릭터의 이벤트 주사위(RunState.event_die_sides, 곡예사는 1D12)를 전투에도
+	# 굴려 이번 턴 가장 낮은 값보다 높으면 대체한다(_apply_fate_die() 참고).
+	if player_legend_juggler_fatecorrect_active:
+		if is_player_attacking:
+			atk_values = _apply_fate_die(atk_values, RunState.event_die_sides, logs)
+		else:
+			def_values = _apply_fate_die(def_values, RunState.event_die_sides, logs)
 	var atk_total := 0
 	for v in atk_values:
 		atk_total += v
@@ -2338,6 +2462,32 @@ func _resolve_exchange(is_player_attacking: bool, atk_bag: DiceBag, def_bag: Dic
 		atk_total = max(0, atk_total - _curse_seal_reduction(player_shieldbearer_curse_marks))
 		if atk_total != curseseal_before:
 			logs.append("저주의 전이: 몬스터 공격 합계 %d -> %d (저주 각인 %d개)" % [curseseal_before, atk_total, player_shieldbearer_curse_marks])
+	# "완벽한 묘기"(legend_juggler_balance, [대형 기획 15] Q-8(c) 4/4, 곡예사 전용
+	# 전설) — 이번 턴에 "쓰는" 주머니(자기 공격 또는 자기 방어)의 합계와 "쓰지 않는
+	# 손"(반대 주머니)의 합계를 둘 다 구해, 더 높은 쪽을 이번 턴 실제 합계로 채택한다
+	# ("둘 중 더 센 손을 쓴다" — DESIGN.md "굴림 결과 합산 방식 변경" 예시). 반대
+	# 주머니를 추가로 굴려야 하므로, 평소 자기 주머니를 쓰는 턴에만 적용한다(스택
+	# 보너스 1D20 임시 주머니 제외 — charm_flip/captive가 이미 쓰는 "atk_bag ==
+	# RunState.player_attack_bag" 관례와 동일).
+	if player_legend_juggler_balance_active:
+		if is_player_attacking and atk_bag == RunState.player_attack_bag:
+			var balance_alt_values := RunState.player_defense_bag.roll_detailed()
+			var balance_alt_total := 0
+			for v in balance_alt_values:
+				balance_alt_total += v
+			var balance_before := atk_total
+			atk_total = _juggle_balance_total(atk_total, balance_alt_total)
+			if atk_total != balance_before:
+				logs.append("완벽한 묘기: 공격 합계 %d 대신 %d 채택 (방어 주머니가 더 셈)" % [balance_before, atk_total])
+		elif not is_player_attacking and def_bag == RunState.player_defense_bag:
+			var balance_alt_values2 := RunState.player_attack_bag.roll_detailed()
+			var balance_alt_total2 := 0
+			for v in balance_alt_values2:
+				balance_alt_total2 += v
+			var balance_before2 := def_total
+			def_total = _juggle_balance_total(def_total, balance_alt_total2)
+			if def_total != balance_before2:
+				logs.append("완벽한 묘기: 방어 합계 %d 대신 %d 채택 (공격 주머니가 더 셈)" % [balance_before2, def_total])
 	var dmg := CombatMath.calculate_damage(atk_total, def_total)
 
 	if is_player_attacking:
@@ -2352,8 +2502,28 @@ func _resolve_exchange(is_player_attacking: bool, atk_bag: DiceBag, def_bag: Dic
 			var cannon_cycle := _cannon_volley_cycle()
 			var cannon_dmg := _cannon_volley_damage(atk_total, player_attack_turn_count, cannon_cycle, player_broadside_plus_active)
 			if cannon_dmg > 0:
-				monster_hp = max(0, monster_hp - cannon_dmg)
-				logs.append("함포 일제사격! (고정 %d 피해, 몬스터 HP %d)" % [cannon_dmg, monster_hp])
+				# "처형자의 포격"(legend_pirate_execute, [대형 기획 15] Q-8(c) 4/4, 해적
+				# 전용 전설) — 몬스터 HP가 절반 이하일 때(이 함포가 적용되기 "전" 기준)
+				# 함포 고정 피해를 두 배로 만든다. _execute_cannon_bonus()가 돌려주는
+				# 추가분을 cannon_dmg에 더해 한 번에 반영한다.
+				var execute_bonus := (
+					_execute_cannon_bonus(cannon_dmg, monster_hp, monster_max_hp)
+					if player_legend_pirate_execute_active
+					else 0
+				)
+				var total_cannon_dmg := cannon_dmg + execute_bonus
+				monster_hp = max(0, monster_hp - total_cannon_dmg)
+				if execute_bonus > 0:
+					logs.append("처형자의 포격! 함포 일제사격 %d -> %d (몬스터 HP 절반 이하, 몬스터 HP %d)" % [cannon_dmg, total_cannon_dmg, monster_hp])
+				else:
+					logs.append("함포 일제사격! (고정 %d 피해, 몬스터 HP %d)" % [cannon_dmg, monster_hp])
+				# "무한 장전"(legend_pirate_overload, [대형 기획 15] Q-8(c) 4/4, 해적
+				# 전용 전설) — 함포가 발동할 때마다 다음 주기를 1턴씩 영구히 줄인다
+				# (최소 1턴). _cannon_volley_cycle()이 이 값을 읽으므로, 다음 턴부터
+				# 바로 반영된다.
+				if player_legend_pirate_overload_active:
+					player_pirate_overload_cycle = _overload_next_cycle(player_pirate_overload_cycle)
+					logs.append("무한 장전: 다음 함포 주기 %d턴으로 단축" % player_pirate_overload_cycle)
 			else:
 				var cannon_remaining := cannon_cycle - (player_attack_turn_count % cannon_cycle)
 				logs.append("함포 장전 (남은 %d턴)" % cannon_remaining)
@@ -2416,23 +2586,44 @@ func _resolve_exchange(is_player_attacking: bool, atk_bag: DiceBag, def_bag: Dic
 			if overguard_dmg > 0:
 				monster_hp = max(0, monster_hp - overguard_dmg)
 				logs.append("반격의 벽! (과잉 방어 %d, 몬스터 HP %d)" % [overguard_dmg, monster_hp])
-			# "매혹의 응보"(방어턴 대칭) — 공격턴과 같은 공식, 반격 피해로.
-			if player_legend_enchantress_retribution_active:
-				var retribution_def_hits := _charm_amplify_count(RunState.skill_flags)
-				var retribution_def_dmg := _legend_hits_bonus_damage(retribution_def_hits)
-				if retribution_def_dmg > 0:
-					monster_hp = max(0, monster_hp - retribution_def_dmg)
-					logs.append("매혹의 응보! (매혹 %d개 x 고정 %d 반격 피해, 몬스터 HP %d)" % [retribution_def_hits, retribution_def_dmg, monster_hp])
-			# "저주의 흡수"(legend_shieldbearer_lifecurse, [대형 기획 15] Q-8(c)
-			# 3/4, 주술사 전용 전설) — 수호 보너스 방어턴(1D20)에서 방어 합계가
-			# 몬스터 공격 합계를 초과한 만큼을 몬스터에게 돌려주는 대신 플레이어
-			# 체력으로 흡수한다(최대 HP 상한).
-			if player_legend_shieldbearer_lifecurse_active:
-				var lifecurse_heal := _curse_absorb_heal(atk_total, def_total, used_guard_dice)
-				if lifecurse_heal > 0:
-					var lifecurse_before_hp := player_hp
-					player_hp = min(PLAYER_MAX_HP, player_hp + lifecurse_heal)
-					logs.append("저주의 흡수! (수호 보너스 방어턴, 체력 +%d, 플레이어 HP %d)" % [player_hp - lifecurse_before_hp, player_hp])
+		# "매혹의 응보"(방어턴 대칭) — 공격턴과 같은 공식, 반격 피해로. **독립 조건**
+		# (overguard_active와 무관) — 원래 이 블록이 위 overguard if 안에 중첩돼 있어
+		# "반격의 벽을 보유하지 않으면 매혹의 응보/저주의 흡수도 영원히 발동 안 함"
+		# 버그였다([대형 기획 15] Q-8(c) 4/4에서 발견·수정 — 전설은 한 런에 하나만
+		# 보유 가능해 overguard_active와 retribution_active/lifecurse_active가 동시에
+		# true일 수 없으므로, 중첩된 채로는 두 블록이 실전에서 전혀 실행되지 않았다.
+		# 2026-09-17 (149) F-1의 "조건문 안에 중첩된 죽은 분기" 교훈과 같은 유형).
+		if player_legend_enchantress_retribution_active:
+			var retribution_def_hits := _charm_amplify_count(RunState.skill_flags)
+			var retribution_def_dmg := _legend_hits_bonus_damage(retribution_def_hits)
+			if retribution_def_dmg > 0:
+				monster_hp = max(0, monster_hp - retribution_def_dmg)
+				logs.append("매혹의 응보! (매혹 %d개 x 고정 %d 반격 피해, 몬스터 HP %d)" % [retribution_def_hits, retribution_def_dmg, monster_hp])
+		# "저주의 흡수"(legend_shieldbearer_lifecurse, [대형 기획 15] Q-8(c)
+		# 3/4, 주술사 전용 전설) — 수호 보너스 방어턴(1D20)에서 방어 합계가
+		# 몬스터 공격 합계를 초과한 만큼을 몬스터에게 돌려주는 대신 플레이어
+		# 체력으로 흡수한다(최대 HP 상한). **독립 조건**(위와 같은 이유로 overguard
+		# if 밖으로 분리).
+		if player_legend_shieldbearer_lifecurse_active:
+			var lifecurse_heal := _curse_absorb_heal(atk_total, def_total, used_guard_dice)
+			if lifecurse_heal > 0:
+				var lifecurse_before_hp := player_hp
+				player_hp = min(PLAYER_MAX_HP, player_hp + lifecurse_heal)
+				logs.append("저주의 흡수! (수호 보너스 방어턴, 체력 +%d, 플레이어 HP %d)" % [player_hp - lifecurse_before_hp, player_hp])
+		# "전면 포격"(legend_pirate_fullbroadside, [대형 기획 15] Q-8(c) 4/4, 해적 전용
+		# 전설) — cannon_volley(함포 일제사격)는 평소 공격턴에만 발동하는데, 이 전설은
+		# 같은 주기를 방어턴에도 적용해 방어 합계 기준 고정 피해를 추가로 준다("주기형
+		# 쿨타임 특화"를 턴 종류 전체로 확장). player_pirate_defense_turn_count는
+		# player_attack_turn_count와 완전히 대칭인 전용 카운터(_reset_player_battle_
+		# state()에서 0으로 초기화) — 공격턴 카운터를 그대로 쓰면 두 카운터가 뒤섞여
+		# 주기가 틀어진다.
+		if player_legend_pirate_fullbroadside_active:
+			player_pirate_defense_turn_count += 1
+			var fullbroadside_cycle := _cannon_volley_cycle()
+			var fullbroadside_dmg := _cannon_volley_damage(def_total, player_pirate_defense_turn_count, fullbroadside_cycle, player_broadside_plus_active)
+			if fullbroadside_dmg > 0:
+				monster_hp = max(0, monster_hp - fullbroadside_dmg)
+				logs.append("전면 포격! (방어 함포, 고정 %d 피해, 몬스터 HP %d)" % [fullbroadside_dmg, monster_hp])
 
 	# "counter(n)" 기믹(인간형, G-3): 플레이어 공격이 몬스터 방어에 완전히 막혀(dmg==0)
 	# 데미지가 0이면 플레이어가 n 반사 피해를 입는다. "revive" 기믹(언데드형, G-4):

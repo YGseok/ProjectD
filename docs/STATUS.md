@@ -5,43 +5,46 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-10-20 (236)
-- 작성자: AI 에이전트. **[대형 기획 15] Q-8(c) 3/4(전설 스킬 — 주술사/매혹사
-  6종) 완료.** 1/4·2/4의 전설 인프라(`SkillPool.LEGENDARY_SKILLS`/
-  `has_legendary()`/`filter_legendary_if_owned()`/`ICON_MOTIFS`/
-  `SKILL_RARITY`/`SkillDiagramChip`)를 그대로 재사용해 처음부터 설계·구현
-  했다(이전 이터레이션의 미완성 상태를 이어받은 게 아님). **주술사 3종**
-  (guard_stack 정체성): 저주의 흡수(수호 보너스 방어턴에서 과잉 방어분을
-  HP 회복으로 — 전설 18종 중 유일한 회복 효과, `_curse_absorb_heal()`)/
-  저주의 전이(수호 보너스 방어턴마다 몬스터 공격 합계를 영구 약화,
-  `_curse_seal_reduction()`)/저주의 종결(수호 보너스 방어턴이 한 번
-  발동하면 그 뒤로 모든 방어턴이 영구 보너스턴, `_select_exchange_bags()`
-  각성 분기). **매혹사 3종**(charm_flip 정체성): 매혹의 포로(매 턴 몬스터
-  다이스 최고값을 최솟값으로 — 플레이어 스킬이 몬스터 다이스에 직접
-  적용되는 새 메커니즘, `DiceBag.apply_charm_debuff()` 신규)/매혹의 극치
-  (평균 미달 다이스 전부 최댓값으로, `DiceBag.apply_charm_ascend()` 신규)/
-  매혹의 응보(매혹 심화 count만큼 방어 무시 추가 피해, `_charm_amplify_
-  count()`로 리팩터링해 재사용). 신규 아이콘 모티프 2종(life_siphon/
-  curse_mark, HP 회복·몬스터 약화 범주가 기존에 없어 신설) + 재사용 3종
-  (guard_stack/dice_flip/true_strike), `skill_icon.gd`에 실제 그리기
-  분기 추가(빈 원 폴백 없음). `dice_test.gd` 신규
-  `_check_q8c3_legendary_skills()` 8항목 — 전부 플래그가 아니라 계산
-  결과로 검증(회복량/공격 합계 감소량/`_select_exchange_bags()` 실제
-  호출로 각성 전/후 보너스턴 강제 전환/`DiceBag.apply_charm_debuff()`·
-  `apply_charm_ascend()` 실제 다이스 값 변환(후자는 2개 동시 변환까지)/
-  `_charm_amplify_count()` 1→2→3/매혹의 응보 고정 피해 공식/설명 문구
-  전수). `bash scripts/qa_shot.sh dice_test 60 qa_out/dice_test_q8c3.png
-  "" 1`을 **foreground로 전체 실행해 "결과: PASS"(FAIL 0건) 직접 확인**
-  (run_in_background 금지). 셀프 피드백 스크린샷 2장 — 던전 맵 "스킬
-  도감"에서 신규 디버그 훅(`_debug_press_shortcut_skill_codex_legendary_
-  shieldbearer`/`_enchantress`)으로 실제 "보유" 상태를 만들어 직접 읽어
-  확인: 주술사 "저주의 흡수"/"저주의 전이"(`qa_out/
-  q8c3_shieldbearer_codex.png`, 전설 배지 주황색 + "한 런에 하나만" 안내
-  문구 + life_siphon/curse_mark 모티프 정상 렌더, 서로 뚜렷이 다른 모양),
-  매혹사 "매혹의 포로"/"매혹의 극치"(`qa_out/q8c3_enchantress_codex.png`,
-  curse_mark/dice_flip 모티프, 도식 MIN/MAX 배지로 구분). 전투 규칙/밸런스는
-  건드리지 않았고 `resources/`·`docs/art/`는 읽기만 했다. **나머지 2명
-  (곡예사/해적) 6종은 4/4 몫 — 다음은 Q-8(c) 4/4(곡예사/해적).**
+- 일시: 2026-10-20 (237)
+- 작성자: AI 에이전트. **[대형 기획 15] Q-8(c) 4/4(전설 스킬 — 곡예사/해적
+  6종) 완료 — Q-8(c) 전체 완료(8명×3=24종 전설 스킬 전부 구현됨).** 1/4~3/4의
+  전설 인프라(`SkillPool.LEGENDARY_SKILLS`/`has_legendary()`/
+  `filter_legendary_if_owned()`/`ICON_MOTIFS`/`SKILL_RARITY`/
+  `SkillDiagramChip`)를 그대로 재사용했다. **곡예사 3종**(juggle_swap·이벤트
+  D12 정체성): 끝없는 저글링(매 턴 공격/방어 다이스 무작위 1개씩 맞교환 —
+  juggle_swap/곡예 앙코르를 "매 턴"으로 확장, `DiceBag.swap_random_dice()`
+  재사용)/완벽한 묘기(이번 턴 쓰는 주머니 vs 반대 주머니 합계 중 더 높은
+  쪽 채택, 새 메커니즘, `_juggle_balance_total()`)/운명의 보정(이벤트
+  주사위(1D12)를 전투에도 굴려 최저값 대체, `_apply_fate_die()`). **해적
+  3종**(cannon_volley·쿨타임 정체성): 무한 장전(함포 발동마다 다음 주기가
+  영구히 1턴씩 단축, 최소 1턴, 새 메커니즘, `_overload_next_cycle()`)/
+  처형자의 포격(몬스터 HP 절반 이하면 함포 피해 2배, `_execute_cannon_
+  bonus()`)/전면 포격(함포와 같은 주기를 방어턴에도 적용, 새 메커니즘,
+  `_cannon_volley_damage()` 재사용). 신규 아이콘 모티프 없음(기존 16종 중
+  효과 범주가 같은 것 재사용 — dice_swap/dual_boost/reroll/cycle_strike×2/
+  true_strike). **셀프 피드백 중 기존 버그 발견·수정**: 2/4·3/4의 "매혹의
+  응보"/"저주의 흡수" 방어턴 분기가 "반격의 벽" if 블록 안에 잘못 중첩돼
+  있어(전설은 한 런에 하나만 보유 가능하므로) 실전에서 전혀 발동하지
+  않던 죽은 코드였다 — de-indent로 독립 분기로 고쳤다(효과/수치 불변,
+  "항상 실행되던 걸 항상 실행되게" 만든 구조적 수정). `dice_test.gd` 신규
+  `_check_q8c4_legendary_skills()` 9항목 — 전부 계산 결과로 검증(swap_
+  random_dice 굴림 전 통합 호출/완벽한 묘기 dmg=9 통합 검증/이벤트 D1
+  트릭으로 RNG 없이 운명의 보정 결정적 검증/무한 장전 주기 3→2→1 가속을
+  실제 cannon_volley 경로로 통합 검증/처형자의 포격 HP조건부 2배/전면
+  포격 3턴 주기 통합 검증/overguard 중첩 버그 회귀). `bash scripts/
+  qa_shot.sh dice_test 60 qa_out/dice_test_q8c4.png "" 1`을 **foreground로
+  전체 실행해 "결과: PASS"(FAIL 0건) 직접 확인**(run_in_background 금지,
+  무관한 기존 확률성 테스트 1건이 노이즈로 한 번 FAIL했다가 재실행 시
+  통과하는 것도 확인 — 알려진 이슈에 기록). 셀프 피드백 스크린샷 2장 —
+  던전 맵 "스킬 도감"에서 신규 디버그 훅(`_debug_press_shortcut_skill_
+  codex_legendary_juggler`/`_pirate`)으로 실제 "보유" 상태를 만들어 직접
+  읽어 확인: `qa_out/q8c4_juggler_codex.png`(끝없는 저글링/완벽한 묘기/
+  운명의 보정, 서로 뚜렷이 다른 모양), `qa_out/q8c4_pirate_codex.png`
+  (무한 장전/처형자의 포격/전면 포격, 배지·색·모양으로 구분됨). 전투
+  규칙/밸런스 수치는 건드리지 않았고(구조적 버그 수정 제외) `resources/`·
+  `docs/art/`는 읽기만 했다. **다음은 Q-8(d)(마무리: 밸런스 시뮬로 전설
+  보유/미보유 승률 비교, DESIGN.md 레어리티 표 추가, 아트 발주 목록
+  정리).**
 
 ## 지금 위치
 
@@ -753,8 +756,19 @@ HP 회복으로/저주의 전이 — 수호 보너스 방어턴마다 몬스터 
 평균 미달 다이스 전부 최댓값으로/매혹의 응보 — 매혹 심화 count만큼 방어
 무시 추가 피해) 6종 전부 실전 배선 완료, 신규 모티프 2종(life_siphon/
 curse_mark, HP 회복·몬스터 약화 범주가 기존에 없어서 신설) + 재사용 3종
-(guard_stack/dice_flip/true_strike). 상세는 완료 기록 (236) 참고. **나머지
-2명(곡예사/해적) 6종은 4/4 몫 — 다음은 Q-8(c) 4/4(곡예사/해적).**
+(guard_stack/dice_flip/true_strike). 상세는 완료 기록 (236) 참고.
+2026-10-20(237)으로 **Q-8(c) 4/4(곡예사/해적 6종) 완료 — [대형 기획 15]
+Q-8(c)(전설 스킬 구현, 8명×3=24종) 전체 완료**: 곡예사(끝없는 저글링 — 매 턴
+공격/방어 다이스 무작위 1개씩 맞교환/완벽한 묘기 — 이번 턴 쓰는 주머니와
+반대 주머니 합계 중 더 높은 쪽 채택/운명의 보정 — 이벤트 주사위(1D12)를
+전투에도 굴려 최저값 대체)·해적(무한 장전 — 함포 발동마다 다음 주기가
+영구히 1턴씩 단축/처형자의 포격 — 몬스터 HP 절반 이하면 함포 피해 2배/
+전면 포격 — 함포와 같은 주기를 방어턴에도 적용) 6종 전부 실전 배선 완료,
+신규 모티프 없이 기존 6종(dice_swap/dual_boost/reroll/cycle_strike×2/
+true_strike) 재사용. 작업 중 2/4·3/4의 "매혹의 응보"/"저주의 흡수" 방어턴
+분기가 "반격의 벽" if 블록에 잘못 중첩돼 실전에서 전혀 발동 안 하던 버그를
+발견·수정(de-indent, 효과/수치 불변). 상세는 완료 기록 (237) 참고. **다음은
+Q-8(d)(마무리: 밸런스 시뮬+DESIGN.md 레어리티 표+아트 발주 목록 정리).**
 
 남은 구조적 후보(급하지 않음): 보스 개별 6종 중 타락한 기사단장만 밴드 미달
 (`MonsterSkills.modify_monster_roll()` 파라미터화가 전제조건이라 사람 설계
@@ -1365,6 +1379,85 @@ curse_mark, HP 회복·몬스터 약화 범주가 기존에 없어서 신설) + 
 
 ## 완료 기록
 
+- **2026-10-20 (237)**: **[대형 기획 15] Q-8(c) 4/4(전설 스킬 — 곡예사/해적
+  6종, 원문 5) 완료 — [대형 기획 15] Q-8(c) 전체 완료(8명×3=24종 전설 스킬
+  모두 구현됨).** 1/4~3/4의 전설 인프라(`SkillPool.LEGENDARY_SKILLS`/
+  `has_legendary()`/`filter_legendary_if_owned()`/`ICON_MOTIFS`/
+  `SKILL_RARITY`/`SkillDiagramChip`/`dice_test.gd` 검증 패턴)를 그대로
+  재사용했다. **곡예사 3종**(juggle_swap "저글링·이벤트 D12" 정체성):
+  **끝없는 저글링**(`legend_juggler_evershuffle`, 매 턴(공격/방어 모두) 다이스를
+  굴리기 "전"에 공격/방어 다이스 무작위 1개씩을 통째로 맞바꿈 — juggle_swap/
+  곡예 앙코르가 "런 시작 1회"/"라운드 전환마다"였던 것을 매 턴으로 확장,
+  `DiceBag.swap_random_dice()` 그대로 재사용·굴림 "전" 적용이 핵심이라
+  `_resolve_exchange()` 맨 앞으로 위치 — 사후 적용 시 "방금 교환된 다이스가
+  교환 전 모양으로 그려지는" 칩 표시 불일치가 생김)/**완벽한 묘기**
+  (`legend_juggler_balance`, 새 메커니즘 — 이번 턴에 쓰는 주머니의 합계와
+  "쓰지 않는 손"의 합계 중 더 높은 쪽을 채택, `_juggle_balance_total()`)/
+  **운명의 보정**(`legend_juggler_fatecorrect`, 새 메커니즘 — 캐릭터의
+  이벤트 주사위(곡예사는 유일하게 1D12)를 전투에도 매 턴 추가로 굴려
+  최저값을 대체, "여분"과 같은 패턴이지만 대체용 다이스가 이벤트 주사위로
+  고정, `_apply_fate_die()`). **해적 3종**(cannon_volley "함포 고정 피해·
+  쿨타임" 정체성): **무한 장전**(`legend_pirate_overload`, 새 메커니즘 —
+  함포가 발동할 때마다 다음 주기가 1턴씩 영구히 짧아짐(최소 1턴), 전투가
+  길어질수록 가속되는 쿨타임, `_overload_next_cycle()`/
+  `player_pirate_overload_cycle`)/**처형자의 포격**(`legend_pirate_execute`,
+  몬스터 HP 절반 이하일 때 함포 고정 피해 2배 — 기존 18종의 "자기 HP 절반
+  이하" 조건(최후의 보루/최후의 폭발)을 "상대 HP 절반 이하"로 뒤집은 변주,
+  `_is_hp_half_or_below()`를 몬스터 HP에 재사용, `_execute_cannon_bonus()`)/
+  **전면 포격**(`legend_pirate_fullbroadside`, 새 메커니즘 — 함포와 같은
+  주기로 방어턴에도 방어 합계 기준 고정 피해 추가, `player_pirate_
+  defense_turn_count`가 공격턴 카운터와 완전히 대칭인 전용 카운터,
+  `_cannon_volley_damage()` 그대로 재사용). 신규 아이콘 모티프는 만들지
+  않고(전부 기존 16종 중 효과 범주가 겹치는 것 재사용 — dice_swap/dual_boost/
+  reroll/cycle_strike×2/true_strike) 1/4·2/4와 같은 "효과가 같으면 같은
+  모티프" 원칙을 따랐다(`skill_icon.gd` 수정 없음 — 이미 전부 그리기 분기
+  존재).
+  **셀프 피드백 중 버그 발견·수정**: 2/4·3/4에서 "매혹의 응보"/"저주의 흡수"의
+  방어턴 분기가 "반격의 벽"(`legend_guardian_overguard`) if 블록 안에
+  잘못 중첩돼 있었다 — 전설은 한 런에 하나만 보유 가능해 세 플래그가 동시에
+  true일 수 없으므로, 둘 다 **실전에서 단 한 번도 발동하지 않는 죽은 코드**였다
+  (2026-09-17 (149) F-1의 "조건문 안에 중첩된 죽은 분기" 교훈과 같은 유형 —
+  이번엔 순수 함수 단위 테스트(`_curse_absorb_heal`/`_legend_hits_bonus_damage`
+  직접 호출)만으로는 안 잡히고, `_resolve_exchange()` 전체 경로를 통합
+  호출해야만 드러나는 종류의 버그였다). 전면 포격을 같은 방어턴 블록에
+  추가하려던 중 들여쓰기를 자세히 읽다가 발견했다 — 두 블록을 `if player_
+  legend_guardian_overguard_active:` 바깥의 독립 `if`로 de-indent해 고쳤다
+  (효과/수치 자체는 전혀 안 바꿈, 순수하게 "항상 실행되던 걸 항상 실행되게"
+  고친 구조적 수정이라 전투 규칙/밸런스 변경이 아니라고 판단해 범위 안으로
+  포함). `dice_test.gd` 신규 `_check_q8c4_legendary_skills()` 9항목(전부
+  계산 결과 직접 비교 — `_juggle_balance_total`/`_resolve_exchange()` 통합
+  호출로 공격2·방어9에서 dmg가 9로 나오는지/`DiceBag.swap_random_dice()`가
+  굴림 전에 실제로 호출되는지(D4↔D6 면 개수 교환으로 결정적 검증)/
+  `_apply_fate_die`(이벤트 D1 트릭으로 RNG 없이 두 분기 모두 결정적 검증)/
+  `_overload_next_cycle` 3→2→1→1/`_execute_cannon_bonus` HP조건부 2배/
+  전면 포격이 `_resolve_exchange()` 통합 호출 3회로 3턴째에만 발동하는지/
+  무한 장전이 실제 cannon_volley 경로에서 3턴→4턴 연속 발동(주기 3→2→1
+  가속)까지 통합 검증/위 overguard 중첩 버그 수정 회귀(overguard 미보유
+  상태에서 매혹의 응보·저주의 흡수가 실제로 발동하는지 숫자로 확인)/설명
+  문구 전수). 작성 중 2차례 버그를 스스로 잡아 고쳤다 — ① `ct_x.monster_hp`
+  등을 `.free()` **이후**에 로그 문자열에서 참조해 "freed object" 런타임
+  에러로 테스트 스위트가 중간에 끊기던 것(값을 미리 지역 변수에 저장하도록
+  수정) ② untyped 스크립트 인스턴스(`combat_script.new()`)의 멤버를 `:=`로
+  받으면 "타입을 추론할 수 없음" 컴파일 에러(`: int =` 등 명시적 타입으로
+  수정). `bash scripts/qa_shot.sh dice_test 60 qa_out/dice_test_q8c4.png "" 1`을
+  **foreground로 전체 실행해 "결과: PASS"(FAIL 0건) 직접 확인**(재실행 중
+  무관한 기존 확률성 테스트(`_apply_spare_die(count=2)` 60회 표본 비교) 1건이
+  노이즈로 한 번 FAIL했다가 재실행 시 자연히 통과하는 것도 확인 — 내가
+  건드린 코드와 무관한 기존 테스트의 알려진 변동성, STATUS.md "알려진 이슈"에
+  기록). 셀프 피드백 스크린샷 2장 — 던전 맵 "스킬 도감"에서 신규 디버그 훅
+  (`_debug_press_shortcut_skill_codex_legendary_juggler`/`_pirate`)으로 실제
+  "보유" 상태를 만들어 직접 읽고 확인: `qa_out/q8c4_juggler_codex.png`(끝없는
+  저글링 — 교차 화살표 swap 아이콘+전설 배지+"한 런에 하나만" 안내, 아래
+  부분적으로 보이는 완벽한 묘기(공격·방어 아이콘→MAX)/운명의 보정(보라
+  육각형 이벤트 다이스→재굴림) 카드도 서로 뚜렷이 다른 모양), `qa_out/
+  q8c4_pirate_codex.png`(무한 장전 — 시계+"-1" 배지, 처형자의 포격 — 하트
+  "½HP"→"×2" 배지+과녁 아이콘, 전면 포격이 부분적으로 보이는 시계+"½" 배지,
+  셋 다 배지/색/모양으로 구분됨). 전투 규칙/밸런스 수치는 건드리지 않았고
+  (구조적 버그 수정 제외) `resources/`·`docs/art/`는 읽기만 했다. **[대형
+  기획 15] Q-8(c)(전설 스킬 구현) 전체 완료 — 다음은 Q-8(d)(마무리: 밸런스
+  시뮬로 전설 보유/미보유 승률 비교, DESIGN.md 스킬 절에 레어리티 표 추가,
+  아트 발주 목록 정리).**
+
 - **2026-10-20 (236)**: **[대형 기획 15] Q-8(c) 3/4(전설 스킬 — 주술사/매혹사
   6종, 원문 5) 완료.** 1/4·2/4와 달리 이번엔 이전 이터레이션의 미완성 상태를
   이어받은 게 아니라 처음부터 설계·구현했다. 1/4에서 만든 전설 인프라
@@ -1862,62 +1955,20 @@ curse_mark, HP 회복·몬스터 약화 범주가 기존에 없어서 신설) + 
   전투 규칙/밸런스는 건드리지 않았고 `resources/`·`docs/art/`는 읽지
   않았다(이번 조각은 코드/데이터 전용).
 
-- **2026-10-17 (227)**: **[대형 기획 15] Q-6(스킬 도감 정리, 원문 2/4/8) 전체
-  완료 — [대형 기획 15](Q-1~Q-6) 전체 완료.** `code/scenes/skill_codex_panel.gd`
-  (`SkillCodexPanel`)의 카드 레이아웃을 전면 개편했다.
-  **(2) 상태 배지 축소**: "보유"/"발견"/"미발견" 배지가 카드 안쪽 한 줄을 차지하던
-  넓은 `PanelContainer`(`UIKit.make_codex_badge()`)에서, 카드 우상단 모서리에
-  겹쳐 뜨는 48px 폭 작은 칩(`_make_corner_tag()`, 폰트 9)으로 바뀌었다 — 이
-  칩은 Container(자식 전부를 같은 rect로 강제)가 아닌 plain `Control`(`wrap`)
-  위에서 anchor_left/right=1·offset_*으로 직접 모서리에 겹치는 방식이라,
-  card/hbox가 정상 레이아웃 흐름으로 쓰는 Container 트리와 간섭하지 않는다.
-  상태 구분은 여전히 배지 텍스트+아이콘 밝기(색만으로 구분 안 함) 네 겹.
-  **(4) 시작 스킬 전용 구역**: `SkillPool.codex_entries()`가 항상 맨 앞에 두는
-  시작 스킬 3개를 분리해 패널 맨 위에 "시작 스킬" 구역(가로 한 줄, 카드 좌상단에
-  "슬롯 N" 태그를 추가로 겹침 — 이름 라벨 텍스트 자체는 그대로 둬 "확장"처럼
-  보유 스킬 이름이 그대로 보여야 하는 기존 계약을 안 깸)으로 그리고, "일반 스킬"
-  구역(기존 3열 격자)이 그 아래 이어지게 했다. 포커스는 여전히 `_chain_grid()`
-  하나로 평평한 배열(시작 스킬이 맨 앞 3칸, COLUMNS=3과 정확히 일치)을 묶어
-  방향키 이동이 두 구역 경계에서도 끊기지 않는다. **(8) 아이콘 확대 + 자물쇠**:
-  아이콘을 좌측 60px 정사각(프레임 있는 `PanelContainer`)으로 키우고 이름/설명을
-  우측에 배치했다 — 미발견 카드는 모티프 아이콘 대신 `LockIcon`(스킬 정보 비공개
-  규칙 유지)을 같은 크기로 보여준다. **덤으로 카드 클릭/Space 연결**: INBOX
-  원문이 요구한 대로 보유/발견 카드만 `CharacterCardPanel.activated`를
-  `SkillDetailPopup`(Q-4b가 만든 공용 컴포넌트) 열기에 연결했고, 미발견 카드는
-  연결 자체가 없어 클릭해도 아무 일도 일어나지 않는다(정보 비공개 유지).
-  **테스트**: 기존 `_check_l2b_skill_codex_panel()`의 "미발견 아이콘은 SkillIcon,
-  알파 0.35" 기대값을 의도적 변경으로 갱신(이제 `_icon_by_id`엔 안 들어가고
-  `_lock_icon_by_id`로 분리 — 주석과 함께 명시) — 배지 텍스트/보유·발견 아이콘
-  알파/잠금 힌트 텍스트 등 기존 계약은 그대로 보존. 신규 검증 6종(아이콘 rect
-  양쪽 상태 전부 ≥56px 정사각, 배지 anchor_left/right=1·폭<카드폭 40%로 "우상단+
-  작음" 확인, 시작 스킬 구역이 별도 노드로 자식 정확히 3개, 슬롯 태그 텍스트
-  "슬롯 1"/"슬롯 2", 일반 스킬 구역 카드 수, 카드 activated 시 보유=팝업 열림/
-  미발견=안 열림)를 추가했다. **포커스 부수효과 버그를 테스트 작성 중 직접
-  발견** — `activated.emit()`으로 팝업을 여는 테스트를 "open() 직후 첫 카드
-  포커스" 체크보다 먼저 두면, 팝업이 포커스를 가져간 뒤 `close()`해도 Godot이
-  숨겨진 컨트롤의 이전 포커스를 자동 복원하지 않아 그 뒤의 포커스 검증이 거짓
-  FAIL — 포커스/wrap 검증이 전부 끝난 뒤, Esc로 패널을 닫기 전으로 팝업 테스트
-  순서를 옮겨 해결했다(`code/scenes/dice_test.gd`). `bash scripts/qa_shot.sh
-  dice_test 60 qa_out/dice_test_q6.png "" 1` 전체 **PASS**(FAIL 0건). **셀프
-  피드백 2라운드**: `_debug_show_skill_codex_panel_mixed()`(기존 QA 훅)로
-  보유/발견/미발견이 섞인 상태를 `qa_out/q6_codex_mixed.png`로 캡처해 읽었다 —
-  1차 시도는 `GAME_QA_SETTLE` 없이(즉 settle 인자 생략) 찍어서, dice_test.gd의
-  거대한 동기 테스트 스위트(물리 전투 시뮬레이션 포함)가 frame 60 시점에 아직
-  끝나지 않아 "event.tscn 스킬 강화 카드가 떠 있는 중간 상태"를 잘못 캡처하는
-  실수를 했다 — 원인(테스트 스위트가 끝나기 전에 GAME_QA_CALL이 끼어들어 그
-  순간의 임시 자식 씬을 찍음)을 파악하고 `GAME_QA_SETTLE=1`로 재시도해 실제
-  도감 패널을 확인했다. 실제 게임 진입점(`dungeon_map`의 "스킬 도감" 버튼,
-  해적 캐릭터)으로도 `qa_out/q6_codex_pirate_dungeon.png`를 찍어 캐릭터
-  퍼스널 컬러 테마/배경과 함께 겹침·잘림 없이 렌더됨을 확인(사소한 리소스
-  로드 경고는 기존에도 있던 무관한 이슈). 전투 규칙/밸런스는 건드리지 않았고
-  `resources/`·`docs/art/`는 읽기만 했다.
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(236)에서 (226)을 그리로 옮겼다.)*
+이번 이터레이션(237)에서 (227)을 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 
+- **(2026-10-20, 237) `dice_test.gd`의 `_apply_spare_die(count=2, '여분+')` 확률
+  비교 테스트(60회 표본, "여분+" 대체 횟수가 "여분" 이상인지)가 간헐적으로
+  FAIL할 수 있다.** 이번 이터레이션에서 1회 FAIL → 재실행 시 바로 PASS로
+  재현 확인했다 — Q-8(c) 4/4와 무관한 기존 테스트(RNG 60회 표본 비교라
+  순수 확률 변동으로 드물게 뒤집힐 수 있음, 테스트 자체 주석에도 "엄밀한
+  분포 검증은 아님"이라 명시돼 있음). 전체 스위트가 FAIL로 나오면 먼저 이
+  항목인지 확인하고, 맞으면 재실행으로 노이즈인지 구분할 것 — 실제 코드
+  회귀라면 다른 항목도 함께 FAIL하거나 재실행해도 계속 FAIL함.
 - **(2026-10-17, 222) Q-2 원문 10 "캐릭터를 선택하기 전에는 '던전 입장' 버튼을
   비활성(회색)으로"는 구현하지 않았다.** 캐릭터 선택 화면은 항상
   `CharacterProfiles.PROFILES[0]`을 기본 선택한 채로 진입하는 기존 설계라

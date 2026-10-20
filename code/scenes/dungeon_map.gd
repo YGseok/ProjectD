@@ -1242,6 +1242,27 @@ func _debug_press_shortcut_skill_codex_legendary_enchantress() -> void:
 	btn.pressed.emit()
 
 
+## QA 전용 — [대형 기획 15] Q-8(c) 4/4(2026-10-20, 전체 24종 마지막): 위 수호자/폭발병/
+## 주술사/매혹사 훅과 같은 이유, 곡예사 전설 3종(끝없는 저글링/완벽한 묘기/운명의
+## 보정, 재사용 dice_swap/dual_boost/reroll 모티프)을 한 화면에서 확인.
+func _debug_press_shortcut_skill_codex_legendary_juggler() -> void:
+	RunState.character_id = "juggler"
+	RunState.skill_flags = ["legend_juggler_evershuffle", "legend_juggler_balance", "legend_juggler_fatecorrect"]
+	var btn := skill_codex_button
+	btn.grab_focus()
+	btn.pressed.emit()
+
+
+## QA 전용 — 위와 같은 이유, 해적 전설 3종(무한 장전/처형자의 포격/전면 포격, 재사용
+## cycle_strike/true_strike 모티프)을 한 화면에서 확인.
+func _debug_press_shortcut_skill_codex_legendary_pirate() -> void:
+	RunState.character_id = "pirate"
+	RunState.skill_flags = ["legend_pirate_overload", "legend_pirate_execute", "legend_pirate_fullbroadside"]
+	var btn := skill_codex_button
+	btn.grab_focus()
+	btn.pressed.emit()
+
+
 ## QA 전용 — 인벤토리의 다이스가 두 주머니의 모든 다이스보다 작거나 같아 승급 자리가
 ## 하나도 없는 상태에서 2단계 화면에 "승급할 곳이 없다" 안내 문구가 정상 표시되는지
 ## 확인하기 위함(이터레이션 74, 모든 버튼이 비활성화된 채 설명 없이 남던 것을 고침).

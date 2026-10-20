@@ -71,10 +71,8 @@ const MAX_DIAGRAM_SYMBOLS: int = 5
 ## 보유 가능)인데 규모상 한 이터레이션에 다 못 해 캐릭터 2명씩 쪼개 진행한다(INBOX.md
 ## 명시) — Q-8(c) 1/4(2026-10-19)로 견습 모험가(novice)/광전사(berserker) 6종, 2/4
 ## (2026-10-19)로 수호자(guardian)/폭발병(explosive) 6종, 3/4(2026-10-20)로
-## 주술사(shieldbearer)/매혹사(enchantress) 6종이 들어왔다(총 18종). 나머지 2명
-## (곡예사/해적) 6종은 다음 이터레이션(4/4) 몫 — LEGENDARY_SKILLS 배열이 비어있지
-## 않은 뒤부터는 이 주석이 "진행 중" 표시다(완전히 끝나면 STATUS.md에 전체 24종
-## 기록 후 이 주석도 정리).
+## 주술사(shieldbearer)/매혹사(enchantress) 6종, 4/4(2026-10-20)로 곡예사(juggler)/
+## 해적(pirate) 6종이 들어와 **8명×3=24종 전체 완료**됐다.
 const RARITY_COMMON := "common"
 const RARITY_RARE := "rare"
 const RARITY_EPIC := "epic"
@@ -106,10 +104,10 @@ const DEFAULT_RARITY := RARITY_COMMON
 
 ## 보상 풀 드롭 가중치(상대값 — weighted_pick()이 합으로 정규화하므로 100으로 맞출
 ## 필요 없음). INBOX.md "전설은 정예/보스 보상 또는 드문 확률" 중 "드문 확률" 쪽을
-## 채택 — 등급이 높을수록 숫자가 작아져 뽑힐 확률이 낮다. 전설은 이번 조각에 후보가
-## 0종이라 실제로 선택될 일이 없지만(available_choices()/available_upgrade_choices()가
-## 여전히 SKILLS/UNIQUE_SKILLS/UPGRADE_SKILLS만 후보로 삼음), Q-8(c)가 전설 스킬을
-## 추가했을 때 이 상수 하나만 쓰면 되도록 지금부터 자리를 비워둔다.
+## 채택 — 등급이 높을수록 숫자가 작아져 뽑힐 확률이 낮다. available_choices()가
+## character_id를 받으면 LEGENDARY_SKILLS도 그 캐릭터 전용 후보로 섞어 넣고(위
+## filter_legendary_if_owned() 호출로 "한 런에 하나만"을 보장), 전설 24종이 Q-8(c)
+## 4/4로 전부 채워진 지금부터 실제로 이 가중치(3.0, 가장 낮음)만큼의 확률로 뽑힌다.
 const RARITY_DROP_WEIGHTS: Dictionary = {
 	RARITY_COMMON: 100.0,
 	RARITY_RARE: 40.0,
@@ -132,7 +130,8 @@ const RARITY_DROP_WEIGHTS: Dictionary = {
 ##   (deep_breath_plus/spare_die_plus)은 같은 "한 등급 위" 원칙을 일반 베이스에
 ##   적용해 **희귀**가 된다(영웅이 아님 — 베이스 등급에 따라 강화 결과 등급도
 ##   달라진다).
-## - **전설**: 이번 조각 0종(위 참고).
+## - **전설**: LEGENDARY_SKILLS(캐릭터별 3종, 8명×3=24종) 전부. UNIQUE_SKILLS처럼
+##   "+" 강화판은 없다(이미 최고 등급).
 const SKILL_RARITY: Dictionary = {
 	# SKILLS(공용 2종) — 일반.
 	"deep_breath": RARITY_COMMON,
@@ -198,6 +197,13 @@ const SKILL_RARITY: Dictionary = {
 	"legend_enchantress_captive": RARITY_LEGENDARY,
 	"legend_enchantress_ascend": RARITY_LEGENDARY,
 	"legend_enchantress_retribution": RARITY_LEGENDARY,
+	# LEGENDARY_SKILLS(Q-8(c) 4/4 — 곡예사/해적 6종, 전체 24종 마지막) — 전설.
+	"legend_juggler_evershuffle": RARITY_LEGENDARY,
+	"legend_juggler_balance": RARITY_LEGENDARY,
+	"legend_juggler_fatecorrect": RARITY_LEGENDARY,
+	"legend_pirate_overload": RARITY_LEGENDARY,
+	"legend_pirate_execute": RARITY_LEGENDARY,
+	"legend_pirate_fullbroadside": RARITY_LEGENDARY,
 }
 
 
@@ -884,6 +890,124 @@ const LEGENDARY_SKILLS: Array[Dictionary] = [
 			{"type": "value", "amount": 2, "op": "+", "ignore_defense": true},
 		],
 	},
+	# 4/4(이번 조각, 전체 24종 마지막): 곡예사(juggler)/해적(pirate) 6종. 곡예사는
+	# "저글링·이벤트 D12 특화"(juggle_swap — 런 시작 1회만 공격/방어 다이스 1개씩
+	# 맞교환, 이벤트 주사위만 유일하게 D12) 정체성과 시너지를 갖도록, 해적은 "함포
+	# 고정 피해·쿨타임 특화"(cannon_volley — 3턴 주기마다 ceil(공격 합계/2)의 방어
+	# 무시 고정 피해) 정체성과 시너지를 갖도록 설계했다. 견습·광전사·수호자·폭발병·
+	# 주술사·매혹사 18종과 겹치지 않는 새 메커니즘 위주(이번 턴 굴림 "전" 다이스
+	# 교환/공방 합계 비교/이벤트 주사위를 전투로 끌어들이는 보정/영구히 가속되는
+	# 쿨타임/몬스터 저체력 처형/방어턴 함포)로 채웠다.
+	#
+	# "legend_juggler_evershuffle"(끝없는 저글링): juggle_swap/곡예 앙코르(juggle_
+	# encore)가 "런 시작 1회"/"라운드 전환마다"였던 다이스 맞교환을 "매 턴(공격/방어
+	# 모두)"으로 확장한다 — 다이스를 굴리기 "전"에 플레이어의 공격/방어 주머니에서
+	# 무작위 다이스 1개씩을 통째로 맞바꾼다(DiceBag.swap_random_dice() 그대로 재사용,
+	# 새 다이스 연산 없음). combat_test.gd의 _resolve_exchange() 맨 앞 분기 참고.
+	#
+	# "legend_juggler_balance"(완벽한 묘기): 새 메커니즘(공격/방어 두 총합 비교) —
+	# 이번 턴에 "쓰는" 주머니의 합계와 "쓰지 않는 손"(반대 주머니)의 합계 중 더 높은
+	# 쪽을 이번 턴 실제 합계로 채택한다(DESIGN.md가 전설 예시로 든 "굴림 결과 합산
+	# 방식 변경"). combat_test.gd의 _juggle_balance_total() 참고.
+	#
+	# "legend_juggler_fatecorrect"(운명의 보정): 새 메커니즘(이벤트 주사위를 전투로
+	# 끌어들임) — 캐릭터의 이벤트 주사위(event_die_sides, 곡예사는 유일하게 1D12)를
+	# 전투에도 매 턴 추가로 굴려, 이번 턴 가장 낮은 다이스 값보다 높으면 그 자리를
+	# 대체한다("여분"(spare_die)과 같은 "여분 다이스로 최저값 대체" 패턴이지만, 대체용
+	# 다이스가 자기 주머니 타입이 아니라 이벤트 주사위로 고정된다는 점이 다름). 곡예사가
+	# D12로 차별화된 유일한 캐릭터라는 점을 전투 안에서도 체감하게 한다. combat_test.gd의
+	# _apply_fate_die() 참고.
+	#
+	# "legend_pirate_overload"(무한 장전): 새 메커니즘(가속되는 쿨타임) — 함포
+	# 일제사격이 발동할 때마다 다음 발동까지 필요한 주기가 1턴씩 영구히 짧아진다(최소
+	# 1턴, "일제 사격"/"일제 사격+"의 고정 2턴 단축과 달리 전투가 길어질수록 계속
+	# 가속됨). combat_test.gd의 _overload_next_cycle() / player_pirate_overload_cycle
+	# 참고.
+	#
+	# "legend_pirate_execute"(처형자의 포격): 몬스터 HP가 절반 이하일 때 함포 고정
+	# 피해가 두 배로 적용된다 — "집행자" 테마(약자를 더 세게 때린다)로 기존 18종의
+	# "자기 HP 절반 이하"(bulwark/lastblast) 조건을 "상대 HP 절반 이하"로 뒤집은
+	# 변주. _is_hp_half_or_below()를 몬스터 HP에도 그대로 재사용(원래 플레이어 전용
+	# 가정이 없는 순수 hp/max_hp 비교라 재사용 가능). combat_test.gd의
+	# _execute_cannon_bonus() 참고.
+	#
+	# "legend_pirate_fullbroadside"(전면 포격): 함포 일제사격은 평소 공격턴에만
+	# 발동하는데, 이 전설은 같은 주기를 방어턴에도 적용해 방어 합계 기준 고정 피해를
+	# 추가로 준다("주기형 쿨타임 특화"를 턴 종류 전체로 확장) — player_pirate_
+	# defense_turn_count가 공격턴 카운터와 완전히 대칭인 전용 카운터. _cannon_volley_
+	# damage()를 그대로 재사용(새 피해 공식 없음). combat_test.gd의 else 분기(몬스터
+	# 공격턴/플레이어 방어턴) 끝 참고.
+	#
+	# 여섯 캐릭터(juggler/pirate) 전부 1/4~3/4와 동일하게 "전설 스킬은 한 런에
+	# 하나만 가질 수 있다" 안내 문장을 description 끝에 포함한다.
+	{
+		"id": "legend_juggler_evershuffle",
+		"name": "끝없는 저글링",
+		"description": "매 턴(공격/방어 모두) 다이스를 굴리기 전에 공격 다이스 무작위 1개와 방어 다이스 무작위 1개를 통째로 맞바꾼다. 전설 스킬은 한 런에 하나만 가질 수 있다.",
+		"character_id": "juggler",
+		"diagram": [
+			{"type": "duration", "kind": "every_turn"},
+			{"type": "arrow"},
+			{"type": "swap", "count": 1},
+		],
+	},
+	{
+		"id": "legend_juggler_balance",
+		"name": "완벽한 묘기",
+		"description": "매 턴(공격/방어 모두), 이번 턴에 쓰는 주머니의 합계와 반대쪽 주머니의 합계 중 더 높은 쪽을 채택한다. 전설 스킬은 한 런에 하나만 가질 수 있다.",
+		"character_id": "juggler",
+		"diagram": [
+			{"type": "die", "target": "attack"},
+			{"type": "die", "target": "defense"},
+			{"type": "arrow"},
+			{"type": "value", "op": "max"},
+		],
+	},
+	{
+		"id": "legend_juggler_fatecorrect",
+		"name": "운명의 보정",
+		"description": "매 턴(공격/방어 모두), 이벤트 주사위(캐릭터별 면 개수)를 추가로 굴려 이번 턴 가장 낮은 다이스 값보다 높으면 그 자리를 대체한다. 전설 스킬은 한 런에 하나만 가질 수 있다.",
+		"character_id": "juggler",
+		"diagram": [
+			{"type": "duration", "kind": "every_turn"},
+			{"type": "arrow"},
+			{"type": "die", "target": "event"},
+			{"type": "reroll", "count": 1},
+		],
+	},
+	{
+		"id": "legend_pirate_overload",
+		"name": "무한 장전",
+		"description": "함포 일제사격이 발동할 때마다 다음 발동까지 필요한 주기가 1턴씩 영구히 짧아진다(최소 1턴). 전설 스킬은 한 런에 하나만 가질 수 있다.",
+		"character_id": "pirate",
+		"diagram": [
+			{"type": "cycle", "turns": 3, "target": "attack"},
+			{"type": "arrow"},
+			{"type": "value", "op": "+", "amount": -1},
+		],
+	},
+	{
+		"id": "legend_pirate_execute",
+		"name": "처형자의 포격",
+		"description": "몬스터 HP가 절반 이하일 때, 함포 일제사격의 고정 피해가 두 배로 적용된다. 전설 스킬은 한 런에 하나만 가질 수 있다.",
+		"character_id": "pirate",
+		"diagram": [
+			{"type": "condition", "kind": "hp_half"},
+			{"type": "arrow"},
+			{"type": "value", "op": "×", "amount": 2, "ignore_defense": true},
+		],
+	},
+	{
+		"id": "legend_pirate_fullbroadside",
+		"name": "전면 포격",
+		"description": "함포 일제사격과 같은 주기로, 방어턴에도 방어 합계의 절반만큼 방어 무시 고정 피해를 몬스터에게 추가로 준다. 전설 스킬은 한 런에 하나만 가질 수 있다.",
+		"character_id": "pirate",
+		"diagram": [
+			{"type": "cycle", "turns": 3, "target": "defense"},
+			{"type": "arrow"},
+			{"type": "value", "op": "half", "ignore_defense": true},
+		],
+	},
 ]
 
 
@@ -1523,6 +1647,22 @@ const ICON_MOTIFS: Dictionary = {
 	"legend_enchantress_captive": "curse_mark",
 	"legend_enchantress_ascend": "dice_flip",
 	"legend_enchantress_retribution": "true_strike",
+	# LEGENDARY_SKILLS(Q-8(c) 4/4, 2026-10-20) — 곡예사/해적 6종, 전체 24종 마지막.
+	# "끝없는 저글링"(다이스 맞교환)은 juggle_encore/운명의 뒤섞임과 같은 범주라
+	# dice_swap 공유. "완벽한 묘기"(공방 둘 다 비교해 더 센 쪽 채택)는 "매 턴 양쪽
+	# 보정"이라는 결과 범주가 만물의 조화와 같아 dual_boost 공유. "운명의 보정"
+	# (이벤트 주사위로 최저값 대체)은 여분/여분+와 같은 "여분 다이스로 대체" 범주라
+	# reroll 공유. "무한 장전"/"전면 포격"(둘 다 주기형 고정 피해 — 주기가 가변인지
+	# 턴 종류가 늘었는지만 다르고 결과 범주는 동일)은 일제 사격과 같은 cycle_strike
+	# 공유. "처형자의 포격"(조건부 방어 무시 추가 피해)은 유혈광란/불굴의 보복/절대
+	# 폭발/매혹의 응보와 같은 범주라 true_strike 공유 — 신규 모티프 없이 전부 기존
+	# 16종으로 커버된다(1/4·2/4와 같은 "효과가 같으면 같은 모티프" 원칙).
+	"legend_juggler_evershuffle": "dice_swap",
+	"legend_juggler_balance": "dual_boost",
+	"legend_juggler_fatecorrect": "reroll",
+	"legend_pirate_overload": "cycle_strike",
+	"legend_pirate_execute": "true_strike",
+	"legend_pirate_fullbroadside": "cycle_strike",
 }
 
 ## ICON_MOTIFS가 쓰는 값 전체(테스트/미리보기에서 전수 순회용). 여기 없는 문자열이
