@@ -5,40 +5,38 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-10-20 (240)
-- 작성자: AI 에이전트. **[대형 기획 15] Q-11b(몬스터 도감 보완, 사용자 추가 지시)
-  완료.** Q-11(커밋 46e566c)이 동작은 했지만 감독이 `qa_out/q11_grid.png`/
-  `q11_detail_goblin_king.png`를 직접 보고 발견한 결함 4가지를 셀프 피드백
-  루프(캡처→읽고 비평→수정→재캡처, 3라운드)로 고쳤다. **(1) 썸네일 부재**:
-  격자 카드에 리소스 확인용 작은 썸네일(`CharacterArt.load_full_crop()` 기반,
-  티어별 크롭 비율 재사용 + `THUMB_MAX_PIXELS=96`으로 축소해 정적 캐시)을
-  추가, 파일 없으면 `FamilyIcon` 계열 플레이스홀더로 폴백. 카드를
-  190x108→182x100 HBox(썸네일+텍스트) 레이아웃으로 바꿔 빈 공간도 줄였다.
-  **(2) 가로 스크롤바**: 6열×기존 카드 폭 합계(1190px)가 스크롤 폭(1100px)을
-  넘어 6번째 열이 잘리고 가로 스크롤바가 떴던 게 원인 — 카드 폭을 줄이고
-  스크롤 폭을 1160px로 넓혀(`SCROLL_WIDTH` 상수) 합계 1142px가 항상 들어오게
-  하고 `horizontal_scroll_mode = SCROLL_MODE_DISABLED`도 안전장치로 추가.
-  **(3) 패널 상단 배경 화면 비침**: 패널 틀(bg)이 화면 일부만 덮어 뒤의
-  character_select 제목/버튼이 보였던 문제 — 처음엔 반투명 풀스크린
-  backdrop(alpha 0.75)을 추가했지만 재캡처에서 여전히 비치는 걸 확인(밝은
-  색 콘텐츠가 그 투명도로는 가려지지 않음), 완전 불투명(alpha 1.0)으로
-  올렸는데도 안 바뀌어 원인을 더 파보니 `set_anchors_preset(FULL_RECT)`가
-  이 1280x720 고정 좌표 씬에서 기대한 타이밍에 반영되지 않는 문제였다 —
-  다른 모든 요소처럼 명시적 `position=Vector2.ZERO`/`size=Vector2(1280,720)`로
-  바꿔 완전히 해결(디버깅 자체가 이번 라운드의 핵심 발견). **(4) 상세 뷰
-  빈 공간**: 표정 없음 안내 문구가 큰 빈 상자 한가운데 떠 있어 위아래로
-  거대한 공백이 생기던 것을 버튼 줄 바로 아래로 옮기고, 표정 컷(200x200→
-  260x300)과 전투 크롭(200x240→230x320)을 키워 밀도를 높였다. 동작/로직
-  (필터, 키보드 이동, 표정 전환, ✓/✗)은 전혀 바꾸지 않았고 기존
-  `_check_q11_monster_codex()`가 그대로 전부 PASS, 거기에 썸네일 검증
-  3항목((1b) 슬롯 수==카드 수 (1c) 원화 있으면 TextureRect+texture!=null
-  (1d) 원화 없으면 FamilyIcon 폴백)을 추가했다. `bash scripts/qa_shot.sh
-  dice_test 60 qa_out/dice_test_q11b_final.png "" 1` **foreground 전체
-  PASS(FAIL 0건) 직접 확인**(run_in_background 금지). 전투 규칙/밸런스는
-  건드리지 않았고 `resources/`·`docs/art/`는 읽기만 했다(add 안 함). **다음은
-  Q-9(고유 능력/업적 아이콘)~Q-10(스토리 이벤트 일러스트) — 둘 다 "코드에
-  경로만 만들고 아트 발주 목록을 정리"하는 성격이라 조각으로 쪼개 진행
-  가능, 세부 설계는 INBOX.md Q-9/Q-10 원문 참고.**
+- 일시: 2026-10-20 (241)
+- 작성자: AI 에이전트. **[대형 기획 15] Q-12(보스 설정 확정 반영, 사용자 확정
+  지시) 완료.** 보스 6종의 이름/색/personality는 이미 반영돼 있었고(원장
+  `docs/art/ART_RESOURCES.md` 3-8 표는 읽기만), 남은 "스토리 활용" 3가지를
+  구현했다. (a) `MonsterCatalog.MONSTERS`의 보스 6종에 보스전 진입 대사
+  `intro`(기본) + `character_intro`(캐릭터 전용 변형 사전) 데이터를 추가하고,
+  조회 순수 함수 `MonsterCatalog.boss_intro_text(monster, character_id)`를
+  신설했다(character_intro 우선, 없으면 intro, 둘 다 없으면 빈 문자열).
+  광란의 마수(광전사의 언니)×광전사/타락한 기사단장(수호자의 전 기사단장)×
+  수호자 2종은 원문 필수 요구라 캐릭터 전용 변형을 채웠고(동생/옛 부하를
+  알아보는 대사), 고블린 왕×매혹사/영계의 지배자×해적 2종은 "가능하면"
+  권장이라 보너스로 추가했다. `combat_test.gd`의 `_ready()`가 몬스터 구성
+  직후 `monster_is_boss`일 때만 이 함수로 조회해 전투 기록 로그 첫 줄에
+  찍는다(배너 대신 기존 로그 패널 재사용 — 신규 UI 없음). (b)
+  `EventChallengePool.CHALLENGES`의 기존 캐릭터 전용 이벤트(duel_arena=광전사,
+  ancient_oath=수호자) prompt 문구에 "가족"/"옛 기사단" 언급 한 문장씩만
+  추가했다(새 시스템 없음). (c) `MonsterCodexPanel` 상세 뷰 info_label에
+  보스만 "등장: <기본 intro>" 줄을 추가했다(캐릭터 변형은 리소스 확인용
+  도감에서 숨김). `dice_test.gd`에 신규 `_check_q12_boss_intro()`(11항목,
+  production `combat_test.tscn`을 3번 인스턴스화해 전투 기록 로그에 실제로
+  찍히는지까지 확인) 추가해 `bash scripts/qa_shot.sh dice_test 60
+  qa_out/dice_test_q12b.png "" 1` **foreground 전체 PASS(FAIL 0건) 직접
+  확인**(run_in_background 금지). 셀프 피드백 스크린샷 5장(광전사×광란의
+  마수/수호자×타락한 기사단장 전투 화면, 고블린 왕 도감 상세, duel_arena/
+  ancient_oath 이벤트 화면)을 직접 읽어 대사 줄이 HUD/다이스 스테이지와
+  안 겹치는 것을 확인했다 — 그 중 `q12_event_ancient_oath.png`에서 이번에
+  건드리지 않은 `subtitle` 필드가 원인인 기존 제목 겹침 버그(우상단 "스킬
+  도감" 버튼과 겹침)를 발견했으나 범위 밖이라 고치지 않고 "알려진 이슈"에만
+  기록했다. 전투 규칙/밸런스는 전혀 안 건드렸고 `resources/`·`docs/art/`는
+  읽기만 했다(add 안 함). **다음은 여전히 Q-9(고유 능력/업적 아이콘)~Q-10
+  (스토리 이벤트 일러스트 경로) — 둘 다 "경로 배선 + 아트 발주 목록 정리"
+  성격이라 조각 단위로 진행 가능.**
 
 ## 지금 위치
 
@@ -201,6 +199,15 @@ SHIFT`에 y=130을 더해 해결했다(일반/정예 크롭은 변경 없음). �
 현황(✓/✗)을 확인할 수 있다. 전체 화면 딤 배경으로 뒤 화면이 비치지 않는다.
 자세한 내용은 `docs/DESIGN.md` "던전 몬스터" 절의 "몬스터 도감" 소절과 아래
 "완료 기록 (240)" 참고.
+**보스 설정 스토리 반영(2026-10-20 [대형 기획 15] Q-12 완료)** — 보스 6종
+(`MonsterCatalog.MONSTERS`)에 보스전 진입 대사 `intro`(기본)/`character_intro`
+(캐릭터 전용 변형, 광전사×광란의 마수/수호자×타락한 기사단장 필수 + 고블린
+왕×매혹사/영계의 지배자×해적 보너스)가 추가됐고, 조회 함수
+`MonsterCatalog.boss_intro_text(monster, character_id)`를 보스 전투 시작
+시(`combat_test.gd`, 전투 기록 로그 첫 줄)/몬스터 도감 상세 뷰(`등장:` 줄,
+기본 문구만)가 공유한다. 광전사/수호자 전용 스토리 이벤트(`EventChallengePool`
+의 duel_arena/ancient_oath) prompt에도 "가족"/"옛 기사단" 언급 한 문장씩 추가.
+자세한 내용은 아래 "완료 기록 (241)" 참고.
 **큐의 나머지 항목은 대부분 사람 플레이테스트/피드백 또는 설계 결정이
 필요한 상태** — 자세한 내용은 "알려진 이슈 / 막힌 것" 섹션 참고.
 
@@ -1398,6 +1405,75 @@ DESIGN.md 레어리티 표 + STATUS.md 아트 발주 표(완료 기록 (238))까
 
 ## 완료 기록
 
+- **2026-10-20 (241)**: **[대형 기획 15] Q-12(보스 설정 확정 반영, 2026-10-20
+  사용자 확정 지시) 완료.** 이름/색/personality는 이미 `monster_catalog.gd`에
+  반영돼 있어(원장 `docs/art/ART_RESOURCES.md` 3-8 표는 읽기만) 남은 일감인
+  "스토리 활용" 3가지를 구현했다.
+  **(a) 보스전 진입 대사**: 6보스 전부에 `intro`(기본 등장 문구) +
+  필요한 2종에 `character_intro`(캐릭터 전용 변형 사전, 없으면 `intro`로
+  폴백) 데이터를 `MonsterCatalog.MONSTERS`에 추가 — 광란의 마수(광전사의
+  언니)는 `character_intro["berserker"]`로 "...너, 낯이 익군. 설마 내
+  동생이냐?"처럼 동생을 알아보는 대사, 타락한 기사단장(수호자의 전
+  기사단장)은 `character_intro["guardian"]`으로 "네가 모시던 그 기사단장을"
+  옛 부하를 알아보는 대사(둘 다 원문 필수 항목). 가능하면 추가하라는 지시에
+  따라 고블린 왕×매혹사("미모는 제법이군 — 하지만 왕관은 내 것")/영계의
+  지배자×해적("바다에서 죽음을 피해 다녔다지? 여긴 그 바다보다 깊다")도
+  보너스로 채웠다. 조회는 신규 순수 함수
+  `MonsterCatalog.boss_intro_text(monster, character_id)`(character_intro
+  우선, 없으면 intro, 둘 다 없으면 빈 문자열 — 보스 아닌 몬스터에도 안전) 하나로
+  통일. `combat_test.gd`의 `_ready()`가 몬스터 구성 직후(`_apply_monster_config()`
+  바로 뒤) `monster_is_boss`일 때만 이 함수로 조회해 전투 기록 로그 첫 줄에
+  `_append_log()`로 찍는다(일반/정예 전투는 intro 자체가 없어 아무 줄도 안 뜸).
+  **(b) 캐릭터 스토리 이벤트 연결 암시**: 새 시스템 없이 기존
+  `EventChallengePool.CHALLENGES`의 캐릭터 전용 이벤트(`only_characters`)
+  prompt 문구에 한 문장씩만 추가 — 광전사 전용 "결투장의 부름"(duel_arena)에
+  "문득 소식이 끊긴 언니가 떠오른다", 수호자 전용 "오래된 성소의 수호
+  서약"(ancient_oath)에 "옛 기사단의 맹세가 귓가에 맴돈다". `event.gd`
+  PromptLabel의 autowrap 레이아웃 재측정 테스트(`_check_q1_event_text_layout`,
+  Q-1(23))가 전체 챌린지를 동적으로 순회해 재검증하므로 길이가 늘어나도
+  자동으로 버튼 비겹침까지 확인된다.
+  **(c) 몬스터 도감 연결**: `monster_codex_panel.gd`의 상세 뷰 info_label이
+  "성격"/"스킬"/"2페이즈" 줄 아래에 보스일 때만 `"등장: " + intro`(기본
+  문구만, 캐릭터 변형은 리소스 확인용 도감에서 안 보여줌) 한 줄을 추가로
+  보여준다.
+  **테스트**: `dice_test.gd`에 신규 `_check_q12_boss_intro()`(11항목, 전부
+  "플래그가 아니라 실제 값/실제 화면 텍스트") — (1) 보스 6종 전부 intro
+  존재 (2) `boss_intro_text()` 결정적 조회 4종(광전사×광란의 마수/수호자×
+  타락한 기사단장 변형 일치 + 매치 없는 캐릭터는 기본 폴백, 변형과 다른
+  문구인지까지 비교) (3) 비보스 몬스터(slime)는 크래시 없이 빈 문자열
+  (4) `RunState.test_battle` 경로(is_boss가 room_index가 아니라 몬스터
+  프로필의 실제 tier로 판정되는 유일한 경로 — 몬스터 id만으로 보스/비보스를
+  결정적으로 고를 수 있음)로 production `combat_test.tscn`을 3번 인스턴스화해
+  `log_label.text`에 실제로 변형 대사/기본 intro/(비보스는) 아무 줄도 없는지
+  3가지 경우 전부 확인 (5) `MonsterCodexPanel` 상세 뷰에서 보스만 "등장:"
+  줄이 포함되는지(비보스는 없는지, 보스를 먼저 연 뒤 비보스를 보려면
+  `_on_back_pressed()`로 격자를 다시 그려야 `_grid_cards_by_id`가 다시
+  채워진다는 것을 1차 실행에서 (5b)가 조용히 실행되지 않는 것으로 발견 —
+  `_grid_cards_by_id`가 detail 뷰 동안 비워진다는 패널 내부 동작을 놓쳐서
+  생긴 테스트 버그였고, 뒤로가기를 먼저 호출하도록 고쳐 해결).
+  `bash scripts/qa_shot.sh dice_test 60 qa_out/dice_test_q12b.png "" 1`
+  **foreground 전체 PASS(FAIL 0건) 직접 확인**(run_in_background 금지).
+  **셀프 피드백**: QA 전용 0-arity 훅(`combat_test.gd`의
+  `_debug_qa_boss_intro_berserker`/`_guardian`, `event.gd`의
+  `_debug_force_duel_arena_event`/`_debug_force_ancient_oath_event`)으로
+  광전사×광란의 마수(`qa_out/q12_berserker_frenzied_beast.png`, 보스 방
+  arg 4 + monster_id)와 수호자×타락한 기사단장
+  (`qa_out/q12_guardian_fallen_commander.png`) 전투 화면, 고블린 왕 도감
+  상세(`qa_out/q12_codex_goblin_king_intro.png`), duel_arena/ancient_oath
+  이벤트 화면 2장을 캡처해 직접 읽었다 — 대사 줄이 "전투 기록" 로그 패널
+  안에서 HUD/다이스 스테이지/포트레이트와 전혀 안 겹치고, 도감 상세의
+  "등장:" 줄도 하단 여유 공간에 자연스럽게 들어간다. **발견했지만 이번
+  범위 밖이라 안 고친 것**: `q12_event_ancient_oath.png`에서 상단 제목
+  라벨("특수 이벤트 — 오래된 성소의 수호 서약 — 수호자만이 받을 수 있는
+  맹세다. (수호자 전용)")이 우상단 "스킬 도감" 버튼과 겹친다 — `subtitle`
+  필드는 이번에 전혀 안 건드렸고(Q-12(b)에서 수정한 건 `prompt` 필드뿐)
+  이 특정 이벤트의 title_label을 실제로 캡처해본 QA 훅이 이번에 처음
+  생겨서 드러난 기존 버그로 판단, "알려진 이슈"에 기록만 하고 범위를
+  지켜 손대지 않았다. 전투 규칙/밸런스 수치는 전혀 안 건드렸고
+  `resources/`·`docs/art/`는 읽기만 했다(add 안 함). INBOX.md "부분
+  처리됨" [대형 기획 15] 항목에 Q-12 진행 상황 줄 추가, 다음은 여전히
+  Q-9(고유 능력/업적 아이콘)~Q-10(스토리 이벤트 일러스트 경로).
+
 - **2026-10-20 (240)**: **[대형 기획 15] Q-11b(몬스터 도감 보완, 사용자 추가
   지시) 완료.** 감독이 Q-11(239) 결과물을 캡처로 직접 보고 지적한 결함 4가지를
   셀프 피드백 루프(캡처→읽고 비평→수정→재캡처, 3라운드)로 고쳤다.
@@ -1954,82 +2030,27 @@ DESIGN.md 레어리티 표 + STATUS.md 아트 발주 표(완료 기록 (238))까
   없으므로(STATUS.md "다음 할 일 큐"의 다음 항목은 Q-8(c)) `docs/DESIGN.md`는
   건드리지 않았다. `resources/`·`docs/art/`는 읽기만 했다.
 
-- **2026-10-18 (231)**: **[대형 기획 15] Q-8(a)(스킬 레어리티 체계, 원문 5) 완료**
-  + 그 직전 조각(Q-7(c))에서 감독이 캡처로 발견한 작은 후속 버그(스킬 도감 시작
-  스킬 카드의 "슬롯 N" 태그가 SkillDiagram 첫 칩과 겹침) 수정.
-  **배정 기준표(일반/희귀/영웅/전설 — 아이템 S/A/B/C 등급과 구분되는 스킬 전용
-  표시)**:
-
-  | 소속 | 등급 | 근거 |
-  | --- | --- | --- |
-  | `SKILLS`(공용 스킬 2종) | 일반 | 기본으로 주어지는 스킬 |
-  | `STARTING_SKILLS`(캐릭터 시작 로드아웃, 고유 id 15종) | 일반 | 기본으로 주어지는 스킬 |
-  | `UNIQUE_SKILLS`(캐릭터 전용 고유 스킬 9종) | 희귀 | 그 캐릭터를 플레이해야만 후보로 나옴 + 기믹 시너지 |
-  | `UPGRADE_SKILLS` 중 공용(일반) 베이스 강화 2종(심호흡+/여분+) | 희귀 | 강화판 = 베이스보다 한 등급 위 |
-  | `UPGRADE_SKILLS` 중 고유(희귀) 베이스 강화 9종 | 영웅 | 강화판 = 베이스보다 한 등급 위 |
-  | (전설 스킬) | 전설 | 이번 조각 0종 — Q-8(c)가 캐릭터별 3종씩 추가 예정 |
-
-  **구현**: `code/systems/skill_pool.gd`에 `RARITY_COMMON/RARE/EPIC/LEGENDARY`
-  4상수 + `RARITY_ORDER`/`RARITY_LABELS`(일반/희귀/영웅/전설)/`RARITY_COLORS`
-  (아이템 등급 팔레트와 안 겹치는 별도 색상환: 은회색→하늘색→보라색→주황색)
-  + 위 표를 그대로 옮긴 전수 맵 `SKILL_RARITY`(37종, ICON_MOTIFS와 같은 "명시적
-  전수 표" 패턴) + 조회 함수 `rarity_for()`/`rarity_label()`/`rarity_color()`
-  + 네 화면이 공유하는 배지 팩토리 `build_rarity_badge(skill_id, font_size)`를
-  추가했다. **보상 풀 가중치**: `RARITY_DROP_WEIGHTS`(일반 100/희귀 40/영웅
-  12/전설 3, 상수 분리) + 결정적 시드로 재현 가능한 순수 함수
-  `weighted_pick(pool, n, rng)`(가중치 비복원 추출)를 신규 추가하고,
-  `available_choices()`/`available_upgrade_choices()`가 기존 `pool.shuffle()`
-  (균등 추첨) 대신 이 함수를 쓰도록 바꿨다 — **효과/밸런스는 그대로, "어느
-  카드가 더 자주 보이는가"만 바뀐다**(전설은 이번 조각 후보 0종이라 실제로는
-  아직 영향 없음).
-  **화면 적용(4곳)**: ① `item_card_style.gd`의 `build_card()`(보상/상점/이벤트
-  공유 카드 프레임) — 스킬 카드(id 필드 있음)는 기존처럼 조용히 `DEFAULT_GRADE`
-  ("C", 녹색)로 폴백되던 부정확한 상태 대신 실제 레어리티 색/배지를 쓰도록
-  고쳤다(아이템 카드는 영향 없음). ② `skill_codex_panel.gd` — 발견/보유 카드만
-  이름 줄 옆에 레어리티 태그 추가(미발견은 정보 비공개 유지). ③
-  `skill_detail_popup.gd` — 헤더에 배지 추가, "레어리티는 아직 없어 생략"이던
-  기존 주석을 갱신. ④ `character_select.gd` 시작 스킬 슬롯 — 아이콘 영역에
-  등급색 테두리 링 + 좌상단 텍스트 태그(색만으로 구분 금지 원칙, 테두리는
-  모티프 아이콘 *다음에* 추가해야 외부 아트에 안 가려짐 — 아래 셀프 피드백
-  참고).
-  **Q-7(c) 후속 버그 수정**: `skill_codex_panel.gd`의 "슬롯 N" 태그가 카드
-  좌상단 절대 위치 오버레이(`_make_corner_tag`)로 그려지던 것이 그 자리에
-  올라온 SkillDiagram 첫 칩과 겹쳤다 — 절대 위치 경쟁 자체를 없애려고 신규
-  `_make_inline_tag()`로 이름 줄 옆(`name_row`) 일반 흐름 요소로 옮겼다(레어리티
-  태그도 같은 줄에 함께 둠).
-  **테스트**: `dice_test.gd`에 신규 체크 3종 — `_check_q7c_followup_slot_tag_
-  diagram_overlap()`(await, 실제 global rect 교차 계산으로 슬롯 태그/도식
-  비겹침 확인) / `_check_q8a_skill_rarity_data()`(37종 전수 rarity 등록 + 기준표
-  일치 + 전설 0종 안전망 + 등급 표시 4종 전부 다름 + `weighted_pick()` 결정적
-  시드(12345) 재현 — 같은 시드 2회 호출 결과 id 배열이 완전히 일치하는지로
-  검증, 중복 없음/n≥pool 시 전체 반환도 확인) / `_check_q8a_rarity_display()`
-  (카드/도감/팝업/시작 스킬 슬롯 네 곳에서 실제 렌더된 배지 텍스트가
-  `rarity_label()`과 일치하는지). 기존 테스트 1건(`_check_skill_upgrade_card_
-  highlight`)이 "스킬 카드 테두리색 == 등급색"이라는 이제는 틀린 가정으로
-  FAIL났던 것을 "스킬 카드 테두리색 == 레어리티색"으로 기대값을 의도적으로
-  갱신(주석과 함께)해 고쳤다. `bash scripts/qa_shot.sh dice_test 60 ... 1`
-  전체 **PASS**(FAIL 0건).
-  **셀프 피드백(2라운드)**: 1라운드 — `character_select` 시작 스킬 슬롯 캡처를
-  PowerShell(System.Drawing)로 크롭/5배 확대해 직접 읽어보니 등급 테두리 링이
-  전혀 안 보임(모티프 아이콘보다 먼저 추가해 외부 아트 PNG에 완전히 가려짐) —
-  코드를 고쳐(테두리를 아이콘 *다음에* 추가) 재캡처로 링이 실제로 보이는 것
-  확인(`qa_out/q8a_character_select_slots_zoom_v2.png`). 2라운드 —
-  `qa_out/q8a_event_skill_offer.png`(가디언 전용, 공용 "심호흡"=일반(회색)과
-  고유 "수호 심화"=희귀(파란색) 카드가 나란히 뜸)/`q8a_event_skill_upgrade.png`
-  ("임기응변+"=영웅(보라색))/`q8a_skill_codex.png`(해적 도감, 시작 스킬 "선제"
-  카드에서 "슬롯 1"/"일반" 태그가 도식과 안 겹침 — Q-7(c) 후속 버그 수정 확인)/
-  `q8a_skill_detail_popup.png`(팝업 헤더에 "일반" 배지)로 4곳 전부 등급별로
-  다른 색/텍스트가 실제로 렌더되는 것을 육안 확인. 전투 규칙/밸런스는 건드리지
-  않았고(드롭 확률만 변경) `resources/`·`docs/art/`는 읽기만 했다. INBOX.md
-  "부분 처리됨" [대형 기획 15] 항목의 Q-8 진행 한 줄을 갱신, 다음은 Q-8(b)
-  (등급별 효과 차등).
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(240)에서 (230)을 그리로 옮겼다.)*
+이번 이터레이션(241)에서 (231)을 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 
+- **(2026-10-20, 241) `event.gd`의 특수 이벤트 제목 라벨(`title_label`)이
+  `subtitle`이 긴 챌린지에서 우상단 "스킬 도감" 버튼과 겹친다 — Q-12와
+  무관한 기존 버그.** `ancient_oath`(수호자 전용, "오래된 성소의 수호
+  서약 — 수호자만이 받을 수 있는 맹세다.")로 QA 캡처
+  (`qa_out/q12_event_ancient_oath.png`)해 직접 발견했다. 이번 이터레이션은
+  이 챌린지의 `prompt` 필드만 수정했고(Q-12(b), "옛 기사단" 언급 한
+  문장 추가) `subtitle`은 전혀 안 건드렸는데도 겹침 — `title_label`이 이
+  특정 챌린지로 실제 캡처된 것 자체가 이번이 처음이라(신규
+  `_debug_force_ancient_oath_event` QA 훅) 전부터 있었지만 아무도 못 본
+  버그로 추정된다. `duel_arena`(광전사 전용)는 subtitle이 더 짧아 안
+  겹침. 원인 후보: `title_label`에 autowrap/폭 제약이 없어 보임(event.gd
+  158번대 `@onready var title_label`) — 고치려면 `prompt_label`처럼
+  autowrap을 걸거나 subtitle 길이에 상한을 두는 방향. Q-12 범위 밖이라
+  손대지 않음 — 다음에 제목 라벨 레이아웃을 다룰 때(또는 전용 이벤트
+  subtitle을 추가/수정할 때) 함께 고칠 것.
 - **(2026-10-20, 237) `dice_test.gd`의 `_apply_spare_die(count=2, '여분+')` 확률
   비교 테스트(60회 표본, "여분+" 대체 횟수가 "여분" 이상인지)가 간헐적으로
   FAIL할 수 있다.** 이번 이터레이션에서 1회 FAIL → 재실행 시 바로 PASS로

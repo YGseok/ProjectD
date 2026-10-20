@@ -109,7 +109,8 @@ const CHALLENGES: Array[Dictionary] = [
 	{
 		"id": "duel_arena",
 		"subtitle": "결투장의 부름 — 광전사의 피가 끓어오른다.",
-		"prompt": "싸움을 원하는 거친 외침이 들려온다. 한 걸음 물러설 것인가, 결투에 응할 것인가?",
+		# Q-12(b, [대형 기획 15]) — "가족"(언니) 언급으로 광란의 마수 보스 설정과의 연결 암시.
+		"prompt": "싸움을 원하는 거친 외침이 들려온다. 문득 소식이 끊긴 언니가 떠오른다. 한 걸음 물러설 것인가, 결투에 응할 것인가?",
 		"only_characters": ["berserker"],
 		"safe_reward": {"type": "gold", "min": 5, "max": 8},
 		"success_reward": {"type": "item_grade", "grades": ["A", "S"], "weights": {"A": 2.0, "S": 1.0}},
@@ -119,7 +120,8 @@ const CHALLENGES: Array[Dictionary] = [
 	{
 		"id": "ancient_oath",
 		"subtitle": "오래된 성소의 수호 서약 — 수호자만이 받을 수 있는 맹세다.",
-		"prompt": "낡은 성소가 수호자의 기운을 알아보고 조용히 열린다. 그냥 지나칠 것인가, 서약을 받을 것인가?",
+		# Q-12(b, [대형 기획 15]) — "옛 기사단" 언급으로 타락한 기사단장 보스 설정과의 연결 암시.
+		"prompt": "낡은 성소가 수호자의 기운을 알아보고 조용히 열린다. 옛 기사단의 맹세가 귓가에 맴돈다. 그냥 지나칠 것인가, 서약을 받을 것인가?",
 		"only_characters": ["guardian"],
 		"safe_reward": {"type": "pips", "min": 2, "max": 3},
 		"success_reward": {"type": "item_grade", "grades": ["B", "A", "S"], "weights": {"B": 1.0, "A": 2.0, "S": 1.0}},

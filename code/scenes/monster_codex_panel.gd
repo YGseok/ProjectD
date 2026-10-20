@@ -553,6 +553,12 @@ func _build_detail_view(palette: Dictionary) -> void:
 	var phase2: Array = monster.get("phase2_skills", [])
 	if not phase2.is_empty():
 		text += "\n2페이즈: %s" % _format_skills(phase2)
+	# [대형 기획 15] Q-12(c) — 보스는 성격 줄 근처에 기본 intro 문구도 보여준다(리소스/
+	# 설정 확인용, 캐릭터 전용 변형은 도감에서 안 보여줌 — 여기선 항상 기본 문구).
+	if monster.get("tier", "") == "boss":
+		var intro: String = monster.get("intro", "")
+		if intro != "":
+			text += "\n등장: %s" % intro
 	info_label.text = text
 	add_child(info_label)
 	_ui.append(info_label)

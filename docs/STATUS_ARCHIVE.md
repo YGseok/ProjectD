@@ -8,6 +8,76 @@
 
 ---
 
+- **2026-10-18 (231)**: **[대형 기획 15] Q-8(a)(스킬 레어리티 체계, 원문 5) 완료**
+  + 그 직전 조각(Q-7(c))에서 감독이 캡처로 발견한 작은 후속 버그(스킬 도감 시작
+  스킬 카드의 "슬롯 N" 태그가 SkillDiagram 첫 칩과 겹침) 수정.
+  **배정 기준표(일반/희귀/영웅/전설 — 아이템 S/A/B/C 등급과 구분되는 스킬 전용
+  표시)**:
+
+  | 소속 | 등급 | 근거 |
+  | --- | --- | --- |
+  | `SKILLS`(공용 스킬 2종) | 일반 | 기본으로 주어지는 스킬 |
+  | `STARTING_SKILLS`(캐릭터 시작 로드아웃, 고유 id 15종) | 일반 | 기본으로 주어지는 스킬 |
+  | `UNIQUE_SKILLS`(캐릭터 전용 고유 스킬 9종) | 희귀 | 그 캐릭터를 플레이해야만 후보로 나옴 + 기믹 시너지 |
+  | `UPGRADE_SKILLS` 중 공용(일반) 베이스 강화 2종(심호흡+/여분+) | 희귀 | 강화판 = 베이스보다 한 등급 위 |
+  | `UPGRADE_SKILLS` 중 고유(희귀) 베이스 강화 9종 | 영웅 | 강화판 = 베이스보다 한 등급 위 |
+  | (전설 스킬) | 전설 | 이번 조각 0종 — Q-8(c)가 캐릭터별 3종씩 추가 예정 |
+
+  **구현**: `code/systems/skill_pool.gd`에 `RARITY_COMMON/RARE/EPIC/LEGENDARY`
+  4상수 + `RARITY_ORDER`/`RARITY_LABELS`(일반/희귀/영웅/전설)/`RARITY_COLORS`
+  (아이템 등급 팔레트와 안 겹치는 별도 색상환: 은회색→하늘색→보라색→주황색)
+  + 위 표를 그대로 옮긴 전수 맵 `SKILL_RARITY`(37종, ICON_MOTIFS와 같은 "명시적
+  전수 표" 패턴) + 조회 함수 `rarity_for()`/`rarity_label()`/`rarity_color()`
+  + 네 화면이 공유하는 배지 팩토리 `build_rarity_badge(skill_id, font_size)`를
+  추가했다. **보상 풀 가중치**: `RARITY_DROP_WEIGHTS`(일반 100/희귀 40/영웅
+  12/전설 3, 상수 분리) + 결정적 시드로 재현 가능한 순수 함수
+  `weighted_pick(pool, n, rng)`(가중치 비복원 추출)를 신규 추가하고,
+  `available_choices()`/`available_upgrade_choices()`가 기존 `pool.shuffle()`
+  (균등 추첨) 대신 이 함수를 쓰도록 바꿨다 — **효과/밸런스는 그대로, "어느
+  카드가 더 자주 보이는가"만 바뀐다**(전설은 이번 조각 후보 0종이라 실제로는
+  아직 영향 없음).
+  **화면 적용(4곳)**: ① `item_card_style.gd`의 `build_card()`(보상/상점/이벤트
+  공유 카드 프레임) — 스킬 카드(id 필드 있음)는 기존처럼 조용히 `DEFAULT_GRADE`
+  ("C", 녹색)로 폴백되던 부정확한 상태 대신 실제 레어리티 색/배지를 쓰도록
+  고쳤다(아이템 카드는 영향 없음). ② `skill_codex_panel.gd` — 발견/보유 카드만
+  이름 줄 옆에 레어리티 태그 추가(미발견은 정보 비공개 유지). ③
+  `skill_detail_popup.gd` — 헤더에 배지 추가, "레어리티는 아직 없어 생략"이던
+  기존 주석을 갱신. ④ `character_select.gd` 시작 스킬 슬롯 — 아이콘 영역에
+  등급색 테두리 링 + 좌상단 텍스트 태그(색만으로 구분 금지 원칙, 테두리는
+  모티프 아이콘 *다음에* 추가해야 외부 아트에 안 가려짐 — 아래 셀프 피드백
+  참고).
+  **Q-7(c) 후속 버그 수정**: `skill_codex_panel.gd`의 "슬롯 N" 태그가 카드
+  좌상단 절대 위치 오버레이(`_make_corner_tag`)로 그려지던 것이 그 자리에
+  올라온 SkillDiagram 첫 칩과 겹쳤다 — 절대 위치 경쟁 자체를 없애려고 신규
+  `_make_inline_tag()`로 이름 줄 옆(`name_row`) 일반 흐름 요소로 옮겼다(레어리티
+  태그도 같은 줄에 함께 둠).
+  **테스트**: `dice_test.gd`에 신규 체크 3종 — `_check_q7c_followup_slot_tag_
+  diagram_overlap()`(await, 실제 global rect 교차 계산으로 슬롯 태그/도식
+  비겹침 확인) / `_check_q8a_skill_rarity_data()`(37종 전수 rarity 등록 + 기준표
+  일치 + 전설 0종 안전망 + 등급 표시 4종 전부 다름 + `weighted_pick()` 결정적
+  시드(12345) 재현 — 같은 시드 2회 호출 결과 id 배열이 완전히 일치하는지로
+  검증, 중복 없음/n≥pool 시 전체 반환도 확인) / `_check_q8a_rarity_display()`
+  (카드/도감/팝업/시작 스킬 슬롯 네 곳에서 실제 렌더된 배지 텍스트가
+  `rarity_label()`과 일치하는지). 기존 테스트 1건(`_check_skill_upgrade_card_
+  highlight`)이 "스킬 카드 테두리색 == 등급색"이라는 이제는 틀린 가정으로
+  FAIL났던 것을 "스킬 카드 테두리색 == 레어리티색"으로 기대값을 의도적으로
+  갱신(주석과 함께)해 고쳤다. `bash scripts/qa_shot.sh dice_test 60 ... 1`
+  전체 **PASS**(FAIL 0건).
+  **셀프 피드백(2라운드)**: 1라운드 — `character_select` 시작 스킬 슬롯 캡처를
+  PowerShell(System.Drawing)로 크롭/5배 확대해 직접 읽어보니 등급 테두리 링이
+  전혀 안 보임(모티프 아이콘보다 먼저 추가해 외부 아트 PNG에 완전히 가려짐) —
+  코드를 고쳐(테두리를 아이콘 *다음에* 추가) 재캡처로 링이 실제로 보이는 것
+  확인(`qa_out/q8a_character_select_slots_zoom_v2.png`). 2라운드 —
+  `qa_out/q8a_event_skill_offer.png`(가디언 전용, 공용 "심호흡"=일반(회색)과
+  고유 "수호 심화"=희귀(파란색) 카드가 나란히 뜸)/`q8a_event_skill_upgrade.png`
+  ("임기응변+"=영웅(보라색))/`q8a_skill_codex.png`(해적 도감, 시작 스킬 "선제"
+  카드에서 "슬롯 1"/"일반" 태그가 도식과 안 겹침 — Q-7(c) 후속 버그 수정 확인)/
+  `q8a_skill_detail_popup.png`(팝업 헤더에 "일반" 배지)로 4곳 전부 등급별로
+  다른 색/텍스트가 실제로 렌더되는 것을 육안 확인. 전투 규칙/밸런스는 건드리지
+  않았고(드롭 확률만 변경) `resources/`·`docs/art/`는 읽기만 했다. INBOX.md
+  "부분 처리됨" [대형 기획 15] 항목의 Q-8 진행 한 줄을 갱신, 다음은 Q-8(b)
+  (등급별 효과 차등).
+
 - **2026-10-18 (230)**: 직전 이터레이션(Q-7(c))이 사용 한도로 1/5~3/5만 커밋된
   채 끊겨 이어받았다. **[대형 기획 15] Q-7(c)(SkillDiagram 화면 적용) 4/5,
   5/5 완료 — Q-7(스킬 효과 도식화, a/b/c) 전체 완료.**

@@ -851,6 +851,19 @@ func _debug_force_circus_master_event() -> void:
 	_debug_force_challenge("circus_master")
 
 
+## [대형 기획 15] Q-12(b) QA 전용 — 보스 설정 스토리 연결 암시를 추가한 두 전용
+## 이벤트(duel_arena/ancient_oath) prompt가 겹침/잘림 없이 보이는지 확인.
+## _debug_force_exclusive_event()와 같은 패턴.
+func _debug_force_duel_arena_event() -> void:
+	RunState.character_id = "berserker"
+	_debug_force_challenge("duel_arena")
+
+
+func _debug_force_ancient_oath_event() -> void:
+	RunState.character_id = "guardian"
+	_debug_force_challenge("ancient_oath")
+
+
 ## N-5(b) QA 전용: "도박" 챌린지에서 대성공(roll = DC + CRIT_MARGIN)을 강제해 골드
 ## 보상 결과 화면(아이템 카드 없이 문구+계속 버튼만)이 겹침 없이 보이는지 확인한다.
 ## _debug_force_challenge()를 먼저 거쳐 제목/문구도 "도박"으로 갱신한다 — 그냥

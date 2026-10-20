@@ -1701,6 +1701,13 @@ func _ready() -> void:
 	# 한 곳(_apply_monster_portrait_tier)에서 적용(화면 밖으로 안 잘리게 보스만 앵커도 보정).
 	_apply_monster_portrait_tier(monster_is_elite, monster_is_boss)
 	monster_debug_info_label.text = _monster_debug_info_text(config)
+	# [대형 기획 15] Q-12(a) — 보스전 진입 대사를 전투 기록 로그 맨 위 한 줄로 보여준다.
+	# MonsterCatalog.boss_intro_text()가 캐릭터 전용 변형(character_intro) 우선, 없으면
+	# 기본 intro로 폴백 — 보스가 아닌 일반/정예 전투는 intro 자체가 없어 아무 줄도 안 뜬다.
+	if monster_is_boss:
+		var boss_intro_text: String = MonsterCatalog.boss_intro_text(MonsterCatalog.get_by_id(monster_id), RunState.character_id)
+		if boss_intro_text != "":
+			_append_log(boss_intro_text)
 
 	_reset_player_battle_state()
 
@@ -1727,6 +1734,31 @@ func _debug_qa_character_pirate() -> void:
 
 func _debug_qa_character_shieldbearer() -> void:
 	_debug_set_character("shieldbearer")
+
+
+## [대형 기획 15] Q-12(a) QA 전용(GAME_QA_CALL) — 보스전 진입 대사(character_intro)가
+## 실제 화면(전투 기록 로그)에서 몬스터 HUD/다이스 스테이지와 안 겹치는지 눈으로
+## 확인하기 위한 훅. GAME_QA_ROOM_OVERRIDE=4(보스 방)+GAME_QA_MONSTER_ID로 몬스터는
+## 이미 _ready() 시점에 구성돼 있고(그때 character_id는 아직 기본값), 이 훅은
+## _debug_set_character()로 캐릭터만 바꾼 뒤 production과 동일한 조회
+## (MonsterCatalog.boss_intro_text())로 로그를 다시 채운다 — qa_shot.sh가 캐릭터를
+## _ready() 이전에 설정할 방법을 안 줘서 QA_CALL 시점(캡처 직전)에 재현하는 우회.
+## 실제 배선 검증 자체는 dice_test.gd의 _check_q12_boss_intro()가 production _ready()
+## 경로로 이미 확인했으므로, 이 훅은 "화면에서 안 겹치는지"만 보기 위한 용도.
+func _debug_qa_boss_intro(character_id: String) -> void:
+	_debug_set_character(character_id)
+	_log_lines.clear()
+	var intro_text: String = MonsterCatalog.boss_intro_text(MonsterCatalog.get_by_id(monster_id), RunState.character_id)
+	if intro_text != "":
+		_append_log(intro_text)
+
+
+func _debug_qa_boss_intro_berserker() -> void:
+	_debug_qa_boss_intro("berserker")
+
+
+func _debug_qa_boss_intro_guardian() -> void:
+	_debug_qa_boss_intro("guardian")
 
 
 ## [대형 기획 13] M-2(2026-10-14): 위 두 훅의 공용 구현 — dungeon_map.gd의

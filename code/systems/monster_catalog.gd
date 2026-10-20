@@ -249,6 +249,10 @@ const MONSTERS := [
 		"skills": [{"id": "armor", "amount": 1}, {"id": "guard_up"}, {"id": "counter", "amount": 1}],
 		"hp_mult": 1.0, "phase2_skills": [{"id": "armor", "amount": 3}],
 		"personality": "똑똑해 보이려 안경을 쓴 고블린 여왕",
+		"intro": "고블린 왕이 안경을 치켜올리며 거드름을 피운다. \"흠, 네놈 따위가 감히...\"",
+		"character_intro": {
+			"enchantress": "고블린 왕이 매혹사를 거울 삼아 안경을 고쳐 쓴다. \"흠, 그 미모는 제법이군 — 하지만 왕관은 내 것이다.\"",
+		},
 	},
 	{
 		# [대형 기획 10] J-2 10차 시도(2026-10-08) — 측정 범위 확장 후 보스 6종 중
@@ -260,6 +264,7 @@ const MONSTERS := [
 		"skills": [{"id": "sticky"}, {"id": "seal"}], "atk_dice_delta": 0, "hp_mult": 1.0,
 		"phase2_skills": [{"id": "dull"}],
 		"personality": "온몸이 점액인 끈적한 여왕",
+		"intro": "점액 군주가 끈적한 몸을 늘어뜨리며 미끄러지듯 다가온다. \"녹아들어라, 전부 다...\"",
 	},
 	{
 		# [대형 기획 10] J-2 9차 시도(2026-10-08) — 측정 범위 확장(라운드당 후보 2종
@@ -278,6 +283,10 @@ const MONSTERS := [
 		"atk_dice_delta": -1, "hp_mult": 1.0,
 		"phase2_skills": [{"id": "revive"}],
 		"personality": "죽어서도 영계를 다스리는 차갑고 오만한 여왕",
+		"intro": "영계의 지배자가 묵시록의 기운을 두르고 차갑게 선고한다. \"역병도, 기근도, 살육도 네 운명을 피해가지 못한다.\"",
+		"character_intro": {
+			"pirate": "영계의 지배자가 해적을 보며 오만하게 웃는다. \"바다에서 죽음을 피해 다녔다지? 여긴 그 바다보다 깊다.\"",
+		},
 	},
 	{
 		"id": "frenzied_beast", "name": "광란의 마수", "family": "beast", "tier": "boss",
@@ -285,6 +294,11 @@ const MONSTERS := [
 		"skills": [{"id": "anger_stack"}, {"id": "pounce", "amount": 3}, {"id": "bloodlust"}],
 		"hp_mult": 1.0, "phase2_skills": [{"id": "min_max_only"}],
 		"personality": "광전사의 언니, 힘에 취해 짐승이 된 자",
+		# Q-12(a) — 광전사가 이 보스를 만나면 "언니"를 알아보는 전용 변형 대사(원문 지시 필수 항목).
+		"intro": "광란의 마수가 짐승의 살점을 씹으며 핏빛 눈으로 으르렁댄다.",
+		"character_intro": {
+			"berserker": "광란의 마수가 콧바람을 뿜으며 웃는다. \"...너, 낯이 익군. 설마 내 동생이냐? 그새 많이 약해졌구나.\"",
+		},
 	},
 	{
 		# [대형 기획 10] J-2 11차 시도(2026-10-08) — 측정 범위 확장 후 보스 6종 중
@@ -306,6 +320,11 @@ const MONSTERS := [
 		"skills": [{"id": "steady_guard"}, {"id": "armor", "amount": 1}, {"id": "counter", "amount": 1}],
 		"hp_mult": 1.0, "phase2_skills": [{"id": "bloodlust"}],
 		"personality": "수호자의 전 기사단장, 저주받은 장비에 타락",
+		# Q-12(a) — 수호자가 이 보스를 만나면 "옛 기사단장"을 알아보는 전용 변형 대사(원문 지시 필수 항목).
+		"intro": "타락한 기사단장이 녹슨 갑주를 끌며 일어선다. 저주가 그의 눈을 붉게 태운다.",
+		"character_intro": {
+			"guardian": "타락한 기사단장이 투구를 벗으며 묻는다. \"...너는 날 기억하는가? 네가 모시던 그 기사단장을.\"",
+		},
 	},
 	{
 		"id": "void_eye", "name": "공허의 눈", "family": "amorphous", "tier": "boss",
@@ -313,6 +332,7 @@ const MONSTERS := [
 		"skills": [{"id": "dull"}, {"id": "seal"}, {"id": "numb"}], "hp_mult": 1.0,
 		"phase2_skills": [{"id": "sticky"}],
 		"personality": "심장이 해저에 봉인된 심해의 눈동자",
+		"intro": "공허의 눈이 심해의 어둠 속에서 떠오른다. 봉인된 심장이 먼 곳에서 고동친다.",
 	},
 ]
 
@@ -356,6 +376,19 @@ static func get_by_id(id: String) -> Dictionary:
 		if m.get("id", "") == id:
 			return m
 	return {}
+
+
+## [대형 기획 15] Q-12(a) — 보스전 진입 대사 조회. monster의 "character_intro" 사전에
+## character_id 키가 있으면 그 캐릭터 전용 변형 대사를, 없으면(또는 monster 자체에
+## "intro"가 없으면) 기본 "intro" 문구(없으면 빈 문자열)를 반환한다. combat_test.gd(전투
+## 시작 로그)/monster_codex_panel.gd(도감 상세 뷰)/dice_test.gd(결정적 조회 테스트)가
+## 공유하는 순수 함수 — monster Dictionary만 받으므로 몬스터가 보스가 아니어도(그냥
+## character_intro/intro가 없는 몬스터) 안전하게 빈 문자열을 돌려준다.
+static func boss_intro_text(monster: Dictionary, character_id: String) -> String:
+	var character_intro: Dictionary = monster.get("character_intro", {})
+	if character_intro.has(character_id):
+		return character_intro[character_id]
+	return monster.get("intro", "")
 
 
 ## room_index를 LEGACY_ROOM_CYCLE_IDS(기존 5종, 기존과 동일한 순서)로 순환시켜 몬스터를

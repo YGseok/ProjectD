@@ -509,6 +509,10 @@ func _ready() -> void:
 	all_pass = (await _check_q11_monster_codex(lines)) and all_pass
 
 	lines.append("")
+	lines.append("[Q-12(a,c): 보스 설정 스토리 반영 — MonsterCatalog.boss_intro_text()가 character_intro(캐릭터 전용 변형) 우선, 없으면 intro(기본)로 폴백하는 결정적 조회(광전사x광란의 마수/수호자x타락한 기사단장 변형 + 매치 안 되는 캐릭터는 기본 폴백), 보스 6종 전부 intro 존재, 일반/정예 몬스터는 intro 없이도 빈 문자열(크래시 없음), production combat_test._ready()가 보스 전투 시작 시 전투 기록 로그 첫 줄에 실제로 그 문구를 찍는지(일반/정예 전투는 안 찍는지), 몬스터 도감 상세 뷰가 보스일 때만 '등장:' 줄을 info_label에 포함하는지]")
+	all_pass = (await _check_q12_boss_intro(lines)) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -2210,6 +2214,151 @@ func _check_q11_monster_codex(lines: PackedStringArray) -> bool:
 	DirAccess.remove_absolute(gk_dir + "full.png")
 	DirAccess.remove_absolute(gk_dir)
 	DirAccess.remove_absolute("user://q11_test_tmp/")
+
+	return ok
+
+
+## [대형 기획 15] Q-12(a,b,c)(2026-10-20) — 보스 설정 스토리 반영. "플래그가 아니라
+## 실제 값/실제 화면 텍스트"로 검증: (1)(2)(3) MonsterCatalog.boss_intro_text()의
+## 결정적 조회(character_intro 우선/intro 폴백/비보스 몬스터는 빈 문자열), (4)
+## production combat_test._ready()가 실제로 전투 기록 로그 첫 줄에 그 문구를 찍는지
+## (보스/비보스 둘 다), (5) 몬스터 도감 상세 뷰 info_label에 보스만 "등장:" 줄이
+## 붙는지. RunState.test_battle 경로(_monster_config_for_test())를 쓰는 이유는
+## is_boss가 몬스터 프로필의 실제 tier로 판정돼(room_index 위치가 아님) 테스트가
+## 몬스터 id만으로 보스/비보스를 결정적으로 고를 수 있기 때문.
+func _check_q12_boss_intro(lines: PackedStringArray) -> bool:
+	var ok := true
+
+	# (1) 보스 6종 전부 intro 존재.
+	var boss_ids: Array = MonsterCatalog.boss_roster_ids()
+	var missing_intro: Array[String] = []
+	for mid in boss_ids:
+		var m: Dictionary = MonsterCatalog.get_by_id(mid)
+		if String(m.get("intro", "")) == "":
+			missing_intro.append(mid)
+	var all_intro_ok: bool = missing_intro.is_empty()
+	ok = all_intro_ok and ok
+	lines.append("  (1) 보스 %d종 전부 intro 존재 -> %s%s" % [
+		boss_ids.size(), "OK" if all_intro_ok else "FAIL",
+		("" if all_intro_ok else (" (누락: " + ", ".join(missing_intro) + ")"))
+	])
+
+	# (2) 결정적 조회 — character_intro 우선(필수 2종: 광전사x광란의 마수/수호자x
+	# 타락한 기사단장), 매치 없으면 기본 intro로 폴백.
+	var beast: Dictionary = MonsterCatalog.get_by_id("frenzied_beast")
+	var beast_berserker: String = MonsterCatalog.boss_intro_text(beast, "berserker")
+	var beast_berserker_ok: bool = beast_berserker == beast["character_intro"]["berserker"] and beast_berserker != ""
+	ok = beast_berserker_ok and ok
+	lines.append("  (2a) 광란의 마수 x 광전사 -> character_intro 변형 대사 조회 -> %s" % ("OK" if beast_berserker_ok else "FAIL"))
+
+	var beast_novice: String = MonsterCatalog.boss_intro_text(beast, "novice")
+	var beast_novice_ok: bool = beast_novice == beast["intro"] and beast_novice != beast_berserker
+	ok = beast_novice_ok and ok
+	lines.append("  (2b) 광란의 마수 x 견습 모험가(변형 없음) -> 기본 intro로 폴백(변형과 다른 문구) -> %s" % ("OK" if beast_novice_ok else "FAIL"))
+
+	var commander: Dictionary = MonsterCatalog.get_by_id("fallen_commander")
+	var commander_guardian: String = MonsterCatalog.boss_intro_text(commander, "guardian")
+	var commander_guardian_ok: bool = commander_guardian == commander["character_intro"]["guardian"] and commander_guardian != ""
+	ok = commander_guardian_ok and ok
+	lines.append("  (2c) 타락한 기사단장 x 수호자 -> character_intro 변형 대사 조회 -> %s" % ("OK" if commander_guardian_ok else "FAIL"))
+
+	var commander_pirate: String = MonsterCatalog.boss_intro_text(commander, "pirate")
+	var commander_pirate_ok: bool = commander_pirate == commander["intro"]
+	ok = commander_pirate_ok and ok
+	lines.append("  (2d) 타락한 기사단장 x 해적(변형 없음) -> 기본 intro로 폴백 -> %s" % ("OK" if commander_pirate_ok else "FAIL"))
+
+	# (3) 보스가 아닌 몬스터(intro 필드 자체가 없음)도 크래시 없이 빈 문자열.
+	var slime: Dictionary = MonsterCatalog.get_by_id("slime")
+	var slime_intro: String = MonsterCatalog.boss_intro_text(slime, "novice")
+	var slime_intro_ok: bool = slime_intro == ""
+	ok = slime_intro_ok and ok
+	lines.append("  (3) 일반 몬스터(slime, intro 없음) -> boss_intro_text()='%s'(기대 빈 문자열) -> %s" % [slime_intro, "OK" if slime_intro_ok else "FAIL"])
+
+	# (4) production 배선 — RunState.test_battle 경로는 is_boss를 몬스터 프로필의
+	# 실제 tier로 판정하므로(room_index 위치 무관) 보스/비보스를 몬스터 id만으로 결정적
+	# 으로 고를 수 있다. combat_test._ready()가 전투 기록 로그 첫 줄에 실제로 그 문구를
+	# 찍는지(그리고 비보스는 안 찍는지)를 확인한다.
+	var character_backup: String = RunState.character_id
+	var test_battle_backup: bool = RunState.test_battle
+	var test_monster_backup: String = RunState.test_monster_id
+	var test_difficulty_backup: int = RunState.test_difficulty
+
+	RunState.test_battle = true
+	RunState.test_difficulty = 5
+
+	RunState.character_id = "berserker"
+	RunState.test_monster_id = "frenzied_beast"
+	var combat_scene := load("res://code/scenes/combat_test.tscn")
+	var combat_boss = combat_scene.instantiate()
+	add_child(combat_boss)
+	var boss_log_ok: bool = combat_boss.log_label.text.find(beast["character_intro"]["berserker"]) != -1
+	ok = boss_log_ok and ok
+	lines.append("  (4a) production 전투 시작(광전사 x 광란의 마수) -> 전투 기록 로그에 변형 대사 포함 -> %s" % ("OK" if boss_log_ok else "FAIL"))
+	remove_child(combat_boss)
+	combat_boss.free()
+
+	RunState.character_id = "novice"
+	RunState.test_monster_id = "void_eye"
+	var void_profile: Dictionary = MonsterCatalog.get_by_id("void_eye")
+	var combat_void = combat_scene.instantiate()
+	add_child(combat_void)
+	var void_log_ok: bool = combat_void.log_label.text.find(void_profile["intro"]) != -1
+	ok = void_log_ok and ok
+	lines.append("  (4b) production 전투 시작(견습 모험가 x 공허의 눈, 캐릭터 변형 없음) -> 로그에 기본 intro 포함 -> %s" % ("OK" if void_log_ok else "FAIL"))
+	remove_child(combat_void)
+	combat_void.free()
+
+	RunState.test_monster_id = "slime"
+	var combat_normal = combat_scene.instantiate()
+	add_child(combat_normal)
+	var normal_log_ok: bool = combat_normal.log_label.text == ""
+	ok = normal_log_ok and ok
+	lines.append("  (4c) production 전투 시작(일반 몬스터 slime, 보스 아님) -> 전투 기록 로그에 보스 대사 없음(log='%s') -> %s" % [
+		combat_normal.log_label.text, "OK" if normal_log_ok else "FAIL"
+	])
+	remove_child(combat_normal)
+	combat_normal.free()
+
+	RunState.character_id = character_backup
+	RunState.test_battle = test_battle_backup
+	RunState.test_monster_id = test_monster_backup
+	RunState.test_difficulty = test_difficulty_backup
+
+	# (5) 몬스터 도감 상세 뷰 — 보스만 "성격" 정보 줄 근처에 "등장: <기본 intro>"가
+	# 붙는지(캐릭터 전용 변형은 도감에서 안 보여줌 — 항상 기본 문구).
+	var panel := MonsterCodexPanel.new()
+	add_child(panel)
+	panel.open()
+	await get_tree().process_frame
+
+	panel._grid_cards_by_id["frenzied_beast"].activated.emit()
+	await get_tree().process_frame
+	var boss_info_label: Label = null
+	for n in panel._ui:
+		if n is Label and String((n as Label).text).begins_with("성격: "):
+			boss_info_label = n
+			break
+	var boss_codex_ok: bool = boss_info_label != null and boss_info_label.text.find("등장: " + beast["intro"]) != -1
+	ok = boss_codex_ok and ok
+	lines.append("  (5a) 몬스터 도감 상세(광란의 마수, 보스) info_label에 '등장: <기본 intro>' 포함 -> %s" % ("OK" if boss_codex_ok else "FAIL"))
+
+	# detail 뷰는 _grid_cards_by_id를 비워두므로(그 뷰 동안은 격자 자체가 안 그려짐)
+	# 다른 카드를 보려면 먼저 "← 목록"으로 격자를 다시 그려야 한다(Q-11 테스트와 같은 패턴).
+	panel._on_back_pressed()
+	await get_tree().process_frame
+	panel._grid_cards_by_id["slime"].activated.emit()
+	await get_tree().process_frame
+	var normal_info_label: Label = null
+	for n2 in panel._ui:
+		if n2 is Label and String((n2 as Label).text).begins_with("성격: "):
+			normal_info_label = n2
+			break
+	var normal_codex_ok: bool = normal_info_label != null and normal_info_label.text.find("등장:") == -1
+	ok = normal_codex_ok and ok
+	lines.append("  (5b) 몬스터 도감 상세(slime, 일반) info_label에 '등장:' 줄 없음 -> %s" % ("OK" if normal_codex_ok else "FAIL"))
+
+	remove_child(panel)
+	panel.free()
 
 	return ok
 
