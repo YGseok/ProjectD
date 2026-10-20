@@ -40,15 +40,115 @@ const DEFAULT_FACE_CROP_RATIO := Rect2(0.26, 0.015, 0.48, 0.48)
 ## height-bound 로 렌더되므로, height 값을 더 늘려도 화면 차지 면적(384px)은 늘지
 ## 않고 "같은 박스 안에 더 많이 보이느냐"만 바뀐다 — combat_test.gd의
 ## BOSS_PORTRAIT_POSITION_SHIFT.y(HUD 패널 회피)가 실제 화면 여백을 결정한다.
+## (당시엔 일반/정예가 DEFAULT_FACE_CROP_RATIO 고정이었지만, [미니 기획 ART-1c-6]로
+## 아래 detect_face_crop_ratio() 자동 탐지로 바뀌었다 — 보스만 계속 이 고정값.)
 const BOSS_FACE_CROP_RATIO := Rect2(0.26, 0.0, 0.48, 0.52)
 
-## 몬스터 티어별 크롭 비율 데이터 표 — MonsterPortraitPlaceholder가 MonsterCatalog에서
-## 읽은 tier 문자열로만 조회한다(몬스터 id 하드코딩 금지).
-const MONSTER_FACE_CROP_RATIO_BY_TIER := {
-	"normal": DEFAULT_FACE_CROP_RATIO,
-	"elite": DEFAULT_FACE_CROP_RATIO,
-	"boss": BOSS_FACE_CROP_RATIO,
-}
+## [미니 기획 ART-1c-6](2026-10-21) 일반/정예는 더는 고정 DEFAULT_FACE_CROP_RATIO를
+## 쓰지 않는다 — 캐릭터(항상 같은 구도로 그려짐)와 달리 몬스터 원화는 포즈가 제각각이라
+## (서 있는 포즈/웅크린 포즈 등) 가로 중앙·세로 1.5%를 고정으로 가정하면 포즈에 따라
+## 머리가 통째로 크롭 밖으로 빠진다(해골 기사/다크 나이트는 크롭이 가슴께부터 시작해
+## 몸통만 보이고, 암흑 늑대는 웅크린 포즈라 머리가 중앙이 아니라 왼쪽에 낮게 있어 크롭
+## 중앙이 빈 공간을 잡음 — qa_out/dark_check_*.png에서 실측). 아래
+## detect_face_crop_ratio()가 원화 알파 채널만으로 몬스터별 머리 위치를 찾아 그때그때
+## 크롭을 계산한다(몬스터 id 하드코딩 없음). 보스만 왕관/머리장식 때문에 이미
+## BOSS_FACE_CROP_RATIO로 사람이 직접 튜닝해둔 고정값을 그대로 쓴다(바꾸지 않음) —
+## monster_face_crop_ratio()가 tier로 분기한다.
+##
+## 원화 알파 채널만으로 "머리 상단" 크롭 Rect2(0..1 비율)을 계산한다. 몬스터 id별
+## 좌표를 하드코딩하지 않고, 원화의 불투명 픽셀 분포만 본다:
+##   1) 위에서부터 한 행씩 훑어 처음으로 불투명 픽셀이 나오는 행을 "머리 꼭대기"로 삼는다.
+##   2) 거기서부터 아래로 head_band_ratio만큼의 구간의 불투명 픽셀 x좌표 평균(중심)을
+##      "머리의 가로 중심"으로 삼는다 — 캐릭터 원화처럼 가운데 있든, 웅크린 몬스터처럼
+##      한쪽으로 쏠려 있든 그쪽을 따라간다. 이 구간의 표본이 너무 적으면(머리 꼭대기가
+##      뾰족한 귀/뿔 하나뿐인 경우) band를 넓혀가며 표본을 MIN_HEAD_BAND_SAMPLES개
+##      이상 모을 때까지 재시도한다 — 귀 끝 하나에 중심이 쏠리지 않고 머리 전체 폭을
+##      반영하게 하기 위함.
+##   3) crop_w_ratio x crop_h_ratio 크기의 사각 영역을 (머리 가로 중심, 머리 꼭대기)이
+##      상단 중앙에 오도록 돌려준다(이미지 경계를 벗어나지 않게 clamp).
+## 이미지가 없거나 불투명 픽셀이 하나도 없으면 DEFAULT_FACE_CROP_RATIO로 안전하게
+## 폴백한다.
+const MIN_HEAD_BAND_SAMPLES := 40
+
+static func detect_face_crop_ratio(
+	image: Image,
+	crop_w_ratio: float = DEFAULT_FACE_CROP_RATIO.size.x,
+	crop_h_ratio: float = DEFAULT_FACE_CROP_RATIO.size.y,
+	head_band_ratio: float = 0.06,
+	alpha_threshold: float = 0.5,
+	stride: int = 3
+) -> Rect2:
+	if image == null:
+		return DEFAULT_FACE_CROP_RATIO
+	var size := image.get_size()
+	if size.x <= 0 or size.y <= 0:
+		return DEFAULT_FACE_CROP_RATIO
+	var step: int = max(1, stride)
+	var head_top_y := _first_opaque_row(image, alpha_threshold, step)
+	if head_top_y < 0:
+		return DEFAULT_FACE_CROP_RATIO
+
+	# 머리 가로 중심 — 표본이 MIN_HEAD_BAND_SAMPLES개를 넘을 때까지 band를 넓힌다
+	# (최대 이미지 하단까지).
+	var band_ratio := head_band_ratio
+	var center_x := float(size.x) / 2.0
+	while true:
+		var band_end_y: int = min(size.y, head_top_y + max(1, int(size.y * band_ratio)))
+		var sum_x := 0.0
+		var count := 0
+		var y := head_top_y
+		while y < band_end_y:
+			var x := 0
+			while x < size.x:
+				if image.get_pixel(x, y).a >= alpha_threshold:
+					sum_x += x
+					count += 1
+				x += step
+			y += step
+		if count >= MIN_HEAD_BAND_SAMPLES or band_end_y >= size.y:
+			if count > 0:
+				center_x = sum_x / count
+			break
+		band_ratio *= 2.0
+
+	var crop_w_px: float = crop_w_ratio * size.x
+	var x_ratio: float = clamp((center_x - crop_w_px / 2.0) / size.x, 0.0, max(0.0, 1.0 - crop_w_ratio))
+	var y_ratio: float = clamp(float(head_top_y) / size.y, 0.0, max(0.0, 1.0 - crop_h_ratio))
+	return Rect2(x_ratio, y_ratio, crop_w_ratio, crop_h_ratio)
+
+
+## detect_face_crop_ratio()에 넘길 "처음으로 불투명 픽셀이 나오는 행" — average_opaque_
+## luminance()와 같은 alpha_threshold 계약(>= 이면 불투명으로 침). 못 찾으면 -1.
+static func _first_opaque_row(image: Image, alpha_threshold: float, step: int) -> int:
+	var size := image.get_size()
+	var y := 0
+	while y < size.y:
+		var x := 0
+		while x < size.x:
+			if image.get_pixel(x, y).a >= alpha_threshold:
+				return y
+			x += step
+		y += step
+	return -1
+
+
+## MonsterPortraitPlaceholder/MonsterCodexPanel 공용 진입점 — 몬스터 id+티어로 크롭
+## Rect2를 돌려준다. 보스는 사람이 튜닝해둔 BOSS_FACE_CROP_RATIO 그대로(바꾸지 않음),
+## 일반/정예는 MonsterCatalog 프로필의 선택적 "face_crop" 필드(자동 탐지가 안 맞는
+## 예외적인 포즈 — 예: 웅크린 포즈라 머리와 떨어진 큰 꼬리/갈기가 같은 상단 구간에
+## 섞여 들어오는 경우)가 있으면 그걸, 없으면 detect_face_crop_ratio()의 자동 결과를
+## 쓴다. full.png가 없으면 DEFAULT_FACE_CROP_RATIO로 폴백(호출부가 어차피 has_full()
+## 확인 후에만 이 함수를 쓰므로 실제로는 거의 발생하지 않음).
+static func monster_face_crop_ratio(monster_id: String, tier: String, base_dir: String = BASE_DIR) -> Rect2:
+	if tier == "boss":
+		return BOSS_FACE_CROP_RATIO
+	var profile: Dictionary = MonsterCatalog.get_by_id(monster_id)
+	if profile.has("face_crop"):
+		return profile["face_crop"]
+	var full := load_full(monster_id, base_dir)
+	if full == null:
+		return DEFAULT_FACE_CROP_RATIO
+	return detect_face_crop_ratio(full.get_image())
 
 
 static func full_path(character_id: String, base_dir: String = BASE_DIR) -> String:

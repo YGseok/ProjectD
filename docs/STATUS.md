@@ -5,38 +5,44 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-10-20 (243)
-- 작성자: AI 에이전트. **[대형 기획 15] Q-9(고유 능력 아이콘 + 업적 아이콘,
-  원문 6) 완료 — [대형 기획 15](플레이 피드백 23건, Q-1~Q-12) 전체 완료.**
-  INBOX 설계대로 ① 캐릭터 고유 능력(기믹 8종, `SkillIcon` category)과
-  업적 전체(32종, `AchievementIcon` category)의 현재 절차적 아이콘을
-  전수 목록화해 아래 "완료 기록 (243)"에 아트 발주용 표로 정리. ② 외부 아트
-  경로 — `SkillIcon`은 기존 K-4c `skill_id`/`resources/skills/<id>.png`
-  메커니즘을 그대로 재사용(기믹 id가 스킬 id 네임스페이스와 겹치지 않음을
-  확인)하고, `AchievementIcon`에 같은 패턴(`achievement_id`/
-  `resources/achievements/<업적 id>.png`, 멤버 텍스처 캐시 + 밉맵)을
-  신규 추가. 고유 능력 아이콘은 `SkillIcon`에 신규 `tint` 프로퍼티(기본값
-  흰색=무변화)를 추가해 흰 실루엣+알파 아트를 UIKit.icon_texture(name,
-  tint)와 같은 방식(RGB만 곱하고 알파 유지)으로 캐릭터 퍼스널 컬러 틴트할
-  수 있게 했다(`character_select.gd`가 "고유 능력" 섹션에서 `tint =
-  CharacterTheme.ui_palette(id)["accent"]`로 배선). 업적 아이콘은 특정
-  캐릭터에 묶이지 않아 틴트 없음. ③ 절차적 도안도 점검 — 기믹 8종(없음
-  포함)/업적 9유형 각 draw 함수에 짙은 스트로크 외곽선(`_stroke_polygon`
-  공용 헬퍼)을 추가해 작은 크기에서도 또렷하게 보이도록 폴리시(실루엣
-  자체는 불변이라 기존 K-4a 모티프 distinctness 테스트와 호환). ④ 동반
-  수정 — event.gd 특별 선택지 버튼(잠긴 "매혹사 선택 가능 …" 줄)이 safe/
-  risky 버튼과 14px 겹치던 버그를 `SPECIAL_CHOICE_BUTTON_RECT` 재배치로
-  고쳤다(버튼 줄 하단 200~일러스트 상단 280 구간에 위아래 8px 여백).
-  `dice_test.gd`에 신규 `_check_q9_gimmick_achievement_icons()` 추가
-  (경로 규칙 전수 일관성, user:// 합성 PNG로 파일 있음/없음 계약 + 틴트
-  실제 픽셀 검증 양쪽 아이콘, 절차적 도안 전수 distinctness SubViewport
-  비교, event.gd 특별 선택지 버튼 활성/잠김 두 상태 모두 안 겹침),
-  `bash scripts/qa_shot.sh dice_test 60 qa_out/dice_test_q9.png "" 1`
-  **foreground 전체 PASS(FAIL 0건) 직접 확인**(run_in_background 금지).
-  셀프 피드백 스크린샷 6장(캐릭터 선택 고유 능력 구역 2종(해적/광전사),
-  업적 패널, 이벤트 화면 겹침 해소 전/후 + 일러스트와 함께 있는 상태)을
-  직접 읽어 확인. 전투 규칙/밸런스는 건드리지 않았고 `resources/`·
-  `docs/art/`는 읽기만 했다(add 안 함).
+- 일시: 2026-10-21 (244)
+- 작성자: AI 에이전트. **[미니 기획 ART-1c-6](아트 스레드 요청 — 일반·정예 몬스터
+  전투 컷에서 얼굴이 보이게 크롭/배치 개선) 완료.** 문제 둘을 함께 고쳤다(둘 중
+  하나만 고치면 머리가 여전히 안 보임):
+  ① **크롭** — `CharacterArt.monster_face_crop_ratio()`(신규, 보스/일반/정예
+  진입점 통합)가 일반/정예 티어에서는 더는 캐릭터 전용 고정값
+  `DEFAULT_FACE_CROP_RATIO`(항상 가로 중앙·세로 1.5% 시작을 가정)를 쓰지 않고,
+  `CharacterArt.detect_face_crop_ratio()`(신규, 순수 함수)로 원화 알파 채널만
+  보고 몬스터별 머리 위치를 찾는다 — ① 위에서부터 훑어 처음 불투명 픽셀이 나오는
+  행을 "머리 꼭대기"로, ② 그 아래 한 band(표본이 모자라면 자동으로 넓힘)의 불투명
+  x좌표 평균을 "머리 가로 중심"으로 삼아 그 지점을 상단 중앙으로 하는 정사각
+  크롭을 돌려준다 — 몬스터 id 하드코딩 없이 서 있는 포즈든 웅크린 포즈(암흑
+  늑대)든 따라간다. 보스는 기존 `BOSS_FACE_CROP_RATIO`(사람이 왕관 때문에 직접
+  튜닝한 값) 그대로 — 손대지 않음. 몬스터 카탈로그에 선택적 `face_crop` 필드로
+  이 자동 탐지를 덮어쓸 수 있는 자리도 열어뒀지만(과업 지시가 허용), 셀프 피드백
+  캡처로 확인한 결과 자동 탐지만으로 4종(dark_wolf/shadow/skeleton_knight/
+  dark_knight) 전부 충분히 좋아져 실제로 쓰는 override는 아직 없음.
+  ② **HUD 패널 회피** — `combat_test.gd`에 보스 전용이던 `BOSS_PORTRAIT_
+  POSITION_SHIFT` 패턴을 일반/정예로 확장한 `MONSTER_PORTRAIT_POSITION_SHIFT_
+  BY_TIER`(일반 y+70/정예 y+105, `_debug_print_boss_rects()`로 실측한 몬스터
+  HUD 패널 바닥(일반 243px/정예 262px)에 ~20px 여백을 더해 역산)를 추가해
+  `_apply_monster_portrait_tier()`가 티어별 보정을 적용한다. 일반(1.0)/정예
+  (1.15)/보스(1.6) 크기 위계는 그대로. `monster_codex_panel.gd`의 격자 썸네일/
+  상세 뷰 "전투 크롭" 미리보기도 같은 `monster_face_crop_ratio()`를 쓰도록
+  맞춰 일관성 유지. `dice_test.gd`에 신규 `_check_art1c6_monster_face_crop_
+  and_hud_margin()` 추가(합성 이미지로 "크롭이 머리 꼭대기 기준"/"가로 중심이
+  몸통 덩어리에 안 끌려감"을 순수 함수로 검증 + 카탈로그 일반·정예 29종 전수를
+  production trait 텍스트로 실측해 포트레이트 상단이 HUD 패널 하단+여백 아래인지
+  결정적으로 검증), 기존 `_check_art1c5_boss_crop()`의 "일반/정예는 안 바뀜"
+  가정도 이번 변경에 맞게 수정. `bash scripts/qa_shot.sh dice_test 60
+  qa_out/dice_test_art1c6_full.png "" 1` **foreground 전체 PASS(FAIL 0건,
+  신규 검증 포함) 직접 확인**(run_in_background 금지). 셀프 피드백 스크린샷
+  전/후 비교(어두운 4종 dark_wolf/shadow/skeleton_knight/dark_knight +
+  slime/orc_warrior/goblin_king 7종)를 직접 읽어 눈/얼굴이 패널에 안 가리고
+  실제로 보이는지 확인 — 특히 dark_wolf(웅크린 포즈)는 전엔 머리가 통째로
+  안 보였는데 이제 눈·귀가 보임, goblin_king(보스)은 의도대로 변화 없음.
+  전투 규칙/밸런스는 건드리지 않았고 `resources/`·`docs/art/`·`qa_out/
+  dark_check_*`는 읽기만 했다(add 안 함).
 
 ## 지금 위치
 
@@ -187,6 +193,13 @@ top_fade 축소(보스만 5%)로 해결하고, 크롭 상향으로 왕관이 몬
 패널에 눌려 보이던 문제는 `combat_test.gd`의 `BOSS_PORTRAIT_POSITION_
 SHIFT`에 y=130을 더해 해결했다(일반/정예 크롭은 변경 없음). 상세는 완료
 기록(233) 참고.
+**ART-1c-6(일반·정예 몬스터 얼굴 크롭/배치, 2026-10-21, 244) 완료** — ART-1c-5가
+보스에만 했던 두 보정(크롭 시작을 머리 기준으로/HUD 패널 아래로 포트레이트
+내리기)을 일반·정예로 확장했다. 크롭은 보스처럼 고정값이 아니라
+`CharacterArt.detect_face_crop_ratio()`(신규, 원화 알파로 머리 위치 자동
+탐지)로 몬스터마다 다르게 계산되고, HUD 회피는 `combat_test.gd`의
+`MONSTER_PORTRAIT_POSITION_SHIFT_BY_TIER`(일반/정예용 고정 보정값)로
+해결했다. 상세는 완료 기록(244) 참고.
 **ART-2(전투 화면 표정 컷 하단 잘림 처리) 완료(2026-10-15, 204)** — 표정 컷
 아래 20~25% 알파 그라데이션 셰이더(`code/shaders/face_art_fade.gdshader`)로
 가슴께 잘림이 일직선으로 떠 보이던 문제를 해결하고, `FACE_ART_LEFT_SHIFT` 보정
@@ -819,6 +832,11 @@ DESIGN.md 레어리티 표 + STATUS.md 아트 발주 표(완료 기록 (238))까
 **Q-9(고유 능력/업적 아이콘) 완료**까지 끝났다(각 상세는 위 "지금 위치"와
 아래 완료 기록/`docs/STATUS_ARCHIVE.md` 참고).
 **[대형 기획 15](플레이 피드백 23건, Q-1~Q-12) 전체 완료.**
+2026-10-21(244)로 **[미니 기획 ART-1c-6](일반·정예 몬스터 전투 컷 얼굴 크롭/배치,
+아트 스레드 요청, INBOX.md 밖에서 직접 전달된 지시 1건) 완료** — ART-1c-5(보스
+전용)가 쓰던 "크롭을 머리 기준으로" + "HUD 패널 아래로 내리기" 두 보정을 일반/
+정예로 확장했다(상세는 위 "지금 위치"의 ART-1c-6 항목과 아래 완료 기록 (244)
+참고).
 
 남은 구조적 후보(급하지 않음): 보스 개별 6종 중 타락한 기사단장만 밴드 미달
 (`MonsterSkills.modify_monster_roll()` 파라미터화가 전제조건이라 사람 설계
@@ -1428,6 +1446,67 @@ DESIGN.md 레어리티 표 + STATUS.md 아트 발주 표(완료 기록 (238))까
     조정은 사람이 이 숫자를 보고 다음 지시로 결정).
 
 ## 완료 기록
+
+- **2026-10-21 (244)**: **[미니 기획 ART-1c-6](일반·정예 몬스터 전투 컷 얼굴
+  크롭/배치, 아트 스레드 요청) 완료.** ART-1c-5(233)가 보스 티어에만 적용했던
+  "크롭을 머리 기준으로" + "HUD 패널 아래로 포트레이트 내리기" 두 보정을
+  일반/정예로 확장했다 — 아트 스레드가 `qa_out/dark_check_skeleton_knight.png`/
+  `dark_check_all.png`로 보고한 문제: 머리가 우상단 몬스터 정보 패널에 가려지고,
+  크롭도 가슴께부터 시작해 해골 기사/다크 나이트는 몸통만 보이고 암흑 늑대(웅크린
+  포즈)는 형체만 남는 문제.
+  **① 크롭 — 알파 기반 자동 탐지로 전환**: `CharacterArt.detect_face_crop_ratio()`
+  (신규, 순수 함수)가 원화 알파 채널만으로 몬스터별 머리 위치를 찾는다 — (1) 위에서
+  부터 훑어 처음 불투명 픽셀이 나오는 행을 "머리 꼭대기"로, (2) 그 아래 한 band(폭이
+  좁아 표본이 `MIN_HEAD_BAND_SAMPLES`(40)에 못 미치면 band를 2배씩 넓혀가며 재시도)의
+  불투명 x좌표 평균을 "머리 가로 중심"으로 삼아, 그 지점을 상단 중앙으로 하는 정사각
+  크롭(0..1 비율)을 돌려준다. 몬스터 id 하드코딩이 전혀 없어 서 있는 포즈든 웅크린
+  포즈(암흑 늑대 — 머리가 왼쪽에 낮게 있고 오른쪽엔 훨씬 큰 꼬리/갈기 덩어리가 있어
+  단순 "전체 평균"이면 꼬리 쪽으로 쏠렸을 상황)든 머리를 따라간다. 새 진입점
+  `CharacterArt.monster_face_crop_ratio(monster_id, tier, base_dir)`가 보스/일반/
+  정예를 통합 — 보스는 사람이 왕관 때문에 직접 튜닝해둔 `BOSS_FACE_CROP_RATIO`
+  그대로(손대지 않음), 일반/정예는 `detect_face_crop_ratio()` 자동 결과를 쓰되
+  `MonsterCatalog` 프로필의 선택적 `face_crop` 필드(과업 지시가 "자동 탐지가 안
+  맞으면 카탈로그에 보정값 추가" 경로를 열어두라고 명시)가 있으면 그걸 우선한다 —
+  셀프 피드백으로 4종(암흑 늑대/그림자/해골 기사/다크 나이트) 전부 자동 탐지만으로
+  충분히 좋아져 실제로 쓰는 override는 아직 없다. 기존 `MONSTER_FACE_CROP_RATIO_
+  BY_TIER`(일반/정예에 고정 `DEFAULT_FACE_CROP_RATIO`를 주던 데이터 표)는 제거하고
+  `monster_portrait_placeholder.gd`/`monster_codex_panel.gd`(격자 썸네일 +
+  상세 뷰 "전투 크롭" 미리보기, 전투 화면과 같은 구도 유지 요구사항) 3개 호출부
+  전부 새 진입점으로 교체.
+  **② HUD 패널 회피 — 보스 전용 패턴을 일반/정예로 확장**: `combat_test.gd`에
+  `MONSTER_PORTRAIT_POSITION_SHIFT_BY_TIER`(신규, {normal: y+70, elite: y+105,
+  boss: 기존 `BOSS_PORTRAIT_POSITION_SHIFT`})를 추가하고 `_apply_monster_
+  portrait_tier()`가 보스만 쓰던 조건부 shift 대신 이 표를 티어로 조회하도록
+  바꿨다. 수치 근거 — QA 훅 `_debug_print_boss_rects()`(ART-1c-5 때 만든 것,
+  이번에 크롭 비율도 함께 출력하도록 확장)로 실측: 몬스터 HUD 패널(우측 상단,
+  `_setup_combat_hud()`가 "특성" 줄 텍스트 길이로 런타임에 높이를 정함) 바닥이
+  일반 243px(0~1스킬, personality 최장 104자)/정예 262px(스킬 정확히 2개 +
+  personality 2줄 wrap 고정 공식 — 8종 전수 동일하게 수렴), 보정 전 포트레이트
+  상단은 일반 196px(패널보다 47px 위)/정예 180.4px — 패널 바닥+20px 여백을
+  목표로 역산해 일반 shift.y=70(결과 상단 266px, 여백 23px)/정예 shift.y=105
+  (결과 상단 285.4px, 여백 23.4px). x는 둘 다 화면 오른쪽 경계(1280) 안에 이미
+  들어와 보정 불필요(보스만 배율 1.6으로 훨씬 커서 x 보정이 필요했음). 일반
+  (1.0)/정예(1.15)/보스(1.6) 크기 위계는 변경 없음.
+  **테스트**: `dice_test.gd`에 신규 `_check_art1c6_monster_face_crop_and_hud_
+  margin()` — ① 합성 이미지(위쪽 투명 여백 40px)로 크롭 시작 y가 실제 불투명
+  시작 지점(오차 <0.02) 근처인지, ② 머리(위/왼쪽, 작음)+몸통(아래/오른쪽, 큼)
+  합성 이미지로 크롭 중심이 몸통이 아니라 머리 쪽을 따라가는지(순수 함수, 원화
+  의존 없음), ③ 카탈로그 중 full.png 크롭 경로를 타는 일반/정예 전부 크롭 Rect가
+  0..1 범위 안 + 결정적인지, ④ ART-1c-5와 같은 방식으로 일반+정예 29종 전부를
+  production 배치로 실제 렌더하고 production trait 텍스트를 채운 뒤 포트레이트
+  상단 y가 HUD 패널 하단+여백(10px) 이상인지/화면(1280x720) 안인지. 기존
+  `_check_art1c5_boss_crop()`의 "일반/정예 크롭은 안 바뀐다" 가정도 이번
+  변경(의도적으로 바뀜)에 맞게 "보스 크롭만 고정값 그대로"로 수정. `bash
+  scripts/qa_shot.sh dice_test 60 qa_out/dice_test_art1c6_full.png "" 1`
+  **foreground 전체 PASS(FAIL 0건, 신규 검증 5항목 포함) 직접 확인**
+  (run_in_background 금지). 셀프 피드백 스크린샷 7장(dark_wolf/shadow/
+  skeleton_knight/dark_knight_elite — 전부 눈/얼굴이 패널에 안 가리고 실제로
+  보임, 특히 dark_wolf는 이전엔 머리가 통째로 안 보였는데 이제 빨간 눈이 보임
+  + slime/orc_warrior/goblin_king으로 일반 회귀·정예 개선·보스 불변 재확인).
+  전투 규칙/밸런스는 건드리지 않았고 `resources/`·`docs/art/`·`qa_out/
+  dark_check_*`는 읽기만 했다(add 안 함). INBOX.md에는 대응하는 항목이 없다
+  (아트 스레드가 세션 간 메시지로 직접 전달한 지시 — INBOX 처리 사이클 대상
+  아님).
 
 - **2026-10-20 (243)**: **[대형 기획 15] Q-9(고유 능력 아이콘 + 업적 아이콘,
   원문 6) 완료 — [대형 기획 15](플레이 피드백 23건, Q-1~Q-12) 전체 완료.**
@@ -2098,74 +2177,9 @@ DESIGN.md 레어리티 표 + STATUS.md 아트 발주 표(완료 기록 (238))까
   12종은 3/4~4/4 몫으로 남음 — 다음 이터레이션은 Q-8(c) 3/4(주술사/
   매혹사 6종)부터.**
 
-- **2026-10-19 (234)**: **[대형 기획 15] Q-8(c) 1/4(전설 스킬 인프라 + 견습
-  모험가/광전사 6종, 원문 5) 완료.** 직전 이터레이션(iter_153)이 사용 한도로
-  미커밋 상태(skill_pool.gd 인프라+6종 데이터, dice_bag.gd count_min_rolls(),
-  combat_test.gd 효과 5종, skill_diagram_chip.gd perfect_block 조건 칩)로 끊긴
-  것을 `git diff`로 파악해 이어받았다 — stash/reset 없이 그대로 두고 빠진 조각만
-  채웠다. **인프라**: `SkillPool.has_legendary(skill_flags)`(전설 보유 여부 판정)
-  / `filter_legendary_if_owned(pool, skill_flags)`(이미 전설을 가졌으면 풀에서
-  전설 후보를 추첨 "전"에 전부 제거 — 추첨 이후 걸러내면 "후보가 화면에 잠깐
-  보였다 사라지는" 버그가 생길 수 있어 반드시 풀 구성 단계에서 제거)가
-  `available_choices()`에 배선됐다. `LEGENDARY_SKILLS` 배열(UNIQUE_SKILLS와 같은
-  item dict 형식, character_id 필터)을 신설해 "희귀 등급 고유 스킬은 전설 규칙과
-  무관"이라는 전제가 깨지지 않게 분리했다. **견습 모험가 3종**(기믹 없는 "만능형"
-  정체성): 만물의 조화(매 턴 공격/방어 모두 그 턴 최저값을 최고값으로, 자기 면
-  상한 없음)/결의의 반격(방어로 완전 방어 시 방어 합계만큼 방어 무시 반격)/운명의
-  뒤섞임(라운드 전환마다 공격·방어 다이스를 적은 쪽 개수만큼 전부 맞바꿈).
-  **광전사 3종**(min_max_only 극단형 정체성): 광전 돌격(폭발 스택 보너스
-  공격턴을 확률 없이 항상 최댓값 20으로 확정)/유혈광란(공격턴마다 최댓값을 보인
-  다이스 1개당 방어 무시 고정 피해 +2)/불굴의 보복(방어턴마다 최솟값을 보인
-  다이스 1개당 방어 무시 반격 +2, 신규 `DiceBag.count_min_rolls()`가
-  `count_max_rolls()`와 대칭). 6종 전부 description 끝에 "전설 스킬은 한 런에
-  하나만 가질 수 있다" 안내 문장을 포함해(INBOX 명시) 카드/도감/팝업/시작 스킬
-  슬롯 네 렌더 지점에 자동 전파되게 했다. **이번 조각이 직접 채운 빠진 부분
-  2개**: (1) "운명의 뒤섞임" 효과가 어디에도 구현돼 있지 않았다(skill_pool.gd
-  데이터/주석만 있고 run_state.gd에 배선 없음) — `RunState.advance_round()`에
-  `_fateshuffle_swap_count(skill_flags, attack_count, defense_count)`(순수 함수,
-  min(공격 개수, 방어 개수) 반환)를 추가해 기존 `juggle_encore`와 같은
-  `DiceBag.swap_random_dice()` 반복 호출 패턴으로 배선했다. (2) 신규 모티프 3종
-  (legend_nuke/true_strike/counter_strike)이 `SkillPool.ICON_MOTIFS`/
-  `ICON_MOTIF_VALUES`에는 등록돼 있었지만 `skill_icon.gd`의 `_draw_motif()`에
-  실제 그리기 분기가 없어 빈 원(기본 분기)으로 떨어지고 있었다 — `dice_test.gd`의
-  기존 Q-7(b) 패턴(서로 다른 모티프가 실제로 다른 픽셀로 렌더되는지 SubViewport
-  비교) 전수 테스트가 "3종이 서로 같은 픽셀로 렌더됨"으로 실제로 잡아냈다.
-  `SkillIcon.COLOR_LEGENDARY`(SkillPool.RARITY_COLORS[RARITY_LEGENDARY]와 같은
-  색조)를 공유하되 모양으로 구분되는 3종을 새로 그렸다 — legend_nuke(burst_stack
-  보다 촘촘한 12스파이크+중앙 코어), true_strike(동심원 과녁을 관통하는 화살,
-  "방어 무시 고정 피해" 공용 의미), counter_strike(방패 윤곽+안에서 밖으로
-  휘어나가는 곡선 화살표, "반격" 공용 의미). **신규 전용 테스트
-  `_check_q8c_legendary_skills()` 8항목** — 기존 Q-7/Q-8a/Q-8b와 같은 "플래그가
-  아니라 계산 결과" 원칙: (1) has_legendary()/filter_legendary_if_owned()가 풀
-  크기·전설 포함 여부를 실제로 바꾸는지, (2) 만물의 조화가 [1,3,6]→[6,3,6]으로
-  실제 값이 바뀌는지(합계 10→15), (3) 결의의 반격이 완전 방어(dmg=0)에서만
-  반격 피해를 주는지(부분 방어는 0), (4) 운명의 뒤섞임 교환 횟수가
-  min(공3,방2)=2인지, (5) 광전 돌격이 보너스턴에만 굴림값을 20으로 확정하고
-  평소턴은 그대로인지, (6) 유혈광란/불굴의 보복 — D4x4 [1,4,1,4]에서
-  count_min_rolls/count_max_rolls가 각각 2를 세고 고정 피해 4가 나오는지,
-  (7) 설명 문구 "한 런에 하나만" 포함이 6종 전수인지, (8) LEGENDARY_SKILLS
-  6종(novice 3/berserker 3) 전수가 SKILL_RARITY/ICON_MOTIFS에 전부 등록됐는지.
-  기존 Q-7(a)/Q-7(b)/Q-8a/K-4a/L-2a 테스트들의 전수 순회 목록에도
-  LEGENDARY_SKILLS를 추가(하드코딩된 기대 개수 대신 LEGENDARY_SKILLS.size()로
-  계산해 다음 조각(2/4~4/4)이 캐릭터를 늘려도 테스트를 다시 고칠 필요가 없게
-  했다). `bash scripts/qa_shot.sh dice_test 60 qa_out/dice_test_q8c.png "" 1`
-  **foreground 전체 재실행 PASS(FAIL 0건)** 직접 확인(dice_test는 run_in_background
-  금지 — 직전 세션의 중단 원인이 이것이었음). 셀프 피드백 스크린샷 3장 — QA 전용
-  디버그 훅 2종(`dungeon_map._debug_press_shortcut_skill_codex_legendary`(novice)/
-  `_debug_press_shortcut_skill_codex_legendary_berserker`) 신규로 실제 "보유"
-  상태를 만들어 스킬 도감에서 직접 읽어 확인: 견습 모험가 "만물의 조화" 카드
-  (`qa_out/q8c_codex_owned.png`, 전설 배지 주황색 + "전설 스킬은 한 런에 하나만
-  가질 수 있다" 설명 하단 노출 + dual_boost 모티프 정상 렌더), 광전사 "광전 돌격"/
-  "유혈광란"/"불굴의 보복" 3장 동시 노출(`qa_out/q8c_codex_berserker.png`,
-  legend_nuke=금빛 촘촘한 버스트, true_strike=과녁+관통 화살 — 서로 뚜렷이
-  다른 모양으로 구분됨 확인). 전투 규칙/밸런스 수치는 건드리지 않았고
-  `resources/`·`docs/art/`는 읽기만 했다. **나머지 6명(수호자/폭발병/주술사/
-  매혹사/곡예사/해적) 18종은 2/4~4/4 몫으로 남음 — 다음 이터레이션은 Q-8(c)
-  2/4(수호자/폭발병 6종)부터.**
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(243)에서 (233)을 그리로 옮겼다.)*
+이번 이터레이션(244)에서 (234)를 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 

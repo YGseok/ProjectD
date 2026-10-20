@@ -25,13 +25,24 @@ class_name MonsterPortraitPlaceholder
 ##
 ## ART-1c-2(2026-10-16, [대형 기획 13] 인수인계 — 보스 6종이 face_* 없이 full.png만
 ## 입고됨): face_* 5장이 없고 full.png만 있으면, `CharacterArt.load_full_crop()`(=
-## `load_face_thumb()`가 쓰는 것과 같은 "비율 → AtlasTexture" 크롭 로직, 캐릭터
-## 전용 face_crop_ratio() 대신 몬스터는 프로필이 없으니 CharacterArt.
-## DEFAULT_FACE_CROP_RATIO를 직접 넘김)로 상반신을 잘라 같은 _face_rect에 표시한다.
-## 이 상태(_use_full_crop)는 표정별 텍스처가 없으므로 set_expression()을 호출해도
-## 텍스처를 바꾸지 않고 무시 — _draw()도 도형 플레이스홀더를 안 그리도록 함께 막는다.
-## 우선순위: face_* 5장(_use_face_art) > full.png 크롭(_use_full_crop) > 도형
-## 플레이스홀더(둘 다 false).
+## `load_face_thumb()`가 쓰는 것과 같은 "비율 → 크롭" 로직)로 상반신을 잘라 같은
+## _face_rect에 표시한다. 크롭 비율 자체는 `CharacterArt.monster_face_crop_ratio()`가
+## 정한다(ART-1c-6, 아래 참고). 이 상태(_use_full_crop)는 표정별 텍스처가 없으므로
+## set_expression()을 호출해도 텍스처를 바꾸지 않고 무시 — _draw()도 도형
+## 플레이스홀더를 안 그리도록 함께 막는다. 우선순위: face_* 5장(_use_face_art) >
+## full.png 크롭(_use_full_crop) > 도형 플레이스홀더(둘 다 false).
+##
+## ART-1c-6(2026-10-21, 아트 스레드 요청 — 일반/정예 전투 컷에서 얼굴이 패널에
+## 가려지거나 크롭이 가슴께부터 시작해 머리가 아예 안 보이는 문제): 두 가지를 고쳤다.
+## ① 크롭 비율 — `CharacterArt.monster_face_crop_ratio()`가 일반/정예 티어에서는
+## 더는 고정 `DEFAULT_FACE_CROP_RATIO`(캐릭터 전용, 항상 같은 구도를 가정)를 쓰지
+## 않고, 원화 알파 채널로 몬스터별 머리 위치를 찾는 `detect_face_crop_ratio()`를
+## 쓴다 — 포즈가 제각각인 몬스터(서 있는 포즈/웅크린 포즈)에서도 머리가 크롭 안에
+## 들어오게 한다(보스는 기존 BOSS_FACE_CROP_RATIO 그대로, 변경 없음). ② HUD 패널
+## 회피 — 보스만 있던 `BOSS_PORTRAIT_POSITION_SHIFT` 패턴을 일반/정예에도 적용해
+## (`combat_test.gd`의 `MONSTER_PORTRAIT_POSITION_SHIFT_BY_TIER`) 포트레이트 상단이
+## 몬스터 HUD 패널(우측 상단) 아래로 내려가게 했다 — 크롭이 아무리 잘 맞아도 패널에
+## 가려지면 소용없으므로 두 수정이 함께 있어야 머리가 실제로 보인다.
 ##
 ## ART-1c-3(2026-10-16, [대형 기획 13] 인수인계 — 몬스터 컷 가장자리 페이드 + 경로
 ## 별칭): ① face_art_fade 셰이더에 side_fade/top_fade 유니폼을 추가(기본값 0.0이라
@@ -158,7 +169,7 @@ func set_monster(monster_id: String) -> void:
 	elif CharacterArt.has_full(_art_monster_id, art_base_dir):
 		_use_full_crop = true
 		_ensure_face_rect()
-		var crop_ratio: Rect2 = CharacterArt.MONSTER_FACE_CROP_RATIO_BY_TIER.get(_tier, CharacterArt.DEFAULT_FACE_CROP_RATIO)
+		var crop_ratio: Rect2 = CharacterArt.monster_face_crop_ratio(_art_monster_id, _tier, art_base_dir)
 		representative_tex = CharacterArt.load_full_crop(_art_monster_id, crop_ratio, art_base_dir)
 		_face_rect.texture = representative_tex
 	if _face_rect != null:

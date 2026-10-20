@@ -427,15 +427,16 @@ func _make_grid_card(monster: Dictionary) -> Control:
 
 
 ## Q-11b 신규 — 격자 카드 썸네일(캐시됨). full.png가 없으면 null(호출부가 FamilyIcon
-## 폴백을 그린다). 상세 뷰와 같은 티어별 크롭 비율(CharacterArt.MONSTER_FACE_CROP_RATIO_
-## BY_TIER)을 재사용해 "전투에서 실제로 보이는 구도"와 썸네일이 같게 한다.
+## 폴백을 그린다). 상세 뷰와 같은 크롭(CharacterArt.monster_face_crop_ratio(), ART-1c-6
+## 부터 일반/정예는 알파 기반 자동 탐지)을 재사용해 "전투에서 실제로 보이는 구도"와
+## 썸네일이 같게 한다.
 func _grid_thumbnail_texture(art_id: String, tier: String) -> Texture2D:
 	var cache_key := "%s|%s" % [art_id, art_base_dir]
 	if _thumb_cache.has(cache_key):
 		return _thumb_cache[cache_key]
 	var tex: Texture2D = null
 	if CharacterArt.has_full(art_id, art_base_dir):
-		var crop_ratio: Rect2 = CharacterArt.MONSTER_FACE_CROP_RATIO_BY_TIER.get(tier, CharacterArt.DEFAULT_FACE_CROP_RATIO)
+		var crop_ratio: Rect2 = CharacterArt.monster_face_crop_ratio(art_id, tier, art_base_dir)
 		var cropped := CharacterArt.load_full_crop(art_id, crop_ratio, art_base_dir)
 		if cropped != null:
 			tex = _downscale_for_thumbnail(cropped)
@@ -642,7 +643,7 @@ func _build_detail_view(palette: Dictionary) -> void:
 	add_child(_detail_crop_rect)
 	_ui.append(_detail_crop_rect)
 	if full_ok:
-		var crop_ratio: Rect2 = CharacterArt.MONSTER_FACE_CROP_RATIO_BY_TIER.get(tier, CharacterArt.DEFAULT_FACE_CROP_RATIO)
+		var crop_ratio: Rect2 = CharacterArt.monster_face_crop_ratio(art_id, tier, art_base_dir)
 		_detail_crop_rect.texture = CharacterArt.load_full_crop(art_id, crop_ratio, art_base_dir)
 	else:
 		_ui.append(_make_missing_label(_detail_crop_rect, "원화 미입고"))

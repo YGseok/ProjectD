@@ -8,6 +8,71 @@
 
 ---
 
+- **2026-10-19 (234)**: **[대형 기획 15] Q-8(c) 1/4(전설 스킬 인프라 + 견습
+  모험가/광전사 6종, 원문 5) 완료.** 직전 이터레이션(iter_153)이 사용 한도로
+  미커밋 상태(skill_pool.gd 인프라+6종 데이터, dice_bag.gd count_min_rolls(),
+  combat_test.gd 효과 5종, skill_diagram_chip.gd perfect_block 조건 칩)로 끊긴
+  것을 `git diff`로 파악해 이어받았다 — stash/reset 없이 그대로 두고 빠진 조각만
+  채웠다. **인프라**: `SkillPool.has_legendary(skill_flags)`(전설 보유 여부 판정)
+  / `filter_legendary_if_owned(pool, skill_flags)`(이미 전설을 가졌으면 풀에서
+  전설 후보를 추첨 "전"에 전부 제거 — 추첨 이후 걸러내면 "후보가 화면에 잠깐
+  보였다 사라지는" 버그가 생길 수 있어 반드시 풀 구성 단계에서 제거)가
+  `available_choices()`에 배선됐다. `LEGENDARY_SKILLS` 배열(UNIQUE_SKILLS와 같은
+  item dict 형식, character_id 필터)을 신설해 "희귀 등급 고유 스킬은 전설 규칙과
+  무관"이라는 전제가 깨지지 않게 분리했다. **견습 모험가 3종**(기믹 없는 "만능형"
+  정체성): 만물의 조화(매 턴 공격/방어 모두 그 턴 최저값을 최고값으로, 자기 면
+  상한 없음)/결의의 반격(방어로 완전 방어 시 방어 합계만큼 방어 무시 반격)/운명의
+  뒤섞임(라운드 전환마다 공격·방어 다이스를 적은 쪽 개수만큼 전부 맞바꿈).
+  **광전사 3종**(min_max_only 극단형 정체성): 광전 돌격(폭발 스택 보너스
+  공격턴을 확률 없이 항상 최댓값 20으로 확정)/유혈광란(공격턴마다 최댓값을 보인
+  다이스 1개당 방어 무시 고정 피해 +2)/불굴의 보복(방어턴마다 최솟값을 보인
+  다이스 1개당 방어 무시 반격 +2, 신규 `DiceBag.count_min_rolls()`가
+  `count_max_rolls()`와 대칭). 6종 전부 description 끝에 "전설 스킬은 한 런에
+  하나만 가질 수 있다" 안내 문장을 포함해(INBOX 명시) 카드/도감/팝업/시작 스킬
+  슬롯 네 렌더 지점에 자동 전파되게 했다. **이번 조각이 직접 채운 빠진 부분
+  2개**: (1) "운명의 뒤섞임" 효과가 어디에도 구현돼 있지 않았다(skill_pool.gd
+  데이터/주석만 있고 run_state.gd에 배선 없음) — `RunState.advance_round()`에
+  `_fateshuffle_swap_count(skill_flags, attack_count, defense_count)`(순수 함수,
+  min(공격 개수, 방어 개수) 반환)를 추가해 기존 `juggle_encore`와 같은
+  `DiceBag.swap_random_dice()` 반복 호출 패턴으로 배선했다. (2) 신규 모티프 3종
+  (legend_nuke/true_strike/counter_strike)이 `SkillPool.ICON_MOTIFS`/
+  `ICON_MOTIF_VALUES`에는 등록돼 있었지만 `skill_icon.gd`의 `_draw_motif()`에
+  실제 그리기 분기가 없어 빈 원(기본 분기)으로 떨어지고 있었다 — `dice_test.gd`의
+  기존 Q-7(b) 패턴(서로 다른 모티프가 실제로 다른 픽셀로 렌더되는지 SubViewport
+  비교) 전수 테스트가 "3종이 서로 같은 픽셀로 렌더됨"으로 실제로 잡아냈다.
+  `SkillIcon.COLOR_LEGENDARY`(SkillPool.RARITY_COLORS[RARITY_LEGENDARY]와 같은
+  색조)를 공유하되 모양으로 구분되는 3종을 새로 그렸다 — legend_nuke(burst_stack
+  보다 촘촘한 12스파이크+중앙 코어), true_strike(동심원 과녁을 관통하는 화살,
+  "방어 무시 고정 피해" 공용 의미), counter_strike(방패 윤곽+안에서 밖으로
+  휘어나가는 곡선 화살표, "반격" 공용 의미). **신규 전용 테스트
+  `_check_q8c_legendary_skills()` 8항목** — 기존 Q-7/Q-8a/Q-8b와 같은 "플래그가
+  아니라 계산 결과" 원칙: (1) has_legendary()/filter_legendary_if_owned()가 풀
+  크기·전설 포함 여부를 실제로 바꾸는지, (2) 만물의 조화가 [1,3,6]→[6,3,6]으로
+  실제 값이 바뀌는지(합계 10→15), (3) 결의의 반격이 완전 방어(dmg=0)에서만
+  반격 피해를 주는지(부분 방어는 0), (4) 운명의 뒤섞임 교환 횟수가
+  min(공3,방2)=2인지, (5) 광전 돌격이 보너스턴에만 굴림값을 20으로 확정하고
+  평소턴은 그대로인지, (6) 유혈광란/불굴의 보복 — D4x4 [1,4,1,4]에서
+  count_min_rolls/count_max_rolls가 각각 2를 세고 고정 피해 4가 나오는지,
+  (7) 설명 문구 "한 런에 하나만" 포함이 6종 전수인지, (8) LEGENDARY_SKILLS
+  6종(novice 3/berserker 3) 전수가 SKILL_RARITY/ICON_MOTIFS에 전부 등록됐는지.
+  기존 Q-7(a)/Q-7(b)/Q-8a/K-4a/L-2a 테스트들의 전수 순회 목록에도
+  LEGENDARY_SKILLS를 추가(하드코딩된 기대 개수 대신 LEGENDARY_SKILLS.size()로
+  계산해 다음 조각(2/4~4/4)이 캐릭터를 늘려도 테스트를 다시 고칠 필요가 없게
+  했다). `bash scripts/qa_shot.sh dice_test 60 qa_out/dice_test_q8c.png "" 1`
+  **foreground 전체 재실행 PASS(FAIL 0건)** 직접 확인(dice_test는 run_in_background
+  금지 — 직전 세션의 중단 원인이 이것이었음). 셀프 피드백 스크린샷 3장 — QA 전용
+  디버그 훅 2종(`dungeon_map._debug_press_shortcut_skill_codex_legendary`(novice)/
+  `_debug_press_shortcut_skill_codex_legendary_berserker`) 신규로 실제 "보유"
+  상태를 만들어 스킬 도감에서 직접 읽어 확인: 견습 모험가 "만물의 조화" 카드
+  (`qa_out/q8c_codex_owned.png`, 전설 배지 주황색 + "전설 스킬은 한 런에 하나만
+  가질 수 있다" 설명 하단 노출 + dual_boost 모티프 정상 렌더), 광전사 "광전 돌격"/
+  "유혈광란"/"불굴의 보복" 3장 동시 노출(`qa_out/q8c_codex_berserker.png`,
+  legend_nuke=금빛 촘촘한 버스트, true_strike=과녁+관통 화살 — 서로 뚜렷이
+  다른 모양으로 구분됨 확인). 전투 규칙/밸런스 수치는 건드리지 않았고
+  `resources/`·`docs/art/`는 읽기만 했다. **나머지 6명(수호자/폭발병/주술사/
+  매혹사/곡예사/해적) 18종은 2/4~4/4 몫으로 남음 — 다음 이터레이션은 Q-8(c)
+  2/4(수호자/폭발병 6종)부터.**
+
 - **2026-10-19 (233)**: **[대형 기획 13] [미니 기획 ART-1c-5](보스 크롭·여백
   조정, 아트 스레드 요청) 완료.** 직전 이터레이션이 `dice_test`를
   `run_in_background`로 돌려놓고 "기다리겠다"고만 하고 미커밋 상태로 끊긴 것을

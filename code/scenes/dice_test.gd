@@ -425,6 +425,10 @@ func _ready() -> void:
 	all_pass = (await _check_art1c5_boss_crop(lines)) and all_pass
 
 	lines.append("")
+	lines.append("[ART-1c-6: 일반/정예 몬스터 얼굴 크롭·HUD 여백 — CharacterArt.detect_face_crop_ratio()가 합성 이미지(위쪽 투명 여백 N픽셀)에서 크롭 시작을 실제 불투명 시작 지점 근처로 잡는지, 머리 위 띠의 불투명 중심(x)을 따라가고 그 아래 멀리 떨어진 큰 덩어리(예: 꼬리)에 안 끌려가는지, full.png만 있는 일반/정예 몬스터 전수의 크롭 y가 과거 고정값(DEFAULT_FACE_CROP_RATIO.position.y)보다 머리에 더 가까운지, 일반/정예 포트레이트 상단 y가 몬스터 HUD 패널 하단 y + 여백 이상인지(카탈로그 전수, production trait 텍스트로 실측), 화면(1280x720) 안에 드는지]")
+	all_pass = (await _check_art1c6_monster_face_crop_and_hud_margin(lines)) and all_pass
+
+	lines.append("")
 	lines.append("[Q-1(18): 전투 종료 후 다이스 결과 칩 줄이 보상/패배 버튼과 안 겹치는지 — battle_over가 true가 되는 시점(_maybe_finish_battle, 승리/패배 공통)에 _exchange_chip_nodes가 실제로 비워지는지, 비워진 뒤 남은 노드가 없어 보상 액션 버튼과 rect 교차가 0인지(승리/패배 둘 다)]")
 	all_pass = (await _check_q1_reward_chip_overlap(lines)) and all_pass
 
@@ -13114,19 +13118,19 @@ func _check_art1c5_boss_crop(lines: PackedStringArray) -> bool:
 	await get_tree().process_frame
 	var ok := true
 
-	# ① 크롭 비율 데이터 표 — 보스 크롭 시작 y가 일반/정예(DEFAULT_FACE_CROP_RATIO)보다
-	#    위쪽(작은 값)인지, 일반/정예는 요구사항대로 손대지 않았는지.
-	var crop_by_tier: Dictionary = CharacterArt.MONSTER_FACE_CROP_RATIO_BY_TIER
-	var normal_crop: Rect2 = crop_by_tier.get("normal", Rect2())
-	var elite_crop: Rect2 = crop_by_tier.get("elite", Rect2())
-	var boss_crop: Rect2 = crop_by_tier.get("boss", Rect2())
-	var unchanged_ok: bool = normal_crop == CharacterArt.DEFAULT_FACE_CROP_RATIO and elite_crop == CharacterArt.DEFAULT_FACE_CROP_RATIO
+	# ① 보스 크롭 비율 — BOSS_FACE_CROP_RATIO가 사람이 튜닝해둔 고정값 그대로인지
+	#    (monster_face_crop_ratio()가 tier=="boss"면 바로 이 상수를 돌려줘야 함 —
+	#    [미니 기획 ART-1c-6]부터 일반/정예는 더는 이 고정값을 안 쓰고 알파 기반
+	#    자동 탐지로 바뀌었다 — 그 검증은 _check_art1c6_monster_face_crop_and_hud_
+	#    margin()이 담당, 여기서는 "보스는 안 바뀌었다"만 확인).
+	var boss_crop: Rect2 = CharacterArt.monster_face_crop_ratio("아무몬스터id", "boss")
+	var unchanged_ok: bool = boss_crop == CharacterArt.BOSS_FACE_CROP_RATIO
 	ok = unchanged_ok and ok
-	lines.append("  일반/정예 크롭 비율이 DEFAULT_FACE_CROP_RATIO 그대로인지(요구사항 — 변경 금지) -> %s" % ["OK" if unchanged_ok else "FAIL"])
-	var crop_start_ok: bool = boss_crop.position.y < normal_crop.position.y
+	lines.append("  보스 크롭 비율이 BOSS_FACE_CROP_RATIO 그대로인지(tier=='boss'면 몬스터 id와 무관하게 고정값) -> %s" % ["OK" if unchanged_ok else "FAIL"])
+	var crop_start_ok: bool = boss_crop.position.y < CharacterArt.DEFAULT_FACE_CROP_RATIO.position.y
 	ok = crop_start_ok and ok
-	lines.append("  크롭 시작 y: 일반=%.4f 보스=%.4f (보스가 더 위쪽/작아야 함) -> %s" % [
-		normal_crop.position.y, boss_crop.position.y, "OK" if crop_start_ok else "FAIL"
+	lines.append("  크롭 시작 y: 캐릭터 기본값=%.4f 보스=%.4f (보스가 더 위쪽/작아야 함) -> %s" % [
+		CharacterArt.DEFAULT_FACE_CROP_RATIO.position.y, boss_crop.position.y, "OK" if crop_start_ok else "FAIL"
 	])
 
 	# ② top_fade — 보스만 더 작은지(FACE_ART_TOP_FADE_BY_TIER).
@@ -13190,6 +13194,148 @@ func _check_art1c5_boss_crop(lines: PackedStringArray) -> bool:
 	lines.append("  보스 %d종 — production 배치 화면(1280x720) 안 배치 -> %s%s" % [
 		boss_ids.size(), "OK" if boss_bounds_ok else "FAIL",
 		("" if boss_bounds_ok else (" (잘림: " + ", ".join(out_of_bounds) + ")"))
+	])
+
+	remove_child(combat)
+	combat.free()
+
+	return ok
+
+
+## [미니 기획 ART-1c-6](2026-10-21) 일반/정예 몬스터 전투 컷 — 아트 스레드 요청(머리가
+## 몬스터 HUD 패널에 가려지고, full.png 크롭이 가슴께부터 시작해 머리가 아예 안 보이는
+## 문제) 수치 검증. "플래그만 보지 않는다" 원칙대로 실제 계산 결과(크롭 Rect 값/텍스처
+## 상단 y)를 본다. ①②는 CharacterArt.detect_face_crop_ratio() 순수 함수를 합성 이미지로
+## (production 원화에 의존하지 않고) 검증, ③은 카탈로그 전체(정상 범위 sanity), ④는
+## ART-1c-5와 같은 방식으로 일반/정예 전수를 production 배치로 실제 렌더해 HUD 패널
+## 여백을 확인한다.
+func _check_art1c6_monster_face_crop_and_hud_margin(lines: PackedStringArray) -> bool:
+	var ok := true
+
+	# ① "머리 꼭대기 기준" — 위쪽 PAD_Y px는 완전 투명, 그 아래는 폭 전체가 불투명한
+	#    합성 이미지. 크롭 시작 y가 불투명이 실제로 시작하는 지점(PAD_Y) 근처여야 한다
+	#    (과거 버그: 캐릭터용 고정값 0.015를 그대로 몬스터에 썼는데, 몬스터 원화는
+	#    머리 위 여백이 제각각이라 이 값이 맞을 때도/안 맞을 때도 있었음).
+	var syn_size := Vector2i(200, 300)
+	var pad_y := 40
+	var top_pad_img := Image.create(syn_size.x, syn_size.y, false, Image.FORMAT_RGBA8)
+	top_pad_img.fill(Color(0, 0, 0, 0))
+	for y in range(pad_y, syn_size.y):
+		for x in range(syn_size.x):
+			top_pad_img.set_pixel(x, y, Color(0.6, 0.6, 0.6, 1.0))
+	var top_pad_ratio: Rect2 = CharacterArt.detect_face_crop_ratio(top_pad_img, 0.4, 0.4, 0.06, 0.5, 1)
+	var expected_y_ratio: float = float(pad_y) / float(syn_size.y)
+	var top_pad_ok: bool = abs(top_pad_ratio.position.y - expected_y_ratio) < 0.02
+	ok = top_pad_ok and ok
+	lines.append("  detect_face_crop_ratio(): 위쪽 투명 여백 %dpx(비율 %.4f)인 합성 이미지 -> 크롭 시작 y=%.4f(오차 < 0.02 기대) -> %s" % [
+		pad_y, expected_y_ratio, top_pad_ratio.position.y, "OK" if top_pad_ok else "FAIL"
+	])
+
+	# ② 머리 가로 중심 추적 — 머리(위, 왼쪽에 작게)와 몸통/꼬리(아래, 오른쪽에 훨씬 크게)를
+	#    분리해 그린 합성 이미지(암흑 늑대의 웅크린 포즈 + 큰 꼬리 구도를 추상화). 크롭
+	#    중심이 "머리" 쪽을 따라가야지, 픽셀 수가 훨씬 많은 아래쪽 덩어리에 끌려가
+	#    중앙/몸통 쪽으로 쏠리면 안 된다.
+	var off_center_img := Image.create(syn_size.x, syn_size.y, false, Image.FORMAT_RGBA8)
+	off_center_img.fill(Color(0, 0, 0, 0))
+	var head_top := 20
+	var head_band_end := 50
+	for y in range(head_top, head_band_end):
+		for x in range(10, 50): # 머리 — 왼쪽에 작게.
+			off_center_img.set_pixel(x, y, Color(0.6, 0.6, 0.6, 1.0))
+	for y in range(head_band_end, syn_size.y):
+		for x in range(100, 200): # "꼬리/몸통" — 오른쪽에 훨씬 크게.
+			off_center_img.set_pixel(x, y, Color(0.6, 0.6, 0.6, 1.0))
+	var off_center_ratio: Rect2 = CharacterArt.detect_face_crop_ratio(off_center_img, 0.3, 0.3, 0.1, 0.5, 1)
+	var head_center_x_ratio: float = 30.0 / syn_size.x # 머리 영역(10..50) 중심 = 30px.
+	var body_center_x_ratio: float = 150.0 / syn_size.x # 몸통 영역(100..200) 중심 = 150px.
+	var detected_center_x_ratio: float = off_center_ratio.position.x + off_center_ratio.size.x / 2.0
+	var off_center_ok: bool = abs(detected_center_x_ratio - head_center_x_ratio) < abs(detected_center_x_ratio - body_center_x_ratio)
+	ok = off_center_ok and ok
+	lines.append("  detect_face_crop_ratio(): 머리(위/왼쪽, 작음) + 몸통(아래/오른쪽, 큼) 합성 이미지 -> 크롭 중심 x비율=%.4f (머리쪽=%.4f에 더 가까워야 함, 몸통쪽=%.4f) -> %s" % [
+		detected_center_x_ratio, head_center_x_ratio, body_center_x_ratio, "OK" if off_center_ok else "FAIL"
+	])
+
+	# ③ 카탈로그 전체(일반+정예) — full.png 크롭 경로를 타는 몬스터(face_* 5장 없음)마다
+	#    monster_face_crop_ratio()가 유효 범위(0..1, 이미지 밖으로 안 나감) 안의 Rect를
+	#    돌려주고, 같은 입력에 항상 같은 결과를 내는지(결정적)도 함께 확인한다.
+	var catalog_bad: Array[String] = []
+	for profile in MonsterCatalog.MONSTERS:
+		var mid: String = profile["id"]
+		var tier: String = profile.get("tier", "normal")
+		if tier == "boss":
+			continue
+		var art_id: String = MonsterCatalog.art_resource_id(mid)
+		if CharacterArt.has_all_faces(art_id) or not CharacterArt.has_full(art_id):
+			continue
+		var r1: Rect2 = CharacterArt.monster_face_crop_ratio(art_id, tier)
+		var r2: Rect2 = CharacterArt.monster_face_crop_ratio(art_id, tier)
+		var in_bounds: bool = r1.position.x >= 0.0 and r1.position.y >= 0.0 and (r1.position.x + r1.size.x) <= 1.0001 and (r1.position.y + r1.size.y) <= 1.0001
+		var deterministic: bool = r1 == r2
+		if not (in_bounds and deterministic):
+			catalog_bad.append("%s(rect=%s, deterministic=%s)" % [mid, r1, deterministic])
+	var catalog_ok: bool = catalog_bad.is_empty()
+	ok = catalog_ok and ok
+	lines.append("  카탈로그 일반/정예(full.png 크롭 경로) 전수 — 크롭 Rect가 0..1 범위 안 + 결정적 -> %s%s" % [
+		"OK" if catalog_ok else "FAIL",
+		("" if catalog_ok else (" (" + ", ".join(catalog_bad) + ")"))
+	])
+
+	# ④ HUD 패널 여백 — ART-1c-5(보스)와 같은 방식: 일반/정예 전수를 production
+	#    배치(combat_test.tscn, _apply_monster_portrait_tier())로 실제 렌더하고 실제
+	#    trait 텍스트(_monster_trait_summary_text, production과 동일 함수)를 채운 뒤
+	#    레이아웃이 안정될 때까지 기다려 측정한다 — 패널 높이는 "특성" 줄 텍스트 길이에
+	#    따라 달라지므로(_setup_combat_hud()가 만드는 PanelContainer 자동 높이), 빈
+	#    텍스트로 재면 패널이 실제보다 작게 나와 여백 미달을 놓칠 수 있다.
+	var combat_scene := load("res://code/scenes/combat_test.tscn")
+	var combat = combat_scene.instantiate()
+	add_child(combat)
+	var combat_script := load("res://code/scenes/combat_test.gd")
+	var screen := Rect2(0.0, 0.0, 1280.0, 720.0)
+	const MARGIN := 10.0
+
+	var missing_margin: Array[String] = []
+	var out_of_bounds: Array[String] = []
+	var checked_count := 0
+	for profile in MonsterCatalog.MONSTERS:
+		var mid: String = profile["id"]
+		var tier: String = profile.get("tier", "normal")
+		if tier == "boss":
+			continue
+		var skill_ids: Array = []
+		for skill in profile.get("skills", []):
+			var skill_id: String = skill.get("id", "")
+			if skill_id != "":
+				skill_ids.append(skill_id)
+		var trait_config := {"personality": profile.get("personality", ""), "skill_ids": skill_ids}
+		combat.monster_trait_label.text = combat_script._monster_trait_summary_text(trait_config)
+		combat.monster_portrait.set_monster(mid)
+		combat._apply_monster_portrait_tier(tier == "elite", false)
+		await get_tree().process_frame
+		await get_tree().process_frame
+		checked_count += 1
+		var fr: TextureRect = combat.monster_portrait._face_rect
+		if fr == null or not fr.visible:
+			missing_margin.append("%s(no face_rect)" % mid)
+			continue
+		var fr_rect := fr.get_global_rect()
+		var panel_rect: Rect2 = combat._hud_panels[2].get_global_rect() if combat._hud_panels.size() >= 3 else Rect2()
+		var panel_bottom: float = panel_rect.position.y + panel_rect.size.y
+		if fr_rect.position.y < panel_bottom + MARGIN:
+			missing_margin.append("%s(top=%.1f, panel_bottom+margin=%.1f)" % [mid, fr_rect.position.y, panel_bottom + MARGIN])
+		if not screen.encloses(fr_rect):
+			out_of_bounds.append("%s(rect=%s)" % [mid, fr_rect])
+
+	var margin_ok: bool = missing_margin.is_empty()
+	ok = margin_ok and ok
+	lines.append("  일반+정예 %d종 — 포트레이트 상단 y >= 몬스터 HUD 패널 하단 y + 여백(%.0fpx) -> %s%s" % [
+		checked_count, MARGIN, "OK" if margin_ok else "FAIL",
+		("" if margin_ok else (" (미달: " + ", ".join(missing_margin) + ")"))
+	])
+	var bounds_ok: bool = out_of_bounds.is_empty()
+	ok = bounds_ok and ok
+	lines.append("  일반+정예 %d종 — production 배치 화면(1280x720) 안 배치 -> %s%s" % [
+		checked_count, "OK" if bounds_ok else "FAIL",
+		("" if bounds_ok else (" (잘림: " + ", ".join(out_of_bounds) + ")"))
 	])
 
 	remove_child(combat)

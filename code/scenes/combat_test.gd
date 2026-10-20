@@ -448,6 +448,29 @@ const MONSTER_PORTRAIT_BASE_POSITION := Vector2(1170.0, 300.0)
 ## 피드백 캡처로 확인). 셀프 피드백으로 확정한 값, dice_test.gd의
 ## _check_art1c5_boss_crop()가 패널 하단 y + 여백 이상인지 실제 계산으로 검증.
 const BOSS_PORTRAIT_POSITION_SHIFT := Vector2(-60.0, 130.0)
+
+## [미니 기획 ART-1c-6](2026-10-21) — 보스만 있던 위 HUD 패널 회피 보정을 일반/정예
+## 티어에도 적용한다. ART-1c-5 당시엔 "일반/정예는 요구사항이라 손대지 않는다"였지만,
+## 아트 스레드 재확인 결과 일반/정예도 보스와 똑같이 몬스터 HUD 패널(우측 상단,
+## _setup_combat_hud()가 "특성" 줄 텍스트 길이에 따라 런타임에 높이를 정함)에 머리가
+## 가려지고 있었다 — `_debug_print_boss_rects()`로 실측한 값:
+##   - 일반(스케일 1.0, 예: shadow/skeleton — personality 1줄, 스킬 0~1개):
+##     패널 바닥 y=243, 보정 전 포트레이트 상단 y=196(패널보다 47px 위, 완전히 가려짐).
+##   - 정예(스케일 1.15, 예: skeleton_knight/dark_wolf — personality 2줄 + 스킬 2개로
+##     일반보다 패널이 더 큼): 패널 바닥 y=262, 보정 전 포트레이트 상단 y=180.4.
+## 카탈로그 전수(일반 20종 personality 최장 104자/스킬 최대 1개, 정예 8종 전부
+## personality 2줄 wrap + 스킬 정확히 2개 공식)로 패널 높이가 각각 187px/206px에서
+## 수렴하는 것까지 확인(전수 personality 길이가 더 늘어나면 이 상수도 다시 재야 함 —
+## dice_test.gd의 _check_art1c6_portrait_hud_margin()이 매 이터레이션 카탈로그 전수로
+## 재검증). 보스와 같은 방식(고정 상수 + 여백 ~20px)으로 패널 바닥 + 20px 아래에
+## 포트레이트 상단이 오도록 역산: 일반 shift.y=70(상단 196->266, 여백 23px),
+## 정예 shift.y=105(상단 180.4->285.4, 여백 23.4px) — x는 둘 다 화면 오른쪽 경계
+## (1280) 안에 이미 들어와 보정이 필요 없어 0(보스만 배율이 훨씬 커서 x 보정이 필요).
+const MONSTER_PORTRAIT_POSITION_SHIFT_BY_TIER := {
+	"normal": Vector2(0.0, 70.0),
+	"elite": Vector2(0.0, 105.0),
+	"boss": BOSS_PORTRAIT_POSITION_SHIFT,
+}
 ## [대형 기획 13] M-3 — 감독 추가 비평(2026-10-14) 전까지 승리 보상 화면
 ## (_show_reward_ui/_add_reward_frame)이 쓰던 y=120 기준값은 M-2 이전(다이스 뷰포트가
 ## offset_top=120이던 시절)의 값이 그대로 남은 것이었다. M-2가 다이스 뷰포트를 184로
@@ -1448,7 +1471,8 @@ func _apply_monster_portrait_tier(is_elite: bool, is_boss: bool) -> void:
 	var tier := "boss" if is_boss else ("elite" if is_elite else "normal")
 	var s: float = MONSTER_PORTRAIT_SCALE_BY_TIER.get(tier, 1.0)
 	monster_portrait.scale = Vector2(s, s)
-	monster_portrait.position = MONSTER_PORTRAIT_BASE_POSITION + (BOSS_PORTRAIT_POSITION_SHIFT if is_boss else Vector2.ZERO)
+	var shift: Vector2 = MONSTER_PORTRAIT_POSITION_SHIFT_BY_TIER.get(tier, Vector2.ZERO)
+	monster_portrait.position = MONSTER_PORTRAIT_BASE_POSITION + shift
 
 
 ## [대형 기획 13] M-5(b) — monster_tier_icon/monster_tier_label을 현재 monster_is_elite/
@@ -1846,8 +1870,11 @@ func _debug_shift_monster_portrait_center() -> void:
 ## 기록 로그 패널의 실제 global rect를 stdout에 출력한다. BOSS_PORTRAIT_POSITION_SHIFT.y
 ## 값을 셀프 피드백 중 숫자로 확인하며 조정하기 위해 만든 훅 — dice_test.gd의
 ## _check_art1c5_boss_crop()가 같은 값을 코드로 검증하므로 평소엔 이 훅을 직접 쓸 일이
-## 없지만, 이후 비슷한 포트레이트 겹침 문제가 생기면 재사용 가능해 남겨둔다.
+## 없지만, 이후 비슷한 포트레이트 겹침 문제가 생기면 재사용 가능해 남겨둔다. [미니 기획
+## ART-1c-6](2026-10-21)로 현재 몬스터의 계산된 얼굴 크롭 비율도 함께 출력하도록
+## 확장(일반/정예 자동 탐지 결과를 셀프 피드백 중 숫자로 확인하는 데 재사용).
 func _debug_print_boss_rects() -> void:
+	print("[ART1C5] monster crop ratio: ", CharacterArt.monster_face_crop_ratio(monster_portrait._art_monster_id, monster_portrait._tier, monster_portrait.art_base_dir))
 	var fr: TextureRect = monster_portrait._face_rect
 	if fr != null:
 		print("[ART1C5] face_rect global rect: ", fr.get_global_rect())
