@@ -1221,6 +1221,27 @@ func _debug_press_shortcut_skill_codex_legendary_explosive() -> void:
 	btn.pressed.emit()
 
 
+## QA 전용 — [대형 기획 15] Q-8(c) 3/4(2026-10-20): 위 수호자/폭발병 훅과 같은 이유,
+## 주술사 전설 3종(저주의 흡수/저주의 전이/저주의 종결, 신규 life_siphon/curse_mark
+## 모티프 + 재사용 guard_stack 모티프)을 한 화면에서 확인.
+func _debug_press_shortcut_skill_codex_legendary_shieldbearer() -> void:
+	RunState.character_id = "shieldbearer"
+	RunState.skill_flags = ["legend_shieldbearer_lifecurse", "legend_shieldbearer_curseseal", "legend_shieldbearer_curseend"]
+	var btn := skill_codex_button
+	btn.grab_focus()
+	btn.pressed.emit()
+
+
+## QA 전용 — 위와 같은 이유, 매혹사 전설 3종(매혹의 포로/매혹의 극치/매혹의 응보,
+## 재사용 curse_mark/dice_flip/true_strike 모티프)을 한 화면에서 확인.
+func _debug_press_shortcut_skill_codex_legendary_enchantress() -> void:
+	RunState.character_id = "enchantress"
+	RunState.skill_flags = ["legend_enchantress_captive", "legend_enchantress_ascend", "legend_enchantress_retribution"]
+	var btn := skill_codex_button
+	btn.grab_focus()
+	btn.pressed.emit()
+
+
 ## QA 전용 — 인벤토리의 다이스가 두 주머니의 모든 다이스보다 작거나 같아 승급 자리가
 ## 하나도 없는 상태에서 2단계 화면에 "승급할 곳이 없다" 안내 문구가 정상 표시되는지
 ## 확인하기 위함(이터레이션 74, 모든 버튼이 비활성화된 채 설명 없이 남던 것을 고침).

@@ -5,39 +5,43 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-10-20 (235)
-- 작성자: AI 에이전트. **[대형 기획 15] Q-8(c) 2/4(전설 스킬 — 수호자/폭발병
-  6종) 완료.** 직전 이터레이션(iter_154)이 사용 한도로 미커밋 상태로 끊긴
-  것을 `git diff`로 파악해 이어받았다 — stash/reset 없이 그대로 두고
-  전수 검증·마무리만 했다. 1/4과 달리 **이번엔 전부 이미 구현돼 있었고
-  빠진 조각이 없었다**: `skill_pool.gd`(수호자 3종 — 최후의 보루/반격의
-  벽/불굴의 벽, 폭발병 3종 — 연쇄 폭발의 고리/절대 폭발/최후의 폭발, 전부
-  SKILL_RARITY=전설 + ICON_MOTIFS 등록(기존 모티프 재사용, 신규 모티프
-  없음) + diagram 데이터), `dice_bag.gd`(`apply_force_max()` — 다이스별
-  자기 면 최댓값으로 전환), `run_state.gd`(`_bastion_fixed_value()` 순수
-  함수 + `advance_round()`에서 고정 방어 다이스 값 영구 증가 배선),
-  `combat_test.gd`(`_is_hp_half_or_below()`/`_overguard_counter_damage()`/
-  `_absolute_detonation_bonus_damage()`/`_update_explosive_chain_progress()`
-  4개 효과 함수 + 플래그 변수 6개 + `_select_exchange_bags()`/
-  `_resolve_exchange()` 배선), `skill_diagram_chip.gd`("초과방어" 조건
-  칩), `dice_test.gd`(`_check_q8c2_legendary_skills()` 8항목 — 전부 플래그가
-  아니라 계산 결과로 검증: apply_force_max 다이스 변환/HP절반 판정/반격의
-  벽 초과분 계산/불굴의 벽 상한+다이스 개조 반영/연쇄 폭발의 고리가 일반
-  리셋과 다른 결과를 내는지/절대 폭발 방어 무시 피해/최후의 폭발이
-  `_select_exchange_bags()` 실제 호출로 보너스턴을 강제하는지/설명 문구
-  전수), `dungeon_map.gd`(QA 전용 디버그 훅 2종, 1/4과 같은 패턴)까지
-  전부. `bash scripts/qa_shot.sh dice_test 60 qa_out/dice_test_q8c2.png
-  "" 1`을 **foreground로 전체 재실행해 "결과: PASS"(FAIL 0건) 직접 확인**
-  (run_in_background 금지 — 2회 연속 이 항목이 사용 한도로 끊긴 세션이라
-  다시 한번 명시적으로 확인). 셀프 피드백 스크린샷 2장 — 던전 맵 "스킬
-  도감"에서 기존 디버그 훅으로 실제 "보유" 상태를 만들어 직접 읽어 확인:
-  수호자 "최후의 보루"/"반격의 벽"(`qa_out/q8c2_guardian_codex.png`, 전설
-  배지 주황색 + "한 런에 하나만" 안내 문구 + dice_flip/counter_strike
-  모티프 정상 렌더), 폭발병 "연쇄 폭발의 고리"/"절대 폭발"
-  (`qa_out/q8c2_explosive_codex.png`, burst_stack/true_strike 모티프,
-  두 카드가 뚜렷이 다른 모양으로 구분됨). 전투 규칙/밸런스는 건드리지
-  않았고 `resources/`·`docs/art/`는 읽기만 했다. **나머지 4명(주술사/
-  매혹사/곡예사/해적) 12종은 3/4~4/4 몫 — 다음은 Q-8(c) 3/4(주술사/매혹사).**
+- 일시: 2026-10-20 (236)
+- 작성자: AI 에이전트. **[대형 기획 15] Q-8(c) 3/4(전설 스킬 — 주술사/매혹사
+  6종) 완료.** 1/4·2/4의 전설 인프라(`SkillPool.LEGENDARY_SKILLS`/
+  `has_legendary()`/`filter_legendary_if_owned()`/`ICON_MOTIFS`/
+  `SKILL_RARITY`/`SkillDiagramChip`)를 그대로 재사용해 처음부터 설계·구현
+  했다(이전 이터레이션의 미완성 상태를 이어받은 게 아님). **주술사 3종**
+  (guard_stack 정체성): 저주의 흡수(수호 보너스 방어턴에서 과잉 방어분을
+  HP 회복으로 — 전설 18종 중 유일한 회복 효과, `_curse_absorb_heal()`)/
+  저주의 전이(수호 보너스 방어턴마다 몬스터 공격 합계를 영구 약화,
+  `_curse_seal_reduction()`)/저주의 종결(수호 보너스 방어턴이 한 번
+  발동하면 그 뒤로 모든 방어턴이 영구 보너스턴, `_select_exchange_bags()`
+  각성 분기). **매혹사 3종**(charm_flip 정체성): 매혹의 포로(매 턴 몬스터
+  다이스 최고값을 최솟값으로 — 플레이어 스킬이 몬스터 다이스에 직접
+  적용되는 새 메커니즘, `DiceBag.apply_charm_debuff()` 신규)/매혹의 극치
+  (평균 미달 다이스 전부 최댓값으로, `DiceBag.apply_charm_ascend()` 신규)/
+  매혹의 응보(매혹 심화 count만큼 방어 무시 추가 피해, `_charm_amplify_
+  count()`로 리팩터링해 재사용). 신규 아이콘 모티프 2종(life_siphon/
+  curse_mark, HP 회복·몬스터 약화 범주가 기존에 없어 신설) + 재사용 3종
+  (guard_stack/dice_flip/true_strike), `skill_icon.gd`에 실제 그리기
+  분기 추가(빈 원 폴백 없음). `dice_test.gd` 신규
+  `_check_q8c3_legendary_skills()` 8항목 — 전부 플래그가 아니라 계산
+  결과로 검증(회복량/공격 합계 감소량/`_select_exchange_bags()` 실제
+  호출로 각성 전/후 보너스턴 강제 전환/`DiceBag.apply_charm_debuff()`·
+  `apply_charm_ascend()` 실제 다이스 값 변환(후자는 2개 동시 변환까지)/
+  `_charm_amplify_count()` 1→2→3/매혹의 응보 고정 피해 공식/설명 문구
+  전수). `bash scripts/qa_shot.sh dice_test 60 qa_out/dice_test_q8c3.png
+  "" 1`을 **foreground로 전체 실행해 "결과: PASS"(FAIL 0건) 직접 확인**
+  (run_in_background 금지). 셀프 피드백 스크린샷 2장 — 던전 맵 "스킬
+  도감"에서 신규 디버그 훅(`_debug_press_shortcut_skill_codex_legendary_
+  shieldbearer`/`_enchantress`)으로 실제 "보유" 상태를 만들어 직접 읽어
+  확인: 주술사 "저주의 흡수"/"저주의 전이"(`qa_out/
+  q8c3_shieldbearer_codex.png`, 전설 배지 주황색 + "한 런에 하나만" 안내
+  문구 + life_siphon/curse_mark 모티프 정상 렌더, 서로 뚜렷이 다른 모양),
+  매혹사 "매혹의 포로"/"매혹의 극치"(`qa_out/q8c3_enchantress_codex.png`,
+  curse_mark/dice_flip 모티프, 도식 MIN/MAX 배지로 구분). 전투 규칙/밸런스는
+  건드리지 않았고 `resources/`·`docs/art/`는 읽기만 했다. **나머지 2명
+  (곡예사/해적) 6종은 4/4 몫 — 다음은 Q-8(c) 4/4(곡예사/해적).**
 
 ## 지금 위치
 
@@ -741,8 +745,16 @@ dungeon_map/shop/event/story_event/combat_test 공유)에 SMALL 도식을
 폭발 — 보너스턴 피해 방어 완전 무시/최후의 폭발 — HP 절반 이하면 모든
 공격턴이 보너스턴) 6종 전부 실전 배선 완료, 신규 모티프 없이 기존 5종
 (dice_flip/counter_strike/defense_boost/burst_stack/true_strike) 재사용.
-상세는 완료 기록 (235) 참고. **나머지 4명(주술사/매혹사/곡예사/해적)
-12종은 3/4~4/4 몫 — 다음은 Q-8(c) 3/4(주술사/매혹사).**
+상세는 완료 기록 (235) 참고. 2026-10-20(236)으로 **Q-8(c) 3/4(주술사/매혹사
+6종) 완료**: 주술사(저주의 흡수 — 수호 보너스 방어턴에서 과잉 방어분을
+HP 회복으로/저주의 전이 — 수호 보너스 방어턴마다 몬스터 공격 합계 영구
+약화/저주의 종결 — 보너스 방어턴이 한 번 발동하면 그 뒤로 영구 보너스턴)·
+매혹사(매혹의 포로 — 매 턴 몬스터 다이스 최고값을 최솟값으로/매혹의 극치 —
+평균 미달 다이스 전부 최댓값으로/매혹의 응보 — 매혹 심화 count만큼 방어
+무시 추가 피해) 6종 전부 실전 배선 완료, 신규 모티프 2종(life_siphon/
+curse_mark, HP 회복·몬스터 약화 범주가 기존에 없어서 신설) + 재사용 3종
+(guard_stack/dice_flip/true_strike). 상세는 완료 기록 (236) 참고. **나머지
+2명(곡예사/해적) 6종은 4/4 몫 — 다음은 Q-8(c) 4/4(곡예사/해적).**
 
 남은 구조적 후보(급하지 않음): 보스 개별 6종 중 타락한 기사단장만 밴드 미달
 (`MonsterSkills.modify_monster_roll()` 파라미터화가 전제조건이라 사람 설계
@@ -1353,6 +1365,61 @@ dungeon_map/shop/event/story_event/combat_test 공유)에 SMALL 도식을
 
 ## 완료 기록
 
+- **2026-10-20 (236)**: **[대형 기획 15] Q-8(c) 3/4(전설 스킬 — 주술사/매혹사
+  6종, 원문 5) 완료.** 1/4·2/4와 달리 이번엔 이전 이터레이션의 미완성 상태를
+  이어받은 게 아니라 처음부터 설계·구현했다. 1/4에서 만든 전설 인프라
+  (`SkillPool.LEGENDARY_SKILLS`/`has_legendary()`/`filter_legendary_if_owned()`/
+  `ICON_MOTIFS`/`SKILL_RARITY`/`SkillDiagramChip`/`dice_test.gd` 검증 패턴)를
+  그대로 재사용했다. **주술사 3종**(guard_stack "저주 술식·1D20 방어 특화"
+  정체성, 전부 새 메커니즘): 저주의 흡수(수호 보너스 방어턴(1D20)에서 방어가
+  몬스터 공격을 초과한 만큼을 몬스터 대신 플레이어 체력으로 흡수 — **지금까지
+  전설 18종 중 유일한 HP 회복 효과**, `_curse_absorb_heal()`)/저주의 전이
+  (수호 보너스 방어턴이 발동할 때마다 저주 각인이 쌓이고 몬스터 공격 합계가
+  각인 수×2만큼 전투 내내 영구히 줄어듦 — 몬스터 스탯을 영구 약화시키는 새
+  메커니즘, `_curse_seal_reduction()`)/저주의 종결(수호 보너스 방어턴이 한
+  번이라도 발동하면 "각성"해 그 뒤로는 스택 조건과 무관하게 모든 방어턴이
+  영구히 보너스 턴 — `_select_exchange_bags()`에 "각성" 분기 추가).
+  **매혹사 3종**(charm_flip "균형형·매 턴 최저 다이스 최댓값 전환" 정체성):
+  매혹의 포로(자기 다이스를 끌어올리는 charm_flip과 반대로 매 턴 몬스터
+  다이스 중 가장 높았던 값을 그 다이스의 면 최솟값으로 깎음 — 플레이어 스킬이
+  몬스터 다이스에 직접 적용되는 새 메커니즘, `DiceBag.apply_charm_debuff()`
+  신규)/매혹의 극치(charm_flip/매혹 심화의 "고정 개수(1~3개)" 상한을 넘어
+  이번 턴 평균보다 낮은 다이스 "전부"가 각자의 면 최댓값으로 바뀜,
+  `DiceBag.apply_charm_ascend()` 신규)/매혹의 응보(charm_flip이 그 턴 뒤집은
+  다이스 개수만큼 방어 무시 고정/반격 피해 추가 — 공격·방어 양쪽 대칭이
+  균형형 정체성, `_legend_hits_bonus_damage()` 재사용). 리팩터링: charm_flip의
+  "매혹 심화" count 계산(1→2→3)이 기존엔 `_resolve_exchange()` 안 if 블록에만
+  인라인돼 있어 재사용이 불가능했는데, `_charm_amplify_count()` 순수 함수로
+  뽑아 매혹의 응보도 같은 값을 쓰게 했다(동작 불변, charm_flip 호출부도 이
+  함수를 쓰도록 함께 바꿈). 6종 전부 description 끝에 "한 런에 하나만" 안내
+  문장 포함. **신규 아이콘 모티프 2종**(`life_siphon`=심장+흡수 나선,
+  `curse_mark`=저주 룬+하향 쐐기, 둘 다 `skill_icon.gd`에 실제 그리기 분기
+  추가) — 저주의 흡수(HP 회복)/저주의 전이·매혹의 포로(몬스터 약화)는 기존
+  11종 모티프 중 맞는 범주가 없어 새로 만들었고, 저주의 종결(guard_stack
+  재사용)/매혹의 극치(dice_flip 재사용)/매혹의 응보(true_strike 재사용)는
+  효과 범주가 겹쳐 기존 모티프를 그대로 썼다. 도식(diagram)도 기존 전설
+  12종과 기호 구성이 겹치지 않도록 확인(예: 매혹의 극치는 매혹 심화와
+  똑같은 "duration→die dual→value max" 모양이 될 뻔한 것을 `count:4`
+  배지로 구분). **신규 `dice_test.gd` `_check_q8c3_legendary_skills()` 8항목**
+  (전부 계산 결과 직접 비교 — 저주의 흡수 회복량/저주의 전이 감소량/저주의
+  종결이 `_select_exchange_bags()` 실제 호출로 각성 전/후 보너스턴 강제
+  여부가 바뀌는지/`DiceBag.apply_charm_debuff()`가 최고값 다이스를 실제로
+  최솟값으로 바꾸는지/`DiceBag.apply_charm_ascend()`가 평균 미달 다이스
+  2개를 동시에 바꾸는지/`_charm_amplify_count()` 1→2→3/매혹의 응보 고정
+  피해 공식/설명 문구 전수). `bash scripts/qa_shot.sh dice_test 60
+  qa_out/dice_test_q8c3.png "" 1`을 **foreground로 전체 실행해 "결과: PASS"
+  (FAIL 0건) 직접 확인**. 셀프 피드백 스크린샷 2장 — 던전 맵 "스킬 도감"에서
+  신규 디버그 훅(`_debug_press_shortcut_skill_codex_legendary_shieldbearer`/
+  `_enchantress`)으로 실제 "보유" 상태를 만들어 직접 읽어 확인:
+  `qa_out/q8c3_shieldbearer_codex.png`(저주의 흡수 — 주황 심장+나선/저주의
+  전이 — 주황 저주 룬+쐐기, 둘 다 전설 배지+"한 런에 하나만" 안내 문구+
+  서로 뚜렷이 다른 모양), `qa_out/q8c3_enchantress_codex.png`(매혹의 포로 —
+  저주 룬 모티프+도식 "MIN" 배지/매혹의 극치 — dice_flip 모티프+도식 "4" 개수
+  배지+"MAX", 둘 다 서로 다른 모양으로 구분됨). 전투 규칙/밸런스 수치는
+  건드리지 않았고 `resources/`·`docs/art/`는 읽기만 했다. **나머지 2명(곡예사/
+  해적) 6종은 4/4 몫으로 남음 — 다음은 Q-8(c) 4/4(곡예사/해적), 그 다음은
+  Q-8(c)(d)(마무리: 밸런스 시뮬+DESIGN.md 레어리티 표+아트 발주 목록 정리).**
+
 - **2026-10-20 (235)**: **[대형 기획 15] Q-8(c) 2/4(전설 스킬 — 수호자/폭발병
   6종, 원문 5) 완료.** 직전 이터레이션(iter_154)이 사용 한도로 미커밋 상태
   (skill_pool.gd 6종 데이터+레어리티+도식+모티프, dice_bag.gd
@@ -1845,69 +1912,9 @@ dungeon_map/shop/event/story_event/combat_test 공유)에 SMALL 도식을
   로드 경고는 기존에도 있던 무관한 이슈). 전투 규칙/밸런스는 건드리지 않았고
   `resources/`·`docs/art/`는 읽기만 했다.
 
-- **2026-10-17 (226)**: 직전 이터레이션(Q-5)이 사용 한도로 미커밋 상태로 끊겨
-  이어받았다. **[대형 기획 15] Q-5(커스터마이징을 던전 선택지에서 분리 + UX
-  재설계, 원문 15/16) 전체 완료 — [대형 기획 15](Q-1~Q-5) 전체 완료.**
-  코드 자체(`customize_panel.gd`/`dungeon_map.gd`/`.tscn`)는 전 이터레이션에서
-  이미 거의 다 짜여 있었다 — **(15)** "정비"(옛 커스터마이징) 버튼이 방 선택지
-  y-스택(`_layout_visible_buttons()`)에서 완전히 빠져 `dungeon_map.tscn` 헤더의
-  고정 버튼이 됐고(`_style_maintenance_button()`), 보유 눈금(`RunState.
-  pip_inventory`)이 있을 때만 주 행동(primary) 스타일로 강조되고 없으면 보조
-  스타일로 가라앉는다(둘 다 비활성화는 아님 — 항상 접근 가능). **(16)** 기존
-  "눈금 선택 화면 → 다이스 선택 화면 → 면 선택 화면(즉시 적용)" 3단계 순차
-  네비게이션을 `_show_pip_picker()` 한 화면으로 합쳤다 — 보유 눈금을
-  `ShapeDieChip`(다이스 실제 면 모양) 칩으로 나열 → 공격/방어 주머니를 같은
-  칩으로(눈금 선택 전엔 비활성화) → 면까지 고르면 적용 전/후 비교(바뀐 면
-  주황/초록 강조) + "적용"/"취소" 버튼이 뜬다. "적용"을 눌러야 실제
-  `_exchange_pip()`이 실행되고, 그 전까지는 아무것도 안 바뀐다. 진행 안내는
-  `_step_caption()` 한 줄뿐. 기존 교환 규칙(`_exchange_pip`, 값 상한 클램프)과
-  하위 호환 shim(`_show_die_picker`/`_show_face_picker`/`_on_face_chosen`,
-  dungeon_map QA 훅·dice_test.gd가 직접 호출)은 전혀 안 바꿨다.
-  **이번 이터레이션에서 실제로 한 일(이어받은 뒤 추가)**: `bash scripts/
-  qa_shot.sh dice_test` 전체 PASS를 먼저 확인한 뒤, 신규 셀프 피드백 캡처
-  (`qa_out/q5_preview.png`, 1280x720)를 직접 읽고 비평하다가 **실제 버그를
-  발견**했다 — 공격/방어 주머니가 꽉 찰수록(`DiceBag.MAX_DICE=6`) 미리보기
-  단계까지 펼친 통합 화면의 전체 높이가 720px를 넘어 "닫기" 버튼과 프레임
-  하단이 화면 밖으로 잘려 보이지도 눌리지도 않는 문제였다. 처음엔
-  DeckPanel(M-1)과 같은 ScrollContainer 해법을 시도했으나, 이 패널(과
-  dungeon_map.tscn 등 이 패널이 매달리는 모든 씬)의 **씬 루트가 전부 Node2D라서
-  ScrollContainer가 자기 크기를 뷰포트 기준으로 엉뚱하게(실측 2560x1440 —
-  1280x720의 정확히 2배, HiDPI 스케일로 추정) 계산해버려 스크롤 수학이 아예
-  신뢰 불가능**하다는 걸 dungeon_map.gd에 임시 디버그 훅을 붙여 직접 확인했다.
-  그래서 Container 레이아웃에 전혀 기대지 않는 **수동 방식**으로 바꿨다 —
-  `_clip`(clip_contents=true인 평범한 Control, size를 1280x720으로 직접
-  고정 — 이 프로젝트는 이미 이 해상도를 전제하므로 앵커 계산에 기대지 않음)이
-  보이는 영역을 자르고, 그 안의 `_content_root`(평범한 Control)를
-  `position.y`만 움직여 "스크롤"을 흉내낸다(`_ensure_step_button_visible()`가
-  각 버튼의 `focus_entered`에 연결돼, 포커스가 어디로 이동하든 그 버튼이 보이는
-  위치로 수동 계산해 스크롤). 미리보기 단계의 기본 포커스도 눈금 칩(화면
-  맨 위, 스크롤 필요 없음)에서 "적용" 버튼으로 바꿔 자연스럽게 아래쪽이
-  보이게 했다. **검증 중 2차 버그 발견**: 새로 만든 dice_test 검증
-  (`_check_q5_customize_scroll_follow_focus()`)이 "닫기" 버튼을 텍스트로 찾을 때
-  `_clear_ui()`의 `queue_free()`(지연 해제)가 아직 안 끝난 **이전 redraw의 낡은
-  "닫기" 버튼**을 집어 거짓으로 PASS하고 있었다(같은 프레임 안에서
-  `open()` → `_show_pip_picker()`를 두 번 연달아 부르는 패턴 — 이 패널의 여러
-  QA 훅이 공유하는 기존 패턴) — 검색을 "첫 매치"에서 "마지막 매치"로 바꿔
-  실제 최신 버튼을 짚게 고쳤다(`dice_test.gd`/`dungeon_map.gd` 디버그 훅
-  둘 다). **최종 검증**: `dice_test.gd` 신규 `_check_q5_maintenance_entry_point()`
-  ((15) 고정 위치/포커스 체인 포함/강조 스타일 전환)/
-  `_check_q5_customize_preview_matches_apply()`((16) 미리보기 값이
-  `_exchange_pip()` 실제 결과(클램프 포함)와 정확히 일치, 적용 전엔 무변화,
-  적용 후 상태 초기화)/`_check_q5_customize_scroll_follow_focus()`(공격/방어
-  6다이스씩 채운 뒤 미리보기 단계로 "닫기"에 포커스 → 실제 화면 rect가
-  0~1280×0~720 안에 들어오는지, 수정 전엔 실측 FAIL 확인 후 고침) 전부 추가,
-  `bash scripts/qa_shot.sh dice_test 60 qa_out/dice_test.png "" 1` 전체
-  **PASS**(FAIL 0건). 셀프 피드백 3라운드 — ①기본 3다이스 상태 캡처(정상)
-  ②6다이스+미리보기 상태 캡처로 "닫기" 잘림 버그 발견 ③수정 후
-  `dungeon_map.gd`에 임시 QA 훅(`_debug_open_customize_overflow_close_focus()`,
-  영구 보존 — 같은 회귀를 다시 잡을 때 재사용 가능)을 추가해 재캡처, 스크롤이
-  실제로 "닫기"를 화면 안으로 끌어올리는 것을 `qa_out/
-  q5_overflow_close_focus.png`로 직접 확인. 전투 규칙/밸런스는 건드리지
-  않았고 `resources/`·`docs/art/`는 읽기만 했다.
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(235)에서 (225)를 그리로 옮겼다.)*
+이번 이터레이션(236)에서 (226)을 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 

@@ -8,6 +8,66 @@
 
 ---
 
+- **2026-10-17 (226)**: 직전 이터레이션(Q-5)이 사용 한도로 미커밋 상태로 끊겨
+  이어받았다. **[대형 기획 15] Q-5(커스터마이징을 던전 선택지에서 분리 + UX
+  재설계, 원문 15/16) 전체 완료 — [대형 기획 15](Q-1~Q-5) 전체 완료.**
+  코드 자체(`customize_panel.gd`/`dungeon_map.gd`/`.tscn`)는 전 이터레이션에서
+  이미 거의 다 짜여 있었다 — **(15)** "정비"(옛 커스터마이징) 버튼이 방 선택지
+  y-스택(`_layout_visible_buttons()`)에서 완전히 빠져 `dungeon_map.tscn` 헤더의
+  고정 버튼이 됐고(`_style_maintenance_button()`), 보유 눈금(`RunState.
+  pip_inventory`)이 있을 때만 주 행동(primary) 스타일로 강조되고 없으면 보조
+  스타일로 가라앉는다(둘 다 비활성화는 아님 — 항상 접근 가능). **(16)** 기존
+  "눈금 선택 화면 → 다이스 선택 화면 → 면 선택 화면(즉시 적용)" 3단계 순차
+  네비게이션을 `_show_pip_picker()` 한 화면으로 합쳤다 — 보유 눈금을
+  `ShapeDieChip`(다이스 실제 면 모양) 칩으로 나열 → 공격/방어 주머니를 같은
+  칩으로(눈금 선택 전엔 비활성화) → 면까지 고르면 적용 전/후 비교(바뀐 면
+  주황/초록 강조) + "적용"/"취소" 버튼이 뜬다. "적용"을 눌러야 실제
+  `_exchange_pip()`이 실행되고, 그 전까지는 아무것도 안 바뀐다. 진행 안내는
+  `_step_caption()` 한 줄뿐. 기존 교환 규칙(`_exchange_pip`, 값 상한 클램프)과
+  하위 호환 shim(`_show_die_picker`/`_show_face_picker`/`_on_face_chosen`,
+  dungeon_map QA 훅·dice_test.gd가 직접 호출)은 전혀 안 바꿨다.
+  **이번 이터레이션에서 실제로 한 일(이어받은 뒤 추가)**: `bash scripts/
+  qa_shot.sh dice_test` 전체 PASS를 먼저 확인한 뒤, 신규 셀프 피드백 캡처
+  (`qa_out/q5_preview.png`, 1280x720)를 직접 읽고 비평하다가 **실제 버그를
+  발견**했다 — 공격/방어 주머니가 꽉 찰수록(`DiceBag.MAX_DICE=6`) 미리보기
+  단계까지 펼친 통합 화면의 전체 높이가 720px를 넘어 "닫기" 버튼과 프레임
+  하단이 화면 밖으로 잘려 보이지도 눌리지도 않는 문제였다. 처음엔
+  DeckPanel(M-1)과 같은 ScrollContainer 해법을 시도했으나, 이 패널(과
+  dungeon_map.tscn 등 이 패널이 매달리는 모든 씬)의 **씬 루트가 전부 Node2D라서
+  ScrollContainer가 자기 크기를 뷰포트 기준으로 엉뚱하게(실측 2560x1440 —
+  1280x720의 정확히 2배, HiDPI 스케일로 추정) 계산해버려 스크롤 수학이 아예
+  신뢰 불가능**하다는 걸 dungeon_map.gd에 임시 디버그 훅을 붙여 직접 확인했다.
+  그래서 Container 레이아웃에 전혀 기대지 않는 **수동 방식**으로 바꿨다 —
+  `_clip`(clip_contents=true인 평범한 Control, size를 1280x720으로 직접
+  고정 — 이 프로젝트는 이미 이 해상도를 전제하므로 앵커 계산에 기대지 않음)이
+  보이는 영역을 자르고, 그 안의 `_content_root`(평범한 Control)를
+  `position.y`만 움직여 "스크롤"을 흉내낸다(`_ensure_step_button_visible()`가
+  각 버튼의 `focus_entered`에 연결돼, 포커스가 어디로 이동하든 그 버튼이 보이는
+  위치로 수동 계산해 스크롤). 미리보기 단계의 기본 포커스도 눈금 칩(화면
+  맨 위, 스크롤 필요 없음)에서 "적용" 버튼으로 바꿔 자연스럽게 아래쪽이
+  보이게 했다. **검증 중 2차 버그 발견**: 새로 만든 dice_test 검증
+  (`_check_q5_customize_scroll_follow_focus()`)이 "닫기" 버튼을 텍스트로 찾을 때
+  `_clear_ui()`의 `queue_free()`(지연 해제)가 아직 안 끝난 **이전 redraw의 낡은
+  "닫기" 버튼**을 집어 거짓으로 PASS하고 있었다(같은 프레임 안에서
+  `open()` → `_show_pip_picker()`를 두 번 연달아 부르는 패턴 — 이 패널의 여러
+  QA 훅이 공유하는 기존 패턴) — 검색을 "첫 매치"에서 "마지막 매치"로 바꿔
+  실제 최신 버튼을 짚게 고쳤다(`dice_test.gd`/`dungeon_map.gd` 디버그 훅
+  둘 다). **최종 검증**: `dice_test.gd` 신규 `_check_q5_maintenance_entry_point()`
+  ((15) 고정 위치/포커스 체인 포함/강조 스타일 전환)/
+  `_check_q5_customize_preview_matches_apply()`((16) 미리보기 값이
+  `_exchange_pip()` 실제 결과(클램프 포함)와 정확히 일치, 적용 전엔 무변화,
+  적용 후 상태 초기화)/`_check_q5_customize_scroll_follow_focus()`(공격/방어
+  6다이스씩 채운 뒤 미리보기 단계로 "닫기"에 포커스 → 실제 화면 rect가
+  0~1280×0~720 안에 들어오는지, 수정 전엔 실측 FAIL 확인 후 고침) 전부 추가,
+  `bash scripts/qa_shot.sh dice_test 60 qa_out/dice_test.png "" 1` 전체
+  **PASS**(FAIL 0건). 셀프 피드백 3라운드 — ①기본 3다이스 상태 캡처(정상)
+  ②6다이스+미리보기 상태 캡처로 "닫기" 잘림 버그 발견 ③수정 후
+  `dungeon_map.gd`에 임시 QA 훅(`_debug_open_customize_overflow_close_focus()`,
+  영구 보존 — 같은 회귀를 다시 잡을 때 재사용 가능)을 추가해 재캡처, 스크롤이
+  실제로 "닫기"를 화면 안으로 끌어올리는 것을 `qa_out/
+  q5_overflow_close_focus.png`로 직접 확인. 전투 규칙/밸런스는 건드리지
+  않았고 `resources/`·`docs/art/`는 읽기만 했다.
+
 - **2026-10-17 (225)**: **[대형 기획 15] Q-4b(보유 스킬 팝업 + 던전 포기, 원문
   11/21) 전체 완료.**
   **(11) 보유 스킬 팝업** — 신규 공용 컴포넌트 `code/scenes/skill_detail_popup.gd`

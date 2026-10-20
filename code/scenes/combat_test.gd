@@ -239,6 +239,39 @@ static func _overguard_counter_damage(atk_total: int, def_total: int) -> int:
 static func _absolute_detonation_bonus_damage(atk_total: int, dmg: int, is_bonus_turn: bool) -> int:
 	return max(0, atk_total - dmg) if is_bonus_turn else 0
 
+
+## [대형 기획 15] Q-8(c) 3/4(2026-10-20) 전설 스킬(주술사/매혹사) 순수 계산 헬퍼 — 위
+## 1/4·2/4 헬퍼와 같은 이유로 분리.
+
+## "저주의 흡수"(legend_shieldbearer_lifecurse, 주술사 전용 전설) — 수호 보너스
+## 방어턴(1D20)에서만, 방어 합계가 몬스터 공격 합계를 초과한 만큼(_overguard_
+## counter_damage()와 같은 공식)을 반격 피해 대신 플레이어 체력 회복량으로
+## 돌려준다. 보너스 턴이 아니면(평소 방어턴) 0 — "1D20 방어 특화" 정체성대로
+## 보너스 턴에만 발동한다.
+static func _curse_absorb_heal(atk_total: int, def_total: int, is_bonus_turn: bool) -> int:
+	return max(0, def_total - atk_total) if is_bonus_turn else 0
+
+
+## "저주의 전이"(legend_shieldbearer_curseseal, 주술사 전용 전설) — 저주 각인
+## (marks, 이 전투에서 수호 보너스 방어턴이 발동한 횟수) 1개당 몬스터 공격 합계를
+## per_mark만큼 영구히 깎는다. per_mark 기본값은 다른 전설 고정 피해 공식
+## (_legend_hits_bonus_damage())과 같은 잠정값 2.
+static func _curse_seal_reduction(marks: int, per_mark: int = 2) -> int:
+	return marks * per_mark
+
+
+## "매혹 심화"/"매혹 심화+"가 올리는 charm_flip 대상 다이스 개수(1->2->3) 계산을
+## 공용 순수 함수로 뽑았다 — 기존에는 _resolve_exchange() 안 if 블록에만 인라인돼
+## 있어 "매혹의 응보"(legend_enchantress_retribution) 같은 다른 지점에서 같은 값을
+## 재사용할 수 없었다(동작은 완전히 동일, 순수 함수 분리만 — charm_flip 블록도 이
+## 함수를 호출하도록 함께 바꿈).
+static func _charm_amplify_count(skill_flags: Array) -> int:
+	if skill_flags.has("charm_amplify_plus"):
+		return 3
+	elif skill_flags.has("charm_amplify"):
+		return 2
+	return 1
+
 const SETTLE_LIN_THRESHOLD := 0.08
 const SETTLE_ANG_THRESHOLD := 0.5
 const SETTLE_MIN_FRAMES := 10
@@ -573,6 +606,52 @@ var player_legend_explosive_absolute_active := false
 ## HP가 절반 이하이면 폭발 스택 진행과 무관하게 모든 공격턴이 보너스 공격턴(1D20)이
 ## 된다.
 var player_legend_explosive_lastblast_active := false
+
+## [대형 기획 15] Q-8(c) 3/4(2026-10-20) — 주술사(shieldbearer)/매혹사(enchantress)
+## 전설 6종. 1/4·2/4와 같은 패턴(_reset_player_battle_state()에서 skill_flags를
+## 읽어 채움, "한 런에 전설은 하나만" 덕분에 최대 1개만 true일 수 있지만 분기는
+## 독립적). 주술사 3종은 "저주" 테마로 guard_stack(방어 최댓값 스택 -> 1D20
+## 보너스 방어턴) 정체성과 전부 시너지: 흡수(새 메커니즘, 플레이어 체력 회복)/
+## 전이(새 메커니즘, 몬스터 공격 합계 영구 약화)/종결(각성 후 모든 방어턴이
+## 영구히 보너스 턴). 매혹사 3종은 "균형"(공격/방어 둘 다, 매 턴) 테마로
+## charm_flip 정체성과 시너지: 포로(새 메커니즘, 플레이어 스킬이 몬스터 다이스를
+## 역으로 깎음)/극치(charm_flip/매혹 심화의 "고정 개수" 상한을 "평균 이하 전부"로
+## 확장)/응보(매혹 심화의 count를 재사용해 방어 무시 추가 피해, 공격+방어 양쪽
+## 대칭).
+##
+## player_legend_shieldbearer_lifecurse_active: "저주의 흡수" — 수호 보너스
+## 방어턴(1D20)에서 방어가 몬스터 공격을 초과한 만큼을 몬스터 반격 대신 플레이어
+## 체력 회복으로 돌린다(새 메커니즘 — 지금까지 전설 12종 중 HP 회복은 없었음).
+var player_legend_shieldbearer_lifecurse_active := false
+## player_legend_shieldbearer_curseseal_active: "저주의 전이" — 수호 보너스
+## 방어턴이 발동할 때마다 저주 각인이 쌓이고, 몬스터의 공격 합계가 각인 수만큼
+## 이번 전투 내내 영구히 줄어든다(새 메커니즘 — 몬스터 스탯을 영구히 약화).
+var player_legend_shieldbearer_curseseal_active := false
+## player_legend_shieldbearer_curseend_active: "저주의 종결" — 수호 보너스
+## 방어턴이 이 전투에서 한 번이라도 발동하면(각성) 그 뒤로는 스택 조건과 무관하게
+## 모든 방어턴이 보너스 방어턴(1D20)이 된다.
+var player_legend_shieldbearer_curseend_active := false
+## player_shieldbearer_curse_marks: "저주의 전이" 전용 — 이 전투에서 수호 보너스
+## 방어턴이 발동한 횟수(=저주 각인 개수). _reset_player_battle_state()에서 0으로
+## 초기화.
+var player_shieldbearer_curse_marks := 0
+## player_shieldbearer_curse_awakened: "저주의 종결" 전용 — 이 전투에서 수호
+## 보너스 방어턴이 한 번이라도 발동했는지(한 번 켜지면 전투 끝까지 유지).
+## curseend를 보유하지 않아도 값은 갱신되지만(비용이 거의 없어 조건 분기 없이
+## 항상 갱신), _select_exchange_bags()는 curseend_active일 때만 이 값을 읽는다.
+var player_shieldbearer_curse_awakened := false
+## player_legend_enchantress_captive_active: "매혹의 포로" — 매 턴, 상대(몬스터)의
+## 다이스 중 이번 턴 가장 높았던 값을 그 다이스의 면 최솟값으로 깎는다(charm_flip의
+## 완전한 반대 방향 — 자기 다이스가 아니라 몬스터 다이스에 적용하는 새 메커니즘).
+var player_legend_enchantress_captive_active := false
+## player_legend_enchantress_ascend_active: "매혹의 극치" — charm_flip/매혹 심화가
+## "고정 개수(1~3개)"만 올리던 것을 넘어, 이번 턴 평균보다 낮은 값을 보인 다이스
+## 전부(상한 없음)를 각자의 면 최댓값으로 바꾼다. 공격/방어 양쪽 매 턴 적용.
+var player_legend_enchantress_ascend_active := false
+## player_legend_enchantress_retribution_active: "매혹의 응보" — charm_flip이 그
+## 턴 뒤집은 다이스 개수(매혹 심화 보유 시 1->2->3)만큼 방어 무시 고정 피해를
+## 추가로 준다(공격턴은 고정 피해, 방어턴은 반격 피해 — 둘 다 같은 공식).
+var player_legend_enchantress_retribution_active := false
 
 var battle_over := false
 var player_won := false
@@ -1181,6 +1260,14 @@ func _reset_player_battle_state() -> void:
 	player_legend_explosive_chainblast_active = RunState.skill_flags.has("legend_explosive_chainblast")
 	player_legend_explosive_absolute_active = RunState.skill_flags.has("legend_explosive_absolute")
 	player_legend_explosive_lastblast_active = RunState.skill_flags.has("legend_explosive_lastblast")
+	player_legend_shieldbearer_lifecurse_active = RunState.skill_flags.has("legend_shieldbearer_lifecurse")
+	player_legend_shieldbearer_curseseal_active = RunState.skill_flags.has("legend_shieldbearer_curseseal")
+	player_legend_shieldbearer_curseend_active = RunState.skill_flags.has("legend_shieldbearer_curseend")
+	player_shieldbearer_curse_marks = 0
+	player_shieldbearer_curse_awakened = false
+	player_legend_enchantress_captive_active = RunState.skill_flags.has("legend_enchantress_captive")
+	player_legend_enchantress_ascend_active = RunState.skill_flags.has("legend_enchantress_ascend")
+	player_legend_enchantress_retribution_active = RunState.skill_flags.has("legend_enchantress_retribution")
 	player_hp = PLAYER_MAX_HP
 	battle_over = false
 	player_won = false
@@ -1850,7 +1937,11 @@ func _select_exchange_bags(is_player_attacking: bool) -> Dictionary:
 	var def_bag: DiceBag
 	if is_player_attacking:
 		def_bag = monster_defense_bag
-	elif (player_dice_gimmick == "guard_stack" or player_guard_deepen_active or player_versatile_active) and player_guard_pending:
+	# "저주의 종결"(legend_shieldbearer_curseend, 주술사 전용 전설): 수호 보너스
+	# 방어턴이 이 전투에서 한 번이라도 발동해 "각성"했으면, 그 뒤로는 player_guard_
+	# pending(스택 임계치 도달) 여부와 무관하게 매 방어턴을 보너스 1D20 턴으로
+	# 강제한다(최후의 폭발과 같은 "조건 충족 후 영구 강제" 패턴).
+	elif (player_dice_gimmick == "guard_stack" or player_guard_deepen_active or player_versatile_active) and (player_guard_pending or (player_legend_shieldbearer_curseend_active and player_shieldbearer_curse_awakened)):
 		def_bag = DiceBag.new(GUARD_DICE_SIDES, 1)
 		used_guard_dice = true
 	else:
@@ -1942,15 +2033,29 @@ func _resolve_exchange(is_player_attacking: bool, atk_bag: DiceBag, def_bag: Dic
 	# 4]-D4): charm_flip이 대상으로 삼는 다이스 개수를 1개->2개->3개로 늘린다("+" >
 	# base > 미보유 우선순위, 다른 "+" 스킬들과 같은 패턴 — spare_die_plus 참고).
 	if player_dice_gimmick == "charm_flip":
-		var charm_flip_count := 1
-		if RunState.skill_flags.has("charm_amplify_plus"):
-			charm_flip_count = 3
-		elif RunState.skill_flags.has("charm_amplify"):
-			charm_flip_count = 2
+		var charm_flip_count := _charm_amplify_count(RunState.skill_flags)
 		if is_player_attacking and atk_bag == RunState.player_attack_bag:
 			atk_values = atk_bag.apply_charm_flip(atk_values, charm_flip_count)
 		elif not is_player_attacking and def_bag == RunState.player_defense_bag:
 			def_values = def_bag.apply_charm_flip(def_values, charm_flip_count)
+	# "매혹의 포로"(legend_enchantress_captive, [대형 기획 15] Q-8(c) 3/4, 매혹사
+	# 전용 전설) — 자기 다이스를 끌어올리는 charm_flip과 반대로, 이번 턴 상대
+	# (몬스터)의 다이스 중 가장 높았던 값을 그 다이스의 면 최솟값으로 깎는다.
+	# 몬스터가 "공격 중"이면 몬스터 공격 주머니(atk_bag), 플레이어가 "공격 중"이면
+	# 몬스터 방어 주머니(def_bag)가 대상 — 둘 다 몬스터 "평소" 주머니일 때만
+	# 적용한다(anger_stack 1D20 임시 주머니는 대상에서 제외, charm_flip이
+	# RunState.player_*_bag인지 확인하는 것과 같은 관례).
+	if player_legend_enchantress_captive_active:
+		if is_player_attacking and def_bag == monster_defense_bag:
+			var captive_def_before := def_values.duplicate()
+			def_values = def_bag.apply_charm_debuff(def_values)
+			if def_values != captive_def_before:
+				logs.append("매혹의 포로: 몬스터 방어 %s -> %s (최고값을 최솟값으로)" % [captive_def_before, def_values])
+		elif not is_player_attacking and atk_bag == monster_attack_bag:
+			var captive_atk_before := atk_values.duplicate()
+			atk_values = atk_bag.apply_charm_debuff(atk_values)
+			if atk_values != captive_atk_before:
+				logs.append("매혹의 포로: 몬스터 공격 %s -> %s (최고값을 최솟값으로)" % [captive_atk_before, atk_values])
 	# "최후의 보루"(legend_guardian_bulwark, [대형 기획 15] Q-8(c) 2/4, 수호자 전용
 	# 전설): 플레이어 HP가 절반 이하일 때만 이번 방어 다이스 전부를 각자의 면 최댓값으로
 	# 고정한다(평소에는 기믹대로 다이스 1개만 고정) — DiceBag.apply_force_max()가 다이스별
@@ -1960,6 +2065,22 @@ func _resolve_exchange(is_player_attacking: bool, atk_bag: DiceBag, def_bag: Dic
 		def_values = def_bag.apply_force_max(def_values)
 		if def_values != bulwark_before:
 			logs.append("최후의 보루: 방어 다이스 %s -> %s (HP 절반 이하, 전부 최댓값 고정)" % [bulwark_before, def_values])
+	# "매혹의 극치"(legend_enchantress_ascend, [대형 기획 15] Q-8(c) 3/4, 매혹사
+	# 전용 전설) — charm_flip/매혹 심화의 "고정 개수(1~3개)만" 범위를 넘어, 이번
+	# 턴 결과값의 평균보다 낮은 값을 보인 다이스 "전부"를 각자의 면 최댓값으로
+	# 바꾼다(상한 없음, 공격/방어 양쪽 매 턴 적용 — 균형형 정체성). DiceBag.
+	# apply_charm_ascend() 참고.
+	if player_legend_enchantress_ascend_active:
+		if is_player_attacking:
+			var ascend_atk_before := atk_values.duplicate()
+			atk_values = atk_bag.apply_charm_ascend(atk_values)
+			if atk_values != ascend_atk_before:
+				logs.append("매혹의 극치: 공격 다이스 %s -> %s (평균 이하 전부 최댓값으로)" % [ascend_atk_before, atk_values])
+		else:
+			var ascend_def_before := def_values.duplicate()
+			def_values = def_bag.apply_charm_ascend(def_values)
+			if def_values != ascend_def_before:
+				logs.append("매혹의 극치: 방어 다이스 %s -> %s (평균 이하 전부 최댓값으로)" % [ascend_def_before, def_values])
 	# "광기 심화"(INBOX.md [미니 기획 C]-4): 이번 공격턴이 폭발 스택 보너스 턴(1D20)이고
 	# 광기 심화를 보유했다면, 한 번 더 굴려 더 높은 값을 채택한다("두 번 굴려 advantage").
 	# "광기 심화+"([미니 기획 D]-4): 추가 리롤을 1번이 아니라 2번 해서 총 굴림 횟수를
@@ -2207,6 +2328,16 @@ func _resolve_exchange(is_player_attacking: bool, atk_bag: DiceBag, def_bag: Dic
 	var def_total := 0
 	for v in def_values:
 		def_total += v
+	# "저주의 전이"(legend_shieldbearer_curseseal, [대형 기획 15] Q-8(c) 3/4, 주술사
+	# 전용 전설) — 몬스터의 공격 합계를 그 전까지 쌓인 저주 각인 수만큼 영구히
+	# 깎는다(이 전투에서 수호 보너스 방어턴이 트리거될 때마다 +1각인, player_
+	# shieldbearer_curse_marks 참고). 이번 턴 적립될 각인은 아래 수호 스택 블록에서
+	# "이후"에 계산되므로, 여기서는 "이전까지" 쌓인 각인만 반영돼 순서가 자연스럽다.
+	if not is_player_attacking and player_legend_shieldbearer_curseseal_active:
+		var curseseal_before := atk_total
+		atk_total = max(0, atk_total - _curse_seal_reduction(player_shieldbearer_curse_marks))
+		if atk_total != curseseal_before:
+			logs.append("저주의 전이: 몬스터 공격 합계 %d -> %d (저주 각인 %d개)" % [curseseal_before, atk_total, player_shieldbearer_curse_marks])
 	var dmg := CombatMath.calculate_damage(atk_total, def_total)
 
 	if is_player_attacking:
@@ -2245,6 +2376,18 @@ func _resolve_exchange(is_player_attacking: bool, atk_bag: DiceBag, def_bag: Dic
 			if absolute_dmg > 0:
 				monster_hp = max(0, monster_hp - absolute_dmg)
 				logs.append("절대 폭발! (방어 무시 추가 %d 피해, 몬스터 HP %d)" % [absolute_dmg, monster_hp])
+		# "매혹의 응보"(legend_enchantress_retribution, [대형 기획 15] Q-8(c) 3/4,
+		# 매혹사 전용 전설) — charm_flip이 그 턴 뒤집은 다이스 개수(매혹 심화 보유
+		# 시 1->2->3, _charm_amplify_count() 재사용)만큼 방어 무시 고정 피해를
+		# 추가로 준다. _legend_hits_bonus_damage()(유혈광란/불굴의 보복과 같은
+		# 공식)를 "뒤집은 개수"에 재사용 — 공격/방어 양쪽 모두 적용되는 균형형
+		# 정체성이라 방어턴 쪽은 아래 반격 블록에 대칭으로 둔다.
+		if player_legend_enchantress_retribution_active:
+			var retribution_hits := _charm_amplify_count(RunState.skill_flags)
+			var retribution_dmg := _legend_hits_bonus_damage(retribution_hits)
+			if retribution_dmg > 0:
+				monster_hp = max(0, monster_hp - retribution_dmg)
+				logs.append("매혹의 응보! (매혹 %d개 x 고정 %d 피해, 몬스터 HP %d)" % [retribution_hits, retribution_dmg, monster_hp])
 	else:
 		player_hp = max(0, player_hp - dmg)
 		logs.append("몬스터 공격 %d vs 플레이어 방어 %d -> 데미지 %d (플레이어 HP %d)" % [atk_total, def_total, dmg, player_hp])
@@ -2273,6 +2416,23 @@ func _resolve_exchange(is_player_attacking: bool, atk_bag: DiceBag, def_bag: Dic
 			if overguard_dmg > 0:
 				monster_hp = max(0, monster_hp - overguard_dmg)
 				logs.append("반격의 벽! (과잉 방어 %d, 몬스터 HP %d)" % [overguard_dmg, monster_hp])
+			# "매혹의 응보"(방어턴 대칭) — 공격턴과 같은 공식, 반격 피해로.
+			if player_legend_enchantress_retribution_active:
+				var retribution_def_hits := _charm_amplify_count(RunState.skill_flags)
+				var retribution_def_dmg := _legend_hits_bonus_damage(retribution_def_hits)
+				if retribution_def_dmg > 0:
+					monster_hp = max(0, monster_hp - retribution_def_dmg)
+					logs.append("매혹의 응보! (매혹 %d개 x 고정 %d 반격 피해, 몬스터 HP %d)" % [retribution_def_hits, retribution_def_dmg, monster_hp])
+			# "저주의 흡수"(legend_shieldbearer_lifecurse, [대형 기획 15] Q-8(c)
+			# 3/4, 주술사 전용 전설) — 수호 보너스 방어턴(1D20)에서 방어 합계가
+			# 몬스터 공격 합계를 초과한 만큼을 몬스터에게 돌려주는 대신 플레이어
+			# 체력으로 흡수한다(최대 HP 상한).
+			if player_legend_shieldbearer_lifecurse_active:
+				var lifecurse_heal := _curse_absorb_heal(atk_total, def_total, used_guard_dice)
+				if lifecurse_heal > 0:
+					var lifecurse_before_hp := player_hp
+					player_hp = min(PLAYER_MAX_HP, player_hp + lifecurse_heal)
+					logs.append("저주의 흡수! (수호 보너스 방어턴, 체력 +%d, 플레이어 HP %d)" % [player_hp - lifecurse_before_hp, player_hp])
 
 	# "counter(n)" 기믹(인간형, G-3): 플레이어 공격이 몬스터 방어에 완전히 막혀(dmg==0)
 	# 데미지가 0이면 플레이어가 n 반사 피해를 입는다. "revive" 기믹(언데드형, G-4):
@@ -2348,6 +2508,20 @@ func _resolve_exchange(is_player_attacking: bool, atk_bag: DiceBag, def_bag: Dic
 			logs.append("%s 스택 +%d (%d/%d)" % [guard_stack_label, guard_result["gained"], player_guard_stacks, guard_threshold])
 			if guard_result["activated"]:
 				logs.append("수호 심화가 정점에 달했다! 다음 방어는 1D20을 두 번 굴려 더 높은 값을 채택한다" if player_guard_deepen_active else "수호 태세 완성! 다음 방어는 20면체 주사위로 굳건해진다")
+
+	# "저주의 전이"/"저주의 종결"(주술사 전용 전설 2종) 공용 적립 — 수호 보너스
+	# 방어턴(1D20)이 실제로 발동한 턴에 저주 각인을 1개 쌓고(전이), "각성" 플래그를
+	# 켠다(종결, 켜진 뒤로는 _select_exchange_bags()가 항상 보너스 방어턴을 강제).
+	# guard_stack 기믹 여부와 무관한 **독립 조건**(used_guard_dice만 확인)으로
+	# 둔다 — 위 guard_stack 적립 블록 안에 중첩시키면 "기믹이 꺼지면 전설도 죽는"
+	# 버그가 될 수 있다는 기존 교훈(2026-09-17 (149) 참고)을 그대로 따른 것.
+	if not is_player_attacking and used_guard_dice:
+		if player_legend_shieldbearer_curseseal_active:
+			player_shieldbearer_curse_marks += 1
+			logs.append("저주의 전이: 저주 각인 +1 (%d개, 몬스터 공격 -%d 영구)" % [player_shieldbearer_curse_marks, _curse_seal_reduction(player_shieldbearer_curse_marks)])
+		if player_legend_shieldbearer_curseend_active and not player_shieldbearer_curse_awakened:
+			player_shieldbearer_curse_awakened = true
+			logs.append("저주의 종결: 저주가 완성됐다! 이제 모든 방어가 저주받은 주사위(1D20)로 화답한다")
 
 	var boss_phase2_activated := _maybe_activate_boss_phase2(logs)
 

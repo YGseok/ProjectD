@@ -70,10 +70,11 @@ const MAX_DIAGRAM_SYMBOLS: int = 5
 ## 4단계: 일반 < 희귀 < 영웅 < 전설. 전설은 캐릭터별 3종씩(8명×3=24종, 한 런에 하나만
 ## 보유 가능)인데 규모상 한 이터레이션에 다 못 해 캐릭터 2명씩 쪼개 진행한다(INBOX.md
 ## 명시) — Q-8(c) 1/4(2026-10-19)로 견습 모험가(novice)/광전사(berserker) 6종, 2/4
-## (2026-10-19)로 수호자(guardian)/폭발병(explosive) 6종이 들어왔다(총 12종). 나머지
-## 4명(주술사/매혹사/곡예사/해적) 12종은 다음 이터레이션들(3/4~4/4) 몫 — LEGENDARY_SKILLS
-## 배열이 비어있지 않은 뒤부터는 이 주석이 "진행 중" 표시다(완전히 끝나면 STATUS.md에
-## 전체 24종 기록 후 이 주석도 정리).
+## (2026-10-19)로 수호자(guardian)/폭발병(explosive) 6종, 3/4(2026-10-20)로
+## 주술사(shieldbearer)/매혹사(enchantress) 6종이 들어왔다(총 18종). 나머지 2명
+## (곡예사/해적) 6종은 다음 이터레이션(4/4) 몫 — LEGENDARY_SKILLS 배열이 비어있지
+## 않은 뒤부터는 이 주석이 "진행 중" 표시다(완전히 끝나면 STATUS.md에 전체 24종
+## 기록 후 이 주석도 정리).
 const RARITY_COMMON := "common"
 const RARITY_RARE := "rare"
 const RARITY_EPIC := "epic"
@@ -190,6 +191,13 @@ const SKILL_RARITY: Dictionary = {
 	"legend_explosive_chainblast": RARITY_LEGENDARY,
 	"legend_explosive_absolute": RARITY_LEGENDARY,
 	"legend_explosive_lastblast": RARITY_LEGENDARY,
+	# LEGENDARY_SKILLS(Q-8(c) 3/4 — 주술사/매혹사 6종) — 전설.
+	"legend_shieldbearer_lifecurse": RARITY_LEGENDARY,
+	"legend_shieldbearer_curseseal": RARITY_LEGENDARY,
+	"legend_shieldbearer_curseend": RARITY_LEGENDARY,
+	"legend_enchantress_captive": RARITY_LEGENDARY,
+	"legend_enchantress_ascend": RARITY_LEGENDARY,
+	"legend_enchantress_retribution": RARITY_LEGENDARY,
 }
 
 
@@ -759,6 +767,121 @@ const LEGENDARY_SKILLS: Array[Dictionary] = [
 			{"type": "condition", "kind": "hp_half"},
 			{"type": "arrow"},
 			{"type": "die", "target": "attack"},
+		],
+	},
+	# 3/4(이번 조각): 주술사(shieldbearer)/매혹사(enchantress) 6종. 주술사는
+	# "저주 술식·1D20 방어 특화"(guard_stack, 방어 최댓값 3회 누적 -> 보너스 방어턴)
+	# 정체성, 매혹사는 "균형형·매 턴 최저 다이스 최댓값 전환"(charm_flip, 공격/방어
+	# 양쪽 매 턴 적용) 정체성과 시너지를 갖도록 설계했다 — 나머지 2명(곡예사/해적)은
+	# 4/4가 이어간다. 견습·광전사·수호자·폭발병 12종과 겹치지 않는 새 메커니즘
+	# 위주(HP 회복/몬스터 다이스 역보정/몬스터 스탯 영구 약화)로 채웠다.
+	#
+	# "legend_shieldbearer_lifecurse"(저주의 흡수): 새 메커니즘(HP 회복 — 지금까지
+	# 전설 12종 중 유일하게 없던 축) — 수호 보너스 방어턴(1D20)에서 방어 합계가
+	# 몬스터 공격 합계를 초과한 만큼을, "반격의 벽"(수호자 전설)처럼 몬스터에게
+	# 돌려주는 대신 플레이어 체력으로 흡수한다. 보너스 턴에만 발동해 "1D20 방어
+	# 특화" 정체성을 그대로 지킨다. combat_test.gd의 _curse_absorb_heal() 참고.
+	#
+	# "legend_shieldbearer_curseseal"(저주의 전이): 새 메커니즘(몬스터 스탯 영구
+	# 약화) — 수호 보너스 방어턴이 발동할 때마다 저주 각인이 1개씩 쌓이고, 몬스터의
+	# 공격 합계가 각인 수 x 2만큼 이번 전투 내내 영구히 줄어든다("불굴의 벽"이
+	# 자기 방어값을 영구히 올리는 것과 대칭으로, 상대 공격값을 영구히 내린다).
+	# combat_test.gd의 _curse_seal_reduction() 참고.
+	#
+	# "legend_shieldbearer_curseend"(저주의 종결): 수호 보너스 방어턴이 이 전투에서
+	# 한 번이라도 발동하면("각성") 그 뒤로는 스택 임계치와 무관하게 모든 방어턴이
+	# 영구히 보너스 방어턴(1D20)이 된다 — "최후의 폭발"(HP 조건부 영구 강제)과 같은
+	# "조건 충족 후 영구 강제" 패턴이지만 조건이 HP가 아니라 "한 번이라도 발동했는가"
+	# 라는 점이 다르다. combat_test.gd의 _select_exchange_bags() curseend 분기 참고.
+	#
+	# "legend_enchantress_captive"(매혹의 포로): 새 메커니즘(몬스터 다이스에 직접
+	# 적용) — 자기 다이스를 끌어올리는 charm_flip과 완전히 반대 방향으로, 매 턴
+	# 상대(몬스터)의 다이스 중 가장 높았던 값을 그 다이스의 면 최솟값으로 깎는다
+	# (공격/방어 양쪽, 균형형 정체성). DiceBag.apply_charm_debuff()(신규, apply_
+	# charm_flip의 "반대" 버전) 참고.
+	#
+	# "legend_enchantress_ascend"(매혹의 극치): charm_flip/매혹 심화가 "고정 개수
+	# (1~3개)만" 바꾸는 상한을 완전히 넘어, 이번 턴 평균보다 낮은 값을 보인 다이스
+	# "전부"(상한 없음)를 각자의 면 최댓값으로 바꾼다. DiceBag.apply_charm_ascend()
+	# (신규) 참고.
+	#
+	# "legend_enchantress_retribution"(매혹의 응보): charm_flip이 그 턴 뒤집은
+	# 다이스 개수(매혹 심화 보유 시 1->2->3, _charm_amplify_count() 재사용)만큼
+	# 방어 무시 고정 피해/반격 피해를 추가로 준다(유혈광란/불굴의 보복과 같은
+	# _legend_hits_bonus_damage() 공식을 "뒤집은 개수"에 재사용, 공격/방어 양쪽
+	# 대칭이 균형형 정체성).
+	#
+	# 여섯 캐릭터(shieldbearer/enchantress) 전부 1/4·2/4와 동일하게 "전설 스킬은
+	# 한 런에 하나만 가질 수 있다" 안내 문장을 description 끝에 포함한다.
+	{
+		"id": "legend_shieldbearer_lifecurse",
+		"name": "저주의 흡수",
+		"description": "수호 보너스 방어턴(1D20)에서 방어 합계가 몬스터 공격 합계를 초과하면, 그 초과분만큼 몬스터 대신 플레이어가 체력을 회복한다(최대 체력 상한). 전설 스킬은 한 런에 하나만 가질 수 있다.",
+		"character_id": "shieldbearer",
+		"diagram": [
+			{"type": "stack", "target": "defense", "threshold": 3},
+			{"type": "arrow"},
+			{"type": "die", "target": "defense"},
+			{"type": "value", "op": "full"},
+		],
+	},
+	{
+		"id": "legend_shieldbearer_curseseal",
+		"name": "저주의 전이",
+		"description": "수호 보너스 방어턴(1D20)이 발동할 때마다 저주 각인이 1개씩 쌓이고, 몬스터의 공격 합계가 각인 1개당 2씩 이번 전투 내내 영구히 줄어든다. 전설 스킬은 한 런에 하나만 가질 수 있다.",
+		"character_id": "shieldbearer",
+		"diagram": [
+			{"type": "stack", "target": "defense", "threshold": 3},
+			{"type": "arrow"},
+			{"type": "die", "target": "attack"},
+			{"type": "value", "op": "+", "amount": -2},
+		],
+	},
+	{
+		"id": "legend_shieldbearer_curseend",
+		"name": "저주의 종결",
+		"description": "수호 보너스 방어턴(1D20)이 이 전투에서 한 번이라도 발동하면, 그 뒤로는 스택 조건과 무관하게 모든 방어턴이 영구히 보너스 방어턴(1D20)이 된다. 전설 스킬은 한 런에 하나만 가질 수 있다.",
+		"character_id": "shieldbearer",
+		"diagram": [
+			{"type": "stack", "target": "defense", "threshold": 3},
+			{"type": "arrow"},
+			{"type": "duration", "kind": "every_turn"},
+			{"type": "die", "target": "defense"},
+		],
+	},
+	{
+		"id": "legend_enchantress_captive",
+		"name": "매혹의 포로",
+		"description": "매 턴, 상대(몬스터)의 다이스 중 이번 턴 가장 높았던 값을 보인 다이스 1개를 그 다이스의 면 최솟값으로 깎는다(공격/방어 양쪽). 전설 스킬은 한 런에 하나만 가질 수 있다.",
+		"character_id": "enchantress",
+		"diagram": [
+			{"type": "duration", "kind": "every_turn"},
+			{"type": "arrow"},
+			{"type": "die", "target": "dual"},
+			{"type": "value", "op": "min"},
+		],
+	},
+	{
+		"id": "legend_enchantress_ascend",
+		"name": "매혹의 극치",
+		"description": "매 턴, 이번 턴 결과값의 평균보다 낮은 값을 보인 다이스 전부(개수 상한 없음)가 각자의 면 최댓값으로 바뀐다(공격/방어 양쪽). 전설 스킬은 한 런에 하나만 가질 수 있다.",
+		"character_id": "enchantress",
+		"diagram": [
+			{"type": "duration", "kind": "every_turn"},
+			{"type": "arrow"},
+			{"type": "die", "target": "dual", "count": 4},
+			{"type": "value", "op": "max"},
+		],
+	},
+	{
+		"id": "legend_enchantress_retribution",
+		"name": "매혹의 응보",
+		"description": "charm_flip이 그 턴 뒤집은 다이스 개수(매혹 심화 보유 시 1~3개)만큼 방어 무시 고정 피해(공격턴)/반격 피해(방어턴)를 추가로 준다. 전설 스킬은 한 런에 하나만 가질 수 있다.",
+		"character_id": "enchantress",
+		"diagram": [
+			{"type": "die", "target": "dual"},
+			{"type": "arrow"},
+			{"type": "value", "amount": 2, "op": "+", "ignore_defense": true},
 		],
 	},
 ]
@@ -1385,16 +1508,33 @@ const ICON_MOTIFS: Dictionary = {
 	"legend_explosive_chainblast": "burst_stack",
 	"legend_explosive_absolute": "true_strike",
 	"legend_explosive_lastblast": "burst_stack",
+	# LEGENDARY_SKILLS(Q-8(c) 3/4, 2026-10-20) — 주술사/매혹사 6종. "매혹의 극치"
+	# (고정 개수 상한 없이 다이스를 최댓값으로)는 charm_amplify의 "값을 최댓값으로"
+	# 범주와 같아 dice_flip 공유. "매혹의 응보"(방어 무시 추가 피해)는 유혈광란/
+	# 불굴의 보복/절대 폭발과 같은 범주라 true_strike 공유. "저주의 종결"(스택
+	# 임계치 도달 -> 보너스 방어턴, 영구화는 조건일 뿐 결과 범주는 동일)은 guard_
+	# stack 공유. "저주의 흡수"(HP 회복)/"저주의 전이"(몬스터 스탯 영구 약화)/
+	# "매혹의 포로"(몬스터 다이스 역보정)는 기존 11종 중 맞아떨어지는 범주가 없어
+	# 신규 모티프 2종을 추가했다 — 흡수는 "life_siphon"(새로운 heal 범주), 전이/
+	# 포로는 둘 다 "몬스터를 약화시킨다"는 같은 범주라 "curse_mark"를 공유한다.
+	"legend_shieldbearer_lifecurse": "life_siphon",
+	"legend_shieldbearer_curseseal": "curse_mark",
+	"legend_shieldbearer_curseend": "guard_stack",
+	"legend_enchantress_captive": "curse_mark",
+	"legend_enchantress_ascend": "dice_flip",
+	"legend_enchantress_retribution": "true_strike",
 }
 
 ## ICON_MOTIFS가 쓰는 값 전체(테스트/미리보기에서 전수 순회용). 여기 없는 문자열이
 ## skill_icon.gd에 들어오면 빈 원으로 떨어진다(_draw_motif()의 match 기본 분기).
 ## legend_nuke/true_strike/counter_strike 3종은 Q-8(c) 1/4(2026-10-19) 신규 — 전설
 ## 스킬 전용(SkillIcon.COLOR_LEGENDARY, RARITY_COLORS[RARITY_LEGENDARY]와 같은 색조).
+## life_siphon/curse_mark 2종은 Q-8(c) 3/4(2026-10-20) 신규 — 전설 스킬 전용
+## (SkillIcon.COLOR_LEGENDARY, legend_nuke/true_strike/counter_strike와 같은 축).
 const ICON_MOTIF_VALUES: Array[String] = [
 	"attack_boost", "defense_boost", "dual_boost", "reroll", "burst_stack",
 	"guard_stack", "dual_stack", "dice_flip", "dice_swap", "cycle_strike", "event_check",
-	"legend_nuke", "true_strike", "counter_strike",
+	"legend_nuke", "true_strike", "counter_strike", "life_siphon", "curse_mark",
 ]
 
 

@@ -237,6 +237,10 @@ func _draw_motif() -> void:
 			_draw_motif_true_strike()
 		"counter_strike":
 			_draw_motif_counter_strike()
+		"life_siphon":
+			_draw_motif_life_siphon()
+		"curse_mark":
+			_draw_motif_curse_mark()
 		_:
 			_draw_none()
 
@@ -388,6 +392,41 @@ func _draw_motif_counter_strike() -> void:
 		Vector2(size.x * 0.7, size.y * 0.44),
 	])
 	draw_colored_polygon(head, COLOR_LEGENDARY.lightened(0.3))
+
+
+## HP 회복(저주의 흡수, [대형 기획 15] Q-8(c) 3/4) — 심장(흡수 대상) + 안으로
+## 빨려드는 짧은 나선 화살로 "과잉 방어가 체력으로 돌아온다"를 표현한다. true_strike
+## (과녁+직선 화살)/counter_strike(방패+곡선 화살)와는 심장 윤곽으로 구분된다.
+func _draw_motif_life_siphon() -> void:
+	var lobe_r := size.x * 0.15
+	draw_circle(Vector2(size.x * 0.38, size.y * 0.4), lobe_r, COLOR_LEGENDARY)
+	draw_circle(Vector2(size.x * 0.62, size.y * 0.4), lobe_r, COLOR_LEGENDARY)
+	var tip := PackedVector2Array([
+		Vector2(size.x * 0.2, size.y * 0.44),
+		Vector2(size.x * 0.8, size.y * 0.44),
+		Vector2(size.x * 0.5, size.y * 0.86),
+	])
+	draw_colored_polygon(tip, COLOR_LEGENDARY)
+	draw_arc(Vector2(size.x * 0.5, size.y * 0.52), size.x * 0.12, -PI * 0.15, PI * 1.35, 12, COLOR_LEGENDARY.lightened(0.55), 2.0)
+
+
+## 몬스터 스탯/다이스 약화(저주의 전이/매혹의 포로, [대형 기획 15] Q-8(c) 3/4) —
+## 저주 룬(짙은 육각) 안에 아래로 꽂히는 쐐기로 "상대의 힘을 깎아 내린다"를
+## 표현한다(defense_boost의 위쪽 쉐브론과 방향이 반대라 구분됨). event_check(연한
+## 보라 육각 + 원/사각 체크)와는 색(전설 주황)과 내부 모양(쐐기) 둘 다로 구분된다.
+func _draw_motif_curse_mark() -> void:
+	var pts := PackedVector2Array()
+	for i in range(6):
+		var angle: float = TAU * i / 6.0 - PI / 2.0
+		pts.append(size * 0.5 + Vector2(cos(angle), sin(angle)) * size.x * 0.4)
+	draw_colored_polygon(pts, COLOR_LEGENDARY.darkened(0.35))
+	var wedge := PackedVector2Array([
+		Vector2(size.x * 0.38, size.y * 0.28),
+		Vector2(size.x * 0.62, size.y * 0.28),
+		Vector2(size.x * 0.5, size.y * 0.76),
+	])
+	draw_colored_polygon(wedge, COLOR_LEGENDARY)
+	draw_circle(Vector2(size.x * 0.5, size.y * 0.3), size.x * 0.05, COLOR_LEGENDARY.lightened(0.4))
 
 
 func _draw_none() -> void:

@@ -497,6 +497,10 @@ func _ready() -> void:
 	all_pass = _check_q8c2_legendary_skills(lines) and all_pass
 
 	lines.append("")
+	lines.append("[Q-8(c) 3/4: 전설 스킬 — 주술사/매혹사 6종(저주의 흡수/저주의 전이/저주의 종결/매혹의 포로/매혹의 극치/매혹의 응보). 각 효과가 계산 결과(HP 회복/몬스터 공격 감소/보너스 방어턴 강제/다이스 값/고정 피해)를 실제로 바꾸는지(DiceBag.apply_charm_debuff/apply_charm_ascend(신규)/_curse_absorb_heal/_curse_seal_reduction/_charm_amplify_count/_select_exchange_bags 통합 호출), 설명 문구 안내 포함]")
+	all_pass = _check_q8c3_legendary_skills(lines) and all_pass
+
+	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
 
 	var text := "\n".join(lines)
@@ -1549,6 +1553,124 @@ func _check_q8c2_legendary_skills(lines: PackedStringArray) -> bool:
 	var notice_ok: bool = notice_missing.is_empty() and matched_count == target_ids.size()
 	ok = notice_ok and ok
 	lines.append("  (8) 설명 문구 \"%s\" 포함: 2/4 6종(매칭 %d/%d) -> %s(누락: %s)" % [
+		notice_text, matched_count, target_ids.size(), "OK" if notice_ok else "FAIL", notice_missing,
+	])
+
+	return ok
+
+
+## [대형 기획 15] Q-8(c) 3/4(전설 스킬, 2026-10-20, INBOX.md 원문 5): 주술사/매혹사
+## 전설 6종 — 1/4·2/4의 _check_q8c_legendary_skills()/_check_q8c2_legendary_skills()와
+## 같은 원칙(플래그가 아니라 실제 "계산 결과"가 바뀌는지 검증). 전수 커버(character_id/
+## rarity/motif)는 1/4의 (8)이 LEGENDARY_SKILLS 전체를 이미 generic하게 검사하므로
+## 여기서는 중복하지 않는다.
+func _check_q8c3_legendary_skills(lines: PackedStringArray) -> bool:
+	var ok := true
+	var combat_script := load("res://code/scenes/combat_test.gd")
+
+	# (1) "저주의 흡수"(_curse_absorb_heal): 보너스 방어턴에서만 방어가 공격을
+	# 초과한 만큼 회복, 평소 방어턴/초과하지 않으면 0.
+	var lifecurse_bonus: int = combat_script._curse_absorb_heal(5, 9, true)
+	var lifecurse_not_bonus: int = combat_script._curse_absorb_heal(5, 9, false)
+	var lifecurse_no_excess: int = combat_script._curse_absorb_heal(9, 5, true)
+	var lifecurse_ok: bool = lifecurse_bonus == 4 and lifecurse_not_bonus == 0 and lifecurse_no_excess == 0
+	ok = lifecurse_ok and ok
+	lines.append("  (1) 저주의 흡수: 보너스턴(공격5/방어9) 회복=%d(기대 4) / 평소턴 회복=%d(기대 0) / 초과 없음 회복=%d(기대 0) -> %s" % [
+		lifecurse_bonus, lifecurse_not_bonus, lifecurse_no_excess, "OK" if lifecurse_ok else "FAIL",
+	])
+
+	# (2) "저주의 전이"(_curse_seal_reduction): 각인 수 x per_mark(기본 2)만큼 감소.
+	var curseseal_0: int = combat_script._curse_seal_reduction(0)
+	var curseseal_3: int = combat_script._curse_seal_reduction(3)
+	var curseseal_ok: bool = curseseal_0 == 0 and curseseal_3 == 6
+	ok = curseseal_ok and ok
+	lines.append("  (2) 저주의 전이: 각인 0개=%d(기대 0) 각인 3개=%d(기대 6) -> %s" % [
+		curseseal_0, curseseal_3, "OK" if curseseal_ok else "FAIL",
+	])
+
+	# (3) "저주의 종결"(_select_exchange_bags() 통합): "각성" 전에는 스택 조건을
+	# 그대로 따르고(보너스 턴 아님), 각성 후에는 player_guard_pending과 무관하게
+	# 항상 보너스 방어턴이 강제되는지.
+	var char_backup3 := RunState.character_id
+	var flags_backup3 := RunState.skill_flags.duplicate()
+	RunState.character_id = "shieldbearer"
+	RunState.skill_flags = ["legend_shieldbearer_curseend"]
+	var ct_curseend = combat_script.new()
+	ct_curseend._reset_player_battle_state()
+	var curseend_before_awaken: Dictionary = ct_curseend._select_exchange_bags(false)
+	ct_curseend.player_shieldbearer_curse_awakened = true
+	var curseend_after_awaken: Dictionary = ct_curseend._select_exchange_bags(false)
+	var curseend_ok: bool = curseend_before_awaken["used_guard_dice"] == false and curseend_after_awaken["used_guard_dice"] == true
+	ok = curseend_ok and ok
+	lines.append("  (3) 저주의 종결: 각성 전 보너스턴 강제=%s(기대 false) / 각성 후 보너스턴 강제=%s(기대 true) -> %s" % [
+		curseend_before_awaken["used_guard_dice"], curseend_after_awaken["used_guard_dice"], "OK" if curseend_ok else "FAIL",
+	])
+	ct_curseend.free()
+	RunState.character_id = char_backup3
+	RunState.skill_flags = flags_backup3
+
+	# (4) "매혹의 포로"(DiceBag.apply_charm_debuff, 신규): 이번 턴 가장 높았던 값을
+	# 보인 다이스 1개가 그 다이스의 면 최솟값(여기선 1)으로 깎이는지(D4x3, 2/1/4 -> 2/1/1).
+	var captive_bag := DiceBag.new(4, 3)
+	var captive_before: Array = [2, 1, 4]
+	var captive_after: Array = captive_bag.apply_charm_debuff(captive_before)
+	var captive_ok: bool = captive_after == [2, 1, 1]
+	ok = captive_ok and ok
+	lines.append("  (4) 매혹의 포로(DiceBag.apply_charm_debuff, D4x3): %s -> %s(기대 [2,1,1]) -> %s" % [
+		captive_before, captive_after, "OK" if captive_ok else "FAIL",
+	])
+
+	# (5) "매혹의 극치"(DiceBag.apply_charm_ascend, 신규): 평균 미달 다이스 "전부"가
+	# 각자의 면 최댓값으로 바뀌는지 — charm_flip(1개 고정)과 달리 2개 이상도
+	# 동시에 바뀔 수 있어야 한다(D4x3, [1,1,6] 평균=2.67 -> 1,1 둘 다 4로).
+	var ascend_bag := DiceBag.new(4, 3)
+	var ascend_before: Array = [1, 1, 6]
+	var ascend_after: Array = ascend_bag.apply_charm_ascend(ascend_before)
+	var ascend_ok: bool = ascend_after == [4, 4, 6]
+	ok = ascend_ok and ok
+	lines.append("  (5) 매혹의 극치(DiceBag.apply_charm_ascend, D4x3): %s -> %s(기대 [4,4,6], 평균 미달 2개 동시 전환) -> %s" % [
+		ascend_before, ascend_after, "OK" if ascend_ok else "FAIL",
+	])
+
+	# (6) "매혹 심화" count 공용 함수(_charm_amplify_count) — 매혹의 응보가 재사용
+	# (1->2->3, "+"가 base보다 우선).
+	var amplify_none: int = combat_script._charm_amplify_count([])
+	var amplify_base: int = combat_script._charm_amplify_count(["charm_amplify"])
+	var amplify_plus: int = combat_script._charm_amplify_count(["charm_amplify", "charm_amplify_plus"])
+	var amplify_count_ok: bool = amplify_none == 1 and amplify_base == 2 and amplify_plus == 3
+	ok = amplify_count_ok and ok
+	lines.append("  (6) 매혹 심화 count(_charm_amplify_count): 미보유=%d(기대 1) base=%d(기대 2) base+plus=%d(기대 3) -> %s" % [
+		amplify_none, amplify_base, amplify_plus, "OK" if amplify_count_ok else "FAIL",
+	])
+
+	# (7) "매혹의 응보" 공식 — _legend_hits_bonus_damage(_charm_amplify_count())가
+	# 유혈광란/불굴의 보복과 같은 공식(개수 x 2)을 그대로 재사용하는지.
+	var retribution_dmg_1: int = combat_script._legend_hits_bonus_damage(combat_script._charm_amplify_count([]))
+	var retribution_dmg_3: int = combat_script._legend_hits_bonus_damage(combat_script._charm_amplify_count(["charm_amplify", "charm_amplify_plus"]))
+	var retribution_ok: bool = retribution_dmg_1 == 2 and retribution_dmg_3 == 6
+	ok = retribution_ok and ok
+	lines.append("  (7) 매혹의 응보: 매혹 1개(미보유) 피해=%d(기대 2) / 매혹 3개(심화+) 피해=%d(기대 6) -> %s" % [
+		retribution_dmg_1, retribution_dmg_3, "OK" if retribution_ok else "FAIL",
+	])
+
+	# (8) 설명 문구 — 3/4 6종 전부 "한 런에 하나만" 안내가 description에 포함돼야 한다
+	# (1/4의 (7)·2/4의 (8)과 같은 요구, 이번 6종에만 한정해 다시 확인).
+	var notice_text := "한 런에 하나만"
+	var target_ids := [
+		"legend_shieldbearer_lifecurse", "legend_shieldbearer_curseseal", "legend_shieldbearer_curseend",
+		"legend_enchantress_captive", "legend_enchantress_ascend", "legend_enchantress_retribution",
+	]
+	var notice_missing: Array[String] = []
+	var matched_count := 0
+	for skill in SkillPool.LEGENDARY_SKILLS:
+		if target_ids.has(skill["id"]):
+			matched_count += 1
+			var desc: String = skill.get("description", "")
+			if not desc.contains(notice_text):
+				notice_missing.append(skill["id"])
+	var notice_ok: bool = notice_missing.is_empty() and matched_count == target_ids.size()
+	ok = notice_ok and ok
+	lines.append("  (8) 설명 문구 \"%s\" 포함: 3/4 6종(매칭 %d/%d) -> %s(누락: %s)" % [
 		notice_text, matched_count, target_ids.size(), "OK" if notice_ok else "FAIL", notice_missing,
 	])
 

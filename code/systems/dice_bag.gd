@@ -239,6 +239,54 @@ func apply_force_max(values: Array) -> Array:
 	return adjusted
 
 
+## "매혹의 포로"(legend_enchantress_captive, [대형 기획 15] Q-8(c) 3/4, 매혹사 전용
+## 전설) 전용 헬퍼 — apply_charm_flip()의 완전한 반대 방향(자기 다이스가 아니라
+## 상대 — 몬스터 — 의 다이스에 적용): 이번 턴 굴린 값 중 가장 높았던 값을 보인
+## 다이스 1개를 그 다이스의 면 "최솟값"으로 깎는다(동률이면 먼저 나온(인덱스가
+## 작은) 다이스).
+func apply_charm_debuff(values: Array) -> Array:
+	var adjusted := values.duplicate()
+	if adjusted.is_empty():
+		return adjusted
+	var max_index := 0
+	var max_value: int = adjusted[0]
+	for i in adjusted.size():
+		if adjusted[i] > max_value:
+			max_index = i
+			max_value = adjusted[i]
+	var faces := dice[max_index]
+	var m: int = faces[0]
+	for v in faces:
+		m = min(m, v)
+	adjusted[max_index] = m
+	return adjusted
+
+
+## "매혹의 극치"(legend_enchantress_ascend, [대형 기획 15] Q-8(c) 3/4, 매혹사 전용
+## 전설) 전용 헬퍼 — apply_charm_flip()이 "가장 낮은 값 1개(또는 매혹 심화로
+## 2~3개)만" 바꾸는 것과 달리, 이번 턴 결과값의 평균(실수 비교, 내림 없음)보다
+## 낮은 값을 보인 다이스 "전부"를 각자의 면 최댓값으로 바꾼다(개수 상한 없음 —
+## charm_amplify의 고정 count를 완전히 넘어선 전설다운 확장).
+func apply_charm_ascend(values: Array) -> Array:
+	var adjusted := values.duplicate()
+	if adjusted.is_empty():
+		return adjusted
+	var total := 0
+	for v in adjusted:
+		total += int(v)
+	var average: float = float(total) / adjusted.size()
+	for i in dice.size():
+		if i >= adjusted.size():
+			continue
+		if adjusted[i] < average:
+			var faces2 := dice[i]
+			var m2: int = faces2[0]
+			for v in faces2:
+				m2 = max(m2, v)
+			adjusted[i] = m2
+	return adjusted
+
+
 ## 몬스터 스킬 프리미티브 "armor(n)"(인간형, INBOX.md [대형 기획 6] G-3, 2026-10-07) 전용
 ## 헬퍼 — apply_flat_bonus()는 "다이스별 +n"(다이스 개수만큼 곱해져 총합이 커짐)이지만,
 ## armor는 "주머니 합계 +n"(다이스 개수와 무관하게 딱 한 번만 더해짐)이라 의미가 달라
