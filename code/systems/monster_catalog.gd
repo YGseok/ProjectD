@@ -248,7 +248,7 @@ const MONSTERS := [
 		"color": Color(0.85, 0.65, 0.15),
 		"skills": [{"id": "armor", "amount": 1}, {"id": "guard_up"}, {"id": "counter", "amount": 1}],
 		"hp_mult": 1.0, "phase2_skills": [{"id": "armor", "amount": 3}],
-		"personality": "고블린 무리를 호령하며 끝까지 버티는 왕",
+		"personality": "똑똑해 보이려 안경을 쓴 고블린 여왕",
 	},
 	{
 		# [대형 기획 10] J-2 10차 시도(2026-10-08) — 측정 범위 확장 후 보스 6종 중
@@ -259,7 +259,7 @@ const MONSTERS := [
 		"color": Color(0.3, 0.55, 0.35),
 		"skills": [{"id": "sticky"}, {"id": "seal"}], "atk_dice_delta": 0, "hp_mult": 1.0,
 		"phase2_skills": [{"id": "dull"}],
-		"personality": "끈적한 본체로 모든 움직임을 둔하게 만드는 군주",
+		"personality": "온몸이 점액인 끈적한 여왕",
 	},
 	{
 		# [대형 기획 10] J-2 9차 시도(2026-10-08) — 측정 범위 확장(라운드당 후보 2종
@@ -281,10 +281,10 @@ const MONSTERS := [
 	},
 	{
 		"id": "frenzied_beast", "name": "광란의 마수", "family": "beast", "tier": "boss",
-		"color": Color(0.55, 0.2, 0.15),
+		"color": Color(0.478, 0.122, 0.169),
 		"skills": [{"id": "anger_stack"}, {"id": "pounce", "amount": 3}, {"id": "bloodlust"}],
 		"hp_mult": 1.0, "phase2_skills": [{"id": "min_max_only"}],
-		"personality": "이성을 잃고 날뛰는 거대한 짐승",
+		"personality": "광전사의 언니, 힘에 취해 짐승이 된 자",
 	},
 	{
 		# [대형 기획 10] J-2 11차 시도(2026-10-08) — 측정 범위 확장 후 보스 6종 중
@@ -305,14 +305,14 @@ const MONSTERS := [
 		"color": Color(0.710, 0.396, 0.165),
 		"skills": [{"id": "steady_guard"}, {"id": "armor", "amount": 1}, {"id": "counter", "amount": 1}],
 		"hp_mult": 1.0, "phase2_skills": [{"id": "bloodlust"}],
-		"personality": "신념을 저버리고도 흔들림 없는 방어를 고수하는 기사단장",
+		"personality": "수호자의 전 기사단장, 저주받은 장비에 타락",
 	},
 	{
 		"id": "void_eye", "name": "공허의 눈", "family": "amorphous", "tier": "boss",
 		"color": Color(0.059, 0.298, 0.361),
 		"skills": [{"id": "dull"}, {"id": "seal"}, {"id": "numb"}], "hp_mult": 1.0,
 		"phase2_skills": [{"id": "sticky"}],
-		"personality": "모든 손놀림을 무디게 가라앉히는 거대한 눈동자",
+		"personality": "심장이 해저에 봉인된 심해의 눈동자",
 	},
 ]
 
