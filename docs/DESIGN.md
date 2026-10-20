@@ -649,7 +649,7 @@ HP×1.0 — 난이도 공식·몬스터별 `atk_dice_delta`/`def_dice_delta`/`hp
 |---|---|---|---|
 | 1 | 고블린 왕 (인간형) | `armor(2)`, `guard_up`, `counter(2)` | 기존 `armor`를 2→4로 강화 |
 | 1 | 점액 군주 (부정형) | `sticky`, `seal`, 공격 다이스 +1개 | `dull` 신규 추가 |
-| 2 | 해골 장군 (언데드형) | `fixed_value`, `drain`, `chill` | `revive` 신규 추가 |
+| 2 | 영계의 지배자 (구 해골 장군, 언데드형) | `fixed_value`, `drain`, `chill` | `revive` 신규 추가 |
 | 2 | 광란의 마수 (야수형) | `anger_stack`, `pounce(3)`, `bloodlust` | `min_max_only` 신규 추가 |
 | 3 | 타락한 기사단장 (인간형) | `steady_guard`, `armor(3)`, `counter(2)` | `bloodlust` 신규 추가 |
 | 3 | 공허의 눈 (부정형) | `dull`, `seal`, `numb` | `sticky` 신규 추가 |

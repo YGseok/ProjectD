@@ -272,12 +272,12 @@ const MONSTERS := [
 		# (고블린 왕 armor/counter처럼 직접 깎을 수 없음) 대신 atk_dice_delta를
 		# 0->-1로 낮춰 공격 다이스 개수를 1개 줄인다 — 공격력 자체가 줄면 drain이
 		# 회복하는 절대량도 같이 줄어 두 스킬을 동시에 완화하는 효과가 있다.
-		"id": "skeleton_general", "name": "해골 장군", "family": "undead", "tier": "boss",
-		"color": Color(0.65, 0.62, 0.5),
+		"id": "skeleton_general", "name": "영계의 지배자", "family": "undead", "tier": "boss",
+		"color": Color(0.557, 0.420, 0.820),
 		"skills": [{"id": "fixed_value"}, {"id": "drain"}, {"id": "chill"}],
 		"atk_dice_delta": -1, "hp_mult": 1.0,
 		"phase2_skills": [{"id": "revive"}],
-		"personality": "죽어서도 군대를 지휘하는 차가운 장군",
+		"personality": "죽어서도 영계를 다스리는 차갑고 오만한 여왕",
 	},
 	{
 		"id": "frenzied_beast", "name": "광란의 마수", "family": "beast", "tier": "boss",
@@ -302,14 +302,14 @@ const MONSTERS := [
 		# steady_guard 자체로 보이나 이번 이터레이션 손잡이 예산(6회) 소진으로 다음에
 		# 계속 — INBOX.md/STATUS.md에 기록.
 		"id": "fallen_commander", "name": "타락한 기사단장", "family": "humanoid", "tier": "boss",
-		"color": Color(0.35, 0.3, 0.45),
+		"color": Color(0.710, 0.396, 0.165),
 		"skills": [{"id": "steady_guard"}, {"id": "armor", "amount": 1}, {"id": "counter", "amount": 1}],
 		"hp_mult": 1.0, "phase2_skills": [{"id": "bloodlust"}],
 		"personality": "신념을 저버리고도 흔들림 없는 방어를 고수하는 기사단장",
 	},
 	{
 		"id": "void_eye", "name": "공허의 눈", "family": "amorphous", "tier": "boss",
-		"color": Color(0.2, 0.15, 0.3),
+		"color": Color(0.059, 0.298, 0.361),
 		"skills": [{"id": "dull"}, {"id": "seal"}, {"id": "numb"}], "hp_mult": 1.0,
 		"phase2_skills": [{"id": "sticky"}],
 		"personality": "모든 손놀림을 무디게 가라앉히는 거대한 눈동자",
