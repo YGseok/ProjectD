@@ -104,8 +104,13 @@ const MONSTERS := [
 		"personality": "정해진 자리를 흔들림 없이 지키는 병사",
 	},
 	{
+		# [대형 기획 16] R-2(2026-10-26) — atk_dice_delta 1->0. sticky(플레이어 공격
+		# 최댓값 -1)와 공격 다이스 +1을 동시에 지니던 "이중 페널티"가 방3 풀 17종 중
+		# 유일한 20%p대 아웃라이어(균형 성장 정책 기준 56.7%, 2위 좀비는 -9.9%p로 절반
+		# 이하)를 만든 원인으로 측정됨(docs/BALANCE_TUNING_LOG.md "R-2 방3 몬스터별
+		# 측정" 참고) — sticky 디버프는 유지하고 다이스 개수 보정만 제거.
 		"id": "poison_slime", "name": "독 슬라임", "family": "amorphous", "tier": "normal",
-		"color": Color(0.45, 0.75, 0.2), "skills": [{"id": "sticky"}], "atk_dice_delta": 1,
+		"color": Color(0.45, 0.75, 0.2), "skills": [{"id": "sticky"}], "atk_dice_delta": 0,
 		"hp_mult": 1.0, "personality": "끈적한 독액으로 상대의 움직임을 둔하게 만드는 슬라임",
 	},
 	{

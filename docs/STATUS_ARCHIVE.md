@@ -8,6 +8,61 @@
 
 ---
 
+- **2026-10-20 (236)**: **[대형 기획 15] Q-8(c) 3/4(전설 스킬 — 주술사/매혹사
+  6종, 원문 5) 완료.** 1/4·2/4와 달리 이번엔 이전 이터레이션의 미완성 상태를
+  이어받은 게 아니라 처음부터 설계·구현했다. 1/4에서 만든 전설 인프라
+  (`SkillPool.LEGENDARY_SKILLS`/`has_legendary()`/`filter_legendary_if_owned()`/
+  `ICON_MOTIFS`/`SKILL_RARITY`/`SkillDiagramChip`/`dice_test.gd` 검증 패턴)를
+  그대로 재사용했다. **주술사 3종**(guard_stack "저주 술식·1D20 방어 특화"
+  정체성, 전부 새 메커니즘): 저주의 흡수(수호 보너스 방어턴(1D20)에서 방어가
+  몬스터 공격을 초과한 만큼을 몬스터 대신 플레이어 체력으로 흡수 — **지금까지
+  전설 18종 중 유일한 HP 회복 효과**, `_curse_absorb_heal()`)/저주의 전이
+  (수호 보너스 방어턴이 발동할 때마다 저주 각인이 쌓이고 몬스터 공격 합계가
+  각인 수×2만큼 전투 내내 영구히 줄어듦 — 몬스터 스탯을 영구 약화시키는 새
+  메커니즘, `_curse_seal_reduction()`)/저주의 종결(수호 보너스 방어턴이 한
+  번이라도 발동하면 "각성"해 그 뒤로는 스택 조건과 무관하게 모든 방어턴이
+  영구히 보너스 턴 — `_select_exchange_bags()`에 "각성" 분기 추가).
+  **매혹사 3종**(charm_flip "균형형·매 턴 최저 다이스 최댓값 전환" 정체성):
+  매혹의 포로(자기 다이스를 끌어올리는 charm_flip과 반대로 매 턴 몬스터
+  다이스 중 가장 높았던 값을 그 다이스의 면 최솟값으로 깎음 — 플레이어 스킬이
+  몬스터 다이스에 직접 적용되는 새 메커니즘, `DiceBag.apply_charm_debuff()`
+  신규)/매혹의 극치(charm_flip/매혹 심화의 "고정 개수(1~3개)" 상한을 넘어
+  이번 턴 평균보다 낮은 다이스 "전부"가 각자의 면 최댓값으로 바뀜,
+  `DiceBag.apply_charm_ascend()` 신규)/매혹의 응보(charm_flip이 그 턴 뒤집은
+  다이스 개수만큼 방어 무시 고정/반격 피해 추가 — 공격·방어 양쪽 대칭이
+  균형형 정체성, `_legend_hits_bonus_damage()` 재사용). 리팩터링: charm_flip의
+  "매혹 심화" count 계산(1→2→3)이 기존엔 `_resolve_exchange()` 안 if 블록에만
+  인라인돼 있어 재사용이 불가능했는데, `_charm_amplify_count()` 순수 함수로
+  뽑아 매혹의 응보도 같은 값을 쓰게 했다(동작 불변, charm_flip 호출부도 이
+  함수를 쓰도록 함께 바꿈). 6종 전부 description 끝에 "한 런에 하나만" 안내
+  문장 포함. **신규 아이콘 모티프 2종**(`life_siphon`=심장+흡수 나선,
+  `curse_mark`=저주 룬+하향 쐐기, 둘 다 `skill_icon.gd`에 실제 그리기 분기
+  추가) — 저주의 흡수(HP 회복)/저주의 전이·매혹의 포로(몬스터 약화)는 기존
+  11종 모티프 중 맞는 범주가 없어 새로 만들었고, 저주의 종결(guard_stack
+  재사용)/매혹의 극치(dice_flip 재사용)/매혹의 응보(true_strike 재사용)는
+  효과 범주가 겹쳐 기존 모티프를 그대로 썼다. 도식(diagram)도 기존 전설
+  12종과 기호 구성이 겹치지 않도록 확인(예: 매혹의 극치는 매혹 심화와
+  똑같은 "duration→die dual→value max" 모양이 될 뻔한 것을 `count:4`
+  배지로 구분). **신규 `dice_test.gd` `_check_q8c3_legendary_skills()` 8항목**
+  (전부 계산 결과 직접 비교 — 저주의 흡수 회복량/저주의 전이 감소량/저주의
+  종결이 `_select_exchange_bags()` 실제 호출로 각성 전/후 보너스턴 강제
+  여부가 바뀌는지/`DiceBag.apply_charm_debuff()`가 최고값 다이스를 실제로
+  최솟값으로 바꾸는지/`DiceBag.apply_charm_ascend()`가 평균 미달 다이스
+  2개를 동시에 바꾸는지/`_charm_amplify_count()` 1→2→3/매혹의 응보 고정
+  피해 공식/설명 문구 전수). `bash scripts/qa_shot.sh dice_test 60
+  qa_out/dice_test_q8c3.png "" 1`을 **foreground로 전체 실행해 "결과: PASS"
+  (FAIL 0건) 직접 확인**. 셀프 피드백 스크린샷 2장 — 던전 맵 "스킬 도감"에서
+  신규 디버그 훅(`_debug_press_shortcut_skill_codex_legendary_shieldbearer`/
+  `_enchantress`)으로 실제 "보유" 상태를 만들어 직접 읽어 확인:
+  `qa_out/q8c3_shieldbearer_codex.png`(저주의 흡수 — 주황 심장+나선/저주의
+  전이 — 주황 저주 룬+쐐기, 둘 다 전설 배지+"한 런에 하나만" 안내 문구+
+  서로 뚜렷이 다른 모양), `qa_out/q8c3_enchantress_codex.png`(매혹의 포로 —
+  저주 룬 모티프+도식 "MIN" 배지/매혹의 극치 — dice_flip 모티프+도식 "4" 개수
+  배지+"MAX", 둘 다 서로 다른 모양으로 구분됨). 전투 규칙/밸런스 수치는
+  건드리지 않았고 `resources/`·`docs/art/`는 읽기만 했다. **나머지 2명(곡예사/
+  해적) 6종은 4/4 몫으로 남음 — 다음은 Q-8(c) 4/4(곡예사/해적), 그 다음은
+  Q-8(c)(d)(마무리: 밸런스 시뮬+DESIGN.md 레어리티 표+아트 발주 목록 정리).**
+
 - **2026-10-20 (235)**: **[대형 기획 15] Q-8(c) 2/4(전설 스킬 — 수호자/폭발병
   6종, 원문 5) 완료.** 직전 이터레이션(iter_154)이 사용 한도로 미커밋 상태
   (skill_pool.gd 6종 데이터+레어리티+도식+모티프, dice_bag.gd

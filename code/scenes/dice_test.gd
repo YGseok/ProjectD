@@ -7514,17 +7514,29 @@ func _check_g5_monster_catalog(lines: PackedStringArray) -> bool:
 		spider_cfg["skill_params"].get("pounce", {}).get("amount", 0), "OK" if spider_ok else "FAIL"
 	])
 
-	# 2026-10-26 R-1로 "해골 궁수"(atk_dice_delta+1/def_dice_delta-1 조합)가 카탈로그에서
-	# 제거됨 — atk_dice_delta 양수 반영은 독 슬라임으로 대신 확인(음수 반영은 위 독거미가
-	# 이미 확인).
+	# [대형 기획 16] R-2(2026-10-26) — 독 슬라임의 atk_dice_delta를 1->0으로 완화했다
+	# (일반 방3 밸런스 복구, docs/BALANCE_TUNING_LOG.md "R-2" 참고). 기대값을 공격=2로
+	# 갱신하고, atk_dice_delta 양수 반영 확인은 정예 고블린 족장(atk_dice_delta=1,
+	# hp_mult=1.5)으로 옮긴다(음수 반영은 위 독거미가 이미 확인).
 	OS.set_environment("GAME_QA_MONSTER_ID", "poison_slime")
 	var poison_cfg: Dictionary = combat._monster_config_for_room(0)
-	# room0 기본 공식: 공격=2+0=2, 방어=1+0=1. 독 슬라임은 atk_dice_delta=+1 -> 3.
-	var poison_ok: bool = poison_cfg["name"] == "독 슬라임" and poison_cfg["attack_count"] == 3 \
+	# room0 기본 공식: 공격=2+0=2, 방어=1+0=1. atk_dice_delta 제거로 더는 보정 없음.
+	var poison_ok: bool = poison_cfg["name"] == "독 슬라임" and poison_cfg["attack_count"] == 2 \
 		and poison_cfg["defense_count"] == 1
 	ok = poison_ok and ok
-	lines.append("  GAME_QA_MONSTER_ID=poison_slime room0: name=%s 공격=%d(기대 3) 방어=%d(기대 1) -> %s" % [
+	lines.append("  GAME_QA_MONSTER_ID=poison_slime room0: name=%s 공격=%d(기대 2, atk_dice_delta 제거) 방어=%d(기대 1) -> %s" % [
 		poison_cfg["name"], poison_cfg["attack_count"], poison_cfg["defense_count"], "OK" if poison_ok else "FAIL"
+	])
+
+	OS.set_environment("GAME_QA_MONSTER_ID", "goblin_chief")
+	var chief_cfg: Dictionary = combat._monster_config_for_room(0)
+	# room0 기본 공식: 공격=2+0=2, 방어=1+0=1. 고블린 족장은 atk_dice_delta=+1 -> 3,
+	# hp_mult=1.5 -> max_hp=round(10*1.5)=15.
+	var chief_ok: bool = chief_cfg["name"] == "고블린 족장 [정예]" and chief_cfg["attack_count"] == 3 \
+		and chief_cfg["defense_count"] == 1 and chief_cfg["max_hp"] == 15
+	ok = chief_ok and ok
+	lines.append("  GAME_QA_MONSTER_ID=goblin_chief room0: name=%s 공격=%d(기대 3) 방어=%d(기대 1) max_hp=%d(기대 15) -> %s" % [
+		chief_cfg["name"], chief_cfg["attack_count"], chief_cfg["defense_count"], chief_cfg["max_hp"], "OK" if chief_ok else "FAIL"
 	])
 
 	OS.set_environment("GAME_QA_MONSTER_ID", "zombie")
