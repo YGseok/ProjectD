@@ -1137,8 +1137,8 @@ DESIGN.md 레어리티 표 + STATUS.md 아트 발주 표(완료 기록 (238))까
 9. ~~(INBOX.md 신규) 몬스터별 다이스 특이 특징~~ → **완료됨** (예시 3개 전부 구현,
    아래 "완료 기록" 참고). 2026-09-09 사용자가 구체 예시 3개를 줌: (1) 고정값
    다이스(굴리지 않고 항상 같은 값) → "오크"(2026-09-09 (77), `DiceBag.
-   force_fixed_value()`), (2) min/max 전용 다이스(중간값 없음, 고위험/
-   저위험) → "다크 나이트"(2026-09-09 (75), `DiceBag.force_min_max_faces()`),
+   force_fixed_value()`), (2) min/max 전용 다이스(중간값 없음, 하이리스크/
+   로우리스크) → "다크 나이트"(2026-09-09 (75), `DiceBag.force_min_max_faces()`),
    (3) 분노 스택 → 몇 개 쌓이면 다음 턴 20면체 굴림 → "고블린"(2026-09-09 (78),
    `DiceBag.count_max_rolls()` + `combat_test.gd`의 전투 중 상태
    `monster_anger_stacks`/`monster_anger_pending`, 최댓값 면이 나올 때마다 스택 +1,
@@ -1574,7 +1574,7 @@ DESIGN.md 레어리티 표 + STATUS.md 아트 발주 표(완료 기록 (238))까
   주사위를 직접 건드린다"는 남은 멤버(슬라임류+공허의 눈, 전부 sticky/dull/
   seal/numb류)가 그대로 유지해 안 바뀜). (3) **이름 변경**: 산적(`bandit`,
   id 유지)의 표시명을 "풋내기 용병"으로, personality를 "불량한 신참 용병,
-  조직의 심부름꾼 노릇을 한다"로 바꿨다(처음엔 더 긴 문장을 썼다가 ART-1c-6의
+  조직의 졸개 노릇을 한다"로 바꿨다(처음엔 더 긴 문장을 썼다가 ART-1c-6의
   HUD 패널 회피 보정이 "personality 1줄" 가정으로 튜닝돼 있던 것이 2줄로
   넘치며 `_check_art1c6_monster_face_crop_and_hud_margin()`이 FAIL — 지금
   길이로 줄여 해결, 다른 몬스터 personality는 안 건드림). **전수 점검**:

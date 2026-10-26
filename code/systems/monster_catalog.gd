@@ -105,7 +105,7 @@ const MONSTERS := [
 	{
 		"id": "bandit", "name": "풋내기 용병", "family": "humanoid", "tier": "normal",
 		"color": Color(0.5, 0.35, 0.2), "skills": [{"id": "counter", "amount": 1}], "hp_mult": 1.0,
-		"personality": "불량한 신참 용병, 조직의 심부름꾼 노릇을 한다",
+		"personality": "불량한 신참 용병, 조직의 졸개 노릇을 한다",
 	},
 	{
 		"id": "guard_soldier", "name": "경비병", "family": "humanoid", "tier": "normal",

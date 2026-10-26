@@ -584,7 +584,7 @@ const UNIQUE_SKILLS: Array[Dictionary] = [
 ##
 ## "legend_berserker_vengeance"(불굴의 보복): bloodlust와 완전히 대칭(공격 대신 방어) —
 ## 새 메커니즘(반격). 방어턴마다 최솟값을 보인 방어 다이스 1개당 방어 무시 반격 피해를
-## 몬스터에게 준다(DiceBag.count_min_rolls(), 이번 조각에서 신규 추가). 고위험
+## 몬스터에게 준다(DiceBag.count_min_rolls(), 이번 조각에서 신규 추가). 하이리스크
 ## 하이리턴 정체성대로 "최악의 방어 굴림"도 보복의 재료로 쓴다. combat_test.gd의
 ## _vengeance_bonus_damage() 참고.
 ##
@@ -706,7 +706,7 @@ const LEGENDARY_SKILLS: Array[Dictionary] = [
 	#
 	# "legend_explosive_lastblast"(최후의 폭발): legend_guardian_bulwark와 대칭(수비
 	# 대신 공격) — 플레이어 HP가 절반 이하이면 폭발 스택 진행과 무관하게 "모든" 공격턴이
-	# 보너스 폭발턴(1D20)이 된다. 고위험 고수익 정체성을 벼랑 끝에서 극대화하는
+	# 보너스 폭발턴(1D20)이 된다. 하이리스크 하이리턴 정체성을 벼랑 끝에서 극대화하는
 	# "한 방 특화"의 정점. combat_test.gd의 _select_exchange_bags() 내
 	# force_last_blast 분기 참고.
 	#
