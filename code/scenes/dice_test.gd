@@ -241,15 +241,19 @@ func _ready() -> void:
 	all_pass = _check_g4_monster_skill_primitives(lines) and all_pass
 
 	lines.append("")
-	lines.append("[G-5: 일반 몬스터 20종 데이터(계열당 5종) + legacy_cycle_monster 호환 + GAME_QA_MONSTER_ID 훅 검증]")
+	lines.append("[G-5: 일반 몬스터 17종 데이터(R-1 로스터 정리 후) + legacy_cycle_monster 호환 + GAME_QA_MONSTER_ID 훅 검증]")
 	all_pass = _check_g5_monster_catalog(lines) and all_pass
+
+	lines.append("")
+	lines.append("[대형 기획 16] R-1: 몬스터 로스터 정리 — 제거된 4종이 카탈로그/출현 풀에 없음, 유령류 family 재분류, 산적->풋내기 용병 개명, build_monster_plan/build_elite_plan이 여러 시드에서 새 풀 크기로 중복 없이 채워짐]")
+	all_pass = _check_r1_monster_roster_cleanup(lines) and all_pass
 
 	lines.append("")
 	lines.append("[G-6: 런 몬스터 계획(MonsterCatalog.build_monster_plan) + 라운드 난이도 스케일링 검증]")
 	all_pass = _check_g6_monster_plan(lines) and all_pass
 
 	lines.append("")
-	lines.append("[G-7: 정예 전투 풀 8종 + 정예 계획(build_elite_plan) + 보상(EliteRewardPool) 검증]")
+	lines.append("[G-7: 정예 전투 풀 7종(R-1 로스터 정리 후) + 정예 계획(build_elite_plan) + 보상(EliteRewardPool) 검증]")
 	all_pass = _check_g7_elite_combat(lines) and all_pass
 
 	lines.append("")
@@ -3199,13 +3203,16 @@ func _check_monster_config_scaling(lines: PackedStringArray) -> bool:
 		"OK" if boss_ok else "FAIL"
 	])
 
-	# 이름 순환: MONSTER_PROFILES 5개를 다 돌면(room_index=5) "강화 " 접두어가 1번,
-	# 두 바퀴(room_index=10)면 2번 누적돼야 한다.
+	# 이름 순환: 2026-10-26 R-1로 LEGACY_ROOM_CYCLE_IDS가 4개(slime/goblin/orc/
+	# dark_knight)가 되며 "강화 " 접두어가 붙는 지점도 당겨졌다 — 4개를 다 돌면
+	# (room_index=5, idx=1=goblin) 1번, 두 바퀴(room_index=10, idx=2=orc)면 2번
+	# 누적되고, 각자의 gimmick 태그(고블린=anger_stack "[분노]", 오크=min_max_only
+	# "[극단]")도 그대로 붙는다.
 	var cycle1 = combat._monster_config_for_room(5)
 	var cycle2 = combat._monster_config_for_room(10)
-	var cycle_ok: bool = cycle1["name"] == "강화 슬라임" and cycle2["name"] == "강화 강화 슬라임"
+	var cycle_ok: bool = cycle1["name"] == "강화 고블린 [분노]" and cycle2["name"] == "강화 강화 오크 [극단]"
 	ok = cycle_ok and ok
-	lines.append("  이름 순환(room5, room10): %s, %s (기대 강화 슬라임, 강화 강화 슬라임) -> %s" % [
+	lines.append("  이름 순환(room5, room10): %s, %s (기대 강화 고블린 [분노], 강화 강화 오크 [극단]) -> %s" % [
 		cycle1["name"], cycle2["name"], "OK" if cycle_ok else "FAIL"
 	])
 
@@ -3244,36 +3251,36 @@ func _check_monster_debug_info_text(lines: PackedStringArray) -> bool:
 		room1_text.replace("\n", " / "), "OK" if room1_ok else "FAIL"
 	])
 
-	# room2(해골 전사, fixed_value): 고정값 자체가 문구에 그대로 드러나야 한다
-	# (2026-09-16 [미니 기획 A]-1로 "오크"에서 옮겨짐).
-	var room2_config = combat._monster_config_for_room(2)
-	var room2_text: String = combat._monster_debug_info_text(room2_config)
-	var room2_ok: bool = room2_text.contains("고정값") \
-		and room2_text.contains(str(room2_config["dice_gimmick_value"]))
+	# room2(오크, min_max_only, 2026-10-26 R-1로 "해골 전사" 제거 후 4종 순환이 되며
+	# room2가 오크로 당겨짐): 극단 기믹 문구가 드러나야 한다.
+	var room2_text: String = combat._monster_debug_info_text(combat._monster_config_for_room(2))
+	var room2_ok: bool = room2_text.contains("극단")
 	ok = room2_ok and ok
-	lines.append("  room2(해골 전사, fixed_value=%d): %s -> %s" % [
-		room2_config["dice_gimmick_value"], room2_text.replace("\n", " / "), "OK" if room2_ok else "FAIL"
+	lines.append("  room2(오크, min_max_only): %s -> %s" % [
+		room2_text.replace("\n", " / "), "OK" if room2_ok else "FAIL"
 	])
 
-	# room3(오크, min_max_only): 극단 기믹 문구가 드러나야 한다
-	# (2026-09-16 [미니 기획 A]-1로 "다크 나이트"에서 옮겨짐).
+	# room3(다크 나이트, steady_guard, R-1로 4종 순환이 되며 room3으로 당겨짐): 하한선
+	# 값이 문구에 드러나야 한다(보스 자리는 아님 — 4종 순환에서 TOTAL_ROOMS-1=4는 다시
+	# slime으로 돌아가 보스+기믹 동시 검증은 room4 쪽에서 별도로 함).
 	var room3_text: String = combat._monster_debug_info_text(combat._monster_config_for_room(3))
-	var room3_ok: bool = room3_text.contains("극단")
+	var room3_ok: bool = room3_text.contains("철벽") \
+		and room3_text.contains("성격: 차갑고 노련하며 방어에서 흔들리지 않는 기사")
 	ok = room3_ok and ok
-	lines.append("  room3(오크, min_max_only): %s -> %s" % [
+	lines.append("  room3(다크 나이트, steady_guard): %s -> %s" % [
 		room3_text.replace("\n", " / "), "OK" if room3_ok else "FAIL"
 	])
 
-	# room4(다크 나이트, steady_guard + 보스, [미니 기획 A]-2로 2026-09-16 구현): 하한선
-	# 값(D8 -> ceil(8/2)=4)과 보스 강화 문구가 둘 다 있어야 한다.
+	# room4(TOTAL_ROOMS-1, 보스 방): 4종 순환이라 room4는 다시 slime(기믹 없음, "강화"
+	# 1바퀴)이지만, "보스" 태그는 room_index 위치만으로 붙으므로 그 문구는 여전히 있어야
+	# 한다(R-1로 기믹+보스 동시 검증 조합은 사라짐 — legacy 전용 경로라 실제 던전 진행에는
+	# 영향 없음).
 	var room4_config: Dictionary = combat._monster_config_for_room(RunState.TOTAL_ROOMS - 1)
 	var room4_text: String = combat._monster_debug_info_text(room4_config)
-	var room4_ok: bool = room4_text.contains("보스") and room4_text.contains("철벽") \
-		and room4_text.contains(str(room4_config["dice_gimmick_value"])) \
-		and room4_text.contains("성격: 차갑고 노련하며 방어에서 흔들리지 않는 기사")
+	var room4_ok: bool = room4_text.contains("보스") and room4_config["name"] == "강화 슬라임 [보스]"
 	ok = room4_ok and ok
-	lines.append("  room4(다크 나이트, steady_guard=%d + 보스): %s -> %s" % [
-		room4_config["dice_gimmick_value"], room4_text.replace("\n", " / "), "OK" if room4_ok else "FAIL"
+	lines.append("  room4(강화 슬라임 + 보스): %s -> %s" % [
+		room4_text.replace("\n", " / "), "OK" if room4_ok else "FAIL"
 	])
 
 	combat.free()
@@ -3285,13 +3292,18 @@ func _check_monster_debug_info_text(lines: PackedStringArray) -> bool:
 ## max로만 이루어져 있다" / "주사위 값 x가 고정 데미지로 들어간다" / "주사위 x가 나올
 ## 때마다 분노 스택이 쌓여서 몇 개 이상이면 다음 턴에 20면체를 돌린다")를 구현한 것이다.
 ## combat_test.gd는 2026-09-16 [미니 기획 A]-1(몬스터 성격 기획)로 재배정된 뒤
-## force_min_max_faces()를 "오크"(MONSTER_PROFILES 4번째, dice_gimmick="min_max_only",
-## room_index=3)에, force_fixed_value()를 "해골 전사"(3번째, dice_gimmick="fixed_value",
-## room_index=2)에, count_max_rolls() 기반 분노 스택 집계를 "고블린"(2번째,
-## dice_gimmick="anger_stack", room_index=1)에 각각 적용한다. [미니 기획 A]-2(2026-09-16,
-## 별도 이터레이션)로 "다크 나이트"(5번째, dice_gimmick="steady_guard", room_index=4)에
-## apply_steady_guard() 기반 방어 결과 하한선 보정이 배정됐다 — 서로 다른 방에서만
-## 켜지고, 다른 방(예: room0 슬라임)은 그대로 표준 다이스여야 한다.
+## force_min_max_faces()를 "오크"(dice_gimmick="min_max_only")에,
+## force_fixed_value()를 "해골 전사"(dice_gimmick="fixed_value")에, count_max_rolls()
+## 기반 분노 스택 집계를 "고블린"(dice_gimmick="anger_stack")에 각각 적용했고,
+## [미니 기획 A]-2(2026-09-16)로 "다크 나이트"에 apply_steady_guard() 기반 방어 결과
+## 하한선 보정이 배정됐다 — 서로 다른 방에서만 켜지고, 다른 방(예: room0 슬라임)은
+## 그대로 표준 다이스여야 한다. **2026-10-26 R-1(몬스터 로스터 정리)로 "해골 전사"가
+## 카탈로그에서 완전히 제거되며, 레거시 순환(`MonsterCatalog.LEGACY_ROOM_CYCLE_IDS`,
+## QA 전용 — 실제 던전 진행과 무관)이 5종(slime/goblin/skeleton/orc/dark_knight)에서
+## 4종(slime/goblin/orc/dark_knight)으로 줄었다** — room_index가 room0=슬라임/
+## room1=고블린(anger_stack)/room2=오크(min_max_only)/room3=다크 나이트(steady_guard)로
+## 당겨졌고, fixed_value는 이 레거시 순환에서 더는 쓰는 몬스터가 없다(force_fixed_value()
+## 자체의 순수 함수 검증은 그대로 유지, 몬스터 연결만 없어짐).
 ## min_max_only는 300회 반복 굴림으로 중간값이 단 한 번도 안 나오는지, fixed_value는
 ## 매번 지정한 값만 나오는지까지 직접 확인한다. anger_stack의 "다음 턴 D20 전환"
 ## 자체(monster_anger_pending 소비, _do_exchange())는 @onready 씬 노드가 필요해 이
@@ -3342,30 +3354,20 @@ func _check_monster_dice_gimmick(lines: PackedStringArray) -> bool:
 		no_middle_ok, "OK" if no_middle_ok else "FAIL"
 	])
 
-	# combat_test.gd _monster_config_for_room(): 2026-09-16 [미니 기획 A]-1로 min_max_only가
-	# "다크 나이트"에서 "오크"(room3)로 옮겨졌다 — room3만 gimmick이 켜지고 이름에 "[극단]"이
-	# 붙어야 하며, room0(슬라임)은 영향받지 않아야 한다. room4(다크 나이트)는 [미니 기획 A]-2
-	# (2026-09-16, 별도 이터레이션)로 steady_guard가 배정돼 이름에 "[철벽]"이 붙고,
-	# "보스" 방(room_index == RunState.TOTAL_ROOMS-1)이라 그 뒤에 "[보스]"까지 이어 붙는다.
+	# combat_test.gd _monster_config_for_room(): 2026-10-26 R-1로 "해골 전사" 제거 후
+	# LEGACY_ROOM_CYCLE_IDS가 4종(slime/goblin/orc/dark_knight) 순환이 되며 min_max_only가
+	# room3에서 room2로 당겨졌다 — room2만 gimmick이 켜지고 이름에 "[극단]"이 붙어야 하며,
+	# room0(슬라임)은 영향받지 않아야 한다. "다크 나이트"(steady_guard)도 같은 이유로
+	# room4->room3으로 당겨지는데, room3은 더 이상 보스 자리(TOTAL_ROOMS-1=4)가 아니라
+	# steady_guard만 확인한다(보스+steady_guard 조합 자체는 4종 순환에서 더는 안 나옴 —
+	# 이 경로는 QA 전용 레거시 호환이라 실제 던전 진행에는 영향 없음).
 	var script := load("res://code/scenes/combat_test.gd")
 	var combat = script.new()
-	var room3_minmax_config = combat._monster_config_for_room(3)
-	var room3_minmax_ok: bool = room3_minmax_config["dice_gimmick"] == "min_max_only" and room3_minmax_config["name"] == "오크 [극단]"
-	ok = room3_minmax_ok and ok
-	lines.append("  room3 config: dice_gimmick=%s name=%s (기대 min_max_only, '오크 [극단]') -> %s" % [
-		room3_minmax_config["dice_gimmick"], room3_minmax_config["name"], "OK" if room3_minmax_ok else "FAIL"
-	])
-	# room4 다이스 면 개수는 [대형 기획 10] J-2 3차 시도(D8 임계 idx>=4 -> idx>=5)로
-	# 8에서 6으로 내려갔다 — steady_guard 하한선(ceil(sides/2.0))도 4->3으로 같이
-	# 바뀐다(의도된 변경, docs/BALANCE_TUNING_LOG.md 참고).
-	var room4_config = combat._monster_config_for_room(4)
-	var room4_ok: bool = room4_config["dice_gimmick"] == "steady_guard" \
-		and room4_config["dice_gimmick_value"] == 3 \
-		and room4_config["name"] == "다크 나이트 [철벽] [보스]"
-	ok = room4_ok and ok
-	lines.append("  room4 config: dice_gimmick=%s value=%d name=%s (기대 steady_guard/3/'다크 나이트 [철벽] [보스]') -> %s" % [
-		room4_config["dice_gimmick"], room4_config["dice_gimmick_value"], room4_config["name"],
-		"OK" if room4_ok else "FAIL"
+	var room2_minmax_config = combat._monster_config_for_room(2)
+	var room2_minmax_ok: bool = room2_minmax_config["dice_gimmick"] == "min_max_only" and room2_minmax_config["name"] == "오크 [극단]"
+	ok = room2_minmax_ok and ok
+	lines.append("  room2 config: dice_gimmick=%s name=%s (기대 min_max_only, '오크 [극단]') -> %s" % [
+		room2_minmax_config["dice_gimmick"], room2_minmax_config["name"], "OK" if room2_minmax_ok else "FAIL"
 	])
 	var room0_config = combat._monster_config_for_room(0)
 	var room0_unaffected_ok: bool = room0_config["dice_gimmick"] == "" and room0_config["name"] == "슬라임"
@@ -3420,20 +3422,26 @@ func _check_monster_dice_gimmick(lines: PackedStringArray) -> bool:
 		guard_bag.dice[0][0], "OK" if guard_faces_untouched_ok else "FAIL"
 	])
 
-	# combat_test.gd _monster_config_for_room(): 2026-09-16 [미니 기획 A]-1로 fixed_value가
-	# "오크"에서 "해골 전사"(room2)로 옮겨졌다 — room2(해골 전사)만 fixed_value gimmick이
-	# 켜지고 min_max_only(room3)와 서로 영향 없이 독립적으로 동작해야 함. 면 개수는
-	# [대형 기획 10] J-3(2026-10-12) 1차 시도(D6 임계 idx>=2 -> idx>=3)로 room2가
-	# D6에서 D4로 내려가 고정값도 4(ceil(7/2))에서 3(ceil(5/2))으로 같이 바뀌었다
-	# (의도된 변경, docs/BALANCE_TUNING_LOG.md 참고).
-	var room2_config = combat._monster_config_for_room(2)
-	var room2_ok: bool = room2_config["dice_gimmick"] == "fixed_value" \
-		and room2_config["dice_gimmick_value"] == 3 \
-		and room2_config["name"] == "해골 전사 [고정값 3]"
-	ok = room2_ok and ok
-	lines.append("  room2 config: dice_gimmick=%s value=%d name=%s (기대 fixed_value/3/'해골 전사 [고정값 3]') -> %s" % [
-		room2_config["dice_gimmick"], room2_config["dice_gimmick_value"], room2_config["name"],
-		"OK" if room2_ok else "FAIL"
+	# combat_test.gd _monster_config_for_room(): 2026-10-26 R-1로 4종 순환이 되며
+	# steady_guard("다크 나이트")가 room4에서 room3으로 당겨졌다 — room3만 gimmick이
+	# 켜지고 min_max_only(room2)와 서로 영향 없이 독립적으로 동작해야 함. room3은 보스
+	# 자리가 아니므로(TOTAL_ROOMS-1=4만 보스) 이름에 "[보스]"가 붙지 않아야 한다.
+	var room3_config = combat._monster_config_for_room(3)
+	var room3_ok: bool = room3_config["dice_gimmick"] == "steady_guard" \
+		and room3_config["dice_gimmick_value"] == 3 \
+		and room3_config["name"] == "다크 나이트 [철벽]"
+	ok = room3_ok and ok
+	lines.append("  room3 config: dice_gimmick=%s value=%d name=%s (기대 steady_guard/3/'다크 나이트 [철벽]') -> %s" % [
+		room3_config["dice_gimmick"], room3_config["dice_gimmick_value"], room3_config["name"],
+		"OK" if room3_ok else "FAIL"
+	])
+	# room4(TOTAL_ROOMS-1)는 4종 순환에서 다시 slime(cycle 1, "강화")으로 돌아가 gimmick이
+	# 없지만, "보스" 이름 태그는 room_index 위치만으로 붙으므로 그대로 확인한다.
+	var room4_config = combat._monster_config_for_room(4)
+	var room4_ok: bool = room4_config["dice_gimmick"] == "" and room4_config["name"] == "강화 슬라임 [보스]"
+	ok = room4_ok and ok
+	lines.append("  room4 config: dice_gimmick=%s name=%s (기대 빈 문자열, '강화 슬라임 [보스]') -> %s" % [
+		room4_config["dice_gimmick"], room4_config["name"], "OK" if room4_ok else "FAIL"
 	])
 
 	# room1(고블린)만 anger_stack gimmick이 켜지고 이름에 "[분노]"가 붙어야 하며, room0/3/4와
@@ -7410,7 +7418,11 @@ func _check_monster_catalog_family_icons(lines: PackedStringArray) -> bool:
 
 	var script := load("res://code/scenes/combat_test.gd")
 	var combat = script.new()
-	for room_index in range(5):
+	# 2026-10-26 R-1로 LEGACY_ROOM_CYCLE_IDS가 4종(slime/goblin/orc/dark_knight)이 됐고,
+	# MONSTERS 배열의 맨 앞 4개가 정확히 그 순서와 같으므로 range(4)까지만 위치 대응이
+	# 유효하다(room4는 4종 순환이 다시 slime으로 돌아가지만 MONSTERS[4]는 armored_goblin
+	# 이라 더는 대응하지 않음 — range(5)로 두면 거짓 FAIL이 됨).
+	for room_index in range(4):
 		var expect_gimmick: String = MonsterCatalog.gimmick_of(MonsterCatalog.MONSTERS[room_index])
 		var actual_gimmick: String = combat._monster_config_for_room(room_index)["dice_gimmick"]
 		var room_ok := expect_gimmick == actual_gimmick
@@ -7423,25 +7435,26 @@ func _check_monster_catalog_family_icons(lines: PackedStringArray) -> bool:
 	return ok
 
 
-## [대형 기획 6] G-5(2026-10-07) 검증 — 일반 몬스터 20종 데이터(계열당 5종, INBOX.md
+## [대형 기획 6] G-5(2026-10-07) 검증 — 일반 몬스터 데이터(원래 계열당 5종, INBOX.md
 ## G-5 표) + 그 글루 코드(legacy_cycle_monster 호환, atk_dice_delta/def_dice_delta/
 ## hp_mult 반영, GAME_QA_MONSTER_ID QA 훅)가 "플래그"가 아니라 실제 계산 결과(다이스
 ## 개수/HP/스킬 보정값)를 바꾸는지 직접 확인한다(F-3 원칙).
-## monster_catalog.gd 주석이 설명하듯 이번 단계에서는 기존 5종(슬라임/고블린/해골 전사/
-## 오크/다크 나이트)의 skills/family/tier는 전혀 건드리지 않았으므로, legacy_cycle_monster()
-## 로 뽑히는 room 0~9 결과가 MONSTERS가 21개로 늘어나기 전과 완전히 같아야 한다(동작 보존).
+## 2026-10-26 [대형 기획 16] R-1(몬스터 로스터 정리)로 해골 전사/해골 궁수/망령 병사/
+## 해골 기사 4종이 카탈로그에서 완전히 제거되고(일반 20->17, 정예 8->7), 유령/그림자/
+## 안개/망령(정예)이 amorphous->undead로 재분류됐다 — 아래 규모/계열 수 기대값은 그
+## 결과를 반영한다.
 func _check_g5_monster_catalog(lines: PackedStringArray) -> bool:
 	var ok := true
 
-	# (1) 카탈로그 규모: "일반 20종"(계열당 5) + 아직 정예로 안 옮겨간 "다크 나이트" 1개
-	# + 정예 8종(계열당 2, G-7) + 보스 6종(계열당 1~2, G-8) = 35. 다크 나이트
-	# (id="dark_knight")는 G-7/G-8 둘 다 그대로 손대지 않았고(위 monster_catalog.gd
-	# 주석 참고 — 정예판은 다른 id "dark_knight_elite"로 따로 추가) 계속 "일반" 쪽
-	# "인간형" 집계에 남아있다.
+	# (1) 카탈로그 규모: "일반 17종"(인간형5/부정형2/야수형5/언데드형5) + 아직 정예로
+	# 안 옮겨간 "다크 나이트" 1개 + 정예 7종(G-7, R-1로 해골 기사 제거) + 보스 6종
+	# (G-8) = 31. 다크 나이트(id="dark_knight")는 G-7/G-8 둘 다 그대로 손대지 않았고
+	# (위 monster_catalog.gd 주석 참고 — 정예판은 다른 id "dark_knight_elite"로 따로
+	# 추가) 계속 "일반" 쪽 "인간형" 집계에 남아있다.
 	var total := MonsterCatalog.MONSTERS.size()
-	var size_ok: bool = total == 35
+	var size_ok: bool = total == 31
 	ok = size_ok and ok
-	lines.append("  MonsterCatalog.MONSTERS.size()=%d (기대 35 = 20종 로스터 + 다크 나이트 + 정예 8종 + 보스 6종) -> %s" % [
+	lines.append("  MonsterCatalog.MONSTERS.size()=%d (기대 31 = 17종 로스터 + 다크 나이트 + 정예 7종 + 보스 6종) -> %s" % [
 		total, "OK" if size_ok else "FAIL"
 	])
 
@@ -7456,27 +7469,29 @@ func _check_g5_monster_catalog(lines: PackedStringArray) -> bool:
 		if ids_seen.has(mid):
 			ids_unique_ok = false
 		ids_seen[mid] = true
-	# 인간형만 "다크 나이트"가 아직 남아있어 기본 6, 나머지 세 계열은 기본 5 — G-7 정예
-	# 8종(계열당 2) + G-8 보스 6종(인간형2/부정형2/야수1/언데드1)이 더해져
-	# 인간형10/부정형9/야수형8/언데드형8이 된다.
-	var family_counts_ok: bool = family_counts["humanoid"] == 10 and family_counts["amorphous"] == 9 \
+	# R-1 이후: 인간형10(다크 나이트 포함)/부정형5(유령류가 undead로 빠짐)/야수형8/
+	# 언데드형8(유령류 4종이 들어온 대신 해골 전사/궁수/망령 병사/해골 기사 4종이
+	# 빠져 상쇄) — 상세 집계는 docs/STATUS.md R-1 완료 기록 참고.
+	var family_counts_ok: bool = family_counts["humanoid"] == 10 and family_counts["amorphous"] == 5 \
 		and family_counts["beast"] == 8 and family_counts["undead"] == 8
 	ok = family_counts_ok and ids_unique_ok and ok
-	lines.append("  계열별 개수=%s (기대 인간형10/부정형9/야수형8/언데드8), id 전부 고유=%s -> %s" % [
+	lines.append("  계열별 개수=%s (기대 인간형10/부정형5/야수형8/언데드8), id 전부 고유=%s -> %s" % [
 		family_counts, ids_unique_ok, "OK" if (family_counts_ok and ids_unique_ok) else "FAIL"
 	])
 
-	# (2) legacy_cycle_monster(): MONSTERS가 21개로 늘어나도 room 0~9는 여전히 기존 5종만
-	# 순환해야 한다 — 신규 15종이 섞여 던전 순환(실제 플레이)이 바뀌면 안 됨(동작 보존).
-	var expect_cycle_ids := ["slime", "goblin", "skeleton", "orc", "dark_knight",
-		"slime", "goblin", "skeleton", "orc", "dark_knight"]
+	# (2) legacy_cycle_monster(): 2026-10-26 R-1로 "해골 전사"가 카탈로그에서 제거되며
+	# 이 순환은 5종에서 4종(slime/goblin/orc/dark_knight)으로 줄었다 — 나머지 신규
+	# 몬스터가 섞여 던전 순환(실제 플레이와 무관한 이 QA 전용 경로)이 영향받지 않는지만
+	# 계속 확인한다(이 경로 자체의 구성 변경은 R-1이 의도한 결과).
+	var expect_cycle_ids := ["slime", "goblin", "orc", "dark_knight",
+		"slime", "goblin", "orc", "dark_knight", "slime", "goblin"]
 	var cycle_ok := true
 	for room_index in range(10):
 		var picked: Dictionary = MonsterCatalog.legacy_cycle_monster(room_index)
 		if picked.get("id", "") != expect_cycle_ids[room_index]:
 			cycle_ok = false
 	ok = cycle_ok and ok
-	lines.append("  legacy_cycle_monster(room 0..9)가 기존 5종만 순환(기대 %s): %s -> %s" % [
+	lines.append("  legacy_cycle_monster(room 0..9)가 4종만 순환(기대 %s): %s -> %s" % [
 		expect_cycle_ids, cycle_ok, "OK" if cycle_ok else "FAIL"
 	])
 
@@ -7499,15 +7514,17 @@ func _check_g5_monster_catalog(lines: PackedStringArray) -> bool:
 		spider_cfg["skill_params"].get("pounce", {}).get("amount", 0), "OK" if spider_ok else "FAIL"
 	])
 
-	OS.set_environment("GAME_QA_MONSTER_ID", "skeleton_archer")
-	var archer_cfg: Dictionary = combat._monster_config_for_room(2)
-	# room2 기본 공식: 공격=2+int(2/2.0)=3, 방어=1+int(2/3.0)=1. 해골 궁수는
-	# atk_dice_delta=+1 -> 4, def_dice_delta=-1 -> max(1,1-1)=1.
-	var archer_ok: bool = archer_cfg["name"] == "해골 궁수" and archer_cfg["attack_count"] == 4 \
-		and archer_cfg["defense_count"] == 1
-	ok = archer_ok and ok
-	lines.append("  GAME_QA_MONSTER_ID=skeleton_archer room2: name=%s 공격=%d(기대 4) 방어=%d(기대 1) -> %s" % [
-		archer_cfg["name"], archer_cfg["attack_count"], archer_cfg["defense_count"], "OK" if archer_ok else "FAIL"
+	# 2026-10-26 R-1로 "해골 궁수"(atk_dice_delta+1/def_dice_delta-1 조합)가 카탈로그에서
+	# 제거됨 — atk_dice_delta 양수 반영은 독 슬라임으로 대신 확인(음수 반영은 위 독거미가
+	# 이미 확인).
+	OS.set_environment("GAME_QA_MONSTER_ID", "poison_slime")
+	var poison_cfg: Dictionary = combat._monster_config_for_room(0)
+	# room0 기본 공식: 공격=2+0=2, 방어=1+0=1. 독 슬라임은 atk_dice_delta=+1 -> 3.
+	var poison_ok: bool = poison_cfg["name"] == "독 슬라임" and poison_cfg["attack_count"] == 3 \
+		and poison_cfg["defense_count"] == 1
+	ok = poison_ok and ok
+	lines.append("  GAME_QA_MONSTER_ID=poison_slime room0: name=%s 공격=%d(기대 3) 방어=%d(기대 1) -> %s" % [
+		poison_cfg["name"], poison_cfg["attack_count"], poison_cfg["defense_count"], "OK" if poison_ok else "FAIL"
 	])
 
 	OS.set_environment("GAME_QA_MONSTER_ID", "zombie")
@@ -7549,7 +7566,7 @@ func _check_g5_monster_catalog(lines: PackedStringArray) -> bool:
 	})
 	var counter_ok: bool = counter_effect.get("reflect_damage", 0) == counter_amount
 	ok = counter_ok and ok
-	lines.append("  산적 counter(%d): dmg=0 -> reflect_damage=%d(기대%d) -> %s" % [
+	lines.append("  풋내기 용병 counter(%d): dmg=0 -> reflect_damage=%d(기대%d) -> %s" % [
 		counter_amount, counter_effect.get("reflect_damage", 0), counter_amount, "OK" if counter_ok else "FAIL"
 	])
 
@@ -7592,6 +7609,93 @@ func _check_g5_monster_catalog(lines: PackedStringArray) -> bool:
 	return ok
 
 
+## [대형 기획 16] R-1(2026-10-26) 검증 — 몬스터 로스터 정리(해골 전사/해골 궁수/망령
+## 병사/해골 기사 제거, 유령/그림자/안개/망령 undead 재분류, 산적->풋내기 용병
+## 개명)가 "데이터만 바뀐 게 아니라" 실제 조회/계획 생성 결과에 반영되는지 직접
+## 확인한다(F-3 원칙) — 카탈로그/출현 풀 양쪽에서 제거됐는지, 재분류된 family가
+## 실제로 읽히는지, build_monster_plan/build_elite_plan이 여러 시드에서 새 풀
+## 크기로 중복 없이 채워지는지까지 본다.
+func _check_r1_monster_roster_cleanup(lines: PackedStringArray) -> bool:
+	var ok := true
+
+	# (1) 제거된 4종이 카탈로그 자체(get_by_id) + 일반/정예 출현 풀 어디에도 없어야 한다.
+	var removed_ids := ["skeleton", "skeleton_archer", "wraith_soldier", "skeleton_knight"]
+	var normal_ids: Array = MonsterCatalog.normal_roster_ids()
+	var elite_ids: Array = MonsterCatalog.elite_roster_ids()
+	var removed_ok := true
+	for id in removed_ids:
+		if not MonsterCatalog.get_by_id(id).is_empty():
+			removed_ok = false
+		if normal_ids.has(id) or elite_ids.has(id):
+			removed_ok = false
+	ok = removed_ok and ok
+	lines.append("  제거된 4종(%s)이 카탈로그/출현 풀에 전부 없음=%s -> %s" % [
+		removed_ids, removed_ok, "OK" if removed_ok else "FAIL"
+	])
+
+	# (2) 유령/그림자/안개(일반)·망령(정예) family가 실제로 undead로 재분류됐는지.
+	var reclassified_ids := ["ghost", "shadow", "mist", "specter"]
+	var reclass_ok := true
+	var reclass_families := []
+	for id in reclassified_ids:
+		var fam: String = MonsterCatalog.get_by_id(id).get("family", "")
+		reclass_families.append(fam)
+		if fam != "undead":
+			reclass_ok = false
+	ok = reclass_ok and ok
+	lines.append("  유령/그림자/안개/망령 family=%s (기대 전부 undead) -> %s" % [
+		reclass_families, "OK" if reclass_ok else "FAIL"
+	])
+
+	# (3) 산적(id 유지) -> 풋내기 용병 표시명 변경.
+	var bandit: Dictionary = MonsterCatalog.get_by_id("bandit")
+	var bandit_name_ok: bool = bandit.get("name", "") == "풋내기 용병"
+	ok = bandit_name_ok and ok
+	lines.append("  bandit 표시명=%s (기대 풋내기 용병, id는 유지) -> %s" % [
+		bandit.get("name", ""), "OK" if bandit_name_ok else "FAIL"
+	])
+
+	# (4) build_monster_plan(): 여러 시드에서 일반 자리(라운드당 4개 x 3라운드=12개)가
+	# 전부 서로 다른 id + 새 풀(17종) 안이어야 한다(런 전체 기준 중복 없음, 기존 G-6
+	# 계약 그대로 — 풀 크기만 20->17로 줄었다).
+	var plan_seeds := [1, 42, 9999, 20261026]
+	var plan_ok := true
+	for seed in plan_seeds:
+		var plan: Array = MonsterCatalog.build_monster_plan(seed, 3, 5)
+		var seen := {}
+		for round_slots in plan:
+			for room in range(4):
+				var id: String = round_slots[room]
+				if seen.has(id) or not normal_ids.has(id):
+					plan_ok = false
+				seen[id] = true
+	ok = plan_ok and ok
+	lines.append("  build_monster_plan() 여러 시드(%s)에서 12자리 전부 고유 + 17종 풀 안=%s -> %s" % [
+		plan_seeds, plan_ok, "OK" if plan_ok else "FAIL"
+	])
+
+	# (5) build_elite_plan(): 여러 시드에서 "라운드 안" 방1~3이 전부 서로 다른 id +
+	# 새 풀(7종) 안이어야 한다(라운드 단위 중복 없음, 기존 G-7 계약 그대로 — 풀 크기만
+	# 8->7로 줄었다. 라운드를 넘어서는 전체 런 기준 중복까지는 보장 안 하는 것도 기존과
+	# 동일 — 3라운드x3자리=9 > 풀 크기 7).
+	var elite_plan_ok := true
+	for seed in plan_seeds:
+		var elite_plan: Array = MonsterCatalog.build_elite_plan(seed, 3, 5)
+		for round_slots in elite_plan:
+			var seen_in_round := {}
+			for room in range(1, 4):
+				var id: String = round_slots[room]
+				if seen_in_round.has(id) or not elite_ids.has(id):
+					elite_plan_ok = false
+				seen_in_round[id] = true
+	ok = elite_plan_ok and ok
+	lines.append("  build_elite_plan() 여러 시드(%s)에서 라운드당 3자리 전부 고유 + 7종 풀 안=%s -> %s" % [
+		plan_seeds, elite_plan_ok, "OK" if elite_plan_ok else "FAIL"
+	])
+
+	return ok
+
+
 ## [대형 기획 6] G-6(2026-10-07) 검증 — MonsterCatalog.build_monster_plan()(순수 함수)이
 ## "라운드x방" 모양으로 결정론적인 계획을 만드는지, combat_test.gd의
 ## _monster_config_for_plan()이 그 계획 + 라운드를 반영한 난이도 공식(room_index +
@@ -7601,11 +7705,11 @@ func _check_g5_monster_catalog(lines: PackedStringArray) -> bool:
 func _check_g6_monster_plan(lines: PackedStringArray) -> bool:
 	var ok := true
 
-	# (1) normal_roster_ids(): 20종, 다크 나이트 제외(G-7 전까지 일반 풀 뽑기 대상 아님).
+	# (1) normal_roster_ids(): 17종(R-1로 20->17), 다크 나이트 제외(일반 풀 뽑기 대상 아님).
 	var normal_ids: Array = MonsterCatalog.normal_roster_ids()
-	var roster_size_ok: bool = normal_ids.size() == 20 and not normal_ids.has("dark_knight")
+	var roster_size_ok: bool = normal_ids.size() == 17 and not normal_ids.has("dark_knight")
 	ok = roster_size_ok and ok
-	lines.append("  MonsterCatalog.normal_roster_ids().size()=%d, 다크 나이트 포함=%s (기대 20, false) -> %s" % [
+	lines.append("  MonsterCatalog.normal_roster_ids().size()=%d, 다크 나이트 포함=%s (기대 17, false) -> %s" % [
 		normal_ids.size(), normal_ids.has("dark_knight"), "OK" if roster_size_ok else "FAIL"
 	])
 
@@ -7623,8 +7727,8 @@ func _check_g6_monster_plan(lines: PackedStringArray) -> bool:
 		shape_ok, deterministic_ok, "OK" if (shape_ok and deterministic_ok) else "FAIL"
 	])
 
-	# (3) "일반 전투" 자리(방 0~3, 라운드당 4개 = 총 12개)는 전부 서로 다른 id + 20종 풀 안
-	# (INBOX.md 원문 "한 판 안에서 중복 없이").
+	# (3) "일반 전투" 자리(방 0~3, 라운드당 4개 = 총 12개)는 전부 서로 다른 id + 17종 풀 안
+	# (R-1로 20->17, INBOX.md 원문 "한 판 안에서 중복 없이" — 풀 크기 17 >= 12라 여전히 가능).
 	var normal_slot_ids: Array = []
 	for round_slots in plan_a:
 		for room in range(4):
@@ -7640,12 +7744,12 @@ func _check_g6_monster_plan(lines: PackedStringArray) -> bool:
 		if not normal_ids.has(id):
 			all_in_pool = false
 	ok = all_unique and all_in_pool and ok
-	lines.append("  일반 전투 자리(방 0~3 x 3라운드=12개) 전부 고유=%s, 전부 20종 풀 안=%s -> %s" % [
+	lines.append("  일반 전투 자리(방 0~3 x 3라운드=12개) 전부 고유=%s, 전부 17종 풀 안=%s -> %s" % [
 		all_unique, all_in_pool, "OK" if (all_unique and all_in_pool) else "FAIL"
 	])
 
 	# (4) 보스 자리(방4)는 G-8(2026-10-07)부터 전용 보스 풀 — 그 라운드의
-	# BOSS_ROSTER_BY_ROUND 후보 2종 중 하나여야 한다(일반 20종 풀 안이 아니다).
+	# BOSS_ROSTER_BY_ROUND 후보 2종 중 하나여야 한다(일반 17종 풀 안이 아니다).
 	var boss_ok := true
 	for r in range(plan_a.size()):
 		var boss_id: String = plan_a[r][4]
@@ -7664,9 +7768,9 @@ func _check_g6_monster_plan(lines: PackedStringArray) -> bool:
 	# RunState.monster_plan에 직접 꽂아두고 끝나면 원래 값으로 복원.
 	var plan_backup: Array = RunState.monster_plan
 	RunState.monster_plan = [
-		["slime", "goblin", "skeleton", "orc", "dark_knight"],
+		["slime", "goblin", "armored_goblin", "orc", "dark_knight"],
 		["armored_goblin", "poison_slime", "wolf", "ghoul", "zombie"],
-		["bandit", "ghost", "mad_dog", "wraith_soldier", "dark_knight"],
+		["bandit", "ghost", "mad_dog", "poison_slime", "dark_knight"],
 	]
 	var script := load("res://code/scenes/combat_test.gd")
 	var combat = script.new()
@@ -7737,15 +7841,16 @@ func _check_g6_monster_plan(lines: PackedStringArray) -> bool:
 func _check_g7_elite_combat(lines: PackedStringArray) -> bool:
 	var ok := true
 
-	# (1) elite_roster_ids(): INBOX.md 원문 그대로 8종.
+	# (1) elite_roster_ids(): INBOX.md 원문은 8종이었으나 2026-10-26 R-1로 해골 기사
+	# (skeleton_knight)가 제거되며 7종이 됐다.
 	var elite_ids: Array = MonsterCatalog.elite_roster_ids()
-	var elite_size_ok: bool = elite_ids.size() == 8
+	var elite_size_ok: bool = elite_ids.size() == 7
 	ok = elite_size_ok and ok
-	lines.append("  MonsterCatalog.elite_roster_ids().size()=%d (기대 8) -> %s" % [
+	lines.append("  MonsterCatalog.elite_roster_ids().size()=%d (기대 7) -> %s" % [
 		elite_ids.size(), "OK" if elite_size_ok else "FAIL"
 	])
 
-	# (2) 8종 전부 tier=="elite"이고 skills가 정확히 2개씩이어야 한다("정예 = 스킬 2개"
+	# (2) 7종 전부 tier=="elite"이고 skills가 정확히 2개씩이어야 한다("정예 = 스킬 2개"
 	# 공통 공식).
 	var all_elite_two_skills := true
 	for id in elite_ids:
@@ -7753,7 +7858,7 @@ func _check_g7_elite_combat(lines: PackedStringArray) -> bool:
 		if m.get("tier", "") != "elite" or m.get("skills", []).size() != 2:
 			all_elite_two_skills = false
 	ok = all_elite_two_skills and ok
-	lines.append("  정예 8종 전부 tier==elite && skills.size()==2: %s -> %s" % [
+	lines.append("  정예 7종 전부 tier==elite && skills.size()==2: %s -> %s" % [
 		all_elite_two_skills, "OK" if all_elite_two_skills else "FAIL"
 	])
 
@@ -7780,7 +7885,7 @@ func _check_g7_elite_combat(lines: PackedStringArray) -> bool:
 			if not elite_ids.has(round_slots[room]):
 				middle_slots_valid_ok = false
 	ok = edge_slots_empty_ok and middle_slots_valid_ok and ok
-	lines.append("  방0/방4(보스 자리)는 항상 빈 문자열=%s, 방1~3은 항상 정예 8종 풀 안=%s -> %s" % [
+	lines.append("  방0/방4(보스 자리)는 항상 빈 문자열=%s, 방1~3은 항상 정예 7종 풀 안=%s -> %s" % [
 		edge_slots_empty_ok, middle_slots_valid_ok, "OK" if (edge_slots_empty_ok and middle_slots_valid_ok) else "FAIL"
 	])
 
@@ -7913,7 +8018,7 @@ func _check_g8_boss(lines: PackedStringArray) -> bool:
 	# skill_ids 3개가 전부 계산 결과에 반영되는지.
 	var plan_backup: Array = RunState.monster_plan
 	RunState.monster_plan = [
-		["slime", "goblin", "skeleton", "orc", "goblin_king"],
+		["slime", "goblin", "armored_goblin", "orc", "goblin_king"],
 	]
 	var script := load("res://code/scenes/combat_test.gd")
 	var combat = script.new()

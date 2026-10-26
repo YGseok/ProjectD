@@ -57,7 +57,7 @@ const FAMILIES := {
 	"humanoid": {"name": "인간형", "description": "방어/장비 중심 — 몬스터 자신의 방어를 강화한다"},
 	"amorphous": {"name": "부정형", "description": "플레이어 주사위를 직접 건드린다"},
 	"beast": {"name": "야수형", "description": "공격/폭딜 중심 — 몬스터 자신의 공격을 강화한다"},
-	"undead": {"name": "언데드형", "description": "흡수/부활/지속 효과 중심"},
+	"undead": {"name": "언데드형", "description": "흡수/부활/저주·봉인 등 지속 효과 중심"},
 }
 
 const MONSTERS := [
@@ -70,11 +70,6 @@ const MONSTERS := [
 		"id": "goblin", "name": "고블린", "family": "humanoid", "tier": "normal",
 		"color": Color(0.75, 0.55, 0.25), "skills": [{"id": "anger_stack"}], "hp_mult": 1.0,
 		"personality": "성급하고 화를 잘 냄",
-	},
-	{
-		"id": "skeleton", "name": "해골 전사", "family": "undead", "tier": "normal",
-		"color": Color(0.85, 0.85, 0.8), "skills": [{"id": "fixed_value"}], "hp_mult": 1.0,
-		"personality": "감정 없이 명령대로만 움직이는 병사, 늘 같은 힘으로 정확하게 타격",
 	},
 	{
 		"id": "orc", "name": "오크", "family": "beast", "tier": "normal",
@@ -99,9 +94,9 @@ const MONSTERS := [
 		"personality": "체력이 떨어질수록 방패를 더 단단히 그러쥐는 고블린",
 	},
 	{
-		"id": "bandit", "name": "산적", "family": "humanoid", "tier": "normal",
+		"id": "bandit", "name": "풋내기 용병", "family": "humanoid", "tier": "normal",
 		"color": Color(0.5, 0.35, 0.2), "skills": [{"id": "counter", "amount": 1}], "hp_mult": 1.0,
-		"personality": "방심한 공격을 그대로 되받아치는 데 능숙한 산적",
+		"personality": "불량한 신참 용병, 조직의 똘마니 노릇을 한다",
 	},
 	{
 		"id": "guard_soldier", "name": "경비병", "family": "humanoid", "tier": "normal",
@@ -114,18 +109,20 @@ const MONSTERS := [
 		"hp_mult": 1.0, "personality": "끈적한 독액으로 상대의 움직임을 둔하게 만드는 슬라임",
 	},
 	{
-		"id": "ghost", "name": "유령", "family": "amorphous", "tier": "normal",
+		# 2026-10-26 R-1 — 유령류는 이름/컨셉이 언데드형에 가깝다는 사용자 지시로
+		# family를 amorphous->undead로 재분류(스킬/수치는 그대로).
+		"id": "ghost", "name": "유령", "family": "undead", "tier": "normal",
 		"color": Color(0.75, 0.8, 0.85), "skills": [{"id": "seal"}], "hp_mult": 1.0,
 		"personality": "가장 약한 손놀림을 그대로 봉인해버리는 유령",
 	},
 	{
-		"id": "shadow", "name": "그림자", "family": "amorphous", "tier": "normal",
+		"id": "shadow", "name": "그림자", "family": "undead", "tier": "normal",
 		"face_crop": Rect2(0.16, 0.09, 0.48, 0.48),  # 아트 지정: 얼굴(보라 눈) 중심 x≈0.40,y≈0.25
 		"color": Color(0.2, 0.2, 0.25), "skills": [{"id": "dull"}], "hp_mult": 1.0,
 		"personality": "날카로운 기세를 슬그머니 무디게 만드는 그림자",
 	},
 	{
-		"id": "mist", "name": "안개", "family": "amorphous", "tier": "normal",
+		"id": "mist", "name": "안개", "family": "undead", "tier": "normal",
 		"color": Color(0.8, 0.85, 0.85), "skills": [{"id": "numb"}], "hp_mult": 1.0,
 		"personality": "손끝의 감각을 흐려놓는 자욱한 안개",
 	},
@@ -160,16 +157,6 @@ const MONSTERS := [
 		"color": Color(0.45, 0.5, 0.4), "skills": [{"id": "chill"}], "hp_mult": 1.4,
 		"personality": "둔하지만 쉽게 쓰러지지 않는, 서늘한 기운을 내뿜는 좀비",
 	},
-	{
-		"id": "skeleton_archer", "name": "해골 궁수", "family": "undead", "tier": "normal",
-		"color": Color(0.8, 0.75, 0.6), "skills": [], "atk_dice_delta": 1, "def_dice_delta": -1,
-		"hp_mult": 1.0, "personality": "방어는 포기하고 화살 공세에만 집중하는 해골",
-	},
-	{
-		"id": "wraith_soldier", "name": "망령 병사", "family": "undead", "tier": "normal",
-		"color": Color(0.4, 0.45, 0.5), "skills": [{"id": "drain"}], "atk_dice_delta": -1,
-		"hp_mult": 1.0, "personality": "약한 공격으로도 꾸준히 생명력을 갈취하는 병사",
-	},
 	# G-7(2026-10-07) 신규 정예 8종 — INBOX.md [대형 기획 6] G-7 표 그대로(스킬 2개씩,
 	# hp_mult 1.5 + atk_dice_delta +1는 "정예 = 스킬 2개 + hp_mult 1.5 + 공격 다이스 +1"
 	# 공통 공식, 수치는 전부 잠정값 — F-4 시뮬로 조정 예정). INBOX.md 원문은 인간형 정예
@@ -201,7 +188,8 @@ const MONSTERS := [
 		"personality": "거대한 반투명 덩어리가 날카로운 기세까지 통째로 둔화시켜 삼킨다",
 	},
 	{
-		"id": "specter", "name": "망령", "family": "amorphous", "tier": "elite",
+		# 2026-10-26 R-1 — 유령류 재분류(ghost/shadow/mist와 같은 이유)로 amorphous->undead.
+		"id": "specter", "name": "망령", "family": "undead", "tier": "elite",
 		"color": Color(0.55, 0.6, 0.68), "skills": [{"id": "seal"}, {"id": "numb"}],
 		"atk_dice_delta": 1, "hp_mult": 1.5,
 		"personality": "가장 약한 손놀림도 가장 강한 손놀림도 가리지 않고 봉인해버리는 망령",
@@ -218,12 +206,6 @@ const MONSTERS := [
 		"color": Color(0.25, 0.25, 0.3), "skills": [{"id": "pounce", "amount": 3}, {"id": "anger_stack"}],
 		"atk_dice_delta": 1, "hp_mult": 1.5,
 		"personality": "싸움이 시작되는 순간 가장 거칠게 달려들고, 거슬릴수록 더 날뛰는 어둠의 늑대",
-	},
-	{
-		"id": "skeleton_knight", "name": "해골 기사", "family": "undead", "tier": "elite",
-		"color": Color(0.7, 0.68, 0.58), "skills": [{"id": "fixed_value"}, {"id": "drain"}],
-		"atk_dice_delta": 1, "hp_mult": 1.5,
-		"personality": "감정 없이 같은 힘으로 타격하면서도 할퀸 상처에서 생기를 빨아들이는 기사",
 	},
 	{
 		"id": "lich_apprentice", "name": "리치 견습생", "family": "undead", "tier": "elite",
@@ -351,7 +333,11 @@ const BOSS_ROSTER_BY_ROUND := [
 ## 아직 "20종 풀에서 뽑는" 로직(G-6 몫)이 없다 — 그 전까지는 room_index를 이 5개 id로만
 ## 순환시켜(기존 MONSTERS.size()==5였을 때와 완전히 동일한 순서) MONSTERS 배열이 20개로
 ## 늘어나도 실제 플레이/기존 회귀 테스트(dice_test.gd)가 전혀 영향받지 않게 한다.
-const LEGACY_ROOM_CYCLE_IDS := ["slime", "goblin", "skeleton", "orc", "dark_knight"]
+## 2026-10-26 R-1(몬스터 로스터 정리)로 "해골 전사"(skeleton)가 카탈로그에서 완전히
+## 제거되면서 이 5종 순환은 4종 순환으로 줄었다 — 이 배열은 QA 전용(GAME_QA_ROOM_OVERRIDE)/
+## 구버전 호환 경로일 뿐 실제 던전 진행(RunState.monster_plan)과는 무관해, 몬스터 하나가
+## 빠지는 동작 변화를 그대로 받아들인다(새 몬스터로 메우지 않음).
+const LEGACY_ROOM_CYCLE_IDS := ["slime", "goblin", "orc", "dark_knight"]
 
 ## [미니 기획 ART-1c-3] 몬스터 원화 경로 별칭(데이터 표). `dark_knight`(MO005, 옛 5종
 ## 호환용 — normal_roster_ids()에서 이미 제외돼 랜덤 풀에는 안 뽑힘)는 docs/art/
@@ -401,13 +387,15 @@ static func legacy_cycle_monster(room_index: int) -> Dictionary:
 	return get_by_id(id)
 
 
-## G-6(2026-10-07): "일반 전투" 풀 뽑기 대상 20종 id. tier=="normal"인 몬스터 전부에서
+## G-6(2026-10-07): "일반 전투" 풀 뽑기 대상 id. tier=="normal"인 몬스터 전부에서
 ## "다크 나이트"만 제외한다 — G-5 범위/의도적 보류 주석대로, 다크 나이트는 tier 필드이
 ## 여전히 "normal"이라 이 필터만으로는 걸러지지 않아 id로 직접 제외해둔 것(legacy_
-## cycle_monster()의 기존 5종 순환 호환을 위해 MONSTERS 자체에서 빼지는 않음). G-7
+## cycle_monster()의 기존 순환 호환을 위해 MONSTERS 자체에서 빼지는 않음). G-7
 ## (2026-10-07)로 "다크 나이트"의 정예판은 다른 id("dark_knight_elite")로 따로 추가됐을
 ## 뿐, 이 id("dark_knight") 자체는 여전히 tier=="normal"인 채 일반 풀에서만 계속
 ## 제외된 상태로 남는다(레거시 경로 호환 — monster_catalog.gd 상단 G-7 주석 참고).
+## 2026-10-26 R-1로 해골 전사/해골 궁수/망령 병사가 카탈로그에서 제거되며 20종 ->
+## 17종으로 줄었다(계열당 인간형5/부정형2/야수형5/언데드형5, 다크 나이트는 별도).
 static func normal_roster_ids() -> Array:
 	var ids := []
 	for m in MONSTERS:
@@ -416,7 +404,8 @@ static func normal_roster_ids() -> Array:
 	return ids
 
 
-## G-7(2026-10-07): "정예 전투" 풀 뽑기 대상 8종 id. tier=="elite"인 몬스터 전부.
+## G-7(2026-10-07): "정예 전투" 풀 뽑기 대상 id. tier=="elite"인 몬스터 전부.
+## 2026-10-26 R-1로 해골 기사(skeleton_knight)가 제거되며 8종 -> 7종으로 줄었다.
 static func elite_roster_ids() -> Array:
 	var ids := []
 	for m in MONSTERS:

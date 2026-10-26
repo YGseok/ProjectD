@@ -8,6 +8,56 @@
 
 ---
 
+- **2026-10-20 (235)**: **[대형 기획 15] Q-8(c) 2/4(전설 스킬 — 수호자/폭발병
+  6종, 원문 5) 완료.** 직전 이터레이션(iter_154)이 사용 한도로 미커밋 상태
+  (skill_pool.gd 6종 데이터+레어리티+도식+모티프, dice_bag.gd
+  `apply_force_max()`, run_state.gd `_bastion_fixed_value()`+
+  `advance_round()` 배선, combat_test.gd 효과 함수 4종+상태 변수 6개+
+  `_select_exchange_bags()`/`_resolve_exchange()` 배선, skill_diagram_chip.gd
+  "초과방어" 조건 칩, dungeon_map.gd QA 디버그 훅 2종, dice_test.gd
+  `_check_q8c2_legendary_skills()` 8항목)로 끊긴 것을 `git diff`로 파악해
+  이어받았다 — stash/reset 없이 그대로 두고 전수 검증했다. **1/4과 달리
+  이번엔 git diff 전수 확인 결과 빠진 조각이 하나도 없었다** — 코드/테스트
+  모두 이미 완성돼 있어 이번 이터레이션은 검증·QA·문서화만 수행했다.
+  **수호자 3종**(fixed_defense_die "방어·반격 특화" 정체성): 최후의
+  보루(HP 절반 이하일 때만 방어 다이스 "전부"가 각자의 면 최댓값으로
+  고정 — 평소에는 기믹대로 1개만 고정, `DiceBag.apply_force_max()` 신규)/
+  반격의 벽(새 메커니즘 — 방어 합계가 몬스터 공격 합계를 "초과"하기만
+  하면 완전 방어 요구 없이 그 초과분이 방어 무시 반격 피해가 됨,
+  `_overguard_counter_damage()`)/불굴의 벽(라운드 전환마다 고정 방어
+  다이스 값 자체가 영구히 +2, 상한은 그 다이스의 면 개수 — 다이스 개조로
+  면 개수가 늘면 상한도 함께 늘어남, `RunState._bastion_fixed_value()`).
+  **폭발병 3종**(explosive_stack "폭발 스택·한 방 특화" 정체성): 연쇄
+  폭발의 고리(보너스 공격턴을 써도 스택이 0으로 리셋되지 않고 임계치만큼만
+  줄어 초과분이 남으면 보너스턴이 연속 발동 가능, `_update_explosive_chain_
+  progress()` — 기존 `_update_stack_progress()`의 완전 리셋과 대조되는
+  계산 결과를 테스트로 직접 비교), 절대 폭발(보너스 공격턴 피해가 몬스터
+  방어를 완전히 무시 — 막혔던 만큼을 방어 무시 고정 피해로 돌려줌,
+  `_absolute_detonation_bonus_damage()`), 최후의 폭발(HP 절반 이하면 폭발
+  스택 진행과 무관하게 "모든" 공격턴이 보너스 폭발턴, `_select_exchange_
+  bags()`의 `force_last_blast` 분기). 6종 전부 description 끝에 "한 런에
+  하나만" 안내 문장 포함. **신규 아이콘 모티프 없음** — 1/4과 달리 6종
+  전부 효과 범주가 기존 모티프와 겹쳐(값을 최댓값으로=dice_flip, 방어턴
+  반격=counter_strike, 방어 다이스 결과값 보정=defense_boost, "이번
+  공격턴이 보너스 폭발턴이 된다"=burst_stack, 방어 무시 추가 피해=
+  true_strike) 전부 공유로 해결했다. `dice_test.gd`의 전수 커버 테스트
+  (1/4의 (8))도 "novice=3/berserker=3" 하드코딩 대신 LEGENDARY_SKILLS
+  자체에서 캐릭터별 개수를 세는 generic 검사로 이미 일반화돼 있어 추가
+  수정이 필요 없었다. **검증**: `bash scripts/qa_shot.sh dice_test 60
+  qa_out/dice_test_q8c2.png "" 1`을 **foreground로 전체 재실행해 "결과:
+  PASS"(FAIL 0건) 직접 확인**(run_in_background 금지 — 이 항목이 사용
+  한도로 끊긴 두 번째 세션이라 다시 명시 확인). 셀프 피드백 스크린샷
+  2장 — 던전 맵 "스킬 도감"에서 기존 디버그 훅
+  (`_debug_press_shortcut_skill_codex_legendary_guardian`/`_explosive`)으로
+  실제 "보유" 상태를 만들어 직접 읽어 확인: `qa_out/q8c2_guardian_codex.png`
+  (최후의 보루 — 분홍 다이아몬드 패턴/반격의 벽 — 주황 방패, 둘 다 전설
+  배지+안내 문구 정상), `qa_out/q8c2_explosive_codex.png`(연쇄 폭발의 고리 —
+  주황 별 버스트/절대 폭발 — 과녁+관통 화살, 서로 뚜렷이 다른 모양으로
+  구분됨). 전투 규칙/밸런스 수치는 건드리지 않았고 `resources/`·
+  `docs/art/`는 읽기만 했다. **나머지 4명(주술사/매혹사/곡예사/해적)
+  12종은 3/4~4/4 몫으로 남음 — 다음 이터레이션은 Q-8(c) 3/4(주술사/
+  매혹사 6종)부터.**
+
 - **2026-10-19 (234)**: **[대형 기획 15] Q-8(c) 1/4(전설 스킬 인프라 + 견습
   모험가/광전사 6종, 원문 5) 완료.** 직전 이터레이션(iter_153)이 사용 한도로
   미커밋 상태(skill_pool.gd 인프라+6종 데이터, dice_bag.gd count_min_rolls(),

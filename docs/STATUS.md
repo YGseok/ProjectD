@@ -5,44 +5,27 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-10-21 (244)
-- 작성자: AI 에이전트. **[미니 기획 ART-1c-6](아트 스레드 요청 — 일반·정예 몬스터
-  전투 컷에서 얼굴이 보이게 크롭/배치 개선) 완료.** 문제 둘을 함께 고쳤다(둘 중
-  하나만 고치면 머리가 여전히 안 보임):
-  ① **크롭** — `CharacterArt.monster_face_crop_ratio()`(신규, 보스/일반/정예
-  진입점 통합)가 일반/정예 티어에서는 더는 캐릭터 전용 고정값
-  `DEFAULT_FACE_CROP_RATIO`(항상 가로 중앙·세로 1.5% 시작을 가정)를 쓰지 않고,
-  `CharacterArt.detect_face_crop_ratio()`(신규, 순수 함수)로 원화 알파 채널만
-  보고 몬스터별 머리 위치를 찾는다 — ① 위에서부터 훑어 처음 불투명 픽셀이 나오는
-  행을 "머리 꼭대기"로, ② 그 아래 한 band(표본이 모자라면 자동으로 넓힘)의 불투명
-  x좌표 평균을 "머리 가로 중심"으로 삼아 그 지점을 상단 중앙으로 하는 정사각
-  크롭을 돌려준다 — 몬스터 id 하드코딩 없이 서 있는 포즈든 웅크린 포즈(암흑
-  늑대)든 따라간다. 보스는 기존 `BOSS_FACE_CROP_RATIO`(사람이 왕관 때문에 직접
-  튜닝한 값) 그대로 — 손대지 않음. 몬스터 카탈로그에 선택적 `face_crop` 필드로
-  이 자동 탐지를 덮어쓸 수 있는 자리도 열어뒀지만(과업 지시가 허용), 셀프 피드백
-  캡처로 확인한 결과 자동 탐지만으로 4종(dark_wolf/shadow/skeleton_knight/
-  dark_knight) 전부 충분히 좋아져 실제로 쓰는 override는 아직 없음.
-  ② **HUD 패널 회피** — `combat_test.gd`에 보스 전용이던 `BOSS_PORTRAIT_
-  POSITION_SHIFT` 패턴을 일반/정예로 확장한 `MONSTER_PORTRAIT_POSITION_SHIFT_
-  BY_TIER`(일반 y+70/정예 y+105, `_debug_print_boss_rects()`로 실측한 몬스터
-  HUD 패널 바닥(일반 243px/정예 262px)에 ~20px 여백을 더해 역산)를 추가해
-  `_apply_monster_portrait_tier()`가 티어별 보정을 적용한다. 일반(1.0)/정예
-  (1.15)/보스(1.6) 크기 위계는 그대로. `monster_codex_panel.gd`의 격자 썸네일/
-  상세 뷰 "전투 크롭" 미리보기도 같은 `monster_face_crop_ratio()`를 쓰도록
-  맞춰 일관성 유지. `dice_test.gd`에 신규 `_check_art1c6_monster_face_crop_
-  and_hud_margin()` 추가(합성 이미지로 "크롭이 머리 꼭대기 기준"/"가로 중심이
-  몸통 덩어리에 안 끌려감"을 순수 함수로 검증 + 카탈로그 일반·정예 29종 전수를
-  production trait 텍스트로 실측해 포트레이트 상단이 HUD 패널 하단+여백 아래인지
-  결정적으로 검증), 기존 `_check_art1c5_boss_crop()`의 "일반/정예는 안 바뀜"
-  가정도 이번 변경에 맞게 수정. `bash scripts/qa_shot.sh dice_test 60
-  qa_out/dice_test_art1c6_full.png "" 1` **foreground 전체 PASS(FAIL 0건,
-  신규 검증 포함) 직접 확인**(run_in_background 금지). 셀프 피드백 스크린샷
-  전/후 비교(어두운 4종 dark_wolf/shadow/skeleton_knight/dark_knight +
-  slime/orc_warrior/goblin_king 7종)를 직접 읽어 눈/얼굴이 패널에 안 가리고
-  실제로 보이는지 확인 — 특히 dark_wolf(웅크린 포즈)는 전엔 머리가 통째로
-  안 보였는데 이제 눈·귀가 보임, goblin_king(보스)은 의도대로 변화 없음.
-  전투 규칙/밸런스는 건드리지 않았고 `resources/`·`docs/art/`·`qa_out/
-  dark_check_*`는 읽기만 했다(add 안 함).
+- 일시: 2026-10-26 (245)
+- 작성자: AI 에이전트. **[대형 기획 16] R-1(몬스터 로스터 정리, INBOX.md
+  2026-10-26 사용자 지시 — 아트 스레드 경유) 항목 1·2·4 완료, 3번(부정형 새
+  컨셉)은 아트 스레드가 사용자에게 안을 올려 결정 중이라 보류.** 해골 전사/
+  해골 궁수/망령 병사/해골 기사 4종을 카탈로그·출현 풀·도감·테스트·문서에서
+  완전히 제거(일반 20->17, 정예 8->7)했고, 유령/그림자/안개(일반)·망령(정예)
+  4종을 amorphous->undead로 재분류, 산적(`bandit`, id 유지)을 "풋내기 용병"으로
+  개명했다. `MonsterCatalog.LEGACY_ROOM_CYCLE_IDS`(QA 전용 레거시 순환)가
+  5종->4종으로 줄며 영향받은 dice_test.gd 검증 다수(room0~4 기믹/이름 순환,
+  G-1 배열 인덱싱 테스트 등)를 새 순환에 맞게 고쳤고, 신규
+  `_check_r1_monster_roster_cleanup()`으로 "제거된 id 없음/재분류 family/
+  개명/여러 시드에서 중복 없이 채워짐"을 계산 결과로 직접 검증했다. `bash
+  scripts/qa_shot.sh dice_test 60 qa_out/dice_test_r1_final.png "" 1`
+  **foreground 전체 PASS(FAIL 0건, 신규 검증 포함) 직접 확인**
+  (run_in_background 금지). 몬스터 도감/전투 화면 셀프 피드백 스크린샷으로
+  유령·그림자가 undead 아이콘(해골)으로 바뀌고 풋내기 용병 이름/문구가
+  안 겹치는 것을 직접 확인. `balance_sim`/`balance_target_check`로 밸런스
+  밴드를 재측정한 결과 일반 방0~2/정예/보스는 통과를 유지했지만 **일반 방3이
+  68.7%로 새로 미달(목표 75~85%, J-4 대비 -10.5%p)** — 지시대로 몬스터
+  수치는 건드리지 않고 `docs/BALANCE_TUNING_LOG.md`에 기록만 하고 아래
+  "알려진 이슈"에 남겼다. `resources/`·`docs/art/`는 읽기만 했다.
 
 ## 지금 위치
 
@@ -322,17 +305,20 @@ event.gd 특별 선택지 버튼의 safe/risky 버튼 겹침도 고쳤다. 자�
 - **업적 시스템**: `AchievementManager`(Autoload)가 `user://achievements.json`에
   영구 저장, `AchievementPanel`로 열람. 21종 등록(`DEFINITIONS` 참고, 유형별
   아이콘 포함). 해금 순간 토스트/팝업은 없음.
-- **몬스터 카탈로그 35종(일반 20 + 레거시 전용 다크 나이트 1 + 정예 8 +
-  보스 6), 정상 플레이에서 일반 20종 + 정예 8종 + 보스 6종 전부 등장**
-  (`code/systems/monster_catalog.gd`의 `MonsterCatalog.MONSTERS`): 2026-10-07
-  G-6으로 던전 순환이 `legacy_cycle_monster()`(기존 5종 고정 순환) 대신
-  `RunState.monster_plan`(런 시작마다 `MonsterCatalog.build_monster_plan()`
-  으로 미리 뽑아둠)을 쓰도록 바뀌어, **정상 플레이에서 일반 20종 로스터
-  전체(기존 슬라임/고블린/해골 전사/오크 + G-5 신규 16종)를 만날 수
-  있다**(다크 나이트는 `legacy_cycle_monster()`로만 등장하는 레거시
-  전용으로 남음 — 정예판은 G-7이 새 id `dark_knight_elite`로 따로 추가).
-  G-7(2026-10-07)로 정예 8종(인간형 다크 나이트/고블린 족장, 부정형
-  젤라틴 큐브/망령, 야수형 오크 투사/암흑 늑대, 언데드형 해골 기사/리치
+- **몬스터 카탈로그 31종(일반 17 + 레거시 전용 다크 나이트 1 + 정예 7 +
+  보스 6), 정상 플레이에서 일반 17종 + 정예 7종 + 보스 6종 전부 등장**
+  (`code/systems/monster_catalog.gd`의 `MonsterCatalog.MONSTERS`, 2026-10-26
+  [대형 기획 16] R-1로 20/8종에서 해골 전사/해골 궁수/망령 병사/해골 기사
+  4종이 빠지며 17/7종으로 줄었고, 유령/그림자/안개/망령은 family가
+  undead로 재분류됨 — 상세는 "완료 기록 (245)" 참고): 2026-10-07
+  G-6으로 던전 순환이 `legacy_cycle_monster()`(QA 전용 4종 고정 순환,
+  R-1 전엔 5종) 대신 `RunState.monster_plan`(런 시작마다
+  `MonsterCatalog.build_monster_plan()`으로 미리 뽑아둠)을 쓰도록 바뀌어,
+  **정상 플레이에서 일반 17종 로스터 전체를 만날 수 있다**(다크 나이트는
+  `legacy_cycle_monster()`로만 등장하는 레거시 전용으로 남음 — 정예판은
+  G-7이 새 id `dark_knight_elite`로 따로 추가).
+  G-7(2026-10-07)로 정예 7종(인간형 다크 나이트/고블린 족장, 부정형
+  젤라틴 큐브, 야수형 오크 투사/암흑 늑대, 언데드형 망령/리치
   견습생, 전부 스킬 2개+hp_mult 1.5+공격 다이스+1)이 추가됐고,
   `RunState.elite_plan`(런 시작마다 `build_elite_plan()`으로 미리 뽑음)을
   통해 던전 맵 방 1~3에서 35% 확률로 "정예 전투" 선택지로 실제로 만날 수
@@ -1445,7 +1431,62 @@ DESIGN.md 레어리티 표 + STATUS.md 아트 발주 표(완료 기록 (238))까
     조합의 승률/턴수/HP 집계 + ±15%p 이상치 목록, 해석·조정 제안 없음 —
     조정은 사람이 이 숫자를 보고 다음 지시로 결정).
 
+21. ~~**(INBOX.md 2026-10-26, [대형 기획 16] R-1) 몬스터 로스터 정리.**~~ →
+    **항목 1·2·4 완료(2026-10-26, 245) — 상세는 위 "완료 기록 (245)" 참고.**
+    해골 전사/해골 궁수/망령 병사/해골 기사 제거, 유령/그림자/안개/망령
+    undead 재분류, 산적->풋내기 용병 개명까지 끝났다. **남은 것**: 항목
+    3번(부정형 계열 새 컨셉)은 아트 스레드가 결정 중이라 미착수 — 컨셉이
+    확정되면 다음 이터레이션이 이어받을 것. 밸런스 재측정에서 발견된 "일반
+    방3 미달"은 "알려진 이슈" 참고, 조정은 감독 판단 필요.
+
 ## 완료 기록
+
+- **2026-10-26 (245)**: **[대형 기획 16] R-1(몬스터 로스터 정리, INBOX.md
+  2026-10-26 사용자 지시 — 아트 스레드 경유) 항목 1·2·4 완료, 3번(부정형 새
+  컨셉)은 아직 미확정이라 보류.** (1) **제거**: 해골 전사(`skeleton`)/해골
+  궁수(`skeleton_archer`)/망령 병사(`wraith_soldier`, 이상 일반)/해골 기사
+  (`skeleton_knight`, 정예) 4종을 `MonsterCatalog.MONSTERS`·출현 풀·도감·
+  테스트·문서에서 완전히 뺐다(일반 20->17, 정예 8->7, 빠진 자리는 새 몬스터로
+  메우지 않음). (2) **재분류**: 유령(`ghost`)/그림자(`shadow`)/안개(`mist`,
+  이상 일반)·망령(`specter`, 정예) 4종의 family를 amorphous->undead로
+  바꿨다(스킬/수치 불변). `MonsterCatalog.FAMILIES`의 undead 설명문을
+  "흡수/부활/지속 효과"에서 "흡수/부활/저주·봉인 등 지속 효과"로 넓혀 seal/
+  dull/numb 같은 디버프 스킬도 자연스럽게 포함되게 했다(부정형 설명 "플레이어
+  주사위를 직접 건드린다"는 남은 멤버(슬라임류+공허의 눈, 전부 sticky/dull/
+  seal/numb류)가 그대로 유지해 안 바뀜). (3) **이름 변경**: 산적(`bandit`,
+  id 유지)의 표시명을 "풋내기 용병"으로, personality를 "불량한 신참 용병,
+  조직의 똘마니 노릇을 한다"로 바꿨다(처음엔 더 긴 문장을 썼다가 ART-1c-6의
+  HUD 패널 회피 보정이 "personality 1줄" 가정으로 튜닝돼 있던 것이 2줄로
+  넘치며 `_check_art1c6_monster_face_crop_and_hud_margin()`이 FAIL — 지금
+  길이로 줄여 해결, 다른 몬스터 personality는 안 건드림). **전수 점검**:
+  `MonsterCatalog.LEGACY_ROOM_CYCLE_IDS`(QA 전용 5종 순환 — 실제 던전 진행과
+  무관)가 skeleton을 썼던 자리라 5종->4종(slime/goblin/orc/dark_knight)으로
+  줄였고, 그에 딸린 `dice_test.gd`의 room0~4 기믹/이름 순환 검증(여러 곳,
+  "해골 전사"/"오크"/"다크 나이트"가 room2/3/4에 배정되던 가정)을 새 순환에
+  맞게 다시 썼다 — "range(5)"로 `MonsterCatalog.MONSTERS[room_index]`를 직접
+  인덱싱하던 G-1 테스트도 배열 순서가 바뀌며 깨져 "range(4)"로 좁혔다.
+  `MonsterCatalog.MONSTERS.size()`(35->31)/`normal_roster_ids().size()`
+  (20->17)/`elite_roster_ids().size()`(8->7)/family_counts(amorphous
+  9->5, 나머지 불변) 등 하드코딩된 숫자 전부 갱신. **신규 테스트**
+  `_check_r1_monster_roster_cleanup()`(dice_test.gd) — 제거된 4종이 카탈로그/
+  출현 풀 어디에도 없음, 재분류 4종 family==undead, bandit 표시명, 그리고
+  `build_monster_plan`/`build_elite_plan`이 여러 시드(1/42/9999/20261026)에서
+  새 풀 크기로 중복 없이 채워지는지까지 F-3 원칙대로 계산 결과로 직접
+  검증한다. `bash scripts/qa_shot.sh dice_test 60 qa_out/dice_test_r1_final.png
+  "" 1`을 **foreground로 전체 실행해 "결과: PASS"(FAIL 0건, 신규 검증 포함)
+  직접 확인**(run_in_background 금지). 셀프 피드백 스크린샷으로 유령/그림자
+  전투 화면(계열 아이콘이 해골로 바뀜, 라벨 안 겹침)과 몬스터 도감 격자
+  ("몬스터 도감 — 31/31종" 표기, 풋내기 용병 포함)를 직접 읽어 확인.
+  **밸런스 재측정**(지시대로 몬스터 수치는 건드리지 않고 측정만):
+  `balance_sim`(100판/조합, 균형 성장 정책) → `balance_target_check`로
+  재측정한 결과 일반 방0~2 98.2%(통과)/**일반 방3 68.7%(미달, 목표 75~85%,
+  J-4 79.2%에서 -10.5%p 하락)**/정예 61.8%(통과)/보스 38.2%(통과) — 방3만
+  새로 미달로 돌아섰다(원인 추정과 수치는 `docs/BALANCE_TUNING_LOG.md` "R-1
+  로스터 정리 후 재측정" 섹션에 고정 기록, 감독 판단 대기 — 아래 "알려진
+  이슈" 참고). `resources/`·`docs/art/`는 읽기만 했고(`resources/monsters/`
+  폴더 자체는 건드리지 않음 — 아트 스레드가 `_reference`로 옮길 몫), INBOX.md
+  해당 항목을 "부분 처리됨"으로 옮기고 DESIGN.md 몬스터 절(표/카운트/계열
+  설명문)을 갱신했다.
 
 - **2026-10-21 (244)**: **[미니 기획 ART-1c-6](일반·정예 몬스터 전투 컷 얼굴
   크롭/배치, 아트 스레드 요청) 완료.** ART-1c-5(233)가 보스 티어에만 적용했던
@@ -2127,62 +2168,25 @@ DESIGN.md 레어리티 표 + STATUS.md 아트 발주 표(완료 기록 (238))까
   해적) 6종은 4/4 몫으로 남음 — 다음은 Q-8(c) 4/4(곡예사/해적), 그 다음은
   Q-8(c)(d)(마무리: 밸런스 시뮬+DESIGN.md 레어리티 표+아트 발주 목록 정리).**
 
-- **2026-10-20 (235)**: **[대형 기획 15] Q-8(c) 2/4(전설 스킬 — 수호자/폭발병
-  6종, 원문 5) 완료.** 직전 이터레이션(iter_154)이 사용 한도로 미커밋 상태
-  (skill_pool.gd 6종 데이터+레어리티+도식+모티프, dice_bag.gd
-  `apply_force_max()`, run_state.gd `_bastion_fixed_value()`+
-  `advance_round()` 배선, combat_test.gd 효과 함수 4종+상태 변수 6개+
-  `_select_exchange_bags()`/`_resolve_exchange()` 배선, skill_diagram_chip.gd
-  "초과방어" 조건 칩, dungeon_map.gd QA 디버그 훅 2종, dice_test.gd
-  `_check_q8c2_legendary_skills()` 8항목)로 끊긴 것을 `git diff`로 파악해
-  이어받았다 — stash/reset 없이 그대로 두고 전수 검증했다. **1/4과 달리
-  이번엔 git diff 전수 확인 결과 빠진 조각이 하나도 없었다** — 코드/테스트
-  모두 이미 완성돼 있어 이번 이터레이션은 검증·QA·문서화만 수행했다.
-  **수호자 3종**(fixed_defense_die "방어·반격 특화" 정체성): 최후의
-  보루(HP 절반 이하일 때만 방어 다이스 "전부"가 각자의 면 최댓값으로
-  고정 — 평소에는 기믹대로 1개만 고정, `DiceBag.apply_force_max()` 신규)/
-  반격의 벽(새 메커니즘 — 방어 합계가 몬스터 공격 합계를 "초과"하기만
-  하면 완전 방어 요구 없이 그 초과분이 방어 무시 반격 피해가 됨,
-  `_overguard_counter_damage()`)/불굴의 벽(라운드 전환마다 고정 방어
-  다이스 값 자체가 영구히 +2, 상한은 그 다이스의 면 개수 — 다이스 개조로
-  면 개수가 늘면 상한도 함께 늘어남, `RunState._bastion_fixed_value()`).
-  **폭발병 3종**(explosive_stack "폭발 스택·한 방 특화" 정체성): 연쇄
-  폭발의 고리(보너스 공격턴을 써도 스택이 0으로 리셋되지 않고 임계치만큼만
-  줄어 초과분이 남으면 보너스턴이 연속 발동 가능, `_update_explosive_chain_
-  progress()` — 기존 `_update_stack_progress()`의 완전 리셋과 대조되는
-  계산 결과를 테스트로 직접 비교), 절대 폭발(보너스 공격턴 피해가 몬스터
-  방어를 완전히 무시 — 막혔던 만큼을 방어 무시 고정 피해로 돌려줌,
-  `_absolute_detonation_bonus_damage()`), 최후의 폭발(HP 절반 이하면 폭발
-  스택 진행과 무관하게 "모든" 공격턴이 보너스 폭발턴, `_select_exchange_
-  bags()`의 `force_last_blast` 분기). 6종 전부 description 끝에 "한 런에
-  하나만" 안내 문장 포함. **신규 아이콘 모티프 없음** — 1/4과 달리 6종
-  전부 효과 범주가 기존 모티프와 겹쳐(값을 최댓값으로=dice_flip, 방어턴
-  반격=counter_strike, 방어 다이스 결과값 보정=defense_boost, "이번
-  공격턴이 보너스 폭발턴이 된다"=burst_stack, 방어 무시 추가 피해=
-  true_strike) 전부 공유로 해결했다. `dice_test.gd`의 전수 커버 테스트
-  (1/4의 (8))도 "novice=3/berserker=3" 하드코딩 대신 LEGENDARY_SKILLS
-  자체에서 캐릭터별 개수를 세는 generic 검사로 이미 일반화돼 있어 추가
-  수정이 필요 없었다. **검증**: `bash scripts/qa_shot.sh dice_test 60
-  qa_out/dice_test_q8c2.png "" 1`을 **foreground로 전체 재실행해 "결과:
-  PASS"(FAIL 0건) 직접 확인**(run_in_background 금지 — 이 항목이 사용
-  한도로 끊긴 두 번째 세션이라 다시 명시 확인). 셀프 피드백 스크린샷
-  2장 — 던전 맵 "스킬 도감"에서 기존 디버그 훅
-  (`_debug_press_shortcut_skill_codex_legendary_guardian`/`_explosive`)으로
-  실제 "보유" 상태를 만들어 직접 읽어 확인: `qa_out/q8c2_guardian_codex.png`
-  (최후의 보루 — 분홍 다이아몬드 패턴/반격의 벽 — 주황 방패, 둘 다 전설
-  배지+안내 문구 정상), `qa_out/q8c2_explosive_codex.png`(연쇄 폭발의 고리 —
-  주황 별 버스트/절대 폭발 — 과녁+관통 화살, 서로 뚜렷이 다른 모양으로
-  구분됨). 전투 규칙/밸런스 수치는 건드리지 않았고 `resources/`·
-  `docs/art/`는 읽기만 했다. **나머지 4명(주술사/매혹사/곡예사/해적)
-  12종은 3/4~4/4 몫으로 남음 — 다음 이터레이션은 Q-8(c) 3/4(주술사/
-  매혹사 6종)부터.**
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(244)에서 (234)를 그리로 옮겼다.)*
+이번 이터레이션(245)에서 (235)를 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 
+- **(2026-10-26, 245) [대형 기획 16] R-1(몬스터 로스터 정리) 이후 일반 방3
+  밸런스가 68.7%로 목표 밴드(75~85%)를 벗어남(J-4 통과분 79.2%에서
+  -10.5%p).** 몬스터 개별 수치는 전혀 안 건드렸는데도(제거/재분류만 했음)
+  `build_monster_plan()`이 뽑는 17종 풀의 계열 구성이 바뀌며 방3에 걸리는
+  몬스터 조합의 평균 강도 분포가 움직인 것으로 추정(확정 아님) — 지시대로
+  몬스터 수치는 건드리지 않고 측정만 하고 멈췄다. 조정 여부/방향은 감독
+  판단 필요(`docs/BALANCE_TUNING_LOG.md` "R-1 로스터 정리 후 재측정" 섹션에
+  라운드별 수치 고정 기록됨). 나머지 3개 항목(일반 방0~2/정예/보스)은 그대로
+  통과 유지.
+- **(2026-10-26, 245) INBOX.md 2026-10-26 항목 3번(부정형 계열 새 컨셉)은
+  미착수.** 아트 스레드가 사용자에게 안을 올려 결정 중이라고 INBOX.md에
+  명시돼 있어 이번 R-1에서는 건드리지 않았다(슬라임류/공허의 눈은 현재
+  amorphous 그대로 유지) — 컨셉이 확정되면 별도 이터레이션에서 반영.
 - ~~**(2026-10-20, 241) `event.gd`의 특수 이벤트 제목 라벨(`title_label`)이
   `subtitle`이 긴 챌린지에서 우상단 "스킬 도감" 버튼과 겹친다.**~~ →
   **해결됨(2026-10-20, 242, Q-10 "필수 동반 수정").** event.gd/
