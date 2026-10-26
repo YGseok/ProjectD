@@ -1687,3 +1687,10 @@ func _debug_show_monster_codex_filtered_boss() -> void:
 func _debug_show_monster_codex_detail_goblin_king() -> void:
 	monster_codex_panel.open()
 	monster_codex_panel._grid_cards_by_id["goblin_king"].activated.emit()
+
+
+## QA 전용 — [대형 기획 16] R-3: 신규 부정형 몬스터(심연의 사제, 아트 미입고) 상세
+## 뷰가 플레이스홀더로 정상 동작하는지(크래시 없음, 전신/크롭 둘 다 미입고 안내) 확인.
+func _debug_show_monster_codex_detail_abyss_priest() -> void:
+	monster_codex_panel.open()
+	monster_codex_panel._grid_cards_by_id["abyss_priest"].activated.emit()
