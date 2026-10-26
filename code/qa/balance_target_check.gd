@@ -5,7 +5,7 @@ extends Node2D
 ## 급락/보스 거의 불가/정예 들쭉날쭉)을 J-2~J-4에서 손잡이를 움직여 완화하기 전에,
 ## "항목(일반 방0~2/방3/정예/보스) x 라운드별 실제 평균 vs 목표 밴드, 통과/미달/초과"를
 ## 숫자로 뽑는 체크 도구가 먼저 필요하다 — 이 스크립트가 그 도구다. **균형 정책만
-## 판정**(INBOX.md 지시 — 몰빵 2종은 참고용 열로만 보여줌), 재실행 때마다 같은 기준으로
+## 판정**(INBOX.md 지시 — 집중 2종은 참고용 열로만 보여줌), 재실행 때마다 같은 기준으로
 ## 비교할 수 있도록 목표 밴드는 상수로 고정한다. 해석/조정은 하지 않고(이 스크립트는
 ## 숫자만 낸다) J-2/J-3/J-4가 이 표를 보고 실제로 손잡이를 움직인다.
 ##
@@ -30,8 +30,8 @@ extends Node2D
 
 @onready var result_label: Label = $ResultLabel
 
-## 판정 대상은 "균형" 정책뿐 — 몰빵 2종은 참고용 열로만 표에 곁들인다(INBOX.md 지시:
-## "균형 정책만 판정(몰빵은 참고용 열로)").
+## 판정 대상은 "균형" 정책뿐 — 집중 2종은 참고용 열로만 표에 곁들인다(INBOX.md 지시:
+## "균형 정책만 판정(집중은 참고용 열로)").
 const JUDGED_POLICY := "balanced"
 const REFERENCE_POLICIES: Array[String] = ["attack_heavy", "defense_heavy"]
 
@@ -191,7 +191,7 @@ func _build_markdown(rows: Array[Dictionary]) -> String:
 	lines.append("> balance_target_check`로 재실행 가능. 원자료: `qa_out/")
 	lines.append("> balance_sim_growth_raw.tsv`(F-5b, 손잡이를 바꾼 뒤 `bash scripts/qa_shot.sh")
 	lines.append("> balance_sim`으로 먼저 재생성할 것). **균형 정책만 판정**하고 공격/방어")
-	lines.append("> 몰빵은 참고용 열로만 둔다(INBOX.md [대형 기획 10] 지시). 측정만 하고")
+	lines.append("> 집중은 참고용 열로만 둔다(INBOX.md [대형 기획 10] 지시). 측정만 하고")
 	lines.append("> 해석·조정 제안은 쓰지 않는다 — 조정은 J-2~J-4가 이 표를 보고 진행한다.")
 	lines.append("> **이 섹션은 \"지금\" 상태를 보여줄 뿐 고정 기준선이 아니다** — 재실행마다")
 	lines.append("> 통째로 교체된다. 변하지 않는 J-1 원본 기준선은 이 파일 맨 위 \"고정 기록\"")
@@ -225,7 +225,7 @@ func _build_markdown(rows: Array[Dictionary]) -> String:
 		lines.append("| R%d | %s | %s |" % [entry["round_index"], entry["monster_name"], _format_cell(entry["avg_win_rate"])])
 	lines.append("")
 
-	lines.append("### 참고용 — 몰빵 정책 열 (판정 대상 아님)")
+	lines.append("### 참고용 — 집중 정책 열 (판정 대상 아님)")
 	lines.append("")
 	lines.append("| 항목 | 정책 | R1 | R2 | R3 | 전체 평균 |")
 	lines.append("|---|---|---|---|---|---|")
@@ -292,9 +292,9 @@ func _policy_name(policy: String) -> String:
 		"balanced":
 			return "균형"
 		"attack_heavy":
-			return "공격 몰빵"
+			return "공격 집중"
 		"defense_heavy":
-			return "방어 몰빵"
+			return "방어 집중"
 		_:
 			return policy
 

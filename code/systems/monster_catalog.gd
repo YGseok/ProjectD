@@ -105,7 +105,7 @@ const MONSTERS := [
 	{
 		"id": "bandit", "name": "풋내기 용병", "family": "humanoid", "tier": "normal",
 		"color": Color(0.5, 0.35, 0.2), "skills": [{"id": "counter", "amount": 1}], "hp_mult": 1.0,
-		"personality": "불량한 신참 용병, 조직의 똘마니 노릇을 한다",
+		"personality": "불량한 신참 용병, 조직의 심부름꾼 노릇을 한다",
 	},
 	{
 		"id": "guard_soldier", "name": "경비병", "family": "humanoid", "tier": "normal",
@@ -188,9 +188,9 @@ const MONSTERS := [
 		"personality": "심연 교단이 만든 제물 인형, 조종 실이 가는 촉수",
 	},
 	{
-		"id": "will_o_wisp", "name": "도깨비불", "family": "amorphous", "tier": "normal",
+		"id": "will_o_wisp", "name": "심연의 불", "family": "amorphous", "tier": "normal",
 		"color": Color(0.75, 0.35, 0.95), "skills": [{"id": "dull"}], "hp_mult": 1.0,
-		"personality": "우주에서 온 색, 심해 발광 미끼처럼 세상에 없는 색으로 타오르는 불빛",
+		"personality": "심연에서 타오르는 푸른 불꽃, 불꽃 안쪽이 눈이나 날카로운 입처럼 보인다",
 	},
 	{
 		"id": "abyss_child", "name": "심연의 아이", "family": "amorphous", "tier": "normal",
@@ -446,7 +446,7 @@ static func legacy_cycle_monster(room_index: int) -> Dictionary:
 ## 제외된 상태로 남는다(레거시 경로 호환 — monster_catalog.gd 상단 G-7 주석 참고).
 ## 2026-10-26 R-1로 해골 전사/해골 궁수/망령 병사가 카탈로그에서 제거되며 20종 ->
 ## 17종으로 줄었다(계열당 인간형5/부정형2/야수형5/언데드형5, 다크 나이트는 별도).
-## 같은 날 R-3로 부정형 신규 4종(미믹/저주 인형/도깨비불/심연의 아이)이 추가돼
+## 같은 날 R-3로 부정형 신규 4종(미믹/저주 인형/심연의 불/심연의 아이)이 추가돼
 ## 17종 -> 21종이 됐다(계열당 인간형5/부정형6/야수형5/언데드형5).
 static func normal_roster_ids() -> Array:
 	var ids := []

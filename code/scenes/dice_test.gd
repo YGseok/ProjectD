@@ -249,7 +249,7 @@ func _ready() -> void:
 	all_pass = _check_r1_monster_roster_cleanup(lines) and all_pass
 
 	lines.append("")
-	lines.append("[대형 기획 16] R-3: 부정형 신규 몬스터 5종(미믹/저주 인형/도깨비불/심연의 아이/심연의 사제) — 존재/family/tier/스킬/정예 규칙 적용/풀 편입/폴백 렌더 검증]")
+	lines.append("[대형 기획 16] R-3: 부정형 신규 몬스터 5종(미믹/저주 인형/심연의 불/심연의 아이/심연의 사제) — 존재/family/tier/스킬/정예 규칙 적용/풀 편입/폴백 렌더 검증]")
 	all_pass = _check_r3_amorphous_roster(lines) and all_pass
 
 	lines.append("")
@@ -7713,7 +7713,7 @@ func _check_r1_monster_roster_cleanup(lines: PackedStringArray) -> bool:
 
 
 ## [대형 기획 16] R-3(2026-10-26) 검증 — 부정형 신규 몬스터 5종(일반 4: 미믹/저주 인형/
-## 도깨비불/심연의 아이, 정예 1: 심연의 사제)이 "데이터만 있는 게 아니라" 실제
+## 심연의 불/심연의 아이, 정예 1: 심연의 사제)이 "데이터만 있는 게 아니라" 실제
 ## 조회/풀 편입/정예 규칙 계산/렌더 폴백까지 전부 맞는지 확인한다(F-3 원칙) —
 ## INBOX.md "부정형 신규 로스터 확정" 지시 그대로.
 func _check_r3_amorphous_roster(lines: PackedStringArray) -> bool:

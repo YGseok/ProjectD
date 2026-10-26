@@ -140,8 +140,8 @@ static func apply_growth(growth: Dictionary) -> void:
 	RunState._apply_character_gimmick()
 
 
-## [대형 기획 7] F-5(b)(2026-10-08) — 실제로 돌릴 정책은 3종(균형/공격 몰빵/방어
-## 몰빵)뿐이다. "none"(성장 없음)은 이미 F-4 기준선(docs/BALANCE_REPORT.md)으로
+## [대형 기획 7] F-5(b)(2026-10-08) — 실제로 돌릴 정책은 3종(균형/공격 집중/방어
+## 집중)뿐이다. "none"(성장 없음)은 이미 F-4 기준선(docs/BALANCE_REPORT.md)으로
 ## 측정이 끝나 있어 다시 돌리지 않는다(INBOX.md 대상 범위 원문: "정책 3종").
 const GROWTH_SIM_POLICIES: Array[String] = [
 	GROWTH_POLICY_BALANCED, GROWTH_POLICY_ATTACK_HEAVY, GROWTH_POLICY_DEFENSE_HEAVY,

@@ -2099,7 +2099,7 @@ func _select_exchange_bags(is_player_attacking: bool) -> Dictionary:
 	if is_player_attacking:
 		# "최후의 폭발"(legend_explosive_lastblast, [대형 기획 15] Q-8(c) 2/4, 폭발병
 		# 전용 전설): HP가 절반 이하면 폭발 스택 진행(player_explosive_pending)과 무관하게
-		# 이번 공격턴을 보너스 폭발턴으로 강제한다 — 하이리스크 하이리턴 정체성을 "벼랑
+		# 이번 공격턴을 보너스 폭발턴으로 강제한다 — 고위험 고수익 정체성을 "벼랑
 		# 끝"에서 극대화.
 		var force_last_blast := player_legend_explosive_lastblast_active and _is_hp_half_or_below(player_hp, PLAYER_MAX_HP)
 		if (player_dice_gimmick == "explosive_stack" or player_frenzy_active or player_versatile_active or player_legend_berserker_ragenuke_active) and (player_explosive_pending or force_last_blast):

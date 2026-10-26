@@ -93,9 +93,9 @@ func _policy_name(policy: String) -> String:
 		"balanced":
 			return "균형"
 		"attack_heavy":
-			return "공격 몰빵"
+			return "공격 집중"
 		"defense_heavy":
-			return "방어 몰빵"
+			return "방어 집중"
 		_:
 			return policy
 
@@ -171,8 +171,8 @@ func _build_markdown(rows: Array[Dictionary], policies: Array[String]) -> String
 	lines.append("달리, 이 리포트는 \"런 중 실제로 강해지면 후반 난이도 절벽이 완화되는가\"를")
 	lines.append("보려고 전투 직전 주머니를 \"지금까지 몇 번째 전투인가\"(global index =")
 	lines.append("(라운드-1) x %d + 방번호, 0~14)에 따라 단순 규칙으로 키운다. 정책은 3종 —" % RunState.TOTAL_ROOMS)
-	lines.append("**균형**(전투 2번마다 공격/방어 다이스를 번갈아 +1개), **공격 몰빵**")
-	lines.append("(전투 2번마다 공격만 +1개), **방어 몰빵**(전투 2번마다 방어만 +1개) —")
+	lines.append("**균형**(전투 2번마다 공격/방어 다이스를 번갈아 +1개), **공격 집중**")
+	lines.append("(전투 2번마다 공격만 +1개), **방어 집중**(전투 2번마다 방어만 +1개) —")
 	lines.append("세 정책 모두 `DiceBag.MAX_DICE`(6)에서 그 주머니의 개수 성장이 멈춘다.")
 	lines.append("다이스 면 개수는 세 정책 공통으로 global index 5부터 D4->D6, 10부터")
 	lines.append("D8로 승급한다(\"한 라운드에 아이템 3~4개 얻는 정도의 성장\"이라는 가정 —")
@@ -182,7 +182,7 @@ func _build_markdown(rows: Array[Dictionary], policies: Array[String]) -> String
 	lines.append("")
 	lines.append("## 시뮬 조건 (재현용)")
 	lines.append("")
-	lines.append("- 캐릭터 8종 x 시작 스킬 슬롯 0 x 정책 3종(균형/공격 몰빵/방어 몰빵) x")
+	lines.append("- 캐릭터 8종 x 시작 스킬 슬롯 0 x 정책 3종(균형/공격 집중/방어 집중) x")
 	lines.append("  {라운드 1~3 x 방 0~4(일반, 방4=보스) + 라운드 1~3 x 방 1~3(정예)} =")
 	lines.append("  %d개 조합 x 100판/조합 (전투 %d판)." % [rows.size(), rows.size() * 100])
 	lines.append("- 몬스터 배정 시드는 F-4b와 동일(`FIXED_PLAN_SEED=20261007`, 정예는")

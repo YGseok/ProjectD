@@ -360,7 +360,7 @@ const SKILLS: Array[Dictionary] = [
 ## 수호자는 원래 "guard_stack" 기믹이 없지만(자기 기믹은 fixed_defense_die, 방어
 ## 다이스 하나가 항상 고정값), 이 스킬을 획득하면 방패병과 동일한 수호 스택 파이프라인이
 ## 열린다. 수호자는 방어 다이스 하나가 안 굴려지는 대신 나머지가 표준 확률이라
-## frenzy_deepen만큼 스택이 잘 쌓이는 직접적 시너지는 없지만, "방어 몰빵" 컨셉에 맞게
+## frenzy_deepen만큼 스택이 잘 쌓이는 직접적 시너지는 없지만, "방어 집중" 컨셉에 맞게
 ## 방어 다이스 개수 자체가 많아(D4x4) 최댓값을 볼 기회 자체는 늘어난다. 보너스 턴은
 ## 1D20 한 번이 아니라 두 번 굴려 더 높은 값을 채택(combat_test.gd의
 ## player_guard_deepen_active 분기 참고).
@@ -384,7 +384,7 @@ const SKILLS: Array[Dictionary] = [
 ##
 ## "versatile_surge"(임기응변): 견습 모험가(novice) 전용, 나머지 4캐릭터의 마지막
 ## 빈자리(INBOX.md 2026-09-17 기획자 결정). 견습 모험가는 기믹이 아예 없는 "만능형"
-## 캐릭터라 한쪽에 몰빵하는 대신, frenzy_deepen/guard_deepen의 "없던 파이프라인을
+## 캐릭터라 한쪽에 집중하는 대신, frenzy_deepen/guard_deepen의 "없던 파이프라인을
 ## 열어준다" 패턴을 공격+방어 양쪽에 동시에 적용한다 — explosive_stack과 guard_stack
 ## 파이프라인이 함께 열리고, 둘 다 기존 기본 임계치(EXPLOSIVE_STACK_THRESHOLD/
 ## GUARD_STACK_THRESHOLD, 둘 다 3)와 기본 보너스(1D20 한 번 굴림)를 그대로 쓴다 —
@@ -538,11 +538,11 @@ const UNIQUE_SKILLS: Array[Dictionary] = [
 ## 최고 등급이라 "더 위"가 없음 — UPGRADE_SKILLS에 대응 행 없음).
 ##
 ## 1/4(이번 조각): 견습 모험가(novice)/광전사(berserker) 6종. 둘 다 "넓지만 얕게"(견습
-## 모험가, 기믹 없음) / "극단형·공격 몰빵"(광전사, min_max_only) 정체성과 시너지를 갖도록
+## 모험가, 기믹 없음) / "극단형·공격 집중"(광전사, min_max_only) 정체성과 시너지를 갖도록
 ## 설계했다 — 나머지 6명(2/4~4/4)은 다음 이터레이션들이 이어간다.
 ##
 ## "legend_novice_harmony"(만물의 조화): 견습 모험가는 기믹이 없는 "만능형"이라 공격/
-## 방어 어느 한쪽에 몰빵하지 않는 효과가 정체성에 맞는다 — 매 턴(공격/방어 모두) 그
+## 방어 어느 한쪽에 집중하지 않는 효과가 정체성에 맞는다 — 매 턴(공격/방어 모두) 그
 ## 턴에 굴린 다이스 중 가장 낮았던 값을 "그 턴 가장 높았던 값"으로 맞춘다. 기존
 ## "매혹 심화"(charm_amplify, DiceBag.apply_charm_flip)는 낮은 다이스를 "자기 자신의
 ## 면 최댓값"으로만 바꾸는데, 이 전설은 상한 없이 그 턴 실제로 나온 최고값을 그대로
@@ -584,7 +584,7 @@ const UNIQUE_SKILLS: Array[Dictionary] = [
 ##
 ## "legend_berserker_vengeance"(불굴의 보복): bloodlust와 완전히 대칭(공격 대신 방어) —
 ## 새 메커니즘(반격). 방어턴마다 최솟값을 보인 방어 다이스 1개당 방어 무시 반격 피해를
-## 몬스터에게 준다(DiceBag.count_min_rolls(), 이번 조각에서 신규 추가). 하이리스크
+## 몬스터에게 준다(DiceBag.count_min_rolls(), 이번 조각에서 신규 추가). 고위험
 ## 하이리턴 정체성대로 "최악의 방어 굴림"도 보복의 재료로 쓴다. combat_test.gd의
 ## _vengeance_bonus_damage() 참고.
 ##
@@ -706,7 +706,7 @@ const LEGENDARY_SKILLS: Array[Dictionary] = [
 	#
 	# "legend_explosive_lastblast"(최후의 폭발): legend_guardian_bulwark와 대칭(수비
 	# 대신 공격) — 플레이어 HP가 절반 이하이면 폭발 스택 진행과 무관하게 "모든" 공격턴이
-	# 보너스 폭발턴(1D20)이 된다. 하이리스크 하이리턴 정체성을 벼랑 끝에서 극대화하는
+	# 보너스 폭발턴(1D20)이 된다. 고위험 고수익 정체성을 벼랑 끝에서 극대화하는
 	# "한 방 특화"의 정점. combat_test.gd의 _select_exchange_bags() 내
 	# force_last_blast 분기 참고.
 	#
