@@ -241,12 +241,16 @@ func _ready() -> void:
 	all_pass = _check_g4_monster_skill_primitives(lines) and all_pass
 
 	lines.append("")
-	lines.append("[G-5: 일반 몬스터 17종 데이터(R-1 로스터 정리 후) + legacy_cycle_monster 호환 + GAME_QA_MONSTER_ID 훅 검증]")
+	lines.append("[G-5: 일반 몬스터 21종 데이터(R-1 로스터 정리 + R-3 부정형 신규 4종 추가 후) + legacy_cycle_monster 호환 + GAME_QA_MONSTER_ID 훅 검증]")
 	all_pass = _check_g5_monster_catalog(lines) and all_pass
 
 	lines.append("")
 	lines.append("[대형 기획 16] R-1: 몬스터 로스터 정리 — 제거된 4종이 카탈로그/출현 풀에 없음, 유령류 family 재분류, 산적->풋내기 용병 개명, build_monster_plan/build_elite_plan이 여러 시드에서 새 풀 크기로 중복 없이 채워짐]")
 	all_pass = _check_r1_monster_roster_cleanup(lines) and all_pass
+
+	lines.append("")
+	lines.append("[대형 기획 16] R-3: 부정형 신규 몬스터 5종(미믹/저주 인형/도깨비불/심연의 아이/심연의 사제) — 존재/family/tier/스킬/정예 규칙 적용/풀 편입/폴백 렌더 검증]")
+	all_pass = _check_r3_amorphous_roster(lines) and all_pass
 
 	lines.append("")
 	lines.append("[G-6: 런 몬스터 계획(MonsterCatalog.build_monster_plan) + 라운드 난이도 스케일링 검증]")
@@ -7442,19 +7446,19 @@ func _check_monster_catalog_family_icons(lines: PackedStringArray) -> bool:
 ## 2026-10-26 [대형 기획 16] R-1(몬스터 로스터 정리)로 해골 전사/해골 궁수/망령 병사/
 ## 해골 기사 4종이 카탈로그에서 완전히 제거되고(일반 20->17, 정예 8->7), 유령/그림자/
 ## 안개/망령(정예)이 amorphous->undead로 재분류됐다 — 아래 규모/계열 수 기대값은 그
-## 결과를 반영한다.
+## 결과를 반영한다. 같은 날 R-3(부정형 신규 5종 추가)로 일반 17->21/정예 7->8이 됐다.
 func _check_g5_monster_catalog(lines: PackedStringArray) -> bool:
 	var ok := true
 
-	# (1) 카탈로그 규모: "일반 17종"(인간형5/부정형2/야수형5/언데드형5) + 아직 정예로
-	# 안 옮겨간 "다크 나이트" 1개 + 정예 7종(G-7, R-1로 해골 기사 제거) + 보스 6종
-	# (G-8) = 31. 다크 나이트(id="dark_knight")는 G-7/G-8 둘 다 그대로 손대지 않았고
-	# (위 monster_catalog.gd 주석 참고 — 정예판은 다른 id "dark_knight_elite"로 따로
-	# 추가) 계속 "일반" 쪽 "인간형" 집계에 남아있다.
+	# (1) 카탈로그 규모: "일반 21종"(인간형5/부정형6/야수형5/언데드형5, R-3로 부정형
+	# +4) + 아직 정예로 안 옮겨간 "다크 나이트" 1개 + 정예 8종(G-7, R-1로 해골 기사
+	# 제거 + R-3로 심연의 사제 추가) + 보스 6종(G-8) = 36. 다크 나이트(id="dark_knight")는
+	# G-7/G-8 둘 다 그대로 손대지 않았고(위 monster_catalog.gd 주석 참고 — 정예판은
+	# 다른 id "dark_knight_elite"로 따로 추가) 계속 "일반" 쪽 "인간형" 집계에 남아있다.
 	var total := MonsterCatalog.MONSTERS.size()
-	var size_ok: bool = total == 31
+	var size_ok: bool = total == 36
 	ok = size_ok and ok
-	lines.append("  MonsterCatalog.MONSTERS.size()=%d (기대 31 = 17종 로스터 + 다크 나이트 + 정예 7종 + 보스 6종) -> %s" % [
+	lines.append("  MonsterCatalog.MONSTERS.size()=%d (기대 36 = 21종 로스터 + 다크 나이트 + 정예 8종 + 보스 6종) -> %s" % [
 		total, "OK" if size_ok else "FAIL"
 	])
 
@@ -7470,12 +7474,12 @@ func _check_g5_monster_catalog(lines: PackedStringArray) -> bool:
 			ids_unique_ok = false
 		ids_seen[mid] = true
 	# R-1 이후: 인간형10(다크 나이트 포함)/부정형5(유령류가 undead로 빠짐)/야수형8/
-	# 언데드형8(유령류 4종이 들어온 대신 해골 전사/궁수/망령 병사/해골 기사 4종이
-	# 빠져 상쇄) — 상세 집계는 docs/STATUS.md R-1 완료 기록 참고.
-	var family_counts_ok: bool = family_counts["humanoid"] == 10 and family_counts["amorphous"] == 5 \
+	# 언데드형8. R-3로 부정형에 신규 일반 4종 + 정예 1종(심연의 사제)이 더해져
+	# 부정형 5->10 — 상세 집계는 docs/STATUS.md R-1/R-3 완료 기록 참고.
+	var family_counts_ok: bool = family_counts["humanoid"] == 10 and family_counts["amorphous"] == 10 \
 		and family_counts["beast"] == 8 and family_counts["undead"] == 8
 	ok = family_counts_ok and ids_unique_ok and ok
-	lines.append("  계열별 개수=%s (기대 인간형10/부정형5/야수형8/언데드8), id 전부 고유=%s -> %s" % [
+	lines.append("  계열별 개수=%s (기대 인간형10/부정형10/야수형8/언데드8), id 전부 고유=%s -> %s" % [
 		family_counts, ids_unique_ok, "OK" if (family_counts_ok and ids_unique_ok) else "FAIL"
 	])
 
@@ -7668,8 +7672,8 @@ func _check_r1_monster_roster_cleanup(lines: PackedStringArray) -> bool:
 	])
 
 	# (4) build_monster_plan(): 여러 시드에서 일반 자리(라운드당 4개 x 3라운드=12개)가
-	# 전부 서로 다른 id + 새 풀(17종) 안이어야 한다(런 전체 기준 중복 없음, 기존 G-6
-	# 계약 그대로 — 풀 크기만 20->17로 줄었다).
+	# 전부 서로 다른 id + 새 풀(21종, R-3 반영) 안이어야 한다(런 전체 기준 중복 없음,
+	# 기존 G-6 계약 그대로 — 풀 크기만 20->17->21로 바뀌었다).
 	var plan_seeds := [1, 42, 9999, 20261026]
 	var plan_ok := true
 	for seed in plan_seeds:
@@ -7682,14 +7686,14 @@ func _check_r1_monster_roster_cleanup(lines: PackedStringArray) -> bool:
 					plan_ok = false
 				seen[id] = true
 	ok = plan_ok and ok
-	lines.append("  build_monster_plan() 여러 시드(%s)에서 12자리 전부 고유 + 17종 풀 안=%s -> %s" % [
+	lines.append("  build_monster_plan() 여러 시드(%s)에서 12자리 전부 고유 + 21종 풀 안=%s -> %s" % [
 		plan_seeds, plan_ok, "OK" if plan_ok else "FAIL"
 	])
 
 	# (5) build_elite_plan(): 여러 시드에서 "라운드 안" 방1~3이 전부 서로 다른 id +
-	# 새 풀(7종) 안이어야 한다(라운드 단위 중복 없음, 기존 G-7 계약 그대로 — 풀 크기만
-	# 8->7로 줄었다. 라운드를 넘어서는 전체 런 기준 중복까지는 보장 안 하는 것도 기존과
-	# 동일 — 3라운드x3자리=9 > 풀 크기 7).
+	# 새 풀(8종, R-3 반영) 안이어야 한다(라운드 단위 중복 없음, 기존 G-7 계약 그대로 —
+	# 풀 크기만 8->7->8로 바뀌었다. 라운드를 넘어서는 전체 런 기준 중복까지는 보장 안
+	# 하는 것도 기존과 동일 — 3라운드x3자리=9 > 풀 크기 8).
 	var elite_plan_ok := true
 	for seed in plan_seeds:
 		var elite_plan: Array = MonsterCatalog.build_elite_plan(seed, 3, 5)
@@ -7701,8 +7705,106 @@ func _check_r1_monster_roster_cleanup(lines: PackedStringArray) -> bool:
 					elite_plan_ok = false
 				seen_in_round[id] = true
 	ok = elite_plan_ok and ok
-	lines.append("  build_elite_plan() 여러 시드(%s)에서 라운드당 3자리 전부 고유 + 7종 풀 안=%s -> %s" % [
+	lines.append("  build_elite_plan() 여러 시드(%s)에서 라운드당 3자리 전부 고유 + 8종 풀 안=%s -> %s" % [
 		plan_seeds, elite_plan_ok, "OK" if elite_plan_ok else "FAIL"
+	])
+
+	return ok
+
+
+## [대형 기획 16] R-3(2026-10-26) 검증 — 부정형 신규 몬스터 5종(일반 4: 미믹/저주 인형/
+## 도깨비불/심연의 아이, 정예 1: 심연의 사제)이 "데이터만 있는 게 아니라" 실제
+## 조회/풀 편입/정예 규칙 계산/렌더 폴백까지 전부 맞는지 확인한다(F-3 원칙) —
+## INBOX.md "부정형 신규 로스터 확정" 지시 그대로.
+func _check_r3_amorphous_roster(lines: PackedStringArray) -> bool:
+	var ok := true
+
+	# (1) 신규 일반 4종: family=amorphous/tier=normal/personality 존재/지정된 스킬 1개.
+	var new_normal_ids := ["mimic", "cursed_doll", "will_o_wisp", "abyss_child"]
+	var expected_skill := {
+		"mimic": "seal", "cursed_doll": "numb", "will_o_wisp": "dull", "abyss_child": "sticky",
+	}
+	var normal_exist_ok := true
+	var normal_details := []
+	for id in new_normal_ids:
+		var m: Dictionary = MonsterCatalog.get_by_id(id)
+		var fam: String = m.get("family", "")
+		var tier: String = m.get("tier", "")
+		var gimmick: String = MonsterCatalog.gimmick_of(m)
+		normal_details.append("%s(family=%s,tier=%s,skill=%s)" % [id, fam, tier, gimmick])
+		if m.is_empty() or fam != "amorphous" or tier != "normal" \
+			or m.get("personality", "") == "" or gimmick != expected_skill[id]:
+			normal_exist_ok = false
+	ok = normal_exist_ok and ok
+	lines.append("  신규 일반 4종 %s (기대 전부 family=amorphous/tier=normal/지정 스킬 일치) -> %s" % [
+		normal_details, "OK" if normal_exist_ok else "FAIL"
+	])
+
+	# (2) 신규 정예 1종(심연의 사제): family=amorphous/tier=elite + 스킬 2개(dull+seal) +
+	# "정예 공통 규칙"(atk_dice_delta +1, hp_mult 1.5) 그대로.
+	var priest: Dictionary = MonsterCatalog.get_by_id("abyss_priest")
+	var priest_skill_ids: Array = []
+	for s in priest.get("skills", []):
+		priest_skill_ids.append(s.get("id", ""))
+	var priest_data_ok: bool = priest.get("family", "") == "amorphous" and priest.get("tier", "") == "elite" \
+		and priest_skill_ids == ["dull", "seal"] and priest.get("atk_dice_delta", 0) == 1 \
+		and priest.get("hp_mult", 0.0) == 1.5
+	ok = priest_data_ok and ok
+	lines.append("  심연의 사제: family=%s tier=%s skills=%s atk_dice_delta=%d hp_mult=%s -> %s" % [
+		priest.get("family", ""), priest.get("tier", ""), priest_skill_ids,
+		priest.get("atk_dice_delta", 0), priest.get("hp_mult", 0.0), "OK" if priest_data_ok else "FAIL"
+	])
+
+	# (3) 풀 편입: normal_roster_ids()에 신규 일반 4종, elite_roster_ids()에 심연의 사제.
+	var normal_ids: Array = MonsterCatalog.normal_roster_ids()
+	var elite_ids: Array = MonsterCatalog.elite_roster_ids()
+	var pool_ok := true
+	for id in new_normal_ids:
+		if not normal_ids.has(id):
+			pool_ok = false
+	if not elite_ids.has("abyss_priest"):
+		pool_ok = false
+	ok = pool_ok and ok
+	lines.append("  normal_roster_ids()가 신규 일반 4종 포함 + elite_roster_ids()가 abyss_priest 포함=%s -> %s" % [
+		pool_ok, "OK" if pool_ok else "FAIL"
+	])
+
+	# (4) "플래그가 아니라 계산 결과" — GAME_QA_MONSTER_ID로 심연의 사제를 직접 구성해
+	# 정예 공식(공격 다이스 +1, hp_mult 1.5)이 attack_count/max_hp에 실제로 반영되고
+	# skill_ids에 2개 다 담기는지 확인(F-3 원칙, 기존 goblin_chief 검증과 같은 패턴).
+	var script := load("res://code/scenes/combat_test.gd")
+	var combat = script.new()
+	OS.set_environment("GAME_QA_MONSTER_ID", "abyss_priest")
+	var priest_cfg: Dictionary = combat._monster_config_for_room(0)
+	# room0 기본 공식: 공격=2+0=2, atk_dice_delta=1 -> 3. hp_mult=1.5 -> max_hp=round(10*1.5)=15.
+	var priest_cfg_ok: bool = priest_cfg["name"] == "심연의 사제 [정예]" and priest_cfg["attack_count"] == 3 \
+		and priest_cfg["max_hp"] == 15 and priest_cfg["skill_ids"] == ["dull", "seal"]
+	ok = priest_cfg_ok and ok
+	lines.append("  GAME_QA_MONSTER_ID=abyss_priest room0: name=%s(기대 '심연의 사제 [정예]') 공격=%d(기대3) hp=%d(기대15) skill_ids=%s(기대 [dull,seal]) -> %s" % [
+		priest_cfg["name"], priest_cfg["attack_count"], priest_cfg["max_hp"], priest_cfg["skill_ids"],
+		"OK" if priest_cfg_ok else "FAIL"
+	])
+	OS.set_environment("GAME_QA_MONSTER_ID", "")
+	combat.free()
+
+	# (5) 아트 폴백 — resources/monsters/<id>/에 아직 full.png가 입고되지 않은 상태라
+	# (지시문 "곧 입고되므로 파일이 없으면 기존 폴백으로 정상 동작해야 한다"), production
+	# art_base_dir(가짜 디렉터리 주입 없이)로 MonsterPortraitPlaceholder.set_monster()를
+	# 호출해도 크래시 없이 _use_face_art/_use_full_crop이 둘 다 false(계열 플레이스홀더
+	# 폴백)로 남는지 직접 확인한다.
+	var all_new_ids: Array = new_normal_ids + ["abyss_priest"]
+	var fallback_ok := true
+	var fallback_details := []
+	for id in all_new_ids:
+		var portrait := MonsterPortraitPlaceholder.new()
+		portrait.set_monster(id)
+		fallback_details.append("%s(face=%s,full_crop=%s)" % [id, portrait._use_face_art, portrait._use_full_crop])
+		if portrait._use_face_art or portrait._use_full_crop:
+			fallback_ok = false
+		portrait.free()
+	ok = fallback_ok and ok
+	lines.append("  신규 5종 아트 미입고 폴백(production art_base_dir) %s (기대 전부 face=false,full_crop=false) -> %s" % [
+		fallback_details, "OK" if fallback_ok else "FAIL"
 	])
 
 	return ok
@@ -7717,11 +7819,12 @@ func _check_r1_monster_roster_cleanup(lines: PackedStringArray) -> bool:
 func _check_g6_monster_plan(lines: PackedStringArray) -> bool:
 	var ok := true
 
-	# (1) normal_roster_ids(): 17종(R-1로 20->17), 다크 나이트 제외(일반 풀 뽑기 대상 아님).
+	# (1) normal_roster_ids(): 21종(R-1로 20->17, R-3로 17->21), 다크 나이트 제외
+	# (일반 풀 뽑기 대상 아님).
 	var normal_ids: Array = MonsterCatalog.normal_roster_ids()
-	var roster_size_ok: bool = normal_ids.size() == 17 and not normal_ids.has("dark_knight")
+	var roster_size_ok: bool = normal_ids.size() == 21 and not normal_ids.has("dark_knight")
 	ok = roster_size_ok and ok
-	lines.append("  MonsterCatalog.normal_roster_ids().size()=%d, 다크 나이트 포함=%s (기대 17, false) -> %s" % [
+	lines.append("  MonsterCatalog.normal_roster_ids().size()=%d, 다크 나이트 포함=%s (기대 21, false) -> %s" % [
 		normal_ids.size(), normal_ids.has("dark_knight"), "OK" if roster_size_ok else "FAIL"
 	])
 
@@ -7739,8 +7842,9 @@ func _check_g6_monster_plan(lines: PackedStringArray) -> bool:
 		shape_ok, deterministic_ok, "OK" if (shape_ok and deterministic_ok) else "FAIL"
 	])
 
-	# (3) "일반 전투" 자리(방 0~3, 라운드당 4개 = 총 12개)는 전부 서로 다른 id + 17종 풀 안
-	# (R-1로 20->17, INBOX.md 원문 "한 판 안에서 중복 없이" — 풀 크기 17 >= 12라 여전히 가능).
+	# (3) "일반 전투" 자리(방 0~3, 라운드당 4개 = 총 12개)는 전부 서로 다른 id + 21종 풀 안
+	# (R-1로 20->17, R-3로 17->21, INBOX.md 원문 "한 판 안에서 중복 없이" — 풀 크기 21 >= 12라
+	# 여전히 가능).
 	var normal_slot_ids: Array = []
 	for round_slots in plan_a:
 		for room in range(4):
@@ -7756,12 +7860,12 @@ func _check_g6_monster_plan(lines: PackedStringArray) -> bool:
 		if not normal_ids.has(id):
 			all_in_pool = false
 	ok = all_unique and all_in_pool and ok
-	lines.append("  일반 전투 자리(방 0~3 x 3라운드=12개) 전부 고유=%s, 전부 17종 풀 안=%s -> %s" % [
+	lines.append("  일반 전투 자리(방 0~3 x 3라운드=12개) 전부 고유=%s, 전부 21종 풀 안=%s -> %s" % [
 		all_unique, all_in_pool, "OK" if (all_unique and all_in_pool) else "FAIL"
 	])
 
 	# (4) 보스 자리(방4)는 G-8(2026-10-07)부터 전용 보스 풀 — 그 라운드의
-	# BOSS_ROSTER_BY_ROUND 후보 2종 중 하나여야 한다(일반 17종 풀 안이 아니다).
+	# BOSS_ROSTER_BY_ROUND 후보 2종 중 하나여야 한다(일반 21종 풀 안이 아니다).
 	var boss_ok := true
 	for r in range(plan_a.size()):
 		var boss_id: String = plan_a[r][4]
@@ -7854,15 +7958,16 @@ func _check_g7_elite_combat(lines: PackedStringArray) -> bool:
 	var ok := true
 
 	# (1) elite_roster_ids(): INBOX.md 원문은 8종이었으나 2026-10-26 R-1로 해골 기사
-	# (skeleton_knight)가 제거되며 7종이 됐다.
+	# (skeleton_knight)가 제거되며 7종이 됐다가, 같은 날 R-3로 심연의 사제가 추가돼
+	# 다시 8종이 됐다.
 	var elite_ids: Array = MonsterCatalog.elite_roster_ids()
-	var elite_size_ok: bool = elite_ids.size() == 7
+	var elite_size_ok: bool = elite_ids.size() == 8
 	ok = elite_size_ok and ok
-	lines.append("  MonsterCatalog.elite_roster_ids().size()=%d (기대 7) -> %s" % [
+	lines.append("  MonsterCatalog.elite_roster_ids().size()=%d (기대 8) -> %s" % [
 		elite_ids.size(), "OK" if elite_size_ok else "FAIL"
 	])
 
-	# (2) 7종 전부 tier=="elite"이고 skills가 정확히 2개씩이어야 한다("정예 = 스킬 2개"
+	# (2) 8종 전부 tier=="elite"이고 skills가 정확히 2개씩이어야 한다("정예 = 스킬 2개"
 	# 공통 공식).
 	var all_elite_two_skills := true
 	for id in elite_ids:
@@ -7870,7 +7975,7 @@ func _check_g7_elite_combat(lines: PackedStringArray) -> bool:
 		if m.get("tier", "") != "elite" or m.get("skills", []).size() != 2:
 			all_elite_two_skills = false
 	ok = all_elite_two_skills and ok
-	lines.append("  정예 7종 전부 tier==elite && skills.size()==2: %s -> %s" % [
+	lines.append("  정예 8종 전부 tier==elite && skills.size()==2: %s -> %s" % [
 		all_elite_two_skills, "OK" if all_elite_two_skills else "FAIL"
 	])
 
@@ -7897,7 +8002,7 @@ func _check_g7_elite_combat(lines: PackedStringArray) -> bool:
 			if not elite_ids.has(round_slots[room]):
 				middle_slots_valid_ok = false
 	ok = edge_slots_empty_ok and middle_slots_valid_ok and ok
-	lines.append("  방0/방4(보스 자리)는 항상 빈 문자열=%s, 방1~3은 항상 정예 7종 풀 안=%s -> %s" % [
+	lines.append("  방0/방4(보스 자리)는 항상 빈 문자열=%s, 방1~3은 항상 정예 8종 풀 안=%s -> %s" % [
 		edge_slots_empty_ok, middle_slots_valid_ok, "OK" if (edge_slots_empty_ok and middle_slots_valid_ok) else "FAIL"
 	])
 
@@ -13417,6 +13522,14 @@ func _check_art1c6_monster_face_crop_and_hud_margin(lines: PackedStringArray) ->
 		var mid: String = profile["id"]
 		var tier: String = profile.get("tier", "normal")
 		if tier == "boss":
+			continue
+		# [대형 기획 16] R-3(2026-10-26) — 아트가 전혀(face_*도 full.png도) 입고되지
+		# 않은 몬스터는 _face_rect 자체가 안 만들어지는 게 정상 동작(순수 도형
+		# 플레이스홀더로 폴백)이라, 이 "HUD 패널 여백" 측정은 애초에 적용 대상이
+		# 아니다 — 신규 부정형 5종이 바로 이 경우라 측정에서 건너뛴다(실제 폴백
+		# 동작 자체는 _check_r3_amorphous_roster()가 따로 검증).
+		var art_id: String = MonsterCatalog.art_resource_id(mid)
+		if not (CharacterArt.has_all_faces(art_id) or CharacterArt.has_full(art_id)):
 			continue
 		var skill_ids: Array = []
 		for skill in profile.get("skills", []):

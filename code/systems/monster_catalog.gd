@@ -53,15 +53,24 @@ extends RefCounted
 ## family/tier는 전혀 건드리지 않았다(다크 나이트는 G-7에서 정예로 재배정될 예정이라 이미
 ## G-5의 "일반 20종" 목록 자체에서 빠져 있음 — INBOX.md 원문 그대로).
 
+## [대형 기획 16] R-3(2026-10-26) — 부정형(amorphous) 설명문을 "슬라임류"에서
+## "저주 물건·정령·심연(크툴루)의 존재"로 보정(사용자 확정 컨셉, INBOX.md "부정형
+## 신규 로스터 확정" 참고). 기믹 자체(플레이어 주사위를 직접 건드림)는 그대로다 —
+## 기존 슬라임/독 슬라임/점액 군주는 데이터는 안 건드리고 "쇼고스(원형질 점액) 계보"로
+## 설정만 재해석(아래 해당 몬스터 주석 참고), 전부 공허의 눈과 연결된 심연 존재로 통일.
 const FAMILIES := {
 	"humanoid": {"name": "인간형", "description": "방어/장비 중심 — 몬스터 자신의 방어를 강화한다"},
-	"amorphous": {"name": "부정형", "description": "플레이어 주사위를 직접 건드린다"},
+	"amorphous": {"name": "부정형", "description": "저주 물건·정령·심연(크툴루)의 존재 — 플레이어 주사위를 직접 건드린다"},
 	"beast": {"name": "야수형", "description": "공격/폭딜 중심 — 몬스터 자신의 공격을 강화한다"},
 	"undead": {"name": "언데드형", "description": "흡수/부활/저주·봉인 등 지속 효과 중심"},
 }
 
 const MONSTERS := [
 	{
+		# [대형 기획 16] R-3(2026-10-26) — 사용자 확정: 슬라임류(슬라임/독 슬라임/
+		# 점액 군주)는 "쇼고스(원형질 점액) 계보"로 설정만 재해석(personality/color/
+		# 스킬/수치는 전부 그대로, 데이터 불변 — 아트 스레드가 사용자에게 올린 안을
+		# 그대로 반영). 공허의 눈(심연의 지배자)과 연결된 하급 원형질 존재라는 설정.
 		"id": "slime", "name": "슬라임", "family": "amorphous", "tier": "normal",
 		"color": Color(0.35, 0.85, 0.4), "skills": [], "hp_mult": 1.0,
 		"personality": "무기력하고 단순함",
@@ -109,6 +118,8 @@ const MONSTERS := [
 		# 유일한 20%p대 아웃라이어(균형 성장 정책 기준 56.7%, 2위 좀비는 -9.9%p로 절반
 		# 이하)를 만든 원인으로 측정됨(docs/BALANCE_TUNING_LOG.md "R-2 방3 몬스터별
 		# 측정" 참고) — sticky 디버프는 유지하고 다이스 개수 보정만 제거.
+		# R-3(2026-10-26) — 슬라임류와 같은 "쇼고스 계보" 설정 재해석(데이터 불변, slime
+		# 항목 주석 참고).
 		"id": "poison_slime", "name": "독 슬라임", "family": "amorphous", "tier": "normal",
 		"color": Color(0.45, 0.75, 0.2), "skills": [{"id": "sticky"}], "atk_dice_delta": 0,
 		"hp_mult": 1.0, "personality": "끈적한 독액으로 상대의 움직임을 둔하게 만드는 슬라임",
@@ -162,6 +173,30 @@ const MONSTERS := [
 		"color": Color(0.45, 0.5, 0.4), "skills": [{"id": "chill"}], "hp_mult": 1.4,
 		"personality": "둔하지만 쉽게 쓰러지지 않는, 서늘한 기운을 내뿜는 좀비",
 	},
+	# [대형 기획 16] R-3(2026-10-26) 신규 일반 부정형 4종 — INBOX.md "부정형 신규
+	# 로스터 확정"(아트 스레드 경유, 사용자 확정) 그대로. 전부 기존 스킬 프리미티브만
+	# 사용(새 스킬 코드 없음, 데이터 중심). 아트(resources/monsters/<id>/full.png)는
+	# 곧 입고 예정 — 파일이 없으면 기존 계열 플레이스홀더로 정상 동작한다.
+	{
+		"id": "mimic", "name": "미믹", "family": "amorphous", "tier": "normal",
+		"color": Color(0.55, 0.4, 0.2), "skills": [{"id": "seal"}], "hp_mult": 1.0,
+		"personality": "가라앉은 신전에서 건져 올린 공물 상자에서 촉수와 눈이 엿보이는 미믹",
+	},
+	{
+		"id": "cursed_doll", "name": "저주 인형", "family": "amorphous", "tier": "normal",
+		"color": Color(0.65, 0.5, 0.75), "skills": [{"id": "numb"}], "hp_mult": 1.0,
+		"personality": "심연 교단이 만든 제물 인형, 조종 실이 가는 촉수",
+	},
+	{
+		"id": "will_o_wisp", "name": "도깨비불", "family": "amorphous", "tier": "normal",
+		"color": Color(0.75, 0.35, 0.95), "skills": [{"id": "dull"}], "hp_mult": 1.0,
+		"personality": "우주에서 온 색, 심해 발광 미끼처럼 세상에 없는 색으로 타오르는 불빛",
+	},
+	{
+		"id": "abyss_child", "name": "심연의 아이", "family": "amorphous", "tier": "normal",
+		"color": Color(0.1, 0.45, 0.5), "skills": [{"id": "sticky"}], "hp_mult": 1.0,
+		"personality": "공허의 눈의 어린 자식, 작은 산호 왕관과 촉수 머리끝",
+	},
 	# G-7(2026-10-07) 신규 정예 8종 — INBOX.md [대형 기획 6] G-7 표 그대로(스킬 2개씩,
 	# hp_mult 1.5 + atk_dice_delta +1는 "정예 = 스킬 2개 + hp_mult 1.5 + 공격 다이스 +1"
 	# 공통 공식, 수치는 전부 잠정값 — F-4 시뮬로 조정 예정). INBOX.md 원문은 인간형 정예
@@ -191,6 +226,14 @@ const MONSTERS := [
 		"color": Color(0.5, 0.82, 0.75), "skills": [{"id": "sticky"}, {"id": "dull"}],
 		"atk_dice_delta": 1, "hp_mult": 1.5,
 		"personality": "거대한 반투명 덩어리가 날카로운 기세까지 통째로 둔화시켜 삼킨다",
+	},
+	{
+		# [대형 기획 16] R-3(2026-10-26) 신규 정예 부정형 1종 — 정예 공통 규칙(스킬 2개 +
+		# hp_mult 1.5 + 공격 다이스 +1) 그대로 적용.
+		"id": "abyss_priest", "name": "심연의 사제", "family": "amorphous", "tier": "elite",
+		"color": Color(0.12, 0.3, 0.4), "skills": [{"id": "dull"}, {"id": "seal"}],
+		"atk_dice_delta": 1, "hp_mult": 1.5,
+		"personality": "공허의 눈을 섬기는 광신도, 얼굴을 덮은 로브에 하나의 눈 마크",
 	},
 	{
 		# 2026-10-26 R-1 — 유령류 재분류(ghost/shadow/mist와 같은 이유)로 amorphous->undead.
@@ -248,6 +291,8 @@ const MONSTERS := [
 		# 점액 군주가 두 번째로 낮음(11.6%, 다음은 해골 장군 16.4%). atk_dice_delta가
 		# 보스 공통 공격 보정(+1) 위에 추가로 +1이 더 얹혀 다른 보스보다 공격 다이스가
 		# 1개 더 많았던 것이 원인으로 보여 0으로 낮춘다(공통 보정만 남김).
+		# [대형 기획 16] R-3(2026-10-26) — 점액 군주도 슬라임류와 같은 "쇼고스 계보"
+		# 설정 재해석 대상(데이터 불변, slime 항목 주석 참고).
 		"id": "ooze_lord", "name": "점액 군주", "family": "amorphous", "tier": "boss",
 		"color": Color(0.3, 0.55, 0.35),
 		"skills": [{"id": "sticky"}, {"id": "seal"}], "atk_dice_delta": 0, "hp_mult": 1.0,
@@ -401,6 +446,8 @@ static func legacy_cycle_monster(room_index: int) -> Dictionary:
 ## 제외된 상태로 남는다(레거시 경로 호환 — monster_catalog.gd 상단 G-7 주석 참고).
 ## 2026-10-26 R-1로 해골 전사/해골 궁수/망령 병사가 카탈로그에서 제거되며 20종 ->
 ## 17종으로 줄었다(계열당 인간형5/부정형2/야수형5/언데드형5, 다크 나이트는 별도).
+## 같은 날 R-3로 부정형 신규 4종(미믹/저주 인형/도깨비불/심연의 아이)이 추가돼
+## 17종 -> 21종이 됐다(계열당 인간형5/부정형6/야수형5/언데드형5).
 static func normal_roster_ids() -> Array:
 	var ids := []
 	for m in MONSTERS:
@@ -411,6 +458,7 @@ static func normal_roster_ids() -> Array:
 
 ## G-7(2026-10-07): "정예 전투" 풀 뽑기 대상 id. tier=="elite"인 몬스터 전부.
 ## 2026-10-26 R-1로 해골 기사(skeleton_knight)가 제거되며 8종 -> 7종으로 줄었다.
+## 같은 날 R-3로 부정형 신규 정예 1종(심연의 사제)이 추가돼 7종 -> 8종이 됐다.
 static func elite_roster_ids() -> Array:
 	var ids := []
 	for m in MONSTERS:
@@ -466,7 +514,7 @@ static func _avoid_consecutive_family(sequence: Array) -> void:
 ## 시작, round는 rooms_per_round개의 방을 가짐 — 마지막 방이 보스 자리).
 ## - 보스가 아닌 자리(0 .. rooms_per_round-2)는 normal_roster_ids()(20종) 안에서
 ##   "이번 런 전체에서 중복 없이" 뽑는다(INBOX.md 원문 — total_rounds*(rooms_per_round-1)이
-##   풀 크기 이하일 때만 전부 중복 없이 뽑을 수 있다, 지금 3*4=12 <= 20).
+##   풀 크기 이하일 때만 전부 중복 없이 뽑을 수 있다, 지금 3*4=12 <= 21, R-3 반영).
 ## - 마지막 방(보스 자리)은 G-8(2026-10-07)부터 전용 보스 풀(BOSS_ROSTER_BY_ROUND)에서
 ##   그 라운드의 후보 2종 중 하나를 뽑는다("보스 2종 중 등장은 랜덤, 런 안에서는 고정" —
 ##   INBOX.md 원문). 라운드 수가 BOSS_ROSTER_BY_ROUND보다 많아지는 경우(지금은 없음)는
@@ -508,7 +556,7 @@ static func build_monster_plan(seed: int, total_rounds: int, rooms_per_round: in
 ##   배정한다 — "정예 풀에서 중복 없이"(INBOX.md 원문)를 라운드 안에서는 완전히 보장한다
 ##   (3자리 <= 8종). 라운드를 넘어서는 전체 런 기준 중복까지는 보장하지 않는다
 ##   (3라운드 x 3자리 = 9자리 > 풀 크기 8이라 수학적으로 불가능 — build_monster_plan()의
-##   "일반 전투 12자리 <= 20종" 전제와 달리 여기선 "라운드당"으로 범위를 좁힌 것).
+##   "일반 전투 12자리 <= 21종"(R-3 반영) 전제와 달리 여기선 "라운드당"으로 범위를 좁힌 것).
 static func build_elite_plan(seed: int, total_rounds: int, rooms_per_round: int) -> Array:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed
