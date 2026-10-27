@@ -53,3 +53,6 @@ bash tools/artgen/adopt.sh tools/artgen/out/pilot_pirate_full/<시각>/candidate
 ```
 
 비용은 장당 과금된다(모델·품질·크기별). 처음엔 후보 수를 1~2로 시험할 것.
+
+- `bg_strict.gd` — 흰 배경 위의 창백한 캐릭터(흰 피부·흰 옷)용 배경 제거. 테두리와 이어진 거의 순백만 지운다. 결과를 `postprocess.gd ... full`에 다시 넣으면 규격(1181×1332)으로 맞춰진다.
+- `crop_patch.gd` / `patch_region.gd` — 부분 수정: 고칠 부위만 잘라 GPT에 보내고 결과를 제자리에 합성(그 외 픽셀은 기준본 그대로).
