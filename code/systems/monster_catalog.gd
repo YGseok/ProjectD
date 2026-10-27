@@ -352,7 +352,13 @@ const MONSTERS := [
 		"id": "fallen_commander", "name": "타락한 기사단장", "family": "humanoid", "tier": "boss",
 		"color": Color(0.710, 0.396, 0.165),
 		"skills": [{"id": "steady_guard"}, {"id": "armor", "amount": 1}, {"id": "counter", "amount": 1}],
-		"hp_mult": 1.0, "phase2_skills": [{"id": "bloodlust"}],
+		# R-4(2026-10-27) 15차 시도 — 위 14차까지 armor/counter는 병목이 아님을 확인했고
+		# (steady_guard 자체가 진짜 병목으로 의심되나 modify_monster_roll() 파라미터화가
+		# 더 큰 작업), 이번엔 손잡이를 hp_mult로 바꿔 소폭 완화한다(다른 보스는 전부
+		# hp_mult=1.0 그대로 — 이 보스만 단독으로 건드림). 개별 측정 26.0%(밴드
+		# 35~55% 미달)를 완화하기 위해 0.7로 낮춤 — BALANCE_TUNING_LOG.md "R-4
+		# 타락한 기사단장 완화" 참고.
+		"hp_mult": 0.7, "phase2_skills": [{"id": "bloodlust"}],
 		"personality": "수호자의 전 기사단장, 저주받은 장비에 타락",
 		# Q-12(a) — 수호자가 이 보스를 만나면 "옛 기사단장"을 알아보는 전용 변형 대사(원문 지시 필수 항목).
 		"intro": "타락한 기사단장이 녹슨 갑주를 끌며 일어선다. 저주가 그의 눈을 붉게 태운다.",
