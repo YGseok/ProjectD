@@ -153,9 +153,9 @@ const MONSTERS := [
 		"personality": "조금만 거슬려도 이성을 잃고 날뛰는 개",
 	},
 	{
-		"id": "boar", "name": "멧돼지", "family": "beast", "tier": "normal",
+		"id": "boar", "name": "산양", "family": "beast", "tier": "normal",
 		"color": Color(0.4, 0.28, 0.18), "skills": [{"id": "bloodlust"}], "hp_mult": 1.0,
-		"personality": "피를 흘릴수록 더 거세게 돌진하는 멧돼지",
+		"personality": "굽은 뿔을 앞세워, 피를 흘릴수록 더 거세게 돌진하는 산양",
 	},
 	{
 		"id": "dire_spider", "name": "독거미", "family": "beast", "tier": "normal",
