@@ -5420,6 +5420,11 @@ func _check_skill_effects(lines: PackedStringArray) -> bool:
 	# 범위 유지)을 지키고, 다이스 2개 중 최댓값을 쓰므로 count=1보다 대체될 확률이 더
 	# 높아야 한다(엄밀한 분포 검증은 아니고, 60회 표본에서 대체 횟수가 count=1보다
 	# 작지 않은지만 확인 — 물리 의존 없는 순수 확률 비교).
+	# R-4(2026-10-27): 이 비교는 전역 RNG에 의존해 실행마다 결과가 달라질 수 있었다
+	# (2026-10-20 (237) 간헐적 FAIL 관측). 루프 진입 전 고정 시드로 전역 RNG를 재설정해
+	# 매 실행 동일한 난수 시퀀스를 재현하도록 고정한다 — "count=2가 count=1 이상으로
+	# 대체된다"는 확률적 검증 의도는 그대로, 결과만 매번 같게 만든다.
+	seed(20261027)
 	var plus_untouched_ok := true
 	var plus_never_out_of_range_ok := true
 	var plus_replace_count := 0
