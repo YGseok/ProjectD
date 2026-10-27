@@ -809,9 +809,11 @@ const LEGENDARY_SKILLS: Array[Dictionary] = [
 	#
 	# "legend_enchantress_captive"(매혹의 포로): 새 메커니즘(몬스터 다이스에 직접
 	# 적용) — 자기 다이스를 끌어올리는 charm_flip과 완전히 반대 방향으로, 매 턴
-	# 상대(몬스터)의 다이스 중 가장 높았던 값을 그 다이스의 면 최솟값으로 깎는다
-	# (공격/방어 양쪽, 균형형 정체성). DiceBag.apply_charm_debuff()(신규, apply_
-	# charm_flip의 "반대" 버전) 참고.
+	# 몬스터 공격 다이스 중 가장 높았던 값을 그 다이스의 면 최솟값으로 깎는다.
+	# DiceBag.apply_charm_debuff()(신규, apply_charm_flip의 "반대" 버전) 참고.
+	# R-4(2026-10-27): 원래는 몬스터 공격/방어 양쪽을 동시에 깎아 전설 격리 시뮬에서
+	# 형제 전설보다 뚜렷이 큰 이상치였다 — 대상을 "몬스터 공격"만으로 좁혔다
+	# (BALANCE_TUNING_LOG.md "R-4 매혹의 포로 재검토" 참고).
 	#
 	# "legend_enchantress_ascend"(매혹의 극치): charm_flip/매혹 심화가 "고정 개수
 	# (1~3개)만" 바꾸는 상한을 완전히 넘어, 이번 턴 평균보다 낮은 값을 보인 다이스
@@ -865,12 +867,12 @@ const LEGENDARY_SKILLS: Array[Dictionary] = [
 	{
 		"id": "legend_enchantress_captive",
 		"name": "매혹의 포로",
-		"description": "매 턴, 상대(몬스터)의 다이스 중 이번 턴 가장 높았던 값을 보인 다이스 1개를 그 다이스의 면 최솟값으로 깎는다(공격/방어 양쪽). 전설 스킬은 한 런에 하나만 가질 수 있다.",
+		"description": "매 턴, 몬스터 공격 다이스 중 이번 턴 가장 높았던 값을 보인 다이스 1개를 그 다이스의 면 최솟값으로 깎는다. 전설 스킬은 한 런에 하나만 가질 수 있다.",
 		"character_id": "enchantress",
 		"diagram": [
 			{"type": "duration", "kind": "every_turn"},
 			{"type": "arrow"},
-			{"type": "die", "target": "dual"},
+			{"type": "die", "target": "attack"},
 			{"type": "value", "op": "min"},
 		],
 	},

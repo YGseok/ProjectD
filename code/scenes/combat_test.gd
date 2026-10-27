@@ -734,9 +734,11 @@ var player_shieldbearer_curse_marks := 0
 ## curseend를 보유하지 않아도 값은 갱신되지만(비용이 거의 없어 조건 분기 없이
 ## 항상 갱신), _select_exchange_bags()는 curseend_active일 때만 이 값을 읽는다.
 var player_shieldbearer_curse_awakened := false
-## player_legend_enchantress_captive_active: "매혹의 포로" — 매 턴, 상대(몬스터)의
+## player_legend_enchantress_captive_active: "매혹의 포로" — 매 턴, 몬스터 공격
 ## 다이스 중 이번 턴 가장 높았던 값을 그 다이스의 면 최솟값으로 깎는다(charm_flip의
 ## 완전한 반대 방향 — 자기 다이스가 아니라 몬스터 다이스에 적용하는 새 메커니즘).
+## R-4(2026-10-27)로 대상을 "몬스터 공격"만으로 좁혔다(원래는 방어까지 양쪽) —
+## 상세는 combat_test.gd의 적용부 주석과 BALANCE_TUNING_LOG.md 참고.
 var player_legend_enchantress_captive_active := false
 ## player_legend_enchantress_ascend_active: "매혹의 극치" — charm_flip/매혹 심화가
 ## "고정 개수(1~3개)"만 올리던 것을 넘어, 이번 턴 평균보다 낮은 값을 보인 다이스
@@ -2231,19 +2233,16 @@ func _resolve_exchange(is_player_attacking: bool, atk_bag: DiceBag, def_bag: Dic
 		elif not is_player_attacking and def_bag == RunState.player_defense_bag:
 			def_values = def_bag.apply_charm_flip(def_values, charm_flip_count)
 	# "매혹의 포로"(legend_enchantress_captive, [대형 기획 15] Q-8(c) 3/4, 매혹사
-	# 전용 전설) — 자기 다이스를 끌어올리는 charm_flip과 반대로, 이번 턴 상대
-	# (몬스터)의 다이스 중 가장 높았던 값을 그 다이스의 면 최솟값으로 깎는다.
-	# 몬스터가 "공격 중"이면 몬스터 공격 주머니(atk_bag), 플레이어가 "공격 중"이면
-	# 몬스터 방어 주머니(def_bag)가 대상 — 둘 다 몬스터 "평소" 주머니일 때만
-	# 적용한다(anger_stack 1D20 임시 주머니는 대상에서 제외, charm_flip이
-	# RunState.player_*_bag인지 확인하는 것과 같은 관례).
+	# 전용 전설) — 자기 다이스를 끌어올리는 charm_flip과 반대로, 몬스터 공격 다이스 중
+	# 가장 높았던 값을 그 다이스의 면 최솟값으로 깎는다. 플레이어가 "공격 중"일 때(=
+	# 몬스터가 방어 중)는 건드리지 않는다(anger_stack 1D20 임시 주머니도 제외,
+	# charm_flip이 RunState.player_*_bag인지 확인하는 것과 같은 관례).
+	# R-4(2026-10-27): 원래 공격/방어 양쪽을 동시에 깎아 전설 격리 시뮬에서 델타가
+	# 형제 전설(+10.5%p/+13.1%p)보다 뚜렷이 큰 +20.3%p 이상치였다(BALANCE_TUNING_LOG.md
+	# "R-4 매혹의 포로 재검토" 참고) — "몬스터 방어도 깎는다" 분기를 제거해 "몬스터
+	# 공격만 약화"로 대상 범위를 좁혔다(노브: 대상, 효과 자체/조건/수치는 불변).
 	if player_legend_enchantress_captive_active:
-		if is_player_attacking and def_bag == monster_defense_bag:
-			var captive_def_before := def_values.duplicate()
-			def_values = def_bag.apply_charm_debuff(def_values)
-			if def_values != captive_def_before:
-				logs.append("매혹의 포로: 몬스터 방어 %s -> %s (최고값을 최솟값으로)" % [captive_def_before, def_values])
-		elif not is_player_attacking and atk_bag == monster_attack_bag:
+		if not is_player_attacking and atk_bag == monster_attack_bag:
 			var captive_atk_before := atk_values.duplicate()
 			atk_values = atk_bag.apply_charm_debuff(atk_values)
 			if atk_values != captive_atk_before:
