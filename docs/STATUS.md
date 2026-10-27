@@ -5,39 +5,49 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-10-27 (248)
-- 작성자: AI 에이전트. **[대형 기획 16] R-4(알려진 이슈 3건 정리) 전체 완료 —
-  [대형 기획 16](R-1~R-4) 전체 완료.** 큐가 비어 사용자가 "알려진 이슈 3건
-  정리"를 직접 지시한 이터레이션. 3개 중간 커밋으로 진행:
-  **(1) 테스트 안정화**: `dice_test.gd`의 `_apply_spare_die(count=2, '여분+')`
-  확률 비교(60회 표본, 2026-10-20 (237)부터 간헐적 FAIL 알려진 이슈)가 전역
-  RNG에 그대로 의존해 실행마다 결과가 달라지던 것을, 루프 진입 전
-  `seed(20261027)`로 전역 RNG를 고정해 매 실행 동일 시퀀스(대체 횟수
-  58>=42)가 나오도록 고쳤다. 3회 연속 재실행으로 동일 결과 확인(검증 의도는
-  불변, 결과만 재현 가능해짐).
-  **(2) 매혹의 포로(legend_enchantress_captive) 재검토**: `balance_sim`의
-  `_run_legendary_simulation()`으로 재측정한 결과 델타 +20.3%p로 형제 전설
-  (+10.5%p/+13.1%p)보다 1.6~1.9배 큰 이상치임을 재확인(Q-8(d) 때와 같은
-  방향). 원인은 몬스터 공격/방어 다이스를 동시에 깎는 이중 효과 — "몬스터
-  방어를 깎는" 분기를 제거해 "몬스터 공격만" 약화하도록 대상을 좁혔다(효과
-  자체/조건/수치는 불변, `DiceBag.apply_charm_debuff()`는 무변경). 재측정
-  결과 델타 +12.8%p로 형제 전설과 같은 체급으로 수렴. `docs/DESIGN.md` 전설
-  표와 `SkillPool`의 description/diagram(target dual->attack)도 함께 갱신.
-  **(3) 타락한 기사단장 밴드 복귀**: 신규 `balance_boss_species.gd`(R-2
-  `balance_room3_species.gd`와 같은 패턴 — 보스 6종 개별 측정, 신규 씬
-  `balance_boss_species.tscn`)로 재측정한 결과 26.0%로 밴드(35~55%) 미달
-  재확인(나머지 5종은 전부 밴드 안). armor/counter는 J-2에서 이미 병목이
-  아님이 확인됐고 `steady_guard` 파라미터화(`modify_monster_roll()`)는 범위
-  밖이라, `hp_mult`를 1.0→0.7로 낮춰(이 보스만 단독 조정, 다른 5종은 불변)
-  39.1%로 복귀시켰다(1차 시도 0.85는 32.7%로 부족해 2차로 0.7까지 낮춤).
-  4개 밴드 전체 재측정(`balance_sim`→`balance_target_check`) 전부 통과(일반
-  방0~2 98.3%/방3 81.4%/정예 64.0%/보스 40.4%). `docs/DESIGN.md` 보스 절에
-  hp_mult 0.7 각주 추가.
-  세 작업 각각 끝에 `bash scripts/qa_shot.sh dice_test 60 ... "" 1` **foreground
-  전체 "결과: PASS" 직접 확인**(run_in_background 금지). 전투 규칙은 건드리지
-  않았고 `resources/`·`docs/art/`는 읽기만 했다(git add 제외). 상세는
-  "완료 기록 (248)"과 `docs/BALANCE_TUNING_LOG.md` "R-4 매혹의 포로 재검토"/
-  "R-4 타락한 기사단장 완화" 절 참고.
+- 일시: 2026-10-28 (249)
+- 작성자: AI 에이전트. **[대형 기획 17] S-0 1단계(기준 문서 + 시안) 완료 —
+  감독 지시 "실행 순서: S-0 1단계(기준 문서+시안만, 실제 게임 화면은 아직
+  바꾸지 말 것)"를 그대로 수행.** 게임 코드(`code/scenes/`, `code/systems/`)는
+  전혀 건드리지 않았다. 3개 산출물:
+  **(1) `docs/design/VISUAL_STANDARD.md` 신규** — 글자 크기 단계(최소
+  11px, 기존 위반 4곳 표로 기록)/배경 대비 기준(WCAG 4.5:1·3:1)/정보 위계
+  3단계/장식 한도/8px 정렬 격자/아이콘 비율 규칙/상태 메시지 바 규격(S-3)/
+  화면별 키 매핑 표(S-8)/아트 요청 목록(도식 기호 11종·계열 아이콘 4종·얼굴
+  앵커 포맷)을 정리. 대비 기준표는 **실제 캡처 PNG 픽셀**(신규 측정 도구
+  `code/qa/pixel_contrast.gd` — godot headless 스크립트, `--rgb` 모드로
+  코드 색 상수도 직접 계산 가능)로 측정 — 몬스터 도감 티어 필터 "전체" 칩이
+  **1.86:1로 기준 미달**임을 실측 확인(사용자가 캡처로 지목한 바로 그
+  사례). 원인은 코드가 아니라 장식 이미지 스킨 내부 밝기 편차(글자가 장식
+  보석/하이라이트 위에 얹힘) — `contrasting_text_color()` 같은 코드 레벨
+  보장 로직 자체는 정상 동작함을 다른 7개 색상 조합(전부 PASS)으로 함께
+  확인. `RewardIcon`/`FamilyIcon`이 `draw_texture_rect(..., size, false)`로
+  비율 유지 없이 그리고 `HBoxContainer` 기본 `SIZE_FILL`로 세로가 늘어나는
+  것(S-7a 아이콘 늘어남의 코드 레벨 원인)도 특정.
+  **(2) 핵심 화면 8종 시안** `code/mockups/*.gd`(+`.tscn`, 8개 — character_select/
+  dungeon_map/combat/event/shop/reward/customize/monster_codex) — 전부
+  `UIKit`/`CharacterTheme`/`FamilyIcon`/`RewardIcon`/`ItemCardStyle` 등
+  **기존 함수를 그대로 재사용**(새 그리기 로직 없음), 장식을 낮추는 부분만
+  존재하지 않는 `base_dir`(`MockupCommon.FLAT_SKIN_DIR`)로 이미지 스킨
+  로드를 의도적으로 실패시켜 기존 절차적 폴백을 끌어쓰는 방식으로 근사.
+  고정 예시 데이터만 쓰고 실제 게임 흐름(RunState)에 연결 안 됨. 화면마다
+  `scripts/qa_shot.sh`로 "전"(실제 화면)/"후"(시안) 1280x720 캡처
+  + 640x360 축소본 + 흐림 처리본(신규 `code/qa/mockup_postprocess.gd`,
+  16배 축소→재확대 근사) + 키 이동 경로 오버레이(신규
+  `code/mockups/key_overlay.gd`, 번호+화살표)까지 `qa_out/mockups/`에 생성
+  (gitignore 대상이라 저장소에는 없음 — 로컬에서 직접 확인).
+  **(3) `docs/design/MOCKUP_REVIEW.md` 신규** — 화면 8종 전부 "전/후 바뀐
+  점" 표, 측정값, 사용자 결정이 필요한 질문(화면별 1~2개 + 공통 3개:
+  S-6 방향/상태 바 트리거/FocusNav 영역 모델)을 정리.
+  `GAME_START_PATH` 환경변수로 `scripts/qa_shot.sh`가 `code/mockups/`
+  씬도 그대로 캡처할 수 있음을 확인(스크립트 자체는 수정 안 함 — env var가
+  하위 프로세스로 그대로 전달되는 셸 동작을 이용). 시안 추가 후
+  `character_select`(실제 화면) 캡처로 로드 안 깨짐 확인(2회,
+  `qa_out/mockups/character_select_before.png`/`_regression_check.png`).
+  게임 코드 변경이 없어 `dice_test` 전체 실행은 생략(지시사항 그대로).
+  `resources/`·`docs/art/`는 건드리지 않음.
+  **다음 이터레이션**: 감독/사용자가 `MOCKUP_REVIEW.md`를 보고 질문에
+  답하면 S-1~S-8 본 구현 착수(지금은 착수 안 함, 지시 그대로).
 
 ## 지금 위치
 
@@ -658,6 +668,16 @@ event.gd 특별 선택지 버튼의 safe/risky 버튼 겹침도 고쳤다. 자�
 
 이 순서를 반드시 지킬 필요는 없지만, 앞 단계가 뒤 단계의 전제가 되므로 대체로 순서대로
 진행하는 것을 권장한다. 한 이터레이션에 한두 개만 진행할 것.
+
+**최우선 — [대형 기획 17] S-0 2단계(사용자 확정 대기, 2026-10-28 (249)).** 1단계
+(기준 문서 `docs/design/VISUAL_STANDARD.md` + 시안 `code/mockups/` 8종 + 비교 문서
+`docs/design/MOCKUP_REVIEW.md`)가 끝났다. **다음 이터레이션은 바로 S-1~S-8 본 구현에
+착수하지 말 것** — `MOCKUP_REVIEW.md`의 "결정이 필요한 질문"(화면별 + 공통 3개: S-6
+방향/상태 바 트리거/FocusNav 영역 모델)에 사용자가 답했는지 INBOX.md를 먼저 확인한다.
+답이 없으면 그 사실을 "알려진 이슈 / 막힌 것"에 적고 다른 큐 항목으로 넘어갈 것(빈
+커밋 금지 규칙과 같은 이유 — 결정 없이 본 구현을 먼저 하면 되돌리는 비용이 큼). 답이
+있으면 S-1(시작 스킬 카드)부터 순서대로, 실제 화면(`code/scenes/`)에 반영하고
+`FocusNav`를 "영역(region)" 모델로 확장(VISUAL_STANDARD.md 8절)한다.
 
 **[대형 기획 13](던전 선택~전투 UI 품질 개선, M-1~M-5 + ART-2, 셀프 피드백 루프
 방식)이 2026-10-15(205)로 전체 완료됐다** — M-1(198)/M-2(199)/M-3(200)/
@@ -1469,6 +1489,16 @@ DESIGN.md 레어리티 표 + STATUS.md 아트 발주 표(완료 기록 (238))까
 
 ## 완료 기록
 
+- **2026-10-28 (249)**: **[대형 기획 17] S-0 1단계(기준 문서 + 시안) 완료.**
+  상세는 위 "마지막 갱신" 참고(이 이터레이션의 작업 요약을 그대로 옮기면
+  중복이라 생략 — 다음 이터레이션이 S-1~S-8 착수 시 "마지막 갱신"은 새로
+  교체되므로, 그때를 위해 핵심만 남긴다): `docs/design/VISUAL_STANDARD.md`
+  (기준 문서, 대비 실측 포함)/`docs/design/MOCKUP_REVIEW.md`(화면 8종 전/후
+  비교+결정 질문)/`code/mockups/`(화면 8종 시안, 전부 기존 UIKit 등 재사용)/
+  `code/qa/pixel_contrast.gd`(신규, 캡처 픽셀 대비비 측정 도구)/`code/qa/
+  mockup_postprocess.gd`(신규, 640 축소+흐림 처리)/`code/mockups/key_overlay.gd`
+  (신규, 키 경로 오버레이). 게임 코드 변경 없음, 실제 화면은 그대로.
+
 - **2026-10-27 (248)**: **[대형 기획 16] R-4(알려진 이슈 3건 정리) 전체 완료 —
   [대형 기획 16](R-1~R-4) 전체 완료.** 큐가 비어 사용자가 "알려진 이슈 3건
   정리"를 순서대로(항목마다 중간 커밋) 진행하라고 직접 지시한 이터레이션.
@@ -2059,61 +2089,9 @@ DESIGN.md 레어리티 표 + STATUS.md 아트 발주 표(완료 기록 (238))까
   INBOX.md "부분 처리됨" [대형 기획 15] 항목에 Q-11b 진행 상황 줄 추가,
   다음은 여전히 Q-9(고유 능력/업적 아이콘)~Q-10(스토리 이벤트 일러스트).
 
-- **2026-10-20 (239)**: **[대형 기획 15] Q-11(몬스터 도감, 원문 25, 사용자 추가
-  지시) 완료.** 리소스 확인용 몬스터 도감 — 신규 `code/scenes/
-  monster_codex_panel.gd`(`MonsterCodexPanel`, `SkillCodexPanel` 패턴 재사용:
-  스크립트 하나로 완결된 Control, FocusNav 포커스 트랩 + Esc/우상단 X로 닫기)가
-  캐릭터 선택 화면 "업적" 왼쪽의 신규 "몬스터 도감" 버튼(UIKit 보조 버튼,
-  `character_select.tscn`의 `MonsterCodexButton` + `_shortcut_buttons` 체인에
-  편입)으로 열린다. **발견 여부와 완전히 무관하게**(스킬 도감과 달리 가리지
-  않음) `MonsterCatalog.MONSTERS` 전체(35종, 몬스터 id 하드코딩 없이 카탈로그
-  순회 — 새 몬스터가 추가되면 자동 포함)를 두 단계 뷰로 보여준다:
-  **격자 뷰**는 계열(전체+4종)·티어(전체+3종) 필터 버튼 행(둘 다 독립적으로
-  AND 결합) + 카드 격자(`FamilyIcon`+티어 라벨+이름+"원화 ✓/✗ · 표정 n/5"
-  리소스 태그). **상세 뷰**는 카드를 클릭/Space하면 전신 `full.png`를 크게,
-  그 옆에 표정 5종(neutral/happy/hurt/sad/angry) 전환 버튼(미입고 표정은
-  `Button.disabled=true`로 전환 자체를 막음) + 전투 화면에서 실제로 쓰는
-  상반신 크롭 미리보기(`CharacterArt.load_full_crop()`, 티어별 크롭 비율
-  재사용) + 파일별 입고 현황 체크리스트(full.png + 표정 5장 각각 ✓/✗)를
-  보여주고, 이름/id/계열/티어/성격/스킬(+보스 2페이즈) 목록도 함께 표시한다.
-  표정이 하나도 없으면(2026-10-20 현재 입고 34종 전부 이 상태 — 아트 스레드가
-  `full.png`만 납품하고 `face_*`는 아직 작업 중) "표정 미입고 → 오른쪽 크롭
-  참고" 안내를 보여줘 상태를 정직하게 드러낸다(허위로 빈 칸을 남기지 않음).
-  신규 `CharacterArt.face_count()`(기존 `has_all_faces()`와 같은 순회, "전부
-  있는가" 대신 "몇 장 있는가")를 격자 태그/체크리스트가 공유해 숫자가 항상
-  일치한다. 리소스 로딩은 `art_base_dir`(기본값
-  `MonsterPortraitPlaceholder.MONSTER_ART_BASE_DIR`)로 테스트 주입 가능(다른
-  몬스터 원화 코드와 같은 패턴) — `resources/`는 읽기만 했다.
-  **테스트**(`dice_test.gd` 신규 `_check_q11_monster_codex()`, await 필요,
-  `_art1c2_write_fake_full`/`_art1b_write_fake_faces` 기존 헬퍼 + 색이 다른
-  합성 face PNG 재사용 — 실제 resources 의존 금지): (1) 격자 카드 수 ==
-  `MonsterCatalog.MONSTERS.size()`(35). (2) 격자 리소스 태그가 합성 에셋의
-  실제 파일 개수와 정확히 일치(일부 입고/전체 입고/미입고 3경우). (3) 계열
-  필터(부정형)/티어 필터(보스)를 실제 버튼 `.pressed.emit()`으로 눌러 카드
-  수·포함/제외가 카탈로그 집계와 정확히 일치. (4) 상세 뷰에서 표정 버튼을
-  실제로 눌러(`.pressed.emit()`) **렌더된 텍스처의 픽셀 색이 실제로
-  바뀌는지**(빨강→초록, "플래그가 아니라 계산 결과" 원칙) + 미입고 표정
-  버튼이 `disabled=true`인지(전환 자체가 불가능한지). (5) 리소스
-  체크리스트가 실제 파일 존재와 일치. (6) 실제 `InputEventKey` 주입
-  (`_n1_send_key`, N-1이 만든 엔진 입력 파이프라인 검증 패턴)으로 필터 행 →
-  격자 첫 카드 → 격자 내부 좌/하 이동 → 상세 뷰 표정 버튼까지 포커스가
-  실제로 이동하는지. `bash scripts/qa_shot.sh dice_test 60
-  qa_out/dice_test_q11.png "" 1` **foreground 전체 PASS(FAIL 0건)** 직접
-  확인(run_in_background 금지), 수정 후 재실행도 PASS 재확인.
-  **셀프 피드백 1라운드**: `character_select.gd`에 QA 전용 디버그 훅 3종
-  (`_debug_show_monster_codex_grid`/`_filtered_boss`/
-  `_detail_goblin_king`) 신규 추가, 1280×720 캡처 3장(격자 전체/보스 필터
-  6종/고블린 왕 상세)을 직접 읽고 확인 — 필터가 정확히 거르는지, 레이아웃
-  겹침·잘림이 없는지, 실제 프로덕션 원화(`resources/monsters/goblin_king/
-  full.png`)가 전신+크롭 양쪽에 올바르게 뜨는지(아직 표정 컷이 없어 "표정
-  미입고" 안내가 실제로 뜨는 것도 확인) 확인했다. 전투 규칙/밸런스 수치는
-  건드리지 않았고 `resources/`·`docs/art/`는 읽기만 했다(add 안 함). **[대형
-  기획 15] Q-9(고유 능력/업적 아이콘)~Q-10(스토리 이벤트 일러스트)는 여전히
-  아트 발주 목록 정리 성격이라 다음 이터레이션이 순서를 다시 판단할 것.**
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(248)에서 (238)을 그리로 옮겼다.)*
+이번 이터레이션(249)에서 (239)를 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 

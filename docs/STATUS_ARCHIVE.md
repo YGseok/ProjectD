@@ -8,6 +8,58 @@
 
 ---
 
+- **2026-10-20 (239)**: **[대형 기획 15] Q-11(몬스터 도감, 원문 25, 사용자 추가
+  지시) 완료.** 리소스 확인용 몬스터 도감 — 신규 `code/scenes/
+  monster_codex_panel.gd`(`MonsterCodexPanel`, `SkillCodexPanel` 패턴 재사용:
+  스크립트 하나로 완결된 Control, FocusNav 포커스 트랩 + Esc/우상단 X로 닫기)가
+  캐릭터 선택 화면 "업적" 왼쪽의 신규 "몬스터 도감" 버튼(UIKit 보조 버튼,
+  `character_select.tscn`의 `MonsterCodexButton` + `_shortcut_buttons` 체인에
+  편입)으로 열린다. **발견 여부와 완전히 무관하게**(스킬 도감과 달리 가리지
+  않음) `MonsterCatalog.MONSTERS` 전체(35종, 몬스터 id 하드코딩 없이 카탈로그
+  순회 — 새 몬스터가 추가되면 자동 포함)를 두 단계 뷰로 보여준다:
+  **격자 뷰**는 계열(전체+4종)·티어(전체+3종) 필터 버튼 행(둘 다 독립적으로
+  AND 결합) + 카드 격자(`FamilyIcon`+티어 라벨+이름+"원화 ✓/✗ · 표정 n/5"
+  리소스 태그). **상세 뷰**는 카드를 클릭/Space하면 전신 `full.png`를 크게,
+  그 옆에 표정 5종(neutral/happy/hurt/sad/angry) 전환 버튼(미입고 표정은
+  `Button.disabled=true`로 전환 자체를 막음) + 전투 화면에서 실제로 쓰는
+  상반신 크롭 미리보기(`CharacterArt.load_full_crop()`, 티어별 크롭 비율
+  재사용) + 파일별 입고 현황 체크리스트(full.png + 표정 5장 각각 ✓/✗)를
+  보여주고, 이름/id/계열/티어/성격/스킬(+보스 2페이즈) 목록도 함께 표시한다.
+  표정이 하나도 없으면(2026-10-20 현재 입고 34종 전부 이 상태 — 아트 스레드가
+  `full.png`만 납품하고 `face_*`는 아직 작업 중) "표정 미입고 → 오른쪽 크롭
+  참고" 안내를 보여줘 상태를 정직하게 드러낸다(허위로 빈 칸을 남기지 않음).
+  신규 `CharacterArt.face_count()`(기존 `has_all_faces()`와 같은 순회, "전부
+  있는가" 대신 "몇 장 있는가")를 격자 태그/체크리스트가 공유해 숫자가 항상
+  일치한다. 리소스 로딩은 `art_base_dir`(기본값
+  `MonsterPortraitPlaceholder.MONSTER_ART_BASE_DIR`)로 테스트 주입 가능(다른
+  몬스터 원화 코드와 같은 패턴) — `resources/`는 읽기만 했다.
+  **테스트**(`dice_test.gd` 신규 `_check_q11_monster_codex()`, await 필요,
+  `_art1c2_write_fake_full`/`_art1b_write_fake_faces` 기존 헬퍼 + 색이 다른
+  합성 face PNG 재사용 — 실제 resources 의존 금지): (1) 격자 카드 수 ==
+  `MonsterCatalog.MONSTERS.size()`(35). (2) 격자 리소스 태그가 합성 에셋의
+  실제 파일 개수와 정확히 일치(일부 입고/전체 입고/미입고 3경우). (3) 계열
+  필터(부정형)/티어 필터(보스)를 실제 버튼 `.pressed.emit()`으로 눌러 카드
+  수·포함/제외가 카탈로그 집계와 정확히 일치. (4) 상세 뷰에서 표정 버튼을
+  실제로 눌러(`.pressed.emit()`) **렌더된 텍스처의 픽셀 색이 실제로
+  바뀌는지**(빨강→초록, "플래그가 아니라 계산 결과" 원칙) + 미입고 표정
+  버튼이 `disabled=true`인지(전환 자체가 불가능한지). (5) 리소스
+  체크리스트가 실제 파일 존재와 일치. (6) 실제 `InputEventKey` 주입
+  (`_n1_send_key`, N-1이 만든 엔진 입력 파이프라인 검증 패턴)으로 필터 행 →
+  격자 첫 카드 → 격자 내부 좌/하 이동 → 상세 뷰 표정 버튼까지 포커스가
+  실제로 이동하는지. `bash scripts/qa_shot.sh dice_test 60
+  qa_out/dice_test_q11.png "" 1` **foreground 전체 PASS(FAIL 0건)** 직접
+  확인(run_in_background 금지), 수정 후 재실행도 PASS 재확인.
+  **셀프 피드백 1라운드**: `character_select.gd`에 QA 전용 디버그 훅 3종
+  (`_debug_show_monster_codex_grid`/`_filtered_boss`/
+  `_detail_goblin_king`) 신규 추가, 1280×720 캡처 3장(격자 전체/보스 필터
+  6종/고블린 왕 상세)을 직접 읽고 확인 — 필터가 정확히 거르는지, 레이아웃
+  겹침·잘림이 없는지, 실제 프로덕션 원화(`resources/monsters/goblin_king/
+  full.png`)가 전신+크롭 양쪽에 올바르게 뜨는지(아직 표정 컷이 없어 "표정
+  미입고" 안내가 실제로 뜨는 것도 확인) 확인했다. 전투 규칙/밸런스 수치는
+  건드리지 않았고 `resources/`·`docs/art/`는 읽기만 했다(add 안 함). **[대형
+  기획 15] Q-9(고유 능력/업적 아이콘)~Q-10(스토리 이벤트 일러스트)는 여전히
+  아트 발주 목록 정리 성격이라 다음 이터레이션이 순서를 다시 판단할 것.**
+
 - **2026-10-20 (238)**: **[대형 기획 15] Q-8(d)(마무리: 전설 스킬 밸런스 시뮬 +
   DESIGN.md 레어리티 표 + 아트 발주 목록, 원문 5) 완료 — [대형 기획 15] Q-8
   (스킬 레어리티 + 전설 스킬, a→b→c→d) 전체 완료.**
