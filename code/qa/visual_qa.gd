@@ -237,7 +237,18 @@ func _capture_and_quit() -> void:
 	# 안에서도 일부 캡처는 맞고 일부는 틀림) — 캡처 직전에 창 크기를 직접 다시 확인/강제
 	# 교정하고, 실제로 반영될 시간을 몇 프레임 더 준다. 크기가 이미 맞으면 추가 대기 없이
 	# 기존과 동일하게 바로 캡처한다(정상 경로는 전혀 느려지지 않음).
+	# [대형 기획 17] S-0 재작업(2026-10-28) — "세 창 크기(1100x620/1600x900)에서 재확인"
+	# (S-5)과 "전/후 비교 이미지를 1280x720 원본 크기로 나란히"(비교 캔버스는 2592x760
+	# 등 더 넓음) 둘 다 이 기본 1280x720 강제 교정과 충돌한다. GAME_QA_EXPECTED_SIZE
+	# ("WxH" 문자열)를 주면 그 값으로 기대 크기를 바꿀 수 있게 하되, 안 주면(기존 모든
+	# qa_shot.sh 호출이 해당) 지금까지와 완전히 동일하게 1280x720을 강제한다 — 기존 QA
+	# 경로는 전혀 안 바뀜.
 	var expected_window_size := Vector2i(1280, 720)
+	var size_override_env := OS.get_environment("GAME_QA_EXPECTED_SIZE")
+	if not size_override_env.is_empty():
+		var parts := size_override_env.split("x")
+		if parts.size() == 2 and parts[0].is_valid_int() and parts[1].is_valid_int():
+			expected_window_size = Vector2i(parts[0].to_int(), parts[1].to_int())
 	if get_window().size != expected_window_size:
 		push_warning("[VisualQA] 창 크기가 예상과 다름(%s, 기대 %s) — 강제 교정 후 재대기" % [
 			get_window().size, expected_window_size])

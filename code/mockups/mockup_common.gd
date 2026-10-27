@@ -84,3 +84,71 @@ static func make_ratio_safe_icon(parent: Node, tex: Texture2D, slot: Vector2, fa
 	ph.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	parent.add_child(ph)
 	return ph
+
+
+## ---------------------------------------------------------------------------
+## [대형 기획 17] S-0 재작업(2026-10-28, 반려 후 재시도) — 아래부터는 "실제 씬을
+## 인스턴스화한 뒤 패치"하는 새 접근을 위한 공용 헬퍼. 1단계(최초 시도)는 화면을
+## 처음부터 다시 그려 고정 예시 데이터만 보여줬는데, 감독 검수에서 "내용 대부분이
+## 빠진 와이어프레임"으로 반려됐다 — 실제 캐릭터 8명, 능력치, 배경 원화, 던전 입장
+## 버튼 등이 전부 사라져 있었다. 재작업은 code/scenes/의 실제 .tscn을 그대로
+## instantiate()해 자식으로 붙이고, 그 노드 트리를 찾아가 VISUAL_STANDARD.md가 요구하는
+## 자리만 고친다 — 실제 씬 파일(code/scenes/*.tscn/.gd)은 전혀 수정하지 않는다.
+## ---------------------------------------------------------------------------
+
+## 노드 트리를 재귀로 훑어 predicate(node)가 true인 노드를 전부 out에 모은다. 커스텀
+## class_name(SkillIcon/FamilyIcon/RewardIcon 등)은 get_class()로 못 찾으므로(엔진
+## 기본 클래스만 돌려줌), 호출부가 `func(n): return n is SkillIcon` 같은 Callable로
+## 직접 타입을 검사한다.
+static func find_nodes(root: Node, predicate: Callable, out: Array) -> void:
+	if predicate.call(root):
+		out.append(root)
+	for child in root.get_children():
+		find_nodes(child, predicate, out)
+
+
+## 텍스트가 target과 정확히 일치하는 첫 Label(또는 RichTextLabel의 text)을 찾는다 —
+## "하나만 선택" 같은 문구를 하드코딩 경로 없이 지우거나 바꿀 때 쓴다.
+static func find_label_with_text(root: Node, target: String) -> Node:
+	if (root is Label and (root as Label).text == target) \
+			or (root is RichTextLabel and (root as RichTextLabel).text == target):
+		return root
+	for child in root.get_children():
+		var found := find_label_with_text(child, target)
+		if found != null:
+			return found
+	return null
+
+
+## S-2/S-6 장식 방향 A/B안 — 실제 화면에 이미 떠 있는 버튼(스킨까지 이미 입혀진 상태)을
+## 그 자리에서 다시 스킨한다. A안: 기존 이미지 스킨은 그대로 두고 글자 쪽만 고친다
+## (외곽선+배경 패드로 대비 보강, VISUAL_STANDARD.md 2절 "선택지 (b)"). B안: 장식
+## 자체를 낮춘 얇은 테두리 플랫 버튼(FLAT_SKIN_DIR 트릭, 1단계 시안과 동일한 근사).
+static func restyle_button(btn: Button, character_id: String, primary: bool, variant: String, tint: Color = Color(0, 0, 0, 0)) -> void:
+	if variant == "B":
+		if primary:
+			UIKit.style_primary_button(btn, character_id, tint, FLAT_SKIN_DIR)
+		else:
+			UIKit.style_secondary_button(btn, character_id, tint, FLAT_SKIN_DIR)
+		return
+	# A안: 스킨 유지 + 글자 자체를 더 또렷하게(외곽선 + 살짝 큰 폰트) — 장식 텍스처의
+	# 밝기 편차 때문에 글자가 묻히는 문제(VISUAL_STANDARD.md 2절 실측)를 글자 쪽
+	# 보강으로 상쇄한다.
+	if primary:
+		UIKit.style_primary_button(btn, character_id, tint)
+	else:
+		UIKit.style_secondary_button(btn, character_id, tint)
+	btn.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.95))
+	btn.add_theme_constant_override("outline_size", 3)
+	var cur_size: int = btn.get_theme_font_size("font_size")
+	btn.add_theme_font_size_override("font_size", max(cur_size, 15))
+
+
+## S-7 아이콘 비율 패치 — 이미 트리에 붙어 있는 RewardIcon/FamilyIcon(Control+_draw(),
+## TextureRect가 아니라 늘림 방지 옵션이 없음, VISUAL_STANDARD.md 6-2 원인 설명)이
+## HBoxContainer의 기본 SIZE_FILL 때문에 세로로 늘어나는 것을 막는다 — 컨테이너가 강제로
+## 늘리지 못하게 SHRINK_CENTER로 고정(본 구현 때 UIKit.draw_icon_keep_aspect()로 갈아낄
+## 자리를 이 패치가 근사).
+static func fix_icon_aspect(icon: Control) -> void:
+	icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER

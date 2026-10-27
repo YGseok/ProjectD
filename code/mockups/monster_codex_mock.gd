@@ -1,136 +1,84 @@
 extends Node2D
-## [대형 기획 17] S-0 시안 — 몬스터 도감 화면 개편안(S-2 중심). 고정 예시 데이터
-## (MonsterCatalog 실제 데이터 6종, 필터는 전부 "전체" 상태)만 쓰는 정적 시안.
+## [대형 기획 17] S-0 재작업(2026-10-28) — 몬스터 도감 화면 시안(S-2 핵심 사례).
 ##
-## 반영한 기준: VISUAL_STANDARD.md 2절이 실측으로 확인한 "티어 필터 '전체' 칩 1.86:1
-## FAIL"의 직접 원인(장식 텍스처 내부 밝기 편차)을 — 이 시안에서는 아트 교체 없이
-## FLAT_SKIN_DIR로 장식 자체를 내려(S-6와 같은 트릭) 글자가 깨끗한 단색 배경 위에만
-## 놓이게 한다. style_primary_button의 contrasting_text_color()는 원래도 단색
-## 배경을 전제로 설계돼 있어, 장식만 없어지면 코드 변경 없이 바로 기준(4.5:1)을
-## 통과한다(VISUAL_STANDARD.md 2-2 표의 "코드 레벨 통과" 사례와 동일 메커니즘).
+## MonsterCodexPanel은 따로 씬이 없다 — character_select.tscn의 자식으로 상시 존재
+## 하다가 "몬스터 도감" 버튼으로 open()된다. code/scenes/character_select.tscn을 그대로
+## instantiate()한 뒤 실제 open()을 호출한다. VISUAL_STANDARD.md 2-2절이 실측으로 확인한
+## "필터 줄 '전체' 글자 대비 1.86:1 FAIL"(장식 아이콘이 글자와 겹침)이 이 화면의 핵심
+## 반영 대상이다.
+##
+## MOCKUP_VARIANT 환경변수("A"/"B", 기본 "A")로 필터 칩 장식 방향을 고른다 —
+## character_select_mock.gd와 같은 트릭.
 
-const CHARACTER_ID := "novice"
+const RealScene := preload("res://code/scenes/character_select.tscn")
 
+var _real: Node
+var _variant: String
 var _key_overlay: KeyOverlay
 
 
 func _ready() -> void:
-	var backdrop := ColorRect.new()
-	backdrop.color = Color(0.05, 0.05, 0.06, 1.0)
-	backdrop.size = Vector2(1280, 720)
-	add_child(backdrop)
+	_variant = OS.get_environment("MOCKUP_VARIANT")
+	if _variant != "B":
+		_variant = "A"
 
-	var panel := PanelContainer.new()
-	var skinned := UIKit.apply_panel_skin(panel, "overlay", CHARACTER_ID, MockupCommon.FLAT_SKIN_DIR)
-	if not skinned:
-		var style := StyleBoxFlat.new()
-		style.bg_color = Color(0.1, 0.1, 0.12, 0.96)
-		style.set_border_width_all(2)
-		style.set_corner_radius_all(8)
-		panel.add_theme_stylebox_override("panel", style)
-	panel.position = Vector2(40, 30)
-	panel.size = Vector2(1200, 660)
-	add_child(panel)
-	CharacterTheme.apply(panel, CHARACTER_ID, false)
+	_real = RealScene.instantiate()
+	add_child(_real)
+	await get_tree().process_frame
 
-	var title := Label.new()
-	title.text = "몬스터 도감 — 21 / 21종"
-	title.position = Vector2(70, 40)
-	title.add_theme_font_size_override("font_size", 18)
-	CharacterTheme.apply_label(title, CHARACTER_ID, true)
-	add_child(title)
+	var codex: Node = _real.get("monster_codex_panel")
+	if codex != null and codex.has_method("open"):
+		codex.call("open")
+	await get_tree().process_frame
 
-	_build_filter_row()
-	_build_grid()
+	_patch_filter_chips()
+	_patch_icon_aspect()
 
 	_key_overlay = KeyOverlay.new()
 	_key_overlay.visible = false
 	add_child(_key_overlay)
 
 
+func _qa_is_settled() -> bool:
+	return true
+
+
+## S-2 핵심: "전체"(가족/티어 둘 다) 필터 칩의 글자-장식 대비가 실측 1.86:1로 기준
+## 미달이었다. _family_filter_buttons/_tier_filter_buttons(Dictionary, key -> Button)를
+## 그대로 가져와 A/B 두 방향으로 다시 스킨한다.
+func _patch_filter_chips() -> void:
+	var codex: Node = _real.get("monster_codex_panel")
+	if codex == null:
+		return
+	var cid := RunState.character_id
+	for dict_name in ["_family_filter_buttons", "_tier_filter_buttons"]:
+		var buttons: Dictionary = codex.get(dict_name)
+		if buttons == null:
+			continue
+		for key in buttons.keys():
+			var btn: Button = buttons[key]
+			if btn == null:
+				continue
+			# 활성(선택된) 칩은 primary, 비활성은 secondary — _make_filter_button()과
+			# 같은 판정(활성 칩의 modulate가 1,1,1인지로 구분).
+			var active: bool = btn.modulate.a >= 0.99 and btn.modulate.r >= 0.99
+			MockupCommon.restyle_button(btn, cid, active, _variant)
+
+
+func _patch_icon_aspect() -> void:
+	var codex: Node = _real.get("monster_codex_panel")
+	if codex == null:
+		return
+	var found: Array = []
+	MockupCommon.find_nodes(codex, func(n): return n is RewardIcon or n is FamilyIcon, found)
+	for icon in found:
+		MockupCommon.fix_icon_aspect(icon)
+
+
 func _debug_show_key_overlay() -> void:
 	_key_overlay.visible = true
 	_key_overlay.set_steps([
-		{"rect": Rect2(70, 84, 520, 32), "number": 1, "label": "필터 줄(좌/우)"},
-		{"rect": Rect2(70, 130, 1128, 140), "number": 2, "label": "카드 격자(4방향)"},
+		{"rect": Rect2(70, 84, 1100, 32), "number": 1, "label": "필터 줄(계열/티어, 좌/우)"},
+		{"rect": Rect2(70, 130, 1100, 520), "number": 2, "label": "카드 격자(4방향 순환)"},
+		{"rect": Rect2(1140, 44, 80, 32), "number": 3, "label": "닫기"},
 	])
-
-
-func _build_filter_row() -> void:
-	var row := HBoxContainer.new()
-	row.position = Vector2(70, 84)
-	row.add_theme_constant_override("separation", 6)
-	add_child(row)
-	_make_filter_chip(row, "전체", true)
-	for fam_id in MonsterCatalog.family_ids():
-		_make_filter_chip(row, MonsterCatalog.FAMILIES[fam_id]["name"], false)
-	row.add_child(VSeparator.new())
-	_make_filter_chip(row, "전체", true)
-	for tier_label in ["일반", "정예", "보스"]:
-		_make_filter_chip(row, tier_label, false)
-
-
-func _make_filter_chip(parent: Node, text: String, active: bool) -> void:
-	var btn := Button.new()
-	btn.text = text
-	btn.custom_minimum_size = Vector2(0, 30)
-	if active:
-		UIKit.style_primary_button(btn, CHARACTER_ID, Color(0, 0, 0, 0), MockupCommon.FLAT_SKIN_DIR)
-	else:
-		UIKit.style_secondary_button(btn, CHARACTER_ID, Color(0, 0, 0, 0), MockupCommon.FLAT_SKIN_DIR)
-	parent.add_child(btn)
-
-
-func _build_grid() -> void:
-	var grid := GridContainer.new()
-	grid.columns = 6
-	grid.position = Vector2(70, 130)
-	grid.add_theme_constant_override("h_separation", 12)
-	grid.add_theme_constant_override("v_separation", 12)
-	add_child(grid)
-
-	var sample_ids := ["slime", "goblin", "orc", "dark_knight", "armored_goblin", "bandit"]
-	for mid in sample_ids:
-		var monster := MonsterCatalog.get_by_id(mid)
-		var card := PanelContainer.new()
-		var style := StyleBoxFlat.new()
-		style.bg_color = Color(0.14, 0.14, 0.16)
-		style.set_border_width_all(1)
-		style.border_color = Color(0.35, 0.35, 0.38)
-		style.set_corner_radius_all(6)
-		style.content_margin_left = 8
-		style.content_margin_right = 8
-		style.content_margin_top = 6
-		style.content_margin_bottom = 6
-		card.add_theme_stylebox_override("panel", style)
-		card.custom_minimum_size = Vector2(178, 120)
-		grid.add_child(card)
-
-		var vbox := VBoxContainer.new()
-		card.add_child(vbox)
-		var header := HBoxContainer.new()
-		header.add_theme_constant_override("separation", 4)
-		vbox.add_child(header)
-		var family_icon := FamilyIcon.new()
-		family_icon.category = monster.get("family", "")
-		family_icon.custom_minimum_size = Vector2(16, 16)
-		family_icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-		family_icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		header.add_child(family_icon)
-		var tier_label := Label.new()
-		tier_label.text = "일반"
-		tier_label.add_theme_font_size_override("font_size", 11)
-		tier_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.72))
-		header.add_child(tier_label)
-
-		var name_label := Label.new()
-		name_label.text = String(monster.get("name", mid))
-		name_label.add_theme_font_size_override("font_size", 14)
-		name_label.add_theme_color_override("font_color", Color(0.92, 0.92, 0.92))
-		vbox.add_child(name_label)
-
-		var status_label := Label.new()
-		status_label.text = "원화 ✓ · 표정 0/5"
-		status_label.add_theme_font_size_override("font_size", 11)
-		status_label.add_theme_color_override("font_color", Color(0.6, 0.75, 0.6))
-		vbox.add_child(status_label)
