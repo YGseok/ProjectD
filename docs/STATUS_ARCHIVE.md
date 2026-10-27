@@ -8,6 +8,99 @@
 
 ---
 
+- **2026-10-20 (238)**: **[대형 기획 15] Q-8(d)(마무리: 전설 스킬 밸런스 시뮬 +
+  DESIGN.md 레어리티 표 + 아트 발주 목록, 원문 5) 완료 — [대형 기획 15] Q-8
+  (스킬 레어리티 + 전설 스킬, a→b→c→d) 전체 완료.**
+  **(1) 밸런스 시뮬**: `code/qa/balance_sim.gd`에 `_run_legendary_simulation()`
+  신규 추가 — 기존 F-4b(시작 스킬 슬롯 경로)는 전설(런 중 보상으로만 얻음)을
+  켜는 경로가 없어서, 캐릭터별로 "전설 없음(기준선)" vs "전설 1종만"
+  (skill_flags를 직접 주입, 다른 시작 스킬과 안 섞어 순수 효과만 격리) 4가지
+  구성을 돌리는 전용 경로를 새로 만들었다. 표본은 INBOX 지시대로 축소
+  (`LEGENDARY_TRIALS_PER_COMBO`=30, F-4b의 100 대비). `bash scripts/qa_shot.sh
+  balance_sim` foreground 실행(기존 F-4b/F-5b에 이어 자동으로 함께 돌아감,
+  qa_out/balance_sim_legendary_raw.tsv 저장)으로 **24종 전부 측정, 이상치
+  2건을 발견해 수정**:
+  - **"광전 돌격"(legend_berserker_ragenuke, 구조적 버그)**: 수정 전 델타
+    +0.8%p(사실상 죽은 전설) — 설계 주석이 "광전사는 이미 explosive_stack이
+    있다"는 틀린 전제였고, 실제로는 `player_dice_gimmick == "explosive_stack"
+    or player_frenzy_active or player_versatile_active`(combat_test.gd 3곳)
+    에 이 전설의 플래그가 없어 "광기 심화"(별도 RARE 스킬) 없이는 폭발 스택
+    자체가 안 쌓였다. `player_legend_berserker_ragenuke_active`를 저 3곳 OR
+    목록에 추가해 전설 스스로 파이프라인을 열도록 고쳤다 — 수정 후 델타
+    +6.4%p로 같은 캐릭터 형제 전설(+6.9%p/+3.6%p)과 같은 체급.
+  - **"운명의 보정"(legend_juggler_fatecorrect, 수치 조정)**: 수정 전 델타
+    +18.7%p로 24종 중 1위이자 같은 캐릭터 형제 전설(-0.6%p/+5.8%p)보다 3~30배
+    컸다 — 이벤트 주사위(곡예사 1D12, 평균 6.5)로 곡예사 기본 주머니(D4, 평균
+    2.5)의 최저값을 매 턴 공방 양쪽 대체하는데 상한이 없었다. `_apply_fate_
+    die()`(combat_test.gd)가 대체값을 "그 다이스 자신의 면 최댓값"으로
+    상한하도록 수정(`_apply_spare_die()`의 "대체용 다이스를 자기 주머니에
+    맞춘다" 원칙과 같은 결과를 다른 방식으로 적용, 시그니처에 `bag: DiceBag`
+    매개변수 추가) — 수정 후 델타 +7.9%p로 형제 전설(+6.5%p)과 비슷한 체급.
+  - **"매혹의 포로"(legend_enchantress_captive)는 측정됐지만 고치지 않음** —
+    델타 +17.9%p로 24종 중 2위, 형제 전설(+8.5%p/+11.0%p)보다 약 1.6~2.1배
+    높지만 위 두 건(스프레드 19.3%p/사실상 0%p)만큼 극단적이지 않고, "몬스터
+    공격+방어 양쪽을 동시에 약화"가 `max(0,공격-방어)` 공식에서 구조적으로
+    "자기 강화"보다 효율이 높은 설계상 자연스러운 비대칭으로 판단해 이번
+    조각 범위를 "명확한 버그+압도적 1위"로 좁혔다 — 다음 전설 밸런스 조각의
+    1순위 후보로 `docs/BALANCE_TUNING_LOG.md`에 기록해 둠.
+  - 측정 방법/전체 24종 델타 표/위 판단 근거는 전부
+    `docs/BALANCE_TUNING_LOG.md`의 "Q-8(d) 전설 스킬 밸런스 측정" 섹션(고정
+    기록)에 정리. 라운드 "전환" 시점에만 발동하는 2종(운명의 뒤섞임/불굴의
+    벽)은 이 측정 방식(F-4b와 같은 전제로 실제 `advance_round()`를 호출하지
+    않음)의 사각지대라 델타가 거의 0으로 나오는 것은 측정 한계이지 약점이
+    아님 — 같은 섹션에 명시.
+  - `dice_test.gd`에 "운명의 보정" 상한 회귀 테스트 신규 추가((3b), bag
+    면=4/이벤트 1D12로 200회 반복해 대체값이 4를 넘지 않음+4에 도달하는
+    경우가 있음을 통계적으로 확인 — 상한이 "항상 깎는" 게 아니라 "그 범위
+    안에서는 그대로"임도 함께 검증) + 기존 `_apply_fate_die` 호출 2곳 시그니처
+    갱신. `bash scripts/qa_shot.sh dice_test 60 qa_out/dice_test_q8d.png "" 1`
+    foreground 전체 **PASS**(FAIL 0건) 직접 확인(run_in_background 금지).
+  **(2) DESIGN.md 갱신**: "스킬 레어리티 + 전설 스킬" 절 신규 — 4단계 등급표
+  (일반/희귀/영웅/전설, 색+드롭 가중치 100/40/12/3+배정 기준), "한 런에 전설
+  하나만" 규칙, 전설 24종 전체 목록(캐릭터/이름/효과 한 줄)을 "플레이어블
+  캐릭터" 절과 "던전 몬스터" 절 사이에 추가.
+  **(3) 아트 발주 목록(art 스레드 전달용)**: 전설 24종은 2026-10-16(196)에
+  입고된 `resources/skills/` 37종에 **포함되지 않은 신규 스킬**이라(37종
+  발주 이후 Q-8(c)로 추가된 것) 전부 아직 미입고 — 아래 표 참고. **전설
+  프레임**: 지금은 전용 프레임 이미지 자산 경로가 없고, 카드 테두리
+  2px/`#F28C1F`(주황, `SkillPool.RARITY_COLORS[RARITY_LEGENDARY]`)+작은
+  "전설" 텍스트 배지로 절차적으로만 표시된다(`ItemCardStyle.build_card()`의
+  `is_skill_card` 분기, 등급별 두께 차이 없음 — highlight 전용 테두리(노란색
+  4px)와는 별개 용도). 전용 프레임 아트가 필요하면 이 절차적 모습을 베이스로
+  디자인하면 됨(필수 아님 — 있으면 쓰고 없으면 지금처럼 폴백).
+
+  | 캐릭터 | 스킬 id | 이름 | 모티프 | 색(hex) | 설명 한 줄 |
+  |---|---|---|---|---|---|
+  | 견습 모험가 | legend_novice_harmony | 만물의 조화 | dual_boost | #9966D9 | 매 턴(공방 모두) 최저 다이스 값을 최고 다이스 값으로 |
+  | 견습 모험가 | legend_novice_rally | 결의의 반격 | counter_strike | #F28C1F | 완전 방어(피해 0) 시 방어 합계만큼 방어 무시 반격 |
+  | 견습 모험가 | legend_novice_fateshuffle | 운명의 뒤섞임 | dice_swap | #E6BF26 | 라운드 전환마다 공격/방어 다이스를(적은 쪽 개수) 전부 맞바꿈 |
+  | 광전사 | legend_berserker_ragenuke | 광전 돌격 | legend_nuke | #F28C1F | 폭발 스택 3 도달 시 보너스 공격턴이 항상 최댓값(20) 확정 |
+  | 광전사 | legend_berserker_bloodlust | 유혈광란 | true_strike | #F28C1F | 공격턴마다 최댓값 공격 다이스 1개당 방어 무시 고정 피해 +2 |
+  | 광전사 | legend_berserker_vengeance | 불굴의 보복 | true_strike | #F28C1F | 방어턴마다 최솟값 방어 다이스 1개당 방어 무시 반격 피해 +2 |
+  | 수호자 | legend_guardian_bulwark | 최후의 보루 | dice_flip | #D94D8C | HP 절반 이하일 때 방어 다이스 전부가 각자 면 최댓값 고정 |
+  | 수호자 | legend_guardian_overguard | 반격의 벽 | counter_strike | #F28C1F | 방어 합계가 공격 합계를 초과하면 그 초과분만큼 방어 무시 반격 |
+  | 수호자 | legend_guardian_bastion | 불굴의 벽 | defense_boost | #4D8CD9 | 라운드 전환마다 고정 방어 다이스 값 +2 영구(상한: 면 개수) |
+  | 폭발병 | legend_explosive_chainblast | 연쇄 폭발의 고리 | burst_stack | #F28C26 | 보너스 공격턴 소모해도 스택이 임계치만큼만 차감(연속 발동) |
+  | 폭발병 | legend_explosive_absolute | 절대 폭발 | true_strike | #F28C1F | 폭발 스택 보너스 공격턴 피해가 방어를 완전히 무시 |
+  | 폭발병 | legend_explosive_lastblast | 최후의 폭발 | burst_stack | #F28C26 | HP 절반 이하면 스택과 무관하게 모든 공격턴이 보너스턴 |
+  | 주술사 | legend_shieldbearer_lifecurse | 저주의 흡수 | life_siphon | #F28C1F | 수호 보너스 방어턴 과잉 방어분을 플레이어 체력으로 흡수 |
+  | 주술사 | legend_shieldbearer_curseseal | 저주의 전이 | curse_mark | #F28C1F | 수호 보너스 방어턴마다 저주 각인 적립, 몬스터 공격 합계를 각인×2만큼 영구 약화 |
+  | 주술사 | legend_shieldbearer_curseend | 저주의 종결 | guard_stack | #8C99A6 | 수호 보너스 방어턴이 한 번 발동하면 그 뒤 모든 방어턴이 영구 보너스턴 |
+  | 매혹사 | legend_enchantress_captive | 매혹의 포로 | curse_mark | #F28C1F | 매 턴 몬스터 최고값 다이스 1개를 그 다이스 면 최솟값으로 깎음(공방 양쪽) |
+  | 매혹사 | legend_enchantress_ascend | 매혹의 극치 | dice_flip | #D94D8C | 매 턴 평균 미달 다이스 전부(상한 없음)가 각자 면 최댓값으로(공방 양쪽) |
+  | 매혹사 | legend_enchantress_retribution | 매혹의 응보 | true_strike | #F28C1F | charm_flip이 뒤집은 다이스 개수만큼 방어 무시 고정/반격 피해 추가 |
+  | 곡예사 | legend_juggler_evershuffle | 끝없는 저글링 | dice_swap | #E6BF26 | 매 턴(공방 모두) 굴리기 전 공격/방어 다이스 1개씩 맞바꿈 |
+  | 곡예사 | legend_juggler_balance | 완벽한 묘기 | dual_boost | #9966D9 | 매 턴 쓰는 주머니 합계와 반대쪽 합계 중 더 높은 쪽 채택 |
+  | 곡예사 | legend_juggler_fatecorrect | 운명의 보정 | reroll | #40BF8C | 매 턴 이벤트 주사위(1D12)로 최저값 대체(상한: 그 다이스 면 개수) |
+  | 해적 | legend_pirate_overload | 무한 장전 | cycle_strike | #26A699 | 함포 발동마다 다음 주기가 1턴씩 영구히 짧아짐(최소 1턴) |
+  | 해적 | legend_pirate_execute | 처형자의 포격 | true_strike | #F28C1F | 몬스터 HP 절반 이하일 때 함포 고정 피해 2배 |
+  | 해적 | legend_pirate_fullbroadside | 전면 포격 | cycle_strike | #26A699 | 함포와 같은 주기로 방어턴에도 방어 합계 절반만큼 방어 무시 고정 피해 추가 |
+
+  전투 규칙/밸런스는 위 두 조정(광전 돌격 게이트, 운명의 보정 상한) 외에는
+  건드리지 않았고, `resources/`·`docs/art/`는 읽기만 했다(위 아트 표가
+  art 스레드로 넘길 발주 내용). **[대형 기획 15] Q-8(a→d) 전체 완료 — 다음은
+  Q-9(고유 능력/업적 아이콘)~Q-11(몬스터 도감).**
+
 - **2026-10-20 (237)**: **[대형 기획 15] Q-8(c) 4/4(전설 스킬 — 곡예사/해적
   6종, 원문 5) 완료 — [대형 기획 15] Q-8(c) 전체 완료(8명×3=24종 전설 스킬
   모두 구현됨).** 1/4~3/4의 전설 인프라(`SkillPool.LEGENDARY_SKILLS`/

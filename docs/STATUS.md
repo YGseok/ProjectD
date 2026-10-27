@@ -5,37 +5,39 @@
 
 ## 마지막 갱신
 
-- 일시: 2026-10-26 (247)
-- 작성자: AI 에이전트. **[대형 기획 16] R-3(부정형 신규 몬스터 5종 추가)
-  완료 — [대형 기획 16](R-1~R-3) 전체 완료.** INBOX.md "부정형 신규 로스터
-  확정"(아트 스레드 경유, 사용자 확정)을 반영해 `MonsterCatalog.MONSTERS`에
-  신규 일반 4종(미믹 `mimic`/`seal`, 저주 인형 `cursed_doll`/`numb`, 심연의 불
-  `will_o_wisp`/`dull`, 심연의 아이 `abyss_child`/`sticky`) + 신규 정예
-  1종(심연의 사제 `abyss_priest`, `dull`+`seal`, 정예 공통 규칙)을 추가했다
-  (일반 17→21/정예 7→8/전체 31→36, 전부 기존 스킬 프리미티브만 재사용 —
-  새 스킬 코드 없음). `FAMILIES["amorphous"]` 설명을 "저주 물건·정령·
-  심연(크툴루)의 존재"로 보정하고, 슬라임/독 슬라임/점액 군주는 데이터
-  불변인 채 "쇼고스 계보" 설정 재해석 주석만 남겼다. `dice_test.gd`의
-  G-5/G-6/G-7 규모 검증을 새 수치로 전수 갱신하고, 신규 5종 전용 F-3 검증
-  (`_check_r3_amorphous_roster`: 존재/family/tier/스킬/정예 공식 계산 결과/
-  풀 편입/아트 미입고 폴백)을 추가했다. 같은 작업 중 "일반+정예 전수 HUD
-  패널 여백" 검증(ART-1c-6)이 "아트가 전혀 없는 몬스터는 face_rect가 안
-  생기는 게 정상"이라는 전제를 놓쳐 신규 5종을 FAIL로 오판하던 버그도
-  고쳤다. `bash scripts/qa_shot.sh dice_test 60 qa_out/r3_dice_test.png "" 1`
-  **foreground 전체 "결과: PASS"(FAIL 0건, 신규 검증 포함) 직접 확인**
-  (run_in_background 금지). 몬스터 도감 격자("36/36종")·심연의 사제 상세
-  뷰("원화 미입고" 폴백)·실제 전투 화면(`GAME_QA_MONSTER_ID=mimic`) 캡처로
-  셀프 피드백 확인, `docs/DESIGN.md` 몬스터 절 수 표/표 전수 갱신.
-  **밸런스 재측정**: `balance_sim`→`balance_target_check`로 4개 밴드
-  전부 통과(일반 방0~2 98.3%/방3 80.7%/정예 63.3%/보스 38.3%),
-  `balance_room3_species`(21종 자동 포함)로 신규 일반 4종의 방3 개별 승률도
-  확인(전부 ±4%p 안쪽, 독 슬라임 수준의 아웃라이어 없음) — **신규 몬스터
-  수치 조정 불필요로 판단, 건드리지 않았다.** 전투 규칙은 전혀 안 건드렸고
-  `resources/`·`docs/art/`는 읽기만 했다(ART_RESOURCES.md의 동시 변경은
-  병행 중인 아트 스레드 세션 소관이라 git add 제외). INBOX.md 관련 세 항목을
-  전부 "처리됨"으로 옮기고 12개 상한 초과분(3개)을 INBOX_ARCHIVE.md로
-  옮겼다. 상세는 "완료 기록 (247)"과 `docs/BALANCE_TUNING_LOG.md` "R-3"
-  절 참고.
+- 일시: 2026-10-27 (248)
+- 작성자: AI 에이전트. **[대형 기획 16] R-4(알려진 이슈 3건 정리) 전체 완료 —
+  [대형 기획 16](R-1~R-4) 전체 완료.** 큐가 비어 사용자가 "알려진 이슈 3건
+  정리"를 직접 지시한 이터레이션. 3개 중간 커밋으로 진행:
+  **(1) 테스트 안정화**: `dice_test.gd`의 `_apply_spare_die(count=2, '여분+')`
+  확률 비교(60회 표본, 2026-10-20 (237)부터 간헐적 FAIL 알려진 이슈)가 전역
+  RNG에 그대로 의존해 실행마다 결과가 달라지던 것을, 루프 진입 전
+  `seed(20261027)`로 전역 RNG를 고정해 매 실행 동일 시퀀스(대체 횟수
+  58>=42)가 나오도록 고쳤다. 3회 연속 재실행으로 동일 결과 확인(검증 의도는
+  불변, 결과만 재현 가능해짐).
+  **(2) 매혹의 포로(legend_enchantress_captive) 재검토**: `balance_sim`의
+  `_run_legendary_simulation()`으로 재측정한 결과 델타 +20.3%p로 형제 전설
+  (+10.5%p/+13.1%p)보다 1.6~1.9배 큰 이상치임을 재확인(Q-8(d) 때와 같은
+  방향). 원인은 몬스터 공격/방어 다이스를 동시에 깎는 이중 효과 — "몬스터
+  방어를 깎는" 분기를 제거해 "몬스터 공격만" 약화하도록 대상을 좁혔다(효과
+  자체/조건/수치는 불변, `DiceBag.apply_charm_debuff()`는 무변경). 재측정
+  결과 델타 +12.8%p로 형제 전설과 같은 체급으로 수렴. `docs/DESIGN.md` 전설
+  표와 `SkillPool`의 description/diagram(target dual->attack)도 함께 갱신.
+  **(3) 타락한 기사단장 밴드 복귀**: 신규 `balance_boss_species.gd`(R-2
+  `balance_room3_species.gd`와 같은 패턴 — 보스 6종 개별 측정, 신규 씬
+  `balance_boss_species.tscn`)로 재측정한 결과 26.0%로 밴드(35~55%) 미달
+  재확인(나머지 5종은 전부 밴드 안). armor/counter는 J-2에서 이미 병목이
+  아님이 확인됐고 `steady_guard` 파라미터화(`modify_monster_roll()`)는 범위
+  밖이라, `hp_mult`를 1.0→0.7로 낮춰(이 보스만 단독 조정, 다른 5종은 불변)
+  39.1%로 복귀시켰다(1차 시도 0.85는 32.7%로 부족해 2차로 0.7까지 낮춤).
+  4개 밴드 전체 재측정(`balance_sim`→`balance_target_check`) 전부 통과(일반
+  방0~2 98.3%/방3 81.4%/정예 64.0%/보스 40.4%). `docs/DESIGN.md` 보스 절에
+  hp_mult 0.7 각주 추가.
+  세 작업 각각 끝에 `bash scripts/qa_shot.sh dice_test 60 ... "" 1` **foreground
+  전체 "결과: PASS" 직접 확인**(run_in_background 금지). 전투 규칙은 건드리지
+  않았고 `resources/`·`docs/art/`는 읽기만 했다(git add 제외). 상세는
+  "완료 기록 (248)"과 `docs/BALANCE_TUNING_LOG.md` "R-4 매혹의 포로 재검토"/
+  "R-4 타락한 기사단장 완화" 절 참고.
 
 ## 지금 위치
 
@@ -125,10 +127,14 @@ D8>=5→7)해 일반 방3 64.2%→79.4%(통과), 정예 39.3%→59.8%(통과, �
 범위 안에서 일치) + `BALANCE_TUNING_LOG.md` 맨 위 전/후 비교 요약표 +
 `BALANCE_GROWTH_REPORT.md` 재생성 + `DESIGN.md` 몬스터 절 수치 갱신(보스
 공통 보정 전부 제거/면 승급 임계 최종값 명시) + `dice_test.gd` 주석 정리로
-마무리했다. **남은 미달(개별 단위, 추가 조정 판단 없음)**: 보스 개별 6종 중
-타락한 기사단장만 28.9%로 밴드 미달(`steady_guard`가 병목으로 의심되나
-`MonsterSkills.modify_monster_roll()` 파라미터화가 필요해 다음 후보로 남김) —
-전체 평균은 통과라 완료 처리 기준은 충족. 움직인 손잡이는 전부 몬스터/
+마무리했다. **남은 미달(개별 단위, 추가 조정 판단 없음, 당시 기준)**: 보스
+개별 6종 중 타락한 기사단장만 28.9%로 밴드 미달(`steady_guard`가 병목으로
+의심되나 `MonsterSkills.modify_monster_roll()` 파라미터화가 필요해 다음
+후보로 남김) — 전체 평균은 통과라 완료 처리 기준은 충족.
+**→ 2026-10-27 [대형 기획 16] R-4로 해결됨**: `steady_guard` 파라미터화
+대신 `hp_mult`(1.0→0.7, 이 보스만)로 완화해 39.1%로 밴드 복귀(상세는 "완료
+기록 (248)"과 `BALANCE_TUNING_LOG.md` "R-4 타락한 기사단장 완화" 참고).
+움직인 손잡이는 전부 몬스터/
 스케일링 쪽뿐(플레이어/시작 스킬/성장 정책/시뮬 규칙은 건드리지 않음).
 상세 시도표는 `BALANCE_TUNING_LOG.md`("J-4 최종 요약"/"J-2 시도 로그"/"J-3
 방3 절벽 + 정예 튜닝 시도 로그" 섹션), 코드 변경 경위는 `docs/
@@ -837,9 +843,10 @@ DESIGN.md 레어리티 표 + STATUS.md 아트 발주 표(완료 기록 (238))까
 정예로 확장했다(상세는 위 "지금 위치"의 ART-1c-6 항목과 아래 완료 기록 (244)
 참고).
 
-남은 구조적 후보(급하지 않음): 보스 개별 6종 중 타락한 기사단장만 밴드 미달
-(`MonsterSkills.modify_monster_roll()` 파라미터화가 전제조건이라 사람 설계
-확인 후 착수 권장).
+~~남은 구조적 후보(급하지 않음): 보스 개별 6종 중 타락한 기사단장만 밴드 미달~~
+→ **2026-10-27 [대형 기획 16] R-4로 해결됨** — `steady_guard` 파라미터화
+없이 `hp_mult`(1.0→0.7, 이 보스만)로 완화해 밴드 복귀(39.1%). 상세는 "완료
+기록 (248)"과 `BALANCE_TUNING_LOG.md` "R-4 타락한 기사단장 완화" 참고.
 
 0. **(INBOX.md 신규 2026-09-03) UI 접근성/가시성 4종 — 1/4 부분 착수.** 전부 "전투/
    선택지 화면 어디서든 정보가 상시 보이거나, 조작이 더 직관적이어야 한다"는 계열의
@@ -1462,6 +1469,50 @@ DESIGN.md 레어리티 표 + STATUS.md 아트 발주 표(완료 기록 (238))까
 
 ## 완료 기록
 
+- **2026-10-27 (248)**: **[대형 기획 16] R-4(알려진 이슈 3건 정리) 전체 완료 —
+  [대형 기획 16](R-1~R-4) 전체 완료.** 큐가 비어 사용자가 "알려진 이슈 3건
+  정리"를 순서대로(항목마다 중간 커밋) 진행하라고 직접 지시한 이터레이션.
+  **(1) 테스트 안정화(커밋 d8001c9)**: `dice_test.gd`의 `_apply_spare_die
+  (count=2, '여분+')` 확률 비교 테스트(60회 표본, 2026-10-20 (237) 이후 간헐적
+  FAIL로 알려진 이슈였던 항목)가 전역 RNG에 그대로 의존해 실행마다 결과가
+  달라지던 것을 고쳤다 — 루프 진입 전 `seed(20261027)`로 전역 RNG를 고정해
+  매 실행 동일한 결과(대체 횟수 58>=42)가 나오도록 함(검증 의도는 "count=2가
+  count=1 이상으로 대체된다"로 불변, 결과만 재현 가능해짐). 3회 연속 재실행
+  으로 동일 결과 확인.
+  **(2) 매혹의 포로 재검토(커밋 f3cf284)**: Q-8(d)가 "측정됐지만 고치지
+  않음"으로 남겨둔 `legend_enchantress_captive`("매혹의 포로")를 `balance_sim`
+  의 `_run_legendary_simulation()`으로 재측정 — 델타 +20.3%p로 형제 전설
+  (+10.5%p/+13.1%p)보다 1.6~1.9배 큰 이상치임을 재확인(이전 Q-8(d) 측정과
+  같은 방향/비율). 원인은 몬스터 공격/방어 다이스를 매 턴 동시에 깎는 이중
+  효과였다 — `combat_test.gd`의 `_resolve_exchange()` 적용부에서 "몬스터
+  방어를 깎는" 분기(`is_player_attacking` 쪽)를 제거해 "몬스터 공격만" 약화
+  하도록 노브 1개(대상)만 좁혔다(효과 자체/조건/수치는 불변, `DiceBag.
+  apply_charm_debuff()`는 무변경). 재측정 결과 델타 +12.8%p로 형제 전설
+  (+13.2%p/+13.8%p)과 같은 체급으로 수렴. `docs/DESIGN.md` 전설 표 문구와
+  `SkillPool`의 description/diagram(`target` dual→attack)도 함께 갱신.
+  **(3) 타락한 기사단장 밴드 복귀(커밋 549f2aa)**: 신규 `code/qa/
+  balance_boss_species.gd`+`code/scenes/balance_boss_species.tscn`(R-2
+  `balance_room3_species.gd`와 같은 "몬스터 id 직접 지정" 패턴 — 보스 6종
+  개별 승률, 캐릭터 8종 x 균형 성장 정책 x 250판)로 재측정한 결과 타락한
+  기사단장만 26.0%로 밴드(35~55%) 미달 재확인(나머지 5종은 전부 밴드 안 —
+  공허의 눈 34.7%/고블린 왕 35.1%/점액 군주 39.9%/영계의 지배자 40.2%/광란의
+  마수 53.2%). `armor`/`counter`는 J-2 12~14차 시도에서 이미 병목이 아님이
+  확인됐고, 진짜 병목으로 의심된 `steady_guard`(amount 매개변수가 없어
+  `MonsterSkills.modify_monster_roll()` 파라미터화가 전제조건)는 이번 범위를
+  넘는 더 큰 작업이라 건드리지 않았다 — 대신 노브 1개(`hp_mult`)만 1.0→0.7로
+  낮춰(이 보스만 단독 조정, 다른 5종은 전부 불변) 39.1%로 밴드 복귀시켰다
+  (1차 시도 0.85는 32.7%로 부족해 2차로 0.7까지 낮춤). `docs/DESIGN.md` 보스
+  절에 hp_mult 0.7 각주 추가.
+  **마무리**: 각 조각 끝에 `bash scripts/qa_shot.sh dice_test 60 ... "" 1`
+  foreground 전체 **"결과: PASS"** 직접 확인(run_in_background 금지, 총 4회:
+  (1) 직후 3연속 재실행 + (2)(3) 각 1회). (3) 완료 후 `balance_sim`→
+  `balance_target_check`로 4개 밴드 전체 재측정(일반 방0~2 98.3%/방3 81.4%/
+  정예 64.0%/보스 40.4%) **전부 통과** 확인. 전투 규칙은 두 조정(매혹의 포로
+  대상 축소, 타락한 기사단장 hp_mult) 외에는 건드리지 않았고, `resources/`·
+  `docs/art/`는 읽기만 했다(git add 제외). 상세 근거는 `docs/
+  BALANCE_TUNING_LOG.md`의 "R-4 매혹의 포로 재검토"/"R-4 타락한 기사단장
+  완화" 절 참고.
+
 - **2026-10-26 (247)**: **[대형 기획 16] R-3(부정형 신규 몬스터 5종 추가) 완료
   — [대형 기획 16](R-1~R-3) 전체 완료.** INBOX.md "부정형 신규 로스터 확정"
   (아트 스레드 경유, 사용자 확정)을 그대로 반영했다. `MonsterCatalog.MONSTERS`에
@@ -2060,102 +2111,9 @@ DESIGN.md 레어리티 표 + STATUS.md 아트 발주 표(완료 기록 (238))까
   기획 15] Q-9(고유 능력/업적 아이콘)~Q-10(스토리 이벤트 일러스트)는 여전히
   아트 발주 목록 정리 성격이라 다음 이터레이션이 순서를 다시 판단할 것.**
 
-- **2026-10-20 (238)**: **[대형 기획 15] Q-8(d)(마무리: 전설 스킬 밸런스 시뮬 +
-  DESIGN.md 레어리티 표 + 아트 발주 목록, 원문 5) 완료 — [대형 기획 15] Q-8
-  (스킬 레어리티 + 전설 스킬, a→b→c→d) 전체 완료.**
-  **(1) 밸런스 시뮬**: `code/qa/balance_sim.gd`에 `_run_legendary_simulation()`
-  신규 추가 — 기존 F-4b(시작 스킬 슬롯 경로)는 전설(런 중 보상으로만 얻음)을
-  켜는 경로가 없어서, 캐릭터별로 "전설 없음(기준선)" vs "전설 1종만"
-  (skill_flags를 직접 주입, 다른 시작 스킬과 안 섞어 순수 효과만 격리) 4가지
-  구성을 돌리는 전용 경로를 새로 만들었다. 표본은 INBOX 지시대로 축소
-  (`LEGENDARY_TRIALS_PER_COMBO`=30, F-4b의 100 대비). `bash scripts/qa_shot.sh
-  balance_sim` foreground 실행(기존 F-4b/F-5b에 이어 자동으로 함께 돌아감,
-  qa_out/balance_sim_legendary_raw.tsv 저장)으로 **24종 전부 측정, 이상치
-  2건을 발견해 수정**:
-  - **"광전 돌격"(legend_berserker_ragenuke, 구조적 버그)**: 수정 전 델타
-    +0.8%p(사실상 죽은 전설) — 설계 주석이 "광전사는 이미 explosive_stack이
-    있다"는 틀린 전제였고, 실제로는 `player_dice_gimmick == "explosive_stack"
-    or player_frenzy_active or player_versatile_active`(combat_test.gd 3곳)
-    에 이 전설의 플래그가 없어 "광기 심화"(별도 RARE 스킬) 없이는 폭발 스택
-    자체가 안 쌓였다. `player_legend_berserker_ragenuke_active`를 저 3곳 OR
-    목록에 추가해 전설 스스로 파이프라인을 열도록 고쳤다 — 수정 후 델타
-    +6.4%p로 같은 캐릭터 형제 전설(+6.9%p/+3.6%p)과 같은 체급.
-  - **"운명의 보정"(legend_juggler_fatecorrect, 수치 조정)**: 수정 전 델타
-    +18.7%p로 24종 중 1위이자 같은 캐릭터 형제 전설(-0.6%p/+5.8%p)보다 3~30배
-    컸다 — 이벤트 주사위(곡예사 1D12, 평균 6.5)로 곡예사 기본 주머니(D4, 평균
-    2.5)의 최저값을 매 턴 공방 양쪽 대체하는데 상한이 없었다. `_apply_fate_
-    die()`(combat_test.gd)가 대체값을 "그 다이스 자신의 면 최댓값"으로
-    상한하도록 수정(`_apply_spare_die()`의 "대체용 다이스를 자기 주머니에
-    맞춘다" 원칙과 같은 결과를 다른 방식으로 적용, 시그니처에 `bag: DiceBag`
-    매개변수 추가) — 수정 후 델타 +7.9%p로 형제 전설(+6.5%p)과 비슷한 체급.
-  - **"매혹의 포로"(legend_enchantress_captive)는 측정됐지만 고치지 않음** —
-    델타 +17.9%p로 24종 중 2위, 형제 전설(+8.5%p/+11.0%p)보다 약 1.6~2.1배
-    높지만 위 두 건(스프레드 19.3%p/사실상 0%p)만큼 극단적이지 않고, "몬스터
-    공격+방어 양쪽을 동시에 약화"가 `max(0,공격-방어)` 공식에서 구조적으로
-    "자기 강화"보다 효율이 높은 설계상 자연스러운 비대칭으로 판단해 이번
-    조각 범위를 "명확한 버그+압도적 1위"로 좁혔다 — 다음 전설 밸런스 조각의
-    1순위 후보로 `docs/BALANCE_TUNING_LOG.md`에 기록해 둠.
-  - 측정 방법/전체 24종 델타 표/위 판단 근거는 전부
-    `docs/BALANCE_TUNING_LOG.md`의 "Q-8(d) 전설 스킬 밸런스 측정" 섹션(고정
-    기록)에 정리. 라운드 "전환" 시점에만 발동하는 2종(운명의 뒤섞임/불굴의
-    벽)은 이 측정 방식(F-4b와 같은 전제로 실제 `advance_round()`를 호출하지
-    않음)의 사각지대라 델타가 거의 0으로 나오는 것은 측정 한계이지 약점이
-    아님 — 같은 섹션에 명시.
-  - `dice_test.gd`에 "운명의 보정" 상한 회귀 테스트 신규 추가((3b), bag
-    면=4/이벤트 1D12로 200회 반복해 대체값이 4를 넘지 않음+4에 도달하는
-    경우가 있음을 통계적으로 확인 — 상한이 "항상 깎는" 게 아니라 "그 범위
-    안에서는 그대로"임도 함께 검증) + 기존 `_apply_fate_die` 호출 2곳 시그니처
-    갱신. `bash scripts/qa_shot.sh dice_test 60 qa_out/dice_test_q8d.png "" 1`
-    foreground 전체 **PASS**(FAIL 0건) 직접 확인(run_in_background 금지).
-  **(2) DESIGN.md 갱신**: "스킬 레어리티 + 전설 스킬" 절 신규 — 4단계 등급표
-  (일반/희귀/영웅/전설, 색+드롭 가중치 100/40/12/3+배정 기준), "한 런에 전설
-  하나만" 규칙, 전설 24종 전체 목록(캐릭터/이름/효과 한 줄)을 "플레이어블
-  캐릭터" 절과 "던전 몬스터" 절 사이에 추가.
-  **(3) 아트 발주 목록(art 스레드 전달용)**: 전설 24종은 2026-10-16(196)에
-  입고된 `resources/skills/` 37종에 **포함되지 않은 신규 스킬**이라(37종
-  발주 이후 Q-8(c)로 추가된 것) 전부 아직 미입고 — 아래 표 참고. **전설
-  프레임**: 지금은 전용 프레임 이미지 자산 경로가 없고, 카드 테두리
-  2px/`#F28C1F`(주황, `SkillPool.RARITY_COLORS[RARITY_LEGENDARY]`)+작은
-  "전설" 텍스트 배지로 절차적으로만 표시된다(`ItemCardStyle.build_card()`의
-  `is_skill_card` 분기, 등급별 두께 차이 없음 — highlight 전용 테두리(노란색
-  4px)와는 별개 용도). 전용 프레임 아트가 필요하면 이 절차적 모습을 베이스로
-  디자인하면 됨(필수 아님 — 있으면 쓰고 없으면 지금처럼 폴백).
-
-  | 캐릭터 | 스킬 id | 이름 | 모티프 | 색(hex) | 설명 한 줄 |
-  |---|---|---|---|---|---|
-  | 견습 모험가 | legend_novice_harmony | 만물의 조화 | dual_boost | #9966D9 | 매 턴(공방 모두) 최저 다이스 값을 최고 다이스 값으로 |
-  | 견습 모험가 | legend_novice_rally | 결의의 반격 | counter_strike | #F28C1F | 완전 방어(피해 0) 시 방어 합계만큼 방어 무시 반격 |
-  | 견습 모험가 | legend_novice_fateshuffle | 운명의 뒤섞임 | dice_swap | #E6BF26 | 라운드 전환마다 공격/방어 다이스를(적은 쪽 개수) 전부 맞바꿈 |
-  | 광전사 | legend_berserker_ragenuke | 광전 돌격 | legend_nuke | #F28C1F | 폭발 스택 3 도달 시 보너스 공격턴이 항상 최댓값(20) 확정 |
-  | 광전사 | legend_berserker_bloodlust | 유혈광란 | true_strike | #F28C1F | 공격턴마다 최댓값 공격 다이스 1개당 방어 무시 고정 피해 +2 |
-  | 광전사 | legend_berserker_vengeance | 불굴의 보복 | true_strike | #F28C1F | 방어턴마다 최솟값 방어 다이스 1개당 방어 무시 반격 피해 +2 |
-  | 수호자 | legend_guardian_bulwark | 최후의 보루 | dice_flip | #D94D8C | HP 절반 이하일 때 방어 다이스 전부가 각자 면 최댓값 고정 |
-  | 수호자 | legend_guardian_overguard | 반격의 벽 | counter_strike | #F28C1F | 방어 합계가 공격 합계를 초과하면 그 초과분만큼 방어 무시 반격 |
-  | 수호자 | legend_guardian_bastion | 불굴의 벽 | defense_boost | #4D8CD9 | 라운드 전환마다 고정 방어 다이스 값 +2 영구(상한: 면 개수) |
-  | 폭발병 | legend_explosive_chainblast | 연쇄 폭발의 고리 | burst_stack | #F28C26 | 보너스 공격턴 소모해도 스택이 임계치만큼만 차감(연속 발동) |
-  | 폭발병 | legend_explosive_absolute | 절대 폭발 | true_strike | #F28C1F | 폭발 스택 보너스 공격턴 피해가 방어를 완전히 무시 |
-  | 폭발병 | legend_explosive_lastblast | 최후의 폭발 | burst_stack | #F28C26 | HP 절반 이하면 스택과 무관하게 모든 공격턴이 보너스턴 |
-  | 주술사 | legend_shieldbearer_lifecurse | 저주의 흡수 | life_siphon | #F28C1F | 수호 보너스 방어턴 과잉 방어분을 플레이어 체력으로 흡수 |
-  | 주술사 | legend_shieldbearer_curseseal | 저주의 전이 | curse_mark | #F28C1F | 수호 보너스 방어턴마다 저주 각인 적립, 몬스터 공격 합계를 각인×2만큼 영구 약화 |
-  | 주술사 | legend_shieldbearer_curseend | 저주의 종결 | guard_stack | #8C99A6 | 수호 보너스 방어턴이 한 번 발동하면 그 뒤 모든 방어턴이 영구 보너스턴 |
-  | 매혹사 | legend_enchantress_captive | 매혹의 포로 | curse_mark | #F28C1F | 매 턴 몬스터 최고값 다이스 1개를 그 다이스 면 최솟값으로 깎음(공방 양쪽) |
-  | 매혹사 | legend_enchantress_ascend | 매혹의 극치 | dice_flip | #D94D8C | 매 턴 평균 미달 다이스 전부(상한 없음)가 각자 면 최댓값으로(공방 양쪽) |
-  | 매혹사 | legend_enchantress_retribution | 매혹의 응보 | true_strike | #F28C1F | charm_flip이 뒤집은 다이스 개수만큼 방어 무시 고정/반격 피해 추가 |
-  | 곡예사 | legend_juggler_evershuffle | 끝없는 저글링 | dice_swap | #E6BF26 | 매 턴(공방 모두) 굴리기 전 공격/방어 다이스 1개씩 맞바꿈 |
-  | 곡예사 | legend_juggler_balance | 완벽한 묘기 | dual_boost | #9966D9 | 매 턴 쓰는 주머니 합계와 반대쪽 합계 중 더 높은 쪽 채택 |
-  | 곡예사 | legend_juggler_fatecorrect | 운명의 보정 | reroll | #40BF8C | 매 턴 이벤트 주사위(1D12)로 최저값 대체(상한: 그 다이스 면 개수) |
-  | 해적 | legend_pirate_overload | 무한 장전 | cycle_strike | #26A699 | 함포 발동마다 다음 주기가 1턴씩 영구히 짧아짐(최소 1턴) |
-  | 해적 | legend_pirate_execute | 처형자의 포격 | true_strike | #F28C1F | 몬스터 HP 절반 이하일 때 함포 고정 피해 2배 |
-  | 해적 | legend_pirate_fullbroadside | 전면 포격 | cycle_strike | #26A699 | 함포와 같은 주기로 방어턴에도 방어 합계 절반만큼 방어 무시 고정 피해 추가 |
-
-  전투 규칙/밸런스는 위 두 조정(광전 돌격 게이트, 운명의 보정 상한) 외에는
-  건드리지 않았고, `resources/`·`docs/art/`는 읽기만 했다(위 아트 표가
-  art 스레드로 넘길 발주 내용). **[대형 기획 15] Q-8(a→d) 전체 완료 — 다음은
-  Q-9(고유 능력/업적 아이콘)~Q-11(몬스터 도감).**
-
 *(이보다 오래된 완료 기록은 `docs/STATUS_ARCHIVE.md`에
 보관돼 있음 — 이 파일에는 최근 10개만 유지해 매 이터레이션 읽기 비용을 줄임.
-이번 이터레이션(247)에서 (237)을 그리로 옮겼다.)*
+이번 이터레이션(248)에서 (238)을 그리로 옮겼다.)*
 
 ## 알려진 이슈 / 막힌 것
 
