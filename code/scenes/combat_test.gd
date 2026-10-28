@@ -345,7 +345,11 @@ const SETTLE_ANG_THRESHOLD := 0.5
 const SETTLE_MIN_FRAMES := 10
 const SETTLE_MAX_WAIT := 4.0
 const EXCHANGE_PAUSE_TIME := 0.8
-const MAX_LOG_LINES := 6
+## [대형 기획 17] S-7(b)(2026-10-28) — 예전엔 고정 높이 패널(스크롤 없음)이라 6줄로
+## 제한해야 화면 밖으로 안 넘쳤다. 이제 _log_clip이 내부 스크롤을 지원하므로(아래
+## _setup_log_panel() 참고) 더 긴 기록을 유지해도 패널 자체는 화면 밖으로 안 나간다 —
+## 다만 끝없이 쌓이진 않게 넉넉한 상한만 유지한다.
+const MAX_LOG_LINES := 200
 
 ## 다이스 개수가 아이템(다이스 추가/승급)으로 늘어나도 바닥 벽(x ±2.45 부근) 밖으로
 ## 스폰되지 않도록, 한 줄에 최대 이만큼만 놓고 그 이상은 z축으로 다음 줄에 놓는다
@@ -384,6 +388,13 @@ var player_status_label: Label
 ## _log_panel로 관리 — _setup_log_panel() 참고).
 var _hud_panels: Array[Node] = []
 var _log_panel: PanelContainer
+## [대형 기획 17] S-7(b)(2026-10-28) — 전투 기록 패널이 화면(720px) 밖으로 삐져나가던
+## 버그(_setup_log_panel() 주석 참고) 수정용. customize_panel.gd의 "Container 레이아웃에
+## 기대지 않는 수동 스크롤"(ScrollContainer가 Node2D 루트 씬에서 NOTIFICATION_SORT_
+## CHILDREN 계산이 신뢰할 수 없었던 전례)과 같은 이유로 실제 ScrollContainer 대신
+## clip_contents=true인 평범한 Control(_log_clip, 높이 고정) 안에서 log_label을 수동
+## position.y로 밀어 올리는 방식을 쓴다 — _scroll_log_to_bottom() 참고.
+var _log_clip: Control
 @onready var monster_debug_info_label: Label = $MonsterDebugInfoLabel
 @onready var log_label: Label = $LogLabel
 @onready var dice_root: Node3D = $DiceViewportContainer/DiceViewport/DiceRoot
@@ -484,6 +495,9 @@ const MONSTER_PORTRAIT_POSITION_SHIFT_BY_TIER := {
 const REWARD_FRAME_TOP := 184.0
 const REWARD_FRAME_BOTTOM := 560.0
 const REWARD_CARD_HEIGHT := 250.0
+## 보상 프레임 위쪽에서 카드 시작까지의 거리. 2026-10-28 감독 수정: 65 -> 58로 올려
+## 카드가 내용으로 길어져도 아래 "커스터마이징"/"건너뛰기" 줄과 겹치지 않게 여유를 둠.
+const REWARD_CARD_TOP_OFFSET := 58.0
 ## 체력 비율에 따라 초록(넉넉) -> 주황(경고) -> 빨강(위험)으로 막대 색이 바뀐다 —
 ## "쪼이는 맛"(위기감)을 색으로도 드러내기 위함.
 const HP_BAR_COLOR_HIGH := Color(0.35, 0.85, 0.35)
@@ -1640,6 +1654,25 @@ func _setup_combat_hud() -> void:
 ## _append_log())는 그대로 재사용 — 부모만 바뀐다. _hud_panels와 별도로 관리하는 이유는
 ## log_label을 큐프리하지 않고 다음 패널로 재부모화해야 하기 때문(_setup_combat_hud()가
 ## 패널을 통째로 지우면 자식인 log_label까지 함께 사라짐).
+##
+## [대형 기획 17] S-7(b)(2026-10-28, 감독 검수) — 이 패널이 1280x720에서도 하단이 화면
+## 밖으로 나갔다. 원인: 다이스 교환 결과 줄이 526~566을 차지해 패널은 572부터 시작할
+## 수밖에 없는데(화면 아래 148px만 남음), section 패널 이미지 스킨(resources/ui/panel/
+## section_*.png, 24px 여백)의 패딩 + 제목줄 + 구분선 + 상태 줄을 다 더하면 로그 내용이
+## 들어갈 자리가 거의 안 남았다. 두 가지로 고친다 — (1) 이 패널만 스킨 없는 플랫 폴백
+## (LOG_PANEL_NO_SKIN_DIR, 존재하지 않는 경로라 apply_panel_skin()이 항상 실패 ->
+## StyleBoxFlat 폴백, content_margin이 24px가 아니라 8px)으로 여백을 줄이고, 제목을
+## make_section()의 title_row+구분선 대신 작은 Label 한 줄로 직접 그려 구분선 높이
+## (16px)까지 아낀다. (2) log_label을 고정 높이 _log_clip(Control, clip_contents=true)
+## 안에 넣어 패널 전체 높이가 로그 줄 수와 무관하게 항상 고정되게 한다(패널 하단이
+## 절대 화면 밖으로 안 나감) — 넘친 내용은 _scroll_log_to_bottom()이 log_label.
+## position.y를 음수로 밀어 "항상 최신 줄이 보이는" 수동 스크롤을 흉내낸다. 실제
+## ScrollContainer를 안 쓴 이유는 customize_panel.gd 상단 주석 참고(Node2D 루트 씬에서
+## Container 기반 스크롤 위치 계산이 신뢰할 수 없었던 전례 — combat_test.tscn도 루트가
+## Node2D라 같은 위험군이라 미리 피한다).
+const LOG_PANEL_NO_SKIN_DIR := "res://__log_panel_no_skin__/"
+const LOG_SCROLL_HEIGHT := 76.0
+
 func _setup_log_panel() -> void:
 	var cid := RunState.character_id
 	var old_parent := log_label.get_parent()
@@ -1648,22 +1681,53 @@ func _setup_log_panel() -> void:
 	if _log_panel != null and is_instance_valid(_log_panel):
 		_log_panel.queue_free()
 
-	# [대형 기획 13] M-3 — 다이스 스테이지를 키우려고 버튼/칩 행이 526~566으로
-	# 내려가면서 이 패널도 552->572로 20px 밀렸다. log_label 최소 높이를 100->80으로
-	# 줄여 패널 전체 바닥(572+높이)이 화면(720) 안에서 이전과 비슷하게 들어오게 맞췄다
-	# (내용이 길면 어차피 min size를 넘어 자동으로 커지므로 가독성은 그대로).
-	var body := UIKit.make_section(self, "전투 기록", cid, Vector2(140, 572))
+	# title=""로 make_section()의 제목줄+구분선을 건너뛰고, 아래에서 더 작은 제목
+	# Label 하나로 직접 대체해 세로 공간을 아낀다.
+	var body := UIKit.make_section(self, "", cid, Vector2(140, 572), LOG_PANEL_NO_SKIN_DIR)
 	_log_panel = body.get_parent()
 	_log_panel.custom_minimum_size = Vector2(1000, 0)
+
+	var title_label := Label.new()
+	title_label.text = "전투 기록"
+	title_label.add_theme_font_size_override("font_size", 13)
+	CharacterTheme.apply_label(title_label, cid, true)
+	body.add_child(title_label)
 
 	player_status_label = Label.new()
 	player_status_label.add_theme_font_size_override("font_size", 12)
 	CharacterTheme.apply_label(player_status_label, cid, true)
 	body.add_child(player_status_label)
 
-	log_label.custom_minimum_size = Vector2(0, 80)
-	body.add_child(log_label)
+	_log_clip = Control.new()
+	_log_clip.custom_minimum_size = Vector2(0, LOG_SCROLL_HEIGHT)
+	_log_clip.clip_contents = true
+	_log_clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	body.add_child(_log_clip)
+
+	log_label.custom_minimum_size = Vector2(0, 0)
+	log_label.anchor_left = 0.0
+	log_label.anchor_right = 1.0
+	log_label.anchor_top = 0.0
+	log_label.anchor_bottom = 0.0
+	log_label.offset_left = 0.0
+	log_label.offset_right = 0.0
+	log_label.offset_top = 0.0
+	_log_clip.add_child(log_label)
 	_update_status_panel()
+	_scroll_log_to_bottom()
+
+
+## _append_log()가 새 줄을 추가한 뒤 호출된다 — log_label의 실제 내용 높이
+## (get_combined_minimum_size(), autowrap 반영)가 _log_clip의 고정 높이보다 크면
+## position.y를 그 차이만큼 음수로 밀어 "가장 최근 줄이 clip 영역 하단에 보이는" 상태로
+## 고정한다. 넘치지 않으면 0(맨 위 정렬) 그대로 — 위 _setup_log_panel() 주석의 "수동
+## 스크롤" 설명 참고.
+func _scroll_log_to_bottom() -> void:
+	if _log_clip == null or not is_instance_valid(_log_clip):
+		return
+	var content_height: float = log_label.get_combined_minimum_size().y
+	log_label.size.y = max(content_height, _log_clip.size.y)
+	log_label.position.y = min(0.0, _log_clip.size.y - content_height)
 
 
 ## [대형 기획 13] M-2 — "다음"/"다시 하기"/"설정으로 돌아가기"와 상단 토글 3개(스킬
@@ -3202,6 +3266,7 @@ func _append_log(line: String) -> void:
 	while _log_lines.size() > MAX_LOG_LINES:
 		_log_lines.pop_front()
 	log_label.text = "\n".join(_log_lines)
+	_scroll_log_to_bottom()
 
 
 ## AchievementManager 업적 "win_with_d20" 판정용. bag 안에 면 20개짜리 다이스가
@@ -3371,8 +3436,14 @@ func _show_reward_ui() -> void:
 	# 열리더라도 겹치지 않도록, 보상 카드 영역을 x=980 앞(140~960)에서 끝나게 좁힌다.
 	var card_width := 380.0
 	var card_height := REWARD_CARD_HEIGHT
-	var card_y := REWARD_FRAME_TOP + 65.0
+	var card_y := REWARD_FRAME_TOP + REWARD_CARD_TOP_OFFSET
 	var card_x := [160.0, 560.0]
+	# [대형 기획 17] 감독 검수 ①(2026-10-28) — 정예 보상 카드처럼 내용(SkillDiagram/
+	# 레어리티 배지 등)이 붙어 nominal REWARD_CARD_HEIGHT보다 실제로 더 길어지면, 카드
+	# 배경 크기는 고정인데 내용만 넘쳐 아래 "건너뛰기"/"커스터마이징" 버튼과 겹쳐 보이는
+	# 회귀가 있었다(qa_out/s_check_combat_test.png). 버튼 행은 일단 nominal 높이 아래에
+	# 두고, 카드 실제 높이가 확정되는 다음 프레임에 _layout_reward_action_row()가 옮긴다.
+	var action_row_y := card_y + card_height
 	for i in _reward_items.size():
 		var item: Dictionary = _reward_items[i]
 		var built := ItemCardStyle.build_card(item)
@@ -3387,7 +3458,7 @@ func _show_reward_ui() -> void:
 		if item.get("kind", "") == "upgrade_die":
 			var upgrade_btn := Button.new()
 			upgrade_btn.text = "다이스 획득 (인벤토리)"
-			upgrade_btn.custom_minimum_size = Vector2(0, 36)
+			upgrade_btn.custom_minimum_size = Vector2(0, 32)
 			upgrade_btn.pressed.connect(_on_reward_upgrade_chosen.bind(item))
 			UIKit.style_secondary_button(upgrade_btn, cid)
 			button_row.add_child(upgrade_btn)
@@ -3401,7 +3472,7 @@ func _show_reward_ui() -> void:
 		var atk_btn := Button.new()
 		atk_btn.text = "공격 주머니에 적용" if atk_applicable else DiceItemPool.unavailable_reason(item)
 		atk_btn.disabled = not atk_applicable
-		atk_btn.custom_minimum_size = Vector2(0, 36)
+		atk_btn.custom_minimum_size = Vector2(0, 32)
 		atk_btn.pressed.connect(_on_reward_chosen.bind(item, "attack"))
 		UIKit.style_secondary_button(atk_btn, cid)
 		button_row.add_child(atk_btn)
@@ -3414,7 +3485,7 @@ func _show_reward_ui() -> void:
 		var def_btn := Button.new()
 		def_btn.text = "방어 주머니에 적용" if def_applicable else DiceItemPool.unavailable_reason(item)
 		def_btn.disabled = not def_applicable
-		def_btn.custom_minimum_size = Vector2(0, 36)
+		def_btn.custom_minimum_size = Vector2(0, 32)
 		def_btn.pressed.connect(_on_reward_chosen.bind(item, "defense"))
 		UIKit.style_secondary_button(def_btn, cid)
 		button_row.add_child(def_btn)
@@ -3422,7 +3493,7 @@ func _show_reward_ui() -> void:
 
 	var custom_btn := Button.new()
 	custom_btn.text = "커스터마이징: 눈금 교환"
-	custom_btn.position = Vector2(160, card_y + card_height + 10)
+	custom_btn.position = Vector2(160, action_row_y + 10)
 	custom_btn.size = Vector2(340, 36)
 	custom_btn.pressed.connect(_open_customize_from_reward)
 	UIKit.style_secondary_button(custom_btn, cid)
@@ -3432,7 +3503,7 @@ func _show_reward_ui() -> void:
 
 	var skip_btn := Button.new()
 	skip_btn.text = "건너뛰기"
-	skip_btn.position = Vector2(560, card_y + card_height + 10)
+	skip_btn.position = Vector2(560, action_row_y + 10)
 	skip_btn.size = Vector2(160, 36)
 	skip_btn.pressed.connect(_on_reward_skipped)
 	UIKit.style_secondary_button(skip_btn, cid)
@@ -3440,7 +3511,27 @@ func _show_reward_ui() -> void:
 	_reward_ui.append(skip_btn)
 	_reward_action_buttons.append(skip_btn)
 
+	_layout_reward_action_row(custom_btn, skip_btn)
 	_rebuild_shortcuts()
+
+
+## [대형 기획 17] 감독 검수 ①(2026-10-28) — 보상 카드(PanelContainer)는 내용(효과
+## 미리보기·적용 버튼)이 붙으면 nominal REWARD_CARD_HEIGHT보다 길어지는데, 그 실제
+## 높이는 컨테이너가 다음 프레임에 정렬해야 확정된다(autowrap 글자는 폭이 잡히기 전엔
+## 최소 높이를 크게 보고해, 빌드 직후에 재면 버튼이 화면 밖으로 밀려났다). 한 프레임
+## 기다린 뒤 실제 카드 바닥 아래 10px에 "커스터마이징"/"건너뛰기" 줄을 두되, 보상
+## 프레임 안쪽(REWARD_FRAME_BOTTOM - 버튼 높이 - 4px)을 넘지 않게 막는다.
+func _layout_reward_action_row(custom_btn: Button, skip_btn: Button) -> void:
+	await get_tree().process_frame
+	if not is_instance_valid(custom_btn) or not is_instance_valid(skip_btn):
+		return
+	var bottom := REWARD_FRAME_TOP + REWARD_CARD_TOP_OFFSET + REWARD_CARD_HEIGHT
+	for node in _reward_ui:
+		if node is PanelContainer and is_instance_valid(node):
+			bottom = max(bottom, (node as PanelContainer).position.y + (node as PanelContainer).size.y)
+	var row_y: float = min(bottom + 10.0, REWARD_FRAME_BOTTOM - 36.0 - 4.0)
+	custom_btn.position.y = row_y
+	skip_btn.position.y = row_y
 
 
 ## 공통 배경+제목 프레임을 그린다 (보상 화면의 3단계 — 아이템 선택 / 다이스 선택 /

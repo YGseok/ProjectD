@@ -14,6 +14,9 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if custom_minimum_size == Vector2.ZERO:
 		custom_minimum_size = Vector2(20, 20)
+	# [대형 기획 17] S-7(a) — 컨테이너 기본 SIZE_FILL로 늘어나지 않게 고정(VISUAL_STANDARD.md 6-2).
+	size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	size_flags_vertical = Control.SIZE_SHRINK_CENTER
 
 
 func _draw() -> void:
@@ -21,7 +24,7 @@ func _draw() -> void:
 	# 칠해 쓰고, 없으면 기존 절차적 자물쇠 도형으로 폴백한다.
 	var tex := UIKit.icon_texture("lock", BODY_COLOR)
 	if tex != null:
-		draw_texture_rect(tex, Rect2(Vector2.ZERO, size), false)
+		UIKit.draw_icon_keep_aspect(self, tex, Rect2(Vector2.ZERO, size))
 		return
 	var body := Rect2(size.x * 0.18, size.y * 0.45, size.x * 0.64, size.y * 0.45)
 	draw_rect(body, BODY_COLOR, true)

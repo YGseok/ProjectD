@@ -53,6 +53,10 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if custom_minimum_size == Vector2.ZERO:
 		custom_minimum_size = Vector2(24, 24)
+	# [대형 기획 17] S-7(a) — 던전 맵 선택지 줄(HBoxContainer, 버튼 전체 높이로 SIZE_FILL
+	# 됨)에서 세로로 길쭉해지던 원인(VISUAL_STANDARD.md 6-2) 차단.
+	size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	size_flags_vertical = Control.SIZE_SHRINK_CENTER
 
 
 func _draw() -> void:
@@ -118,7 +122,7 @@ func _draw_claw() -> void:
 func _draw_skull() -> void:
 	var tex := UIKit.icon_texture("skull", COLOR_UNDEAD)
 	if tex != null:
-		draw_texture_rect(tex, Rect2(Vector2.ZERO, size), false)
+		UIKit.draw_icon_keep_aspect(self, tex, Rect2(Vector2.ZERO, size))
 		return
 	var center := Vector2(size.x * 0.5, size.y * 0.42)
 	var r := size.x * 0.38
@@ -141,7 +145,7 @@ func _draw_crown() -> void:
 	var tex := UIKit.icon_texture("crown", COLOR_CROWN)
 	if tex != null:
 		var crown_size := size.y * 0.42
-		draw_texture_rect(tex, Rect2(Vector2(size.x * 0.5 - crown_size * 0.5, 0.0), Vector2(crown_size, crown_size)), false)
+		UIKit.draw_icon_keep_aspect(self, tex, Rect2(Vector2(size.x * 0.5 - crown_size * 0.5, 0.0), Vector2(crown_size, crown_size)))
 		return
 	var base_y := size.y * 0.06
 	var pts := PackedVector2Array([

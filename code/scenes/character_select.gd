@@ -135,11 +135,10 @@ const DICE_ROW_LABEL_WIDTH := 44.0
 ## 자리를 공용 StatusMessageBar(code/scenes/status_message_bar.gd)가 대신 쓴다 —
 ## 이 화면은 시작 스킬 슬롯 0이 항상 기본 해금/선택 상태라 "던전 입장"이 막히는
 ## 실제 조건이 없으므로(Q-2 당시에도 같은 이유로 "캐릭터 선택 전 비활성"은 적용
-## 대상 없음으로 결론), 바는 조작 안내를 상시 보여준다(docs/design/MOCKUP_REVIEW.md
-## 3절 시안 그대로).
+## 대상 없음으로 결론), 바는 기본적으로 숨긴다. 2026-10-28 사용자 지시: "방향키로…"
+## 같은 조작 안내 문구는 화면을 조잡하게 만드니 지울 것 — 바는 정말 막혀 있는 조건이
+## 생길 때만 쓴다.
 @onready var _status_message_bar: StatusMessageBar = $StatusMessageBar
-
-const STATUS_BAR_GUIDE_TEXT := "방향키로 캐릭터와 시작 스킬을 고르세요 · 스페이스/Enter로 확정 · 아래 \"던전 입장\"으로 시작합니다."
 
 var _selected_id: String = CharacterProfiles.PROFILES[0]["id"]
 var _card_panels: Dictionary = {} # id -> PanelContainer (선택 강조 갱신용)
@@ -246,7 +245,7 @@ func _ready() -> void:
 	_build_detail_panel()
 	_style_header_buttons()
 	_build_cards()
-	_status_message_bar.set_message(STATUS_BAR_GUIDE_TEXT)
+	_status_message_bar.set_message("", false)
 
 
 ## [대형 기획 15] Q-2 — Esc로 "②시작 스킬" 단계에서 "①캐릭터" 단계로 한 단계
@@ -1146,6 +1145,12 @@ func _make_starting_skill_slot(skill: Dictionary, unlocked: bool, slot_index: in
 	# 하는 안전망(STARTING_SKILL_ICON_SIZE에 맞춰 그리는 자식 노드들은 이미 넘치지
 	# 않지만, 새 아트가 들어와도 구조적으로 보장되게 clip).
 	icon_area.clip_contents = true
+	# [대형 기획 17] S-7(a)/감독 검수(2026-10-28) — content(VBoxContainer)가 cross-axis
+	# (가로)에서 기본 SIZE_FILL로 icon_area를 슬롯 폭(115px)까지 늘려, 정사각이어야 할
+	# 44x44 아이콘 영역이 가로로 긴 배너가 되던 버그(VISUAL_STANDARD.md 6-2와 같은 원인
+	# 계열 — 컨테이너가 자식을 강제로 늘림). SHRINK_CENTER로 custom_minimum_size 그대로
+	# 폭 중앙에 고정한다.
+	icon_area.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	content.add_child(icon_area)
 
 	# K-4b: 효과 모티프 아이콘(SkillPool.icon_motif_for) — 잠긴 슬롯도 윤곽(실루엣)은
@@ -1183,15 +1188,20 @@ func _make_starting_skill_slot(skill: Dictionary, unlocked: bool, slot_index: in
 	rarity_frame.add_theme_stylebox_override("panel", rarity_frame_style)
 	icon_area.add_child(rarity_frame)
 
-	# 등급 텍스트 태그(작은 글씨, 색만으로 구분 금지 원칙) — lock_badge와 반대쪽 모서리
-	# (좌상단)에 겹쳐 테두리/아이콘 위에 그려지도록 그 다음에 추가한다.
+	# 등급 텍스트 태그(작은 글씨, 색만으로 구분 금지 원칙). [감독 검수 2026-10-28] —
+	# 기존엔 icon_area 좌상단(= 아이콘 그림 바로 위)에 겹쳐 그려 "일반" 같은 글자가
+	# 아이콘 그림과 겹쳐 안 읽혔다. icon_area 바깥, 카드(button) 자체의 좌상단 모서리로
+	# 옮긴다 — icon_area는 가로 중앙 정렬(SHRINK_CENTER, 위 참고)이라 카드 모서리는 항상
+	# 아이콘 그림 바깥이라 겹치지 않는다. content보다 나중에 button의 자식으로 붙어야
+	# 그 위에(z-order 상 나중 자식이 위) 그려진다.
 	var rarity_tag := Label.new()
 	rarity_tag.text = SkillPool.rarity_label(rarity)
 	rarity_tag.add_theme_font_size_override("font_size", 8)
 	rarity_tag.add_theme_color_override("font_color", rarity_color if unlocked else Color(0.55, 0.55, 0.55))
 	rarity_tag.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	rarity_tag.position = Vector2(4, 2)
 	rarity_tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	icon_area.add_child(rarity_tag)
+	button.add_child(rarity_tag)
 	_rarity_tag_by_skill_id[skill["id"]] = rarity_tag
 
 	if not unlocked:

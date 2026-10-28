@@ -46,11 +46,11 @@ script = ExtResource("6_status_bar")
 offset_left = 340.0
 offset_top = 100.0
 offset_right = 1260.0
-offset_bottom = 680.0
+offset_bottom = 672.0
 
 [node name="StartButton" type="Button" parent="."]
 offset_left = 470.0
-offset_top = 680.0
+offset_top = 686.0
 offset_right = 810.0
 offset_bottom = 716.0
 text = "던전 입장"

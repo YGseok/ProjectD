@@ -35,6 +35,11 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if custom_minimum_size == Vector2.ZERO:
 		custom_minimum_size = Vector2(18, 18)
+	# [대형 기획 17] S-7(a) — HBoxContainer/VBoxContainer 기본 SIZE_FILL이 이 아이콘을
+	# 행/열 전체 높이·폭으로 늘리지 못하게 막는다(VISUAL_STANDARD.md 6-2). 늘어날 공간이
+	# 생겨도 custom_minimum_size 그대로 중앙에 머문다.
+	size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	size_flags_vertical = Control.SIZE_SHRINK_CENTER
 
 
 func _draw() -> void:
@@ -63,7 +68,7 @@ func _draw_image_icon(name: String, tint: Color) -> bool:
 	var tex := UIKit.icon_texture(name, tint)
 	if tex == null:
 		return false
-	draw_texture_rect(tex, Rect2(Vector2.ZERO, size), false)
+	UIKit.draw_icon_keep_aspect(self, tex, Rect2(Vector2.ZERO, size))
 	return true
 
 

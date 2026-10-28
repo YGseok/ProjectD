@@ -75,6 +75,43 @@ static var _hp_frame_cache: Dictionary = {}
 
 
 ## ---------------------------------------------------------------------------
+## [대형 기획 17] S-7(a) — 아이콘 비율 유지 공용 헬퍼. VISUAL_STANDARD.md 6-2가 특정한
+## 원인(Control._draw()가 draw_texture_rect(tex, Rect2(ZERO, size), false)로 size에 그대로
+## 꽉 채워 그려서, HBoxContainer 기본 SIZE_FILL로 세로가 늘어나면 텍스처도 같이 눌리거나
+## 늘어남)을 근본적으로 없앤다. slot 비율과 텍스처 비율이 다르면 크롭하지 않고 letterbox
+## (여백)로 맞춘다 — 6-1 원칙 그대로. compute_keep_aspect_rect()는 노드 없이도(물리/화면
+## 없이) 단위 검증 가능한 순수 함수로 분리했다(dice_test.gd 6-3 검증용).
+## ---------------------------------------------------------------------------
+
+## tex_size(텍스처 원본 크기)를 slot 안에 비율을 유지한 채 중앙 정렬로 맞춘 Rect2를
+## 계산한다. tex_size나 slot 크기가 0 이하이면 slot을 그대로 돌려준다(그릴 것이 없거나
+## 아직 레이아웃이 안 잡힌 과도기 프레임에서 0으로 나누는 것을 피하기 위함).
+static func compute_keep_aspect_rect(tex_size: Vector2, slot: Rect2) -> Rect2:
+	if tex_size.x <= 0.0 or tex_size.y <= 0.0 or slot.size.x <= 0.0 or slot.size.y <= 0.0:
+		return slot
+	var tex_ratio := tex_size.x / tex_size.y
+	var slot_ratio := slot.size.x / slot.size.y
+	var fit_size: Vector2
+	if tex_ratio > slot_ratio:
+		fit_size = Vector2(slot.size.x, slot.size.x / tex_ratio)
+	else:
+		fit_size = Vector2(slot.size.y * tex_ratio, slot.size.y)
+	var fit_pos := slot.position + (slot.size - fit_size) * 0.5
+	return Rect2(fit_pos, fit_size)
+
+
+## ci(보통 아이콘 Control 자신, `self`)에 tex를 slot 안에서 비율 유지로 그린다. 호출부
+## (RewardIcon/FamilyIcon/SkillIcon/LockIcon/AchievementIcon의 _draw_image_icon류)가
+## 기존 `draw_texture_rect(tex, Rect2(Vector2.ZERO, size), false)`를 그대로 대체하면 된다.
+## 계산된 렌더 사각형을 돌려줘(실제로 쓰지 않아도) 호출부/테스트가 그려진 영역을 알 수
+## 있게 한다.
+static func draw_icon_keep_aspect(ci: CanvasItem, tex: Texture2D, slot: Rect2) -> Rect2:
+	var rect := compute_keep_aspect_rect(tex.get_size(), slot)
+	ci.draw_texture_rect(tex, rect, false)
+	return rect
+
+
+## ---------------------------------------------------------------------------
 ## 이미지 스킨 공용 유틸 (skill_icon.gd의 load_external_art()와 같은 패턴)
 ## ---------------------------------------------------------------------------
 

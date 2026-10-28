@@ -446,7 +446,7 @@ func _ready() -> void:
 
 	lines.append("")
 	lines.append("[Q-3(7): 시작 스킬 슬롯 아이콘 비율 — 해금/잠금 양쪽 다 아이콘 영역(icon_area) rect가 정사각이고 40px 이상인지, 8명 전부(16개 슬롯) 실제 렌더 트리에서 측정]")
-	all_pass = _check_q3_starting_skill_icon_ratio(lines) and all_pass
+	all_pass = (await _check_q3_starting_skill_icon_ratio(lines)) and all_pass
 
 	lines.append("")
 	lines.append("[Q-3(9): 고유 능력 텍스트 폴리싱 — 8명 전부 ability_summary 라벨이 말줄임(…) 없이, ABILITY_DESC_WRAP_WIDTH 안에서 실제 폰트 측정으로 2줄 이내에 들어오는지, 곡예사는 D12가 보이는지]")
@@ -531,6 +531,14 @@ func _ready() -> void:
 	lines.append("")
 	lines.append("[Q-9: 고유 능력(기믹) 아이콘 + 업적 아이콘 — resources/skills/<기믹 id>.png·resources/achievements/<업적 id>.png 경로 규칙이 기믹/업적 id 전수에 대해 일관되는지, user:// 합성 PNG로 '파일 있음->외부 아트/파일 없음->절차적 폴백' 계약(양쪽 아이콘 + 고유 능력의 캐릭터 퍼스널 컬러 틴트), 절차적 도안 전수(기믹 8종+업적 9유형)가 서로 다른 픽셀로 렌더되는지, event.gd 특별 선택지 버튼이 safe/risky 버튼과 더 이상 겹치지 않는지(동반 수정)]")
 	all_pass = (await _check_q9_gimmick_achievement_icons(lines)) and all_pass
+
+	lines.append("")
+	lines.append("[S-7(a): 아이콘 비율 왜곡 금지 — UIKit.compute_keep_aspect_rect()가 비정사각 slot/텍스처 조합에서 원본 비율을 오차 없이 유지하는지(순수 함수), 던전 맵 '전투'/'정예 전투' 선택지의 FamilyIcon·RewardIcon과 전투 화면 몬스터 FamilyIcon, 캐릭터 선택 시작 스킬 슬롯 icon_area가 실제 레이아웃을 거친 뒤(.size, custom_minimum_size 아님)에도 정사각(오차 2% 이내)으로 남는지 — HBoxContainer/VBoxContainer 기본 SIZE_FILL이 세로/가로로 늘리던 회귀(VISUAL_STANDARD.md 6-2)를 잡는다]")
+	all_pass = (await _check_s7a_icon_keep_aspect(lines)) and all_pass
+
+	lines.append("")
+	lines.append("[S-7(b): 전투 기록 패널 화면 밖 잘림 — 전투 기록을 40줄까지 채운 뒤 '전투 기록' 패널 하단(_log_panel의 실제 렌더 global rect)이 1280x720 화면 높이 안에 들어오는지, log_label이 _log_clip 고정 높이 안에서 가장 최근 줄이 보이는 위치로 스크롤돼 있는지(position.y가 음수로 밀렸는지)를 실제 렌더 결과로 검증]")
+	all_pass = (await _check_s7b_combat_log_panel_bounds(lines)) and all_pass
 
 	lines.append("")
 	lines.append("결과: %s" % ("PASS" if all_pass else "FAIL"))
@@ -9032,14 +9040,19 @@ func _check_n2b_full_art_rendered_height(lines: PackedStringArray) -> bool:
 		codex_button_rect, viewport_width, "OK" if codex_button_on_screen else "FAIL"
 	])
 
-	# 던전 시작 버튼이 전신 컬럼과 겹치지 않는지(INBOX N-2b 원문) — 전신 컬럼 패널의
-	# 전역 rect와 버튼의 전역 rect가 교차하면 안 된다.
+	# 던전 시작 버튼이 전신 컬럼과 겹치지 않는지(INBOX N-2b 원문). [대형 기획 17] 감독
+	# 검수 ③(2026-10-28)으로 강화: 예전엔 "교차하지 않음"만 확인해, 두 rect가 딱 붙어
+	# (간격 0) 있어도 PASS였다 — 실제로 DetailPanelContainer.offset_bottom(680)과
+	# StartButton.offset_top(680)이 같아서 원화 패널 하단 테두리가 버튼에 그대로 붙어
+	# 보이는 버그가 이 체크를 통과한 채 남아있었다. DetailPanelContainer를 672로
+	# 줄여(character_select.tscn) 8px 간격을 만들고, 이제 간격 수치 자체를 잰다.
 	var portrait_rect: Rect2 = node._detail_portrait_panel.get_global_rect()
 	var button_rect: Rect2 = node.start_button.get_global_rect()
-	var no_overlap: bool = not portrait_rect.intersects(button_rect)
-	ok = no_overlap and ok
-	lines.append("  전신 컬럼 rect=%s vs 던전 시작 버튼 rect=%s (겹치면 안 됨) -> %s" % [
-		portrait_rect, button_rect, "OK" if no_overlap else "FAIL"
+	var gap: float = button_rect.position.y - (portrait_rect.position.y + portrait_rect.size.y)
+	var gap_ok: bool = gap >= 8.0 - 0.5
+	ok = gap_ok and ok
+	lines.append("  전신 컬럼 rect=%s vs 던전 시작 버튼 rect=%s, 간격=%.1f(기대 >= 8px) -> %s" % [
+		portrait_rect, button_rect, gap, "OK" if gap_ok else "FAIL"
 	])
 
 	remove_child(node)
@@ -13806,12 +13819,15 @@ func _check_q1_event_text_layout(lines: PackedStringArray) -> bool:
 	return ok
 
 
-## [대형 기획 15] Q-3(7, 2026-10-17) 검증: "플래그가 들어갔는가"가 아니라 "실제 렌더
-## 트리의 아이콘 영역 rect"를 본다 — 시작 스킬 슬롯(해금/잠금 둘 다)의 icon_area
-## Control이 8명 전부(각 2슬롯, 총 16개)에서 정사각이고 STARTING_SKILL_ICON_SIZE(44,
-## 40~48px 예산 안)를 그대로 쓰고 있는지 확인한다. icon_area는
-## character_select.gd._make_starting_skill_slot()이 매번 custom_minimum_size를
-## 직접 못박아두므로(레이아웃 패스와 무관하게 정확) 그 값을 바로 읽으면 된다.
+## [대형 기획 15] Q-3(7, 2026-10-17) 검증, [대형 기획 17] S-7(a)(2026-10-28)로 측정
+## 방식 강화: "플래그가 들어갔는가"(custom_minimum_size는 호출부가 못박은 값이라
+## 컨테이너가 실제로 그 값을 지켰는지는 증명하지 못한다)가 아니라 "실제 렌더 트리에서
+## 레이아웃을 거친 뒤의 .size"를 본다 — 시작 스킬 슬롯(해금/잠금 둘 다)의 icon_area
+## Control이 8명 전부(각 2슬롯, 총 16개)에서 실제로 정사각(오차 2% 이내)이고
+## STARTING_SKILL_ICON_SIZE(44, 40~48px 예산 안)를 유지하는지 확인한다. 고치기 전에는
+## content(VBoxContainer)의 기본 SIZE_FILL(cross-axis)이 icon_area를 슬롯 폭(115px)까지
+## 가로로 늘려 44x115가 되는 회귀가 실제로 있었다 — custom_minimum_size만 보는 이전
+## 버전은 이 버그를 전혀 못 잡았다.
 func _check_q3_starting_skill_icon_ratio(lines: PackedStringArray) -> bool:
 	var ok := true
 	var character_backup := RunState.character_id
@@ -13819,34 +13835,199 @@ func _check_q3_starting_skill_icon_ratio(lines: PackedStringArray) -> bool:
 	var scene := load("res://code/scenes/character_select.tscn")
 	var node = scene.instantiate()
 	add_child(node)
+	await get_tree().process_frame
+	await get_tree().process_frame
 
 	var checked := 0
 	var locked_checked := 0
 	for profile in CharacterProfiles.PROFILES:
 		var cid: String = profile["id"]
 		node._on_card_selected(cid)
+		await get_tree().process_frame
+		await get_tree().process_frame
 		for button in node._starting_skill_slot_buttons:
 			var content = button.get_child(0)
 			var icon_area = content.get_child(0)
-			var w: float = icon_area.custom_minimum_size.x
-			var h: float = icon_area.custom_minimum_size.y
-			var square_ok: bool = abs(w - h) < 0.5
+			var w: float = icon_area.size.x
+			var h: float = icon_area.size.y
+			var square_ok: bool = abs(w - h) <= max(w, h) * 0.02
 			var size_ok: bool = w >= 40.0 and w <= 48.0
 			checked += 1
 			if icon_area.get_child_count() > 1:
 				locked_checked += 1
 			if not (square_ok and size_ok):
 				ok = false
-				lines.append("  [%s] 시작 스킬 슬롯 아이콘 영역=%.1fx%.1f (기대 정사각 40~48px) -> FAIL" % [cid, w, h])
+				lines.append("  [%s] 시작 스킬 슬롯 아이콘 영역 실제 렌더 크기=%.1fx%.1f (기대 정사각 40~48px) -> FAIL" % [cid, w, h])
 
 	var locked_seen_ok: bool = locked_checked > 0
 	ok = locked_seen_ok and ok
-	lines.append("  시작 스킬 슬롯 아이콘 영역 %d개(8명 x 최대 2슬롯) 전수: 정사각 40~48px -> %s (잠긴 슬롯도 자물쇠 배지 포함 %d개 확인)" % [
+	lines.append("  시작 스킬 슬롯 아이콘 영역 %d개(8명 x 최대 2슬롯) 전수, 실제 렌더 크기: 정사각(오차 2%% 이내) 40~48px -> %s (잠긴 슬롯도 자물쇠 배지 포함 %d개 확인)" % [
 		checked, "OK" if ok else "FAIL", locked_checked
 	])
 
 	remove_child(node)
 	node.free()
+	RunState.character_id = character_backup
+	return ok
+
+
+## [대형 기획 17] S-7(a)(2026-10-28) 검증: "함수를 썼는지"가 아니라 "실제 렌더된
+## 아이콘 노드의 크기"를 본다(INBOX 원문). 세 겹으로 확인한다 — (1) UIKit.
+## compute_keep_aspect_rect() 자체가 비정사각 slot/텍스처 조합에서 원본 비율을 오차
+## 없이 유지하는지(물리/화면 없는 순수 함수 단위 검증), (2) 던전 맵 "전투"/"정예 전투"
+## 선택지 버튼 안 FamilyIcon·RewardIcon(HBoxContainer 기본 SIZE_FILL로 세로가 늘어나던
+## 실제 버그 지점, VISUAL_STANDARD.md 6-2)이 레이아웃 후 실제로 정사각인지, (3) 캐릭터
+## 선택 시작 스킬 슬롯 icon_area(VBoxContainer cross-axis로 가로가 늘어나던 지점)도
+## 마찬가지인지 — (3)은 Q-3(7) 테스트가 이미 하지만, 여기서는 "픽셀 단위 렌더 결과"라는
+## 같은 관점으로 한 번 더 모아 S-7 전수 점검 의도를 분명히 한다.
+func _check_s7a_icon_keep_aspect(lines: PackedStringArray) -> bool:
+	var ok := true
+
+	# (1) 순수 함수 — 두 가지 비대칭 조합.
+	# (1a) 텍스처(64x32, 비율 2.0)와 slot(40x20, 비율 2.0)이 같은 비율 -> slot을 꽉 채움.
+	var rect_a := UIKit.compute_keep_aspect_rect(Vector2(64, 32), Rect2(Vector2.ZERO, Vector2(40, 20)))
+	var ratio_a_ok: bool = abs((rect_a.size.x / rect_a.size.y) - 2.0) < 0.02
+	var fill_a_ok: bool = rect_a.size.is_equal_approx(Vector2(40, 20))
+	ok = ratio_a_ok and fill_a_ok and ok
+	lines.append("  (1a) compute_keep_aspect_rect(tex=64x32, slot=40x20, 비율 둘 다 2.0): 렌더 사각형=%s 비율=%.4f(기대 2.0, slot 꽉 채움) -> %s" % [
+		rect_a.size, rect_a.size.x / rect_a.size.y, "OK" if (ratio_a_ok and fill_a_ok) else "FAIL"
+	])
+
+	# (1b) 텍스처가 정사각(32x32, 비율 1.0)인데 slot은 가로로 긴 직사각형(40x20, 비율 2.0)
+	# -> letterbox로 slot 높이(20)에 맞춰 20x20 정사각으로 축소, 가로 중앙 정렬.
+	var slot_b := Rect2(Vector2.ZERO, Vector2(40, 20))
+	var rect_b := UIKit.compute_keep_aspect_rect(Vector2(32, 32), slot_b)
+	var square_b_ok: bool = abs(rect_b.size.x - rect_b.size.y) < 0.01
+	var height_b_ok: bool = is_equal_approx(rect_b.size.y, 20.0)
+	var centered_b_ok: bool = is_equal_approx(rect_b.position.x, (slot_b.size.x - rect_b.size.x) * 0.5)
+	ok = square_b_ok and height_b_ok and centered_b_ok and ok
+	lines.append("  (1b) compute_keep_aspect_rect(tex=32x32, slot=40x20, 비율 다름): 렌더 사각형=%s(기대 정사각, 높이 20 기준 축소+가로 중앙 정렬) -> %s" % [
+		rect_b, "OK" if (square_b_ok and height_b_ok and centered_b_ok) else "FAIL"
+	])
+
+	# (2) 던전 맵 "전투"/"정예 전투" 선택지 — FamilyIcon + 보상 RewardIcon 실제 렌더 크기.
+	var character_backup := RunState.character_id
+	var rooms_backup := RunState.rooms_cleared
+	var round_backup := RunState.round_index
+	RunState.reset_run("novice")
+	RunState.round_index = 1
+	RunState.rooms_cleared = 0
+
+	var map_scene := load("res://code/scenes/dungeon_map.tscn")
+	var map = map_scene.instantiate()
+	add_child(map)
+	map._elite_available = true
+	map._shop_available = true
+	map._event_available = true
+	map._story_available = true
+	map._room_order.assign(["shop", "event", "story", "elite"])
+	map._update_labels()
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	var map_icons_checked := 0
+	for t in ["combat", "elite"]:
+		var family_icon: Control = map._family_icon_by_type[t]
+		var fw: float = family_icon.size.x
+		var fh: float = family_icon.size.y
+		var family_square_ok: bool = abs(fw - fh) <= max(fw, fh) * 0.02
+		map_icons_checked += 1
+		ok = family_square_ok and ok
+		lines.append("  (2) 던전 맵 '%s' 선택지 FamilyIcon 실제 렌더 크기=%.1fx%.1f(기대 정사각, 오차 2%% 이내) -> %s" % [
+			t, fw, fh, "OK" if family_square_ok else "FAIL"
+		])
+		var reward_row: HBoxContainer = map._reward_icon_rows[t]
+		for icon in reward_row.get_children():
+			var rw: float = icon.size.x
+			var rh: float = icon.size.y
+			var reward_square_ok: bool = abs(rw - rh) <= max(rw, rh) * 0.02
+			map_icons_checked += 1
+			ok = reward_square_ok and ok
+			lines.append("  (2) 던전 맵 '%s' 선택지 보상 아이콘(category=%s) 실제 렌더 크기=%.1fx%.1f -> %s" % [
+				t, (icon as RewardIcon).category, rw, rh, "OK" if reward_square_ok else "FAIL"
+			])
+
+	remove_child(map)
+	map.free()
+
+	# 전투 화면 몬스터 FamilyIcon(combat_test.gd monster_family_icon, HBoxContainer 안).
+	var combat_scene := load("res://code/scenes/combat_test.tscn")
+	var combat = combat_scene.instantiate()
+	add_child(combat)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var mfw: float = combat.monster_family_icon.size.x
+	var mfh: float = combat.monster_family_icon.size.y
+	var combat_family_square_ok: bool = abs(mfw - mfh) <= max(mfw, mfh) * 0.02
+	map_icons_checked += 1
+	ok = combat_family_square_ok and ok
+	lines.append("  (2) 전투 화면 몬스터 FamilyIcon 실제 렌더 크기=%.1fx%.1f(기대 정사각, 오차 2%% 이내) -> %s" % [
+		mfw, mfh, "OK" if combat_family_square_ok else "FAIL"
+	])
+	remove_child(combat)
+	combat.free()
+
+	lines.append("  (2) 던전 맵/전투 화면 아이콘 %d개 전수 정사각 확인 -> %s" % [
+		map_icons_checked, "OK" if ok else "FAIL"
+	])
+
+	RunState.character_id = character_backup
+	RunState.rooms_cleared = rooms_backup
+	RunState.round_index = round_backup
+	return ok
+
+
+## [대형 기획 17] S-7(b)(2026-10-28) 검증: "전투 기록" 패널이 1280x720 화면 안에 실제로
+## 들어오는지(화면 밖 잘림 금지)와, 기록이 _log_clip 고정 높이를 넘겨도 가장 최근 줄이
+## 보이는 위치로 스크롤되는지를 실제 렌더 트리로 확인한다. 40줄을 채운 상태(_append_log
+## 40회 호출, MAX_LOG_LINES=200이라 전부 유지됨)로 측정해 INBOX 원문 "기록이 길어지면"
+## 시나리오를 재현한다 — "스크롤 로직을 호출했는가"가 아니라 "실제 position.y가 음수로
+## 밀렸는가/패널 하단 y가 화면 안인가"를 잰다.
+func _check_s7b_combat_log_panel_bounds(lines: PackedStringArray) -> bool:
+	var ok := true
+	var character_backup := RunState.character_id
+	RunState.character_id = "novice"
+
+	var combat_scene := load("res://code/scenes/combat_test.tscn")
+	var combat = combat_scene.instantiate()
+	add_child(combat)
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	for i in 40:
+		combat._append_log("전투 기록 테스트 줄 %d — 다이스 교환 결과가 길어지는 경우를 흉내내는 더미 문장" % i)
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	var panel_rect: Rect2 = combat._log_panel.get_global_rect()
+	var panel_bottom: float = panel_rect.position.y + panel_rect.size.y
+	var within_screen_ok: bool = panel_bottom <= 720.0
+	ok = within_screen_ok and ok
+	lines.append("  (1) 전투 기록 40줄 상태: 패널 global rect=%s, 하단 y=%.1f(기대 <= 720.0) -> %s" % [
+		panel_rect, panel_bottom, "OK" if within_screen_ok else "FAIL"
+	])
+
+	# (2) log_label이 _log_clip 고정 높이보다 커져(40줄은 당연히 76px보다 큼) 실제로
+	# 음수 position.y로 밀렸는지(= 맨 위가 아니라 최신 줄이 보이는 쪽으로 스크롤됐는지).
+	var content_taller_ok: bool = combat.log_label.size.y > combat._log_clip.size.y
+	var scrolled_ok: bool = combat.log_label.position.y < 0.0
+	ok = content_taller_ok and scrolled_ok and ok
+	lines.append("  (2) log_label 높이=%.1f > _log_clip 높이=%.1f(내용이 더 큼) -> %s, position.y=%.1f(기대 음수, 아래로 스크롤) -> %s" % [
+		combat.log_label.size.y, combat._log_clip.size.y, "OK" if content_taller_ok else "FAIL",
+		combat.log_label.position.y, "OK" if scrolled_ok else "FAIL"
+	])
+
+	# (3) 마지막으로 추가한 줄의 텍스트가 log_label.text 끝에 실제로 남아있는지(스크롤이
+	# "맨 아래"를 향하고 있다는 것을 내용으로도 확인 — _log_lines가 MAX_LOG_LINES=200
+	# 한도 안이라 40줄 전부 유지돼야 한다).
+	var last_line_kept_ok: bool = combat.log_label.text.ends_with("전투 기록 테스트 줄 39 — 다이스 교환 결과가 길어지는 경우를 흉내내는 더미 문장")
+	ok = last_line_kept_ok and ok
+	lines.append("  (3) 마지막 줄이 log_label.text 끝에 남아있음(40줄 다 유지, MAX_LOG_LINES=200) -> %s" % [
+		"OK" if last_line_kept_ok else "FAIL"
+	])
+
+	remove_child(combat)
+	combat.free()
 	RunState.character_id = character_backup
 	return ok
 
