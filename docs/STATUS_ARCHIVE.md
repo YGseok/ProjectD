@@ -8,6 +8,75 @@
 
 ---
 
+- **2026-10-20 (241)**: **[대형 기획 15] Q-12(보스 설정 확정 반영, 2026-10-20
+  사용자 확정 지시) 완료.** 이름/색/personality는 이미 `monster_catalog.gd`에
+  반영돼 있어(원장 `docs/art/ART_RESOURCES.md` 3-8 표는 읽기만) 남은 일감인
+  "스토리 활용" 3가지를 구현했다.
+  **(a) 보스전 진입 대사**: 6보스 전부에 `intro`(기본 등장 문구) +
+  필요한 2종에 `character_intro`(캐릭터 전용 변형 사전, 없으면 `intro`로
+  폴백) 데이터를 `MonsterCatalog.MONSTERS`에 추가 — 광란의 마수(광전사의
+  언니)는 `character_intro["berserker"]`로 "...너, 낯이 익군. 설마 내
+  동생이냐?"처럼 동생을 알아보는 대사, 타락한 기사단장(수호자의 전
+  기사단장)은 `character_intro["guardian"]`으로 "네가 모시던 그 기사단장을"
+  옛 부하를 알아보는 대사(둘 다 원문 필수 항목). 가능하면 추가하라는 지시에
+  따라 고블린 왕×매혹사("미모는 제법이군 — 하지만 왕관은 내 것")/영계의
+  지배자×해적("바다에서 죽음을 피해 다녔다지? 여긴 그 바다보다 깊다")도
+  보너스로 채웠다. 조회는 신규 순수 함수
+  `MonsterCatalog.boss_intro_text(monster, character_id)`(character_intro
+  우선, 없으면 intro, 둘 다 없으면 빈 문자열 — 보스 아닌 몬스터에도 안전) 하나로
+  통일. `combat_test.gd`의 `_ready()`가 몬스터 구성 직후(`_apply_monster_config()`
+  바로 뒤) `monster_is_boss`일 때만 이 함수로 조회해 전투 기록 로그 첫 줄에
+  `_append_log()`로 찍는다(일반/정예 전투는 intro 자체가 없어 아무 줄도 안 뜸).
+  **(b) 캐릭터 스토리 이벤트 연결 암시**: 새 시스템 없이 기존
+  `EventChallengePool.CHALLENGES`의 캐릭터 전용 이벤트(`only_characters`)
+  prompt 문구에 한 문장씩만 추가 — 광전사 전용 "결투장의 부름"(duel_arena)에
+  "문득 소식이 끊긴 언니가 떠오른다", 수호자 전용 "오래된 성소의 수호
+  서약"(ancient_oath)에 "옛 기사단의 맹세가 귓가에 맴돈다". `event.gd`
+  PromptLabel의 autowrap 레이아웃 재측정 테스트(`_check_q1_event_text_layout`,
+  Q-1(23))가 전체 챌린지를 동적으로 순회해 재검증하므로 길이가 늘어나도
+  자동으로 버튼 비겹침까지 확인된다.
+  **(c) 몬스터 도감 연결**: `monster_codex_panel.gd`의 상세 뷰 info_label이
+  "성격"/"스킬"/"2페이즈" 줄 아래에 보스일 때만 `"등장: " + intro`(기본
+  문구만, 캐릭터 변형은 리소스 확인용 도감에서 안 보여줌) 한 줄을 추가로
+  보여준다.
+  **테스트**: `dice_test.gd`에 신규 `_check_q12_boss_intro()`(11항목, 전부
+  "플래그가 아니라 실제 값/실제 화면 텍스트") — (1) 보스 6종 전부 intro
+  존재 (2) `boss_intro_text()` 결정적 조회 4종(광전사×광란의 마수/수호자×
+  타락한 기사단장 변형 일치 + 매치 없는 캐릭터는 기본 폴백, 변형과 다른
+  문구인지까지 비교) (3) 비보스 몬스터(slime)는 크래시 없이 빈 문자열
+  (4) `RunState.test_battle` 경로(is_boss가 room_index가 아니라 몬스터
+  프로필의 실제 tier로 판정되는 유일한 경로 — 몬스터 id만으로 보스/비보스를
+  결정적으로 고를 수 있음)로 production `combat_test.tscn`을 3번 인스턴스화해
+  `log_label.text`에 실제로 변형 대사/기본 intro/(비보스는) 아무 줄도 없는지
+  3가지 경우 전부 확인 (5) `MonsterCodexPanel` 상세 뷰에서 보스만 "등장:"
+  줄이 포함되는지(비보스는 없는지, 보스를 먼저 연 뒤 비보스를 보려면
+  `_on_back_pressed()`로 격자를 다시 그려야 `_grid_cards_by_id`가 다시
+  채워진다는 것을 1차 실행에서 (5b)가 조용히 실행되지 않는 것으로 발견 —
+  `_grid_cards_by_id`가 detail 뷰 동안 비워진다는 패널 내부 동작을 놓쳐서
+  생긴 테스트 버그였고, 뒤로가기를 먼저 호출하도록 고쳐 해결).
+  `bash scripts/qa_shot.sh dice_test 60 qa_out/dice_test_q12b.png "" 1`
+  **foreground 전체 PASS(FAIL 0건) 직접 확인**(run_in_background 금지).
+  **셀프 피드백**: QA 전용 0-arity 훅(`combat_test.gd`의
+  `_debug_qa_boss_intro_berserker`/`_guardian`, `event.gd`의
+  `_debug_force_duel_arena_event`/`_debug_force_ancient_oath_event`)으로
+  광전사×광란의 마수(`qa_out/q12_berserker_frenzied_beast.png`, 보스 방
+  arg 4 + monster_id)와 수호자×타락한 기사단장
+  (`qa_out/q12_guardian_fallen_commander.png`) 전투 화면, 고블린 왕 도감
+  상세(`qa_out/q12_codex_goblin_king_intro.png`), duel_arena/ancient_oath
+  이벤트 화면 2장을 캡처해 직접 읽었다 — 대사 줄이 "전투 기록" 로그 패널
+  안에서 HUD/다이스 스테이지/포트레이트와 전혀 안 겹치고, 도감 상세의
+  "등장:" 줄도 하단 여유 공간에 자연스럽게 들어간다. **발견했지만 이번
+  범위 밖이라 안 고친 것**: `q12_event_ancient_oath.png`에서 상단 제목
+  라벨("특수 이벤트 — 오래된 성소의 수호 서약 — 수호자만이 받을 수 있는
+  맹세다. (수호자 전용)")이 우상단 "스킬 도감" 버튼과 겹친다 — `subtitle`
+  필드는 이번에 전혀 안 건드렸고(Q-12(b)에서 수정한 건 `prompt` 필드뿐)
+  이 특정 이벤트의 title_label을 실제로 캡처해본 QA 훅이 이번에 처음
+  생겨서 드러난 기존 버그로 판단, "알려진 이슈"에 기록만 하고 범위를
+  지켜 손대지 않았다. 전투 규칙/밸런스 수치는 전혀 안 건드렸고
+  `resources/`·`docs/art/`는 읽기만 했다(add 안 함). INBOX.md "부분
+  처리됨" [대형 기획 15] 항목에 Q-12 진행 상황 줄 추가, 다음은 여전히
+  Q-9(고유 능력/업적 아이콘)~Q-10(스토리 이벤트 일러스트 경로).
+
 - **2026-10-20 (240)**: **[대형 기획 15] Q-11b(몬스터 도감 보완, 사용자 추가
   지시) 완료.** 감독이 Q-11(239) 결과물을 캡처로 직접 보고 지적한 결함 4가지를
   셀프 피드백 루프(캡처→읽고 비평→수정→재캡처, 3라운드)로 고쳤다.
