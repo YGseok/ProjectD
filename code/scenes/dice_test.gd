@@ -7797,18 +7797,22 @@ func _check_r3_amorphous_roster(lines: PackedStringArray) -> bool:
 	# art_base_dir(가짜 디렉터리 주입 없이)로 MonsterPortraitPlaceholder.set_monster()를
 	# 호출해도 크래시 없이 _use_face_art/_use_full_crop이 둘 다 false(계열 플레이스홀더
 	# 폴백)로 남는지 직접 확인한다.
+	# 2026-10-28: 신규 몬스터 원화가 하나씩 입고되기 시작했다(심연의 불). full.png가 이미
+	# 입고된 몬스터는 폴백이 아니라 전신 크롭(full_crop=true)을 써야 정상이므로, 몬스터마다
+	# 실제 입고 여부로 기대값을 정한다(face_*는 아직 아무도 없으니 face=false 고정).
 	var all_new_ids: Array = new_normal_ids + ["abyss_priest"]
 	var fallback_ok := true
 	var fallback_details := []
 	for id in all_new_ids:
 		var portrait := MonsterPortraitPlaceholder.new()
 		portrait.set_monster(id)
-		fallback_details.append("%s(face=%s,full_crop=%s)" % [id, portrait._use_face_art, portrait._use_full_crop])
-		if portrait._use_face_art or portrait._use_full_crop:
+		var has_full: bool = ResourceLoader.exists("res://resources/monsters/%s/full.png" % id)
+		fallback_details.append("%s(face=%s,full_crop=%s,입고=%s)" % [id, portrait._use_face_art, portrait._use_full_crop, has_full])
+		if portrait._use_face_art or portrait._use_full_crop != has_full:
 			fallback_ok = false
 		portrait.free()
 	ok = fallback_ok and ok
-	lines.append("  신규 5종 아트 미입고 폴백(production art_base_dir) %s (기대 전부 face=false,full_crop=false) -> %s" % [
+	lines.append("  신규 5종 아트 폴백(production art_base_dir) %s (기대: face=false, full_crop=입고 여부와 같음) -> %s" % [
 		fallback_details, "OK" if fallback_ok else "FAIL"
 	])
 

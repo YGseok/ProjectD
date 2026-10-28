@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://cmxt3y2io3x0q"
-path="res://.godot/imported/full.png-3af9a0b5f562f0d24187efad8022a645.ctex"
+path="res://.godot/imported/full.png-65969d8ef017e783696cd545d3e48332.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://resources/monsters/boar/full.png"
-dest_files=["res://.godot/imported/full.png-3af9a0b5f562f0d24187efad8022a645.ctex"]
+source_file="res://resources/monsters/mountain_goat/full.png"
+dest_files=["res://.godot/imported/full.png-65969d8ef017e783696cd545d3e48332.ctex"]
 
 [params]
 
