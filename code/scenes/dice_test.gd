@@ -11708,10 +11708,15 @@ func _check_m5a_uikit_image_skin(lines: PackedStringArray) -> bool:
 	lines.append("  (9) production combat_test: player_hp_bar_fill=%s (resources/ui/bar/hp_frame_base.png 입고됨 -> NinePatchRect 기대) -> %s" % [
 		combat.player_hp_bar_fill.get_class(), "OK" if prod_hp_skinned_ok else "FAIL"
 	])
-	var prod_button_skinned_ok: bool = combat.next_button.get_theme_stylebox("normal") is StyleBoxTexture
+	# [대형 기획 17] S-0 사용자 확정(2026-10-28) — 버튼 장식은 B안(이미지 스킨 대신 얇은
+	# 테두리 플랫)으로 바뀌어, resources/ui/button/*가 입고돼 있어도 production 버튼은
+	# 더 이상 그 스킨을 쓰지 않는다(UIKit.BUTTON_SKIN_ENABLED 기본값 false). 기대값을
+	# StyleBoxTexture -> StyleBoxFlat(테두리 1px)로 갱신.
+	var prod_button_style: StyleBox = combat.next_button.get_theme_stylebox("normal")
+	var prod_button_skinned_ok: bool = prod_button_style is StyleBoxFlat and (prod_button_style as StyleBoxFlat).border_width_left == 0
 	ok = prod_button_skinned_ok and ok
-	lines.append("  (9) production combat_test: next_button 'normal' 스타일=%s (resources/ui/button/ 입고됨 -> StyleBoxTexture 기대) -> %s" % [
-		combat.next_button.get_theme_stylebox("normal").get_class(), "OK" if prod_button_skinned_ok else "FAIL"
+	lines.append("  (9) production combat_test: next_button(주 버튼) 'normal' 스타일=%s (B안 플랫, 기대 StyleBoxFlat) -> %s" % [
+		prod_button_style.get_class(), "OK" if prod_button_skinned_ok else "FAIL"
 	])
 
 	var full_hp_width: float = combat.player_hp_bar_full_width

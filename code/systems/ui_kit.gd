@@ -31,6 +31,16 @@ const BUTTON_CORNER := 6
 const PRIMARY_BUTTON_HEIGHT := 64.0
 const SECONDARY_BUTTON_HEIGHT := 46.0
 
+## [대형 기획 17] S-0 사용자 확정(2026-10-28, docs/design/MOCKUP_REVIEW.md 공통 질문 1) —
+## 버튼·필터 칩 장식은 B안(이미지 스킨 대신 얇은 테두리 위주의 차분한 플랫 스타일)으로
+## 간다. 기존 resources/ui/button/* 이미지 스킨 경로는 지우지 않는다 — 되돌릴 땐
+## BUTTON_SKIN_ENABLED만 true로 바꾸면 된다(스타일 선택으로 남겨둠). style_primary_button()/
+## style_secondary_button()은 호출부가 base_dir을 명시적으로 넘기지 않을 때(기본값
+## SKIN_BASE_DIR)만 이 스위치를 본다 — dice_test.gd가 M-5a 스킨 적용을 검증할 때 쓰는
+## 임시 base_dir(user:// 등)은 이 스위치와 무관하게 그대로 동작한다.
+static var BUTTON_SKIN_ENABLED: bool = false
+const NO_BUTTON_SKIN_DIR := "res://__b_flat_no_button_skin__/"
+
 ## 운영 경로. 테스트는 `base_dir` 매개변수로 user:// 임시 경로를 주입해 resources/를
 ## 건드리지 않고 "없음→있음→없음" 전환을 검증한다(skill_icon.gd의
 ## external_art_base_dir와 같은 패턴).
@@ -434,6 +444,9 @@ static func _button_state_stylebox(kind: String, state: String, tint: Color, bas
 ## (DESIGN.md "플레이어블 캐릭터" 절 K-3)을 지키면서도 "주 행동"다운 꽉 채운 칠 스타일은
 ## 그대로 쓰기 위해 style_secondary_button의 tint 패턴을 그대로 가져왔다).
 static func style_primary_button(btn: Button, character_id: String, tint: Color = Color(0, 0, 0, 0), base_dir: String = SKIN_BASE_DIR) -> void:
+	var effective_base_dir := base_dir
+	if base_dir == SKIN_BASE_DIR and not BUTTON_SKIN_ENABLED:
+		effective_base_dir = NO_BUTTON_SKIN_DIR
 	var palette := CharacterTheme.ui_palette(character_id)
 	var accent: Color = tint if tint.a > 0.0 else palette["accent"]
 	var text_color := contrasting_text_color(accent)
@@ -445,7 +458,7 @@ static func style_primary_button(btn: Button, character_id: String, tint: Color 
 	}
 	var any_skin := false
 	for state in fallback_colors.keys():
-		var skin_style := _button_state_stylebox("primary", state, accent, base_dir)
+		var skin_style := _button_state_stylebox("primary", state, accent, effective_base_dir)
 		if skin_style != null:
 			any_skin = true
 			btn.add_theme_stylebox_override(state, skin_style)
@@ -468,6 +481,9 @@ static func style_primary_button(btn: Button, character_id: String, tint: Color 
 ## 색을 테두리/배경 틴트로 쓴다(예: 정예 전투의 위험 색 강조). resources/ui/button/
 ## secondary_*가 있으면 그 이미지 스킨을 쓴다(M-5a, tint가 accent 대신 틴트색으로 쓰임).
 static func style_secondary_button(btn: Button, character_id: String, tint: Color = Color(0, 0, 0, 0), base_dir: String = SKIN_BASE_DIR) -> void:
+	var effective_base_dir := base_dir
+	if base_dir == SKIN_BASE_DIR and not BUTTON_SKIN_ENABLED:
+		effective_base_dir = NO_BUTTON_SKIN_DIR
 	var palette := CharacterTheme.ui_palette(character_id)
 	var border: Color = tint if tint.a > 0.0 else palette["primary"]
 	var base_bg: Color = Color(0.13, 0.13, 0.16) if tint.a <= 0.0 else Color(border.r, border.g, border.b).darkened(0.75)
@@ -479,7 +495,7 @@ static func style_secondary_button(btn: Button, character_id: String, tint: Colo
 	}
 	var any_skin := false
 	for state in fallback_colors.keys():
-		var skin_style := _button_state_stylebox("secondary", state, border, base_dir)
+		var skin_style := _button_state_stylebox("secondary", state, border, effective_base_dir)
 		if skin_style != null:
 			any_skin = true
 			btn.add_theme_stylebox_override(state, skin_style)
@@ -487,7 +503,8 @@ static func style_secondary_button(btn: Button, character_id: String, tint: Colo
 			var style := StyleBoxFlat.new()
 			style.bg_color = fallback_colors[state]
 			style.border_color = border
-			style.set_border_width_all(2)
+			# B안(얇은 테두리) — 기존 2px에서 1px로 낮춤(2026-10-28 사용자 확정).
+			style.set_border_width_all(1)
 			style.set_corner_radius_all(BUTTON_CORNER)
 			btn.add_theme_stylebox_override(state, style)
 	if any_skin:
