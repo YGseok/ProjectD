@@ -4,6 +4,7 @@
 [ext_resource type="Script" path="res://code/scenes/achievement_panel.gd" id="3_achievements"]
 [ext_resource type="Script" path="res://code/scenes/skill_codex_panel.gd" id="4_skill_codex"]
 [ext_resource type="Script" path="res://code/scenes/monster_codex_panel.gd" id="5_monster_codex"]
+[ext_resource type="Script" path="res://code/scenes/status_message_bar.gd" id="6_status_bar"]
 
 [sub_resource type="LabelSettings" id="LabelSettings_title"]
 font_size = 28
@@ -34,16 +35,12 @@ horizontal_scroll_mode = 0
 
 [node name="CardsList" type="Control" parent="CardsContainer"]
 
-[node name="StepIndicatorLabel" type="RichTextLabel" parent="."]
+[node name="StatusMessageBar" type="Control" parent="."]
 offset_left = 340.0
 offset_top = 66.0
-offset_right = 1260.0
-offset_bottom = 92.0
-bbcode_enabled = true
-fit_content = false
-scroll_active = false
-horizontal_alignment = 1
-vertical_alignment = 1
+offset_right = 1070.0
+offset_bottom = 100.0
+script = ExtResource("6_status_bar")
 
 [node name="DetailPanelContainer" type="Control" parent="."]
 offset_left = 340.0

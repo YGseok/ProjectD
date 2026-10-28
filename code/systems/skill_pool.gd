@@ -1454,6 +1454,20 @@ static func unlock_requirement(character_id: String, slot_index: int) -> Diction
 		}
 
 
+## [대형 기획 17] S-1.4(2026-10-28) — unlock_requirement()의 전체 문장("견습 모험가(으)로
+## 첫 던전(라운드 1)을 클리어하면 해금")은 캐릭터 선택 화면의 좁은 슬롯 카드(115px) 안에
+## 상시 노출하기엔 너무 길다. 카드 안에는 이 짧은 형태("라운드 1 클리어")만 상시 보여주고,
+## 전체 문장은 기존처럼 카드를 선택/미리보기할 때 아래 설명 줄(_starting_skill_unlock_label)
+## 에서 보여준다(character_select.gd `_update_starting_skill_description()`, 변경 없음).
+static func unlock_requirement_short(slot_index: int) -> String:
+	if slot_index <= 0:
+		return ""
+	elif slot_index == 1:
+		return "라운드 1 클리어"
+	else:
+		return "최종 클리어"
+
+
 ## unlock_requirement()가 가리키는 업적이 실제로 해금됐는지 판정한다(AchievementManager
 ## 조회 + 마이그레이션 포함). 슬롯 1의 새 조건은 "r1_<id>"(라운드 1 클리어)지만, F-2(a) 전에
 ## 이미 "clear_<id>"(최종 클리어)를 해금해둔 기존 세이브는 그 자체로 라운드 1 클리어를

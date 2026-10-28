@@ -130,18 +130,19 @@ const DICE_ROW_LABEL_WIDTH := 44.0
 ## 진입 버튼이 있다.
 @onready var monster_codex_button: Button = $MonsterCodexButton
 @onready var monster_codex_panel: MonsterCodexPanel = $MonsterCodexPanel
-## [대형 기획 15] Q-2(2026-10-16) — "①캐릭터 ②시작 스킬 ③던전 입장" 3단계 흐름을
-## 화면에서도 보이게 하는 작은 안내 띠. 어느 단계가 지금 활성인지는 매 프레임
-## 포커스 소유자를 확인해서(_process() 참고) 판단한다 — 카드/슬롯/시작 버튼으로
-## 가는 경로가 방향키 체인 이동/Esc/마우스 클릭 등 여러 갈래라, 전환 지점마다
-## 일일이 갱신 호출을 추가하는 대신 "지금 포커스가 어디 있는지"만 보면 항상 맞는
-## 값이 나온다.
-@onready var _step_indicator_label: RichTextLabel = $StepIndicatorLabel
+## [대형 기획 17] S-3(2026-10-28) — Q-2(2026-10-16)가 만든 "①캐릭터 ②시작 스킬
+## ③던전 입장" 단계 표시 띠는 사용자 지시로 제거됐다("왜 필요한지 불분명"). 같은
+## 자리를 공용 StatusMessageBar(code/scenes/status_message_bar.gd)가 대신 쓴다 —
+## 이 화면은 시작 스킬 슬롯 0이 항상 기본 해금/선택 상태라 "던전 입장"이 막히는
+## 실제 조건이 없으므로(Q-2 당시에도 같은 이유로 "캐릭터 선택 전 비활성"은 적용
+## 대상 없음으로 결론), 바는 조작 안내를 상시 보여준다(docs/design/MOCKUP_REVIEW.md
+## 3절 시안 그대로).
+@onready var _status_message_bar: StatusMessageBar = $StatusMessageBar
+
+const STATUS_BAR_GUIDE_TEXT := "방향키로 캐릭터와 시작 스킬을 고르세요 · 스페이스/Enter로 확정 · 아래 \"던전 입장\"으로 시작합니다."
 
 var _selected_id: String = CharacterProfiles.PROFILES[0]["id"]
 var _card_panels: Dictionary = {} # id -> PanelContainer (선택 강조 갱신용)
-var _current_step := 1
-var _last_rendered_step := -1
 
 ## L-3(2026-10-14, [대형 기획 12] K-3 후속): 배경을 처음 칠할 때는(화면 진입 직후)
 ## 즉시 적용하고, 그 뒤로 카드를 바꿀 때마다는 짧은 Tween으로 부드럽게 전환한다
@@ -245,39 +246,7 @@ func _ready() -> void:
 	_build_detail_panel()
 	_style_header_buttons()
 	_build_cards()
-	_update_step_indicator()
-
-
-## [대형 기획 15] Q-2 — 매 프레임 포커스 소유자를 확인해 "①캐릭터 ②시작 스킬
-## ③던전 입장" 중 지금 단계를 판단한다. 세 그룹에 속하지 않는 다른 컨트롤(업적/
-## 스킬 도감/테스트 전투 버튼 등 화면 공용 단축 버튼)에 포커스가 가 있는 동안은
-## 마지막으로 유효했던 단계를 그대로 유지한다(깜빡이며 꺼지지 않게).
-func _process(_delta: float) -> void:
-	var focus := get_viewport().gui_get_focus_owner()
-	if focus != null:
-		# _starting_skill_slot_buttons는 Array[Button]이라, Control로 받은 focus를
-		# 캐스팅 없이 그대로 .has()에 넘기면 타입 검사 오류가 난다(값 자체는 Button이어도
-		# 정적 타입이 Control이라 막힘) — Button일 때만 캐스팅해서 확인한다.
-		if focus is Button and _starting_skill_slot_buttons.has(focus as Button):
-			_current_step = 2
-		elif focus == start_button:
-			_current_step = 3
-		elif _card_panels.values().has(focus):
-			_current_step = 1
-	if _current_step != _last_rendered_step:
-		_last_rendered_step = _current_step
-		_update_step_indicator()
-
-
-func _update_step_indicator() -> void:
-	var labels := ["① 캐릭터", "② 시작 스킬", "③ 던전 입장"]
-	var parts: Array[String] = []
-	for i in labels.size():
-		if i + 1 == _current_step:
-			parts.append("[b][color=#e0c060]%s[/color][/b]" % labels[i])
-		else:
-			parts.append("[color=#808080]%s[/color]" % labels[i])
-	_step_indicator_label.text = "  →  ".join(parts)
+	_status_message_bar.set_message(STATUS_BAR_GUIDE_TEXT)
 
 
 ## [대형 기획 15] Q-2 — Esc로 "②시작 스킬" 단계에서 "①캐릭터" 단계로 한 단계
@@ -880,7 +849,9 @@ func _build_ability_section() -> void:
 ## 후보가 캐릭터마다 다르므로 여기서는 빈 컨테이너만 만들고, 실제 채우기는
 ## _rebuild_starting_skill_slots()가 캐릭터를 고를 때마다 담당한다.
 func _build_starting_skill_section() -> void:
-	var body := _make_section("시작 스킬 (하나만 선택)")
+	# [대형 기획 17] S-1.3(2026-10-28) — "(하나만 선택)" 문구 제거. 선택 상태는 이미
+	# _starting_skill_slot_style()가 금테로 표시하고 있어 별도 UI를 새로 만들 필요 없음.
+	var body := _make_section("시작 스킬")
 	# Q-7(c): 도식(44px)이 늘어난 만큼, 세로 예산(580px, 전신 컬럼과 공유)을 지키려고
 	# 이 섹션만 줄 사이 간격을 기본값(4)보다 좁힌다(dice_test.gd N-2b — 전신 컬럼이
 	# 던전 입장 버튼과 안 겹쳐야 함).
@@ -1058,6 +1029,7 @@ func _rebuild_starting_skill_slots() -> void:
 			SkillCodex.mark_discovered(_selected_id, skill["id"])
 		var slot_button := _make_starting_skill_slot(skill, unlocked, i)
 		_starting_skill_container.add_child(slot_button)
+		_fit_starting_skill_slot_height(slot_button)
 		_starting_skill_slot_buttons.append(slot_button)
 	# K-3: 시작 스킬 슬롯의 포커스 테두리도 캐릭터 accent 색을 쓴다(K-1의 ACCENT_DEFAULT
 	# 대신). 상세 패널 전체가 이미 그 캐릭터 색이므로 포커스 색도 일관되게 맞춘다.
@@ -1162,12 +1134,18 @@ func _make_starting_skill_slot(skill: Dictionary, unlocked: bool, slot_index: in
 	content.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	content.set_anchors_preset(Control.PRESET_FULL_RECT)
 	content.alignment = BoxContainer.ALIGNMENT_CENTER
-	content.add_theme_constant_override("separation", 4)
+	# [대형 기획 17] S-1.2/S-1.4(2026-10-28)로 한 줄(효과 요약/해금 조건)이 늘어난 만큼
+	# 세로 예산을 아끼려고 기본값(4)보다 좁힌다(N-2b 겹침 회귀로 실측 후 조정).
+	content.add_theme_constant_override("separation", 2)
 	button.add_child(content)
 
 	var icon_area := Control.new()
 	icon_area.custom_minimum_size = Vector2(STARTING_SKILL_ICON_SIZE, STARTING_SKILL_ICON_SIZE)
 	icon_area.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# [대형 기획 17] S-1.1(2026-10-28) — 아이콘/장식이 칸보다 커도 칸 밖으로 안 터지게
+	# 하는 안전망(STARTING_SKILL_ICON_SIZE에 맞춰 그리는 자식 노드들은 이미 넘치지
+	# 않지만, 새 아트가 들어와도 구조적으로 보장되게 clip).
+	icon_area.clip_contents = true
 	content.add_child(icon_area)
 
 	# K-4b: 효과 모티프 아이콘(SkillPool.icon_motif_for) — 잠긴 슬롯도 윤곽(실루엣)은
@@ -1230,6 +1208,34 @@ func _make_starting_skill_slot(skill: Dictionary, unlocked: bool, slot_index: in
 	name_label.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9) if unlocked else Color(0.55, 0.55, 0.55))
 	content.add_child(name_label)
 
+	# [대형 기획 17] S-1.2/S-1.4(2026-10-28) — 슬롯 이름만으로는 효과/해금 조건을 알 수
+	# 없다는 피드백. 해금된 슬롯엔 효과 한 줄 요약을, 잠긴 슬롯엔 짧은 해금 조건을
+	# 카드 안에 상시 노출한다(잠긴 슬롯은 기존처럼 tooltip도 유지 — 호버 시 전체 문장,
+	# 선택/미리보기 시 아래 설명 줄에도 전체 문장이 뜸, _update_starting_skill_description
+	# 참고). 둘 다 한 줄(말줄임)로 잘라 슬롯 폭(STARTING_SKILL_SLOT_WIDTH)을 넘지 않게 한다.
+	if unlocked:
+		var summary_text: String = String(skill.get("description", ""))
+		if summary_text != "":
+			var summary_label := Label.new()
+			summary_label.text = summary_text
+			summary_label.clip_text = true
+			summary_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+			summary_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			summary_label.add_theme_font_size_override("font_size", 10)
+			summary_label.add_theme_color_override("font_color", Color(0.72, 0.72, 0.75))
+			summary_label.custom_minimum_size = Vector2(STARTING_SKILL_SLOT_WIDTH - 16.0, 0)
+			content.add_child(summary_label)
+	else:
+		var cond_label := Label.new()
+		cond_label.text = SkillPool.unlock_requirement_short(slot_index)
+		cond_label.clip_text = true
+		cond_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		cond_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		cond_label.add_theme_font_size_override("font_size", 10)
+		cond_label.add_theme_color_override("font_color", Color(0.82, 0.68, 0.3))
+		cond_label.custom_minimum_size = Vector2(STARTING_SKILL_SLOT_WIDTH - 16.0, 0)
+		content.add_child(cond_label)
+
 	var is_previewing: bool = not unlocked and skill["id"] == _preview_skill_id
 	var selected: bool = unlocked and skill["id"] == RunState.chosen_starting_skill_id
 	button.add_theme_stylebox_override("normal", _starting_skill_slot_style(selected, unlocked, is_previewing))
@@ -1242,6 +1248,23 @@ func _make_starting_skill_slot(skill: Dictionary, unlocked: bool, slot_index: in
 		button.pressed.connect(_on_starting_skill_locked_preview.bind(skill["id"]))
 
 	return button
+
+
+## S-1.2/S-1.4가 슬롯 안에 한 줄을 더 추가한 만큼, Button은 자식이 늘어도 자동으로
+## 안 커지므로(MOCKUP_REVIEW.md 3절 "시행착오" 참고) 실측 높이로 직접 늘려야 한다.
+## **반드시 button이 트리에 들어간 뒤(add_child 이후)에 호출할 것** — 트리 밖에서
+## get_combined_minimum_size()를 재면 폰트 테마가 아직 캐스케이드되지 않아 실제보다
+## 들쭉날쭉한(여기서는 더 크게 나온) 값을 돌려줘, 필요 이상으로 카드가 커지면서
+## 전신 원화 컬럼까지 같은 HBoxContainer cross-axis 때문에 함께 늘어나 "던전 입장"
+## 버튼과 겹치는 회귀가 실제로 발생했다(dice_test N-2b로 발견).
+func _fit_starting_skill_slot_height(button: Button) -> void:
+	var content := button.get_child(0) as Control
+	if content == null:
+		return
+	var needed_height: float = content.get_combined_minimum_size().y + 6.0
+	if needed_height > button.custom_minimum_size.y:
+		button.custom_minimum_size = Vector2(button.custom_minimum_size.x, needed_height)
+		button.size = button.custom_minimum_size
 
 
 ## selected(현재 chosen_starting_skill_id와 일치)면 캐릭터 카드 선택과 같은 금테,

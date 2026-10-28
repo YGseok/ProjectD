@@ -317,6 +317,10 @@ func _draw_condition_symbol() -> void:
 func _draw_arrow_symbol() -> void:
 	var icon_px: float = ICON_PX[size_variant]
 	var pad: float = PAD[size_variant]
+	var art := _load_diagram_shape_art("arrow", TEXT_COLOR)
+	if art != null:
+		draw_texture_rect(art, Rect2(Vector2(pad, (size.y - icon_px) * 0.5), Vector2(icon_px, icon_px)), false)
+		return
 	var y := size.y * 0.5
 	var line_end: float = pad + icon_px * 0.9
 	draw_line(Vector2(pad, y), Vector2(line_end, y), TEXT_COLOR, 2.0)
@@ -409,6 +413,35 @@ func _draw_unknown_symbol() -> void:
 ## draw_*" 원칙.
 ## ---------------------------------------------------------------------------
 
+## [대형 기획 17] S-1.5(2026-10-28) — die/compare/condition/gold는 이미 _draw_die_icon()이
+## resources/ui/icon/(여러 화면이 공유하는 기능 아이콘 세트)로 "있으면 아트, 없으면 도형"을
+## 하고 있다. 그 세트에 없는 나머지 도식 전용 모양(이벤트 육각형/재질 마름모/재굴림/스택
+## (공격·방어)/맞바꾸기/주기/화살표 — 11종 발주 목록은 docs/STATUS.md 참고)은 별도 폴더
+## resources/ui/diagram/<shape>.png를 같은 원칙(흰 실루엣+알파를 symbol 색으로 틴트)으로
+## 확인한다. 파일이 없으면(지금은 전부 이 상태) null을 돌려줘 호출부가 기존 절차적
+## draw_*_shape()로 그대로 폴백한다.
+static var _diagram_shape_art_cache: Dictionary = {}
+
+func _load_diagram_shape_art(shape_name: String, tint: Color) -> Texture2D:
+	var key := "%s|%s" % [shape_name, tint.to_html(true)]
+	if _diagram_shape_art_cache.has(key):
+		return _diagram_shape_art_cache[key]
+	var path := "res://resources/ui/diagram/%s.png" % shape_name
+	var tex: Texture2D = null
+	if FileAccess.file_exists(path):
+		var img := Image.new()
+		if img.load(path) == OK:
+			img.convert(Image.FORMAT_RGBA8)
+			for y in img.get_height():
+				for x in img.get_width():
+					var c := img.get_pixel(x, y)
+					img.set_pixel(x, y, Color(c.r * tint.r, c.g * tint.g, c.b * tint.b, c.a))
+			img.generate_mipmaps()
+			tex = ImageTexture.create_from_image(img)
+	_diagram_shape_art_cache[key] = tex
+	return tex
+
+
 func _draw_die_icon(rect: Rect2, icon_name: String, color: Color) -> void:
 	var tex := UIKit.icon_texture(icon_name, color)
 	if tex != null:
@@ -462,6 +495,10 @@ func _draw_shield_shape(rect: Rect2, color: Color) -> void:
 
 
 func _draw_hexagon_shape(rect: Rect2, color: Color) -> void:
+	var art := _load_diagram_shape_art("event", color)
+	if art != null:
+		draw_texture_rect(art, rect, false)
+		return
 	var center := rect.get_center()
 	var r: float = min(rect.size.x, rect.size.y) * 0.48
 	var pts := PackedVector2Array()
@@ -472,6 +509,10 @@ func _draw_hexagon_shape(rect: Rect2, color: Color) -> void:
 
 
 func _draw_split_diamond_shape(rect: Rect2, color_a: Color, color_b: Color) -> void:
+	var art := _load_diagram_shape_art("split", color_a)
+	if art != null:
+		draw_texture_rect(art, rect, false)
+		return
 	var x0 := rect.position.x
 	var y0 := rect.position.y
 	var w := rect.size.x
@@ -525,6 +566,10 @@ func _draw_dice_shape(rect: Rect2, color: Color) -> void:
 
 
 func _draw_diamond_shape(rect: Rect2, color: Color) -> void:
+	var art := _load_diagram_shape_art("material", color)
+	if art != null:
+		draw_texture_rect(art, rect, false)
+		return
 	var center := rect.get_center()
 	var hw := rect.size.x * 0.4
 	var hh := rect.size.y * 0.4
@@ -546,6 +591,10 @@ func _draw_numeral_badge(rect: Rect2, text: String, color: Color) -> void:
 
 
 func _draw_clock_shape(rect: Rect2, color: Color) -> void:
+	var art := _load_diagram_shape_art("cycle", color)
+	if art != null:
+		draw_texture_rect(art, rect, false)
+		return
 	var center := rect.get_center()
 	var r: float = min(rect.size.x, rect.size.y) * 0.42
 	draw_arc(center, r, 0.0, TAU, 20, color, 2.0)
@@ -554,6 +603,10 @@ func _draw_clock_shape(rect: Rect2, color: Color) -> void:
 
 
 func _draw_reroll_shape(rect: Rect2, color: Color) -> void:
+	var art := _load_diagram_shape_art("reroll", color)
+	if art != null:
+		draw_texture_rect(art, rect, false)
+		return
 	var center := rect.get_center()
 	var r: float = min(rect.size.x, rect.size.y) * 0.4
 	draw_arc(center, r, -PI * 0.1, PI * 1.5, 20, color, 2.2)
@@ -567,6 +620,10 @@ func _draw_reroll_shape(rect: Rect2, color: Color) -> void:
 
 
 func _draw_burst_shape(rect: Rect2, color: Color) -> void:
+	var art := _load_diagram_shape_art("stack_attack", color)
+	if art != null:
+		draw_texture_rect(art, rect, false)
+		return
 	var center := rect.get_center()
 	var outer: float = min(rect.size.x, rect.size.y) * 0.46
 	var inner: float = outer * 0.42
@@ -580,6 +637,10 @@ func _draw_burst_shape(rect: Rect2, color: Color) -> void:
 
 
 func _draw_layered_shield_shape(rect: Rect2, color: Color) -> void:
+	var art := _load_diagram_shape_art("stack_defense", color)
+	if art != null:
+		draw_texture_rect(art, rect, false)
+		return
 	_draw_shield_shape(rect, color)
 	var center := rect.get_center() - Vector2(0, rect.size.y * 0.08)
 	var r: float = min(rect.size.x, rect.size.y) * 0.22
@@ -587,6 +648,10 @@ func _draw_layered_shield_shape(rect: Rect2, color: Color) -> void:
 
 
 func _draw_swap_shape(rect: Rect2, color: Color) -> void:
+	var art := _load_diagram_shape_art("swap", color)
+	if art != null:
+		draw_texture_rect(art, rect, false)
+		return
 	var x0 := rect.position.x
 	var y0 := rect.position.y
 	var w := rect.size.x
