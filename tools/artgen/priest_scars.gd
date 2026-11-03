@@ -2,7 +2,8 @@ extends SceneTree
 ## tools/artgen/priest_scars.gd — 심연의 사제 로컬 수정(디자인 유지용): GPT 재생성 없이
 ##  (1) 옷 중앙 패널의 눈 문양 블록과 그 위 빈 패널 블록을 맞바꿔 문양을 복부 쪽으로 올리고,
 ##  (2) 피부 위에만 X자 흉터를 그린다(피부 = 불투명·밝고 채도 낮은 픽셀).
-## 사용: godot --headless --script priest_scars.gd -- <입력> <출력>
+## 사용: godot --headless --script priest_scars.gd -- <입력> <출력> [skin_only] [nomove]
+##   skin_only: CLOTH에 적힌 옷 위 흉터(사용자가 표시한 허리끈·왼쪽 옷자락)는 그리지 않는다(20차 피드백 — v7 기준 유지).
 
 const PANEL_X := Vector2i(362, 470)       # 옷 중앙 패널 가로 범위(원본 1024×1536 기준)
 const EMBLEM := Vector2i(838, 990)        # 눈 문양 프레임 y 범위
@@ -17,6 +18,7 @@ const SCARS := [
 	[548, 752, 22, 5], [620, 790, 26, -8], [600, 905, 24, 14], [640, 925, 22, -4], [672, 950, 20, 20], [710, 1075, 22, -10],
 	[315, 1100, 20, 6], [325, 1160, 16, -12], [742, 1140, 15, 0],
 ]
+const CLOTH := [Vector2i(510, 585), Vector2i(325, 715)]   # 사용자 표시(2026-11-03): 허리끈·왼쪽 옷자락 위
 
 func _skin(c: Color) -> bool:
 	return c.a > 0.9 and c.v > 0.78 and c.s < 0.16
@@ -46,19 +48,23 @@ func _initialize() -> void:
 	var a := OS.get_cmdline_user_args()
 	var img := Image.load_from_file(a[0]); img.convert(Image.FORMAT_RGBA8)
 	# (1) 눈 문양 프레임을 복부로 옮기고, 원래 자리는 빈 패널 한 줄을 반복해 메운다
-	var w := PANEL_X.y - PANEL_X.x
-	var h := EMBLEM.y - EMBLEM.x
-	var emblem := img.get_region(Rect2i(PANEL_X.x, EMBLEM.x, w, h))
-	var row := img.get_region(Rect2i(PANEL_X.x, PLAIN_Y, w, 1))
-	for y in range(EMBLEM.x, EMBLEM.y):
-		img.blit_rect(row, Rect2i(0, 0, w, 1), Vector2i(PANEL_X.x, y))
-	img.blit_rect(emblem, Rect2i(0, 0, w, h), Vector2i(PANEL_X.x, TARGET_Y))
+	#     (nomove: 이미 panel_rebuild.gd로 재배치한 입력이면 건너뜀 — 이 사각 블록 방식은 금테가 어긋나 끊겨 보임)
+	if not "nomove" in a:
+		var w := PANEL_X.y - PANEL_X.x
+		var h := EMBLEM.y - EMBLEM.x
+		var emblem := img.get_region(Rect2i(PANEL_X.x, EMBLEM.x, w, h))
+		var row := img.get_region(Rect2i(PANEL_X.x, PLAIN_Y, w, 1))
+		for y in range(EMBLEM.x, EMBLEM.y):
+			img.blit_rect(row, Rect2i(0, 0, w, 1), Vector2i(PANEL_X.x, y))
+		img.blit_rect(emblem, Rect2i(0, 0, w, h), Vector2i(PANEL_X.x, TARGET_Y))
 	# (2) 피부 마스크(흉터를 그리기 전 상태 기준)
 	var mask := Image.create(img.get_width(), img.get_height(), false, Image.FORMAT_L8)
 	for y in img.get_height():
 		for x in img.get_width():
 			mask.set_pixel(x, y, Color.WHITE if _skin(img.get_pixel(x, y)) else Color.BLACK)
+	var skin_only := a.size() > 2 and a[2] == "skin_only"
 	for s in SCARS:
+		if skin_only and Vector2i(s[0], s[1]) in CLOTH: continue
 		var c := Vector2(s[0], s[1]); var r: float = s[2]; var rot := deg_to_rad(float(s[3]))
 		var d1 := Vector2(r, r).rotated(rot); var d2 := Vector2(r, -r).rotated(rot)
 		_stroke(img, mask, c - d1, c + d1, r * 0.12)
