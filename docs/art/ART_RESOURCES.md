@@ -711,6 +711,7 @@ Work는 `resources/ui/` 이미지가 있으면 StyleBoxTexture로 쓰고, 없으
 층(`resources/key_visual/layers/`): ① 배경 단계 bg_t0~t3(소박→화려, 사람·탁자 앞판 제외) 또는 기본 배경 + deco_t1~t3 덧층 ② 탁자·지도 앞판 table(.png 또는 table_t0~t3) ③ char_<id>.png ×8(novice, berserker, guardian, explosive, shieldbearer, enchantress, juggler, pirate — 가려지는 부분 없이 온전한 상반신) ④ char_<id>_blink.png(눈만 감김) ⑤ flame_*.png(촛불·랜턴 불꽃) ⑥ (선택) cat.png.
 순서: 구도 시안(전원 + T3 장식) 사용자 확인 → 배경 단계 → 캐릭터 8명 → 감은 눈·불꽃. 게임은 층이 없으면 key_visual_tavern.png 한 장으로 대체 — 들어오는 대로 넣으면 됨. 캐릭터 등장·장식 단계 조건은 사용자 확정 대기.
 진행: 2026-11-04 구도 시안 2장(`tools/artgen/inbox/kv/kv_layout_1·2`, `qa_out/r3/kv_layout.png`) 사용자 확인 대기. 두 시안 모두 캐릭터 어깨가 서로 겹쳐 있어, 층 분리 시에는 자리 간격을 더 벌린 구도로 다시 잡아야 함.
+**보류 (2026-11-05 Work 전달)**: 우선순위 낮음 — 사용자가 캐릭터 이미지(표정 등) 정리 후 직접 다시 요청할 예정, 그 전엔 새 시안 만들지 않음. **다시 요청이 오면 바로 반영할 것: 자리 간격 넓히기(어깨 겹침 제거).** 장식 단계는 캐릭터 수 3/5/8명 → T1/T2/T3로 확정.
 
 ### 3-10. 작업 대기열 (2026-10-21 사용자 지시 — 캐릭터별 요청을 모아 한 번에 하나씩, 위에서부터 순서대로)
 
