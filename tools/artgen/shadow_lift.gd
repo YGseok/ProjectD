@@ -71,6 +71,8 @@ func _initialize() -> void:
 			var gold := c.h > 0.06 and c.h < 0.17 and c.s > 0.35 and c.v > 0.45
 			if gold or c.v >= vmax: continue
 			var nv := vmax * (lo + (1.0 - lo) * pow(c.v / vmax, g))  # v=vmax에서 연속
+			# 채도 없는 어두운 픽셀(입속·선)은 올리면 회색 '구멍'처럼 보임 → 거의 그대로 둔다(rs19 이빨 사이 구멍 원인)
+			nv = lerpf(c.v, nv, smoothstep(0.12, 0.3, c.s))
 			var ns := c.s
 			var d := dist[y * W + x]
 			if d <= rim:
