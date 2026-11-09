@@ -62,3 +62,52 @@ static func preview_player_values(skill_ids: Array, values: Array, state: Dictio
 
 static func preview_player_total(skill_ids: Array, values: Array, state: Dictionary, ctx: Dictionary) -> int:
 	return sum_values(preview_player_values(skill_ids, values, state, ctx))
+
+
+## [대형 기획 18] 2단계 — 몬스터 예고(의도). "다음 행동에 실제로 영향을 주는 것"을
+## 효과 위주의 짧은 줄로 돌려준다(기믹 수치는 그대로, 보이게만). params는
+## monster_skill_params(스킬 id -> {"amount"...}) + 선택 키 "anger_threshold",
+## "anger_dice_sides", "fixed_value". state는 읽기만 한다.
+static func monster_intent_lines(skill_ids: Array, state: Dictionary, params: Dictionary, monster_hp: int, monster_max_hp: int) -> Array[String]:
+	var lines: Array[String] = []
+	var half: bool = monster_hp <= monster_max_hp / 2.0
+	for id in skill_ids:
+		match id:
+			"anger_stack":
+				if state.get("anger_pending", false):
+					lines.append("다음 공격은 %d면체 (분노)" % int(params.get("anger_dice_sides", 20)))
+				else:
+					lines.append("분노 %d/%d — 차면 다음 공격 %d면체" % [int(state.get("anger_stacks", 0)), int(params.get("anger_threshold", 3)), int(params.get("anger_dice_sides", 20))])
+			"pounce":
+				if not state.get("pounce_used", false):
+					lines.append("첫 공격 +%d (기습)" % int(params.get("pounce", {}).get("amount", 0)))
+			"bloodlust":
+				lines.append("공격 주사위 +1 (피의 갈망)" if half else "HP 절반 이하면 공격 +1 (피의 갈망)")
+			"guard_up":
+				lines.append("방어 주사위 +1 (궁지의 방어)" if half else "HP 절반 이하면 방어 +1 (궁지의 방어)")
+			"armor":
+				lines.append("방어 합계 +%d (방어구)" % int(params.get("armor", {}).get("amount", 0)))
+			"steady_guard":
+				lines.append("방어 주사위 절반 미만이면 끌어올림 (철벽 방어)")
+			"min_max_only":
+				lines.append("최소·최대 값만 나옴 (극단)")
+			"fixed_value":
+				lines.append("항상 %d (고정값)" % int(params.get("fixed_value", 0)) if params.has("fixed_value") else "항상 같은 값 (고정값)")
+			"counter":
+				lines.append("공격이 완전히 막히면 %d 반사 (반격)" % int(params.get("counter", {}).get("amount", 0)))
+			"sticky":
+				lines.append("내 공격 최고값 -1 (끈적임)")
+			"seal":
+				lines.append("내 공격 가장 낮은 주사위 0 (봉인)")
+			"chill":
+				lines.append("내 공격 최고값 -1 (한기)")
+			"numb":
+				lines.append("내 방어 최고값 -1 (마비)")
+			"dull":
+				lines.append("최대값이 나온 내 주사위 -1 (둔화)")
+			"drain":
+				lines.append("입힌 피해의 절반 회복 (흡수)")
+			"revive":
+				if not state.get("revive_used", false):
+					lines.append("한 번 쓰러져도 부활 (불사)")
+	return lines

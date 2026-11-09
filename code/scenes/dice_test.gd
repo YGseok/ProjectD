@@ -519,6 +519,7 @@ func _ready() -> void:
 	lines.append("")
 	lines.append("[대형 기획 18: 코어 플레이 시험판 — 고정 칸 유지 재굴림, 미리보기가 전투 상태를 안 바꿈, pre 값 경로 == 기본 경로, seal 미리보기 == 실제, 재굴림 가능 조건, 토글 기본 OFF/본편 미적용]")
 	all_pass = _check_proto_rules(lines) and all_pass
+	all_pass = _check_proto_intent(lines) and all_pass
 
 	lines.append("")
 	lines.append("[Q-11: 몬스터 도감 — 격자 카드 수==MonsterCatalog 전체 수, 격자/상세 뷰의 '원화/표정 n/5' 입고 현황이 실제 파일 존재(user:// 합성 에셋)와 일치, 계열/티어 필터가 실제 버튼 클릭으로 카드 수를 정확히 거르는지, 상세 뷰 표정 전환이 실제 렌더 픽셀을 바꾸는지(미입고 표정은 버튼 disabled로 전환 불가), 실제 InputEventKey 주입으로 필터 행->격자->상세 표정 버튼까지 방향키 이동 검증]")
@@ -14902,4 +14903,25 @@ func _check_proto_rules(lines: PackedStringArray) -> bool:
 	RunState.skill_flags = flags_backup
 	RunState.player_attack_bag = atk_backup
 	RunState.player_defense_bag = def_backup
+	return ok
+
+
+## [대형 기획 18] 2단계 — 몬스터 예고 줄이 상태를 반영하는지(기습 사용 전/후, 분노 대기,
+## 피의 갈망 HP 조건, 봉인/흡수 표시).
+func _check_proto_intent(lines: PackedStringArray) -> bool:
+	var params := {"pounce": {"amount": 3}, "anger_threshold": 3, "anger_dice_sides": 20}
+	var wolf_before := ProtoRules.monster_intent_lines(["pounce"], {}, params, 10, 10)
+	var wolf_after := ProtoRules.monster_intent_lines(["pounce"], {"pounce_used": true}, params, 10, 10)
+	var anger_wait := ProtoRules.monster_intent_lines(["anger_stack"], {"anger_stacks": 2}, params, 10, 10)
+	var anger_ready := ProtoRules.monster_intent_lines(["anger_stack"], {"anger_pending": true}, params, 10, 10)
+	var blood_full := ProtoRules.monster_intent_lines(["bloodlust"], {}, params, 10, 10)
+	var blood_half := ProtoRules.monster_intent_lines(["bloodlust"], {}, params, 5, 10)
+	var seal := ProtoRules.monster_intent_lines(["seal"], {}, params, 10, 10)
+	var drain := ProtoRules.monster_intent_lines(["drain"], {}, params, 10, 10)
+	var ok: bool = (wolf_before == ["첫 공격 +3 (기습)"] and wolf_after.is_empty()
+		and anger_wait[0].begins_with("분노 2/3") and anger_ready == ["다음 공격은 20면체 (분노)"]
+		and blood_full[0].begins_with("HP 절반 이하면") and blood_half == ["공격 주사위 +1 (피의 갈망)"]
+		and seal[0].contains("0 (봉인)") and drain[0].contains("흡수"))
+	lines.append("  예고 줄: 기습 전 %s / 후 %s, 분노 %s / %s, 피의 갈망 %s / %s, 봉인 %s, 흡수 %s -> %s" % [
+		wolf_before, wolf_after, anger_wait, anger_ready, blood_full, blood_half, seal, drain, "OK" if ok else "FAIL"])
 	return ok

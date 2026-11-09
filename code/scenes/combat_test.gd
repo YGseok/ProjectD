@@ -2090,6 +2090,7 @@ func _spare_die_count() -> int:
 func _run_battle() -> void:
 	if _proto_active():
 		_proto_autoconfirm_left = int(OS.get_environment("GAME_QA_PROTO_AUTOCONFIRM"))
+		_proto_update_intent()
 		while not battle_over:
 			await _do_exchange_proto(true)
 			if battle_over:
@@ -4229,6 +4230,7 @@ func _proto_player_ctx() -> Dictionary:
 ## 사본 상태로만 계산한다(ProtoRules) — monster_skill_state는 확정 시 한 번만 바뀐다.
 func _proto_render() -> void:
 	_clear_exchange_dice_chips()
+	_proto_update_intent()
 	_proto_player_chips = []
 	var monster_values := ProtoRules.preview_monster_values(monster_skill_ids, _proto_monster_raw, monster_skill_state, _proto_monster_ctx())
 	var monster_total := ProtoRules.sum_values(monster_values)
@@ -4350,3 +4352,24 @@ func _debug_proto_hold_two() -> void:
 func _debug_proto_exhaust_rerolls() -> void:
 	_proto_rerolls_left = 0
 	_proto_render()
+
+
+## [대형 기획 18] 2단계 — 시험판에서는 몬스터 패널의 "특성: 이름들" 줄 대신 지금 실제로
+## 영향을 주는 예고(ProtoRules.monster_intent_lines)를 보여준다(이름만 나열하던 줄과
+## 중복이라 대체). 매 렌더마다 갱신 — 분노 스택/기습 사용/HP 절반 등 상태가 반영된다.
+func _proto_update_intent() -> void:
+	if monster_trait_label == null:
+		return
+	var params: Dictionary = monster_skill_params.duplicate()
+	params["anger_threshold"] = ANGER_STACK_THRESHOLD
+	params["anger_dice_sides"] = ANGER_DICE_SIDES
+	if monster_config.has("dice_gimmick_value") and monster_skill_ids.has("fixed_value"):
+		params["fixed_value"] = monster_config["dice_gimmick_value"]
+	var lines := ProtoRules.monster_intent_lines(monster_skill_ids, monster_skill_state, params, monster_hp, monster_max_hp)
+	var parts: Array[String] = []
+	var personality: String = monster_config.get("personality", "")
+	if personality != "":
+		parts.append(personality)
+	for line in lines:
+		parts.append("· " + line)
+	monster_trait_label.text = "\n".join(parts) if not parts.is_empty() else "특성 없음"
