@@ -520,6 +520,7 @@ func _ready() -> void:
 	lines.append("[대형 기획 18: 코어 플레이 시험판 — 고정 칸 유지 재굴림, 미리보기가 전투 상태를 안 바꿈, pre 값 경로 == 기본 경로, seal 미리보기 == 실제, 재굴림 가능 조건, 토글 기본 OFF/본편 미적용]")
 	all_pass = _check_proto_rules(lines) and all_pass
 	all_pass = _check_proto_intent(lines) and all_pass
+	all_pass = _check_proto_pause(lines) and all_pass
 
 	lines.append("")
 	lines.append("[Q-11: 몬스터 도감 — 격자 카드 수==MonsterCatalog 전체 수, 격자/상세 뷰의 '원화/표정 n/5' 입고 현황이 실제 파일 존재(user:// 합성 에셋)와 일치, 계열/티어 필터가 실제 버튼 클릭으로 카드 수를 정확히 거르는지, 상세 뷰 표정 전환이 실제 렌더 픽셀을 바꾸는지(미입고 표정은 버튼 disabled로 전환 불가), 실제 InputEventKey 주입으로 필터 행->격자->상세 표정 버튼까지 방향키 이동 검증]")
@@ -14924,4 +14925,25 @@ func _check_proto_intent(lines: PackedStringArray) -> bool:
 		and seal[0].contains("0 (봉인)") and drain[0].contains("흡수"))
 	lines.append("  예고 줄: 기습 전 %s / 후 %s, 분노 %s / %s, 피의 갈망 %s / %s, 봉인 %s, 흡수 %s -> %s" % [
 		wolf_before, wolf_after, anger_wait, anger_ready, blood_full, blood_half, seal, drain, "OK" if ok else "FAIL"])
+	return ok
+
+
+## [대형 기획 18] 3단계 — 시험판일 때만 교환 대기가 짧아지는지(본편은 0.8초 그대로).
+func _check_proto_pause(lines: PackedStringArray) -> bool:
+	var ct = load("res://code/scenes/combat_test.gd").new()
+	var tb_backup := RunState.test_battle
+	var pr_backup := RunState.proto_rules
+	RunState.test_battle = false
+	RunState.proto_rules = true
+	var main_pause: float = ct._exchange_pause_time()
+	RunState.test_battle = true
+	var proto_pause: float = ct._exchange_pause_time()
+	RunState.proto_rules = false
+	var off_pause: float = ct._exchange_pause_time()
+	RunState.test_battle = tb_backup
+	RunState.proto_rules = pr_backup
+	ct.free()
+	var ok: bool = is_equal_approx(main_pause, 0.8) and is_equal_approx(off_pause, 0.8) and proto_pause < 0.5
+	lines.append("  교환 대기: 본편 %.2f / 테스트+토글OFF %.2f (기대 0.80) / 시험판 %.2f (기대 < 0.5) -> %s" % [
+		main_pause, off_pause, proto_pause, "OK" if ok else "FAIL"])
 	return ok

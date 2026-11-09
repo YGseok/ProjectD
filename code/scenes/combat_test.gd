@@ -2957,7 +2957,7 @@ func _maybe_finish_battle(_dmg: int) -> void:
 	# 끝난 뒤에만 상단 토글 버튼을 보여준다 (battle_over가 막 true가 된 시점에 맞춰 동기화).
 	customize_toggle_button.visible = battle_over
 
-	await get_tree().create_timer(EXCHANGE_PAUSE_TIME).timeout
+	await get_tree().create_timer(_exchange_pause_time()).timeout
 
 	if battle_over:
 		# INBOX.md 피드백(2026-09-09) "결과 화면이 나왔을 때, 덱 보기 토글이 열려있다면
@@ -4373,3 +4373,12 @@ func _proto_update_intent() -> void:
 	for line in lines:
 		parts.append("· " + line)
 	monster_trait_label.text = "\n".join(parts) if not parts.is_empty() else "특성 없음"
+
+
+## [대형 기획 18] 3단계 — 시험판에서는 교환 사이 대기를 줄인다(구경 시간 단축). 본편/
+## 토글 OFF는 기존 EXCHANGE_PAUSE_TIME(0.8초) 그대로.
+const PROTO_EXCHANGE_PAUSE_TIME := 0.35
+
+
+func _exchange_pause_time() -> float:
+	return PROTO_EXCHANGE_PAUSE_TIME if _proto_active() else EXCHANGE_PAUSE_TIME

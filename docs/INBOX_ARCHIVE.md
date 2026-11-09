@@ -7,6 +7,73 @@
 
 ---
 
+- [처리됨 - 2026-10-16] 2026-10-06 [미니 기획 ART-1] 원화 적용에 따른 개선 (아트
+  스레드 "ProjectD Art"에서 전달) — ART-1a → ART-1b → ART-1c 전부 완료.
+  배경: 캐릭터 선택 화면에 전신 원화 4장(견습 모험가/광전사/수호자/폭발병)이 적용됨
+  (커밋 `0867fc6`, `code/scenes/character_art.gd`의 `CharacterArt` — 파일이 있으면 원화,
+  없으면 기존 플레이스홀더). 원화 목록·발주·파일 규칙은 `docs/art/ART_RESOURCES.md`가
+  원천이다. **Work 쪽은 `resources/`와 `docs/art/`를 수정하지 말 것**(경로를 읽기만 함).
+
+  **ART-1a. 캐릭터 선택 목록 넘침/겹침 (버그, 원화 적용 전부터 있던 문제) — 완료됨**
+  - 카드 패널 실제 높이가 `CARD_HEIGHT`(92)보다 커서 위아래 카드 테두리가 겹친다.
+  - 캐릭터가 7종이 되면서 7번째(곡예사) 카드가 화면(720) 밖으로 밀려 **마우스로 선택 불가**
+    (`CardsContainer` 높이 540 < 7 × 104). `qa_out/art_character_select.png` 참고.
+  - 해결: 카드 실제 높이에 맞춰 간격을 잡고, 목록을 ScrollContainer(또는 VBoxContainer)로
+    바꾸거나 카드를 2열로 배치 — 캐릭터가 더 늘어나도 깨지지 않는 방식으로.
+    원화 썸네일 칸은 72×92 기준(`CharacterArt.load_thumb()`의 크롭 영역)이니 유지할 것.
+  → `character_select.tscn`의 `CardsContainer`를 `ScrollContainer`(+내부 `CardsList`
+    Control)로 바꾸고, `_build_cards()`가 각 카드의 `get_combined_minimum_size().y`를
+    실측해 행 간격을 누적하도록 고쳤다(고정 `CARD_HEIGHT` 대신). `qa_out/character_
+    select_art1a.png`(7종 겹침 없이 스크롤바 표시)/`character_select_juggler_select.png`
+    (7번째 카드 실제 선택 동작 확인)로 검증.
+
+  **ART-1b. 전투 화면 상반신 표정 컷 연결 — 완료(2026-10-15, 견습 모험가 기준)**
+  - 견습 모험가(`novice`) face_* 5장이 입고돼 착수. `CharacterArt.has_all_faces(id)`
+    (5장 전부 있는지)를 추가하고, `CharacterPortraitPlaceholder.set_character(id)`가
+    5장 전부 있으면 내부 `_face_rect`(TextureRect, 240×240,
+    `TEXTURE_FILTER_LINEAR_WITH_MIPMAPS`, `STRETCH_KEEP_ASPECT_CENTERED`)로 원화
+    표정 컷을, 하나라도 없으면 기존 도형 플레이스홀더를 쓴다. 기존
+    `set_expression()` 호출 지점은 전혀 안 바꾸고 그 함수 내부에서만 분기.
+    `combat_test.gd`의 `_setup_combat_hud()`(캐릭터가 정해지는 지점)에
+    `player_portrait.set_character(cid)` 한 줄만 추가해 배선.
+  - `qa_out/art1b_novice_start.png`/`art1b_novice_after_exchange.png`로 HP바·다이스
+    영역과 안 겹침 + 표정(happy) 실제 전환 확인, `art1b_pirate_fallback.png`로 face
+    미입고 캐릭터는 기존 플레이스홀더 그대로(회귀 없음) 확인.
+  - `dice_test.gd`의 `_check_art1b_combat_face_art()`로 "파일 없음 → 플레이스홀더
+    유지" + "5장 있음 → 원화 + 표정별 텍스처 전환"을 단위/통합 양쪽에서 검증, 전체
+    PASS. 나머지 7종은 아트 스레드가 face_*를 입고하는 대로 코드 변경 없이 자동
+    적용된다(`has_all_faces()`가 범용 함수). 상세는 `docs/STATUS.md` 완료 기록(201).
+
+  **ART-1c. 몬스터 원화 경로 — 완료(2026-10-16, 코드 경로만. 몬스터 원화는 아직
+  입고 전)**
+  - `MonsterPortraitPlaceholder.set_monster(monster_id)`를 ART-1b와 같은 구조로
+    추가 — 새 경로-확인 클래스를 만들지 않고 `CharacterArt.has_all_faces()`/
+    `load_face()`(범용 순수 함수)를 몬스터 전용 base_dir("res://resources/
+    monsters/%s/")로 재사용해 `res://resources/monsters/<몬스터 id>/
+    face_{neutral,happy,hurt,sad,angry}.png` 5장 유무를 확인한다(`<몬스터 id>`는
+    `MonsterCatalog.MONSTERS`의 id 그대로). 5장 전부 있으면 `$MonsterPortrait`가
+    ART-1b와 같은 방식(원화 표정 컷 + 하단 페이드 셰이더, ART-2 셰이더 상수 재사용)
+    으로 전환되고, 하나라도 없으면 기존 플레이스홀더 유지. `combat_test.gd`의
+    몬스터 구성 지점에 `monster_portrait.set_monster(monster_id)` 한 줄만 추가.
+    MonsterPortrait가 화면 우측 끝(x=1170/1280) 근처라 ART-2(좌측 잘림)와 반대
+    방향 잘림이 있어 신규 `FACE_ART_SHIFT`로 보정(일반/보스 배율 둘 다 화면 안에
+    들어옴을 수치로 확인).
+  - `dice_test.gd`의 `_check_art1c_monster_face_art()`로 "파일 없음/일부/5장 모두"
+    전환 + 텍스처 교체 + production 인스턴스 일치 + 화면 우측 끝 좌표 + 하단 페이드
+    셰이더 렌더 알파(SubViewport)까지 전부 수치로 검증, 전체 PASS.
+  - 몬스터 쪽 아트가 아직 없어 production 화면으로는 원화 모드를 볼 수 없으므로
+    QA 전용 0-arity 훅(`_debug_show_monster_face_art_normal/_boss()`, `user://`에
+    가짜 face_* 생성 — `resources/`는 안 건드림)으로 셀프 피드백 캡처. 2라운드 —
+    1라운드에서 이 환경의 QA 캡처 폭 잘림(1028px) 때문에 production 배치 좌표가
+    캡처 밖으로 나가는 것을 발견해 디버그 전용으로 화면 중앙으로 옮겨 재확인,
+    2라운드에서 그 디버그 좌표가 다이스 스테이지와 겹쳐 하단 페이드가 눈으로
+    안 보이던 것을 셰이더 알파 수치 검증으로 확정(중간 1.000/바닥 0.000 — 정상
+    작동, 디버그 좌표의 겹침 아티팩트였을 뿐 실제 버그 아님). G-9까지 끝나 있는
+    신규 몬스터 목록(id/이름/계열/등급/성격/색, 아트 쪽 ID 대역: 일반 MO001~599 /
+    정예 MO600~799 / 보스 MO800~999)을 아트 스레드로 넘기는 일은 실제 몬스터
+    원화 발주가 시작될 때 처리. 상세는 `docs/STATUS.md` 완료 기록(216) 참고.
+
+
 - [처리됨 - 2026-10-16] 2026-10-15 [대형 기획 14] 조작/선택 화면/이벤트 특화 클래스·전용 이벤트 (N-1 → N-6). 사용자 플레이 피드백 6건.
   사람이 설계해둔 항목이니 "사람 설계 결정 필요"로 보류하지 말 것. **한 이터레이션에 한 조각(또는 (a)(b)(c) 한 칸)만.**
   **순서/의존성: [대형 기획 13](M-1~M-5, ART-2 포함)과 [미니 기획 M-6](카드 프레임 스킨)이 모두 완료됐으므로 착수 조건 충족**

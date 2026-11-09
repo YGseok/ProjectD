@@ -27,24 +27,6 @@
 
 (플레이해보고 느낀 점을 이 섹션에 자유롭게 적어주세요.)
 
-- **2026-11-05 [대형 기획 18] 코어 플레이 시험판 — 테스트 전투 모드 전용 (사용자 지시: 지금 만들지 말고 이터레이션에 저장. 재개 시 "광란의 마수 색·크롭" 다음 작업)** — 사용자 진단(원문 취지): "다른 것보다 코어 플레이가 재미없어서 고민 — 전투 중 구경하는 시간도 지루하고, 매 전투가 비슷하게 느껴져 경험이 같다(둘 다)." 사용자는 감독이 제안한 3가지(넘을 숫자 먼저 보고 굴리기 / 고정하고 다시 굴리기 / 몬스터 기믹으로 판단 바꾸기) + 연출 단축을 **테스트 전투에서만 켜지는 시험판**으로 만드는 데 동의했다. 직접 해본 뒤 본편 반영 여부를 정한다.
-  - **감독 분석(원인)**: 지금 전투는 완전 자동이다 — `_run_battle()`이 `_do_exchange(true/false)`를 번갈아 돌리고, 굴림·해석·HP 반영·`EXCHANGE_PAUSE_TIME`(0.8s) 대기까지 플레이어 입력이 한 번도 없다. 스킬도 전부 자동 발동. 몬스터 기믹 21종이 다 달라도 전부 "합계 살짝 보정"이라 플레이어가 대응할 수단이 없어 체감이 같다. → **매 턴 고를 것을 만들고, 몬스터 기믹이 그 선택을 다르게 만들게 한다.** "눈 합계 = 값", 공격/방어 주머니 두 개, 아이템·스킬 구조는 그대로(배치형/슬롯형 전환 아님 — DESIGN.md "족보·슬롯 배치 없음" 유지).
-  - **범위·토글**: `RunState`에 `proto_rules: bool`(기본 false, `reset`에서 false) 추가. 테스트 전투 설정 화면(`code/scenes/test_battle_setup.gd`, `RunState.test_battle = true` 하는 곳 근처)에 B안 토글 "시험판 규칙"(기본 ON)을 두고 시작 시 `RunState.proto_rules`에 반영. 전투는 `RunState.test_battle and RunState.proto_rules`일 때만 시험판 흐름. **본편 던전 전투와 토글 OFF는 기존 동작과 완전히 같아야 한다**(같은 시드 → 같은 결과, dice_test 회귀로 보장). `code/qa/balance_sim.gd`가 `_select_exchange_bags`/`_resolve_exchange`를 직접 호출하므로 두 함수의 기본 동작은 절대 바꾸지 말 것.
-  - **구현 설계(감독이 코드 읽고 잡은 방향 — 더 나은 방법이 있으면 STATUS에 이유를 적고 바꿔도 됨)**:
-    - 주사위 3D 물리는 연출일 뿐이고 실제 값은 `DiceBag.roll_detailed()`(RNG)에서 나온다. 그래서 "다시 굴리기"는 고정 안 한 주사위만 RNG로 다시 뽑고, 3D 다이스도 그 개수만큼 다시 스폰하면 된다.
-    - `_resolve_exchange()`에 선택 인자 추가: `pre_atk_values: Array = []`, `pre_def_values: Array = []`, `skip_evershuffle := false`. 비어 있으면 기존처럼 직접 굴림(기본 경로 불변), 주어지면 그 값을 "날 굴림 결과"로 쓰고 그 뒤 보정 체인(몬스터 기믹 → 캐릭터 스킬 → 데미지/HP)은 기존 그대로 탄다.
-    - 시험판 전용 `_do_exchange_proto(is_player_attacking)` 신설(`_run_battle`에서 분기): ① `_select_exchange_bags()`로 주머니 결정(분노 1D20·폭발/수호 보너스 1D20 판정 그대로). ② "끝없는 저글링"(evershuffle) 보유 시 플레이어 굴림 "전"에 교환하고 resolve에는 `skip_evershuffle=true`. ③ **몬스터 쪽 먼저**: 몬스터 주머니만 굴려(raw) 그 다이스만 스폰·정지 대기 → 몬스터 칩과 "넘을 숫자"(= 몬스터 기믹 적용 후 합계 미리보기) 표시. ④ **플레이어 쪽**: 플레이어 주머니를 굴려 스폰 → 칩을 클릭 가능하게 표시, 고정 상태 배열 유지. "다시 굴리기 (남은 횟수)" 버튼 = 고정 안 한 주사위만 재굴림·재스폰, 횟수 0이면 비활성. "확정" 버튼 → `_resolve_exchange(..., pre 값들)` 호출 → 결과 칩/로그/표정/`_maybe_finish_battle` 기존 처리.
-    - **미리보기는 상태를 건드리면 안 된다**: `MonsterSkills.modify_monster_roll()`은 `monster_skill_state`를 바꾼다(분노 스택 적립, `pounce_used`). 미리보기는 반드시 `monster_skill_state.duplicate(true)`로 계산하고, 실제 적용은 확정 시 resolve 한 번뿐. "내 현재 합계" 미리보기 = `MonsterSkills.modify_player_roll()`(sticky/seal/chill/dull/numb)을 현재 값에 적용한 실효 합계. seal로 0이 될 칩, sticky/chill/numb로 −1 될 칩은 칩 위에 작게 표시. 캐릭터 자신의 패시브 보정(charm_flip, 맹공, 여분 등)은 확정 시 적용되므로 미리보기에 다 넣기 어렵다 — 가능하면 넣고, 못 넣으면 "확정 후 패시브 적용"이 로그로 드러나게.
-    - 순수 계산은 새 파일(예: `code/systems/proto_rules.gd`, `class_name ProtoRules`)로 빼서 dice_test로 결정적 검증: `const REROLLS_PER_ROLL := 2`, `reroll_unheld(bag, values, held) -> Array`(고정 칸 값 유지, 다이스별 `faces[randi_range]`), `preview_player_total(...)`, `preview_monster_total(...)`, `monster_intent_lines(...)`.
-    - **몬스터 예고(의도) 표시** — `monster_intent_lines(skill_ids, state, params, monster_hp, monster_max_hp)`가 "다음 몬스터 행동에 실제로 영향을 주는 것"만 짧은 줄로 돌려준다. 예: `pounce` 미사용 → "첫 공격 덮치기 +3", `anger_stack` 대기 중 → "다음 공격 20면체" / 적립 중 → "분노 2/3", `bloodlust` HP 절반 이하 → "공격 +1(피의 갈망)", `min_max_only` → "최소·최대만 나옴", `fixed_value` → "항상 같은 값", `drain` → "입힌 피해의 절반 회복", `counter(n)` → "공격이 완전히 막히면 n 반사", `revive` 미사용 → "1회 부활", `armor(n)`/`guard_up`/`steady_guard` → 방어 보정. 표시 위치는 몬스터 정보 패널 아래 등 겹치지 않는 곳, 작고 차분하게(장식 없음). 기존 "특성:" 줄(`monster_trait_label`)과 중복되면 정리.
-    - **우선 판단이 확실히 달라지는 4종으로 체감 확인**: 늑대(`pounce` — 첫 공격턴에 방어 집중), 오크(`min_max_only` — 큰 값이 나왔을 때 버티기), 미믹(`seal` — 가장 낮은 주사위가 0이 되니 낮은 주사위를 다시 굴려도 소용없음 → 무엇을 다시 굴릴지가 달라짐), 구울(`drain` — 공격보다 방어가 중요해짐). **기믹 수치는 바꾸지 않는다**(보이게만).
-    - **고정 표시**: `ShapeDieChip`(Control)에 클릭(gui_input) + 고정 시 분명한 시각 변화(두꺼운 테두리/위로 살짝 올림/작은 자물쇠 중 하나, 화려하지 않게). 칩 줄은 `EXCHANGE_CHIP_Y`(526) 근처 — 버튼 두 개(B안 얇은 테두리)를 칩 줄 옆/아래에 두되 전투 기록 패널·HP바와 겹치지 않게 1280x720·1100x620에서 확인.
-    - **구경 시간 줄이기**: 시험판일 때 `EXCHANGE_PAUSE_TIME`·턴 전환 대기를 줄이고(예: 0.8→0.35), 몬스터 굴림 정지 대기는 `SETTLE_MAX_WAIT`보다 짧은 상한을 둔다. 3D 굴림 연출 자체는 유지.
-    - **캐릭터 기믹과의 관계(정해서 STATUS에 기록)**: 폭발/수호 스택 보너스 1D20 턴도 다시 굴리기를 허용(1개짜리라도 동일 규칙). 광기/수호 심화·연쇄 폭발+·광전 돌격 등 "보너스 턴 재굴림" 스킬은 확정 값 위에 기존 순서대로 적용. 스택 적립(최댓값 개수)은 확정 값 기준 — 다시 굴리기로 최댓값을 노려 스택을 쌓는 것도 의도된 판단으로 본다. 몬스터는 다시 굴리지 않는다.
-    - **밸런스는 이번에 손대지 않는다**: 턴당 2회 재굴림은 플레이어에게 크게 유리하다. 시험판의 목적은 "재미(판단이 생기는가)" 확인이므로 수치 조정은 사용자 체감 피드백 후. STATUS에 "시험판 ON이면 승률이 크게 오를 것"을 명시.
-  - **UI 규칙**: B안 얇은 테두리 버튼, 화면에 조작 안내 문구 금지("클릭해서 고정"/"Enter로 확정" 등 X — 고정 상태·남은 횟수·버튼 활성/비활성으로만 전달), 상태바는 실제로 막힌 경우만, 장식 최소. 키보드 포커스로 칩 고정/버튼 조작이 되면 좋음(S-8 FocusNav와 충돌하지 않게).
-  - **검증**: dice_test 결정적 테스트 — 고정한 칸은 재굴림 후 값 유지 / 재굴림 횟수 소진 시 버튼 비활성 / 선공개 순서(몬스터 값 확정 후 플레이어 굴림) / 미리보기 계산이 `monster_skill_state`를 바꾸지 않음(분노 스택·pounce_used 불변) / seal·sticky 미리보기 합계 = 확정 후 실제 적용 값 / `pre_*_values` 경로와 기본 경로가 같은 값을 넣으면 같은 결과 / 토글 OFF·본편 회귀. QA 캡처(1280x720, 1100x620 한 장 이상): 내 공격턴 굴림 직후 / 2개 고정 후 / 재굴림 소진 / 몬스터 공격턴(넘을 숫자 표시) / 늑대 덮치기 예고 / 미믹 seal 표시. 캡처 경로를 STATUS에 남기고 감독 검수.
-  - 진행 순서 권장: (1) 토글 + `pre_*_values` + 선공개·고정/재굴림/확정 → (2) 미리보기·예고 표시 → (3) 연출 단축. 단계마다 dice_test 통과 후 커밋·푸시.
 - **2026-10-28 [대형 기획 17] 감독 캡처 검수 지적 — 사용자 지시: 재개 시 다음 이터레이션에 넣을 것** (근거 캡처: 캐릭터 선택 `qa_out/fin_character_select.png`, 승리 보상 `qa_out/fin_combat_reward.png`, 커밋 2cfd8e5 시점). 고친 뒤 같은 화면을 다시 찍어 항목마다 해결됐는지 눈으로 확인하고, 수치로 잴 수 있는 것(간격·글자 크기·겹침)은 dice_test에 검증을 추가하라.
   - **승리 보상(전투 화면)**
     1. **몬스터 초상 크롭이 얼굴이 아니라 꼬리를 잡음**(늑대: 털뭉치만 보임) — 머리 자동 감지가 꼬리 같은 큰 덩어리에 끌려가는 문제. S-4(얼굴 앵커)와 같은 원인이니 함께 처리: 카탈로그 전수(특히 꼬리·날개·촉수가 큰 몬스터)의 전투 초상을 찍어 얼굴이 들어오는지 확인하고, 안 되는 것은 `face_crop` 보정값 또는 앵커 파일 경로로 고친다. 추가(2026-10-28): 신규 최종 원화가 입고된 **저주 인형(cursed_doll)**은 고개를 떨군 자세라 얼굴이 아래쪽에 있다 — 전투 초상·도감 크롭이 얼굴을 잡는지 꼭 확인하고 필요하면 face_crop 보정(심연의 불도 함께 확인).
@@ -226,6 +208,26 @@
   AI는 실제 일러스트를 그릴 수 없음).
 
 ## 처리됨
+
+- [처리됨 - 2026-11-09] **2026-11-05 [대형 기획 18] 코어 플레이 시험판 — 테스트 전투 모드 전용 (사용자 지시: 지금 만들지 말고 이터레이션에 저장. 재개 시 "광란의 마수 색·크롭" 다음 작업)** — 사용자 진단(원문 취지): "다른 것보다 코어 플레이가 재미없어서 고민 — 전투 중 구경하는 시간도 지루하고, 매 전투가 비슷하게 느껴져 경험이 같다(둘 다)." 사용자는 감독이 제안한 3가지(넘을 숫자 먼저 보고 굴리기 / 고정하고 다시 굴리기 / 몬스터 기믹으로 판단 바꾸기) + 연출 단축을 **테스트 전투에서만 켜지는 시험판**으로 만드는 데 동의했다. 직접 해본 뒤 본편 반영 여부를 정한다.
+  - **감독 분석(원인)**: 지금 전투는 완전 자동이다 — `_run_battle()`이 `_do_exchange(true/false)`를 번갈아 돌리고, 굴림·해석·HP 반영·`EXCHANGE_PAUSE_TIME`(0.8s) 대기까지 플레이어 입력이 한 번도 없다. 스킬도 전부 자동 발동. 몬스터 기믹 21종이 다 달라도 전부 "합계 살짝 보정"이라 플레이어가 대응할 수단이 없어 체감이 같다. → **매 턴 고를 것을 만들고, 몬스터 기믹이 그 선택을 다르게 만들게 한다.** "눈 합계 = 값", 공격/방어 주머니 두 개, 아이템·스킬 구조는 그대로(배치형/슬롯형 전환 아님 — DESIGN.md "족보·슬롯 배치 없음" 유지).
+  - **범위·토글**: `RunState`에 `proto_rules: bool`(기본 false, `reset`에서 false) 추가. 테스트 전투 설정 화면(`code/scenes/test_battle_setup.gd`, `RunState.test_battle = true` 하는 곳 근처)에 B안 토글 "시험판 규칙"(기본 ON)을 두고 시작 시 `RunState.proto_rules`에 반영. 전투는 `RunState.test_battle and RunState.proto_rules`일 때만 시험판 흐름. **본편 던전 전투와 토글 OFF는 기존 동작과 완전히 같아야 한다**(같은 시드 → 같은 결과, dice_test 회귀로 보장). `code/qa/balance_sim.gd`가 `_select_exchange_bags`/`_resolve_exchange`를 직접 호출하므로 두 함수의 기본 동작은 절대 바꾸지 말 것.
+  - **구현 설계(감독이 코드 읽고 잡은 방향 — 더 나은 방법이 있으면 STATUS에 이유를 적고 바꿔도 됨)**:
+    - 주사위 3D 물리는 연출일 뿐이고 실제 값은 `DiceBag.roll_detailed()`(RNG)에서 나온다. 그래서 "다시 굴리기"는 고정 안 한 주사위만 RNG로 다시 뽑고, 3D 다이스도 그 개수만큼 다시 스폰하면 된다.
+    - `_resolve_exchange()`에 선택 인자 추가: `pre_atk_values: Array = []`, `pre_def_values: Array = []`, `skip_evershuffle := false`. 비어 있으면 기존처럼 직접 굴림(기본 경로 불변), 주어지면 그 값을 "날 굴림 결과"로 쓰고 그 뒤 보정 체인(몬스터 기믹 → 캐릭터 스킬 → 데미지/HP)은 기존 그대로 탄다.
+    - 시험판 전용 `_do_exchange_proto(is_player_attacking)` 신설(`_run_battle`에서 분기): ① `_select_exchange_bags()`로 주머니 결정(분노 1D20·폭발/수호 보너스 1D20 판정 그대로). ② "끝없는 저글링"(evershuffle) 보유 시 플레이어 굴림 "전"에 교환하고 resolve에는 `skip_evershuffle=true`. ③ **몬스터 쪽 먼저**: 몬스터 주머니만 굴려(raw) 그 다이스만 스폰·정지 대기 → 몬스터 칩과 "넘을 숫자"(= 몬스터 기믹 적용 후 합계 미리보기) 표시. ④ **플레이어 쪽**: 플레이어 주머니를 굴려 스폰 → 칩을 클릭 가능하게 표시, 고정 상태 배열 유지. "다시 굴리기 (남은 횟수)" 버튼 = 고정 안 한 주사위만 재굴림·재스폰, 횟수 0이면 비활성. "확정" 버튼 → `_resolve_exchange(..., pre 값들)` 호출 → 결과 칩/로그/표정/`_maybe_finish_battle` 기존 처리.
+    - **미리보기는 상태를 건드리면 안 된다**: `MonsterSkills.modify_monster_roll()`은 `monster_skill_state`를 바꾼다(분노 스택 적립, `pounce_used`). 미리보기는 반드시 `monster_skill_state.duplicate(true)`로 계산하고, 실제 적용은 확정 시 resolve 한 번뿐. "내 현재 합계" 미리보기 = `MonsterSkills.modify_player_roll()`(sticky/seal/chill/dull/numb)을 현재 값에 적용한 실효 합계. seal로 0이 될 칩, sticky/chill/numb로 −1 될 칩은 칩 위에 작게 표시. 캐릭터 자신의 패시브 보정(charm_flip, 맹공, 여분 등)은 확정 시 적용되므로 미리보기에 다 넣기 어렵다 — 가능하면 넣고, 못 넣으면 "확정 후 패시브 적용"이 로그로 드러나게.
+    - 순수 계산은 새 파일(예: `code/systems/proto_rules.gd`, `class_name ProtoRules`)로 빼서 dice_test로 결정적 검증: `const REROLLS_PER_ROLL := 2`, `reroll_unheld(bag, values, held) -> Array`(고정 칸 값 유지, 다이스별 `faces[randi_range]`), `preview_player_total(...)`, `preview_monster_total(...)`, `monster_intent_lines(...)`.
+    - **몬스터 예고(의도) 표시** — `monster_intent_lines(skill_ids, state, params, monster_hp, monster_max_hp)`가 "다음 몬스터 행동에 실제로 영향을 주는 것"만 짧은 줄로 돌려준다. 예: `pounce` 미사용 → "첫 공격 덮치기 +3", `anger_stack` 대기 중 → "다음 공격 20면체" / 적립 중 → "분노 2/3", `bloodlust` HP 절반 이하 → "공격 +1(피의 갈망)", `min_max_only` → "최소·최대만 나옴", `fixed_value` → "항상 같은 값", `drain` → "입힌 피해의 절반 회복", `counter(n)` → "공격이 완전히 막히면 n 반사", `revive` 미사용 → "1회 부활", `armor(n)`/`guard_up`/`steady_guard` → 방어 보정. 표시 위치는 몬스터 정보 패널 아래 등 겹치지 않는 곳, 작고 차분하게(장식 없음). 기존 "특성:" 줄(`monster_trait_label`)과 중복되면 정리.
+    - **우선 판단이 확실히 달라지는 4종으로 체감 확인**: 늑대(`pounce` — 첫 공격턴에 방어 집중), 오크(`min_max_only` — 큰 값이 나왔을 때 버티기), 미믹(`seal` — 가장 낮은 주사위가 0이 되니 낮은 주사위를 다시 굴려도 소용없음 → 무엇을 다시 굴릴지가 달라짐), 구울(`drain` — 공격보다 방어가 중요해짐). **기믹 수치는 바꾸지 않는다**(보이게만).
+    - **고정 표시**: `ShapeDieChip`(Control)에 클릭(gui_input) + 고정 시 분명한 시각 변화(두꺼운 테두리/위로 살짝 올림/작은 자물쇠 중 하나, 화려하지 않게). 칩 줄은 `EXCHANGE_CHIP_Y`(526) 근처 — 버튼 두 개(B안 얇은 테두리)를 칩 줄 옆/아래에 두되 전투 기록 패널·HP바와 겹치지 않게 1280x720·1100x620에서 확인.
+    - **구경 시간 줄이기**: 시험판일 때 `EXCHANGE_PAUSE_TIME`·턴 전환 대기를 줄이고(예: 0.8→0.35), 몬스터 굴림 정지 대기는 `SETTLE_MAX_WAIT`보다 짧은 상한을 둔다. 3D 굴림 연출 자체는 유지.
+    - **캐릭터 기믹과의 관계(정해서 STATUS에 기록)**: 폭발/수호 스택 보너스 1D20 턴도 다시 굴리기를 허용(1개짜리라도 동일 규칙). 광기/수호 심화·연쇄 폭발+·광전 돌격 등 "보너스 턴 재굴림" 스킬은 확정 값 위에 기존 순서대로 적용. 스택 적립(최댓값 개수)은 확정 값 기준 — 다시 굴리기로 최댓값을 노려 스택을 쌓는 것도 의도된 판단으로 본다. 몬스터는 다시 굴리지 않는다.
+    - **밸런스는 이번에 손대지 않는다**: 턴당 2회 재굴림은 플레이어에게 크게 유리하다. 시험판의 목적은 "재미(판단이 생기는가)" 확인이므로 수치 조정은 사용자 체감 피드백 후. STATUS에 "시험판 ON이면 승률이 크게 오를 것"을 명시.
+  - **UI 규칙**: B안 얇은 테두리 버튼, 화면에 조작 안내 문구 금지("클릭해서 고정"/"Enter로 확정" 등 X — 고정 상태·남은 횟수·버튼 활성/비활성으로만 전달), 상태바는 실제로 막힌 경우만, 장식 최소. 키보드 포커스로 칩 고정/버튼 조작이 되면 좋음(S-8 FocusNav와 충돌하지 않게).
+  - **검증**: dice_test 결정적 테스트 — 고정한 칸은 재굴림 후 값 유지 / 재굴림 횟수 소진 시 버튼 비활성 / 선공개 순서(몬스터 값 확정 후 플레이어 굴림) / 미리보기 계산이 `monster_skill_state`를 바꾸지 않음(분노 스택·pounce_used 불변) / seal·sticky 미리보기 합계 = 확정 후 실제 적용 값 / `pre_*_values` 경로와 기본 경로가 같은 값을 넣으면 같은 결과 / 토글 OFF·본편 회귀. QA 캡처(1280x720, 1100x620 한 장 이상): 내 공격턴 굴림 직후 / 2개 고정 후 / 재굴림 소진 / 몬스터 공격턴(넘을 숫자 표시) / 늑대 덮치기 예고 / 미믹 seal 표시. 캡처 경로를 STATUS에 남기고 감독 검수.
+  - 진행 순서 권장: (1) 토글 + `pre_*_values` + 선공개·고정/재굴림/확정 → (2) 미리보기·예고 표시 → (3) 연출 단축. 단계마다 dice_test 통과 후 커밋·푸시.
+  - **[처리됨 - 2026-11-09] 결과(시험판 완성 — 사용자 체감 피드백 대기)**: 진입 경로 = 캐릭터 선택 → "테스트 전투" → 난이도 줄의 **"시험판 규칙"**(기본 켜짐) → 전투 시작. 커밋 095bf72(1단계: 토글·`pre_*_values`·선공개·고정/다시 굴리기·확정, `code/systems/proto_rules.gd`), 7ee865b(2단계: 몬스터 예고 — 몬스터 패널의 "특성: 이름" 줄을 상태 반영 예고 줄로 대체), 3단계(교환 대기 0.8→0.35초, 정지 대기 상한 4.0→2.0초). 미리보기는 `monster_skill_state` 사본으로만 계산(dice_test로 불변 확인). 캐릭터 기믹 관계는 설계대로: 보너스 1D20 턴도 다시 굴리기 허용, 스택 적립·보너스 재굴림 스킬(광기 심화 등)은 확정 값 위에 기존 순서대로, 끝없는 저글링은 플레이어 굴림 전 교환. **밸런스 미조정 — 턴당 2회 재굴림이라 시험판 ON이면 승률이 크게 오를 것.** QA 캡처: `qa_out/proto_attack.png`(내 공격턴 굴림 직후), `qa_out/proto_hold_two.png`(2개 고정 + 미믹 봉인 1→0 표시), `qa_out/proto_exhaust_1100.png`(1100x620, 재굴림 소진·버튼 비활성), `qa_out/proto_defend.png`(몬스터 공격턴, 늑대 기습 +3 반영 "몬스터 공격 11"), `qa_out/proto_intent_{wolf,orc,mimic,ghoul,frenzied_beast}.png`(예고 줄). 알려진 점: 예고 줄이 4개인 보스는 몬스터 패널이 아래로 길어져 초상 윗부분과 약간 겹침(얼굴은 안 가림). 다음은 사용자가 직접 해보고 본편 반영 여부·밸런스 결정.
 
 - [처리됨 - 2026-11-09] 2026-11-05 (사용자 지시) 이터레이션 재개 시 첫 작업 — 광란의 마수 전투 화면 색·크롭
   - (a) 원인: 초상 셰이더 `code/shaders/face_art_fade.gdshader`가 `texture(TEXTURE, UV) * COLOR`로 텍스처를 **두 번** 곱하고 있었다(Godot 4 canvas_item fragment의 COLOR는 진입 시 이미 "텍스처 × modulate"). 색값이 제곱돼 **모든 원화 초상(플레이어·몬스터 전부)**이 원본보다 어둡고 진하게 보였고, 붉은 광란의 마수에서 특히 두드러졌다(ART-1c-4 글로우 알파 수정 때 들어간 회귀). 감독 추정(몬스터 색 곱)은 아니었음 — 모든 노드 modulate는 흰색으로 확인. → `vec4 tex_color = COLOR;`로 수정. dice_test에 본체 원화 중앙 색 렌더 검증 추가(원본 0.05 → 실측 0.047 OK, 이중 곱이면 ≈0.003).
@@ -508,75 +510,7 @@
   제거했다. `resources/`·`docs/art/`는 읽기만 했고(아트 스레드가 이미 커밋한 자산을 그대로
   읽어 검증만 함) 전투 규칙/밸런스는 건드리지 않았다. docs/STATUS.md 완료 기록(217) 참고.
 
-- [처리됨 - 2026-10-16] 2026-10-06 [미니 기획 ART-1] 원화 적용에 따른 개선 (아트
-  스레드 "ProjectD Art"에서 전달) — ART-1a → ART-1b → ART-1c 전부 완료.
-  배경: 캐릭터 선택 화면에 전신 원화 4장(견습 모험가/광전사/수호자/폭발병)이 적용됨
-  (커밋 `0867fc6`, `code/scenes/character_art.gd`의 `CharacterArt` — 파일이 있으면 원화,
-  없으면 기존 플레이스홀더). 원화 목록·발주·파일 규칙은 `docs/art/ART_RESOURCES.md`가
-  원천이다. **Work 쪽은 `resources/`와 `docs/art/`를 수정하지 말 것**(경로를 읽기만 함).
-
-  **ART-1a. 캐릭터 선택 목록 넘침/겹침 (버그, 원화 적용 전부터 있던 문제) — 완료됨**
-  - 카드 패널 실제 높이가 `CARD_HEIGHT`(92)보다 커서 위아래 카드 테두리가 겹친다.
-  - 캐릭터가 7종이 되면서 7번째(곡예사) 카드가 화면(720) 밖으로 밀려 **마우스로 선택 불가**
-    (`CardsContainer` 높이 540 < 7 × 104). `qa_out/art_character_select.png` 참고.
-  - 해결: 카드 실제 높이에 맞춰 간격을 잡고, 목록을 ScrollContainer(또는 VBoxContainer)로
-    바꾸거나 카드를 2열로 배치 — 캐릭터가 더 늘어나도 깨지지 않는 방식으로.
-    원화 썸네일 칸은 72×92 기준(`CharacterArt.load_thumb()`의 크롭 영역)이니 유지할 것.
-  → `character_select.tscn`의 `CardsContainer`를 `ScrollContainer`(+내부 `CardsList`
-    Control)로 바꾸고, `_build_cards()`가 각 카드의 `get_combined_minimum_size().y`를
-    실측해 행 간격을 누적하도록 고쳤다(고정 `CARD_HEIGHT` 대신). `qa_out/character_
-    select_art1a.png`(7종 겹침 없이 스크롤바 표시)/`character_select_juggler_select.png`
-    (7번째 카드 실제 선택 동작 확인)로 검증.
-
-  **ART-1b. 전투 화면 상반신 표정 컷 연결 — 완료(2026-10-15, 견습 모험가 기준)**
-  - 견습 모험가(`novice`) face_* 5장이 입고돼 착수. `CharacterArt.has_all_faces(id)`
-    (5장 전부 있는지)를 추가하고, `CharacterPortraitPlaceholder.set_character(id)`가
-    5장 전부 있으면 내부 `_face_rect`(TextureRect, 240×240,
-    `TEXTURE_FILTER_LINEAR_WITH_MIPMAPS`, `STRETCH_KEEP_ASPECT_CENTERED`)로 원화
-    표정 컷을, 하나라도 없으면 기존 도형 플레이스홀더를 쓴다. 기존
-    `set_expression()` 호출 지점은 전혀 안 바꾸고 그 함수 내부에서만 분기.
-    `combat_test.gd`의 `_setup_combat_hud()`(캐릭터가 정해지는 지점)에
-    `player_portrait.set_character(cid)` 한 줄만 추가해 배선.
-  - `qa_out/art1b_novice_start.png`/`art1b_novice_after_exchange.png`로 HP바·다이스
-    영역과 안 겹침 + 표정(happy) 실제 전환 확인, `art1b_pirate_fallback.png`로 face
-    미입고 캐릭터는 기존 플레이스홀더 그대로(회귀 없음) 확인.
-  - `dice_test.gd`의 `_check_art1b_combat_face_art()`로 "파일 없음 → 플레이스홀더
-    유지" + "5장 있음 → 원화 + 표정별 텍스처 전환"을 단위/통합 양쪽에서 검증, 전체
-    PASS. 나머지 7종은 아트 스레드가 face_*를 입고하는 대로 코드 변경 없이 자동
-    적용된다(`has_all_faces()`가 범용 함수). 상세는 `docs/STATUS.md` 완료 기록(201).
-
-  **ART-1c. 몬스터 원화 경로 — 완료(2026-10-16, 코드 경로만. 몬스터 원화는 아직
-  입고 전)**
-  - `MonsterPortraitPlaceholder.set_monster(monster_id)`를 ART-1b와 같은 구조로
-    추가 — 새 경로-확인 클래스를 만들지 않고 `CharacterArt.has_all_faces()`/
-    `load_face()`(범용 순수 함수)를 몬스터 전용 base_dir("res://resources/
-    monsters/%s/")로 재사용해 `res://resources/monsters/<몬스터 id>/
-    face_{neutral,happy,hurt,sad,angry}.png` 5장 유무를 확인한다(`<몬스터 id>`는
-    `MonsterCatalog.MONSTERS`의 id 그대로). 5장 전부 있으면 `$MonsterPortrait`가
-    ART-1b와 같은 방식(원화 표정 컷 + 하단 페이드 셰이더, ART-2 셰이더 상수 재사용)
-    으로 전환되고, 하나라도 없으면 기존 플레이스홀더 유지. `combat_test.gd`의
-    몬스터 구성 지점에 `monster_portrait.set_monster(monster_id)` 한 줄만 추가.
-    MonsterPortrait가 화면 우측 끝(x=1170/1280) 근처라 ART-2(좌측 잘림)와 반대
-    방향 잘림이 있어 신규 `FACE_ART_SHIFT`로 보정(일반/보스 배율 둘 다 화면 안에
-    들어옴을 수치로 확인).
-  - `dice_test.gd`의 `_check_art1c_monster_face_art()`로 "파일 없음/일부/5장 모두"
-    전환 + 텍스처 교체 + production 인스턴스 일치 + 화면 우측 끝 좌표 + 하단 페이드
-    셰이더 렌더 알파(SubViewport)까지 전부 수치로 검증, 전체 PASS.
-  - 몬스터 쪽 아트가 아직 없어 production 화면으로는 원화 모드를 볼 수 없으므로
-    QA 전용 0-arity 훅(`_debug_show_monster_face_art_normal/_boss()`, `user://`에
-    가짜 face_* 생성 — `resources/`는 안 건드림)으로 셀프 피드백 캡처. 2라운드 —
-    1라운드에서 이 환경의 QA 캡처 폭 잘림(1028px) 때문에 production 배치 좌표가
-    캡처 밖으로 나가는 것을 발견해 디버그 전용으로 화면 중앙으로 옮겨 재확인,
-    2라운드에서 그 디버그 좌표가 다이스 스테이지와 겹쳐 하단 페이드가 눈으로
-    안 보이던 것을 셰이더 알파 수치 검증으로 확정(중간 1.000/바닥 0.000 — 정상
-    작동, 디버그 좌표의 겹침 아티팩트였을 뿐 실제 버그 아님). G-9까지 끝나 있는
-    신규 몬스터 목록(id/이름/계열/등급/성격/색, 아트 쪽 ID 대역: 일반 MO001~599 /
-    정예 MO600~799 / 보스 MO800~999)을 아트 스레드로 넘기는 일은 실제 몬스터
-    원화 발주가 시작될 때 처리. 상세는 `docs/STATUS.md` 완료 기록(216) 참고.
-
 
 *(이보다 오래된 "처리됨" 항목은 `docs/INBOX_ARCHIVE.md`에 보관돼 있음 — 이 파일에는
-최근 12개만 유지해 매 이터레이션 읽기 비용을 줄임. 2026-11-09 광란의 마수 색·크롭 처리로
-16개가 된 직후 가장 오래된 4개("[대형 기획 14] 조작/선택 화면/이벤트"/"[미니 기획 N-2b]
-캐릭터 선택 전신 이미지"/"[미니 기획 M-6] 카드 프레임 스킨"/"[대형 기획 13] 던전 선택 ~
-전투 화면 UI")를 그리로 옮겼다.)*
+최근 12개만 유지해 매 이터레이션 읽기 비용을 줄임. 2026-11-09 [대형 기획 18] 처리로 13개가
+된 직후 가장 오래된 1개("[미니 기획 ART-1] 원화 적용에 따른 개선")를 그리로 옮겼다.)*
