@@ -133,18 +133,20 @@ static func _first_opaque_row(image: Image, alpha_threshold: float, step: int) -
 
 
 ## MonsterPortraitPlaceholder/MonsterCodexPanel 공용 진입점 — 몬스터 id+티어로 크롭
-## Rect2를 돌려준다. 보스는 사람이 튜닝해둔 BOSS_FACE_CROP_RATIO 그대로(바꾸지 않음),
+## Rect2를 돌려준다. 프로필에 "face_crop"이 있으면 티어와 무관하게 그것이 최우선(2026-11-09:
+## 새 보스 원화 중 구도가 크게 다른 것 — 점액 군주 가로 구도, 광란의 마수 목걸이 — 때문에
+## 보스도 개별 지정 가능하게 함). 없으면 보스는 사람이 튜닝해둔 BOSS_FACE_CROP_RATIO 그대로,
 ## 일반/정예는 MonsterCatalog 프로필의 선택적 "face_crop" 필드(자동 탐지가 안 맞는
 ## 예외적인 포즈 — 예: 웅크린 포즈라 머리와 떨어진 큰 꼬리/갈기가 같은 상단 구간에
 ## 섞여 들어오는 경우)가 있으면 그걸, 없으면 detect_face_crop_ratio()의 자동 결과를
 ## 쓴다. full.png가 없으면 DEFAULT_FACE_CROP_RATIO로 폴백(호출부가 어차피 has_full()
 ## 확인 후에만 이 함수를 쓰므로 실제로는 거의 발생하지 않음).
 static func monster_face_crop_ratio(monster_id: String, tier: String, base_dir: String = BASE_DIR) -> Rect2:
-	if tier == "boss":
-		return BOSS_FACE_CROP_RATIO
 	var profile: Dictionary = MonsterCatalog.get_by_id(monster_id)
 	if profile.has("face_crop"):
 		return profile["face_crop"]
+	if tier == "boss":
+		return BOSS_FACE_CROP_RATIO
 	var full := load_full(monster_id, base_dir)
 	if full == null:
 		return DEFAULT_FACE_CROP_RATIO

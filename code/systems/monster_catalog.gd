@@ -294,6 +294,7 @@ const MONSTERS := [
 		# [대형 기획 16] R-3(2026-10-26) — 점액 군주도 슬라임류와 같은 "쇼고스 계보"
 		# 설정 재해석 대상(데이터 불변, slime 항목 주석 참고).
 		"id": "ooze_lord", "name": "점액 군주", "family": "amorphous", "tier": "boss",
+		"face_crop": Rect2(0.10, 0.21, 0.45, 0.40),  # 2026-11-09: 엎드린 가로 구도(b54) — 왕관·얼굴(x≈0.23,y≈0.32)이 보스 고정 크롭 밖이라 지정
 		"color": Color(0.3, 0.55, 0.35),
 		"skills": [{"id": "sticky"}, {"id": "seal"}], "atk_dice_delta": 0, "hp_mult": 1.0,
 		"phase2_skills": [{"id": "dull"}],
@@ -324,6 +325,7 @@ const MONSTERS := [
 	},
 	{
 		"id": "frenzied_beast", "name": "광란의 마수", "family": "beast", "tier": "boss",
+		"face_crop": Rect2(0.12, 0.08, 0.62, 0.58),  # 2026-11-09: 갈기~목걸이 주사위(y≈0.53)까지 들어오게 지정
 		"color": Color(0.369, 0.102, 0.165),
 		"skills": [{"id": "anger_stack"}, {"id": "pounce", "amount": 3}, {"id": "bloodlust"}],
 		"hp_mult": 1.0, "phase2_skills": [{"id": "min_max_only"}],

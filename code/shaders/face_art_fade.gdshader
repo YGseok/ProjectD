@@ -25,7 +25,12 @@ void fragment() {
 	// 버그가 발견됐다(렌더 테스트: 기대 알파 0.32인데 실측 1.000). tex_color에 COLOR를
 	// 곱해 Godot 기본 동작을 그대로 보존한다 — modulate를 안 쓰는 기존 호출부(기본값
 	// 흰색 불투명)는 곱해도 항등원이라 결과가 완전히 그대로다.
-	vec4 tex_color = texture(TEXTURE, UV) * COLOR;
+	// [2026-11-09 수정] Godot 4의 canvas_item fragment()에서 COLOR는 진입 시점에 이미
+	// "텍스처 샘플 * 정점색 * modulate"다. 위 ART-1c-4 수정이 texture(TEXTURE, UV)에
+	// COLOR를 다시 곱해 텍스처가 두 번 곱해졌고(색값 제곱), 모든 원화 초상이 원본보다
+	// 어둡고 채도가 높게 보였다(붉은 광란의 마수에서 특히 두드러짐: 갈기 자주색이 진홍,
+	// 흰 털이 분홍으로). COLOR만 쓰면 텍스처 1회 + modulate가 정확히 한 번씩 들어간다.
+	vec4 tex_color = COLOR;
 	float fade_bottom = 1.0 - smoothstep(fade_start, 1.0, UV.y);
 	float fade_top = top_fade > 0.0 ? smoothstep(0.0, top_fade, UV.y) : 1.0;
 	float fade_left = side_fade > 0.0 ? smoothstep(0.0, side_fade, UV.x) : 1.0;

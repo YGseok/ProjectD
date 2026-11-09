@@ -13175,6 +13175,36 @@ func _check_art1c4_monster_dark_glow(lines: PackedStringArray) -> bool:
 	else:
 		lines.append("    FAIL: SubViewport 이미지를 가져오지 못함")
 
+	# 5) [2026-11-09] 본체(_face_rect) 색 충실도 — 셰이더가 텍스처를 두 번 곱하면(색값
+	#    제곱) 원화가 원본보다 어둡고 진하게 보인다(광란의 마수가 붉게 보인 원인). 가짜
+	#    원화(0.05 회색)의 중앙을 렌더해 원본 값 그대로인지 본다(제곱이면 ≈0.0025).
+	var color_ok := false
+	var center_rgb := Color(0, 0, 0)
+	if glow_portrait._face_rect != null:
+		var face_vp := SubViewport.new()
+		face_vp.size = Vector2i(ceili(MonsterPortraitPlaceholder.FACE_ART_SIZE.x), ceili(MonsterPortraitPlaceholder.FACE_ART_SIZE.y))
+		face_vp.transparent_bg = false
+		face_vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+		add_child(face_vp)
+		var probe_face: TextureRect = glow_portrait._face_rect
+		glow_portrait.remove_child(probe_face)
+		probe_face.position = Vector2.ZERO
+		face_vp.add_child(probe_face)
+		await get_tree().process_frame
+		await get_tree().process_frame
+		await RenderingServer.frame_post_draw
+		var face_img: Image = face_vp.get_texture().get_image()
+		if face_img != null:
+			center_rgb = face_img.get_pixel(face_img.get_width() / 2, face_img.get_height() / 2)
+			color_ok = absf(center_rgb.r - 0.05) < 0.015 and absf(center_rgb.g - 0.05) < 0.015
+		face_vp.remove_child(probe_face)
+		glow_portrait.add_child(probe_face)
+		face_vp.queue_free()
+	ok = color_ok and ok
+	lines.append("  본체 원화 중앙 색=%.3f (기대 ≈ 원본 0.05, 텍스처 이중 곱이면 ≈0.003) -> %s" % [
+		center_rgb.r, "OK" if color_ok else "FAIL"
+	])
+
 	_art1c2_remove_fake_full(fake_base_dir, fake_id) # 파일명(full.png) 규칙 공유 — 기존 제거 헬퍼 재사용
 	DirAccess.remove_absolute("user://art1c4_fake_monster_dark")
 	remove_child(glow_portrait)
@@ -13376,6 +13406,13 @@ func _check_art1c5_boss_crop(lines: PackedStringArray) -> bool:
 	var unchanged_ok: bool = boss_crop == CharacterArt.BOSS_FACE_CROP_RATIO
 	ok = unchanged_ok and ok
 	lines.append("  보스 크롭 비율이 BOSS_FACE_CROP_RATIO 그대로인지(tier=='boss'면 몬스터 id와 무관하게 고정값) -> %s" % ["OK" if unchanged_ok else "FAIL"])
+	# 2026-11-09: 카탈로그에 face_crop을 지정한 보스(점액 군주·광란의 마수)는 지정값이 우선.
+	for boss_id in ["ooze_lord", "frenzied_beast"]:
+		var want: Rect2 = MonsterCatalog.get_by_id(boss_id).get("face_crop", Rect2())
+		var got: Rect2 = CharacterArt.monster_face_crop_ratio(boss_id, "boss")
+		var override_ok: bool = want != Rect2() and got == want
+		ok = override_ok and ok
+		lines.append("  보스 %s 지정 face_crop 우선 적용 -> %s" % [boss_id, "OK" if override_ok else "FAIL"])
 	var crop_start_ok: bool = boss_crop.position.y < CharacterArt.DEFAULT_FACE_CROP_RATIO.position.y
 	ok = crop_start_ok and ok
 	lines.append("  크롭 시작 y: 캐릭터 기본값=%.4f 보스=%.4f (보스가 더 위쪽/작아야 함) -> %s" % [
