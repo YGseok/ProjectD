@@ -133,7 +133,7 @@ const MONSTERS := [
 	},
 	{
 		"id": "shadow", "name": "그림자", "family": "undead", "tier": "normal",
-		"face_crop": Rect2(0.16, 0.09, 0.48, 0.48),  # 아트 지정: 얼굴(보라 눈) 중심 x≈0.40,y≈0.25
+		"face_crop": Rect2(0.10, 0.0, 0.62, 0.55),  # 2026-11-09 새 원화(보라 확정): 얼굴 중심 x≈0.50,y≈0.19 + 손 위 주사위(x 0.13~0.33)까지
 		"color": Color(0.2, 0.2, 0.25), "skills": [{"id": "dull"}], "hp_mult": 1.0,
 		"personality": "날카로운 기세를 슬그머니 무디게 만드는 그림자",
 	},
