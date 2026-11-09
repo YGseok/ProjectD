@@ -517,6 +517,10 @@ func _ready() -> void:
 	all_pass = _check_q8c4_legendary_skills(lines) and all_pass
 
 	lines.append("")
+	lines.append("[대형 기획 18: 코어 플레이 시험판 — 고정 칸 유지 재굴림, 미리보기가 전투 상태를 안 바꿈, pre 값 경로 == 기본 경로, seal 미리보기 == 실제, 재굴림 가능 조건, 토글 기본 OFF/본편 미적용]")
+	all_pass = _check_proto_rules(lines) and all_pass
+
+	lines.append("")
 	lines.append("[Q-11: 몬스터 도감 — 격자 카드 수==MonsterCatalog 전체 수, 격자/상세 뷰의 '원화/표정 n/5' 입고 현황이 실제 파일 존재(user:// 합성 에셋)와 일치, 계열/티어 필터가 실제 버튼 클릭으로 카드 수를 정확히 거르는지, 상세 뷰 표정 전환이 실제 렌더 픽셀을 바꾸는지(미입고 표정은 버튼 disabled로 전환 불가), 실제 InputEventKey 주입으로 필터 행->격자->상세 표정 버튼까지 방향키 이동 검증]")
 	all_pass = (await _check_q11_monster_codex(lines)) and all_pass
 
@@ -14769,3 +14773,133 @@ func _q5_find_button_by_text(node: Node, text: String) -> Button:
 		if found != null:
 			last_match = found
 	return last_match
+
+
+## [대형 기획 18] 코어 플레이 시험판 — ProtoRules 순수 계산 + _resolve_exchange()
+## pre_*_values 경로 + 토글 OFF 보장을 결정적으로 검증한다.
+func _check_proto_rules(lines: PackedStringArray) -> bool:
+	var ok := true
+	var combat_script := load("res://code/scenes/combat_test.gd")
+
+	# (1) 고정한 칸은 다시 굴려도 값 유지, 나머지는 면 범위 안에서 다시 뽑힘.
+	seed(1818)
+	var bag := DiceBag.new(6, 4)
+	var base_values: Array = [1, 2, 3, 4]
+	var held: Array = [true, false, true, false]
+	var keep_ok := true
+	var unheld_changed := false
+	for n in 60:
+		var out := ProtoRules.reroll_unheld(bag, base_values, held)
+		if int(out[0]) != 1 or int(out[2]) != 3:
+			keep_ok = false
+		for i in [1, 3]:
+			if int(out[i]) < 1 or int(out[i]) > 6:
+				keep_ok = false
+			if int(out[i]) != int(base_values[i]):
+				unheld_changed = true
+	var reroll_ok := keep_ok and unheld_changed and ProtoRules.REROLLS_PER_ROLL == 2
+	ok = reroll_ok and ok
+	lines.append("  (1) reroll_unheld: 고정 칸 값 유지(60회)=%s, 미고정 칸 재추출=%s, REROLLS_PER_ROLL=%d(기대 2) -> %s" % [
+		keep_ok, unheld_changed, ProtoRules.REROLLS_PER_ROLL, "OK" if reroll_ok else "FAIL"])
+
+	# (2) 미리보기는 monster_skill_state를 바꾸지 않는다(덮치기 사용 여부·분노 스택 불변),
+	#     같은 계산을 실제 state로 하면 바뀐다(= 사본이 아니면 오염된다는 대조군).
+	var ids: Array = ["anger_stack", "pounce", "bloodlust"]
+	var state: Dictionary = {}
+	MonsterSkills.on_combat_start(ids, state, DiceBag.new(4, 2), DiceBag.new(4, 2), 0)
+	var before: Dictionary = state.duplicate(true)
+	var m_bag := DiceBag.new(4, 2)
+	var ctx := {"is_player_attacking": false, "bag": m_bag, "used_bonus_dice": false, "anger_threshold": 3,
+		"monster_hp": 10, "monster_max_hp": 10, "pounce_amount": 3}
+	var preview_total := ProtoRules.preview_monster_total(ids, [4, 4], state, ctx)
+	var untouched: bool = state == before
+	var real_state: Dictionary = before.duplicate(true)
+	MonsterSkills.modify_monster_roll(ids, [4, 4], real_state, ctx)
+	var control_changes: bool = real_state != before
+	var preview_ok: bool = untouched and control_changes and preview_total == 11
+	ok = preview_ok and ok
+	lines.append("  (2) 몬스터 미리보기 합계=%d(기대 11: 4+4+덮치기3) state 불변=%s, 실제 적용 시 state 변경(대조군)=%s -> %s" % [
+		preview_total, untouched, control_changes, "OK" if preview_ok else "FAIL"])
+
+	# (3) pre_*_values 경로 == 기본 경로(같은 시드 → 같은 날 굴림 → 같은 결과).
+	var char_backup := RunState.character_id
+	var flags_backup := RunState.skill_flags.duplicate()
+	var atk_backup := RunState.player_attack_bag
+	var def_backup := RunState.player_defense_bag
+	RunState.character_id = "novice"
+	RunState.skill_flags = []
+	RunState.player_attack_bag = DiceBag.new(6, 3)
+	RunState.player_defense_bag = DiceBag.new(6, 2)
+	var mdef := DiceBag.new(4, 2)
+	var ct_a = combat_script.new()
+	ct_a._reset_player_battle_state()
+	seed(77)
+	var res_a: Dictionary = ct_a._resolve_exchange(true, RunState.player_attack_bag, mdef, false, false, false)
+	var ct_b = combat_script.new()
+	ct_b._reset_player_battle_state()
+	seed(77)
+	var raw_atk := RunState.player_attack_bag.roll_detailed()
+	var raw_def := mdef.roll_detailed()
+	var res_b: Dictionary = ct_b._resolve_exchange(true, RunState.player_attack_bag, mdef, false, false, false, raw_atk, raw_def, true)
+	var same_ok: bool = res_a["atk_values"] == res_b["atk_values"] and res_a["def_values"] == res_b["def_values"] and int(res_a["dmg"]) == int(res_b["dmg"])
+	ok = same_ok and ok
+	lines.append("  (3) pre 값 경로 vs 기본 경로(같은 시드): 공격 %s/%s 방어 %s/%s 피해 %d/%d -> %s" % [
+		res_a["atk_values"], res_b["atk_values"], res_a["def_values"], res_b["def_values"], int(res_a["dmg"]), int(res_b["dmg"]),
+		"OK" if same_ok else "FAIL"])
+	ct_a.free()
+	ct_b.free()
+
+	# (4) seal 미리보기 합계 == 확정 후 실제 적용된 공격 합계(가장 낮은 1이 0으로).
+	var ct_s = combat_script.new()
+	ct_s._reset_player_battle_state()
+	ct_s.monster_skill_ids = ["seal"]
+	var s_ctx := {"is_player_attacking": true, "bag": RunState.player_attack_bag}
+	var seal_preview := ProtoRules.preview_player_total(["seal"], [1, 3, 3], {}, s_ctx)
+	var res_s: Dictionary = ct_s._resolve_exchange(true, RunState.player_attack_bag, mdef, false, false, false, [1, 3, 3], [1, 1], true)
+	var seal_actual := ProtoRules.sum_values(res_s["atk_values"])
+	var seal_ok: bool = seal_preview == 6 and seal_actual == seal_preview
+	ok = seal_ok and ok
+	lines.append("  (4) seal 미리보기 합계=%d(기대 6) == 확정 후 실제 공격 합계=%d -> %s" % [
+		seal_preview, seal_actual, "OK" if seal_ok else "FAIL"])
+
+	# (5) 다시 굴리기 가능 조건: 횟수 0이거나 전부 고정이면 불가(버튼 비활성).
+	ct_s._proto_held = [false, true]
+	ct_s._proto_rerolls_left = 2
+	var can_a: bool = ct_s._proto_can_reroll()
+	ct_s._proto_rerolls_left = 0
+	var can_b: bool = ct_s._proto_can_reroll()
+	ct_s._proto_rerolls_left = 2
+	ct_s._proto_held = [true, true]
+	var can_c: bool = ct_s._proto_can_reroll()
+	var can_ok: bool = can_a and not can_b and not can_c
+	ok = can_ok and ok
+	lines.append("  (5) 다시 굴리기 가능: 남은2·일부고정=%s(기대 true) 남은0=%s(기대 false) 전부고정=%s(기대 false) -> %s" % [
+		can_a, can_b, can_c, "OK" if can_ok else "FAIL"])
+
+	# (6) 토글: reset_run()은 항상 OFF, 테스트 전투 시작 기본값도 OFF(인자 없이), 켠 경우만
+	#     ON. 본편(test_battle=false)에서는 proto_rules가 켜져 있어도 시험판 흐름을 안 탄다.
+	var test_battle_backup := RunState.test_battle
+	var setup_script := load("res://code/scenes/test_battle_setup.gd")
+	var setup = setup_script.new()
+	setup._apply_start_selection("novice", "", "goblin", 1, 0)
+	var default_off: bool = RunState.proto_rules == false and RunState.test_battle
+	setup._apply_start_selection("novice", "", "goblin", 1, 0, {}, [], true)
+	var on_when_asked: bool = RunState.proto_rules
+	var active_in_test: bool = ct_s._proto_active()
+	RunState.test_battle = false
+	var inactive_in_main: bool = not ct_s._proto_active()
+	RunState.reset_run("novice")
+	var reset_off: bool = RunState.proto_rules == false
+	setup.free()
+	var toggle_ok: bool = default_off and on_when_asked and active_in_test and inactive_in_main and reset_off
+	ok = toggle_ok and ok
+	lines.append("  (6) 토글: 기본 OFF=%s, 켜면 ON=%s, 테스트 전투에서만 시험판=%s, 본편 미적용=%s, reset_run 후 OFF=%s -> %s" % [
+		default_off, on_when_asked, active_in_test, inactive_in_main, reset_off, "OK" if toggle_ok else "FAIL"])
+	ct_s.free()
+
+	RunState.test_battle = test_battle_backup
+	RunState.character_id = char_backup
+	RunState.skill_flags = flags_backup
+	RunState.player_attack_bag = atk_backup
+	RunState.player_defense_bag = def_backup
+	return ok

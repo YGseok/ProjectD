@@ -729,6 +729,14 @@ func _build_difficulty_row() -> void:
 	room_spin.value = clampi(RunState.test_room_index, 0, RunState.TOTAL_ROOMS - 1)
 	difficulty_row.add_child(room_spin)
 
+	# [대형 기획 18] 코어 플레이 시험판 규칙 토글(기본 ON, 직전 선택 유지).
+	var proto_check := CheckBox.new()
+	proto_check.name = "ProtoRulesCheck"
+	proto_check.text = "시험판 규칙"
+	proto_check.button_pressed = RunState.test_proto_rules_pref
+	proto_check.toggled.connect(func(on: bool) -> void: RunState.test_proto_rules_pref = on)
+	difficulty_row.add_child(proto_check)
+
 	round_spin.value_changed.connect(_on_difficulty_spin_changed)
 	room_spin.value_changed.connect(_on_difficulty_spin_changed)
 
@@ -763,13 +771,14 @@ func _update_difficulty_label() -> void:
 ## 기존 H-2 테스트와의 하위 호환)와 extra_skill_flags(SkillPool.grant()로 하나씩
 ## 부여)는 H-3 신규 매개변수 — 둘 다 기본값이 있어 H-2 시절 호출부(dice_test.gd의
 ## _check_h2_test_battle_setup())는 그대로 동작한다.
-func _apply_start_selection(character_id: String, skill_id: String, monster_id: String, round_index: int, room_index: int, growth: Dictionary = {}, extra_skill_flags: Array = []) -> void:
+func _apply_start_selection(character_id: String, skill_id: String, monster_id: String, round_index: int, room_index: int, growth: Dictionary = {}, extra_skill_flags: Array = [], proto_rules: bool = false) -> void:
 	var backup_chosen := RunState.chosen_starting_skill_id
 	RunState.chosen_starting_skill_id = skill_id
 	RunState.reset_run(character_id)
 	RunState.chosen_starting_skill_id = backup_chosen
 	RunState.test_battle = true
 	RunState.test_monster_id = monster_id
+	RunState.proto_rules = proto_rules
 	RunState.test_round_index = round_index
 	RunState.test_room_index = room_index
 	RunState.test_difficulty = room_index + (round_index - 1) * 3
@@ -817,7 +826,7 @@ func _on_start_pressed() -> void:
 	}
 	_apply_start_selection(
 		_selected_character_id, _selected_skill_id, _selected_monster_id,
-		int(round_spin.value), int(room_spin.value), growth, _selected_skill_flags.duplicate()
+		int(round_spin.value), int(room_spin.value), growth, _selected_skill_flags.duplicate(), RunState.test_proto_rules_pref
 	)
 	get_tree().change_scene_to_file("res://code/scenes/combat_test.tscn")
 

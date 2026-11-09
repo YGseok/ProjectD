@@ -111,6 +111,12 @@ extends Node
 ## round_index 진행, advance_round(), reset_run())가 전부 test_battle을 먼저 확인해
 ## 스킵한다 — 테스트 전투는 "결과만 보여주고" 실제 세이브/런 상태는 그대로 둔다.
 var test_battle: bool = false
+## [대형 기획 18] 코어 플레이 시험판 규칙(선공개·고정/다시 굴리기·확정)을 이번 테스트
+## 전투에 쓸지. 테스트 전투 설정 화면의 "시험판 규칙" 토글이 시작 시 넣는다.
+## reset_run()이 항상 false로 되돌린다 — 본편 전투에는 절대 켜지지 않는다.
+var proto_rules: bool = false
+## 설정 화면 토글의 "직전 선택 유지"용(reset_run()이 건드리지 않음, 기본 ON).
+var test_proto_rules_pref: bool = true
 var test_monster_id: String = ""
 var test_difficulty: int = 0
 var test_round_index: int = 1
@@ -203,6 +209,7 @@ func reset_run(new_character_id: String = "") -> void:
 	gold = 0
 	shop_visits = 0
 	test_battle = false
+	proto_rules = false
 	run_seed = randi()
 	monster_plan = MonsterCatalog.build_monster_plan(run_seed, TOTAL_ROUNDS, TOTAL_ROOMS)
 	elite_plan = MonsterCatalog.build_elite_plan(run_seed + ELITE_SEED_OFFSET, TOTAL_ROUNDS, TOTAL_ROOMS)

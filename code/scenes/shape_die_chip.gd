@@ -53,7 +53,10 @@ func _ready() -> void:
 	_label.add_theme_color_override("font_color", font_color)
 	_label.text = str(value)
 	_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if not selectable:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+	focus_entered.connect(queue_redraw)
+	focus_exited.connect(queue_redraw)
 	add_child(_label)
 
 
@@ -69,3 +72,62 @@ func _draw() -> void:
 	draw_colored_polygon(points, fill_color)
 	for i in n:
 		draw_line(points[i], points[(i + 1) % n], border_color, 2.0, true)
+	_draw_hold_overlay(points)
+
+
+## [대형 기획 18] 시험판(코어 플레이) 전용 — 플레이어 칩을 눌러 "고정"할 수 있게 한다.
+## selectable=false(기본)면 기존과 완전히 같다(마우스 무시, 고정 표시 없음).
+signal hold_toggled(chip: ShapeDieChip)
+
+var selectable: bool = false:
+	set(v):
+		selectable = v
+		mouse_filter = Control.MOUSE_FILTER_STOP if v else Control.MOUSE_FILTER_IGNORE
+		focus_mode = Control.FOCUS_ALL if v else Control.FOCUS_NONE
+		mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND if v else Control.CURSOR_ARROW
+		queue_redraw()
+
+## 고정 상태 — 두꺼운 금색 테두리 + 칩 아래 짧은 막대로 표시(장식 없이 차분하게).
+var held: bool = false:
+	set(v):
+		held = v
+		queue_redraw()
+
+## 미리보기 보정 표시(예: "0", "-1") — 몬스터 부정형 효과로 확정 시 바뀔 값을 칩 위
+## 오른쪽 위에 작게 보여준다. 빈 문자열이면 표시 안 함.
+var note_text: String = "":
+	set(v):
+		note_text = v
+		queue_redraw()
+
+const HELD_BORDER_COLOR := Color(0.95, 0.78, 0.32)
+
+
+func _gui_input(event: InputEvent) -> void:
+	if not selectable:
+		return
+	var pressed := false
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		pressed = true
+	elif event.is_action_pressed("ui_accept"):
+		pressed = true
+	if pressed:
+		accept_event()
+		hold_toggled.emit(self)
+
+
+func _draw_hold_overlay(points: PackedVector2Array) -> void:
+	var n := points.size()
+	if held:
+		for i in n:
+			draw_line(points[i], points[(i + 1) % n], HELD_BORDER_COLOR, 4.0, true)
+		draw_rect(Rect2(size.x * 0.25, size.y + 3.0, size.x * 0.5, 3.0), HELD_BORDER_COLOR)
+	if selectable and has_focus():
+		draw_rect(Rect2(Vector2(-2, -2), size + Vector2(4, 4)), Color(1, 1, 1, 0.55), false, 1.0)
+	if note_text != "":
+		var font := get_theme_default_font()
+		var fs := 12
+		var tw := font.get_string_size(note_text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+		var box := Rect2(size.x - tw * 0.5 - 8.0, -8.0, tw + 8.0, 16.0)
+		draw_rect(box, Color(0.55, 0.12, 0.16))
+		draw_string(font, Vector2(box.position.x + 4.0, box.position.y + 12.5), note_text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(1, 0.95, 0.9))

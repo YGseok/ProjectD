@@ -2088,6 +2088,14 @@ func _spare_die_count() -> int:
 
 
 func _run_battle() -> void:
+	if _proto_active():
+		_proto_autoconfirm_left = int(OS.get_environment("GAME_QA_PROTO_AUTOCONFIRM"))
+		while not battle_over:
+			await _do_exchange_proto(true)
+			if battle_over:
+				break
+			await _do_exchange_proto(false)
+		return
 	while not battle_over:
 		await _do_exchange(true)
 		if battle_over:
@@ -2125,6 +2133,12 @@ func _do_exchange(is_player_attacking: bool) -> void:
 		is_player_attacking, atk_bag, def_bag,
 		selection["used_explosive_dice"], selection["used_guard_dice"], selection["used_anger_dice"]
 	)
+	await _apply_exchange_result(is_player_attacking, atk_bag, def_bag, atk_color, def_color, result)
+
+
+## _do_exchange()/_do_exchange_proto() 공용 — _resolve_exchange() 결과를 로그/칩/표정/
+## 승패 처리로 화면에 반영한다(기존 _do_exchange() 후반부를 그대로 옮긴 것).
+func _apply_exchange_result(is_player_attacking: bool, atk_bag: DiceBag, def_bag: DiceBag, atk_color: Color, def_color: Color, result: Dictionary) -> void:
 	for line in result["logs"]:
 		_append_log(line)
 	var atk_values: Array = result["atk_values"]
@@ -2213,7 +2227,11 @@ func _select_exchange_bags(is_player_attacking: bool) -> Dictionary:
 ## 함수는 아니지만 물리/UI 의존이 없어 code/qa/balance_sim.gd가 다이스를 스폰하지 않고도
 ## 그대로 호출해 전투 한 판을 계산할 수 있다 — "값 뽑기(roll_detailed, 이미 RNG 기반이라
 ## 물리와 무관)만 쓰고 나머지는 게임과 같은 코드를 재사용"하는 F-4a 원칙).
-func _resolve_exchange(is_player_attacking: bool, atk_bag: DiceBag, def_bag: DiceBag, used_explosive_dice: bool, used_guard_dice: bool, used_anger_dice: bool) -> Dictionary:
+## [대형 기획 18] 시험판 인자(기본값이면 기존 경로와 완전히 동일): pre_atk_values/
+## pre_def_values가 비어 있지 않으면 직접 굴리는 대신 그 값을 "날 굴림 결과"로 쓰고(그
+## 뒤 보정 체인은 그대로), skip_evershuffle이면 끝없는 저글링 교환을 건너뛴다(시험판은
+## 플레이어 굴림 "전"에 이미 교환해 둠).
+func _resolve_exchange(is_player_attacking: bool, atk_bag: DiceBag, def_bag: DiceBag, used_explosive_dice: bool, used_guard_dice: bool, used_anger_dice: bool, pre_atk_values: Array = [], pre_def_values: Array = [], skip_evershuffle := false) -> Dictionary:
 	var logs: Array[String] = []
 	# "끝없는 저글링"(legend_juggler_evershuffle, [대형 기획 15] Q-8(c) 4/4, 곡예사
 	# 전용 전설) — 매 턴(공격/방어 모두) 다이스를 굴리기 "전"에 플레이어의 공격/방어
@@ -2224,10 +2242,10 @@ func _resolve_exchange(is_player_attacking: bool, atk_bag: DiceBag, def_bag: Dic
 	# 그려지는 불일치가 생김). RunState.player_attack_bag/player_defense_bag을 직접
 	# 대상으로 삼는다 — atk_bag/def_bag 매개변수가 스택 보너스 1D20 임시 주머니일 수도
 	# 있어 그 경우 교환 대상이 아니다(임시 주머니는 이번 턴 끝나면 버려짐).
-	if player_legend_juggler_evershuffle_active:
+	if player_legend_juggler_evershuffle_active and not skip_evershuffle:
 		DiceBag.swap_random_dice(RunState.player_attack_bag, RunState.player_defense_bag)
-	var atk_values := atk_bag.roll_detailed()
-	var def_values := def_bag.roll_detailed()
+	var atk_values: Array = pre_atk_values.duplicate() if not pre_atk_values.is_empty() else atk_bag.roll_detailed()
+	var def_values: Array = pre_def_values.duplicate() if not pre_def_values.is_empty() else def_bag.roll_detailed()
 	# "steady_guard" 기믹(다크 나이트, [미니 기획 A]-2): 몬스터가 방어턴일 때만(플레이어
 	# 공격턴, def_bag == monster_defense_bag) 굴림 결과에 하한선을 적용한다 — 실제 데미지
 	# 계산과 화면에 보이는 결과 칩(_show_exchange_dice_chips) 둘 다 보정된 값을 쓴다.
@@ -2965,7 +2983,7 @@ func _maybe_finish_battle(_dmg: int) -> void:
 ## 씬에 있는 모든 다이스가 정지했다고 판단될 때까지 기다린다.
 ## 다이스마다 독립적인 "연속 정지 프레임" 카운터를 두고, 한 번 SETTLE_MIN_FRAMES에
 ## 도달한 다이스는 이후 다시 검사하지 않는다 (위 클래스 주석 참고).
-func _wait_for_dice_to_settle() -> void:
+func _wait_for_dice_to_settle(max_wait: float = SETTLE_MAX_WAIT) -> void:
 	var quiet_frames: Dictionary = {}
 	for child in dice_root.get_children():
 		if child is RigidBody3D:
@@ -2996,7 +3014,7 @@ func _wait_for_dice_to_settle() -> void:
 
 		if all_settled:
 			return
-		if elapsed >= SETTLE_MAX_WAIT:
+		if elapsed >= max_wait:
 			return
 
 
@@ -4014,3 +4032,321 @@ func _debug_show_test_battle_lose() -> void:
 	_debug_show_test_battle_result(false)
 
 
+
+
+# ---------------------------------------------------------------------------
+# [대형 기획 18] 코어 플레이 시험판 — 테스트 전투 + RunState.proto_rules일 때만.
+# 몬스터 쪽을 먼저 굴려 "넘을 숫자"를 보여주고, 플레이어가 굴린 뒤 칩을 눌러 고정하고
+# 나머지를 최대 ProtoRules.REROLLS_PER_ROLL번 다시 굴린 다음 "확정"하면 기존 보정
+# 체인(_resolve_exchange의 pre_*_values 경로)으로 결과를 낸다. 본편/토글 OFF는
+# _run_battle()이 기존 _do_exchange()만 타므로 동작이 그대로다.
+# ---------------------------------------------------------------------------
+
+signal _proto_action(kind: String)
+
+## 시험판 몬스터/플레이어 굴림 정지 대기 상한(기존 SETTLE_MAX_WAIT 4.0보다 짧게).
+const PROTO_SETTLE_MAX_WAIT := 2.0
+const PROTO_BUTTON_HEIGHT := 40.0
+const PROTO_TOTAL_LABEL_Y := 492.0
+
+var _proto_is_attacking := true
+var _proto_used_anger := false
+var _proto_player_bag: DiceBag = null
+var _proto_monster_bag: DiceBag = null
+var _proto_player_color := Color(1, 1, 1, 0)
+var _proto_monster_color := Color(1, 1, 1, 0)
+var _proto_monster_raw: Array = []
+var _proto_player_values: Array = []
+var _proto_held: Array = []
+var _proto_rerolls_left := 0
+var _proto_waiting := false
+var _proto_player_die_nodes: Array = []
+var _proto_player_chips: Array = []
+var _proto_reroll_button: Button = null
+var _proto_confirm_button: Button = null
+var _proto_total_label: Label = null
+## QA 전용(GAME_QA_PROTO_AUTOCONFIRM=N): 처음 N번의 입력 대기를 자동 확정한다.
+var _proto_autoconfirm_left := 0
+
+
+## 시험판 흐름을 쓸지 — 테스트 전투에서 "시험판 규칙"을 켰을 때만. QA 캡처는
+## GAME_QA_PROTO=1로 강제할 수 있다(테스트 전투 설정 화면을 거치지 않고 찍기 위해).
+func _proto_active() -> bool:
+	if OS.get_environment("GAME_QA_PROTO") == "1":
+		return true
+	return RunState.test_battle and RunState.proto_rules
+
+
+func _do_exchange_proto(is_player_attacking: bool) -> void:
+	var selection := _select_exchange_bags(is_player_attacking)
+	var atk_bag: DiceBag = selection["atk_bag"]
+	var def_bag: DiceBag = selection["def_bag"]
+	var atk_color: Color = selection["atk_color"]
+	var def_color: Color = selection["def_color"]
+
+	turn_label.text = "내 공격턴" if is_player_attacking else "몬스터 공격턴 (내 방어턴)"
+
+	# "끝없는 저글링"은 플레이어가 굴리기 "전"에 교환한다(굴린 뒤 교환하면 고정한 칩과
+	# 실제 다이스 구성이 어긋남) — resolve에는 skip_evershuffle=true로 넘긴다.
+	if player_legend_juggler_evershuffle_active:
+		DiceBag.swap_random_dice(RunState.player_attack_bag, RunState.player_defense_bag)
+
+	_proto_is_attacking = is_player_attacking
+	_proto_used_anger = selection["used_anger_dice"]
+	_proto_player_bag = atk_bag if is_player_attacking else def_bag
+	_proto_monster_bag = def_bag if is_player_attacking else atk_bag
+	_proto_player_color = atk_color if is_player_attacking else def_color
+	_proto_monster_color = def_color if is_player_attacking else atk_color
+	var player_x := -1.4 if is_player_attacking else 1.4
+	var monster_x := -player_x
+
+	_clear_dice()
+	_clear_exchange_dice_chips()
+	_proto_player_values = []
+	_proto_held = []
+	_proto_player_die_nodes = []
+	_proto_waiting = false
+
+	# ① 몬스터 먼저 — 값을 확정해 "넘을 숫자"로 보여준다(몬스터는 다시 굴리지 않음).
+	_proto_monster_raw = _proto_monster_bag.roll_detailed()
+	_spawn_dice(_proto_monster_bag, monster_x, _proto_monster_color)
+	await _wait_for_dice_to_settle(PROTO_SETTLE_MAX_WAIT)
+	if not is_inside_tree():
+		return
+	_proto_render()
+
+	# ② 플레이어 굴림 → 고정/다시 굴리기 → 확정.
+	_proto_player_values = _proto_player_bag.roll_detailed()
+	_proto_held = []
+	for i in _proto_player_values.size():
+		_proto_held.append(false)
+	_proto_rerolls_left = ProtoRules.REROLLS_PER_ROLL
+	_proto_player_die_nodes = _spawn_dice_indices(_proto_player_bag, player_x, _proto_player_color, range(_proto_player_values.size()))
+	await _wait_for_dice_to_settle(PROTO_SETTLE_MAX_WAIT)
+	if not is_inside_tree():
+		return
+
+	while true:
+		_proto_waiting = true
+		_proto_render()
+		if _proto_autoconfirm_left > 0:
+			_proto_autoconfirm_left -= 1
+			break
+		var action: String = await _proto_action
+		if not is_inside_tree():
+			return
+		if action == "confirm":
+			break
+		if action == "reroll" and _proto_can_reroll():
+			_proto_waiting = false
+			_proto_rerolls_left -= 1
+			_proto_player_values = ProtoRules.reroll_unheld(_proto_player_bag, _proto_player_values, _proto_held)
+			var rethrow: Array = []
+			for i in _proto_held.size():
+				if not _proto_held[i]:
+					rethrow.append(i)
+					if i < _proto_player_die_nodes.size() and is_instance_valid(_proto_player_die_nodes[i]):
+						_proto_player_die_nodes[i].queue_free()
+			var new_nodes := _spawn_dice_indices(_proto_player_bag, player_x, _proto_player_color, rethrow)
+			for k in rethrow.size():
+				_proto_player_die_nodes[rethrow[k]] = new_nodes[k]
+			_proto_render()
+			await _wait_for_dice_to_settle(PROTO_SETTLE_MAX_WAIT)
+			if not is_inside_tree():
+				return
+
+	_proto_waiting = false
+	_proto_set_controls_visible(false)
+	var pre_atk: Array = _proto_player_values if is_player_attacking else _proto_monster_raw
+	var pre_def: Array = _proto_monster_raw if is_player_attacking else _proto_player_values
+	var result := _resolve_exchange(
+		is_player_attacking, atk_bag, def_bag,
+		selection["used_explosive_dice"], selection["used_guard_dice"], selection["used_anger_dice"],
+		pre_atk, pre_def, true
+	)
+	await _apply_exchange_result(is_player_attacking, atk_bag, def_bag, atk_color, def_color, result)
+
+
+func _proto_can_reroll() -> bool:
+	return _proto_rerolls_left > 0 and _proto_held.has(false)
+
+
+## _spawn_dice()와 같은 배치 규칙으로 지정한 칸(indices)의 다이스만 스폰하고, 만든
+## 노드를 indices 순서대로 돌려준다(다시 굴리기에서 고정 안 한 다이스만 다시 던질 때).
+func _spawn_dice_indices(bag: DiceBag, base_x: float, color: Color, indices: Array) -> Array:
+	var nodes: Array = []
+	var count := bag.count
+	var total_rows := int(ceil(float(count) / DICE_SPAWN_PER_ROW))
+	for i in indices:
+		var die := DieScene.instantiate()
+		die.sides = bag.dice[i].size()
+		die.color_override = color
+		var material := _material_for_sides(die.sides)
+		if material != null:
+			die.material = material
+		dice_root.add_child(die)
+		var row: int = i / DICE_SPAWN_PER_ROW
+		var row_start: int = row * DICE_SPAWN_PER_ROW
+		var cols_in_row: int = min(DICE_SPAWN_PER_ROW, count - row_start)
+		var col: int = i - row_start
+		var x: float = base_x + (col - (cols_in_row - 1) / 2.0) * DICE_SPAWN_COL_SPACING
+		var z := (row - (total_rows - 1) / 2.0) * DICE_SPAWN_ROW_SPACING + randf_range(-0.15, 0.15)
+		var y := 1.4 + nodes.size() * 0.35
+		die.transform = Transform3D(Basis(), Vector3(x, y, z))
+		die.linear_velocity = Vector3(randf_range(-0.5, 0.5), 0, randf_range(-0.5, 0.5))
+		die.angular_velocity = Vector3(randf_range(2.0, 5.0), randf_range(2.0, 5.0), randf_range(2.0, 5.0))
+		nodes.append(die)
+	return nodes
+
+
+## 몬스터 자기 굴림 보정 미리보기에 넘길 ctx — _resolve_exchange()가 같은 자리에서
+## 넘기는 것과 같은 키.
+func _proto_monster_ctx() -> Dictionary:
+	if _proto_is_attacking:
+		return {
+			"is_player_attacking": true,
+			"bag": _proto_monster_bag,
+			"monster_hp": monster_hp,
+			"monster_max_hp": monster_max_hp,
+			"armor_amount": monster_skill_params.get("armor", {}).get("amount", 0),
+		}
+	return {
+		"is_player_attacking": false,
+		"bag": _proto_monster_bag,
+		"used_bonus_dice": _proto_used_anger,
+		"anger_threshold": ANGER_STACK_THRESHOLD,
+		"monster_hp": monster_hp,
+		"monster_max_hp": monster_max_hp,
+		"pounce_amount": monster_skill_params.get("pounce", {}).get("amount", 0),
+	}
+
+
+func _proto_player_ctx() -> Dictionary:
+	return {"is_player_attacking": _proto_is_attacking, "bag": _proto_player_bag}
+
+
+## 칩 줄(공격/방어 그룹) + 합계 줄 + 버튼을 현재 상태로 다시 그린다. 미리보기는
+## 사본 상태로만 계산한다(ProtoRules) — monster_skill_state는 확정 시 한 번만 바뀐다.
+func _proto_render() -> void:
+	_clear_exchange_dice_chips()
+	_proto_player_chips = []
+	var monster_values := ProtoRules.preview_monster_values(monster_skill_ids, _proto_monster_raw, monster_skill_state, _proto_monster_ctx())
+	var monster_total := ProtoRules.sum_values(monster_values)
+	var has_player := not _proto_player_values.is_empty()
+	var player_preview: Array = []
+	if has_player:
+		player_preview = ProtoRules.preview_player_values(monster_skill_ids, _proto_player_values, monster_skill_state, _proto_player_ctx())
+
+	var atk_bag: DiceBag = _proto_player_bag if _proto_is_attacking else _proto_monster_bag
+	var def_bag: DiceBag = _proto_monster_bag if _proto_is_attacking else _proto_player_bag
+	var atk_shown: bool = has_player or not _proto_is_attacking
+	var def_shown: bool = has_player or _proto_is_attacking
+	var atk_width := _dice_row_width(atk_bag.dice.size()) if atk_shown else 0.0
+	var def_width := _dice_row_width(def_bag.dice.size()) if def_shown else 0.0
+	var total_width := 0.0
+	if atk_shown:
+		total_width += EXCHANGE_LABEL_WIDTH + atk_width
+	if def_shown:
+		total_width += EXCHANGE_LABEL_WIDTH + def_width
+	if atk_shown and def_shown:
+		total_width += EXCHANGE_GROUP_GAP
+	var x := EXCHANGE_ROW_CENTER_X - total_width / 2.0
+	for side in ["atk", "def"]:
+		var is_atk: bool = side == "atk"
+		if (is_atk and not atk_shown) or (not is_atk and not def_shown):
+			continue
+		if not is_atk and atk_shown:
+			x += EXCHANGE_GROUP_GAP
+		x = _add_exchange_group_label("공격" if is_atk else "방어", x, ATTACK_LABEL_COLOR if is_atk else DEFENSE_LABEL_COLOR)
+		var is_player_side: bool = is_atk == _proto_is_attacking
+		var bag: DiceBag = atk_bag if is_atk else def_bag
+		var values: Array = _proto_player_values if is_player_side else monster_values
+		var tint: Color = _proto_player_color if is_player_side else _proto_monster_color
+		var first_chip := _exchange_chip_nodes.size()
+		x = _layout_dice_chip_row(bag, values, x, tint)
+		if is_player_side:
+			for i in range(first_chip, _exchange_chip_nodes.size()):
+				var chip: ShapeDieChip = _exchange_chip_nodes[i]
+				var die_index := i - first_chip
+				chip.held = _proto_held[die_index]
+				chip.selectable = _proto_waiting
+				if int(player_preview[die_index]) != int(_proto_player_values[die_index]):
+					chip.note_text = str(player_preview[die_index])
+				chip.hold_toggled.connect(_on_proto_chip_hold_toggled.bind(die_index))
+				_proto_player_chips.append(chip)
+
+	_ensure_proto_controls()
+	var monster_word := "몬스터 방어" if _proto_is_attacking else "몬스터 공격"
+	var text := "%s %d" % [monster_word, monster_total]
+	if has_player:
+		text += "   ·   내 %s %d" % ["공격" if _proto_is_attacking else "방어", ProtoRules.sum_values(player_preview)]
+	_proto_total_label.text = text
+	_proto_total_label.visible = true
+	_proto_reroll_button.text = "다시 굴리기 (%d)" % _proto_rerolls_left
+	_proto_reroll_button.visible = has_player
+	_proto_confirm_button.visible = has_player
+	_proto_reroll_button.disabled = not (_proto_waiting and _proto_can_reroll())
+	_proto_confirm_button.disabled = not _proto_waiting
+	var bx := x + 24.0
+	_proto_reroll_button.position = Vector2(bx, EXCHANGE_CHIP_Y)
+	_proto_confirm_button.position = Vector2(bx + _proto_reroll_button.size.x + 8.0, EXCHANGE_CHIP_Y)
+
+
+func _ensure_proto_controls() -> void:
+	if _proto_total_label != null:
+		return
+	_proto_total_label = Label.new()
+	_proto_total_label.add_theme_font_size_override("font_size", 17)
+	_proto_total_label.add_theme_color_override("font_color", Color(0.95, 0.92, 0.85))
+	_proto_total_label.add_theme_color_override("font_outline_color", Color(0.05, 0.04, 0.06))
+	_proto_total_label.add_theme_constant_override("outline_size", 4)
+	_proto_total_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_proto_total_label.size = Vector2(520, 26)
+	_proto_total_label.position = Vector2(EXCHANGE_ROW_CENTER_X - 260.0, PROTO_TOTAL_LABEL_Y)
+	_proto_total_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_proto_total_label)
+
+	_proto_reroll_button = Button.new()
+	_proto_reroll_button.custom_minimum_size = Vector2(132, PROTO_BUTTON_HEIGHT)
+	_proto_reroll_button.size = Vector2(132, PROTO_BUTTON_HEIGHT)
+	UIKit.style_secondary_button(_proto_reroll_button, RunState.character_id)
+	_proto_reroll_button.pressed.connect(func() -> void: _proto_action.emit("reroll"))
+	add_child(_proto_reroll_button)
+
+	_proto_confirm_button = Button.new()
+	_proto_confirm_button.text = "확정"
+	_proto_confirm_button.custom_minimum_size = Vector2(76, PROTO_BUTTON_HEIGHT)
+	_proto_confirm_button.size = Vector2(76, PROTO_BUTTON_HEIGHT)
+	UIKit.style_primary_button(_proto_confirm_button, RunState.character_id)
+	_proto_confirm_button.pressed.connect(func() -> void: _proto_action.emit("confirm"))
+	add_child(_proto_confirm_button)
+
+
+func _proto_set_controls_visible(on: bool) -> void:
+	if _proto_total_label == null:
+		return
+	_proto_total_label.visible = on
+	_proto_reroll_button.visible = on
+	_proto_confirm_button.visible = on
+
+
+func _on_proto_chip_hold_toggled(_chip: ShapeDieChip, die_index: int) -> void:
+	if not _proto_waiting or die_index >= _proto_held.size():
+		return
+	_proto_held[die_index] = not _proto_held[die_index]
+	_proto_render()
+	if die_index < _proto_player_chips.size():
+		(_proto_player_chips[die_index] as Control).grab_focus()
+
+
+## QA 전용(GAME_QA_CALL) — 시험판 입력 대기 화면에서 앞 2개를 고정한 상태를 찍는다.
+func _debug_proto_hold_two() -> void:
+	for i in min(2, _proto_held.size()):
+		_proto_held[i] = true
+	_proto_render()
+
+
+## QA 전용(GAME_QA_CALL) — 다시 굴리기를 다 쓴 상태(버튼 비활성)를 찍는다.
+func _debug_proto_exhaust_rerolls() -> void:
+	_proto_rerolls_left = 0
+	_proto_render()
