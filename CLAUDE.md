@@ -32,4 +32,4 @@
 
 Art 스레드는 결과물을 사용자에게 보내기 전에 반드시:
 1. **체크리스트 증거 첨부** — 해당 항목의 체크리스트(예: `docs/art/OOZE_TIARA_SPEC.md`, `docs/art/FACE_FEEDBACK_2026-11-12.md`) 각 항목에 ✓/✗와 그 부분 확대 이미지를 붙인다. 증거 없는 "통과"는 없음.
-2. **ProjectD Manager 선검수** — 결과물 경로 + 체크리스트를 "ProjectD Manager" 세션에 보내 독립 검수를 받고, PASS 받은 것만 사용자에게 가져간다. (Work 세션이 아님)
+2. **ProjectD AD 선검수** — 결과물 경로 + 체크리스트를 "ProjectD AD" 세션(구 "ProjectD Manager", 2026-11-16 이름 변경)에 보내 독립 검수를 받고, PASS 받은 것만 사용자에게 가져간다. (Work 세션이 아님)
